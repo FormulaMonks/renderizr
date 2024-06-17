@@ -1,0 +1,28 @@
+{
+    "name": "structurizr-cooper",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "prepare": "husky"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^1.8.1",
+        "@commitlint/cli": "^19.3.0",
+        "@commitlint/config-conventional": "^19.2.2",
+        "czg": "^1.9.3",
+        "husky": "^9.0.11",
+        "lint-staged": "^15.2.7",
+        "typescript": "^5.2.2",
+        "vite": "^5.2.0"
+    },
+    "dependencies": {
+        "backbone": "1.4.1",
+        "jointjs": "3.6.5",
+        "jquery": "3.6.3",
+        "lodash": "4.17.21"
+    }
+}
