@@ -23,6 +23,7 @@
         "vite": "^5.2.0"
     },
     "dependencies": {
+        "@panzoom/panzoom": "^4.5.1",
         "backbone": "1.4.1",
         "canvg": "1.5.3",
         "jointjs": "3.6.5",

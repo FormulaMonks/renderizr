@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@panzoom/panzoom':
+        specifier: ^4.5.1
+        version: 4.5.1
       backbone:
         specifier: 1.4.1
         version: 1.4.1
@@ -331,6 +334,9 @@ packages:
     engines: {node: '>=12'}
     cpu: [x64]
     os: [win32]
+
+  '@panzoom/panzoom@4.5.1':
+    resolution: {integrity: sha512-QOr/t7314XTwgAUDazR+RDcTAWSbkpjDnZJddd9f56jSUA8ptUsyDblAb+sp/O5O1o5Fiu9KpWxVHKuhGUgp5w==}
 
   '@rollup/rollup-android-arm-eabi@4.18.0':
     resolution: {integrity: sha512-Tya6xypR10giZV1XzxmH5wr25VcZSncG0pZIjfePT0OVBvqNEurzValetGNarVrGiq66EBVAFn15iYX4w6FKgQ==}
@@ -1576,6 +1582,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.21.5':
     optional: true
+
+  '@panzoom/panzoom@4.5.1': {}
 
   '@rollup/rollup-android-arm-eabi@4.18.0':
     optional: true

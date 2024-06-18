@@ -4,6 +4,7 @@ export type Diagram = {
     zoomToWidthOrHeight(): void;
     changeView(key: string): void;
     onViewChanged(callback: (view: string) => void): void;
+    setDarkMode(enabled: boolean): void;
     exportCurrentDiagramToPNG(
         includeDiagramMetadata: boolean,
         crop: boolean,
