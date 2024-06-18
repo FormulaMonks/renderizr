@@ -1,0 +1,85 @@
+:root {
+  --color-primary: rgb(17, 104, 189);
+  --color-secondary: rgb(8, 66, 123);
+  --color-primary-light: rgb(from var(--color-primary) calc(r + 50) calc(g + 50) calc(b + 50));
+  --color-secondary-light: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
+  --color-foreground: rgba(255, 255, 255, 0.54);
+  --color-background: rgba(0, 0, 0, 0.87);
+
+  font-family: Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+}
+
+a {
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: inherit;
+}
+
+a:hover {
+  color:  var(--color-primary-light);
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: start center;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1,h2,h3,h4,h5,h6 {
+  margin: 0;
+}
+
+h1 {
+  font-size: 2.4em;
+  line-height: 1.2;
+}
+
+h1.workspace-title {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+p {
+  margin: 0;
+}
+
+#app {
+  margin: 0 2rem;
+}
+
+#structurizr-diagram-target {
+  width: calc(100dvw - 4rem);
+  height: 70dvh;
+}
+
+.structurizrDiagramViewport {
+  background: rgb(from var(--color-background) calc(r + 20) calc(g + 20) calc(b + 20));
+  /* Override the `hidden scroll` coming from Structurizr that causes
+  scrollbars on zoom in Chrome */
+  overflow: hidden !important; 
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-primary: rgb(17, 104, 189);
+    --color-secondary: rgb(8, 66, 123);
+    --color-primary-light: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
+    --color-secondary-light: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
+    --color-foreground: rgba(0, 0, 0, 0.87);
+    --color-background: rgba(240, 240, 240, 1);
+  }
+}
