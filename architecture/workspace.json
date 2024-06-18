@@ -1,0 +1,68 @@
+{
+    "configuration": {},
+    "description": "Render static versions of Structurizr Diagrams",
+    "documentation": {},
+    "id": 1,
+    "lastModifiedAgent": "structurizr-javascript",
+    "lastModifiedDate": "2024-06-18T16:05:52Z",
+    "model": {
+        "softwareSystems": [
+            {
+                "description": "Static Architecture Page Generator",
+                "documentation": {},
+                "id": "1",
+                "location": "Unspecified",
+                "name": "Structurizr Cooper",
+                "properties": {
+                    "structurizr.dsl.identifier": "structurizrcooper"
+                },
+                "tags": "Element,Software System,System"
+            }
+        ]
+    },
+    "name": "Structurizr Cooper",
+    "properties": {
+        "structurizr.dsl": "d29ya3NwYWNlICJTdHJ1Y3R1cml6ciBDb29wZXIiIHsKICAgIGRlc2NyaXB0aW9uICJSZW5kZXIgc3RhdGljIHZlcnNpb25zIG9mIFN0cnVjdHVyaXpyIERpYWdyYW1zIgoKICAgICFhZHJzIGRlY2lzaW9ucwogICAgIWRvY3MgZG9jcwoKICAgIG1vZGVsIHsKICAgICAgICAjIENvbnN0YW50cwoKICAgICAgICBTdHJ1Y3R1cml6ckNvb3BlciA9IHNvZnR3YXJlU3lzdGVtICJTdHJ1Y3R1cml6ciBDb29wZXIiIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlN0YXRpYyBBcmNoaXRlY3R1cmUgUGFnZSBHZW5lcmF0b3IiCiAgICAgICAgCiAgICAgICAgCiAgICAgICAgICAgIHRhZ3MgIlN5c3RlbSIKICAgICAgICB9CgogICAgICAgICMgUmVsYXRpb25zaGlwcwogICAgICAgICMgU3RydWN0dXJpenIgQ29vcGVyCiAgICB9CgogICAgdmlld3MgewogICAgICAgIHRoZW1lcyAiaHR0cHM6Ly9zdGF0aWMuc3RydWN0dXJpenIuY29tL3RoZW1lcy9kZWZhdWx0L3RoZW1lLmpzb24iCiAgICAgICAgIWNvbnN0IEFVVEhPUiAiQXV0aG9yOiBBbmRyw6lzIFpvcnJvIDxhbmRyZXMuem9ycm9AZm9ybXVsYS5jbz4iCgogICAgICAgIHN5c3RlbUNvbnRleHQgU3RydWN0dXJpenJDb29wZXIgIlN0cnVjdHVyaXpyQ29vcGVyIiB7CiAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTdGF0aWMgQXJjaGl0ZWN0dXJlIFBhZ2UgR2VuZXJhdG9yLiAke0FVVEhPUn0iIAogICAgICAgICAgICBpbmNsdWRlICoKICAgICAgICAgICAgYXV0b0xheW91dCBscgogICAgICAgIH0KICAgIH0KfQo="
+    },
+    "views": {
+        "configuration": {
+            "branding": {},
+            "lastSavedView": "StructurizrCooper",
+            "metadataSymbols": "SquareBrackets",
+            "styles": {},
+            "terminology": {},
+            "themes": [
+                "https://static.structurizr.com/themes/default/theme.json"
+            ]
+        },
+        "systemContextViews": [
+            {
+                "automaticLayout": {
+                    "applied": true,
+                    "edgeSeparation": 0,
+                    "implementation": "Graphviz",
+                    "nodeSeparation": 300,
+                    "rankDirection": "LeftRight",
+                    "rankSeparation": 300,
+                    "vertices": false
+                },
+                "description": "Static Architecture Page Generator. Author: Andrés Zorro <andres.zorro@formula.co>",
+                "dimensions": {
+                    "height": 700,
+                    "width": 1082
+                },
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 315,
+                        "y": 200
+                    }
+                ],
+                "enterpriseBoundaryVisible": true,
+                "key": "StructurizrCooper",
+                "order": 1,
+                "softwareSystemId": "1"
+            }
+        ]
+    }
+}

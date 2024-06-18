@@ -82,6 +82,20 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+#structurizr-diagram-target {
+  width: 600px;
+  height: 300px;
+}
+
+.structurizrDiagramViewport {
+  background: #fff;
+  overflow: hidden !important; /* Override the `hidden scroll` coming from Structurizr that causes scrollbars on zoom in Chrome */
+}
+
+.structurizrDiagramCanvas {
+  margin: 0 !important;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

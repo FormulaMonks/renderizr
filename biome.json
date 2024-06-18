@@ -1,7 +1,7 @@
 {
     "$schema": "https://biomejs.dev/schemas/1.8.1/schema.json",
     "files": {
-        "ignore": ["submodules"]
+        "ignore": ["submodules", "architecture"]
     },
     "organizeImports": {
         "enabled": false

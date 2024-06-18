@@ -1,17 +1,36 @@
 import structurizrModule from "../submodules/structurizr-ui/src/js/structurizr.js?raw";
 import "jointjs/dist/joint.css";
 import "../submodules/structurizr-ui/src/css/structurizr-diagram.css";
-import "jquery";
-import "backbone";
-import "lodash";
+import $ from "jquery";
+import Backbone from "backbone";
+import lodash from "lodash";
 import * as joint from "jointjs";
 
 // TODO: Add types for structurizr
+type Workspace = {
+    getViews(): Record<string, string>[];
+};
+
+type Diagram = {
+    setNavigationEnabled(enabled: boolean): void;
+    resize(): void;
+    zoomToWidthOrHeight(): void;
+    changeView(key: string): void;
+};
+
 declare const structurizr: {
-    Workspace: Record<string, unknown>;
+    Workspace: new (workspace: Record<string, unknown>) => Workspace;
+    workspace: Workspace;
     io: Record<string, unknown>;
     shapes: Record<string, unknown>;
-    ui: Record<string, unknown>;
+    ui: {
+        loadThemes: (callback: () => void) => void;
+        Diagram: new (
+            id: string,
+            diagramIsEditable: boolean,
+            constructionCompleteCallback: () => void,
+        ) => Diagram;
+    };
     util: Record<string, unknown>;
     constants: {
         COMPONENT_ELEMENT_TYPE: string;
@@ -43,15 +62,30 @@ declare const structurizr: {
     };
 };
 
+declare global {
+    interface Window {
+        $: typeof $;
+        _: typeof lodash;
+        jQuery: typeof $;
+        V: typeof joint.V;
+        structurizr: typeof structurizr;
+    }
+}
+
 async function getStructurizr() {
+    window.$ = window.jQuery = $;
+    window.joint = joint;
+    // @ts-expect-error
+    window._ = lodash;
+    window.Backbone = Backbone;
+    window.V = joint.V;
+
     // biome-ignore lint/security/noGlobalEval: loading non-module
     eval?.(structurizrModule);
 
     if (!structurizr) {
         throw new Error("Structurizr module not found");
     }
-
-    window.joint = joint;
 
     await Promise.all([
         // @ts-expect-error
