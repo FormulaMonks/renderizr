@@ -1,8 +1,12 @@
 import getStructurizr from "./structurizr.ts";
-import Panzoom, { type PanzoomObject } from "@panzoom/panzoom";
+import Panzoom, {
+    type PanzoomObject,
+    type PanzoomEventDetail,
+} from "@panzoom/panzoom";
 
 import "./styles/main.css";
 import "./styles/navbar.css";
+import DiagramNavigation from "./components/diagram-navigation.ts";
 
 const structurizr = await getStructurizr();
 
@@ -25,24 +29,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
             </ul>
         </nav>
         <div id="structurizr-diagram-target"></div>
-        <div id="structurizr-diagram-navigation">
-            <ul>
-                ${
-                    structurizr.workspace.hasViews()
-                        ? structurizr.workspace
-                              .getViews()
-                              .map(
-                                  (view) => `
-                <li>
-                    <a href="#" data-viewkey="${view.key}">${view.key}</a>
-                </li>
-                `,
-                              )
-                              .join("")
-                        : ""
-                }
-            </ul>
-        </div>
+        <div id="structurizr-diagram-navigation"></div>
     </main>
 `;
 
@@ -57,11 +44,24 @@ function createDraggableZone() {
 
             const el = document.querySelector(
                 "#structurizr-diagram-target-canvas",
-            );
+            ) as HTMLElement;
 
             if (!el) return;
 
-            panzoom = Panzoom(el as HTMLElement, { canvas: true });
+            panzoom = Panzoom(el, {
+                canvas: true,
+                panOnlyWhenZoomed: true,
+                minScale: 1,
+            });
+
+            el.addEventListener("panzoomzoom", (event: Event) => {
+                const detail: PanzoomEventDetail = (event as CustomEvent)
+                    .detail;
+
+                if (detail.scale <= 1.03) {
+                    panzoom?.reset();
+                }
+            });
 
             const handleWheel = (event: WheelEvent) => {
                 event.stopPropagation();
@@ -97,8 +97,14 @@ structurizr.ui.loadThemes(() => {
             });
             observer.observe(document.body);
 
-            diagram.setDarkMode(
-                window?.matchMedia("(prefers-color-scheme: dark)").matches,
+            const darkModePreference = window?.matchMedia(
+                "(prefers-color-scheme: dark)",
+            );
+
+            diagram.setDarkMode(darkModePreference.matches);
+
+            darkModePreference.addEventListener("change", (e) =>
+                diagram.setDarkMode(e.matches),
             );
 
             const startingViewKey = structurizr.workspace.getViews()?.[0]?.key;
@@ -108,26 +114,16 @@ structurizr.ui.loadThemes(() => {
                 draggableZone.resetZoom();
             }
 
-            const diagramNavigation = document.querySelector<HTMLDivElement>(
-                "#structurizr-diagram-navigation",
+            new DiagramNavigation(
+                document.querySelector<HTMLDivElement>(
+                    "#structurizr-diagram-navigation",
+                ) as HTMLElement,
+                diagram,
+                structurizr.workspace.getViews(),
             );
 
-            for (const d of Array.from(
-                diagramNavigation?.querySelectorAll<HTMLDataListElement>(
-                    "ul > li > a",
-                ) ?? [],
-            )) {
-                d.addEventListener("click", (event) => {
-                    event.preventDefault();
-                    const viewKey = (event.target as HTMLElement).dataset
-                        .viewkey;
-                    if (viewKey) {
-                        diagram.changeView(viewKey);
-                    }
-                });
-            }
-
             diagram.onViewChanged(() => {
+                draggableZone.resetZoom();
                 // TODO: Check if current view has animations
                 // Set button controls for animations
                 // TODO: Toggle descriptions/technologies

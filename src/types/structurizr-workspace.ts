@@ -1,4 +1,4 @@
-type View = {
+export type View = {
     key: string;
     elements: Record<string, unknown>[];
     relationships: Record<string, unknown>[];

@@ -2,8 +2,6 @@
     margin: 0 0 1rem;
 
     ul {
-        margin: 0;
-        padding: 0;
         display: flex;
         justify-content: flex-start;
         align-items: center;
@@ -22,9 +20,10 @@
     li::after {
         content: " | ";
     }
+}
 
-    li:last-child::after {
-        content: "";
-
-    }
+/* TODO: Put it back to nested once this is released: */
+/* https://github.com/biomejs/biome/pull/3117 */
+#structurizr-docs-navigation li:last-child::after {
+    content: "";
 }

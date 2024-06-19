@@ -1,10 +1,14 @@
 :root {
   --color-primary: rgb(17, 104, 189);
   --color-secondary: rgb(8, 66, 123);
-  --color-primary-light: rgb(from var(--color-primary) calc(r + 50) calc(g + 50) calc(b + 50));
-  --color-secondary-light: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
-  --color-foreground: rgba(255, 255, 255, 0.54);
-  --color-background: rgba(0, 0, 0, 0.87);
+  --color-tertiary: rgb(133, 187, 240);
+  --color-external: rgb(153, 153, 153);
+  --color-primary-foreground: rgb(from var(--color-primary) calc(r + 50) calc(g + 50) calc(b + 50));
+  --color-secondary-foreground: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
+  --color-primary-background: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
+  --color-secondary-background: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
+  --color-foreground: rgba(255, 255, 255, 0.80);
+  --color-background: rgba(20, 20, 20, 1);
 
   font-family: Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -28,7 +32,7 @@ a {
 }
 
 a:hover {
-  color:  var(--color-primary-light);
+  color:  var(--color-primary-foreground);
 }
 
 body {
@@ -39,7 +43,7 @@ body {
   min-height: 100vh;
 }
 
-h1,h2,h3,h4,h5,h6 {
+h1, h2, h3, h4, h5, h6 {
   margin: 0;
 }
 
@@ -53,21 +57,25 @@ h1.workspace-title {
   margin-bottom: 0.5rem;
 }
 
-p {
+ul, li, p {
   margin: 0;
+  padding: 0;
 }
 
 #app {
-  margin: 0 2rem;
+  width: 100dvw;
+  height: 100dvh;
+  padding: 0 2rem;
+  container: app / size;
 }
 
 #structurizr-diagram-target {
-  width: calc(100dvw - 4rem);
-  height: 70dvh;
+  width: 100cqw;
+  height: 70cqh;
 }
 
 .structurizrDiagramViewport {
-  background: rgb(from var(--color-background) calc(r + 20) calc(g + 20) calc(b + 20));
+  background: rgb(from var(--color-background) calc(r + 10) calc(g + 10) calc(b + 10));
   /* Override the `hidden scroll` coming from Structurizr that causes
   scrollbars on zoom in Chrome */
   overflow: hidden !important; 
@@ -77,9 +85,11 @@ p {
   :root {
     --color-primary: rgb(17, 104, 189);
     --color-secondary: rgb(8, 66, 123);
-    --color-primary-light: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
-    --color-secondary-light: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
-    --color-foreground: rgba(0, 0, 0, 0.87);
+    --color-primary-foreground: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
+    --color-secondary-foreground: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
+    --color-primary-background: rgb(from var(--color-primary) calc(r + 200) calc(g + 200) calc(b + 200));
+  --color-secondary-background: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
+    --color-foreground: rgba(0, 0, 0, 0.80);
     --color-background: rgba(240, 240, 240, 1);
   }
 }
