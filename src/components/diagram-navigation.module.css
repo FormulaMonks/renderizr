@@ -5,7 +5,7 @@
     ul {
         margin: 1em 0;
         display: flex;
-        justify-content: center;
+        justify-content: flex-start;
         gap: 0.5rem;
     }
 
@@ -48,6 +48,16 @@
     }
 }
 
+.diagramNavigation li.active {
+    background-color: var(--color-primary-background);
+}
+
+.diagramNavigation.centered {
+    ul {
+        justify-content: center;
+    }
+}
+
 /* TODO: Put it back to nested once this is released: */
 /* https://github.com/biomejs/biome/pull/3117 */
 .diagramNavigation a:hover {
@@ -70,6 +80,18 @@
 
         svg {
             fill: var(--color-primary);
+        }
+    }
+
+    .diagramNavigation li.active {
+        background-color: var(--color-secondary-background);
+
+        a {
+            color: var(--color-primary-background);
+        }
+
+        svg {
+            fill: var(--color-primary-background);
         }
     }
 }

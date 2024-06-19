@@ -107,21 +107,6 @@ structurizr.ui.loadThemes(() => {
                 diagram.setDarkMode(e.matches),
             );
 
-            const startingViewKey = structurizr.workspace.getViews()?.[0]?.key;
-            if (startingViewKey) {
-                diagram.changeView(startingViewKey);
-
-                draggableZone.resetZoom();
-            }
-
-            new DiagramNavigation(
-                document.querySelector<HTMLDivElement>(
-                    "#structurizr-diagram-navigation",
-                ) as HTMLElement,
-                diagram,
-                structurizr.workspace.getViews(),
-            );
-
             diagram.onViewChanged(() => {
                 draggableZone.resetZoom();
                 // TODO: Check if current view has animations
@@ -130,6 +115,13 @@ structurizr.ui.loadThemes(() => {
                 // TODO: reset zoom controls
             });
 
+            new DiagramNavigation(
+                document.querySelector<HTMLDivElement>(
+                    "#structurizr-diagram-navigation",
+                ) as HTMLElement,
+                diagram,
+                structurizr.workspace.getViews(),
+            );
             // router.setDiagram(structurizr.workspace.getViews()[0].key)
             // router.syncDiagramWithURL()
 

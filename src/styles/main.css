@@ -71,7 +71,7 @@ ul, li, p {
 
 #structurizr-diagram-target {
   width: 100cqw;
-  height: 70cqh;
+  height: 60cqh;
 }
 
 .structurizrDiagramViewport {
@@ -91,5 +91,11 @@ ul, li, p {
   --color-secondary-background: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
     --color-foreground: rgba(0, 0, 0, 0.80);
     --color-background: rgba(240, 240, 240, 1);
+  }
+}
+
+@media (orientation: landscape) {
+  #structurizr-diagram-target {
+    height: 70cqh;
   }
 }
