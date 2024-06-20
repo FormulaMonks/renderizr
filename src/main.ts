@@ -4,9 +4,9 @@ import Panzoom, {
     type PanzoomEventDetail,
 } from "@panzoom/panzoom";
 
-import "./styles/main.css";
-import "./styles/navbar.css";
+import "./main.css";
 import DiagramNavigation from "./components/diagram-navigation.ts";
+import CurrentView from "./components/current-view.ts";
 
 const structurizr = await getStructurizr();
 
@@ -20,14 +20,19 @@ const diagramsAndDocs =
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <main>
         <h1 class="workspace-title">${structurizr.workspace.name}</h1>
-        <p class="workspace-description">${structurizr.workspace.description}</p>
         <nav id="structurizr-docs-navigation">
+            <section class="workspace-description">
+                <p>${structurizr.workspace.description}</p>
+                <p>${structurizr.workspace.version ? `Version: ${structurizr.workspace.version} - ` : ""}Last modified: <strong>${new Date(structurizr.workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
+            </section>
             <ul>
                 ${!diagramsAndDocs ? "" : '<li><a href="#" class="active">Diagrams</a></li>'}
                 ${structurizr.workspace.hasDocumentation() ? `<li><a href="#">Documentation</a></li>` : ""}
                 ${structurizr.workspace.hasDecisions() ? `<li><a href="#">Decisions</a></li>` : ""}
             </ul>
         </nav>
+        <hr />
+        <section id="structurizr-current-view"></section>
         <div id="structurizr-diagram-target"></div>
         <div id="structurizr-diagram-navigation"></div>
     </main>
@@ -107,7 +112,25 @@ structurizr.ui.loadThemes(() => {
                 diagram.setDarkMode(e.matches),
             );
 
-            diagram.onViewChanged(() => {
+            const currentView = new CurrentView(
+                document.querySelector<HTMLDivElement>(
+                    "#structurizr-current-view",
+                ) as HTMLElement,
+            );
+
+            diagram.onViewChanged((viewKey) => {
+                const view = structurizr.workspace.findViewByKey(viewKey);
+                const parentId =
+                    view?.containerId ??
+                    view?.softwareSystemId ??
+                    view?.parentId;
+
+                currentView.render(
+                    view,
+                    parentId
+                        ? structurizr.workspace.findElementById(parentId)
+                        : undefined,
+                );
                 draggableZone.resetZoom();
                 // TODO: Check if current view has animations
                 // Set button controls for animations

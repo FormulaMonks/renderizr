@@ -43,7 +43,7 @@
         position: absolute;
         fill: var(--color-foreground);
         left: calc(50% - 30px);
-        transform: scale(4) translate(0, 7px);
+        transform: scale(2.5) translate(0, 12px);
         pointer-events: none;
     }
 }

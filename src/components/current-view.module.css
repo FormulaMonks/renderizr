@@ -1,0 +1,21 @@
+.currentView {
+    margin: 1rem 0;
+
+    h2 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+    p {
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-bottom: 0;
+    }
+
+    small {
+        font-size: 0.7rem;
+        font-weight: 400;
+        line-height: 1;
+        display: block;
+    }
+}

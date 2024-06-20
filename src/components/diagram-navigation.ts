@@ -1,7 +1,21 @@
 import type { Diagram } from "../types/structurizr-diagram";
 import type { View } from "../types/structurizr-workspace";
-import diagramIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/diagram-2.svg?raw";
+import systemLandscapeIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/globe2.svg?raw";
+import systemContextIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/layout-wtf.svg?raw";
+import dynamicIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/collection-play-fill.svg?raw";
+import containerIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/boxes.svg?raw";
+import componentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/box-seam.svg?raw";
+import deploymentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/rocket-takeoff.svg?raw";
 import styles from "./diagram-navigation.module.css";
+
+const DiagramIcon = new Map([
+    ["SystemLandscape", systemLandscapeIcon],
+    ["SystemContext", systemContextIcon],
+    ["Container", containerIcon],
+    ["Component", componentIcon],
+    ["Dynamic", dynamicIcon],
+    ["Deployment", deploymentIcon],
+]);
 
 export default class DiagramNavigation {
     #el: HTMLElement | null = null;
@@ -91,7 +105,7 @@ export default class DiagramNavigation {
             li.dataset.viewkey = view.key;
             a.href = "#";
             a.textContent = view.key;
-            li.innerHTML = `${diagramIcon}`;
+            li.innerHTML = `${DiagramIcon.get(view.type) ?? ""}`;
             li.appendChild(a);
             ul.appendChild(li);
         }

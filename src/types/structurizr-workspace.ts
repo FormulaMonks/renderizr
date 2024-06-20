@@ -1,9 +1,20 @@
 export type View = {
     key: string;
+    type:
+        | "SystemContext"
+        | "Container"
+        | "Component"
+        | "Dynamic"
+        | "Deployment";
     elements: Record<string, unknown>[];
     relationships: Record<string, unknown>[];
     paperSize: string;
     dimensions: Record<string, unknown>;
+    description: string;
+    containerId?: string;
+    softwareSystemId?: string;
+    parentId?: string;
+    environment?: string;
 };
 
 export type Workspace = {
@@ -12,6 +23,7 @@ export type Workspace = {
     description: string;
     properties: Record<string, string>;
     lastModifiedDate: Date;
+    version?: string;
     model: Record<string, unknown>;
     documentation: Record<string, unknown>;
     views: View[];

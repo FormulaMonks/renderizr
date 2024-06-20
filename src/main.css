@@ -67,11 +67,16 @@ ul, li, p {
   height: 100dvh;
   padding: 0 2rem;
   container: app / size;
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--color-external);
+  }
 }
 
 #structurizr-diagram-target {
   width: 100cqw;
-  height: 60cqh;
+  height: 45cqh;
 }
 
 .structurizrDiagramViewport {
@@ -79,6 +84,39 @@ ul, li, p {
   /* Override the `hidden scroll` coming from Structurizr that causes
   scrollbars on zoom in Chrome */
   overflow: hidden !important; 
+}
+
+#structurizr-docs-navigation {
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  place-content: space-between;
+
+  ul {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+  }
+
+  li {
+      list-style: none;
+      margin-right: 5px;
+  }
+
+  li a.active {
+      font-weight: 800;
+      color: var(--color-foreground);
+  }
+
+  li::after {
+      content: " | ";
+  }
+}
+
+/* TODO: Put it back to nested once this is released: */
+/* https://github.com/biomejs/biome/pull/3117 */
+#structurizr-docs-navigation li:last-child::after {
+  content: "";
 }
 
 @media (prefers-color-scheme: light) {
@@ -96,6 +134,9 @@ ul, li, p {
 
 @media (orientation: landscape) {
   #structurizr-diagram-target {
-    height: 70cqh;
+    height: 60cqh;
+  }
+  #structurizr-docs-navigation {
+    flex-direction: row;
   }
 }
