@@ -17,6 +17,42 @@ export type View = {
     environment?: string;
 };
 
+type StructurizrBaseElement = {
+    id: string;
+    canonicalName: string;
+    name: string;
+    parentId?: string;
+    tags?: string;
+    type: string;
+    url?: string;
+    description: string;
+    relationships: Record<string, unknown>[];
+    properties: Record<string, unknown>;
+};
+
+type StructurizrSystemContext = {
+    containers: StructurizrElement[];
+    documentation?: { sections: []; decisions: []; images: [] };
+    location: "Internal";
+};
+
+type StructurizrContainer = {
+    containerId?: string;
+    technology: string;
+};
+
+type StructurizrDeploymentInstance = {
+    environment: string;
+    deploymentGroups: string[];
+    technology: string;
+    instanceId: number;
+};
+
+export type StructurizrElement = StructurizrBaseElement &
+    Partial<StructurizrSystemContext> &
+    Partial<StructurizrContainer> &
+    Partial<StructurizrDeploymentInstance>;
+
 export type Workspace = {
     id: string;
     name: string;
@@ -37,7 +73,7 @@ export type Workspace = {
     hasDecisions(): boolean;
     hasElements(): boolean;
     getElements(): Record<string, unknown>[];
-    findElementById(id: string): Record<string, unknown> | undefined;
+    findElementById(id: string): StructurizrElement | undefined;
     getTags(): string[];
     getAllTagsForElement(element: Record<string, unknown>): string[];
     getAllPropertiesForElement(

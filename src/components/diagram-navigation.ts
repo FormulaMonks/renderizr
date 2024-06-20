@@ -7,6 +7,7 @@ import containerIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/b
 import componentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/box-seam.svg?raw";
 import deploymentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/rocket-takeoff.svg?raw";
 import styles from "./diagram-navigation.module.css";
+import history from "history/browser";
 
 const DiagramIcon = new Map([
     ["SystemLandscape", systemLandscapeIcon],
@@ -33,6 +34,25 @@ export default class DiagramNavigation {
         this.render();
     }
 
+    changeView(viewKey?: string) {
+        if (!viewKey) return;
+
+        for (const el of Array.from(
+            this.#el?.querySelectorAll<HTMLDataListElement>("ul > li") ?? [],
+        )) {
+            if (el.dataset.viewkey === viewKey) {
+                el.classList.add(styles.active);
+            } else {
+                el.classList.remove(styles.active);
+            }
+        }
+
+        if (viewKey) {
+            this.#setViewInUrl(viewKey);
+            this.#diagram.changeView(viewKey);
+        }
+    }
+
     #addEvents() {
         for (const viewLink of Array.from(
             this.#el?.querySelectorAll<HTMLDataListElement>("ul > li") ?? [],
@@ -41,20 +61,7 @@ export default class DiagramNavigation {
             const callback = (event: Event) => {
                 event.preventDefault();
 
-                for (const el of Array.from(
-                    this.#el?.querySelectorAll<HTMLDataListElement>(
-                        "ul > li",
-                    ) ?? [],
-                )) {
-                    el.classList.remove(styles.active);
-                }
-
-                const target = event.target as HTMLElement;
-                target.classList.add(styles.active);
-                const viewKey = target.dataset.viewkey;
-                if (viewKey) {
-                    this.#diagram.changeView(viewKey);
-                }
+                this.changeView(viewLink.dataset.viewkey);
             };
 
             this.#eventListeners.set(viewLink.dataset.viewkey, callback);
@@ -80,6 +87,21 @@ export default class DiagramNavigation {
         const ul = this.#el?.querySelector("ul");
         if (ul) {
             this.#el?.removeChild(ul);
+        }
+    }
+
+    #setViewInUrl(viewKey: string) {
+        const search = new URLSearchParams(history?.location.search);
+        search.set("view", viewKey);
+        history.push({ search: search.toString() });
+    }
+
+    #getViewFromUrl() {
+        const search = new URLSearchParams(window.location.search);
+        const view = search.get("view");
+
+        if (this.#navElements.find((el) => el.key === view)) {
+            return view;
         }
     }
 
@@ -112,7 +134,8 @@ export default class DiagramNavigation {
 
         this.#el.appendChild(ul);
 
-        const startingViewKey = this.#navElements?.[0]?.key;
+        const startingViewKey =
+            this.#getViewFromUrl() ?? this.#navElements?.[0]?.key;
         if (startingViewKey) {
             this.#diagram.changeView(startingViewKey);
             this.#el
