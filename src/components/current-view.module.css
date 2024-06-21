@@ -1,6 +1,9 @@
 .currentView {
     margin: 1rem 0;
+    display: flex;
+}
 
+.description {
     h2 {
         font-size: 1.2rem;
         font-weight: 700;
@@ -18,4 +21,9 @@
         line-height: 1;
         display: block;
     }
+}
+
+.controlButtons {
+    background: var(--colors-primary);
+    display: block;
 }

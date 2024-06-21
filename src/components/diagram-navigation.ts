@@ -31,7 +31,6 @@ export default class DiagramNavigation {
         this.#el = el;
         this.#diagram = diagram;
         this.#navElements = navElements;
-        this.render();
     }
 
     changeView(viewKey?: string) {
@@ -136,6 +135,7 @@ export default class DiagramNavigation {
 
         const startingViewKey =
             this.#getViewFromUrl() ?? this.#navElements?.[0]?.key;
+
         if (startingViewKey) {
             this.#diagram.changeView(startingViewKey);
             this.#el

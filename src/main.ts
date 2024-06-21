@@ -131,18 +131,19 @@ async function init() {
                     diagram.setDarkMode(e.matches),
                 );
 
-                const currentView = new CurrentView(
-                    document.querySelector<HTMLDivElement>(
-                        "#structurizr-current-view",
-                    ) as HTMLElement,
-                );
-
                 const nav = new DiagramNavigation(
                     document.querySelector<HTMLDivElement>(
                         "#structurizr-diagram-navigation",
                     ) as HTMLElement,
                     diagram,
                     structurizr.workspace.getViews(),
+                );
+
+                const currentView = new CurrentView(
+                    document.querySelector<HTMLDivElement>(
+                        "#structurizr-current-view",
+                    ) as HTMLElement,
+                    diagram,
                 );
 
                 diagram.onViewChanged((viewKey) => {
@@ -152,23 +153,18 @@ async function init() {
                         view?.softwareSystemId ??
                         view?.parentId;
 
+                    draggableZone.resetZoom();
+                    nav.changeView(viewKey);
                     currentView.render(
                         view,
                         parentId
                             ? structurizr.workspace.findElementById(parentId)
                             : undefined,
                     );
-                    draggableZone.resetZoom();
-                    nav.changeView(viewKey);
-                    // TODO: Check if current view has animations
-                    // Set button controls for animations
-                    // TODO: Toggle descriptions/technologies
-                    // TODO: reset zoom controls
                 });
 
                 diagram.onElementDoubleClicked(handleElementDoubleClick);
-
-                // new PNGExporter(diagram, window.joint)
+                nav.render();
             },
         );
     });
