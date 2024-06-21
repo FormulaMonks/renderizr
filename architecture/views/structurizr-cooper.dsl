@@ -3,3 +3,9 @@ systemContext StructurizrCooper "StructurizrCooper" {
     include *
     autoLayout lr
 }
+
+container StructurizrCooper {
+    description "Renders diagrams, docs and ADRs. ${AUTHOR}" 
+    include *
+    autolayout lr
+}

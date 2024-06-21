@@ -11,6 +11,7 @@ workspace "Structurizr Cooper" {
         !include environments
 
         # Relationships
+        !include relationships/_people.dsl
         !include relationships/_system.dsl
     }
 

@@ -1,2 +1,5 @@
 [tools]
 "npm:pnpm" = "latest"
+
+[tasks."workspace-dev"]
+run = "scripts/render-workspace.sh"

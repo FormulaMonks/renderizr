@@ -4,12 +4,44 @@
   "documentation" : { },
   "id" : 1,
   "lastModifiedAgent" : "structurizr-javascript",
-  "lastModifiedDate" : "2024-06-18T18:53:48Z",
+  "lastModifiedDate" : "2024-06-21T15:36:14Z",
   "model" : {
+    "people" : [ {
+      "description" : "Develops a solution",
+      "id" : "1",
+      "location" : "Unspecified",
+      "name" : "Developer",
+      "properties" : {
+        "structurizr.dsl.identifier" : "developer"
+      },
+      "relationships" : [ {
+        "description" : "Visits",
+        "destinationId" : "2",
+        "id" : "4",
+        "properties" : {
+          "structurizr.dsl.identifier" : "4505c57e-0a04-4d23-8ff8-258c8ee17359"
+        },
+        "sourceId" : "1",
+        "tags" : "Relationship",
+        "technology" : "Web/HTTPS"
+      } ],
+      "tags" : "Element,Person"
+    } ],
     "softwareSystems" : [ {
+      "containers" : [ {
+        "description" : "Renders diagrams, docs and ADRs",
+        "documentation" : { },
+        "id" : "3",
+        "name" : "User Interface",
+        "properties" : {
+          "structurizr.dsl.identifier" : "userinterface"
+        },
+        "tags" : "Element,Container,WebApp",
+        "technology" : "Vite/Vanilla JS"
+      } ],
       "description" : "Static Architecture Page Generator",
       "documentation" : { },
-      "id" : "1",
+      "id" : "2",
       "location" : "Unspecified",
       "name" : "Structurizr Cooper",
       "properties" : {
@@ -20,17 +52,43 @@
   },
   "name" : "Structurizr Cooper",
   "properties" : {
-    "structurizr.dsl" : "d29ya3NwYWNlICJTdHJ1Y3R1cml6ciBDb29wZXIiIHsKICAgIGRlc2NyaXB0aW9uICJSZW5kZXIgc3RhdGljIHZlcnNpb25zIG9mIFN0cnVjdHVyaXpyIERpYWdyYW1zIgoKICAgICFhZHJzIGRlY2lzaW9ucwogICAgIWRvY3MgZG9jcwoKICAgIG1vZGVsIHsKICAgICAgICAjIENvbnN0YW50cwoKICAgICAgICBTdHJ1Y3R1cml6ckNvb3BlciA9IHNvZnR3YXJlU3lzdGVtICJTdHJ1Y3R1cml6ciBDb29wZXIiIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlN0YXRpYyBBcmNoaXRlY3R1cmUgUGFnZSBHZW5lcmF0b3IiCiAgICAgICAgCiAgICAgICAgCiAgICAgICAgICAgIHRhZ3MgIlN5c3RlbSIKICAgICAgICB9CgogICAgICAgICMgUmVsYXRpb25zaGlwcwogICAgICAgICMgU3RydWN0dXJpenIgQ29vcGVyCiAgICB9CgogICAgdmlld3MgewogICAgICAgIHRoZW1lcyAiaHR0cHM6Ly9zdGF0aWMuc3RydWN0dXJpenIuY29tL3RoZW1lcy9kZWZhdWx0L3RoZW1lLmpzb24iCiAgICAgICAgIWNvbnN0IEFVVEhPUiAiQXV0aG9yOiBBbmRyw6lzIFpvcnJvIDxhbmRyZXMuem9ycm9AZm9ybXVsYS5jbz4iCgogICAgICAgIHN5c3RlbUNvbnRleHQgU3RydWN0dXJpenJDb29wZXIgIlN0cnVjdHVyaXpyQ29vcGVyIiB7CiAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTdGF0aWMgQXJjaGl0ZWN0dXJlIFBhZ2UgR2VuZXJhdG9yLiAke0FVVEhPUn0iIAogICAgICAgICAgICBpbmNsdWRlICoKICAgICAgICAgICAgYXV0b0xheW91dCBscgogICAgICAgIH0KICAgIH0KfQo="
+    "structurizr.dsl" : "d29ya3NwYWNlICJTdHJ1Y3R1cml6ciBDb29wZXIiIHsKICAgIGRlc2NyaXB0aW9uICJSZW5kZXIgc3RhdGljIHZlcnNpb25zIG9mIFN0cnVjdHVyaXpyIERpYWdyYW1zIgoKICAgICFhZHJzIGRlY2lzaW9ucwogICAgIWRvY3MgZG9jcwoKICAgIG1vZGVsIHsKICAgICAgICAjIENvbnN0YW50cwoKICAgICAgICBEZXZlbG9wZXIgPSBwZXJzb24gIkRldmVsb3BlciIgIkRldmVsb3BzIGEgc29sdXRpb24iCiAgICAgICAgU3RydWN0dXJpenJDb29wZXIgPSBzb2Z0d2FyZVN5c3RlbSAiU3RydWN0dXJpenIgQ29vcGVyIiB7CiAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTdGF0aWMgQXJjaGl0ZWN0dXJlIFBhZ2UgR2VuZXJhdG9yIgogICAgICAgIAogICAgICAgICAgICBVc2VySW50ZXJmYWNlID0gY29udGFpbmVyICJVc2VyIEludGVyZmFjZSIgIlJlbmRlcnMgZGlhZ3JhbXMsIGRvY3MgYW5kIEFEUnMiICJWaXRlL1ZhbmlsbGEgSlMiIHsKICAgICAgICAgICAgICAgIHRhZ3MgIldlYkFwcCIKICAgICAgICAgICAgfQogICAgICAgIAogICAgICAgICAgICB0YWdzICJTeXN0ZW0iCiAgICAgICAgfQoKICAgICAgICAjIFJlbGF0aW9uc2hpcHMKICAgICAgICBEZXZlbG9wZXIgLT4gU3RydWN0dXJpenJDb29wZXIgIlZpc2l0cyIgIldlYi9IVFRQUyIKICAgICAgICAjIFN0cnVjdHVyaXpyIENvb3BlcgogICAgfQoKICAgIHZpZXdzIHsKICAgICAgICB0aGVtZXMgImh0dHBzOi8vc3RhdGljLnN0cnVjdHVyaXpyLmNvbS90aGVtZXMvZGVmYXVsdC90aGVtZS5qc29uIgogICAgICAgICFjb25zdCBBVVRIT1IgIkF1dGhvcjogQW5kcsOpcyBab3JybyA8YW5kcmVzLnpvcnJvQGZvcm11bGEuY28+IgoKICAgICAgICBzeXN0ZW1Db250ZXh0IFN0cnVjdHVyaXpyQ29vcGVyICJTdHJ1Y3R1cml6ckNvb3BlciIgewogICAgICAgICAgICBkZXNjcmlwdGlvbiAiU3RhdGljIEFyY2hpdGVjdHVyZSBQYWdlIEdlbmVyYXRvci4gJHtBVVRIT1J9IiAKICAgICAgICAgICAgaW5jbHVkZSAqCiAgICAgICAgICAgIGF1dG9MYXlvdXQgbHIKICAgICAgICB9CiAgICAgICAgCiAgICAgICAgY29udGFpbmVyIFN0cnVjdHVyaXpyQ29vcGVyIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlJlbmRlcnMgZGlhZ3JhbXMsIGRvY3MgYW5kIEFEUnMuICR7QVVUSE9SfSIgCiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgICAgICBhdXRvbGF5b3V0IGxyCiAgICAgICAgfQogICAgfQp9Cg=="
   },
   "views" : {
     "configuration" : {
       "branding" : { },
-      "lastSavedView" : "StructurizrCooper",
+      "lastSavedView" : "Container-001",
       "metadataSymbols" : "SquareBrackets",
       "styles" : { },
       "terminology" : { },
       "themes" : [ "https://static.structurizr.com/themes/default/theme.json" ]
     },
+    "containerViews" : [ {
+      "automaticLayout" : {
+        "applied" : true,
+        "edgeSeparation" : 0,
+        "implementation" : "Graphviz",
+        "nodeSeparation" : 300,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 300,
+        "vertices" : false
+      },
+      "description" : "Renders diagrams, docs and ADRs. Author: Andrés Zorro <andres.zorro@formula.co>",
+      "dimensions" : {
+        "height" : 811,
+        "width" : 1043
+      },
+      "elements" : [ {
+        "id" : "3",
+        "x" : 296,
+        "y" : 220
+      } ],
+      "externalSoftwareSystemBoundariesVisible" : false,
+      "generatedKey" : true,
+      "key" : "Container-001",
+      "order" : 2,
+      "softwareSystemId" : "2"
+    } ],
     "systemContextViews" : [ {
       "automaticLayout" : {
         "applied" : true,
@@ -43,18 +101,25 @@
       },
       "description" : "Static Architecture Page Generator. Author: Andrés Zorro <andres.zorro@formula.co>",
       "dimensions" : {
-        "height" : 700,
-        "width" : 1082
+        "height" : 800,
+        "width" : 1600
       },
       "elements" : [ {
         "id" : "1",
-        "x" : 315,
-        "y" : 199
+        "x" : 200,
+        "y" : 200
+      }, {
+        "id" : "2",
+        "x" : 950,
+        "y" : 200
       } ],
       "enterpriseBoundaryVisible" : true,
       "key" : "StructurizrCooper",
       "order" : 1,
-      "softwareSystemId" : "1"
+      "relationships" : [ {
+        "id" : "4"
+      } ],
+      "softwareSystemId" : "2"
     } ]
   }
 }
