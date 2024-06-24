@@ -1,3 +1,7 @@
 {
-    "recommendations": ["biomejs.biome"]
+    "recommendations": [
+        "biomejs.biome",
+        "gruntfuggly.todo-tree",
+        "wayou.vscode-todo-highlight"
+    ]
 }

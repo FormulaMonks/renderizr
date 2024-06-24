@@ -11,14 +11,15 @@ import playIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/play-f
 import stopIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/stop-fill.svg?raw";
 import prevStepIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/skip-start-fill.svg?raw";
 import nextStepIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/skip-end-fill.svg?raw";
+import Component from "./_component";
 
-export default class CurrentView {
+export default class CurrentView extends Component {
     #el: HTMLElement | null = null;
     #diagram: Diagram;
     #draggableZone: DraggableZone | null = null;
 
     #actions = new Map([
-        ["reset-zoom", () => this.#draggableZone?.resetZoom()],
+        ["reset-zoom", () => this.#draggableZone?.render()],
         [
             "dark-mode",
             (event: Event) => {
@@ -90,6 +91,7 @@ export default class CurrentView {
         diagram: Diagram,
         draggableZone: DraggableZone,
     ) {
+        super();
         this.#el = el;
         this.#diagram = diagram;
         this.#draggableZone = draggableZone;

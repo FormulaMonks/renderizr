@@ -1,13 +1,6 @@
 import getStructurizr from "./structurizr.ts";
-
+import DiagramsPage from "./pages/diagrams.ts";
 import "./main.css";
-import DiagramNavigation from "./components/diagram-navigation.ts";
-import CurrentView from "./components/current-view.ts";
-import DraggableZone from "./components/draggable-zone.ts";
-import type {
-    StructurizrElement,
-    View,
-} from "./types/structurizr-workspace.ts";
 
 async function init() {
     const structurizr = await getStructurizr();
@@ -19,9 +12,12 @@ async function init() {
         structurizr.workspace.hasDocumentation() &&
         structurizr.workspace.hasDecisions();
 
+    // TODO: create a "Documentation" page
+    // TODO: create a "Decisions" page
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         <main>
             <h1 class="workspace-title">${structurizr.workspace.name}</h1>
+            <!--TODO: work on a "Main Navigation" component that is in charge of rendering the pages below-->
             <nav id="structurizr-docs-navigation">
                 <section class="workspace-description">
                     <p>${structurizr.workspace.description}</p>
@@ -34,141 +30,14 @@ async function init() {
                 </ul>
             </nav>
             <hr />
-            <section id="structurizr-current-view"></section>
-            <div id="structurizr-diagram-target"></div>
-            <div id="structurizr-diagram-navigation"></div>
+            <section id="page-content"></section>
         </main>
     `;
 
-    structurizr.ui.loadThemes(() => {
-        const diagram = new structurizr.ui.Diagram(
-            "structurizr-diagram-target",
-            false,
-            () => {
-                diagram.setNavigationEnabled(true);
-
-                function navigateToContainer(id?: string) {
-                    if (!id) return;
-                    const views =
-                        structurizr.workspace.findComponentViewsForContainer(
-                            id,
-                        );
-                    if (views.length) diagram.changeView(views[0].key);
-                }
-
-                function navigateToSoftwareSystem(element: StructurizrElement) {
-                    // TODO: Display a spinner while rendering
-                    const view = diagram.getCurrentView();
-                    let views: View[] = [];
-
-                    if (
-                        view.type ===
-                            structurizr.constants.SYSTEM_LANDSCAPE_VIEW_TYPE ||
-                        view.softwareSystemId !== element.id
-                    ) {
-                        views =
-                            structurizr.workspace.findSystemContextViewsForSoftwareSystem(
-                                element.id,
-                            );
-                        if (!views.length)
-                            views =
-                                structurizr.workspace.findContainerViewsForSoftwareSystem(
-                                    element.id,
-                                );
-                    } else if (
-                        view.type ===
-                        structurizr.constants.SYSTEM_CONTEXT_VIEW_TYPE
-                    ) {
-                        views =
-                            structurizr.workspace.findContainerViewsForSoftwareSystem(
-                                element.id,
-                            );
-                    }
-
-                    if (views.length) diagram.changeView(views[0].key);
-                }
-
-                function handleElementDoubleClick(_: Event, elementId: string) {
-                    const element =
-                        structurizr.workspace.findElementById(elementId);
-
-                    if (!element) return;
-                    if (element.url) window.open(element.url, "_blank");
-
-                    switch (element.type) {
-                        case structurizr.constants.SOFTWARE_SYSTEM_ELEMENT_TYPE:
-                            navigateToSoftwareSystem(element);
-                            break;
-                        case structurizr.constants.CONTAINER_ELEMENT_TYPE:
-                            navigateToContainer(element.id);
-                            break;
-                        case structurizr.constants
-                            .CONTAINER_INSTANCE_ELEMENT_TYPE:
-                            navigateToContainer(element.containerId);
-                            break;
-                    }
-                }
-
-                const draggableZone = new DraggableZone(
-                    document.querySelector(
-                        "#structurizr-diagram-target-canvas",
-                    ) as HTMLElement,
-                );
-
-                const observer = new ResizeObserver(() => {
-                    diagram.resize();
-                    diagram.zoomToWidthOrHeight();
-                });
-                observer.observe(document.body);
-
-                const darkModePreference = window?.matchMedia(
-                    "(prefers-color-scheme: dark)",
-                );
-
-                diagram.setDarkMode(darkModePreference.matches);
-
-                darkModePreference.addEventListener("change", (e) =>
-                    diagram.setDarkMode(e.matches),
-                );
-
-                const nav = new DiagramNavigation(
-                    document.querySelector<HTMLDivElement>(
-                        "#structurizr-diagram-navigation",
-                    ) as HTMLElement,
-                    diagram,
-                    structurizr.workspace.getViews(),
-                );
-
-                const currentView = new CurrentView(
-                    document.querySelector<HTMLDivElement>(
-                        "#structurizr-current-view",
-                    ) as HTMLElement,
-                    diagram,
-                    draggableZone,
-                );
-
-                diagram.onViewChanged((viewKey) => {
-                    const view = structurizr.workspace.findViewByKey(viewKey);
-                    const parentId =
-                        view?.containerId ??
-                        view?.softwareSystemId ??
-                        view?.parentId;
-
-                    draggableZone.resetZoom();
-                    nav.changeView(viewKey);
-                    currentView.render(
-                        view,
-                        parentId
-                            ? structurizr.workspace.findElementById(parentId)
-                            : undefined,
-                    );
-                });
-
-                diagram.onElementDoubleClicked(handleElementDoubleClick);
-                nav.render();
-            },
-        );
-    });
+    const diagramsPage = new DiagramsPage(
+        document.getElementById("page-content")!,
+    );
+    diagramsPage.render();
 }
 
 init();

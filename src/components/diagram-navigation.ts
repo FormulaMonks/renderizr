@@ -8,6 +8,7 @@ import componentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/b
 import deploymentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/rocket-takeoff.svg?raw";
 import styles from "./diagram-navigation.module.css";
 import history from "history/browser";
+import Component from "./_component";
 
 const DiagramIcon = new Map([
     ["SystemLandscape", systemLandscapeIcon],
@@ -18,7 +19,7 @@ const DiagramIcon = new Map([
     ["Deployment", deploymentIcon],
 ]);
 
-export default class DiagramNavigation {
+export default class DiagramNavigation extends Component {
     #el: HTMLElement | null = null;
     #diagram: Diagram;
     #navElements: View[] = [];
@@ -28,6 +29,7 @@ export default class DiagramNavigation {
     > = new Map();
 
     constructor(el: HTMLElement, diagram: Diagram, navElements: View[]) {
+        super();
         this.#el = el;
         this.#diagram = diagram;
         this.#navElements = navElements;
