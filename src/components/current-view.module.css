@@ -1,6 +1,7 @@
 .currentView {
     margin: 1rem 0;
     display: flex;
+    justify-content: space-between;
 }
 
 .description {
@@ -24,6 +25,46 @@
 }
 
 .controlButtons {
-    background: var(--colors-primary);
-    display: block;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.btnGroup {
+    display: flex;
+    gap: 0.3rem;
+
+    button {
+        height: 2rem;
+        width: 2rem;
+        border: 1px solid var(--color-secondary);
+        background-color: rgb(from var(--color-external) calc(r + 100) calc(g + 100) calc(b + 100));
+        cursor: pointer;
+        border-radius: 3px;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+    }
+
+    svg {
+        pointer-events: none;
+        transform: translate(0, 1px);
+        fill: var(--color-secondary);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .btnGroup {
+        button {
+            background-color: rgb(from var(--color-external) calc(r - 100) calc(g - 100) calc(b - 100));
+            border-color: var(--color-tertiary);
+        }
+
+        svg {
+            fill: var(--color-tertiary);
+        }
+    }
 }

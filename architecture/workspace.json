@@ -4,7 +4,7 @@
   "documentation" : { },
   "id" : 1,
   "lastModifiedAgent" : "structurizr-javascript",
-  "lastModifiedDate" : "2024-06-21T15:36:14Z",
+  "lastModifiedDate" : "2024-06-24T19:35:44Z",
   "model" : {
     "people" : [ {
       "description" : "Develops a solution",
@@ -19,7 +19,7 @@
         "destinationId" : "2",
         "id" : "4",
         "properties" : {
-          "structurizr.dsl.identifier" : "4505c57e-0a04-4d23-8ff8-258c8ee17359"
+          "structurizr.dsl.identifier" : "1f55a2c2-bed2-4594-a94a-36a3489967e8"
         },
         "sourceId" : "1",
         "tags" : "Relationship",
@@ -81,7 +81,7 @@
       "elements" : [ {
         "id" : "3",
         "x" : 296,
-        "y" : 220
+        "y" : 219
       } ],
       "externalSoftwareSystemBoundariesVisible" : false,
       "generatedKey" : true,
@@ -91,7 +91,7 @@
     } ],
     "systemContextViews" : [ {
       "automaticLayout" : {
-        "applied" : true,
+        "applied" : false,
         "edgeSeparation" : 0,
         "implementation" : "Graphviz",
         "nodeSeparation" : 300,
@@ -100,18 +100,14 @@
         "vertices" : false
       },
       "description" : "Static Architecture Page Generator. Author: Andrés Zorro <andres.zorro@formula.co>",
-      "dimensions" : {
-        "height" : 800,
-        "width" : 1600
-      },
       "elements" : [ {
         "id" : "1",
-        "x" : 200,
-        "y" : 200
+        "x" : 0,
+        "y" : 0
       }, {
         "id" : "2",
-        "x" : 950,
-        "y" : 200
+        "x" : 0,
+        "y" : 0
       } ],
       "enterpriseBoundaryVisible" : true,
       "key" : "StructurizrCooper",

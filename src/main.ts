@@ -144,6 +144,7 @@ async function init() {
                         "#structurizr-current-view",
                     ) as HTMLElement,
                     diagram,
+                    draggableZone,
                 );
 
                 diagram.onViewChanged((viewKey) => {

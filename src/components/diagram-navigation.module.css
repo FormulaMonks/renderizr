@@ -21,6 +21,7 @@
         width: 100px;
         height: 100px;
         cursor: pointer;
+        border-radius: 5px;
     }
 
     a {
@@ -46,26 +47,24 @@
         transform: scale(2.5) translate(0, 12px);
         pointer-events: none;
     }
-}
 
-.diagramNavigation li.active {
-    background-color: var(--color-primary-background);
-}
-
-.diagramNavigation.centered {
-    ul {
-        justify-content: center;
+    a:hover {
+        color: var(--color-primary-background);
     }
-}
 
-/* TODO: Put it back to nested once this is released: */
-/* https://github.com/biomejs/biome/pull/3117 */
-.diagramNavigation a:hover {
-    color: var(--color-primary-background);
-}
+    li:hover {
+        cursor: pointer;
+    }
 
-.diagramNavigation li:hover {
-    cursor: pointer;
+    li.active {
+        background-color: var(--color-primary-background);
+    }
+
+    &.centered {
+        ul {
+            justify-content: center;
+        }
+    }
 }
 
 @media (prefers-color-scheme: light) {
@@ -81,17 +80,17 @@
         svg {
             fill: var(--color-primary);
         }
-    }
 
-    .diagramNavigation li.active {
-        background-color: var(--color-secondary-background);
-
-        a {
-            color: var(--color-primary-background);
-        }
-
-        svg {
-            fill: var(--color-primary-background);
+        li.active {
+            background-color: var(--color-secondary-background);
+    
+            a {
+                color: var(--color-primary-background);
+            }
+    
+            svg {
+                fill: var(--color-primary-background);
+            }
         }
     }
 }

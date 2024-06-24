@@ -7,8 +7,8 @@
   --color-secondary-foreground: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
   --color-primary-background: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
   --color-secondary-background: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
-  --color-foreground: rgba(255, 255, 255, 0.80);
-  --color-background: rgba(20, 20, 20, 1);
+  --color-foreground: rgba(255, 255, 255, 0.8);
+  --color-background: rgba(20, 20, 20, 0.8);
 
   font-family: Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -111,12 +111,10 @@ ul, li, p {
   li::after {
       content: " | ";
   }
-}
 
-/* TODO: Put it back to nested once this is released: */
-/* https://github.com/biomejs/biome/pull/3117 */
-#structurizr-docs-navigation li:last-child::after {
-  content: "";
+  li:last-child::after {
+    content: "";
+  }
 }
 
 @media (prefers-color-scheme: light) {
@@ -127,8 +125,8 @@ ul, li, p {
     --color-secondary-foreground: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
     --color-primary-background: rgb(from var(--color-primary) calc(r + 200) calc(g + 200) calc(b + 200));
   --color-secondary-background: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
-    --color-foreground: rgba(0, 0, 0, 0.80);
-    --color-background: rgba(240, 240, 240, 1);
+    --color-foreground: rgba(0, 0, 0, 0.8);
+    --color-background: rgba(240, 240, 240, 0.8);
   }
 }
 
