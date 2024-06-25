@@ -6,11 +6,9 @@ import Component from "./_component";
 
 export default class DraggableZone extends Component {
     #panzoom: PanzoomObject | null = null;
-    #el: HTMLElement | null = null;
 
     constructor(element: HTMLElement | null) {
-        super();
-        this.#el = element;
+        super(element);
         this.render();
     }
 
@@ -40,21 +38,30 @@ export default class DraggableZone extends Component {
             this.#panzoom.destroy();
         }
 
-        if (!this.#el) return;
+        if (!this.element) return;
 
-        this.#panzoom = Panzoom(this.#el, {
+        this.#panzoom = Panzoom(this.element, {
             canvas: true,
             panOnlyWhenZoomed: true,
             minScale: 1,
         });
 
-        this.#el.addEventListener("panzoomzoom", this.#panzoomZoomHandler);
-        this.#el.parentElement?.addEventListener("wheel", this.#handleWheel);
+        this.element.addEventListener("panzoomzoom", this.#panzoomZoomHandler);
+        this.element.parentElement?.addEventListener(
+            "wheel",
+            this.#handleWheel,
+        );
     }
 
     clear() {
-        this.#el?.removeEventListener("panzoomzoom", this.#panzoomZoomHandler);
-        this.#el?.parentElement?.addEventListener("wheel", this.#handleWheel);
+        this.element?.removeEventListener(
+            "panzoomzoom",
+            this.#panzoomZoomHandler,
+        );
+        this.element?.parentElement?.addEventListener(
+            "wheel",
+            this.#handleWheel,
+        );
         if (this.#panzoom) {
             this.#panzoom.destroy();
         }

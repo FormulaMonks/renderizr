@@ -8,9 +8,9 @@ export default class Router extends Component {
     #pages: Map<string, Page> = new Map();
     #currentPage: Page | null = null;
 
-    constructor(el: HTMLElement, pages: Page[]) {
-        super();
-        this.#pageContainer = el;
+    constructor(element: HTMLElement, pages: Page[]) {
+        super(element);
+        this.#pageContainer = element;
         this.#pages = new Map(
             pages.map((pageInstance) => [
                 pageInstance.name.toLowerCase(),

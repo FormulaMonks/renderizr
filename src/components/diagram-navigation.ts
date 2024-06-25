@@ -20,7 +20,6 @@ const DiagramIcon = new Map([
 ]);
 
 export default class DiagramNavigation extends Component {
-    #el: HTMLElement | null = null;
     #diagram: Diagram;
     #navElements: View[] = [];
     #eventListeners: Map<
@@ -28,35 +27,16 @@ export default class DiagramNavigation extends Component {
         (this: HTMLDataListElement, ev: MouseEvent) => unknown
     > = new Map();
 
-    constructor(el: HTMLElement, diagram: Diagram, navElements: View[]) {
-        super();
-        this.#el = el;
+    constructor(element: HTMLElement, diagram: Diagram, navElements: View[]) {
+        super(element);
         this.#diagram = diagram;
         this.#navElements = navElements;
     }
 
-    changeView(viewKey?: string) {
-        if (!viewKey) return;
-
-        for (const el of Array.from(
-            this.#el?.querySelectorAll<HTMLDataListElement>("ul > li") ?? [],
-        )) {
-            if (el.dataset.viewkey === viewKey) {
-                el.classList.add(styles.active);
-            } else {
-                el.classList.remove(styles.active);
-            }
-        }
-
-        if (viewKey) {
-            this.#setViewInUrl(viewKey);
-            this.#diagram.changeView(viewKey);
-        }
-    }
-
     #addEvents() {
         for (const viewLink of Array.from(
-            this.#el?.querySelectorAll<HTMLDataListElement>("ul > li") ?? [],
+            this.element?.querySelectorAll<HTMLDataListElement>("ul > li") ??
+                [],
         )) {
             if (!viewLink.dataset.viewkey) continue;
             const callback = (event: Event) => {
@@ -72,7 +52,8 @@ export default class DiagramNavigation extends Component {
 
     #removeEvents() {
         for (const viewLink of Array.from(
-            this.#el?.querySelectorAll<HTMLDataListElement>("ul > li") ?? [],
+            this.element?.querySelectorAll<HTMLDataListElement>("ul > li") ??
+                [],
         )) {
             if (!viewLink.dataset.viewkey) continue;
             const callback = this.#eventListeners.get(viewLink.dataset.viewkey);
@@ -80,14 +61,6 @@ export default class DiagramNavigation extends Component {
             if (!callback) continue;
 
             viewLink.removeEventListener("click", callback);
-        }
-    }
-
-    clear() {
-        this.#removeEvents();
-        const ul = this.#el?.querySelector("ul");
-        if (ul) {
-            this.#el?.removeChild(ul);
         }
     }
 
@@ -106,20 +79,40 @@ export default class DiagramNavigation extends Component {
         }
     }
 
+    changeView(viewKey?: string) {
+        if (!viewKey) return;
+
+        for (const el of Array.from(
+            this.element?.querySelectorAll<HTMLDataListElement>("ul > li") ??
+                [],
+        )) {
+            if (el.dataset.viewkey === viewKey) {
+                el.classList.add(styles.active);
+            } else {
+                el.classList.remove(styles.active);
+            }
+        }
+
+        if (viewKey) {
+            this.#setViewInUrl(viewKey);
+            this.#diagram.changeView(viewKey);
+        }
+    }
+
     render() {
-        if (!this.#el) return;
+        if (!this.element) return;
         this.clear();
 
-        this.#el.classList.add(styles.diagramNavigation);
+        this.element.classList.add(styles.diagramNavigation);
         const observer = new ResizeObserver(() => {
-            if (!this.#el) return;
-            if (this.#el.clientWidth >= this.#el.scrollWidth) {
-                this.#el.classList.add(styles.centered);
+            if (!this.element) return;
+            if (this.element.clientWidth >= this.element.scrollWidth) {
+                this.element.classList.add(styles.centered);
             } else {
-                this.#el.classList.remove(styles.centered);
+                this.element.classList.remove(styles.centered);
             }
         });
-        observer.observe(this.#el);
+        observer.observe(this.element);
         const ul = document.createElement("ul");
 
         for (const view of this.#navElements) {
@@ -133,19 +126,27 @@ export default class DiagramNavigation extends Component {
             ul.appendChild(li);
         }
 
-        this.#el.appendChild(ul);
+        this.element.appendChild(ul);
 
         const startingViewKey =
             this.#getViewFromUrl() ?? this.#navElements?.[0]?.key;
 
         if (startingViewKey) {
             this.#diagram.changeView(startingViewKey);
-            this.#el
+            this.element
                 ?.querySelector<HTMLDataListElement>(
                     `ul > li[data-viewkey="${startingViewKey}"]`,
                 )
                 ?.classList.add(styles.active);
         }
         this.#addEvents();
+    }
+
+    clear() {
+        this.#removeEvents();
+        const ul = this.element?.querySelector("ul");
+        if (ul) {
+            this.element?.removeChild(ul);
+        }
     }
 }

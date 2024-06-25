@@ -14,7 +14,6 @@ import nextStepIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/sk
 import Component from "./_component";
 
 export default class CurrentView extends Component {
-    #el: HTMLElement | null = null;
     #diagram: Diagram;
     #draggableZone: DraggableZone | null = null;
 
@@ -87,12 +86,11 @@ export default class CurrentView extends Component {
     ]);
 
     constructor(
-        el: HTMLElement,
+        element: HTMLElement,
         diagram: Diagram,
         draggableZone: DraggableZone,
     ) {
-        super();
-        this.#el = el;
+        super(element);
         this.#diagram = diagram;
         this.#draggableZone = draggableZone;
         this.render();
@@ -100,12 +98,12 @@ export default class CurrentView extends Component {
 
     #toggleBackButton() {
         if (this.#diagram.animationStarted()) {
-            const button = this.#el?.querySelector(
+            const button = this.element?.querySelector(
                 ".prev-step",
             ) as HTMLButtonElement;
             button.disabled = false;
         } else {
-            const button = this.#el?.querySelector(
+            const button = this.element?.querySelector(
                 ".prev-step",
             ) as HTMLButtonElement;
 
@@ -167,13 +165,15 @@ export default class CurrentView extends Component {
     }
 
     clear() {
-        const container = this.#el?.querySelector(`${styles.controlButtons}`);
+        const container = this.element?.querySelector(
+            `${styles.controlButtons}`,
+        );
         for (const [id, action] of this.#actions) {
             const button = container?.querySelector(`.${id}`);
             button?.removeEventListener("click", action);
         }
 
-        const children = this.#el?.querySelectorAll("*");
+        const children = this.element?.querySelectorAll("*");
         if (children) {
             for (const child of Array.from(children)) {
                 child.remove();
@@ -182,11 +182,11 @@ export default class CurrentView extends Component {
     }
 
     render(currentView: View | null = null, element?: Record<string, unknown>) {
-        if (!this.#el || !currentView) return;
+        if (!this.element || !currentView) return;
         const [description, author] = currentView.description.split("Author: ");
-        this.#el.classList.add(styles.currentView);
+        this.element.classList.add(styles.currentView);
 
-        this.#el.innerHTML = `
+        this.element.innerHTML = `
             <div class="${styles.description}">
                 <h2>[${currentView.type}] ${element?.name || currentView.key}${currentView.environment ? ` - ${currentView.environment}` : ""}</h2>
                 <p>${description || "(no description)"}</p>
@@ -201,6 +201,6 @@ export default class CurrentView extends Component {
         const controlButtonsContainer = document.createElement("div");
         controlButtonsContainer.classList.add(styles.controlButtons);
         this.#addControlButtons(controlButtonsContainer);
-        this.#el.appendChild(controlButtonsContainer);
+        this.element.appendChild(controlButtonsContainer);
     }
 }
