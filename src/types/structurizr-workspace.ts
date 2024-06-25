@@ -1,3 +1,5 @@
+import type { Decision } from "./structurizr-documentation";
+
 export type View = {
     key: string;
     type:
@@ -61,7 +63,11 @@ export type Workspace = {
     lastModifiedDate: Date;
     version?: string;
     model: Record<string, unknown>;
-    documentation: Record<string, unknown>;
+    documentation: {
+        sections: Record<string, unknown>[];
+        decisions: Decision[];
+        images: Record<string, unknown>[];
+    };
     views: View[];
     getJson(): Record<string, unknown>;
     getProperty(name: string): string | undefined;

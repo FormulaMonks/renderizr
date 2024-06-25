@@ -74,18 +74,6 @@ a:hover {
   }
 }
 
-#structurizr-diagram-target {
-  width: 100cqw;
-  height: 80cqw;
-}
-
-.structurizrDiagramViewport {
-  background: rgb(from var(--color-background) calc(r + 10) calc(g + 10) calc(b + 10));
-  /* Override the `hidden scroll` coming from Structurizr that causes
-  scrollbars on zoom in Chrome */
-  overflow: hidden !important; 
-}
-
 @media (prefers-color-scheme: light) {
   :root {
     --color-primary: rgb(17, 104, 189);
@@ -96,11 +84,5 @@ a:hover {
   --color-secondary-background: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
     --color-foreground: rgba(0, 0, 0, 0.8);
     --color-background: rgba(240, 240, 240, 0.8);
-  }
-}
-
-@media (orientation: landscape) {
-  #structurizr-diagram-target {
-    height: 60cqh;
   }
 }

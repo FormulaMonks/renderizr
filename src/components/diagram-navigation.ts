@@ -27,6 +27,8 @@ export default class DiagramNavigation extends Component {
         (this: HTMLDataListElement, ev: MouseEvent) => unknown
     > = new Map();
 
+    #resizeObserver: ResizeObserver | null = null;
+
     constructor(element: HTMLElement, diagram: Diagram, navElements: View[]) {
         super(element);
         this.#diagram = diagram;
@@ -102,9 +104,9 @@ export default class DiagramNavigation extends Component {
     render() {
         if (!this.element) return;
         this.clear();
-
         this.element.classList.add(styles.diagramNavigation);
-        const observer = new ResizeObserver(() => {
+
+        this.#resizeObserver = new ResizeObserver(() => {
             if (!this.element) return;
             if (this.element.clientWidth >= this.element.scrollWidth) {
                 this.element.classList.add(styles.centered);
@@ -112,7 +114,7 @@ export default class DiagramNavigation extends Component {
                 this.element.classList.remove(styles.centered);
             }
         });
-        observer.observe(this.element);
+        this.#resizeObserver.observe(this.element);
         const ul = document.createElement("ul");
 
         for (const view of this.#navElements) {
@@ -144,6 +146,9 @@ export default class DiagramNavigation extends Component {
 
     clear() {
         this.#removeEvents();
+        if (this.#resizeObserver) {
+            this.#resizeObserver.disconnect();
+        }
         const ul = this.element?.querySelector("ul");
         if (ul) {
             this.element?.removeChild(ul);

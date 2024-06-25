@@ -4,9 +4,11 @@ import DraggableZone from "../components/draggable-zone";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { StructurizrElement, View } from "../types/structurizr-workspace";
 import Page from "./_page";
+import styles from "./diagrams.module.css";
 
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
+    #resizeObserver: ResizeObserver | null = null;
 
     #navigateToContainer(id?: string) {
         if (!id) return;
@@ -67,10 +69,11 @@ export default class Diagrams extends Page {
 
     render() {
         if (!this.container) return;
+        this.clear();
 
         this.container.innerHTML = `
             <section id="structurizr-current-view"></section>
-            <div id="structurizr-diagram-target">
+            <div id="structurizr-diagram-target" class="${styles.diagramTarget}">
                 <div class="loading">Loading workspace...</div>
             </div>
             <div id="structurizr-diagram-navigation"></div>
@@ -91,11 +94,11 @@ export default class Diagrams extends Page {
                         ) as HTMLElement,
                     );
 
-                    const observer = new ResizeObserver(() => {
+                    this.#resizeObserver = new ResizeObserver(() => {
                         this.#diagram?.resize();
                         this.#diagram?.zoomToWidthOrHeight();
                     });
-                    observer.observe(document.body);
+                    this.#resizeObserver.observe(document.body);
 
                     const darkModePreference = window?.matchMedia(
                         "(prefers-color-scheme: dark)",
@@ -158,6 +161,7 @@ export default class Diagrams extends Page {
 
     clear() {
         this.removeAllComponents();
+        if (this.#resizeObserver) this.#resizeObserver.disconnect();
         this.container!.innerHTML = "";
     }
 }

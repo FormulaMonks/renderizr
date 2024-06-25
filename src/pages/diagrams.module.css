@@ -1,0 +1,18 @@
+
+.diagramTarget {
+    width: 100cqw;
+    height: 80cqw;
+}
+
+:global(.structurizrDiagramViewport) {
+    background: rgb(from var(--color-background) calc(r + 10) calc(g + 10) calc(b + 10));
+    /* Override the `hidden scroll` coming from Structurizr that causes
+    scrollbars on zoom in Chrome */
+    overflow: hidden !important; 
+}
+
+@media (orientation: landscape) {
+    .diagramTarget {
+        height: 60cqh;
+    }
+}
