@@ -1,6 +1,7 @@
 import type { Workspace } from "../types/structurizr-workspace";
 import history from "history/browser";
 import Component from "./_component";
+import styles from "./navigation.module.css";
 
 export default class Navigation extends Component {
     #workspace: Workspace;
@@ -38,6 +39,8 @@ export default class Navigation extends Component {
     render() {
         if (!(this.#workspace && this.element)) return;
 
+        this.element.classList.add(styles.navigation);
+
         const diagramsAndDocs =
             this.#workspace.hasDocumentation() &&
             this.#workspace.hasDecisions();
@@ -55,9 +58,9 @@ export default class Navigation extends Component {
 
         history.listen((update) => {
             for (const link of this.#links()) {
-                link.classList.remove("active");
+                link.classList.remove(styles.navigationActive);
                 if (link.getAttribute("href") === update.location.pathname) {
-                    link.classList.add("active");
+                    link.classList.add(styles.navigationActive);
                 }
             }
         });
@@ -66,6 +69,7 @@ export default class Navigation extends Component {
     }
 
     clear() {
+        this.element?.classList.remove(styles.navigation);
         this.#removeEvents();
 
         const children = this.element?.querySelectorAll("*");

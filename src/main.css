@@ -25,16 +25,6 @@
 
 }
 
-a {
-  font-weight: 500;
-  color: var(--color-primary);
-  text-decoration: inherit;
-}
-
-a:hover {
-  color:  var(--color-primary-foreground);
-}
-
 body {
   margin: 0;
   display: flex;
@@ -62,6 +52,16 @@ ul, li, p {
   padding: 0;
 }
 
+a {
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: inherit;
+}
+
+a:hover {
+  color:  var(--color-primary-foreground);
+}
+
 #app {
   width: 100dvw;
   height: 100dvh;
@@ -86,38 +86,6 @@ ul, li, p {
   overflow: hidden !important; 
 }
 
-#structurizr-docs-navigation {
-  margin: 0 0 1rem;
-  display: flex;
-  flex-direction: column;
-  place-content: space-between;
-
-  ul {
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-  }
-
-  li {
-      list-style: none;
-      margin-right: 5px;
-  }
-
-  li a.active {
-      font-weight: 800;
-      color: var(--color-foreground);
-      pointer-events: none;
-  }
-
-  li::after {
-      content: " | ";
-  }
-
-  li:last-child::after {
-    content: "";
-  }
-}
-
 @media (prefers-color-scheme: light) {
   :root {
     --color-primary: rgb(17, 104, 189);
@@ -134,8 +102,5 @@ ul, li, p {
 @media (orientation: landscape) {
   #structurizr-diagram-target {
     height: 60cqh;
-  }
-  #structurizr-docs-navigation {
-    flex-direction: row;
   }
 }

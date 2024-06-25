@@ -1,0 +1,37 @@
+.navigation {
+    margin: 0 0 1rem;
+    display: flex;
+    flex-direction: column;
+    place-content: space-between;
+
+    ul {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+    }
+
+    li {
+        list-style: none;
+        margin-right: 5px;
+    }
+
+    li::after {
+        content: " | ";
+    }
+
+    li:last-child::after {
+        content: "";
+    }
+}
+
+.navigationActive {
+    font-weight: 800;
+    color: var(--color-foreground);
+    pointer-events: none;
+}
+
+@media (orientation: landscape) {
+    .navigation {
+        flex-direction: row;
+    }
+}
