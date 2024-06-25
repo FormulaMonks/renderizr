@@ -6,9 +6,9 @@ export default abstract class Page {
 
     constructor(
         public container: HTMLElement | null,
-        name?: string,
+        name: string,
     ) {
-        this.name = name || this.constructor.name;
+        this.name = name;
     }
 
     getContainer(): HTMLElement | null {
