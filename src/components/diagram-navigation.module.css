@@ -17,9 +17,9 @@
         background-color: var(--color-external);
         flex-grow: 0;
         flex-shrink: 0;
-        flex-basis: 100px;
-        width: 100px;
-        height: 100px;
+        flex-basis: 70px;
+        width: 70px;
+        height: 70px;
         cursor: pointer;
         border-radius: 5px;
     }
@@ -29,7 +29,7 @@
         display: inline-block;
         bottom: 5px;
         left: 0;
-        font-size: 0.7rem;
+        font-size: 0.6rem;
         text-align: center;
         word-break: break-all;
         color: var(--color-foreground);
@@ -44,7 +44,7 @@
         position: absolute;
         fill: var(--color-foreground);
         left: calc(50% - 30px);
-        transform: scale(2.5) translate(0, 12px);
+        transform: scale(1.25) translate(0, 12px);
         pointer-events: none;
     }
 
@@ -63,6 +63,25 @@
     &.centered {
         ul {
             justify-content: center;
+        }
+    }
+}
+
+@media (orientation: landscape) {
+    .diagramNavigation {
+        li {
+            flex-basis: 100px;
+            width: 100px;
+            height: 100px;
+        }
+
+        a {
+            font-size: 0.7rem;
+        }
+
+        svg {
+            width: 60px;
+            transform: scale(2.5) translate(0, 12px);
         }
     }
 }

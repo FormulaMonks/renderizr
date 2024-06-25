@@ -46,7 +46,7 @@ export default class Navigation extends Component {
             this.#workspace.hasDecisions();
 
         this.element.innerHTML = `
-            <section class="workspace-description">
+            <section>
                 <p>${this.#workspace.description}</p>
                 <p>${this.#workspace.version ? `Version: ${this.#workspace.version} - ` : ""}Last modified: <strong>${new Date(this.#workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
             </section>
