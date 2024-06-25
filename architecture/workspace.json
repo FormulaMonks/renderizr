@@ -52,7 +52,7 @@
   },
   "name" : "Structurizr Cooper",
   "properties" : {
-    "structurizr.dsl" : "d29ya3NwYWNlICJTdHJ1Y3R1cml6ciBDb29wZXIiIHsKICAgIGRlc2NyaXB0aW9uICJSZW5kZXIgc3RhdGljIHZlcnNpb25zIG9mIFN0cnVjdHVyaXpyIERpYWdyYW1zIgoKICAgICFhZHJzIGRlY2lzaW9ucwogICAgIWRvY3MgZG9jcwoKICAgIG1vZGVsIHsKICAgICAgICAjIENvbnN0YW50cwoKICAgICAgICBEZXZlbG9wZXIgPSBwZXJzb24gIkRldmVsb3BlciIgIkRldmVsb3BzIGEgc29sdXRpb24iCiAgICAgICAgU3RydWN0dXJpenJDb29wZXIgPSBzb2Z0d2FyZVN5c3RlbSAiU3RydWN0dXJpenIgQ29vcGVyIiB7CiAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTdGF0aWMgQXJjaGl0ZWN0dXJlIFBhZ2UgR2VuZXJhdG9yIgogICAgICAgIAogICAgICAgICAgICBVc2VySW50ZXJmYWNlID0gY29udGFpbmVyICJVc2VyIEludGVyZmFjZSIgIlJlbmRlcnMgZGlhZ3JhbXMsIGRvY3MgYW5kIEFEUnMiICJWaXRlL1ZhbmlsbGEgSlMiIHsKICAgICAgICAgICAgICAgIHRhZ3MgIldlYkFwcCIKICAgICAgICAgICAgfQogICAgICAgIAogICAgICAgICAgICB0YWdzICJTeXN0ZW0iCiAgICAgICAgfQoKICAgICAgICAjIFJlbGF0aW9uc2hpcHMKICAgICAgICBEZXZlbG9wZXIgLT4gU3RydWN0dXJpenJDb29wZXIgIlZpc2l0cyIgIldlYi9IVFRQUyIKICAgICAgICAjIFN0cnVjdHVyaXpyIENvb3BlcgogICAgfQoKICAgIHZpZXdzIHsKICAgICAgICB0aGVtZXMgImh0dHBzOi8vc3RhdGljLnN0cnVjdHVyaXpyLmNvbS90aGVtZXMvZGVmYXVsdC90aGVtZS5qc29uIgogICAgICAgICFjb25zdCBBVVRIT1IgIkF1dGhvcjogQW5kcsOpcyBab3JybyA8YW5kcmVzLnpvcnJvQGZvcm11bGEuY28+IgoKICAgICAgICBzeXN0ZW1Db250ZXh0IFN0cnVjdHVyaXpyQ29vcGVyICJTdHJ1Y3R1cml6ckNvb3BlciIgewogICAgICAgICAgICBkZXNjcmlwdGlvbiAiU3RhdGljIEFyY2hpdGVjdHVyZSBQYWdlIEdlbmVyYXRvci4gJHtBVVRIT1J9IiAKICAgICAgICAgICAgaW5jbHVkZSAqCiAgICAgICAgICAgIGF1dG9MYXlvdXQgbHIKICAgICAgICB9CiAgICAgICAgCiAgICAgICAgY29udGFpbmVyIFN0cnVjdHVyaXpyQ29vcGVyIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlJlbmRlcnMgZGlhZ3JhbXMsIGRvY3MgYW5kIEFEUnMuICR7QVVUSE9SfSIgCiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgICAgICBhdXRvbGF5b3V0IGxyCiAgICAgICAgfQogICAgfQp9Cg=="
+    "structurizr.dsl" : "CndvcmtzcGFjZSBleHRlbmRzIHdvcmtzcGFjZS5qc29uIHsKICAgICFzY3JpcHQgZ3Jvb3Z5IHsKICAgICAgICBuZXcgY29tLnN0cnVjdHVyaXpyLmF1dG9sYXlvdXQuZ3JhcGh2aXouR3JhcGh2aXpBdXRvbWF0aWNMYXlvdXQoKS5hcHBseSh3b3Jrc3BhY2UpOwogICAgfQp9CiAgICAK"
   },
   "views" : {
     "configuration" : {
@@ -75,18 +75,19 @@
       },
       "description" : "Renders diagrams, docs and ADRs. Author: Andrés Zorro <andres.zorro@formula.co>",
       "dimensions" : {
-        "height" : 811,
-        "width" : 1043
+        "height" : 958,
+        "width" : 1108
       },
       "elements" : [ {
         "id" : "3",
-        "x" : 296,
-        "y" : 219
+        "x" : 329,
+        "y" : 329
       } ],
       "externalSoftwareSystemBoundariesVisible" : false,
       "generatedKey" : true,
       "key" : "Container-001",
       "order" : 2,
+      "paperSize" : "A6_Landscape",
       "softwareSystemId" : "2"
     } ],
     "systemContextViews" : [ {
@@ -100,18 +101,23 @@
         "vertices" : false
       },
       "description" : "Static Architecture Page Generator. Author: Andrés Zorro <andres.zorro@formula.co>",
+      "dimensions" : {
+        "height" : 716,
+        "width" : 1616
+      },
       "elements" : [ {
         "id" : "1",
-        "x" : 0,
-        "y" : 0
+        "x" : 208,
+        "y" : 208
       }, {
         "id" : "2",
-        "x" : 0,
-        "y" : 0
+        "x" : 958,
+        "y" : 208
       } ],
       "enterpriseBoundaryVisible" : true,
       "key" : "StructurizrCooper",
       "order" : 1,
+      "paperSize" : "A6_Landscape",
       "relationships" : [ {
         "id" : "4"
       } ],

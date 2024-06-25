@@ -5,7 +5,7 @@ import type { Diagram } from "../types/structurizr-diagram";
 import type { StructurizrElement, View } from "../types/structurizr-workspace";
 import Page from "./_page";
 
-export default class DiagramsPage extends Page {
+export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
 
     #navigateToContainer(id?: string) {
@@ -66,9 +66,13 @@ export default class DiagramsPage extends Page {
     }
 
     render() {
+        if (!this.container) return;
+
         this.container.innerHTML = `
             <section id="structurizr-current-view"></section>
-            <div id="structurizr-diagram-target"></div>
+            <div id="structurizr-diagram-target">
+                <div class="loading">Loading workspace...</div>
+            </div>
             <div id="structurizr-diagram-navigation"></div>
         `;
 
@@ -78,6 +82,7 @@ export default class DiagramsPage extends Page {
                 false,
                 () => {
                     if (!this.#diagram) return;
+                    document.querySelector(".loading")?.remove();
                     this.#diagram.setNavigationEnabled(true);
 
                     const draggableZone = new DraggableZone(
@@ -153,5 +158,6 @@ export default class DiagramsPage extends Page {
 
     clear() {
         this.removeAllComponents();
+        this.container!.innerHTML = "";
     }
 }

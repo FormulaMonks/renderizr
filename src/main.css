@@ -106,6 +106,7 @@ ul, li, p {
   li a.active {
       font-weight: 800;
       color: var(--color-foreground);
+      pointer-events: none;
   }
 
   li::after {

@@ -1,12 +1,24 @@
 import type Component from "../components/_component";
 
 export default abstract class Page {
-    components = new Map<string, Component>();
+    name: string = this.constructor.name;
+    components: Map<string, Component> = new Map<string, Component>();
 
-    constructor(public container: HTMLElement) {}
+    constructor(
+        public container: HTMLElement | null,
+        name?: string,
+    ) {
+        this.name = name || this.constructor.name;
+    }
 
-    getContainer(): HTMLElement {
+    getContainer(): HTMLElement | null {
         return this.container;
+    }
+
+    setContainer(container: HTMLElement) {
+        this.container = container;
+
+        return this;
     }
 
     /**

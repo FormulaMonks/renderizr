@@ -108,7 +108,8 @@ export default class CurrentView extends Component {
             const button = this.#el?.querySelector(
                 ".prev-step",
             ) as HTMLButtonElement;
-            button.disabled = true;
+
+            if (button) button.disabled = true;
         }
     }
 
@@ -147,15 +148,21 @@ export default class CurrentView extends Component {
             const button = container.querySelector(
                 ".play-animation",
             ) as HTMLButtonElement;
-            button.dataset.playing = "true";
+
+            if (!button) return;
+
             button.innerHTML = stopIcon;
+            button.dataset.playing = "true";
         });
         this.#diagram.onAnimationStopped(() => {
             const button = container.querySelector(
                 ".play-animation",
             ) as HTMLButtonElement;
-            button.dataset.playing = "";
+
+            if (!button) return;
+
             button.innerHTML = playIcon;
+            button.dataset.playing = "";
         });
     }
 

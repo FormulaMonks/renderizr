@@ -13,8 +13,7 @@ workspace extends $(grealpath "$realpath" --relative-to="$(dirname "$realpath")"
     !script groovy {
         new com.structurizr.autolayout.graphviz.GraphvizAutomaticLayout().apply(workspace);
     }
-}
-    """
+}"""
 
     echo "$content" > "$(dirname "$realpath")"/graphviz.dsl
     structurizr-cli export -w "$(dirname "$realpath")"/graphviz.dsl -f json -o "$(dirname "$realpath")"
