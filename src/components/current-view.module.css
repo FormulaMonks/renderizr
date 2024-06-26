@@ -50,6 +50,7 @@
         background-color: rgb(from var(--color-external) calc(r + 100) calc(g + 100) calc(b + 100));
         cursor: pointer;
         border-radius: 3px;
+        padding: 0;
     }
 
     button:disabled {
@@ -58,7 +59,7 @@
 
     svg {
         pointer-events: none;
-        transform: translate(-2px, 1px);
+        transform: translate(0, 1px);
         fill: var(--color-secondary);
     }
 }

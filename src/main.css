@@ -11,6 +11,7 @@
   --color-background: rgba(20, 20, 20, 0.8);
 
   font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
   line-height: 1.5;
   font-weight: 400;
 
@@ -30,7 +31,6 @@ body {
   display: flex;
   place-items: start center;
   min-width: 320px;
-  min-height: 100vh;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -65,12 +65,20 @@ a:hover {
 #app {
   width: 100dvw;
   height: 100dvh;
+  overflow: auto;
   padding: 0 2rem;
+  padding-left: max(2rem, env(safe-area-inset-left));
   container: app / size;
 
   hr {
     border: 0;
     border-top: 1px solid var(--color-external);
+  }
+}
+
+@media (orientation: landscape) and (min-width: 720px) {
+  :root {
+    font-size: 16px;
   }
 }
 

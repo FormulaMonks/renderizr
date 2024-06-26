@@ -67,7 +67,7 @@
     }
 }
 
-@media (orientation: landscape) {
+@media (min-width: 1024px) {
     .diagramNavigation {
         li {
             flex-basis: 100px;

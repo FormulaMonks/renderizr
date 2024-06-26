@@ -1,7 +1,8 @@
 
 .diagramTarget {
     width: 100cqw;
-    height: 80cqw;
+    height: 50dvh;
+    overflow: hidden;
 }
 
 :global(.structurizrDiagramViewport) {
@@ -11,8 +12,20 @@
     overflow: hidden !important; 
 }
 
+@media (orientation: portrait) and (min-width: 720px) {
+    .diagramTarget {
+        height: 60dvh;
+    }
+}
+
 @media (orientation: landscape) {
     .diagramTarget {
-        height: 60cqh;
+        height: 80dvh;
+    }
+}
+
+@media (orientation: landscape) and (min-width: 1000px) {
+    .diagramTarget {
+        height: 60dvh;
     }
 }
