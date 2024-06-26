@@ -31,6 +31,15 @@ export default abstract class Page {
     }
 
     /**
+     * Render all registered components
+     */
+    renderAllComponents(): void {
+        for (const component of this.components.values()) {
+            component.render();
+        }
+    }
+
+    /**
      * Removes all registered components
      */
     removeAllComponents(): void {
