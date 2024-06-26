@@ -151,9 +151,10 @@ export default class Diagrams extends Page {
                     });
 
                     this.#diagram.onElementDoubleClicked(
-                        this.#handleElementDoubleClick,
+                        this.#handleElementDoubleClick.bind(this),
                     );
-                    nav.render();
+
+                    this.renderAllComponents();
                 },
             );
         });

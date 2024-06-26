@@ -93,7 +93,6 @@ export default class CurrentView extends Component {
         super(element);
         this.#diagram = diagram;
         this.#draggableZone = draggableZone;
-        this.render();
     }
 
     #toggleBackButton() {

@@ -33,7 +33,9 @@ export default class Decisions extends Page {
             ),
         );
 
-        menu.onSelectionChange(() => {});
+        menu.onSelectionChange(() => {
+            // TODO: Connect rendered decision
+        });
 
         this.renderAllComponents();
     }

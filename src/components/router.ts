@@ -32,13 +32,13 @@ export default class Router extends Component {
 
         if (pageName === "/") {
             const [firstPage] = this.#pages.keys();
-            this.navigateTo(firstPage);
+            this.navigateTo(firstPage, history.location.search);
         } else {
-            this.navigateTo(pageName);
+            this.navigateTo(pageName, history.location.search);
         }
     }
 
-    navigateTo(pageName: string, params?: Location["search"]): void {
+    navigateTo(pageName: string, search: Location["search"] = ""): void {
         if (this.#currentPage) this.#currentPage.clear();
         if (!this.#pages.has(pageName)) {
             console.warn(
@@ -50,7 +50,7 @@ export default class Router extends Component {
         }
 
         this.#currentPage = this.#pages.get(pageName)!;
-        history.push(`/${pageName}`, { search: params });
+        history.push(`/${pageName}${search}`);
         this.render();
     }
 
