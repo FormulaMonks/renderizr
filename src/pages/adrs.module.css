@@ -1,3 +1,58 @@
-.decision {
+.decisions {
+    container: adrs / size;
+    height: 85dvh;
+    overflow-x: hidden;
 
+    .adrs {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: space-between;
+    }
+
+    .menu {
+        position: sticky;
+        top: 0;
+
+        ul {
+            list-style-type: none;
+        }
+
+        li {
+            font-size: 0.8rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .decision {
+        word-break: break-word;
+        max-width: calc(100cqw - 2rem);
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    }
+
+}
+
+@media (orientation: landscape) {
+    .decisions {
+        height: 80dvh;
+
+        .adrs {
+            flex-direction: row;
+            gap: 1rem;
+        }
+
+        .menu {
+            width: 20cqw;
+        }
+
+        .decision {
+            width: 80cqw;
+        }
+    }
 }

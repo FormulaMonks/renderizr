@@ -67,7 +67,7 @@
     }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 996px) {
     .diagramNavigation {
         li {
             flex-basis: 100px;

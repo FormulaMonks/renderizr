@@ -20,12 +20,12 @@
 
 @media (orientation: landscape) {
     .diagramTarget {
-        height: 80dvh;
+        min-height: 80dvh;
     }
 }
 
-@media (orientation: landscape) and (min-width: 1000px) {
+@media (orientation: landscape) and (min-width: 996px) {
     .diagramTarget {
-        height: 60dvh;
+        min-height: 60dvh;
     }
 }

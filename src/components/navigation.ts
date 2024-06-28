@@ -42,8 +42,8 @@ export default class Navigation extends Component {
         this.element.classList.add(styles.navigation);
 
         const diagramsAndDocs =
-            this.#workspace.hasDocumentation() &&
-            this.#workspace.hasDecisions();
+            this.#workspace.documentation.sections?.length &&
+            this.#workspace.documentation.decisions?.length;
 
         this.element.innerHTML = `
             <section>
@@ -52,8 +52,8 @@ export default class Navigation extends Component {
             </section>
             <ul>
                 ${!diagramsAndDocs ? "" : '<li><a href="/diagrams">Diagrams</a></li>'}
-                ${this.#workspace.hasDocumentation() ? `<li><a href="/docs">Documentation</a></li>` : ""}
-                ${this.#workspace.hasDecisions() ? `<li><a href="/adrs">Decisions</a></li>` : ""}
+                ${this.#workspace.documentation.sections?.length ? `<li><a href="/docs">Documentation</a></li>` : ""}
+                ${this.#workspace.documentation.decisions?.length ? `<li><a href="/adrs">Decisions</a></li>` : ""}
             </ul>`;
 
         history.listen((update) => {

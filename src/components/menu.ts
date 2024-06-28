@@ -14,6 +14,8 @@ export default class Menu<Item extends MenuItem> extends Component {
         this.#items = menuItems;
     }
 
+    #textContentFn = (item: Item) => `${item.id}. ${item.title}`;
+
     #clearMenu() {
         if (this.#orientation === "portrait") {
             const select = this.element?.querySelector("select");
@@ -54,7 +56,7 @@ export default class Menu<Item extends MenuItem> extends Component {
 
             link.dataset.itemId = `${element.id}`;
             link.href = "#";
-            link.textContent = element.title;
+            link.textContent = this.#textContentFn(element);
             item.appendChild(link);
             list.appendChild(item);
 
@@ -74,7 +76,7 @@ export default class Menu<Item extends MenuItem> extends Component {
             const item = document.createElement("option");
 
             item.value = `${element.id}`;
-            item.textContent = `${element.id} - ${element.title}`;
+            item.textContent = this.#textContentFn(element);
             list.appendChild(item);
         }
 
@@ -98,7 +100,7 @@ export default class Menu<Item extends MenuItem> extends Component {
         }
 
         if (selectedItem) {
-            this.#emitItemSelection(selectedItem);
+            this.setActive(selectedItem);
         }
     }
 
@@ -106,6 +108,32 @@ export default class Menu<Item extends MenuItem> extends Component {
         for (const callback of this.#callbacks.values()) {
             callback(item);
         }
+    }
+
+    setActive(item: Item) {
+        if (this.#orientation === "portrait") {
+            const select = this.element?.querySelector("select");
+            if (!select) return;
+
+            select.value = item.id;
+        } else {
+            const list =
+                this.element?.querySelectorAll<HTMLAnchorElement>(
+                    "ul > li > a",
+                );
+
+            if (!list) return;
+
+            for (const element of Array.from(list)) {
+                if (element.dataset.itemId === item.id) {
+                    element.classList.add(styles.active);
+                } else {
+                    element.classList.remove(styles.active);
+                }
+            }
+        }
+
+        this.#emitItemSelection(item);
     }
 
     onSelectionChange(callback: (item: Item) => void) {

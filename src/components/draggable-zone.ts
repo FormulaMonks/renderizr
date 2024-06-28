@@ -29,7 +29,7 @@ export default class DraggableZone extends Component {
         const delta =
             event.deltaY === 0 && event.deltaX ? event.deltaX : event.deltaY;
         const scale = this.#panzoom?.getScale() ?? 0;
-        const toScale = scale * Math.exp((delta * 0.3 * -1) / 300);
+        const toScale = scale * Math.exp((delta * 0.8 * -1) / 300);
         this.#panzoom?.zoomToPoint(toScale, event);
     };
 
