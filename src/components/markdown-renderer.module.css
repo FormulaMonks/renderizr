@@ -2,4 +2,60 @@
     font-size: 1.2rem;
     line-height: 1.6;
     color: var(--text-color);
+
+    h2 {
+        line-height: 1;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    h3, h4 {
+        margin-top: 1rem;
+    }
+
+    ul {
+        margin: 0.5rem 0 0.5rem 1.5rem;
+    }
+
+    p {
+        margin-bottom: 1rem;
+    }
+
+    pre {
+        font-size: 0.9rem;
+        background: #333;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        padding-right: 4rem;
+        overflow-y: auto;
+        white-space: pre;
+        word-wrap: normal;
+        max-width: 100cqw;
+    }
+
+    code {
+        background: #333;
+        color: var(--color-proposed);
+        border-radius: 0.2rem;
+        font-size: 0.95rem;
+        padding: 0.2rem;
+    }
+
+    pre > code {
+        color: white;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    .markdownRenderer {
+        code {
+            background: #ccc;
+            color: var(--color-foreground);
+        }
+
+        pre > code {
+            background: unset;
+            color: white;
+        }
+    }
 }

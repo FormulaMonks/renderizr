@@ -9,6 +9,10 @@
   --color-secondary-background: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
   --color-foreground: rgba(255, 255, 255, 0.8);
   --color-background: rgba(20, 20, 20, 0.8);
+  --color-accepted: rgb(94 185 93);
+  --color-rejected: rgb(185 94 94);
+  --color-proposed: rgb(185 185 94);
+  --color-superseded: rgb(153, 153, 153);
 
   font-family: Helvetica, Arial, sans-serif;
   font-size: 12px;
@@ -23,7 +27,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
 }
 
 body {
@@ -66,14 +69,18 @@ a:hover {
   width: 100dvw;
   height: 100dvh;
   overflow: auto;
-  padding: 0 2rem;
-  padding-left: max(2rem, env(safe-area-inset-left));
+  
   container: app / size;
 
   hr {
     border: 0;
     border-top: 1px solid var(--color-external);
   }
+}
+
+.workspace-title, #workspace-navigation, #page-content {
+  padding-left: max(2rem, env(safe-area-inset-left));
+  padding-right: max(2rem, env(safe-area-inset-right));
 }
 
 @media (orientation: landscape) and (min-width: 720px) {

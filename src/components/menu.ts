@@ -14,7 +14,7 @@ export default class Menu<Item extends MenuItem> extends Component {
         this.#items = menuItems;
     }
 
-    #textContentFn = (item: Item) => `${item.id}. ${item.title}`;
+    #textContentFn = (item: Item) => `${item.title}`;
 
     #clearMenu() {
         if (this.#orientation === "portrait") {
@@ -108,6 +108,10 @@ export default class Menu<Item extends MenuItem> extends Component {
         for (const callback of this.#callbacks.values()) {
             callback(item);
         }
+    }
+
+    setTextContentFn(fn: (item: Item) => string) {
+        this.#textContentFn = fn;
     }
 
     setActive(item: Item) {

@@ -1,7 +1,11 @@
 .menu {
     select {
         width: 100cqw;
-        height: 2rem;
+        background-color: var(--color-background);
+        border-radius: 0.5rem;
+        height: 3rem;
+        padding: 0.5rem;
+        margin-top: 0.5rem;
     }
 }
 

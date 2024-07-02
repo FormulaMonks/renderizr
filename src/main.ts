@@ -15,14 +15,14 @@ async function init() {
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         <main>
             <h1 class="workspace-title">${structurizr.workspace.name}</h1>
-            <nav id="structurizr-docs-navigation"></nav>
+            <nav id="workspace-navigation"></nav>
             <hr />
             <section id="page-content"></section>
         </main>
     `;
 
     new Navigation(
-        document.getElementById("structurizr-docs-navigation")!,
+        document.getElementById("workspace-navigation")!,
         structurizr.workspace,
     ).render();
 

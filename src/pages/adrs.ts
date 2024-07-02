@@ -5,8 +5,17 @@ import Page from "./_page";
 import styles from "./adrs.module.css";
 import history from "history/browser";
 
+enum StatusColors {
+    proposed = "proposed",
+    accepted = "accepted",
+    rejected = "rejected",
+    deprecated = "deprecated",
+    superseded = "superseded",
+}
+
 export default class Decisions extends Page {
     #decisions: Decision[] = [];
+    #currentDecision: Decision | null = null;
 
     constructor(
         container: HTMLElement | null = null,
@@ -31,6 +40,40 @@ export default class Decisions extends Page {
         return this.#decisions.find((d) => d.id === adrId);
     }
 
+    #formatContent(content: string): string {
+        return content
+            .replace(/#(.*)/, "")
+            .replace(/Date:.*/, "")
+            .replace(/## Status([\s\S]*)## Context/gim, (__, hit) => {
+                const statusLines = hit
+                    // biome-ignore lint/suspicious/noMisleadingCharacterClass: valid regex
+                    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+                    .split("\n")
+                    .filter(Boolean);
+
+                return `## Status\n\n${statusLines.map((line: string) => `- ${line}`).join("\n")}\n---\n## Context`;
+            });
+    }
+
+    #renderTitle() {
+        if (!this.container) return;
+        const decisionTitle = document.getElementById("decision-title");
+        if (!decisionTitle) return;
+
+        const statusColor =
+            StatusColors[
+                this.#currentDecision?.status.toLowerCase() as keyof typeof StatusColors
+            ];
+
+        decisionTitle.innerHTML = `
+            <h2>${this.#decisionTitle(this.#currentDecision!)}</h2>
+            <p class="${styles.date}">Date: ${this.#currentDecision?.date ? new Date(this.#currentDecision?.date).toLocaleDateString() : ""}</p>
+            <p><span class="${styles.status} ${styles[statusColor] || ""}">${this.#currentDecision?.status}</span></p>
+        `;
+    }
+
+    #decisionTitle = (item: Decision) => `#${item.id} - ${item.title}`;
+
     render() {
         if (!this.container) return;
         this.container.classList.add(styles.decisions);
@@ -38,7 +81,10 @@ export default class Decisions extends Page {
         this.container!.innerHTML = `
             <div class="${styles.adrs}">
                 <section id="adrs-menu" class="${styles.menu}"></section>
-                <section id="decision" class="${styles.decision}"></section>
+                <section id="decision" class="${styles.decision}">
+                    <div id="decision-title"></div>
+                    <div id="decision-content"></div>
+                </section>
             </div>
         `;
 
@@ -49,19 +95,29 @@ export default class Decisions extends Page {
             ),
         );
 
-        const startingDecision = this.#getAdrFromUrl() || this.#decisions[0];
+        menu.setTextContentFn(this.#decisionTitle);
+
+        this.#currentDecision = this.#getAdrFromUrl() || this.#decisions[0];
         const decisionViewer = this.addComponent(
-            new MarkdownRenderer(document.getElementById("decision")!),
+            new MarkdownRenderer(document.getElementById("decision-content")!),
         );
 
         menu.onSelectionChange((item) => {
+            this.#currentDecision = item;
+            decisionViewer.setContentFormatter(this.#formatContent);
             decisionViewer.setContent(item.content);
+            this.#renderTitle();
             this.#setAdrInUrl(item);
+            this.container?.scrollTo(0, 0);
         });
 
         this.renderAllComponents();
         // Next tick
-        window.setTimeout(() => menu.setActive(startingDecision), 0);
+        window.setTimeout(() => {
+            menu.setActive(this.#currentDecision!);
+            this.#renderTitle();
+            // TODO: set link events
+        }, 0);
     }
 
     clear(): void {
