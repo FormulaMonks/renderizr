@@ -8,6 +8,7 @@ export default class Menu<Item extends MenuItem> extends Component {
     #orientation: "landscape" | "portrait" | null = null;
     #resizeObserver: ResizeObserver | null = null;
     #callbacks = new Map<string, (item: Item) => void>();
+    #selectedItem: Item | null = null;
 
     constructor(element: HTMLElement, menuItems: Item[]) {
         super(element);
@@ -114,7 +115,11 @@ export default class Menu<Item extends MenuItem> extends Component {
         this.#textContentFn = fn;
     }
 
-    setActive(item: Item) {
+    setActive(item: Item | null = this.#selectedItem) {
+        if (!item) return;
+
+        this.#selectedItem = item;
+
         if (this.#orientation === "portrait") {
             const select = this.element?.querySelector("select");
             if (!select) return;
@@ -163,6 +168,8 @@ export default class Menu<Item extends MenuItem> extends Component {
                     this.#renderPortraitMenu();
                 }
             }
+
+            this.setActive();
         });
 
         this.#resizeObserver.observe(this.element!);

@@ -112,16 +112,18 @@ export default class Decisions extends Page {
         });
 
         this.renderAllComponents();
-        // Next tick
+
+        // Wait until menu is rendered
         window.setTimeout(() => {
             menu.setActive(this.#currentDecision!);
             this.#renderTitle();
             // TODO: set link events
-        }, 0);
+        }, 100);
     }
 
     clear(): void {
         this.removeAllComponents();
+        this.container!.classList.remove(styles.decisions);
         this.container!.innerHTML = "";
     }
 }

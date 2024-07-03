@@ -30,13 +30,3 @@
     color: var(--color-foreground);
     pointer-events: none;
 }
-
-@media (min-width: 720px) {
-    .navigation {
-        flex-direction: row;
-
-        section {
-            max-width: 50%;
-        }
-    }
-}
