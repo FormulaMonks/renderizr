@@ -136,6 +136,10 @@ a:hover {
     text-align: left;
     width: initial;
   }
+
+  #page-content {
+    overflow: hidden;
+  }
 }
 
 @media (prefers-color-scheme: light) {

@@ -72,6 +72,32 @@ export default class Decisions extends Page {
         `;
     }
 
+    #addLinkEvents() {
+        const links = this.container?.querySelectorAll("#decision-content a");
+
+        if (!links) return;
+
+        for (const link of links) {
+            link.addEventListener("click", (e) => {
+                if (
+                    !(e.target as HTMLAnchorElement)?.attributes
+                        .getNamedItem("href")
+                        ?.value.startsWith("#")
+                )
+                    return;
+
+                e.preventDefault();
+                const href = (e.target as HTMLAnchorElement).href;
+                const adrId = href.split("#")[1];
+                const decision = this.#decisions.find((d) => d.id === adrId);
+                if (decision) {
+                    const menu = this.components.get("Menu") as Menu<Decision>;
+                    menu?.setActive(decision);
+                }
+            });
+        }
+    }
+
     #decisionTitle = (item: Decision) => `#${item.id} - ${item.title}`;
 
     render() {
@@ -109,6 +135,7 @@ export default class Decisions extends Page {
             this.#renderTitle();
             this.#setAdrInUrl(item);
             this.container?.scrollTo(0, 0);
+            this.#addLinkEvents();
         });
 
         this.renderAllComponents();
@@ -117,7 +144,6 @@ export default class Decisions extends Page {
         window.setTimeout(() => {
             menu.setActive(this.#currentDecision!);
             this.#renderTitle();
-            // TODO: set link events
         }, 100);
     }
 
