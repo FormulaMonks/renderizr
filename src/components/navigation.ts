@@ -23,7 +23,7 @@ export default class Navigation extends Component {
         for (const link of this.#links()) {
             const handler = (evt: Event) => {
                 evt.preventDefault();
-                history.push(link.getAttribute("href")!);
+                history.push({ search: `page=${link.getAttribute("href")!}` });
             };
             link.addEventListener("click", handler);
             this.#linkEventHandlers.set(link, handler);
@@ -51,15 +51,16 @@ export default class Navigation extends Component {
                 <p>${this.#workspace.version ? `Version: ${this.#workspace.version} - ` : ""}Last modified: <strong>${new Date(this.#workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
             </section>
             <ul>
-                ${!diagramsAndDocs ? "" : '<li><a href="/diagrams">Diagrams</a></li>'}
-                ${this.#workspace.documentation.sections?.length ? `<li><a href="/docs">Documentation</a></li>` : ""}
-                ${this.#workspace.documentation.decisions?.length ? `<li><a href="/adrs">Decisions</a></li>` : ""}
+                ${!diagramsAndDocs ? "" : '<li><a href="diagrams">Diagrams</a></li>'}
+                ${this.#workspace.documentation.sections?.length ? `<li><a href="docs">Documentation</a></li>` : ""}
+                ${this.#workspace.documentation.decisions?.length ? `<li><a href="adrs">Decisions</a></li>` : ""}
             </ul>`;
 
         history.listen((update) => {
             for (const link of this.#links()) {
                 link.classList.remove(styles.navigationActive);
-                if (link.getAttribute("href") === update.location.pathname) {
+                const search = new URLSearchParams(update.location.search);
+                if (link.getAttribute("href") === search.get("page")) {
                     link.classList.add(styles.navigationActive);
                 }
             }

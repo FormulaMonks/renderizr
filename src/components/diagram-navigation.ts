@@ -67,13 +67,13 @@ export default class DiagramNavigation extends Component {
     }
 
     #setViewInUrl(viewKey: string) {
-        const search = new URLSearchParams(history?.location.search);
+        const search = new URLSearchParams(history.location.search);
         search.set("view", viewKey);
         history.push({ search: search.toString() });
     }
 
     #getViewFromUrl() {
-        const search = new URLSearchParams(window.location.search);
+        const search = new URLSearchParams(history.location.search);
         const view = search.get("view");
 
         if (this.#navElements.find((el) => el.key === view)) {

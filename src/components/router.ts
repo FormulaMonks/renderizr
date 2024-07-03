@@ -18,23 +18,22 @@ export default class Router extends Component {
             ]),
         );
 
-        const pageName = history.location.pathname.replace(/\/([^/]+).*/, "$1");
+        const search = new URLSearchParams(history.location.search);
+        const page = search.get("page");
 
         history.listen((update) => {
             const currentPageName = this.#currentPage?.name.toLowerCase();
-            const pageName = update.location.pathname.replace(
-                /\/([^/]+).*/,
-                "$1",
-            );
+            const search = new URLSearchParams(update.location.search);
+            const page = search.get("page");
 
-            if (currentPageName !== pageName) this.navigateTo(pageName);
+            if (page && currentPageName !== page) this.navigateTo(page);
         });
 
-        if (pageName === "/") {
+        if (!page) {
             const [firstPage] = this.#pages.keys();
             this.navigateTo(firstPage, history.location.search);
         } else {
-            this.navigateTo(pageName, history.location.search);
+            this.navigateTo(page, history.location.search);
         }
     }
 
@@ -50,7 +49,9 @@ export default class Router extends Component {
         }
 
         this.#currentPage = this.#pages.get(pageName)!;
-        history.push(`/${pageName}${search}`);
+        const newSearch = new URLSearchParams(search);
+        newSearch.set("page", pageName);
+        history.push({ search: newSearch.toString() });
         this.render();
     }
 
