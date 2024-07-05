@@ -31,7 +31,9 @@ export default class Decisions extends Page {
     #setAdrInUrl(adr: Decision) {
         const search = new URLSearchParams(history?.location.search);
         search.set("adr", adr.id);
-        history.push({ search: search.toString() });
+        history.push({
+            search: search.toString(),
+        });
     }
 
     #getAdrFromUrl() {

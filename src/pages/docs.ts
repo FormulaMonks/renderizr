@@ -26,6 +26,18 @@ export default class Docs extends Page {
                         .replace(/[-_]/g, " ")
                         .replace(/\.md$/, "")
                         .replace(/\b\w/g, (match) => match.toUpperCase());
+
+                const subtitles = Array.from(
+                    section.content.matchAll(
+                        /[^#]### (?:[_*]{1,2})?([^#_*\n]*)/g,
+                    ),
+                ).map((r) => ({
+                    id: r[1].replace(/ /g, "-").toLowerCase(),
+                    title: r[1],
+                }));
+
+                section.items = subtitles;
+
                 return section;
             });
     }
@@ -39,7 +51,9 @@ export default class Docs extends Page {
     #setSectionInUrl(section: DocumentationSection) {
         const search = new URLSearchParams(history.location.search);
         search.set("section", section.id);
-        history.push({ search: search.toString() });
+        history.push({
+            search: search.toString(),
+        });
     }
 
     render() {
@@ -67,6 +81,7 @@ export default class Docs extends Page {
             if (!section) return;
             this.#setSectionInUrl(section);
             docViewer.setContent(section.content);
+            this.container?.scrollTo(0, 0);
         });
 
         this.renderAllComponents();

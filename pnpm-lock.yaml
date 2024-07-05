@@ -35,6 +35,9 @@ importers:
       markdown-it:
         specifier: ^14.1.0
         version: 14.1.0
+      markdown-it-anchor:
+        specifier: ^9.0.1
+        version: 9.0.1(@types/markdown-it@14.1.1)(markdown-it@14.1.0)
       markdown-it-shift-headings:
         specifier: ^1.0.2
         version: 1.0.2
@@ -1008,6 +1011,12 @@ packages:
   log-update@6.0.0:
     resolution: {integrity: sha512-niTvB4gqvtof056rRIrTZvjNYE4rCUzO6X/X+kYjd7WFxXeJ0NwEFnRxX6ehkvv3jTwrXnNdtAak5XYZuIyPFw==}
     engines: {node: '>=18'}
+
+  markdown-it-anchor@9.0.1:
+    resolution: {integrity: sha512-cBt7aAzmkfX8X7FqAe8EBryiKmToXgMQEEMqkXzWCm0toDtfDYIGboKeTKd8cpNJArJtutrf+977wFJTsvNGmQ==}
+    peerDependencies:
+      '@types/markdown-it': '*'
+      markdown-it: '*'
 
   markdown-it-shift-headings@1.0.2:
     resolution: {integrity: sha512-drz+jnO+okFGJmOY7KGlEwbGJcPLkNR2aab8SyIN4df4Zb1hy7/+wLf08EN1ozNuD9q79jbjJ21MD9wdNZUWJw==}
@@ -2257,6 +2266,11 @@ snapshots:
       slice-ansi: 7.1.0
       strip-ansi: 7.1.0
       wrap-ansi: 9.0.0
+
+  markdown-it-anchor@9.0.1(@types/markdown-it@14.1.1)(markdown-it@14.1.0):
+    dependencies:
+      '@types/markdown-it': 14.1.1
+      markdown-it: 14.1.0
 
   markdown-it-shift-headings@1.0.2: {}
 

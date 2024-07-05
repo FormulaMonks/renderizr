@@ -17,6 +17,10 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+
+        ul {
+            padding-left: 0.5rem;
+        }
     }
 }
 

@@ -51,7 +51,10 @@ export default class Router extends Component {
         this.#currentPage = this.#pages.get(pageName)!;
         const newSearch = new URLSearchParams(search);
         newSearch.set("page", pageName);
-        history.push({ search: newSearch.toString() });
+        history.push({
+            search: newSearch.toString(),
+            hash: history.location.hash,
+        });
         this.render();
     }
 

@@ -2,6 +2,7 @@ import Component from "./_component";
 import markdownIt from "markdown-it";
 // @ts-ignore
 import shiftHeadings from "markdown-it-shift-headings";
+import anchor from "markdown-it-anchor";
 import hljs from "highlight.js/lib/common";
 import "highlight.js/styles/atom-one-dark-reasonable.min.css";
 import styles from "./markdown-renderer.module.css";
@@ -20,7 +21,9 @@ export default class MarkdownRenderer extends Component {
 
             return ""; // use external default escaping
         },
-    }).use(shiftHeadings);
+    })
+        .use(shiftHeadings)
+        .use(anchor);
 
     constructor(element: HTMLElement | null = null) {
         super(element);

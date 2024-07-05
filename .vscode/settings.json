@@ -4,6 +4,7 @@
     "editor.codeActionsOnSave": {
         "source.organizeImports.biome": "explicit"
     },
+    "todo-tree.filtering.excludeGlobs": ["**/submodules/**/*"],
     "[typescript]": {
         "editor.defaultFormatter": "biomejs.biome"
     },

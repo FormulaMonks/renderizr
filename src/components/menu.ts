@@ -1,7 +1,11 @@
 import Component from "./_component";
 import styles from "./menu.module.css";
 
-type MenuItem = { id: string; title: string };
+type MenuItem = {
+    id: string;
+    title: string;
+    items?: MenuItem[];
+};
 
 export default class Menu<Item extends MenuItem> extends Component {
     #items: Item[];
@@ -27,7 +31,7 @@ export default class Menu<Item extends MenuItem> extends Component {
                 );
             }
         } else {
-            const list = this.element?.querySelectorAll("ul > li > a");
+            const list = this.element?.querySelectorAll("ul > li a");
             if (list) {
                 for (const item of Array.from(list)) {
                     item.removeEventListener(
@@ -45,26 +49,37 @@ export default class Menu<Item extends MenuItem> extends Component {
         }
     }
 
+    #recursiveRenderLandscapeMenu(container: HTMLElement, items: Item[]) {
+        const subList = document.createElement("ul");
+
+        for (const subElement of items!) {
+            const subItem = document.createElement("li");
+            const subLink = document.createElement("a");
+
+            subLink.dataset.itemId = `${subElement.id}`;
+            subLink.href = `#${subElement.id}`;
+            subLink.textContent = this.#textContentFn(subElement as Item);
+            subItem.appendChild(subLink);
+            subList.appendChild(subItem);
+
+            subLink.addEventListener("click", this.#eventHandler.bind(this));
+
+            if (subElement.items?.length) {
+                this.#recursiveRenderLandscapeMenu(
+                    subItem,
+                    subElement.items as Item[],
+                );
+            }
+        }
+
+        container.appendChild(subList);
+    }
+
     #renderLandscapeMenu() {
         this.#orientation = "landscape";
         this.#clearMenu();
 
-        const list = document.createElement("ul");
-
-        for (const element of this.#items) {
-            const item = document.createElement("li");
-            const link = document.createElement("a");
-
-            link.dataset.itemId = `${element.id}`;
-            link.href = "#";
-            link.textContent = this.#textContentFn(element);
-            item.appendChild(link);
-            list.appendChild(item);
-
-            item.addEventListener("click", this.#eventHandler.bind(this));
-        }
-
-        this.element?.appendChild(list);
+        this.#recursiveRenderLandscapeMenu(this.element!, this.#items);
     }
 
     #renderPortraitMenu() {
@@ -75,6 +90,8 @@ export default class Menu<Item extends MenuItem> extends Component {
 
         for (const element of this.#items) {
             const item = document.createElement("option");
+
+            // TODO: Add support for nested items on mobile
 
             item.value = `${element.id}`;
             item.textContent = this.#textContentFn(element);
@@ -87,22 +104,46 @@ export default class Menu<Item extends MenuItem> extends Component {
     }
 
     #eventHandler(event: Event) {
-        event.preventDefault();
-
         let selectedItem: Item | undefined;
+        let alternateParent: Item | undefined;
+        let target: HTMLSelectElement | HTMLAnchorElement;
+
         if (this.#orientation === "portrait") {
-            const target = event.target as HTMLSelectElement;
-            selectedItem = this.#items.find((item) => item.id === target.value);
+            target = event.target as HTMLSelectElement;
+            selectedItem = this.#items.find(
+                (item) => item.id === (target as HTMLSelectElement).value,
+            );
         } else {
-            const target = event.target as HTMLAnchorElement;
+            target = event.target as HTMLAnchorElement;
             selectedItem = this.#items.find(
                 (item) => item.id === target.dataset?.itemId,
             );
+
+            const parent = target
+                .closest("a + ul")
+                ?.parentNode?.querySelector("a") as HTMLAnchorElement;
+
+            if (parent) {
+                const anchors =
+                    parent.nextElementSibling?.querySelectorAll("a");
+                if (anchors) {
+                    Array.from(anchors).map((item: HTMLAnchorElement) =>
+                        item.classList.remove(styles.active),
+                    );
+                }
+
+                alternateParent = this.#items.find(
+                    (item) => item.id === parent.dataset.itemId,
+                );
+            }
         }
 
-        if (selectedItem) {
-            this.setActive(selectedItem);
+        if (alternateParent !== this.#selectedItem || selectedItem) {
+            event.preventDefault();
+            this.setActive(alternateParent ?? selectedItem);
         }
+
+        target.classList.add(styles.active);
     }
 
     #emitItemSelection(item: Item) {
@@ -169,7 +210,7 @@ export default class Menu<Item extends MenuItem> extends Component {
                 }
             }
 
-            this.setActive();
+            // this.setActive();
         });
 
         this.#resizeObserver.observe(this.element!);
