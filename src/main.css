@@ -89,6 +89,7 @@ a:hover {
 #page-content {
   container: pageContent / size;
   height: 85dvh;
+  overflow-y: auto;
 }
 
 @media (orientation: landscape) {
@@ -102,7 +103,6 @@ a:hover {
     position: absolute;
     right: 0;
     top: 0;
-    font-size: 0.8rem;
     display: inline-flex;
     flex-direction: row;
     align-items: baseline;
@@ -114,7 +114,7 @@ a:hover {
   }
 
   #page-content {
-    overflow-y: auto;
+    overflow-x: hidden;
   }
 }
 
@@ -135,10 +135,6 @@ a:hover {
     display: flex;
     text-align: left;
     width: initial;
-  }
-
-  #page-content {
-    overflow: hidden;
   }
 }
 

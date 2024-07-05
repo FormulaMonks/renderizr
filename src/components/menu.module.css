@@ -7,6 +7,17 @@
         padding: 0.5rem;
         margin-top: 0.5rem;
     }
+
+    ul {
+        list-style: none;
+    }
+
+    li {
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
 
 .active {

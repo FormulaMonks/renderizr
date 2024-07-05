@@ -1,10 +1,12 @@
 .navigation {
     margin: 0 0 1rem;
+    font-size: 0.8rem;
     display: flex;
     flex-direction: column;
     place-content: space-between;
 
     ul {
+        list-style: none;
         display: flex;
         justify-content: flex-start;
         align-items: center;
@@ -29,4 +31,10 @@
     font-weight: 800;
     color: var(--color-foreground);
     pointer-events: none;
+}
+
+@media (orientation: landscape) and (min-width: 996px) {
+    .navigation {
+        font-size: 0.9rem;
+    }
 }

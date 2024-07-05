@@ -7,13 +7,14 @@
         display: flex;
         justify-content: flex-start;
         gap: 0.5rem;
+        list-style: none;
     }
 
     li {
         container: diagramButton / size;
         display: block;
         position: relative;
-        list-style-type: none;
+        list-style: none;
         background-color: var(--color-external);
         flex-grow: 0;
         flex-shrink: 0;

@@ -1,4 +1,7 @@
-import type { Decision } from "./structurizr-documentation";
+import type {
+    Decision,
+    DocumentationSection,
+} from "./structurizr-documentation";
 
 export type View = {
     key: string;
@@ -64,7 +67,7 @@ export type Workspace = {
     version?: string;
     model: Record<string, unknown>;
     documentation: {
-        sections: Record<string, unknown>[];
+        sections: DocumentationSection[];
         decisions: Decision[];
         images: Record<string, unknown>[];
     };

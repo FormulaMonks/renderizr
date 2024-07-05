@@ -28,7 +28,11 @@ async function init() {
 
     new Router(document.getElementById("page-content")!, [
         new DiagramsPage(null, "diagrams"),
-        new DocsPage(null, "docs"),
+        new DocsPage(
+            null,
+            "docs",
+            structurizr.workspace.documentation.sections,
+        ),
         new DecisionsPage(
             null,
             "adrs",
