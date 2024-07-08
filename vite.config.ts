@@ -32,6 +32,15 @@ export default async () => {
             target: "esnext",
             outDir: "./dist",
             cssCodeSplit: false,
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        if (id.includes("node_modules")) {
+                            return "vendor";
+                        }
+                    },
+                },
+            },
         },
         define: {
             workspaceData,

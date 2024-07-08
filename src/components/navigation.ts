@@ -36,14 +36,22 @@ export default class Navigation extends Component {
         }
     }
 
+    get hasDocs() {
+        return this.#workspace.documentation.sections?.length > 0;
+    }
+
+    get hasDecisions() {
+        return this.#workspace.documentation.decisions?.length > 0;
+    }
+
+    get hasDocsAndDecisions() {
+        return this.hasDocs && this.hasDecisions;
+    }
+
     render() {
         if (!(this.#workspace && this.element)) return;
 
         this.element.classList.add(styles.navigation);
-
-        const diagramsAndDocs =
-            this.#workspace.documentation.sections?.length &&
-            this.#workspace.documentation.decisions?.length;
 
         this.element.innerHTML = `
             <section>
@@ -51,9 +59,9 @@ export default class Navigation extends Component {
                 <p>${this.#workspace.version ? `Version: ${this.#workspace.version} - ` : ""}Last modified: <strong>${new Date(this.#workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
             </section>
             <ul>
-                ${!diagramsAndDocs ? "" : '<li><a href="diagrams">Diagrams</a></li>'}
-                ${this.#workspace.documentation.sections?.length ? `<li><a href="docs">Documentation</a></li>` : ""}
-                ${this.#workspace.documentation.decisions?.length ? `<li><a href="adrs">Decisions</a></li>` : ""}
+                ${!this.hasDocsAndDecisions ? "" : '<li><a href="diagrams">Diagrams</a></li>'}
+                ${this.hasDocs ? `<li><a href="docs">Documentation</a></li>` : ""}
+                ${this.hasDecisions ? `<li><a href="adrs">Decisions</a></li>` : ""}
             </ul>`;
 
         history.listen((update) => {
@@ -67,6 +75,8 @@ export default class Navigation extends Component {
         });
 
         this.#addEvents();
+
+        return this;
     }
 
     clear() {

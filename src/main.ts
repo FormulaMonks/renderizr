@@ -1,10 +1,9 @@
 import getStructurizr from "./structurizr.ts";
 import DiagramsPage from "./pages/diagrams.ts";
-import DocsPage from "./pages/docs.ts";
-import DecisionsPage from "./pages/adrs.ts";
 import "./main.css";
 import Router from "./components/router.ts";
 import Navigation from "./components/navigation.ts";
+import type Page from "./pages/_page.ts";
 
 async function init() {
     const structurizr = await getStructurizr();
@@ -21,24 +20,38 @@ async function init() {
         </main>
     `;
 
-    new Navigation(
+    const nav = new Navigation(
         document.getElementById("workspace-navigation")!,
         structurizr.workspace,
-    ).render();
+    );
 
-    new Router(document.getElementById("page-content")!, [
-        new DiagramsPage(null, "diagrams"),
-        new DocsPage(
-            null,
-            "docs",
-            structurizr.workspace.documentation.sections,
-        ),
-        new DecisionsPage(
-            null,
-            "adrs",
-            structurizr.workspace.documentation.decisions,
-        ),
-    ]);
+    nav.render();
+
+    const routes: Page[] = [new DiagramsPage(null, "diagrams")];
+
+    if (nav.hasDocs) {
+        const DocsPage = (await import("./pages/docs.ts")).default;
+        routes.push(
+            new DocsPage(
+                null,
+                "docs",
+                structurizr.workspace.documentation.sections,
+            ),
+        );
+    }
+
+    if (nav.hasDecisions) {
+        const DecisionsPage = (await import("./pages/adrs.ts")).default;
+        routes.push(
+            new DecisionsPage(
+                null,
+                "adrs",
+                structurizr.workspace.documentation.decisions,
+            ),
+        );
+    }
+
+    new Router(document.getElementById("page-content")!, routes);
 }
 
 init();

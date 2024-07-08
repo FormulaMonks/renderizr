@@ -82,13 +82,13 @@ a:hover {
 }
 
 .workspace-title, #workspace-navigation, #page-content {
-  padding-left: max(2rem, env(safe-area-inset-left));
-  padding-right: max(2rem, env(safe-area-inset-right));
+  padding-left: max(4rem, env(safe-area-inset-left));
+  padding-right: max(4rem, env(safe-area-inset-right));
 }
 
 #page-content {
   container: pageContent / size;
-  height: 85dvh;
+  height: calc(100dvh - 11rem); /* Header height */
   overflow-y: auto;
 }
 
@@ -115,6 +115,7 @@ a:hover {
 
   #page-content {
     overflow-x: hidden;
+    height: calc(100dvh - 4.5rem); /* Header height */
   }
 }
 
@@ -122,6 +123,10 @@ a:hover {
 @media (orientation: landscape) and (min-width: 996px) {
   :root {
     font-size: 16px;
+  }
+
+  #app {
+    overflow-y: hidden; /* Prevent double scrollbars */
   }
 
   .workspace-title {
