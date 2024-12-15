@@ -22,7 +22,12 @@ export default class CurrentView extends Component {
         [
             "dark-mode",
             (event: Event) => {
-                this.#diagram.setDarkMode(!this.#diagram.isDarkMode());
+                const isDarkMode = this.#diagram.isDarkMode();
+                this.#diagram.setDarkMode(!isDarkMode);
+                window.localStorage.setItem(
+                    "structurizr_cooper:darkModeDiagrams",
+                    !isDarkMode ? "dark" : "light",
+                );
                 (event.target as HTMLButtonElement).innerHTML =
                     this.#diagram.isDarkMode() ? darkModeIcon : lightModeIcon;
                 this.#diagram.stopAnimation();

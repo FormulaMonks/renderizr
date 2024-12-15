@@ -102,15 +102,22 @@ export default class Diagrams extends Page {
                     });
                     this.#resizeObserver.observe(document.body);
 
-                    const darkModePreference = window?.matchMedia(
-                        "(prefers-color-scheme: dark)",
-                    );
+                    const storedDarkModePreference =
+                        window.localStorage.getItem(
+                            "structurizr_cooper:darkModeDiagrams",
+                        );
+                    const darkModePreference = storedDarkModePreference
+                        ? storedDarkModePreference === "dark"
+                        : window?.matchMedia("(prefers-color-scheme: dark)")
+                              .matches;
 
-                    this.#diagram.setDarkMode(darkModePreference.matches);
+                    this.#diagram.setDarkMode(darkModePreference);
 
-                    darkModePreference.addEventListener("change", (e) =>
-                        this.#diagram?.setDarkMode(e.matches),
-                    );
+                    window
+                        ?.matchMedia("(prefers-color-scheme: dark)")
+                        .addEventListener("change", (e) => {
+                            this.#diagram?.setDarkMode(e.matches);
+                        });
 
                     const nav = this.addComponent(
                         new DiagramNavigation(
