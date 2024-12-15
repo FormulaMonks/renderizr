@@ -14,7 +14,6 @@ async function init() {
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         <main>
             <section class="workspace-header">
-                <h1 class="workspace-title">${structurizr.workspace.name}</h1>
                 <nav id="workspace-navigation"></nav>
                 <hr />
             </section>

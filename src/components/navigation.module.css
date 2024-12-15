@@ -27,14 +27,47 @@
     }
 }
 
+.workspaceTitle {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.titleAndDesc {
+    display: flex;
+    flex-direction: column;
+}
+
 .navigationActive {
     font-weight: 800;
     color: var(--color-foreground);
     pointer-events: none;
 }
 
+@media (orientation: landscape) {
+    .navigation, .titleAndDesc {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .titleAndDesc {
+        & section {
+            margin: 1rem 2rem 0;
+        }
+    }
+    .workspaceTitle {
+        font-size: 1.6em;
+    }
+}
+
 @media (orientation: landscape) and (min-width: 996px) {
     .navigation {
         font-size: 0.9rem;
+    }
+
+    .workspaceTitle {
+        font-size: 2.4em;
+        display: block;
+        width: initial;
     }
 }

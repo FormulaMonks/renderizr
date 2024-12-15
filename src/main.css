@@ -91,7 +91,7 @@ a:hover {
   }
 }
 
-.workspace-title, #workspace-navigation, #page-content {
+#workspace-navigation, #page-content {
   padding-left: max(var(--container-padding), env(safe-area-inset-left));
   padding-right: max(var(--container-padding), env(safe-area-inset-right));
 }
@@ -112,25 +112,6 @@ a:hover {
     --container-padding: 4rem;
   }
 
-  .workspace-title {
-    font-size: 1.6em;
-    display: inline-flex;
-    width: 20dvw;
-  }
-
-  #workspace-navigation {
-    position: absolute;
-    right: 0;
-    top: 0;
-    display: inline-flex;
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-top: 1rem;
-    gap: 2rem;
-    text-align: right;
-    vertical-align: middle;
-  }
 
   #page-content {
     overflow-x: hidden;
@@ -152,18 +133,6 @@ a:hover {
     overflow-y: hidden; /* Prevent double scrollbars */
   }
 
-  .workspace-title {
-    font-size: 2.4em;
-    display: block;
-    width: initial;
-  }
-
-  #workspace-navigation {
-    position: relative;
-    display: flex;
-    text-align: left;
-    width: initial;
-  }
 }
 
 @media (prefers-color-scheme: light) {

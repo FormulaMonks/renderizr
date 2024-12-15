@@ -143,7 +143,9 @@ export default class Menu<Item extends MenuItem> extends Component {
             this.setActive(alternateParent ?? selectedItem);
         }
 
-        target.classList.add(styles.active);
+        if (this.#orientation !== "portrait") {
+            target.classList.add(styles.active);
+        }
     }
 
     #emitItemSelection(item: Item) {
@@ -210,7 +212,7 @@ export default class Menu<Item extends MenuItem> extends Component {
                 }
             }
 
-            // this.setActive();
+            this.setActive(this.#selectedItem);
         });
 
         this.#resizeObserver.observe(this.element!);

@@ -54,10 +54,13 @@ export default class Navigation extends Component {
         this.element.classList.add(styles.navigation);
 
         this.element.innerHTML = `
-            <section>
-                <p>${this.#workspace.description}</p>
-                <p>${this.#workspace.version ? `Version: ${this.#workspace.version} - ` : ""}Last modified: <strong>${new Date(this.#workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
-            </section>
+            <div class="${styles.titleAndDesc}">
+                <h1 class="${styles.workspaceTitle}">${structurizr.workspace.name}</h1>
+                <section>
+                    <p>${this.#workspace.description}</p>
+                    <p>${this.#workspace.version ? `Version: ${this.#workspace.version} - ` : ""}Last modified: <strong>${new Date(this.#workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
+                </section>
+            </div>
             <ul>
                 ${!this.hasDocsAndDecisions ? "" : '<li><a href="diagrams">Diagrams</a></li>'}
                 ${this.hasDocs ? `<li><a href="docs">Documentation</a></li>` : ""}
