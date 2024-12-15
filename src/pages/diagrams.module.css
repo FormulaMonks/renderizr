@@ -1,7 +1,12 @@
+.pageContent {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
 
 .diagramTarget {
     width: 100cqw;
-    height: 50dvh;
+    height: calc(100cqh - var(--nav-button-height) - 3rem - 10rem);
     overflow: hidden;
 }
 
@@ -12,20 +17,20 @@
     overflow: hidden !important; 
 }
 
-@media (orientation: portrait) and (min-width: 720px) {
-    .diagramTarget {
-        height: 60dvh;
-    }
-}
-
 @media (orientation: landscape) {
+    .pageContent {
+        display: block;
+    }
     .diagramTarget {
-        height: 80dvh;
+        height: 100cqh;
     }
 }
 
 @media (orientation: landscape) and (min-width: 996px) {
+    .pageContent {
+        display: flex;
+    }
     .diagramTarget {
-        height: 55dvh;
+        height: calc(100cqh - var(--nav-button-height) - 10rem);
     }
 }

@@ -71,6 +71,8 @@ export default class Diagrams extends Page {
         if (!this.container) return;
         this.clear();
 
+        this.container.classList.add(styles.pageContent);
+
         this.container.innerHTML = `
             <section id="structurizr-current-view"></section>
             <div id="structurizr-diagram-target" class="${styles.diagramTarget}">
