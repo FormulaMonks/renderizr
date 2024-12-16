@@ -27,6 +27,8 @@ export default async () => {
         : // Otherwise, read the contents of the resolved file
           await readFile(resolve(process.cwd(), workspace), "utf-8");
 
+    process.env.VITE_WORKSPACE_NAME = JSON.parse(workspaceData).name;
+
     return defineConfig({
         build: {
             target: "esnext",

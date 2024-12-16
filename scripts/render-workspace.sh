@@ -11,7 +11,9 @@ if [ -f "$realpath" ]; then
     content="""
 workspace extends $(grealpath "$realpath" --relative-to="$(dirname "$realpath")") {
     !script groovy {
-        new com.structurizr.autolayout.graphviz.GraphvizAutomaticLayout().apply(workspace);
+        def graphviz = new com.structurizr.autolayout.graphviz.GraphvizAutomaticLayout();
+        graphviz.setRankDirection(com.structurizr.autolayout.graphviz.RankDirection.valueOf(\"LeftRight\"));
+        graphviz.apply(workspace);
     }
 }"""
 
