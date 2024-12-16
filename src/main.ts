@@ -18,6 +18,7 @@ async function init() {
                 <hr />
             </section>
             <section id="page-content"></section>
+            <footer id="disclaimer">Diagrams rendered using <a href="https://structurizr.com/" target="_blank">Structurizr</a> and <a href="https://c4model.com/" target="_blank">C4 notation.</a> Created with <a href="https://github.com/FormulaMonks/renderizr" target="_blank">Renderizr</a>.</footer>
         </main>
     `;
 
