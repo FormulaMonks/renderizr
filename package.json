@@ -3,11 +3,15 @@
     "private": true,
     "version": "0.0.0",
     "type": "module",
+    "bin": {
+        "build": "scripts/build.js",
+        "autolayout": "scripts/autolayout.js"
+    },
     "scripts": {
         "dev": "vite",
         "build": "tsc && vite build",
         "preview": "vite preview",
-        "prepare": "husky"
+        "prepare": "ls node_modules/.bin/husky && husky"
     },
     "devDependencies": {
         "@biomejs/biome": "^1.8.2",

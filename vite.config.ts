@@ -28,15 +28,25 @@ export default async () => {
           await readFile(resolve(process.cwd(), workspace), "utf-8");
 
     process.env.VITE_WORKSPACE_NAME = JSON.parse(workspaceData).name;
+    console.log(
+        `Building workspace to ${resolve(process.cwd(), "structurizr-output")}...`,
+    );
 
     return defineConfig({
         build: {
             target: "esnext",
-            outDir: "./dist",
+            outDir: resolve(process.cwd(), "structurizr-output"),
             cssCodeSplit: false,
+            emptyOutDir: true,
             rollupOptions: {
                 output: {
                     manualChunks(id) {
+                        if (id.includes("jointjs")) {
+                            return "joint";
+                        }
+                        if (id.includes("jquery")) {
+                            return "jquery";
+                        }
                         if (id.includes("node_modules")) {
                             return "vendor";
                         }
