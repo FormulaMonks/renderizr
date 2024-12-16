@@ -41,6 +41,7 @@ export default async () => {
             rollupOptions: {
                 output: {
                     manualChunks(id) {
+                        console.log("🦊", "id", id);
                         if (id.includes("jointjs")) {
                             return "joint";
                         }
