@@ -5,7 +5,7 @@ Render a [Structurizr](https://structurizr.com/) Workspace as a Static Page (SPA
 ## Usage
 
 ```bash
-npx github:@formula-monks/renderizr -- build {path/to/workspace.json}
+npx --package=github:@formulamonks/renderizr -- build {path/to/workspace.json}
 ```
 
 Where `{path/to/workspace.json}` can be either an accessible URL or a local path.
@@ -14,7 +14,7 @@ Where `{path/to/workspace.json}` can be either an accessible URL or a local path
 
 ```bash
 # This will render the default Structurizr example architecture
-npx github:@formula-monks/renderizr -- build https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
+npx --package=github:@formulamonks/renderizr -- build https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
 
 # Outputs to `./structurizr-output` Serve it with your favorite local static server
 npx servor structurizr-output
@@ -29,7 +29,7 @@ npx servor structurizr-output
 Structurizr doesn't know how to render manual layout views if they're not defined in the workspace. For that reason, Renderizr includes a utility command which treats all manual views with auto layout:
 
 ```bash
-npx github:@formula-monks/renderizr -- autolayout {path/to/workspace.json}
+npx --package=github:@formulamonks/renderizr -- autolayout {path/to/workspace.json}
 ```
 
 > [!WARNING] Important
