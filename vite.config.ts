@@ -48,7 +48,7 @@ export default async () => {
                         if (id.includes("jquery")) {
                             return "jquery";
                         }
-                        if (id.includes("node_modules")) {
+                        if (!id.includes("@formula-monks/renderizr")) {
                             return "vendor";
                         }
                     },
