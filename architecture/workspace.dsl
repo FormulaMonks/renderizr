@@ -1,4 +1,4 @@
-workspace "Structurizr Cooper" {
+workspace "Renderizr" {
     description "Render static versions of Structurizr Diagrams"
 
     !adrs decisions
@@ -11,6 +11,7 @@ workspace "Structurizr Cooper" {
         !include environments
 
         # Relationships
+        !include relationships/_external.dsl
         !include relationships/_people.dsl
         !include relationships/_system.dsl
     }

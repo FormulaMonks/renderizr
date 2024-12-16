@@ -1,0 +1,1 @@
+CLI = container "Command-Line Interface" "Renders diagrams, docs and ADRs" "Vite/Vanilla JS"

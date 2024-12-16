@@ -1,7 +1,7 @@
-StructurizrCooper = softwareSystem "Structurizr Cooper" {
+Renderizr = softwareSystem "Renderizr" {
     description "Static Architecture Page Generator"
 
-    !include ../containers/structurizr-cooper
+    !include ../containers/renderizr
 
     tags "System"
 }

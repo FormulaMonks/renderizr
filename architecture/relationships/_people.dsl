@@ -1,1 +1,1 @@
-Developer -> StructurizrCooper "Visits" "Web/HTTPS"
+Developer -> Renderizr "Uses" "NPM Module/Standalone Executable"

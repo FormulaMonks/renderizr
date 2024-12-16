@@ -3,56 +3,71 @@
   "description" : "Render static versions of Structurizr Diagrams",
   "documentation" : { },
   "id" : 1,
-  "lastModifiedAgent" : "structurizr-javascript",
-  "lastModifiedDate" : "2024-06-24T19:35:44Z",
+  "lastModifiedAgent" : "structurizr-ui",
+  "lastModifiedDate" : "2024-12-16T16:19:31Z",
   "model" : {
     "people" : [ {
       "description" : "Develops a solution",
-      "id" : "1",
+      "id" : "2",
       "location" : "Unspecified",
       "name" : "Developer",
       "properties" : {
         "structurizr.dsl.identifier" : "developer"
       },
       "relationships" : [ {
-        "description" : "Visits",
-        "destinationId" : "2",
-        "id" : "4",
-        "properties" : {
-          "structurizr.dsl.identifier" : "1f55a2c2-bed2-4594-a94a-36a3489967e8"
-        },
-        "sourceId" : "1",
+        "description" : "Uses",
+        "destinationId" : "3",
+        "id" : "6",
+        "sourceId" : "2",
         "tags" : "Relationship",
-        "technology" : "Web/HTTPS"
+        "technology" : "NPM Module/Standalone Executable"
       } ],
       "tags" : "Element,Person"
     } ],
     "softwareSystems" : [ {
+      "description" : "UI Module of Structurizr",
+      "documentation" : { },
+      "id" : "1",
+      "location" : "Unspecified",
+      "name" : "Structurizr/UI",
+      "properties" : {
+        "structurizr.dsl.identifier" : "structurizrui"
+      },
+      "tags" : "Element,Software System,External"
+    }, {
       "containers" : [ {
         "description" : "Renders diagrams, docs and ADRs",
         "documentation" : { },
-        "id" : "3",
-        "name" : "User Interface",
+        "id" : "4",
+        "name" : "Command-Line Interface",
         "properties" : {
-          "structurizr.dsl.identifier" : "userinterface"
+          "structurizr.dsl.identifier" : "cli"
         },
-        "tags" : "Element,Container,WebApp",
+        "tags" : "Element,Container",
         "technology" : "Vite/Vanilla JS"
       } ],
       "description" : "Static Architecture Page Generator",
       "documentation" : { },
-      "id" : "2",
+      "id" : "3",
       "location" : "Unspecified",
-      "name" : "Structurizr Cooper",
+      "name" : "Renderizr",
       "properties" : {
-        "structurizr.dsl.identifier" : "structurizrcooper"
+        "structurizr.dsl.identifier" : "renderizr"
       },
+      "relationships" : [ {
+        "description" : "Leverages",
+        "destinationId" : "1",
+        "id" : "5",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "Git Submodule"
+      } ],
       "tags" : "Element,Software System,System"
     } ]
   },
-  "name" : "Structurizr Cooper",
+  "name" : "Renderizr",
   "properties" : {
-    "structurizr.dsl" : "CndvcmtzcGFjZSBleHRlbmRzIHdvcmtzcGFjZS5qc29uIHsKICAgICFzY3JpcHQgZ3Jvb3Z5IHsKICAgICAgICBuZXcgY29tLnN0cnVjdHVyaXpyLmF1dG9sYXlvdXQuZ3JhcGh2aXouR3JhcGh2aXpBdXRvbWF0aWNMYXlvdXQoKS5hcHBseSh3b3Jrc3BhY2UpOwogICAgfQp9CiAgICAK"
+    "structurizr.dsl" : "d29ya3NwYWNlICJSZW5kZXJpenIiIHsKICAgIGRlc2NyaXB0aW9uICJSZW5kZXIgc3RhdGljIHZlcnNpb25zIG9mIFN0cnVjdHVyaXpyIERpYWdyYW1zIgoKICAgICFhZHJzIGRlY2lzaW9ucwogICAgIWRvY3MgZG9jcwoKICAgIG1vZGVsIHsKICAgICAgICAjIENvbnN0YW50cwoKICAgICAgICBTdHJ1Y3R1cml6clVpID0gc29mdHdhcmVTeXN0ZW0gIlN0cnVjdHVyaXpyL1VJIiAiVUkgTW9kdWxlIG9mIFN0cnVjdHVyaXpyIiB7CiAgICAgICAgICAgIHRhZ3MgIkV4dGVybmFsIgogICAgICAgIH0KICAgICAgICBEZXZlbG9wZXIgPSBwZXJzb24gIkRldmVsb3BlciIgIkRldmVsb3BzIGEgc29sdXRpb24iCiAgICAgICAgUmVuZGVyaXpyID0gc29mdHdhcmVTeXN0ZW0gIlJlbmRlcml6ciIgewogICAgICAgICAgICBkZXNjcmlwdGlvbiAiU3RhdGljIEFyY2hpdGVjdHVyZSBQYWdlIEdlbmVyYXRvciIKICAgICAgICAKICAgICAgICAgICAgQ0xJID0gY29udGFpbmVyICJDb21tYW5kLUxpbmUgSW50ZXJmYWNlIiAiUmVuZGVycyBkaWFncmFtcywgZG9jcyBhbmQgQURScyIgIlZpdGUvVmFuaWxsYSBKUyIKICAgICAgICAKICAgICAgICAgICAgdGFncyAiU3lzdGVtIgogICAgICAgIH0KCiAgICAgICAgIyBSZWxhdGlvbnNoaXBzCiAgICAgICAgUmVuZGVyaXpyIC0+IFN0cnVjdHVyaXpyVWkgIkxldmVyYWdlcyIgIkdpdCBTdWJtb2R1bGUiCiAgICAgICAgRGV2ZWxvcGVyIC0+IFJlbmRlcml6ciAiVXNlcyIgIk5QTSBNb2R1bGUvU3RhbmRhbG9uZSBFeGVjdXRhYmxlIgogICAgICAgICMgUmVuZGVyaXpyCiAgICB9CgogICAgdmlld3MgewogICAgICAgIHRoZW1lcyAiaHR0cHM6Ly9zdGF0aWMuc3RydWN0dXJpenIuY29tL3RoZW1lcy9kZWZhdWx0L3RoZW1lLmpzb24iCiAgICAgICAgIWNvbnN0IEFVVEhPUiAiQXV0aG9yOiBBbmRyw6lzIFpvcnJvIDxhbmRyZXMuem9ycm9AZm9ybXVsYS5jbz4iCgogICAgICAgIHN5c3RlbUNvbnRleHQgUmVuZGVyaXpyICJSZW5kZXJpenIiIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlN0YXRpYyBBcmNoaXRlY3R1cmUgUGFnZSBHZW5lcmF0b3IuICR7QVVUSE9SfSIgCiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgICAgICBhdXRvTGF5b3V0IGxyCiAgICAgICAgfQogICAgICAgIAogICAgICAgIGNvbnRhaW5lciBSZW5kZXJpenIgewogICAgICAgICAgICBkZXNjcmlwdGlvbiAiUmVuZGVycyBkaWFncmFtcywgZG9jcyBhbmQgQURScy4gJHtBVVRIT1J9IiAKICAgICAgICAgICAgaW5jbHVkZSAqCiAgICAgICAgICAgIGF1dG9sYXlvdXQgbHIKICAgICAgICB9CiAgICB9Cn0="
   },
   "views" : {
     "configuration" : {
@@ -75,24 +90,23 @@
       },
       "description" : "Renders diagrams, docs and ADRs. Author: Andrés Zorro <andres.zorro@formula.co>",
       "dimensions" : {
-        "height" : 958,
-        "width" : 1108
+        "height" : 811,
+        "width" : 1043
       },
       "elements" : [ {
-        "id" : "3",
-        "x" : 329,
-        "y" : 329
+        "id" : "4",
+        "x" : 296,
+        "y" : 220
       } ],
       "externalSoftwareSystemBoundariesVisible" : false,
       "generatedKey" : true,
       "key" : "Container-001",
       "order" : 2,
-      "paperSize" : "A6_Landscape",
-      "softwareSystemId" : "2"
+      "softwareSystemId" : "3"
     } ],
     "systemContextViews" : [ {
       "automaticLayout" : {
-        "applied" : false,
+        "applied" : true,
         "edgeSeparation" : 0,
         "implementation" : "Graphviz",
         "nodeSeparation" : 300,
@@ -102,26 +116,31 @@
       },
       "description" : "Static Architecture Page Generator. Author: Andrés Zorro <andres.zorro@formula.co>",
       "dimensions" : {
-        "height" : 716,
-        "width" : 1616
+        "height" : 800,
+        "width" : 2350
       },
       "elements" : [ {
         "id" : "1",
-        "x" : 208,
-        "y" : 208
+        "x" : 1700,
+        "y" : 200
       }, {
         "id" : "2",
-        "x" : 958,
-        "y" : 208
+        "x" : 200,
+        "y" : 200
+      }, {
+        "id" : "3",
+        "x" : 950,
+        "y" : 200
       } ],
       "enterpriseBoundaryVisible" : true,
-      "key" : "StructurizrCooper",
+      "key" : "Renderizr",
       "order" : 1,
-      "paperSize" : "A6_Landscape",
       "relationships" : [ {
-        "id" : "4"
+        "id" : "5"
+      }, {
+        "id" : "6"
       } ],
-      "softwareSystemId" : "2"
+      "softwareSystemId" : "3"
     } ]
   }
 }

@@ -1,2 +1,2 @@
-# Structurizr Cooper
-!include structurizr-cooper.dsl
+# Renderizr
+!include renderizr.dsl
