@@ -33,6 +33,7 @@ export default async () => {
     );
 
     return defineConfig({
+        base: "",
         build: {
             target: "esnext",
             outDir: resolve(process.cwd(), "structurizr-output"),

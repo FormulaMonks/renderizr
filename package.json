@@ -1,7 +1,7 @@
 {
     "name": "@formula-monks/renderizr",
     "private": true,
-    "version": "0.0.0",
+    "version": "0.0.1",
     "type": "module",
     "bin": {
         "build": "scripts/build.js",
