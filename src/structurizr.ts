@@ -6,6 +6,8 @@ import Backbone from "backbone";
 import lodash from "lodash";
 import * as joint from "jointjs";
 import canvg from "canvg";
+import dagre from "dagre";
+import graphlib from "graphlib";
 
 declare global {
     interface Window {
@@ -15,6 +17,8 @@ declare global {
         V: typeof joint.V;
         structurizr: typeof structurizr;
         canvg: typeof canvg;
+        dagre: typeof dagre;
+        graphlib: typeof graphlib;
     }
 }
 
@@ -26,6 +30,8 @@ async function getStructurizr() {
     window.Backbone = Backbone;
     window.V = joint.V;
     window.canvg = canvg;
+    window.dagre = dagre;
+    window.graphlib = graphlib;
 
     // biome-ignore lint/security/noGlobalEval: loading non-module
     eval?.(structurizrModule);
