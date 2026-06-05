@@ -22,7 +22,7 @@
         .section {
             width: calc(80cqw - 3rem);
             max-width: 996px;
-            margin: -2rem auto 2rem;
+            margin: 0 auto 2rem;
         }
     }
 }
