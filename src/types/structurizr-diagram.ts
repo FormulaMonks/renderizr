@@ -28,4 +28,13 @@ export type Diagram = {
     toggleDescription(): void;
     toggleMetadata(): void;
     zoomToWidthOrHeight(): void;
+    runDagre(
+        rankDirection: "TopBottom" | "BottomTop" | "LeftRight" | "RightLeft",
+        rankSeparation: number,
+        nodeSeparation: number,
+        edgeSeparation: number,
+        linkVertices: boolean,
+        margin: number,
+        resize: boolean,
+    ): void;
 };

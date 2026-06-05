@@ -2,13 +2,48 @@ import CurrentView from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
 import DraggableZone from "../components/draggable-zone";
 import type { Diagram } from "../types/structurizr-diagram";
-import type { StructurizrElement, View } from "../types/structurizr-workspace";
+import type {
+    AutomaticLayout,
+    StructurizrElement,
+    View,
+} from "../types/structurizr-workspace";
 import Page from "./_page";
 import styles from "./diagrams.module.css";
+
+const DEFAULT_AUTOMATIC_LAYOUT: AutomaticLayout = {
+    implementation: "Dagre",
+    rankDirection: "TopBottom",
+    rankSeparation: 300,
+    nodeSeparation: 300,
+    edgeSeparation: 100,
+    vertices: false,
+};
 
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
     #resizeObserver: ResizeObserver | null = null;
+
+    #applyAutoLayoutIfNeeded(viewKey: string) {
+        const view = structurizr.workspace.findViewByKey(viewKey);
+        if (!view?.automaticLayout) return;
+
+        const layout = view.automaticLayout;
+        this.#diagram?.runDagre(
+            layout.rankDirection ?? DEFAULT_AUTOMATIC_LAYOUT.rankDirection,
+            layout.rankSeparation < DEFAULT_AUTOMATIC_LAYOUT.rankSeparation
+                ? DEFAULT_AUTOMATIC_LAYOUT.rankSeparation
+                : layout.rankSeparation,
+            layout.nodeSeparation < DEFAULT_AUTOMATIC_LAYOUT.nodeSeparation
+                ? DEFAULT_AUTOMATIC_LAYOUT.nodeSeparation
+                : layout.nodeSeparation,
+            layout.edgeSeparation < DEFAULT_AUTOMATIC_LAYOUT.edgeSeparation
+                ? DEFAULT_AUTOMATIC_LAYOUT.edgeSeparation
+                : layout.edgeSeparation,
+            layout.vertices ?? DEFAULT_AUTOMATIC_LAYOUT.vertices,
+            50,
+            true,
+        );
+    }
 
     #navigateToContainer(id?: string) {
         if (!id) return;
@@ -70,6 +105,16 @@ export default class Diagrams extends Page {
     render() {
         if (!this.container) return;
         this.clear();
+
+        for (const view of structurizr.workspace.getViews()) {
+            if (view.automaticLayout || !view.elements?.length) continue;
+            const hasPositions = view.elements.some(
+                (element) => (element as { x?: number }).x !== undefined,
+            );
+            if (!hasPositions) {
+                (view as View).automaticLayout = DEFAULT_AUTOMATIC_LAYOUT;
+            }
+        }
 
         this.container.classList.add(styles.pageContent);
 
@@ -147,6 +192,7 @@ export default class Diagrams extends Page {
                             view?.softwareSystemId ??
                             view?.parentId;
 
+                        this.#applyAutoLayoutIfNeeded(viewKey);
                         draggableZone.render();
                         nav.changeView(viewKey);
                         currentView.render(

@@ -3,6 +3,15 @@ import type {
     DocumentationSection,
 } from "./structurizr-documentation";
 
+export type AutomaticLayout = {
+    implementation: "Dagre" | "Graphviz";
+    rankDirection: "TopBottom" | "BottomTop" | "LeftRight" | "RightLeft";
+    rankSeparation: number;
+    nodeSeparation: number;
+    edgeSeparation: number;
+    vertices: boolean;
+};
+
 export type View = {
     key: string;
     type:
@@ -20,6 +29,7 @@ export type View = {
     softwareSystemId?: string;
     parentId?: string;
     environment?: string;
+    automaticLayout?: AutomaticLayout;
 };
 
 type StructurizrBaseElement = {
