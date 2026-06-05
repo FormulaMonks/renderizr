@@ -108,9 +108,10 @@ export default class Diagrams extends Page {
 
         for (const view of structurizr.workspace.getViews()) {
             if (view.automaticLayout || !view.elements?.length) continue;
-            const hasPositions = view.elements.some(
-                (element) => (element as { x?: number }).x !== undefined,
-            );
+            const hasPositions = view.elements.some((element) => {
+                const el = element as { x?: number; y?: number };
+                return el.x !== undefined && el.x !== 0 && el.y !== 0;
+            });
             if (!hasPositions) {
                 (view as View).automaticLayout = DEFAULT_AUTOMATIC_LAYOUT;
             }
