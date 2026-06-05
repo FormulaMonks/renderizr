@@ -22,15 +22,34 @@ npx servor structurizr-output
 
 ---
 
-## Caveats
+## Local Development
 
-### Autolayout
-
-Structurizr doesn't know how to render manual layout views if they're not defined in the workspace. For that reason, Renderizr includes a utility command which treats all manual views with auto layout:
+### Setup
 
 ```bash
-npx --package=github:@formulamonks/renderizr -- autolayout {path/to/workspace.json}
+# Initialize the structurizr-ui submodule (required)
+git submodule update --init --recursive
+
+pnpm install
 ```
 
-> [!WARNING] Important
-> Manual views that already have layout will be overwritten by this command. Be careful, as manual edits might be lost
+### Dev server
+
+```bash
+pnpm dev -- {path/to/workspace.json}
+```
+
+### Build locally
+
+```bash
+pnpm build -- {path/to/workspace.json}
+# Outputs to ./structurizr-output/
+```
+
+> [!NOTE]
+> A `mise` task `workspace-dev` is defined in `.mise.toml` and points to `scripts/render-workspace.sh`. That script is not committed — create it as a personal convenience wrapper to avoid retyping the workspace path:
+>
+> ```bash
+> #!/bin/bash
+> pnpm dev -- ./path/to/your/local-workspace.json
+> ```
