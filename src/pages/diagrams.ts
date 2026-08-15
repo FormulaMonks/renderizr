@@ -25,9 +25,9 @@ const MIN_EDGE_SEPARATION = 40;
 
 const DARK_MODE_KEY = "structurizr_cooper:darkModeDiagrams";
 
-/** A sliver is unreadable; beyond a dozen screens, nothing is findable. */
+/** A sliver is unreadable; past a few screens, nothing is findable. */
 const MIN_CANVAS_HEIGHT = 220;
-const MAX_CANVAS_HEIGHT = 12;
+const MAX_CANVAS_HEIGHT = 4;
 
 /**
  * How much smaller a diagram may get in exchange for fitting on one screen.
@@ -38,14 +38,29 @@ const LEGIBLE_SHRINK = 0.62;
 /** Breathing room under the canvas when it is sized to the screen. */
 const CANVAS_BOTTOM_MARGIN = 24;
 
+/** Whether a view already carries coordinates worth rendering. */
+const hasStoredPositions = (view: View) =>
+    Boolean(
+        view.elements?.some((element) => {
+            const { x, y } = element as { x?: number; y?: number };
+            return x !== undefined && y !== undefined && (x !== 0 || y !== 0);
+        }),
+    );
+
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
     #resizeObserver: ResizeObserver | null = null;
     #lastWidth = 0;
 
-    #applyAutoLayoutIfNeeded(viewKey: string) {
+    #applyAutoLayoutIfNeeded(viewKey: string): boolean {
         const view = structurizr.workspace.findViewByKey(viewKey);
-        if (!view?.automaticLayout) return;
+        if (!view?.automaticLayout) return false;
+
+        // A view can declare automatic layout and still ship the coordinates
+        // that layout produced. Recomputing them throws away a result the
+        // author has seen and approved, and Dagre's own answer is usually a
+        // tall single column where the stored one is wide and readable.
+        if (hasStoredPositions(view)) return false;
 
         const layout = view.automaticLayout;
         // A workspace that states its own separations means them. Overriding
@@ -60,6 +75,8 @@ export default class Diagrams extends Page {
             50,
             true,
         );
+
+        return true;
     }
 
     /**
@@ -76,9 +93,10 @@ export default class Diagrams extends Page {
         const target = document.getElementById("structurizr-diagram-target");
         if (!target || !this.#diagram) return;
 
-        // Views with fixed element positions carry a paper far larger than
-        // their content, which would otherwise become dead space above and
-        // below the diagram. Shrink the paper to the content first.
+        // Only views laid out from stored positions need repagination: those
+        // carry a paper far larger than their content. An auto-laid-out view
+        // has just been given a tight paper by runDagre, and autoPageSize
+        // would wrap it in another 400px of margin.
         if (repaginate) this.#diagram.autoPageSize();
 
         const width = this.#diagram.getWidth();
@@ -195,11 +213,7 @@ export default class Diagrams extends Page {
 
         for (const view of structurizr.workspace.getViews()) {
             if (view.automaticLayout || !view.elements?.length) continue;
-            const hasPositions = view.elements.some((element) => {
-                const el = element as { x?: number; y?: number };
-                return el.x !== undefined && el.x !== 0 && el.y !== 0;
-            });
-            if (!hasPositions) {
+            if (!hasStoredPositions(view)) {
                 (view as View).automaticLayout = DEFAULT_AUTOMATIC_LAYOUT;
             }
         }
@@ -284,8 +298,10 @@ export default class Diagrams extends Page {
                             view?.softwareSystemId ??
                             view?.parentId;
 
-                        this.#applyAutoLayoutIfNeeded(viewKey);
-                        this.#fitDiagram(true);
+                        const laidOut = this.#applyAutoLayoutIfNeeded(viewKey);
+                        // runDagre has already given an auto-laid-out view a
+                        // tight paper; only stored-position views need one.
+                        this.#fitDiagram(!laidOut);
                         nav.changeView(viewKey);
                         currentView.render(
                             view,
