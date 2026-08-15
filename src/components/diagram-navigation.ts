@@ -7,7 +7,7 @@ import containerIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/b
 import componentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/box-seam.svg?raw";
 import deploymentIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/rocket-takeoff.svg?raw";
 import styles from "./diagram-navigation.module.css";
-import history from "history/browser";
+import history from "history/hash";
 import Component from "./_component";
 
 const DiagramIcon = new Map([
@@ -28,6 +28,7 @@ export default class DiagramNavigation extends Component {
     > = new Map();
 
     #resizeObserver: ResizeObserver | null = null;
+    #unlisten: (() => void) | null = null;
 
     constructor(element: HTMLElement, diagram: Diagram, navElements: View[]) {
         super(element);
@@ -68,8 +69,29 @@ export default class DiagramNavigation extends Component {
 
     #setViewInUrl(viewKey: string) {
         const search = new URLSearchParams(history.location.search);
+        if (search.get("view") === viewKey) return;
         search.set("view", viewKey);
         history.push({ search: search.toString() });
+    }
+
+    /**
+     * Back, forward, and a link pasted into an already-open tab all arrive
+     * here. Without this the URL and the diagram on screen drift apart.
+     */
+    #followUrl = (search: string) => {
+        const viewKey = new URLSearchParams(search).get("view");
+        if (!viewKey) return;
+        if (this.#diagram.getCurrentView()?.key === viewKey) return;
+        if (!this.#navElements.some((el) => el.key === viewKey)) return;
+
+        this.changeView(viewKey);
+    };
+
+    /** Keeps the selected card in sight when the strip has scrolled away. */
+    #revealActive(viewKey: string) {
+        this.element
+            ?.querySelector(`ul > li[data-viewkey="${viewKey}"]`)
+            ?.scrollIntoView({ block: "nearest", inline: "nearest" });
     }
 
     #getViewFromUrl() {
@@ -88,15 +110,19 @@ export default class DiagramNavigation extends Component {
             this.element?.querySelectorAll<HTMLDataListElement>("ul > li") ??
                 [],
         )) {
+            const button = el.querySelector("button");
             if (el.dataset.viewkey === viewKey) {
                 el.classList.add(styles.active);
+                button?.setAttribute("aria-current", "true");
             } else {
                 el.classList.remove(styles.active);
+                button?.removeAttribute("aria-current");
             }
         }
 
         if (viewKey) {
             this.#setViewInUrl(viewKey);
+            this.#revealActive(viewKey);
             this.#diagram.changeView(viewKey);
         }
     }
@@ -119,12 +145,26 @@ export default class DiagramNavigation extends Component {
 
         for (const view of this.#navElements) {
             const li = document.createElement("li");
-            const a = document.createElement("a");
+            const button = document.createElement("button");
             li.dataset.viewkey = view.key;
-            a.href = "#";
-            a.textContent = view.key;
-            li.innerHTML = `${DiagramIcon.get(view.type) ?? ""}`;
-            li.appendChild(a);
+            button.type = "button";
+
+            // getTitleForView prefixes a bracketed kind when the view has no
+            // title of its own; the icon already carries the kind, so drop the
+            // brackets and keep the kind only when nothing else remains.
+            const title = structurizr.ui.getTitleForView(view);
+            const name =
+                title.replace(/^\[([^\]]+)\]\s*/, "").trim() ||
+                title.replace(/[[\]]/g, "");
+
+            button.title = `${name} (#${view.key})`;
+            button.setAttribute("aria-label", button.title);
+            button.innerHTML = `
+                ${DiagramIcon.get(view.type) ?? ""}
+                <span class="${styles.name}">${name}</span>
+                <span class="${styles.key}">#${view.key}</span>
+            `;
+            li.appendChild(button);
             ul.appendChild(li);
         }
 
@@ -140,12 +180,20 @@ export default class DiagramNavigation extends Component {
                     `ul > li[data-viewkey="${startingViewKey}"]`,
                 )
                 ?.classList.add(styles.active);
+            this.#revealActive(startingViewKey);
         }
         this.#addEvents();
+
+        this.#unlisten?.();
+        this.#unlisten = history.listen((update) =>
+            this.#followUrl(update.location.search),
+        );
     }
 
     clear() {
         this.#removeEvents();
+        this.#unlisten?.();
+        this.#unlisten = null;
         if (this.#resizeObserver) {
             this.#resizeObserver.disconnect();
         }

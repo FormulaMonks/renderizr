@@ -199,10 +199,11 @@ export default class Menu<Item extends MenuItem> extends Component {
         this.#resizeObserver = new ResizeObserver(() => {
             if (!this.element) return;
 
-            const orientationLandscape = window?.matchMedia(
-                "(orientation: landscape)",
-            );
-            if (orientationLandscape.matches) {
+            // Width, not orientation: a phone held sideways is still a phone,
+            // and a tall desktop window still has room for a sidebar.
+            const wideEnoughForSidebar =
+                window?.matchMedia("(min-width: 900px)");
+            if (wideEnoughForSidebar.matches) {
                 if (this.#orientation !== "landscape") {
                     this.#renderLandscapeMenu();
                 }

@@ -2,6 +2,7 @@ import type { View } from "./structurizr-workspace";
 
 export type Diagram = {
     animationStarted(): boolean;
+    autoPageSize(): void;
     changeView(key: string): void;
     currentViewHasAnimation(): boolean;
     currentViewIsDynamic(): boolean;
@@ -11,7 +12,11 @@ export type Diagram = {
         callback?: (png: string) => void,
     ): string;
     getCurrentView(): View;
+    getWidth(): number;
+    getHeight(): number;
     isDarkMode(): boolean;
+    zoomIn(event?: Event): void;
+    zoomOut(event?: Event): void;
     onAnimationStarted(callback: () => void): void;
     onAnimationStopped(callback: () => void): void;
     onElementDoubleClicked(

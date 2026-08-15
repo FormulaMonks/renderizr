@@ -8,7 +8,7 @@
     },
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build",
+        "build": "tsc && node scripts/build.js",
         "preview": "vite preview",
         "prepare": "ls node_modules/.bin/husky && husky"
     },
@@ -16,7 +16,6 @@
         "@biomejs/biome": "^1.8.2",
         "@commitlint/cli": "^19.3.0",
         "@commitlint/config-conventional": "^19.2.2",
-        "@types/backbone": "^1.4.19",
         "@types/jquery": "^3.5.30",
         "@types/lodash": "^4.17.5",
         "@types/markdown-it": "^14.1.1",
@@ -27,9 +26,6 @@
         "typescript": "^5.5.2"
     },
     "dependencies": {
-        "@panzoom/panzoom": "^4.5.1",
-        "backbone": "1.4.1",
-        "canvg": "1.5.3",
         "dagre": "~0.8.5",
         "graphlib": "~2.1.8",
         "highlight.js": "^11.9.0",

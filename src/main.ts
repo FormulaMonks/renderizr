@@ -1,3 +1,4 @@
+import { applyTheme, readSetting } from "./storage.ts";
 import getStructurizr from "./structurizr.ts";
 import DiagramsPage from "./pages/diagrams.ts";
 import "./main.css";
@@ -6,6 +7,15 @@ import Navigation from "./components/navigation.ts";
 import type Page from "./pages/_page.ts";
 
 async function init() {
+    // Before the first paint, so the documentation and decision pages open in
+    // the same theme the diagrams were last left in.
+    const storedTheme = readSetting("structurizr_cooper:darkModeDiagrams");
+    applyTheme(
+        storedTheme
+            ? storedTheme === "dark"
+            : window.matchMedia("(prefers-color-scheme: dark)").matches,
+    );
+
     const structurizr = await getStructurizr();
 
     // Load workspace from global variable

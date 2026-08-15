@@ -1,7 +1,7 @@
 import type { Location } from "history";
 import type Page from "../pages/_page";
 import Component from "./_component";
-import history from "history/browser";
+import history from "history/hash";
 
 export default class Router extends Component {
     #pageContainer: HTMLElement;

@@ -1,6 +1,6 @@
 import CurrentView from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
-import DraggableZone from "../components/draggable-zone";
+import { applyTheme, readSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
 import type {
     AutomaticLayout,
@@ -19,31 +19,118 @@ const DEFAULT_AUTOMATIC_LAYOUT: AutomaticLayout = {
     vertices: false,
 };
 
+/** Enough to keep relationship labels from colliding, and no more. */
+const MIN_SEPARATION = 150;
+const MIN_EDGE_SEPARATION = 40;
+
+const DARK_MODE_KEY = "structurizr_cooper:darkModeDiagrams";
+
+/** A sliver is unreadable; beyond a dozen screens, nothing is findable. */
+const MIN_CANVAS_HEIGHT = 220;
+const MAX_CANVAS_HEIGHT = 12;
+
+/**
+ * How much smaller a diagram may get in exchange for fitting on one screen.
+ * Above this, fitting costs too much legibility and the page scrolls instead.
+ */
+const LEGIBLE_SHRINK = 0.62;
+
+/** Breathing room under the canvas when it is sized to the screen. */
+const CANVAS_BOTTOM_MARGIN = 24;
+
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
     #resizeObserver: ResizeObserver | null = null;
+    #lastWidth = 0;
 
     #applyAutoLayoutIfNeeded(viewKey: string) {
         const view = structurizr.workspace.findViewByKey(viewKey);
         if (!view?.automaticLayout) return;
 
         const layout = view.automaticLayout;
+        // A workspace that states its own separations means them. Overriding
+        // them upwards is what turned four boxes into three screens of
+        // scrolling; the floor below only catches values low enough to overlap.
         this.#diagram?.runDagre(
             layout.rankDirection ?? DEFAULT_AUTOMATIC_LAYOUT.rankDirection,
-            layout.rankSeparation < DEFAULT_AUTOMATIC_LAYOUT.rankSeparation
-                ? DEFAULT_AUTOMATIC_LAYOUT.rankSeparation
-                : layout.rankSeparation,
-            layout.nodeSeparation < DEFAULT_AUTOMATIC_LAYOUT.nodeSeparation
-                ? DEFAULT_AUTOMATIC_LAYOUT.nodeSeparation
-                : layout.nodeSeparation,
-            layout.edgeSeparation < DEFAULT_AUTOMATIC_LAYOUT.edgeSeparation
-                ? DEFAULT_AUTOMATIC_LAYOUT.edgeSeparation
-                : layout.edgeSeparation,
+            Math.max(layout.rankSeparation ?? 0, MIN_SEPARATION),
+            Math.max(layout.nodeSeparation ?? 0, MIN_SEPARATION),
+            Math.max(layout.edgeSeparation ?? 0, MIN_EDGE_SEPARATION),
             layout.vertices ?? DEFAULT_AUTOMATIC_LAYOUT.vertices,
             50,
             true,
         );
     }
+
+    /**
+     * Size the canvas from the diagram's own aspect ratio.
+     *
+     * A diagram that fits the screen at full width gets exactly the height it
+     * needs — no letterbox. A diagram too tall for that has two options, and
+     * legibility decides between them: if squeezing it onto one screen would
+     * cost less than a third of its size, it is squeezed; if it would shrink
+     * to something nobody can read, the canvas keeps full width and the page
+     * simply gets longer, to be scrolled like any other long page.
+     */
+    #fitDiagram = (repaginate = false) => {
+        const target = document.getElementById("structurizr-diagram-target");
+        if (!target || !this.#diagram) return;
+
+        // Views with fixed element positions carry a paper far larger than
+        // their content, which would otherwise become dead space above and
+        // below the diagram. Shrink the paper to the content first.
+        if (repaginate) this.#diagram.autoPageSize();
+
+        const width = this.#diagram.getWidth();
+        const height = this.#diagram.getHeight();
+        const available = target.clientWidth;
+
+        if (width > 0 && height > 0 && available > 0) {
+            const atFullWidth = (available * height) / width;
+            const footer =
+                document.getElementById("disclaimer")?.offsetHeight ?? 0;
+            const onScreen = Math.max(
+                MIN_CANVAS_HEIGHT,
+                window.innerHeight -
+                    (target.getBoundingClientRect().top + window.scrollY) -
+                    footer -
+                    CANVAS_BOTTOM_MARGIN,
+            );
+
+            const fits = atFullWidth <= onScreen;
+            const worthSqueezing = onScreen / atFullWidth >= LEGIBLE_SHRINK;
+
+            target.style.height = `${Math.round(
+                fits || worthSqueezing
+                    ? Math.min(atFullWidth, onScreen)
+                    : Math.min(
+                          atFullWidth,
+                          window.innerHeight * MAX_CANVAS_HEIGHT,
+                      ),
+            )}px`;
+        }
+
+        // zoomFitWidth ends by reading the viewport's offset, which is only
+        // correct once the height above has been laid out.
+        requestAnimationFrame(() => {
+            this.#diagram?.resize();
+            this.#diagram?.zoomToWidthOrHeight();
+        });
+    };
+
+    /** Plain wheel scrolls the page; only a deliberate modifier zooms. */
+    #handleWheel = (event: WheelEvent) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (event.deltaY < 0) {
+            this.#diagram?.zoomIn(event);
+        } else {
+            this.#diagram?.zoomOut(event);
+        }
+    };
 
     #navigateToContainer(id?: string) {
         if (!id) return;
@@ -121,10 +208,10 @@ export default class Diagrams extends Page {
 
         this.container.innerHTML = `
             <section id="structurizr-current-view"></section>
+            <div id="structurizr-diagram-navigation"></div>
             <div id="structurizr-diagram-target" class="${styles.diagramTarget}">
                 <div class="loading">Loading workspace...</div>
             </div>
-            <div id="structurizr-diagram-navigation"></div>
         `;
 
         structurizr.ui.loadThemes(() => {
@@ -136,34 +223,38 @@ export default class Diagrams extends Page {
                     document.querySelector(".loading")?.remove();
                     this.#diagram.setNavigationEnabled(true);
 
-                    const draggableZone = new DraggableZone(
-                        document.querySelector(
-                            "#structurizr-diagram-target-canvas",
-                        ) as HTMLElement,
+                    document
+                        .getElementById("structurizr-diagram-target")
+                        ?.addEventListener("wheel", this.#handleWheel, {
+                            passive: false,
+                        });
+
+                    // Width only: the canvas height is derived from the width,
+                    // so observing height as well would feed back on itself.
+                    this.#resizeObserver = new ResizeObserver(([entry]) => {
+                        const width = Math.round(entry.contentRect.width);
+                        if (width === this.#lastWidth) return;
+                        this.#lastWidth = width;
+                        this.#fitDiagram();
+                    });
+                    this.#resizeObserver.observe(this.container!);
+
+                    const stored = readSetting(DARK_MODE_KEY);
+                    const prefersDark = window?.matchMedia(
+                        "(prefers-color-scheme: dark)",
                     );
 
-                    this.#resizeObserver = new ResizeObserver(() => {
-                        this.#diagram?.resize();
-                        this.#diagram?.zoomToWidthOrHeight();
+                    const dark = stored
+                        ? stored === "dark"
+                        : prefersDark.matches;
+                    this.#diagram.setDarkMode(dark);
+                    applyTheme(dark);
+
+                    prefersDark.addEventListener("change", (e) => {
+                        if (readSetting(DARK_MODE_KEY)) return;
+                        this.#diagram?.setDarkMode(e.matches);
+                        applyTheme(e.matches);
                     });
-                    this.#resizeObserver.observe(document.body);
-
-                    const storedDarkModePreference =
-                        window.localStorage.getItem(
-                            "structurizr_cooper:darkModeDiagrams",
-                        );
-                    const darkModePreference = storedDarkModePreference
-                        ? storedDarkModePreference === "dark"
-                        : window?.matchMedia("(prefers-color-scheme: dark)")
-                              .matches;
-
-                    this.#diagram.setDarkMode(darkModePreference);
-
-                    window
-                        ?.matchMedia("(prefers-color-scheme: dark)")
-                        .addEventListener("change", (e) => {
-                            this.#diagram?.setDarkMode(e.matches);
-                        });
 
                     const nav = this.addComponent(
                         new DiagramNavigation(
@@ -181,7 +272,7 @@ export default class Diagrams extends Page {
                                 "#structurizr-current-view",
                             ) as HTMLElement,
                             this.#diagram,
-                            draggableZone,
+                            this.#fitDiagram,
                         ),
                     );
 
@@ -194,7 +285,7 @@ export default class Diagrams extends Page {
                             view?.parentId;
 
                         this.#applyAutoLayoutIfNeeded(viewKey);
-                        draggableZone.render();
+                        this.#fitDiagram(true);
                         nav.changeView(viewKey);
                         currentView.render(
                             view,
@@ -204,6 +295,9 @@ export default class Diagrams extends Page {
                                   )
                                 : undefined,
                         );
+                        // A previous view may have left the page scrolled a
+                        // few thousand pixels down.
+                        window.scrollTo({ top: 0 });
                     });
 
                     this.#diagram.onElementDoubleClicked(
@@ -218,7 +312,11 @@ export default class Diagrams extends Page {
 
     clear() {
         this.removeAllComponents();
-        if (this.#resizeObserver) this.#resizeObserver.disconnect();
+        this.#resizeObserver?.disconnect();
+        this.#lastWidth = 0;
+        document
+            .getElementById("structurizr-diagram-target")
+            ?.removeEventListener("wheel", this.#handleWheel);
         this.container!.innerHTML = "";
     }
 }

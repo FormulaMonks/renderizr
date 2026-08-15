@@ -1,57 +1,21 @@
-import structurizrModule from "../submodules/structurizr-ui/src/js/structurizr.js?raw";
-import "jointjs/dist/joint.css";
-import "../submodules/structurizr-ui/src/css/structurizr-diagram.css";
-import $ from "jquery";
-import Backbone from "backbone";
-import lodash from "lodash";
-import * as joint from "jointjs";
-import canvg from "canvg";
-import dagre from "dagre";
-import graphlib from "graphlib";
-
-declare global {
-    interface Window {
-        $: typeof $;
-        _: typeof lodash;
-        jQuery: typeof $;
-        V: typeof joint.V;
-        structurizr: typeof structurizr;
-        canvg: typeof canvg;
-        dagre: typeof dagre;
-        graphlib: typeof graphlib;
-    }
-}
+// Static imports in a guaranteed evaluation order: the globals must exist
+// before structurizr.js runs, and each of the four files that follow reads the
+// `structurizr` namespace the one before it extended. Loading them any other
+// way (eval, dynamic import) either breaks under a strict CSP or leaves the
+// order at the mercy of the bundler.
+import "./structurizr-globals";
+import "../submodules/structurizr-ui/src/js/structurizr.js";
+import "../submodules/structurizr-ui/src/js/structurizr-util.js";
+import "../submodules/structurizr-ui/src/js/structurizr-ui.js";
+import "../submodules/structurizr-ui/src/js/structurizr-workspace.js";
+import "../submodules/structurizr-ui/src/js/structurizr-diagram.js";
 
 async function getStructurizr() {
-    window.$ = window.jQuery = $;
-    window.joint = joint;
-    // @ts-expect-error
-    window._ = lodash;
-    window.Backbone = Backbone;
-    window.V = joint.V;
-    window.canvg = canvg;
-    window.dagre = dagre;
-    window.graphlib = graphlib;
-
-    // biome-ignore lint/security/noGlobalEval: loading non-module
-    eval?.(structurizrModule);
-
-    if (!structurizr) {
+    if (!window.structurizr) {
         throw new Error("Structurizr module not found");
     }
 
-    await Promise.all([
-        // @ts-expect-error
-        import("../submodules/structurizr-ui/src/js/structurizr-util.js"),
-        // @ts-expect-error
-        import("../submodules/structurizr-ui/src/js/structurizr-ui.js"),
-        // @ts-expect-error
-        import("../submodules/structurizr-ui/src/js/structurizr-workspace.js"),
-        // @ts-expect-error
-        import("../submodules/structurizr-ui/src/js/structurizr-diagram.js"),
-    ]);
-
-    return structurizr;
+    return window.structurizr;
 }
 
 export default getStructurizr;
