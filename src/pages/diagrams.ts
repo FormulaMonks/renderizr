@@ -1,6 +1,8 @@
-import CurrentView from "../components/current-view";
+import CurrentView, {
+    applyDiagramTheme,
+    getDiagramTheme,
+} from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
-import { applyTheme, readSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
 import type {
     AutomaticLayout,
@@ -23,8 +25,6 @@ const defaultAutomaticLayout = (): AutomaticLayout => ({
     edgeSeparation: structurizr.ui.DEFAULT_AUTOLAYOUT_EDGE_SEPARATION,
     vertices: structurizr.ui.DEFAULT_AUTOLAYOUT_VERTICES,
 });
-
-const DARK_MODE_KEY = "structurizr_cooper:darkModeDiagrams";
 
 /** A sliver is unreadable; past a few screens, nothing is findable. */
 const MIN_CANVAS_HEIGHT = 220;
@@ -374,6 +374,13 @@ export default class Diagrams extends Page {
             }
         }
 
+        // Stamped before the canvas exists, let alone before the engine is
+        // constructed, so the backdrop is never painted in the wrong scheme
+        // and then corrected. `CurrentView` owns the preference from here on;
+        // this only puts it on the page early. Note it is deliberately *not*
+        // the page theme: diagrams keep their own.
+        applyDiagramTheme(getDiagramTheme());
+
         this.container.classList.add(styles.pageContent);
 
         this.container.innerHTML = `
@@ -456,23 +463,6 @@ export default class Diagrams extends Page {
                                         "structurizr-diagram-target",
                                     ) as HTMLElement,
                                 );
-
-                                const stored = readSetting(DARK_MODE_KEY);
-                                const prefersDark = window?.matchMedia(
-                                    "(prefers-color-scheme: dark)",
-                                );
-
-                                const dark = stored
-                                    ? stored === "dark"
-                                    : prefersDark.matches;
-                                this.#diagram.setDarkMode(dark);
-                                applyTheme(dark);
-
-                                prefersDark.addEventListener("change", (e) => {
-                                    if (readSetting(DARK_MODE_KEY)) return;
-                                    this.#diagram?.setDarkMode(e.matches);
-                                    applyTheme(e.matches);
-                                });
 
                                 const nav = this.addComponent(
                                     new DiagramNavigation(

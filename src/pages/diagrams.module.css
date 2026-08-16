@@ -30,14 +30,46 @@
     overflow: hidden;
     /* Vertical swipes scroll the page; pinch zooms natively. */
     touch-action: pan-y pinch-zoom;
+    /* Matches the viewport backdrop below, so the box the engine has not
+    filled in yet is already the right colour. */
+    background: rgb(238, 238, 238);
 }
 
+:root[data-diagram-theme="dark"] .diagramTarget {
+    background: rgb(51, 51, 51);
+}
+
+/*
+ * The canvas backdrop follows the *diagram* colour scheme
+ * (`<html data-diagram-theme>`, owned by `current-view.ts`), NOT the page
+ * theme: the whole point is that a reader can keep dark documentation beside
+ * light diagrams. The toolbar above the canvas is page chrome and follows
+ * `data-theme` instead — see `../components/current-view.module.css`.
+ *
+ * The colours are literals rather than tokens for the same reason: a token
+ * would resolve against the page theme and drag the two back together. They
+ * bracket the engine's own paper colours (`#ffffff` light, `#111111` dark), so
+ * the sheet always reads as sitting on a surface.
+ */
 :global(.structurizrDiagramViewport) {
-    background: var(--color-surface);
     /* The engine turns overflow on when the diagram is zoomed past its box.
     Keeping the scrollbar visible is the only thing that says so — without it a
     zoomed-in diagram looks like the whole diagram. */
     scrollbar-width: thin;
+}
+
+/*
+ * Both branches are qualified by the attribute on purpose: that lifts them
+ * above the bare `.structurizrDiagramViewport` rule the engine ships, and
+ * above any `@media (prefers-color-scheme: dark)` variant of it a future
+ * vendored drop might carry — neither of which we can edit.
+ */
+:global(html[data-diagram-theme="light"] .structurizrDiagramViewport) {
+    background: rgb(238, 238, 238);
+}
+
+:global(html[data-diagram-theme="dark"] .structurizrDiagramViewport) {
+    background: rgb(51, 51, 51);
 }
 
 @media (max-width: 767px) {

@@ -11,7 +11,14 @@ export type Diagram = {
         crop: boolean,
         callback?: (png: string) => void,
     ): string;
-    getCurrentView(): View;
+    /**
+     * `undefined` until a view has actually been rendered — the diagram is
+     * constructed empty and only gets a view when `changeView()` runs. Several
+     * of the methods below dereference it without checking (`stopAnimation()`
+     * reaches `currentView.type` through `currentViewIsDynamic()`), so callers
+     * that can run before the first render must guard on this.
+     */
+    getCurrentView(): View | undefined;
     getWidth(): number;
     getHeight(): number;
     isDarkMode(): boolean;

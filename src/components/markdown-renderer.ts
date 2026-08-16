@@ -17,7 +17,10 @@ import sql from "highlight.js/lib/languages/sql";
 import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
-import "highlight.js/styles/atom-one-dark-reasonable.min.css";
+// No highlight.js stylesheet is imported on purpose: every shipped theme is
+// hardcoded to one colour scheme. The `hljs-*` token colours live in the module
+// CSS instead, where they follow `data-theme`.
+import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";
 
 for (const [name, language] of Object.entries({
@@ -36,6 +39,17 @@ for (const [name, language] of Object.entries({
     hljs.registerLanguage(name, language);
 }
 
+/**
+ * Empty element pairs left behind by the source markdown (`<p></p>`,
+ * `<em></em>`, …) are stripped from the rendered output. The tag list is
+ * deliberately explicit and the closing tag is a backreference: structural
+ * markup (empty table cells, the table and alert wrappers, inline SVG icons)
+ * has to survive even when it looks "empty".
+ */
+const EMPTY_ELEMENT_PATTERN =
+    // biome-ignore lint/suspicious/noMisleadingCharacterClass: zero-width characters are intentionally matched as whitespace
+    /<(p|h[1-6]|em|strong|b|i|s|small|span|a|ul|ol|li|blockquote)(?:\s[^>]*)?>[\s\u200B-\u200D\uFEFF]*<\/\1\s*>/gi;
+
 export default class MarkdownRenderer extends Component {
     #markdownContent = "";
     #md = markdownIt({
@@ -52,10 +66,32 @@ export default class MarkdownRenderer extends Component {
         },
     })
         .use(shiftHeadings)
-        .use(anchor);
+        .use(anchor)
+        .use(alerts, {
+            alert: styles.alert,
+            title: styles.alertTitle,
+            note: styles.alertNote,
+            tip: styles.alertTip,
+            important: styles.alertImportant,
+            warning: styles.alertWarning,
+            caution: styles.alertCaution,
+        });
 
     constructor(element: HTMLElement | null = null) {
         super(element);
+
+        // Every table gets its own scroll container, so a seven-column table
+        // scrolls inside the prose measure instead of dragging the whole page
+        // sideways with it.
+        this.#md.renderer.rules.table_open = (
+            tokens,
+            idx,
+            options,
+            _env,
+            self,
+        ) =>
+            `<div class="${styles.tableWrap}">${self.renderToken(tokens, idx, options)}`;
+        this.#md.renderer.rules.table_close = () => "</table></div>";
     }
 
     #formatContentFn = (content: string): string => content;
@@ -73,7 +109,12 @@ export default class MarkdownRenderer extends Component {
      * so they scroll rather than navigate.
      */
     #handleAnchorClick = (event: Event) => {
-        const link = (event.target as HTMLElement).closest("a");
+        // An SVGElement when the click lands on an alert icon, so `Element` —
+        // where `closest()` is defined — is as specific as this can be.
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const link = target.closest("a");
         const href = link?.getAttribute("href");
         if (!href?.startsWith("#") || href.length < 2) return;
 
@@ -93,11 +134,9 @@ export default class MarkdownRenderer extends Component {
         this.element.classList.add(styles.markdownRenderer);
         this.element.innerHTML = `
         <div class="markdown-renderer">
-            ${this.#md.render(this.#markdownContent).replace(
-                // biome-ignore lint/suspicious/noMisleadingCharacterClass: <explanation>
-                /<[^/>][^>]*>[\s\u200B-\u200D\uFEFF]*<\/[^>]+>/gim,
-                "",
-            )}
+            ${this.#md
+                .render(this.#markdownContent)
+                .replace(EMPTY_ELEMENT_PATTERN, "")}
         </div>
         `;
 

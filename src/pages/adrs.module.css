@@ -14,6 +14,12 @@
         letter-spacing: -0.02em;
         margin-bottom: 0.35rem;
     }
+
+    /* The body's first heading is `:first-child`, so it carries no top margin
+    of its own and would otherwise sit right under the status pill. */
+    & > div + div {
+        margin-top: 1.75rem;
+    }
 }
 
 .date {

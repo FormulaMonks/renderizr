@@ -19,11 +19,9 @@ export function writeSetting(key: string, value: string): void {
     }
 }
 
-/**
- * One switch for the whole page. Structurizr's engine keeps its own dark-mode
- * flag for the canvas; this stamps the same choice on the document so the
- * chrome around the canvas cannot end up in the opposite theme.
+/*
+ * The page theme used to be stamped here, slaved to the diagram's dark-mode
+ * flag. The two are now separate preferences — a reader can keep light
+ * diagrams inside dark documentation — so the page theme lives in
+ * `components/theme.ts` and the diagram's in `components/current-view.ts`.
  */
-export function applyTheme(dark: boolean): void {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-}

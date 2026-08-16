@@ -1,17 +1,52 @@
 /*
+ * Rendered markdown (documentation sections and ADRs).
+ *
+ * Every colour comes from the theme tokens in `main.css`. The few values this
+ * component owns (the monospace stack, the highlight.js palette, the table
+ * scroll fade) are declared as local custom properties and re-declared for the
+ * dark theme under `:root[data-theme="dark"]` — `theme.ts` and the inline
+ * script in `index.html` guarantee a resolved `data-theme`, so this file never
+ * needs a `prefers-color-scheme` query.
+ */
+
+/*
  * A measure of about 72 characters. Neither Structurizr nor Renderizr used to
  * cap this, and unbroken 140-character lines are the single biggest thing
  * standing between a reader and a long architecture document.
  */
 .markdownRenderer {
+    --md-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        "Liberation Mono", monospace;
+    --md-table-fade: color-mix(in srgb, var(--color-foreground) 20%, transparent);
+
+    /* highlight.js palette — light. Every colour is at least 5:1 against
+    --color-code-block-background (rgb(246, 248, 250)). */
+    --md-hljs-base: #1f2328;
+    --md-hljs-comment: #57606a;
+    --md-hljs-keyword: #cf222e;
+    --md-hljs-built-in: #953800;
+    --md-hljs-number: #0550ae;
+    --md-hljs-string: #0a3069;
+    --md-hljs-variable: #953800;
+    --md-hljs-function: #6639ba;
+    --md-hljs-section: #0550ae;
+    --md-hljs-attr: #0550ae;
+    --md-hljs-tag: #116329;
+    --md-hljs-params: #24292f;
+    --md-hljs-meta: #57606a;
+    --md-hljs-addition: #0a5f33;
+    --md-hljs-deletion: #82071e;
+
     font-size: 1rem;
     line-height: 1.65;
     max-width: 72ch;
+    overflow-wrap: break-word;
 
     /* Every heading is an anchor target, and the header floats above them all
     — without this a jump lands the heading underneath it. */
     & :is(h1, h2, h3, h4, h5, h6) {
         scroll-margin-top: calc(var(--header-height, 5rem) + 1rem);
+        text-wrap: balance;
     }
 
     h1 {
@@ -58,6 +93,11 @@
         margin: 1.25rem 0 0.4rem;
     }
 
+    /* No dead space at the very top of a section. */
+    & :is(h1, h2, h3, h4, h5, h6):first-child {
+        margin-top: 0;
+    }
+
     p {
         margin-bottom: 1rem;
     }
@@ -78,6 +118,10 @@
         color: var(--color-muted);
     }
 
+    blockquote > :last-child {
+        margin-bottom: 0;
+    }
+
     img {
         max-width: 100%;
         height: auto;
@@ -90,48 +134,372 @@
         margin: 2rem 0;
     }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 1rem 0;
-        font-size: 0.95rem;
-    }
-
-    th, td {
-        text-align: left;
-        padding: 0.5rem 0.75rem;
-        border-bottom: 1px solid var(--color-border);
-    }
-
-    th {
-        font-weight: 600;
-        color: var(--color-muted);
-    }
-
     pre {
+        font-family: var(--md-mono);
         font-size: 0.85rem;
         line-height: 1.5;
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
+        background: var(--color-code-block-background);
+        border: 1px solid var(--color-code-block-border);
         border-radius: 6px;
+        color: var(--md-hljs-base);
         padding: 1rem;
+        max-width: 100%;
         overflow-x: auto;
+        overscroll-behavior-x: contain;
         white-space: pre;
         word-wrap: normal;
+        scrollbar-width: thin;
     }
 
+    /* Inline code also turns up inside headings and table cells, so it sizes
+    off the surrounding text rather than off the root. */
     code {
-        background: var(--color-surface);
-        border: 1px solid var(--color-border);
+        font-family: var(--md-mono);
+        background: var(--color-code-background);
+        color: var(--color-code-foreground);
+        border: 1px solid var(--color-border-muted);
         border-radius: 3px;
         font-size: 0.88em;
         padding: 0.05em 0.3em;
+        overflow-wrap: anywhere;
     }
 
     pre > code {
+        display: block;
         background: none;
         border: 0;
+        border-radius: 0;
         padding: 0;
         font-size: inherit;
+        color: inherit;
+        overflow-wrap: normal;
+    }
+}
+
+/* `#app hr` in main.css zeroes the margin and wins on specificity, so the
+separator has to be matched with the id here too. */
+:global(#app) .markdownRenderer hr {
+    margin: 2rem 0;
+    padding: 0;
+}
+
+/* -------------------------------------------------------------- tables --- */
+/*
+ * The wrapper is the scroll container, so a wide table scrolls inside the
+ * measure instead of widening the page. Its single grid track is at least as
+ * wide as the table's min-content size, which keeps the sticky fade edges
+ * (::before / ::after) anchored across the whole scroll range while still
+ * letting a prose-heavy table wrap at the available width.
+ */
+.tableWrap {
+    display: grid;
+    grid-template-columns: minmax(min-content, 1fr);
+    /* Free to use the full 72ch measure, never to overflow it. */
+    max-width: 100%;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.tableWrap > table {
+    grid-area: 1 / 1;
+    /* Shrink to the content — a table of `ID | Qty | OK` has no business
+    sprawling across the whole measure — but never past the available width. */
+    width: max-content;
+    max-width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--color-border);
+    font-size: 0.95em;
+    line-height: 1.5;
+}
+
+.tableWrap th,
+.tableWrap td {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--color-border);
+    vertical-align: top;
+    text-align: left;
+    /* Keep columns readable instead of crushing them to one character. */
+    min-width: 4.5rem;
+    overflow-wrap: anywhere;
+}
+
+.tableWrap th {
+    background: var(--color-surface-alt);
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+.tableWrap tbody tr:nth-child(2n) td {
+    background: color-mix(in srgb, var(--color-surface-alt) 45%, transparent);
+}
+
+.tableWrap td > :last-child,
+.tableWrap th > :last-child {
+    margin-bottom: 0;
+}
+
+/*
+ * Scrollability affordance: fade edges, shown only while there is more to
+ * scroll to. Browsers without scroll-driven animations fall back to the
+ * (always visible) thin scrollbar.
+ */
+.tableWrap::before,
+.tableWrap::after {
+    content: "";
+    grid-area: 1 / 1;
+    position: sticky;
+    z-index: 1;
+    width: 1.75rem;
+    pointer-events: none;
+    opacity: 0;
+}
+
+.tableWrap::before {
+    left: 0;
+    justify-self: start;
+    background: linear-gradient(to right, var(--md-table-fade), transparent);
+}
+
+.tableWrap::after {
+    right: 0;
+    justify-self: end;
+    background: linear-gradient(to left, var(--md-table-fade), transparent);
+}
+
+@keyframes mdTableFadeStart {
+    from {
+        opacity: 0;
+    }
+    8%,
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes mdTableFadeEnd {
+    from,
+    92% {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@supports (animation-timeline: scroll(x)) {
+    .tableWrap::before {
+        animation: mdTableFadeStart linear both;
+        animation-timeline: scroll(nearest x);
+    }
+
+    .tableWrap::after {
+        animation: mdTableFadeEnd linear both;
+        animation-timeline: scroll(nearest x);
+    }
+}
+
+/* -------------------------------------------------------------- alerts --- */
+/*
+ * `> [!NOTE]` and friends. `markdown-alerts.ts` swaps the blockquote tag for a
+ * <div>, so a blockquote without a marker keeps the plain quote treatment
+ * above without any :not() gymnastics here.
+ */
+.alert {
+    --md-alert-accent: var(--color-muted);
+
+    margin: 1.35rem 0;
+    padding: 0.8rem 1rem;
+    border-left: 0.25rem solid var(--md-alert-accent);
+    border-radius: 0 0.4rem 0.4rem 0;
+    background: color-mix(in srgb, var(--md-alert-accent) 8%, transparent);
+    color: var(--color-foreground);
+}
+
+.alert > :last-child {
+    margin-bottom: 0;
+}
+
+.alertTitle {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--md-alert-accent);
+}
+
+.alertTitle svg {
+    flex: 0 0 auto;
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
+}
+
+.alertNote {
+    --md-alert-accent: var(--color-alert-note);
+}
+
+.alertTip {
+    --md-alert-accent: var(--color-alert-tip);
+}
+
+.alertImportant {
+    --md-alert-accent: var(--color-alert-important);
+}
+
+.alertWarning {
+    --md-alert-accent: var(--color-alert-warning);
+}
+
+.alertCaution {
+    --md-alert-accent: var(--color-alert-caution);
+}
+
+/* ------------------------------------------------- syntax highlighting --- */
+/*
+ * `hljs.highlight()` is called directly, so the output carries only the token
+ * spans and no wrapper `hljs` class — and some of those spans are compound
+ * (`hljs-title function_`, `hljs-variable language_`, `hljs-title class_
+ * inherited__`). The names come from highlight.js, hence `:global()`.
+ */
+.markdownRenderer :global(.hljs-comment),
+.markdownRenderer :global(.hljs-quote) {
+    color: var(--md-hljs-comment);
+    font-style: italic;
+}
+
+.markdownRenderer :global(.hljs-keyword),
+.markdownRenderer :global(.hljs-selector-tag),
+.markdownRenderer :global(.hljs-operator),
+.markdownRenderer :global(.hljs-doctag) {
+    color: var(--md-hljs-keyword);
+}
+
+.markdownRenderer :global(.hljs-built_in),
+.markdownRenderer :global(.hljs-type),
+.markdownRenderer :global(.hljs-title.class_),
+.markdownRenderer :global(.hljs-class .hljs-title) {
+    color: var(--md-hljs-built-in);
+}
+
+.markdownRenderer :global(.hljs-literal),
+.markdownRenderer :global(.hljs-number),
+.markdownRenderer :global(.hljs-bullet) {
+    color: var(--md-hljs-number);
+}
+
+.markdownRenderer :global(.hljs-string),
+.markdownRenderer :global(.hljs-regexp),
+.markdownRenderer :global(.hljs-code),
+.markdownRenderer :global(.hljs-char.escape_),
+.markdownRenderer :global(.hljs-link),
+.markdownRenderer :global(.hljs-selector-attr),
+.markdownRenderer :global(.hljs-selector-pseudo) {
+    color: var(--md-hljs-string);
+}
+
+.markdownRenderer :global(.hljs-symbol),
+.markdownRenderer :global(.hljs-variable),
+.markdownRenderer :global(.hljs-template-variable),
+.markdownRenderer :global(.hljs-variable.language_),
+.markdownRenderer :global(.hljs-selector-id),
+.markdownRenderer :global(.hljs-selector-class) {
+    color: var(--md-hljs-variable);
+}
+
+.markdownRenderer :global(.hljs-title),
+.markdownRenderer :global(.hljs-title.function_),
+.markdownRenderer :global(.hljs-function .hljs-title) {
+    color: var(--md-hljs-function);
+}
+
+.markdownRenderer :global(.hljs-section) {
+    color: var(--md-hljs-section);
+    font-weight: 600;
+}
+
+.markdownRenderer :global(.hljs-attr),
+.markdownRenderer :global(.hljs-attribute),
+.markdownRenderer :global(.hljs-property) {
+    color: var(--md-hljs-attr);
+}
+
+.markdownRenderer :global(.hljs-name),
+.markdownRenderer :global(.hljs-tag) {
+    color: var(--md-hljs-tag);
+}
+
+.markdownRenderer :global(.hljs-params),
+.markdownRenderer :global(.hljs-subst),
+.markdownRenderer :global(.hljs-punctuation) {
+    color: var(--md-hljs-params);
+}
+
+.markdownRenderer :global(.hljs-meta),
+.markdownRenderer :global(.hljs-meta .hljs-keyword),
+.markdownRenderer :global(.hljs-comment .hljs-doctag) {
+    color: var(--md-hljs-meta);
+}
+
+.markdownRenderer :global(.hljs-deletion) {
+    color: var(--md-hljs-deletion);
+    background: color-mix(in srgb, var(--md-hljs-deletion) 12%, transparent);
+}
+
+.markdownRenderer :global(.hljs-addition) {
+    color: var(--md-hljs-addition);
+    background: color-mix(in srgb, var(--md-hljs-addition) 12%, transparent);
+}
+
+.markdownRenderer :global(.hljs-emphasis) {
+    font-style: italic;
+}
+
+.markdownRenderer :global(.hljs-strong) {
+    font-weight: 700;
+}
+
+.markdownRenderer :global(.hljs-link) {
+    text-decoration: underline;
+}
+
+/* ----------------------------------------------------------------- dark --- */
+:root[data-theme="dark"] .markdownRenderer {
+    /* highlight.js palette — dark. Every colour is at least 6:1 against
+    --color-code-block-background (rgb(28, 30, 34)). */
+    --md-hljs-base: #e2e4e8;
+    --md-hljs-comment: #9aa4b0;
+    --md-hljs-keyword: #ff7b72;
+    --md-hljs-built-in: #ffa657;
+    --md-hljs-number: #79c0ff;
+    --md-hljs-string: #a5d6ff;
+    --md-hljs-variable: #ffa657;
+    --md-hljs-function: #d2a8ff;
+    --md-hljs-section: #79c0ff;
+    --md-hljs-attr: #79c0ff;
+    --md-hljs-tag: #7ee787;
+    --md-hljs-params: #e2e4e8;
+    --md-hljs-meta: #9aa4b0;
+    --md-hljs-addition: #7ee787;
+    --md-hljs-deletion: #ffa198;
+
+    --md-table-fade: color-mix(in srgb, #000 55%, transparent);
+}
+
+/* --------------------------------------------------------- small screens --- */
+@media (max-width: 767px) {
+    .tableWrap th,
+    .tableWrap td {
+        padding: 0.45rem 0.6rem;
+        /* Scrolling the wrapper beats unreadable one-character columns. */
+        min-width: 7rem;
+    }
+
+    .markdownRenderer pre {
+        padding: 0.75rem 0.85rem;
     }
 }

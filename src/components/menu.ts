@@ -5,14 +5,31 @@ type MenuItem = {
     id: string;
     title: string;
     items?: MenuItem[];
+    /**
+     * When `false` the entry still emits a selection event but never becomes
+     * the menu's selection, and it is left out of the mobile `<select>`. Used
+     * for the documentation's "on this page" anchors, which scroll the current
+     * page rather than navigating to another one.
+     */
+    selectable?: boolean;
+};
+
+type Orientation = "wide" | "narrow";
+
+type BoundListener = {
+    target: EventTarget;
+    type: string;
+    handler: EventListener;
 };
 
 export default class Menu<Item extends MenuItem> extends Component {
     #items: Item[];
-    #orientation: "landscape" | "portrait" | null = null;
+    #orientation: Orientation | null = null;
     #resizeObserver: ResizeObserver | null = null;
     #callbacks = new Map<string, (item: Item) => void>();
     #selectedItem: Item | null = null;
+    #highlightedId: string | null = null;
+    #listeners: BoundListener[] = [];
 
     constructor(element: HTMLElement, menuItems: Item[]) {
         super(element);
@@ -21,130 +38,193 @@ export default class Menu<Item extends MenuItem> extends Component {
 
     #textContentFn = (item: Item) => `${item.title}`;
 
-    #clearMenu() {
-        if (this.#orientation === "portrait") {
-            const select = this.element?.querySelector("select");
-            if (select) {
-                select.removeEventListener(
-                    "change",
-                    this.#eventHandler.bind(this),
-                );
-            }
-        } else {
-            const list = this.element?.querySelectorAll("ul > li a");
-            if (list) {
-                for (const item of Array.from(list)) {
-                    item.removeEventListener(
-                        "click",
-                        this.#eventHandler.bind(this),
-                    );
-                }
-            }
+    #addListener(target: EventTarget, type: string, handler: EventListener) {
+        target.addEventListener(type, handler);
+        this.#listeners.push({ target, type, handler });
+    }
+
+    #removeListeners() {
+        for (const { target, type, handler } of this.#listeners) {
+            target.removeEventListener(type, handler);
         }
+        this.#listeners = [];
+    }
+
+    #clearMenu() {
+        this.#removeListeners();
 
         if (this.element?.childNodes.length) {
-            for (const child of Array.from(this.element?.childNodes)) {
-                this.element?.removeChild(child);
+            for (const child of Array.from(this.element.childNodes)) {
+                this.element.removeChild(child);
             }
         }
     }
 
-    #recursiveRenderLandscapeMenu(container: HTMLElement, items: Item[]) {
-        const subList = document.createElement("ul");
+    /** Entries can be nested, so lookups have to walk the whole tree. */
+    #findItem(id: string, items: Item[] = this.#items): Item | null {
+        for (const item of items) {
+            if (item.id === id) return item;
 
-        for (const subElement of items!) {
-            const subItem = document.createElement("li");
-            const subLink = document.createElement("a");
-
-            subLink.dataset.itemId = `${subElement.id}`;
-            subLink.href = `#${subElement.id}`;
-            subLink.textContent = this.#textContentFn(subElement as Item);
-            subItem.appendChild(subLink);
-            subList.appendChild(subItem);
-
-            subLink.addEventListener("click", this.#eventHandler.bind(this));
-
-            if (subElement.items?.length) {
-                this.#recursiveRenderLandscapeMenu(
-                    subItem,
-                    subElement.items as Item[],
-                );
+            const nested = item.items as Item[] | undefined;
+            if (nested?.length) {
+                const found = this.#findItem(id, nested);
+                if (found) return found;
             }
         }
 
-        container.appendChild(subList);
+        return null;
     }
 
-    #renderLandscapeMenu() {
-        this.#orientation = "landscape";
-        this.#clearMenu();
+    #ancestorIds(
+        id: string,
+        items: Item[] = this.#items,
+        trail: string[] = [],
+    ): string[] | null {
+        for (const item of items) {
+            if (item.id === id) return trail;
 
-        this.#recursiveRenderLandscapeMenu(this.element!, this.#items);
-    }
-
-    #renderPortraitMenu() {
-        this.#orientation = "portrait";
-        this.#clearMenu();
-
-        const list = document.createElement("select");
-
-        for (const element of this.#items) {
-            const item = document.createElement("option");
-
-            // TODO: Add support for nested items on mobile
-
-            item.value = `${element.id}`;
-            item.textContent = this.#textContentFn(element);
-            list.appendChild(item);
+            const nested = item.items as Item[] | undefined;
+            if (nested?.length) {
+                const found = this.#ancestorIds(id, nested, [
+                    ...trail,
+                    item.id,
+                ]);
+                if (found) return found;
+            }
         }
 
-        list.addEventListener("change", this.#eventHandler.bind(this));
-
-        this.element?.appendChild(list);
+        return null;
     }
 
-    #eventHandler(event: Event) {
-        let selectedItem: Item | undefined;
-        let alternateParent: Item | undefined;
-        let target: HTMLSelectElement | HTMLAnchorElement;
+    /**
+     * Always cancelled: the router lives in the URL hash, so letting a
+     * `href="#id"` through would throw the reader off the current page.
+     */
+    #onLinkClick = (event: Event) => {
+        event.preventDefault();
 
-        if (this.#orientation === "portrait") {
-            target = event.target as HTMLSelectElement;
-            selectedItem = this.#items.find(
-                (item) => item.id === (target as HTMLSelectElement).value,
-            );
+        const target = (event.currentTarget ??
+            event.target) as HTMLAnchorElement;
+        const item = this.#findItem(target.dataset?.itemId ?? "");
+
+        if (item) this.setActive(item);
+    };
+
+    #onSelectChange = (event: Event) => {
+        const target = event.target as HTMLSelectElement;
+        const item = this.#findItem(target.value);
+
+        if (item) this.setActive(item);
+    };
+
+    #renderList(container: HTMLElement, items: Item[], depth: number) {
+        const list = document.createElement("ul");
+        list.dataset.depth = `${depth}`;
+
+        for (const item of items) {
+            const listItem = document.createElement("li");
+            const link = document.createElement("a");
+
+            link.dataset.itemId = `${item.id}`;
+            link.dataset.depth = `${depth}`;
+            link.href = `#${item.id}`;
+            link.textContent = this.#textContentFn(item);
+
+            listItem.appendChild(link);
+            list.appendChild(listItem);
+
+            this.#addListener(link, "click", this.#onLinkClick);
+
+            const nested = item.items as Item[] | undefined;
+            if (nested?.length) {
+                this.#renderList(listItem, nested, depth + 1);
+            }
+        }
+
+        container.appendChild(list);
+    }
+
+    #appendOptions(select: HTMLSelectElement, items: Item[], depth: number) {
+        for (const item of items) {
+            // Anchors into the page being read are not destinations; on a
+            // narrow screen they would only make the list harder to use.
+            if (item.selectable === false) continue;
+
+            const option = document.createElement("option");
+            // Non-breaking spaces: browsers collapse regular ones in options.
+            const indent = "   ".repeat(depth);
+
+            option.value = `${item.id}`;
+            option.textContent = `${indent}${depth > 0 ? "· " : ""}${this.#textContentFn(item)}`;
+            select.appendChild(option);
+
+            const nested = item.items as Item[] | undefined;
+            if (nested?.length) {
+                this.#appendOptions(select, nested, depth + 1);
+            }
+        }
+    }
+
+    #renderMenu(orientation: Orientation) {
+        if (!this.element) return;
+
+        // Rebuilding the list must not throw away where the reader had
+        // scrolled the sidebar to.
+        const { scrollTop } = this.element;
+
+        this.#orientation = orientation;
+        this.#clearMenu();
+
+        if (orientation === "narrow") {
+            const select = document.createElement("select");
+            this.#appendOptions(select, this.#items, 0);
+            this.#addListener(select, "change", this.#onSelectChange);
+            this.element.appendChild(select);
         } else {
-            target = event.target as HTMLAnchorElement;
-            selectedItem = this.#items.find(
-                (item) => item.id === target.dataset?.itemId,
-            );
+            this.#renderList(this.element, this.#items, 0);
+        }
 
-            const parent = target
-                .closest("a + ul")
-                ?.parentNode?.querySelector("a") as HTMLAnchorElement;
+        this.element.scrollTop = scrollTop;
+        this.#paint();
+    }
 
-            if (parent) {
-                const anchors =
-                    parent.nextElementSibling?.querySelectorAll("a");
-                if (anchors) {
-                    Array.from(anchors).map((item: HTMLAnchorElement) =>
-                        item.classList.remove(styles.active),
-                    );
-                }
+    #matchOrientation(): Orientation {
+        // Width, not orientation: a phone held sideways is still a phone, and
+        // a tall desktop window still has room for a sidebar.
+        return window?.matchMedia("(min-width: 900px)").matches
+            ? "wide"
+            : "narrow";
+    }
 
-                alternateParent = this.#items.find(
-                    (item) => item.id === parent.dataset.itemId,
-                );
+    /** Repaint the current selection and highlight, emitting nothing. */
+    #paint() {
+        if (!this.element) return;
+
+        if (this.#orientation === "narrow") {
+            const select = this.element.querySelector("select");
+            if (select && this.#selectedItem) {
+                select.value = this.#selectedItem.id;
             }
+            return;
         }
 
-        if (alternateParent !== this.#selectedItem || selectedItem) {
-            event.preventDefault();
-            this.setActive(alternateParent ?? selectedItem);
-        }
+        const anchors =
+            this.element.querySelectorAll<HTMLAnchorElement>("a[data-item-id]");
+        const ancestors = this.#selectedItem
+            ? this.#ancestorIds(this.#selectedItem.id)
+            : null;
+        const trail = new Set(ancestors ?? []);
 
-        if (this.#orientation !== "portrait") {
-            target.classList.add(styles.active);
+        for (const anchor of anchors) {
+            const id = anchor.dataset.itemId ?? "";
+            const isActive = id === this.#selectedItem?.id;
+
+            anchor.classList.toggle(styles.active, isActive);
+            anchor.classList.toggle(styles.activeTrail, trail.has(id));
+            anchor.classList.toggle(styles.current, id === this.#highlightedId);
+
+            if (isActive) anchor.setAttribute("aria-current", "true");
+            else anchor.removeAttribute("aria-current");
         }
     }
 
@@ -158,69 +238,70 @@ export default class Menu<Item extends MenuItem> extends Component {
         this.#textContentFn = fn;
     }
 
+    /** Replace the rendered entries, keeping the current selection. */
+    setItems(items: Item[]) {
+        this.#items = items;
+        if (this.#orientation) this.#renderMenu(this.#orientation);
+    }
+
     setActive(item: Item | null = this.#selectedItem) {
         if (!item) return;
 
-        this.#selectedItem = item;
-
-        if (this.#orientation === "portrait") {
-            const select = this.element?.querySelector("select");
-            if (!select) return;
-
-            select.value = item.id;
-        } else {
-            const list =
-                this.element?.querySelectorAll<HTMLAnchorElement>(
-                    "ul > li > a",
-                );
-
-            if (!list) return;
-
-            for (const element of Array.from(list)) {
-                if (element.dataset.itemId === item.id) {
-                    element.classList.add(styles.active);
-                } else {
-                    element.classList.remove(styles.active);
-                }
-            }
+        // Non-selectable entries are actions, not destinations: they report
+        // the click and leave the selection where it was.
+        if (item.selectable === false) {
+            this.#paint();
+            this.#emitItemSelection(item);
+            return;
         }
 
+        this.#selectedItem = item;
+        this.#paint();
         this.#emitItemSelection(item);
+    }
+
+    /** Highlight an entry without selecting it; used by the scroll spy. */
+    setHighlighted(id: string | null) {
+        if (this.#highlightedId === id) return;
+
+        this.#highlightedId = id;
+        this.#paint();
+    }
+
+    getSelected(): Item | null {
+        return this.#selectedItem;
     }
 
     onSelectionChange(callback: (item: Item) => void) {
         this.#callbacks.set(callback.name, callback);
     }
 
-    // TODO: Think about how to render groups of items (separate by group)
     render() {
         if (!this.element) return;
+
         this.element.classList.add(styles.menu);
+        // Built here and now: callers used to have to guess how long the
+        // resize observer would take before `setActive` had anything to paint.
+        this.#renderMenu(this.#matchOrientation());
+
         this.#resizeObserver = new ResizeObserver(() => {
-            if (!this.element) return;
-
-            // Width, not orientation: a phone held sideways is still a phone,
-            // and a tall desktop window still has room for a sidebar.
-            const wideEnoughForSidebar =
-                window?.matchMedia("(min-width: 900px)");
-            if (wideEnoughForSidebar.matches) {
-                if (this.#orientation !== "landscape") {
-                    this.#renderLandscapeMenu();
-                }
-            } else {
-                if (this.#orientation !== "portrait") {
-                    this.#renderPortraitMenu();
-                }
+            const orientation = this.#matchOrientation();
+            // Only a change of shape rebuilds, and rebuilding repaints rather
+            // than re-selecting — a resize is not a navigation.
+            if (orientation !== this.#orientation) {
+                this.#renderMenu(orientation);
             }
-
-            this.setActive(this.#selectedItem);
         });
 
-        this.#resizeObserver.observe(this.element!);
+        this.#resizeObserver.observe(this.element);
     }
 
     clear() {
         this.#resizeObserver?.disconnect();
+        this.#resizeObserver = null;
         this.#clearMenu();
+        this.#orientation = null;
+        this.#selectedItem = null;
+        this.#highlightedId = null;
     }
 }
