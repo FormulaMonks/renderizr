@@ -57,12 +57,18 @@ export default class Decisions extends Page {
         });
     }
 
+    #opened = false;
+
     #setAdrInUrl(adr: Decision) {
-        const search = new URLSearchParams(history?.location.search);
+        const search = new URLSearchParams(history.location.search);
+        if (search.get("adr") === adr.id) return;
         search.set("adr", adr.id);
-        history.push({
-            search: search.toString(),
-        });
+
+        // The decision the page opens on is where the reader already is.
+        const next = { search: search.toString() };
+        if (this.#opened) history.push(next);
+        else history.replace(next);
+        this.#opened = true;
     }
 
     #getAdrFromUrl() {

@@ -39,11 +39,9 @@ const LEGIBLE_SHRINK = 0.5;
 /** One notch of the zoom controls. */
 const ZOOM_STEP = 1.2;
 
-/** Far enough out to take in a diagram of any size. */
+/** A hard floor for the degenerate cases; the real floor is "the whole
+ * diagram fits", computed per view. */
 const MIN_ZOOM_SCALE = 0.02;
-
-/** Breathing room under the canvas when it is sized to the screen. */
-const CANVAS_BOTTOM_MARGIN = 24;
 
 /** Whether a view already carries coordinates worth rendering. */
 const hasStoredPositions = (view: View) =>
@@ -99,8 +97,7 @@ export default class Diagrams extends Page {
                 MIN_CANVAS_HEIGHT,
                 window.innerHeight -
                     (target.getBoundingClientRect().top + window.scrollY) -
-                    footer -
-                    CANVAS_BOTTOM_MARGIN,
+                    footer,
             );
 
             const fits = atFullWidth <= onScreen;
@@ -144,10 +141,31 @@ export default class Diagrams extends Page {
         return canvas && width > 0 ? canvas.clientWidth / width : 1;
     }
 
+    /**
+     * The scale at which the entire diagram sits inside its box. Zooming out
+     * stops here: further out is just a smaller speck of the same picture, and
+     * the engine's own floor — whatever scale the page chose — stops short of
+     * ever showing the whole thing.
+     */
+    #wholeDiagramScale() {
+        const viewport = this.#viewport();
+        const width = this.#diagram?.getWidth() ?? 0;
+        const height = this.#diagram?.getHeight() ?? 0;
+        if (!viewport || width <= 0 || height <= 0) return MIN_ZOOM_SCALE;
+
+        return Math.max(
+            MIN_ZOOM_SCALE,
+            Math.min(
+                viewport.clientWidth / width,
+                viewport.clientHeight / height,
+            ),
+        );
+    }
+
     #zoomBy(factor: number) {
         if (!this.#diagram) return;
         this.#diagram.zoomTo(
-            Math.max(MIN_ZOOM_SCALE, this.#currentScale() * factor),
+            Math.max(this.#wholeDiagramScale(), this.#currentScale() * factor),
         );
         this.#diagram.scrollToCentre();
     }
@@ -234,7 +252,7 @@ export default class Diagrams extends Page {
 
             this.#diagram?.zoomTo(
                 Math.max(
-                    MIN_ZOOM_SCALE,
+                    this.#wholeDiagramScale(),
                     (this.#pinch.scale * distance) / this.#pinch.distance,
                 ),
             );

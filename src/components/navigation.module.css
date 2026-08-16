@@ -2,7 +2,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding: 1rem 0 0.75rem;
+    padding: 0.65rem 0 0.5rem;
     font-size: 0.85rem;
     border-bottom: 1px solid var(--color-border);
 
@@ -51,6 +51,16 @@
     }
 }
 
+/*
+ * The diagram is the page. Every row of shared header above it comes straight
+ * off the height the diagram is drawn at, so on the diagrams page the workspace
+ * blurb steps aside — the reader has the documentation pages for it, and what
+ * they want here is the picture.
+ */
+:global([data-page="diagrams"]) .titleAndDesc section {
+    display: none;
+}
+
 .navigationActive {
     font-weight: 700;
     color: var(--color-foreground);
@@ -77,7 +87,6 @@
 
     .brand {
         flex: none;
-        max-width: 45%;
     }
 
     .workspaceTitle {

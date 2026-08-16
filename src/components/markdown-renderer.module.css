@@ -4,7 +4,7 @@
  * standing between a reader and a long architecture document.
  */
 .markdownRenderer {
-    font-size: 1.05rem;
+    font-size: 1rem;
     line-height: 1.65;
     max-width: 72ch;
 
@@ -28,15 +28,28 @@
         margin: 1.75rem 0 0.6rem;
     }
 
+    /* Each level has to be visibly smaller than the one above and bigger than
+    body text, or the reader cannot tell structure from type. */
     h4 {
-        font-size: 1.05rem;
+        font-size: 1.1rem;
+        font-weight: 650;
         margin: 1.5rem 0 0.5rem;
     }
 
-    h5, h6 {
-        font-size: 0.95rem;
+    h5 {
+        font-size: 1rem;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+        margin: 1.35rem 0 0.4rem;
+    }
+
+    h6 {
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
         color: var(--color-muted);
-        margin: 1.25rem 0 0.5rem;
+        margin: 1.25rem 0 0.4rem;
     }
 
     p {

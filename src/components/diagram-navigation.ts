@@ -29,6 +29,36 @@ const DiagramIcon = new Map([
     ["Filtered", filteredIcon],
 ]);
 
+/**
+ * Structurizr's view names put the distinguishing part last — "Deployment
+ * View: Internet Banking System - Live" against "… - Development" — so cutting
+ * the end is exactly the wrong half to lose. Trimming the middle keeps both
+ * the kind and the thing that tells two views apart.
+ */
+const shorten = (name: string, limit = 34) => {
+    if (name.length <= limit) return name;
+
+    const tail = Math.min(16, Math.floor(limit / 2));
+    const head = limit - tail - 1;
+    return `${name.slice(0, head).trimEnd()}…${name.slice(-tail).trimStart()}`;
+};
+
+/**
+ * Two or three letters, enough to tell views apart once the drawer is down to
+ * icons and three deployment views all show the same rocket.
+ */
+const abbreviate = (key: string) => {
+    const digits = key.match(/(\d+)\s*$/)?.[1];
+    const letters = key.replace(/[^A-Za-z]/g, "");
+    const capitals = letters.match(/[A-Z]/g) ?? [];
+    const base =
+        capitals.length >= 2
+            ? capitals.slice(0, 3).join("")
+            : letters.slice(0, 3).toUpperCase();
+
+    return digits ? `${base.slice(0, 2)}${Number(digits)}` : base;
+};
+
 const COLLAPSED_KEY = "renderizr:diagramDrawerCollapsed";
 const SCROLL_KEY = "renderizr:diagramDrawerScroll";
 
@@ -77,11 +107,17 @@ export default class DiagramNavigation extends Component {
         this.#eventListeners.clear();
     }
 
-    #setViewInUrl(viewKey: string) {
+    #setViewInUrl(viewKey: string, replace: boolean) {
         const search = new URLSearchParams(history.location.search);
         if (search.get("view") === viewKey) return;
         search.set("view", viewKey);
-        history.push({ search: search.toString() });
+
+        // Only a click is a navigation. Opening the first view, or following a
+        // URL that already names one, is not — recording those is what made
+        // Back need two presses to go anywhere.
+        const next = { search: search.toString() };
+        if (replace) history.replace(next);
+        else history.push(next);
     }
 
     /**
@@ -94,7 +130,7 @@ export default class DiagramNavigation extends Component {
         if (this.#diagram.getCurrentView()?.key === viewKey) return;
         if (!this.#navElements.some((el) => el.key === viewKey)) return;
 
-        this.changeView(viewKey);
+        this.changeView(viewKey, true);
     };
 
     #getViewFromUrl() {
@@ -145,7 +181,7 @@ export default class DiagramNavigation extends Component {
 
     #handleToggle = () => this.#setCollapsed(!this.#collapsed);
 
-    changeView(viewKey?: string) {
+    changeView(viewKey?: string, replace = false) {
         if (!viewKey) return;
 
         for (const item of this.#items()) {
@@ -156,7 +192,7 @@ export default class DiagramNavigation extends Component {
             else button?.removeAttribute("aria-current");
         }
 
-        this.#setViewInUrl(viewKey);
+        this.#setViewInUrl(viewKey, replace);
         this.#revealActive(viewKey);
         this.#diagram.changeView(viewKey);
     }
@@ -180,13 +216,15 @@ export default class DiagramNavigation extends Component {
                                 title.replace(/^\[([^\]]+)\]\s*/, "").trim() ||
                                 title.replace(/[[\]]/g, "");
                             const label = `${name} (#${view.key})`;
+                            const initials = abbreviate(view.key);
 
                             return `
                         <li data-viewkey="${view.key}">
                             <button type="button" title="${label}" aria-label="${label}">
                                 <span class="${styles.icon}">${DiagramIcon.get(view.type) ?? customIcon}</span>
+                                <span class="${styles.initials}" aria-hidden="true">${initials}</span>
                                 <span class="${styles.label}">
-                                    <span class="${styles.name}">${name}</span>
+                                    <span class="${styles.name}">${shorten(name)}</span>
                                     <span class="${styles.key}">#${view.key}</span>
                                 </span>
                             </button>
@@ -211,7 +249,7 @@ export default class DiagramNavigation extends Component {
 
         const startingViewKey =
             this.#getViewFromUrl() ?? this.#navElements[0]?.key;
-        if (startingViewKey) this.changeView(startingViewKey);
+        if (startingViewKey) this.changeView(startingViewKey, true);
 
         this.#unlisten?.();
         this.#unlisten = history.listen((update) =>

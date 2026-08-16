@@ -59,12 +59,18 @@ export default class Docs extends Page {
         return this.#sections?.find((s) => s.id === sectionId);
     }
 
+    #opened = false;
+
     #setSectionInUrl(section: DocumentationSection) {
         const search = new URLSearchParams(history.location.search);
+        if (search.get("section") === section.id) return;
         search.set("section", section.id);
-        history.push({
-            search: search.toString(),
-        });
+
+        // The section the page opens on is where the reader already is.
+        const next = { search: search.toString() };
+        if (this.#opened) history.push(next);
+        else history.replace(next);
+        this.#opened = true;
     }
 
     render() {
