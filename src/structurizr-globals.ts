@@ -1,4 +1,4 @@
-import "../submodules/structurizr/structurizr-application/src/main/resources/static/static/css/structurizr.css";
+import "../vendor/structurizr/css/structurizr.css";
 import * as joint from "@joint/core";
 import { DirectedGraph } from "@joint/layout-directed-graph";
 import $ from "jquery";

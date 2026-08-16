@@ -4,14 +4,11 @@ import { fileURLToPath } from "node:url";
 import { transformWithEsbuild } from "vite";
 
 const RENDERER_DIR = fileURLToPath(
-    new URL(
-        "../submodules/structurizr/structurizr-application/src/main/resources/static/static/js/",
-        import.meta.url,
-    ),
+    new URL("../vendor/structurizr/js/", import.meta.url),
 );
 
 /** In load order: each file extends the namespace the one before it created. */
-const RENDERER_FILES = [
+export const RENDERER_FILES = [
     "structurizr.js",
     "structurizr-util.js",
     "structurizr-ui.js",
