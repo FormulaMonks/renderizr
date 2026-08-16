@@ -1,6 +1,15 @@
+# The toolchain the maintainers develop on. `mise install` resolves these
+# against mise.lock, which pins the exact versions and their checksums.
+#
+# This is the *development* toolchain, not the supported range. Renderizr runs
+# on Node 20 or newer — package.json `engines.node`, the guard at the top of
+# scripts/build.js and the badge in README.md all say ">= 20", and CI is what
+# proves the floor still holds. Contributors on any Node 20+ are fine; this
+# file just means nobody has to decide which one.
+#
+# .nvmrc carries the same Node major for nvm, fnm and actions/setup-node's
+# `node-version-file`. Keep the two in step.
+
 [tools]
 node = "24"
-"npm:pnpm" = "latest"
-
-[tasks."workspace-dev"]
-run = "scripts/render-workspace.sh"
+"npm:pnpm" = "11"

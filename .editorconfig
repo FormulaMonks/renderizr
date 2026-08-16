@@ -1,0 +1,51 @@
+# Mirrors biome.json. Biome is the authority for everything it formats
+# (.js .cjs .mjs .ts .mts .tsx .jsx .json .css); this file exists so an editor
+# with no Biome plugin does not fight it, and so the file types Biome does not
+# touch — Markdown, YAML, TOML, shell — still agree with each other.
+#
+# biome.json sets indentStyle "space" and indentWidth 4 and leaves the rest at
+# Biome 1.x defaults: lineWidth 80, lineEnding "lf".
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+max_line_length = 80
+
+# YAML has no 4-space dialect worth having: GitHub's own workflow and issue-form
+# files are 2-space, and so are the ones in .github/ already.
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.toml]
+indent_size = 2
+
+# Two trailing spaces are a hard line break in Markdown, so trimming them
+# silently rewrites the document. Prose here is wrapped by hand, not to 80.
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# Shell, including the extensionless git hooks in .husky/, which are already
+# 2-space.
+[*.{sh,bash}]
+indent_size = 2
+
+[.husky/*]
+indent_size = 2
+
+# Upstream code, kept byte-for-byte so `pnpm sync:vendor` diffs stay honest.
+# biome.json ignores these same three paths.
+[{vendor,submodules,architecture}/**]
+charset = unset
+end_of_line = unset
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+max_line_length = unset
