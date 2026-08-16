@@ -5,16 +5,16 @@ Render a [Structurizr](https://structurizr.com/) workspace — its diagrams, doc
 ## Usage
 
 ```bash
-npx --package=github:@formulamonks/renderizr -- build {path/to/workspace.json}
+npx github:FormulaMonks/renderizr {path/to/workspace.json}
 ```
 
-Where `{path/to/workspace.json}` is either a local path or an accessible URL.
+Where `{path/to/workspace.json}` is either a local path or an accessible URL. Needs Node 20 or newer; nothing else to install.
 
 ### Example
 
 ```bash
 # Renders the Structurizr Big Bank plc example
-npx --package=github:@formulamonks/renderizr -- build https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
+npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
 
 # Outputs to ./structurizr-output — serve it with any static server
 npx servor structurizr-output
@@ -25,7 +25,7 @@ npx servor structurizr-output
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself into one document with no network requests at all:
 
 ```bash
-npx --package=github:@formulamonks/renderizr -- build ./workspace.json --single-file
+npx github:FormulaMonks/renderizr ./workspace.json --single-file
 ```
 
 You get two files:
@@ -40,7 +40,7 @@ Routing lives in the URL hash, so deep links to a view, a document or a decision
 ## Customization
 
 ```bash
-npx --package=github:@formulamonks/renderizr -- build ./workspace.json \
+npx github:FormulaMonks/renderizr ./workspace.json \
   --single-file \
   --logo ./logo.svg \
   --font "Inter"
@@ -70,10 +70,14 @@ Workspace themes, element icons and any branding logo referenced by URL are all 
 ### Setup
 
 ```bash
-# Initialize the Structurizr submodule (required) — it supplies the renderer
-git submodule update --init --recursive
-
 pnpm install
+```
+
+The Structurizr submodule is optional — the files the build reads from it are committed under `vendor/structurizr`. Check it out only to pull in a newer upstream:
+
+```bash
+git submodule update --init --remote submodules/structurizr
+pnpm sync:vendor
 ```
 
 ### Dev server
@@ -106,6 +110,7 @@ pnpm build -- {path/to/workspace.json} [--single-file] [--logo ...] [--font ...]
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, icons, logo and font |
 | `scripts/config.js` | The Vite configuration, shared with the dev server |
 | `scripts/plugins.js` | Build plugins: Structurizr globals, CSS trimming, branding injection, single-file inlining |
+| `scripts/sync-vendor.js` | Copies the files the build reads out of the submodule into `vendor/structurizr` |
 | `vite.config.ts` | Dev server only; production goes through `scripts/build.js` |
 
-Diagrams are drawn by Structurizr's own renderer, taken from the [structurizr/structurizr](https://github.com/structurizr/structurizr) submodule — the same code the official local server serves, so a workspace renders here exactly as it does there. `src/structurizr-globals.ts` supplies the handful of globals it expects, and `scripts/plugins.js` concatenates and injects it as a classic script (the renderer is written for sloppy mode, which an ES module forbids; an inline script is not `eval`, so a strict CSP still passes). The comments in both explain the details.
+Diagrams are drawn by Structurizr's own renderer, taken from [structurizr/structurizr](https://github.com/structurizr/structurizr) — the same code the official local server serves, so a workspace renders here exactly as it does there. The renderer, its stylesheet and the icons live in `vendor/structurizr`, copied verbatim from the submodule and committed: neither npm nor pnpm fetches submodules for a git dependency, so an `npx` install would otherwise arrive with nothing to render with. `pnpm sync:vendor` refreshes them, taking exactly the files the source imports. `src/structurizr-globals.ts` supplies the handful of globals it expects, and `scripts/plugins.js` concatenates and injects it as a classic script (the renderer is written for sloppy mode, which an ES module forbids; an inline script is not `eval`, so a strict CSP still passes). The comments in both explain the details.

@@ -4,13 +4,26 @@
     "version": "0.0.1",
     "type": "module",
     "bin": {
+        "renderizr": "scripts/build.js",
         "build": "scripts/build.js"
     },
+    "engines": {
+        "node": ">=20"
+    },
+    "files": [
+        "scripts",
+        "src",
+        "vendor",
+        "public",
+        "index.html",
+        "tsconfig.json"
+    ],
     "scripts": {
         "dev": "vite",
         "build": "tsc && node scripts/build.js",
         "preview": "vite preview",
-        "prepare": "ls node_modules/.bin/husky && husky"
+        "sync:vendor": "node scripts/sync-vendor.js",
+        "prepare": "husky || true"
     },
     "devDependencies": {
         "@biomejs/biome": "^1.8.2",

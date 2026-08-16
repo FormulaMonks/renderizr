@@ -2,17 +2,17 @@ import { applyTheme, writeSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { View } from "../types/structurizr-workspace";
 import styles from "./current-view.module.css";
-import lightModeIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/moon-fill.svg?raw";
-import darkModeIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/sun-fill.svg?raw";
-import toggleDescriptionsIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/card-text.svg?raw";
-import toggleTechnologiesIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/code-square.svg?raw";
-import resetZoomIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/aspect-ratio.svg?raw";
-import zoomInIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/zoom-in.svg?raw";
-import zoomOutIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/zoom-out.svg?raw";
-import playIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/play-fill.svg?raw";
-import stopIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/stop-fill.svg?raw";
-import prevStepIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/skip-start-fill.svg?raw";
-import nextStepIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/skip-end-fill.svg?raw";
+import lightModeIcon from "../../vendor/structurizr/bootstrap-icons/moon-fill.svg?raw";
+import darkModeIcon from "../../vendor/structurizr/bootstrap-icons/sun-fill.svg?raw";
+import toggleDescriptionsIcon from "../../vendor/structurizr/bootstrap-icons/card-text.svg?raw";
+import toggleTechnologiesIcon from "../../vendor/structurizr/bootstrap-icons/code-square.svg?raw";
+import resetZoomIcon from "../../vendor/structurizr/bootstrap-icons/aspect-ratio.svg?raw";
+import zoomInIcon from "../../vendor/structurizr/bootstrap-icons/zoom-in.svg?raw";
+import zoomOutIcon from "../../vendor/structurizr/bootstrap-icons/zoom-out.svg?raw";
+import playIcon from "../../vendor/structurizr/bootstrap-icons/play-fill.svg?raw";
+import stopIcon from "../../vendor/structurizr/bootstrap-icons/stop-fill.svg?raw";
+import prevStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-start-fill.svg?raw";
+import nextStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-end-fill.svg?raw";
 import Component from "./_component";
 
 export type DiagramControls = {

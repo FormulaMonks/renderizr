@@ -6,6 +6,18 @@ import { loadFont, loadLogo, loadWorkspace } from "./assets.js";
 import { parseCliArgs } from "./cli.js";
 import { createConfig } from "./config.js";
 
+// `npx` runs against whatever Node is on the PATH, which is often not the one
+// the shell reports. Older versions fail deep inside the build instead — no
+// global `fetch`, and `parseArgs` silently dropping every default — so the
+// error names a missing path rather than the actual cause.
+const MINIMUM_NODE = 20;
+if (Number.parseInt(process.versions.node, 10) < MINIMUM_NODE) {
+    process.stderr.write(
+        `Renderizr needs Node ${MINIMUM_NODE} or newer; this is ${process.version}.\n`,
+    );
+    process.exit(1);
+}
+
 const options = parseCliArgs();
 
 const font = await loadFont(options.font);
