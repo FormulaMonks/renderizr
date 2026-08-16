@@ -36,9 +36,6 @@ const MAX_CANVAS_HEIGHT = 4;
  */
 const LEGIBLE_SHRINK = 0.5;
 
-/** The margin zoomFitContent leaves around the drawing, in diagram units. */
-const CONTENT_MARGIN = 50;
-
 /** One notch of the zoom controls. */
 const ZOOM_STEP = 1.2;
 
@@ -60,34 +57,8 @@ const hasStoredPositions = (view: View) =>
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
     #resizeObserver: ResizeObserver | null = null;
+    #refitTimer = 0;
     #lastWidth = 0;
-
-    /**
-     * Size the canvas from the diagram's own aspect ratio.
-     *
-     * A diagram that fits the screen at full width gets exactly the height it
-     * needs — no letterbox. A diagram too tall for that has two options, and
-     * legibility decides between them: if squeezing it onto one screen would
-     * cost less than a third of its size, it is squeezed; if it would shrink
-     * to something nobody can read, the canvas keeps full width and the page
-     * simply gets longer, to be scrolled like any other long page.
-     */
-    /** The bounding box of what is drawn, in the diagram's own coordinates. */
-    #contentSize(): { width: number; height: number } | null {
-        const layer = document.querySelector<SVGGraphicsElement>(
-            "#structurizr-diagram-target .joint-cells-layer",
-        );
-        if (!layer) return null;
-
-        try {
-            const box = layer.getBBox();
-            return box.width > 0 && box.height > 0
-                ? { width: box.width, height: box.height }
-                : null;
-        } catch {
-            return null;
-        }
-    }
 
     /**
      * Size the canvas from the diagram's own proportions.
@@ -95,34 +66,33 @@ export default class Diagrams extends Page {
      * A diagram that fits the screen gets exactly the height it needs — no
      * letterbox above and below it. One too tall for that has two options, and
      * legibility decides between them: if fitting it to the screen would cost
-     * less than a third of its size, it is fitted; if it would shrink to
-     * something nobody can read, the canvas keeps full width and the page
-     * simply gets longer, to be scrolled like any other long page.
+     * less than half its size, it is fitted; if it would shrink to something
+     * nobody can read, the canvas keeps full width and the page simply gets
+     * longer, to be scrolled like any other long page.
      */
-    #fitDiagram = () => {
+    #fitDiagram = (final = false) => {
         const target = document.getElementById("structurizr-diagram-target");
         if (!target || !this.#diagram) return;
 
-        // zoomFitContent scales to the drawing rather than to the paper, so
-        // there is no need to repaginate a view whose paper is oversized.
+        // Shrink the paper to what is drawn on it first. Deployment views in
+        // particular carry a paper several times their content, and the engine
+        // scales the paper: left alone, the diagram is sized for a page far
+        // bigger than the box and everything outside the middle is clipped.
+        this.#diagram.autoPageSize();
+
+        // With the paper tight, box and paper share a ratio, so fitting the
+        // paper fills the box exactly — no dead space, nothing cut off.
         const settle = () => {
             this.#diagram?.resize();
-            this.#diagram?.zoomFitContent();
+            this.#diagram?.zoomToWidthOrHeight();
         };
 
-        settle();
-
-        const content = this.#contentSize();
-        const width = content?.width ?? this.#diagram.getWidth();
-        const height = content?.height ?? this.#diagram.getHeight();
+        const width = this.#diagram.getWidth();
+        const height = this.#diagram.getHeight();
         const available = target.clientWidth;
 
         if (width > 0 && height > 0 && available > 0) {
-            // zoomFitContent leaves a margin around the drawing; counting it
-            // here is what stops the diagram spilling past the box it is given.
-            const atFullWidth =
-                (available * (height + CONTENT_MARGIN * 2)) /
-                (width + CONTENT_MARGIN * 2);
+            const atFullWidth = (available * height) / width;
             const footer =
                 document.getElementById("disclaimer")?.offsetHeight ?? 0;
             const onScreen = Math.max(
@@ -149,6 +119,15 @@ export default class Diagrams extends Page {
         // The engine reads the viewport's offset when it centres, so it can
         // only be correct once the height above has been laid out.
         requestAnimationFrame(settle);
+
+        // Layout can still be moving after that — the drawer's own transition,
+        // an embedded font arriving, a phone's address bar sliding away — and a
+        // measurement taken mid-flight leaves the diagram at the wrong scale.
+        // One late second pass costs nothing and removes the whole class of
+        // race.
+        if (final) return;
+        window.clearTimeout(this.#refitTimer);
+        this.#refitTimer = window.setTimeout(() => this.#fitDiagram(true), 260);
     };
 
     /**
@@ -184,6 +163,96 @@ export default class Diagrams extends Page {
         event.stopPropagation();
 
         this.#zoomBy(event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
+    };
+
+    /*
+     * Touch. Two fingers pinch the diagram itself rather than the whole page,
+     * and once it is larger than its box one finger drags it around; below
+     * that a swipe is left alone so the page still scrolls. The engine's own
+     * panning is bound to mouse events only, so none of this comes for free.
+     */
+    #pointers = new Map<number, { x: number; y: number }>();
+    #pinch: { distance: number; scale: number } | null = null;
+    #pan: { x: number; y: number; left: number; top: number } | null = null;
+
+    #viewport() {
+        return document.getElementById("structurizr-diagram-target-viewport");
+    }
+
+    #pinchDistance() {
+        const [a, b] = [...this.#pointers.values()];
+        return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    #handlePointerDown = (event: PointerEvent) => {
+        if (event.pointerType === "mouse") return;
+
+        this.#pointers.set(event.pointerId, {
+            x: event.clientX,
+            y: event.clientY,
+        });
+
+        if (this.#pointers.size === 2) {
+            this.#pan = null;
+            this.#pinch = {
+                distance: this.#pinchDistance(),
+                scale: this.#currentScale(),
+            };
+            return;
+        }
+
+        const viewport = this.#viewport();
+        // Only claim the gesture when there is somewhere to pan to; otherwise
+        // the swipe belongs to the page.
+        if (
+            this.#pointers.size === 1 &&
+            viewport &&
+            (viewport.scrollHeight > viewport.clientHeight ||
+                viewport.scrollWidth > viewport.clientWidth)
+        ) {
+            this.#pan = {
+                x: event.clientX,
+                y: event.clientY,
+                left: viewport.scrollLeft,
+                top: viewport.scrollTop,
+            };
+        }
+    };
+
+    #handlePointerMove = (event: PointerEvent) => {
+        if (!this.#pointers.has(event.pointerId)) return;
+
+        this.#pointers.set(event.pointerId, {
+            x: event.clientX,
+            y: event.clientY,
+        });
+
+        if (this.#pinch && this.#pointers.size === 2) {
+            event.preventDefault();
+            const distance = this.#pinchDistance();
+            if (this.#pinch.distance <= 0) return;
+
+            this.#diagram?.zoomTo(
+                Math.max(
+                    MIN_ZOOM_SCALE,
+                    (this.#pinch.scale * distance) / this.#pinch.distance,
+                ),
+            );
+            return;
+        }
+
+        const viewport = this.#viewport();
+        if (!this.#pan || !viewport) return;
+
+        event.preventDefault();
+        viewport.scrollLeft = this.#pan.left - (event.clientX - this.#pan.x);
+        viewport.scrollTop = this.#pan.top - (event.clientY - this.#pan.y);
+    };
+
+    #handlePointerUp = (event: PointerEvent) => {
+        this.#pointers.delete(event.pointerId);
+        if (this.#pointers.size < 2) this.#pinch = null;
+        if (this.#pointers.size === 0) this.#pan = null;
     };
 
     #navigateToContainer(id?: string) {
@@ -281,11 +350,31 @@ export default class Diagrams extends Page {
                         document.querySelector(".loading")?.remove();
                         this.#diagram.setNavigationEnabled(true);
 
-                        document
-                            .getElementById("structurizr-diagram-target")
-                            ?.addEventListener("wheel", this.#handleWheel, {
-                                passive: false,
-                            });
+                        const canvas = document.getElementById(
+                            "structurizr-diagram-target",
+                        );
+                        canvas?.addEventListener("wheel", this.#handleWheel, {
+                            passive: false,
+                        });
+                        canvas?.addEventListener(
+                            "pointerdown",
+                            this.#handlePointerDown,
+                        );
+                        canvas?.addEventListener(
+                            "pointermove",
+                            this.#handlePointerMove,
+                            { passive: false },
+                        );
+                        for (const type of [
+                            "pointerup",
+                            "pointercancel",
+                            "pointerleave",
+                        ]) {
+                            canvas?.addEventListener(
+                                type,
+                                this.#handlePointerUp as EventListener,
+                            );
+                        }
 
                         // Width only: the canvas height is derived from the width,
                         // so observing height as well would feed back on itself.
@@ -388,10 +477,19 @@ export default class Diagrams extends Page {
     clear() {
         this.removeAllComponents();
         this.#resizeObserver?.disconnect();
+        window.clearTimeout(this.#refitTimer);
         this.#lastWidth = 0;
-        document
-            .getElementById("structurizr-diagram-target")
-            ?.removeEventListener("wheel", this.#handleWheel);
+        const canvas = document.getElementById("structurizr-diagram-target");
+        canvas?.removeEventListener("wheel", this.#handleWheel);
+        canvas?.removeEventListener("pointerdown", this.#handlePointerDown);
+        canvas?.removeEventListener("pointermove", this.#handlePointerMove);
+        for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+            canvas?.removeEventListener(
+                type,
+                this.#handlePointerUp as EventListener,
+            );
+        }
+        this.#pointers.clear();
         this.container!.innerHTML = "";
     }
 }

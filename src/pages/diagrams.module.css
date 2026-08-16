@@ -34,9 +34,14 @@
 
 :global(.structurizrDiagramViewport) {
     background: var(--color-surface);
-    /* The engine sets `hidden scroll`, which leaves a permanent scrollbar
-    gutter in Chrome even when the diagram fits. */
-    overflow: hidden !important;
+    /* The engine turns overflow on when the diagram is zoomed past its box,
+    which is what makes dragging work — so the scrollbars are hidden rather
+    than the overflow, otherwise Chrome keeps a permanent gutter. */
+    scrollbar-width: none;
+}
+
+:global(.structurizrDiagramViewport)::-webkit-scrollbar {
+    display: none;
 }
 
 @media (max-width: 767px) {
