@@ -19,6 +19,42 @@
     }
 }
 
+/* Keeps the page-theme toggle on the same row as the page links. */
+.navActions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+}
+
+.themeToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    height: 1.9rem;
+    width: 1.9rem;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 5px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-muted);
+
+    svg {
+        pointer-events: none;
+        width: 0.95rem;
+        height: 0.95rem;
+        fill: currentColor;
+    }
+}
+
+.themeToggle:hover {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
 .brand {
     display: flex;
     align-items: center;

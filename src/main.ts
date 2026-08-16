@@ -1,4 +1,4 @@
-import { applyTheme, readSetting } from "./storage.ts";
+import { initTheme } from "./components/theme.ts";
 import getStructurizr from "./structurizr-runtime.ts";
 import DiagramsPage from "./pages/diagrams.ts";
 import "./main.css";
@@ -30,14 +30,10 @@ function trackHeaderHeight() {
 }
 
 async function init() {
-    // Before the first paint, so the documentation and decision pages open in
-    // the same theme the diagrams were last left in.
-    const storedTheme = readSetting("structurizr_cooper:darkModeDiagrams");
-    applyTheme(
-        storedTheme
-            ? storedTheme === "dark"
-            : window.matchMedia("(prefers-color-scheme: dark)").matches,
-    );
+    // The inline script in index.html has already stamped `data-theme` so the
+    // first paint is in the right scheme; this takes ownership of it and keeps
+    // it in step with the OS while the reader is on "system".
+    initTheme();
 
     const structurizr = await getStructurizr();
 

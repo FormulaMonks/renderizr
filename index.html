@@ -5,6 +5,24 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>%VITE_WORKSPACE_NAME% | Structurizr</title>
+    <script>
+      // Resolve the page theme before first paint to avoid a flash of the
+      // wrong colour scheme. Kept in sync by src/components/theme.ts.
+      (function () {
+        var mode = "system";
+        try {
+          mode = localStorage.getItem("renderizr:theme") || "system";
+        } catch (e) {}
+        var resolved =
+          mode === "light" || mode === "dark"
+            ? mode
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.dataset.themeMode = mode;
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

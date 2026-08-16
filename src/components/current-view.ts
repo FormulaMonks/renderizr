@@ -1,6 +1,7 @@
-import { applyTheme, writeSetting } from "../storage";
+import { readSetting, writeSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { View } from "../types/structurizr-workspace";
+import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
 import styles from "./current-view.module.css";
 import lightModeIcon from "../../vendor/structurizr/bootstrap-icons/moon-fill.svg?raw";
 import darkModeIcon from "../../vendor/structurizr/bootstrap-icons/sun-fill.svg?raw";
@@ -22,64 +23,158 @@ export type DiagramControls = {
     zoomOut: () => void;
 };
 
+/* -------------------------------------------------------------------------
+ * Diagram colour scheme
+ *
+ * Deliberately *independent* of the page theme owned by `theme.ts`: a reader
+ * can keep the documentation dark while diagrams stay light, or the other way
+ * around. Resolution order:
+ *
+ *   1. An explicit choice made with the toolbar button (persisted forever).
+ *   2. The legacy Structurizr key, migrated on first read so returning readers
+ *      keep the setting they already had.
+ *   3. The page's resolved theme, so a first visit looks coherent. While no
+ *      explicit choice exists the diagram keeps following the page (and the
+ *      OS, through `theme.ts`); the moment the reader toggles, it stops.
+ *
+ * The resolved value is mirrored onto `<html data-diagram-theme="light|dark">`
+ * so the canvas backdrop can be styled without ever consulting the page theme.
+ * ------------------------------------------------------------------------- */
+
+export type DiagramTheme = ResolvedTheme;
+
+export const DIAGRAM_THEME_STORAGE_KEY = "renderizr:diagram-theme";
+const LEGACY_DIAGRAM_THEME_STORAGE_KEY = "structurizr_cooper:darkModeDiagrams";
+const DIAGRAM_LABELS_STORAGE_KEY = "renderizr:diagram-labels";
+
+/**
+ * The diagram theme the reader explicitly picked, or `null` when they never
+ * picked one. Callers read `null` as "still fair to follow the page theme".
+ */
+export function getStoredDiagramTheme(): DiagramTheme | null {
+    const stored = readSetting(DIAGRAM_THEME_STORAGE_KEY);
+    if (stored === "light" || stored === "dark") return stored;
+
+    // Migrate readers coming from the previous Structurizr-flavoured key.
+    const legacy = readSetting(LEGACY_DIAGRAM_THEME_STORAGE_KEY);
+    if (legacy === "light" || legacy === "dark") {
+        writeSetting(DIAGRAM_THEME_STORAGE_KEY, legacy);
+        return legacy;
+    }
+
+    return null;
+}
+
+/** The colour scheme diagrams should be drawn in right now. */
+export function getDiagramTheme(): DiagramTheme {
+    return getStoredDiagramTheme() ?? getResolvedTheme();
+}
+
+/** Records an explicit diagram colour scheme choice. */
+export function storeDiagramTheme(theme: DiagramTheme): void {
+    writeSetting(DIAGRAM_THEME_STORAGE_KEY, theme);
+    // Keep the legacy key in step for anything still reading it.
+    writeSetting(LEGACY_DIAGRAM_THEME_STORAGE_KEY, theme);
+}
+
+/**
+ * Mirrors the diagram colour scheme onto `<html>` for CSS to pick up. Called
+ * before the diagram is constructed so the canvas never flashes the wrong
+ * backdrop on its way in.
+ */
+export function applyDiagramTheme(theme: DiagramTheme): void {
+    document.documentElement.dataset.diagramTheme = theme;
+}
+
+/** Visibility of the optional labels Structurizr draws inside elements. */
+type LabelState = {
+    descriptions: boolean;
+    technologies: boolean;
+};
+
+/**
+ * `structurizr-diagram.js` initialises `descriptionEnabled` and
+ * `metadataEnabled` to `true`, so a freshly constructed diagram shows both.
+ */
+const STRUCTURIZR_LABEL_DEFAULTS: LabelState = {
+    descriptions: true,
+    technologies: true,
+};
+
+function readLabelState(): LabelState {
+    const raw = readSetting(DIAGRAM_LABELS_STORAGE_KEY);
+    if (!raw) return { ...STRUCTURIZR_LABEL_DEFAULTS };
+
+    try {
+        const parsed = JSON.parse(raw) as Partial<LabelState>;
+        return {
+            descriptions:
+                typeof parsed.descriptions === "boolean"
+                    ? parsed.descriptions
+                    : STRUCTURIZR_LABEL_DEFAULTS.descriptions,
+            technologies:
+                typeof parsed.technologies === "boolean"
+                    ? parsed.technologies
+                    : STRUCTURIZR_LABEL_DEFAULTS.technologies,
+        };
+    } catch {
+        return { ...STRUCTURIZR_LABEL_DEFAULTS };
+    }
+}
+
+function writeLabelState(state: LabelState): void {
+    writeSetting(DIAGRAM_LABELS_STORAGE_KEY, JSON.stringify(state));
+}
+
 export default class CurrentView extends Component {
     #diagram: Diagram;
     #controls: DiagramControls;
 
-    #actions = new Map([
+    /**
+     * What the reader wants to see. Lives on the component — which survives
+     * the view changes that rebuild the toolbar — *and* in localStorage, which
+     * survives a reload.
+     */
+    #labels: LabelState = readLabelState();
+
+    /**
+     * What the diagram is actually showing. `structurizr-diagram.js` exposes
+     * no getter or setter for these flags — only `toggleDescription()` and
+     * `toggleMetadata()` — and `changeView()` leaves them alone, so we mirror
+     * them here and toggle only on a mismatch. That turns the toggles into
+     * idempotent setters and stops the state from ever drifting or
+     * double-flipping.
+     */
+    #appliedLabels: LabelState = { ...STRUCTURIZR_LABEL_DEFAULTS };
+
+    #unsubscribeTheme: (() => void) | null = null;
+
+    #actions = new Map<string, () => void>([
         ["zoom-in", () => this.#controls.zoomIn()],
         ["zoom-out", () => this.#controls.zoomOut()],
         ["reset-zoom", () => this.#controls.fit()],
         [
             "dark-mode",
-            (event: Event) => {
-                const isDarkMode = this.#diagram.isDarkMode();
-                this.#diagram.setDarkMode(!isDarkMode);
-                applyTheme(!isDarkMode);
-                writeSetting(
-                    "structurizr_cooper:darkModeDiagrams",
-                    !isDarkMode ? "dark" : "light",
-                );
-                (event.target as HTMLButtonElement).innerHTML =
-                    this.#diagram.isDarkMode() ? darkModeIcon : lightModeIcon;
-                this.#diagram.stopAnimation();
-                this.#toggleBackButton();
-            },
+            () =>
+                this.applyColorScheme(
+                    this.#diagram.isDarkMode() ? "light" : "dark",
+                    true,
+                ),
         ],
         [
             "toggle-description",
-            (event: Event) => {
-                this.#diagram.toggleDescription();
-
-                const button = event.target as HTMLButtonElement;
-                if (button) {
-                    button.dataset.active =
-                        button.dataset.active === "true" ? "" : "true";
-                }
-                this.#diagram.stopAnimation();
-                this.#toggleBackButton();
-            },
+            () => this.#setLabels({ descriptions: !this.#labels.descriptions }),
         ],
         [
             "toggle-technologies",
-            (event: Event) => {
-                this.#diagram.toggleMetadata();
-
-                const button = event.target as HTMLButtonElement;
-                if (button) {
-                    button.dataset.active =
-                        button.dataset.active === "true" ? "" : "true";
-                }
-                this.#diagram.stopAnimation();
-                this.#toggleBackButton();
-            },
+            () => this.#setLabels({ technologies: !this.#labels.technologies }),
         ],
         [
             "play-animation",
-            (event: Event) => {
-                const button = event.target as HTMLButtonElement;
+            () => {
+                const button = this.#button("play-animation");
                 if (button?.dataset.playing === "true") {
-                    this.#diagram.stopAnimation();
+                    this.#stopAnimation();
                 } else {
                     this.#diagram.startAnimation(true);
                 }
@@ -110,21 +205,145 @@ export default class CurrentView extends Component {
         super(element);
         this.#diagram = diagram;
         this.#controls = controls;
+
+        // Seed the engine from the persisted preferences before anything is
+        // drawn. Both are safe this early: `setDarkMode()` bails out of
+        // `renderView()` while there is no current view, and the label flags
+        // are re-read every time a view is drawn.
+        this.applyColorScheme(getDiagramTheme());
+        this.#syncLabels();
+
+        // Until the reader makes a diagram-specific choice, diagrams follow
+        // the page (and, through it, the OS). After that they never do again.
+        this.#unsubscribeTheme = onThemeChange((resolved) => {
+            if (getStoredDiagramTheme()) return;
+            this.applyColorScheme(resolved);
+        });
+    }
+
+    #button(name: string): HTMLButtonElement | null {
+        return (
+            this.element?.querySelector<HTMLButtonElement>(`.${name}`) ?? null
+        );
     }
 
     #toggleBackButton() {
-        if (this.#diagram.animationStarted()) {
-            const button = this.element?.querySelector(
-                ".prev-step",
-            ) as HTMLButtonElement;
-            button.disabled = false;
-        } else {
-            const button = this.element?.querySelector(
-                ".prev-step",
-            ) as HTMLButtonElement;
+        const button = this.#button("prev-step");
+        if (!button) return;
 
-            if (button) button.disabled = true;
+        button.disabled = !this.#diagram.animationStarted();
+    }
+
+    /**
+     * `Diagram.stopAnimation()` reaches `currentView.type` through
+     * `currentViewIsDynamic()`, so it throws outright when no view has been
+     * rendered yet — which is exactly the state the constructor seeds in.
+     */
+    #stopAnimation() {
+        if (!this.#diagram.getCurrentView()) return;
+        this.#diagram.stopAnimation();
+    }
+
+    /**
+     * Applies a diagram colour scheme. Pass `persist` when it comes from the
+     * reader clicking the toolbar button: that pins the choice, so later page
+     * or OS theme changes leave diagrams alone.
+     */
+    applyColorScheme(theme: DiagramTheme, persist = false): void {
+        if (persist) storeDiagramTheme(theme);
+        applyDiagramTheme(theme);
+
+        const darkMode = theme === "dark";
+        if (this.#diagram.isDarkMode() !== darkMode) {
+            // `setDarkMode()` re-renders the view, which invalidates any
+            // animation in flight.
+            this.#diagram.setDarkMode(darkMode);
+            this.#stopAnimation();
         }
+
+        this.#paintControlButtons();
+        this.#toggleBackButton();
+    }
+
+    /**
+     * Brings the diagram in line with the desired label visibility.
+     *
+     * `changeView()` does *not* reset `descriptionEnabled` / `metadataEnabled`
+     * — they are closure-level flags only ever flipped by `toggle*()`, and the
+     * renderer re-reads them at the end of every draw — so after the initial
+     * reconciliation this is a no-op. Re-toggling blindly on each view change
+     * would invert the state every time.
+     */
+    #syncLabels(): void {
+        if (this.#appliedLabels.descriptions !== this.#labels.descriptions) {
+            this.#diagram.toggleDescription();
+            this.#appliedLabels.descriptions = this.#labels.descriptions;
+        }
+
+        if (this.#appliedLabels.technologies !== this.#labels.technologies) {
+            this.#diagram.toggleMetadata();
+            this.#appliedLabels.technologies = this.#labels.technologies;
+        }
+    }
+
+    #setLabels(next: Partial<LabelState>) {
+        this.#labels = { ...this.#labels, ...next };
+        writeLabelState(this.#labels);
+
+        this.#syncLabels();
+        this.#paintControlButtons();
+
+        this.#stopAnimation();
+        this.#toggleBackButton();
+    }
+
+    #paintToggleButton(name: string, active: boolean, label: string) {
+        const button = this.#button(name);
+        if (!button) return;
+
+        button.dataset.active = active ? "true" : "";
+        button.setAttribute("aria-pressed", String(active));
+        button.title = label;
+        button.setAttribute("aria-label", label);
+    }
+
+    /**
+     * Repaints every stateful button from the tracked state. The toolbar is
+     * rebuilt with `innerHTML` on each view change, so without this the
+     * buttons would fall back to their default look while the diagram kept the
+     * reader's actual settings.
+     */
+    #paintControlButtons() {
+        const isDarkMode = this.#diagram.isDarkMode();
+        const themeButton = this.#button("dark-mode");
+
+        if (themeButton) {
+            themeButton.innerHTML = isDarkMode ? darkModeIcon : lightModeIcon;
+            // Named for diagrams throughout, so it is never mistaken for the
+            // page theme toggle in the header.
+            this.#paintToggleButton(
+                "dark-mode",
+                isDarkMode,
+                isDarkMode
+                    ? "Switch diagrams to light mode"
+                    : "Switch diagrams to dark mode",
+            );
+        }
+
+        this.#paintToggleButton(
+            "toggle-description",
+            this.#labels.descriptions,
+            this.#labels.descriptions
+                ? "Hide descriptions in diagrams"
+                : "Show descriptions in diagrams",
+        );
+        this.#paintToggleButton(
+            "toggle-technologies",
+            this.#labels.technologies,
+            this.#labels.technologies
+                ? "Hide technologies in diagrams"
+                : "Show technologies in diagrams",
+        );
     }
 
     #addControlButtons(container: HTMLElement) {
@@ -132,16 +351,14 @@ export default class CurrentView extends Component {
             this.#diagram.currentViewHasAnimation() ||
             this.#diagram.currentViewIsDynamic();
 
-        const isDarkMode = this.#diagram.isDarkMode();
-
         container.innerHTML = `
             <div class="actions ${styles.btnGroup}">
                 <button class="zoom-out" title="Zoom out" aria-label="Zoom out">${zoomOutIcon}</button>
                 <button class="zoom-in" title="Zoom in" aria-label="Zoom in">${zoomInIcon}</button>
                 <button class="reset-zoom" title="Fit diagram" aria-label="Fit diagram">${resetZoomIcon}</button>
-                <button class="dark-mode" title="Toggle ${isDarkMode ? "light" : "dark"} diagram" aria-label="Toggle ${isDarkMode ? "light" : "dark"} diagram">${isDarkMode ? darkModeIcon : lightModeIcon}</button>
-                <button class="toggle-description" title="Toggle descriptions" aria-label="Toggle descriptions">${toggleDescriptionsIcon}</button>
-                <button class="toggle-technologies" title="Toggle technologies" aria-label="Toggle technologies">${toggleTechnologiesIcon}</button>
+                <button class="dark-mode"></button>
+                <button class="toggle-description">${toggleDescriptionsIcon}</button>
+                <button class="toggle-technologies">${toggleTechnologiesIcon}</button>
             </div>
             ${
                 hasAnimations
@@ -154,6 +371,9 @@ export default class CurrentView extends Component {
                     : ""
             }
         `;
+
+        this.#paintControlButtons();
+        this.#toggleBackButton();
 
         for (const [id, action] of this.#actions) {
             const button = container.querySelector(`.${id}`);
@@ -183,8 +403,11 @@ export default class CurrentView extends Component {
     }
 
     clear() {
+        this.#unsubscribeTheme?.();
+        this.#unsubscribeTheme = null;
+
         const container = this.element?.querySelector(
-            `${styles.controlButtons}`,
+            `.${styles.controlButtons}`,
         );
         for (const [id, action] of this.#actions) {
             const button = container?.querySelector(`.${id}`);
@@ -231,7 +454,9 @@ export default class CurrentView extends Component {
 
         const controlButtonsContainer = document.createElement("div");
         controlButtonsContainer.classList.add(styles.controlButtons);
-        this.#addControlButtons(controlButtonsContainer);
+        // Attached first: the paint helpers look the buttons up through
+        // `this.element`, so the container has to be in the tree already.
         this.element.appendChild(controlButtonsContainer);
+        this.#addControlButtons(controlButtonsContainer);
     }
 }

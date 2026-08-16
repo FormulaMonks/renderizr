@@ -1,25 +1,20 @@
+/*
+ * Theme tokens.
+ *
+ * `:root` carries the light palette; `:root[data-theme="dark"]` overrides it.
+ * `components/theme.ts` always resolves the reader's preference (including
+ * "system") to a concrete `data-theme` attribute on <html>, and an inline
+ * script in index.html does the same before the first paint — so component CSS
+ * never needs a `prefers-color-scheme` query.
+ *
+ * The diagram canvas has its own, independent scheme; see
+ * `<html data-diagram-theme>` in `pages/diagrams.module.css`.
+ */
 :root {
-  /* Colors */
-  --color-primary: rgb(17, 104, 189);
+  /* Brand */
   --color-secondary: rgb(8, 66, 123);
   --color-tertiary: rgb(133, 187, 240);
   --color-external: rgb(153, 153, 153);
-  --color-primary-foreground: rgb(from var(--color-primary) calc(r + 50) calc(g + 50) calc(b + 50));
-  --color-secondary-foreground: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
-  --color-primary-background: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
-  --color-secondary-background: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
-  --color-foreground: rgb(233, 237, 243);
-  --color-background: rgb(20, 20, 20);
-  --color-surface: rgb(30, 30, 30);
-  --color-muted: rgb(150, 158, 168);
-  --color-border: rgb(58, 58, 58);
-  --color-accepted: rgb(94 185 93);
-  --color-amended: rgb(120 168 220);
-  --color-draft: rgb(168 168 176);
-  --color-rejected: rgb(185 94 94);
-  --color-proposed: rgb(185 185 94);
-  --color-superseded: rgb(153, 153, 153);
-  --color-superseded-strong: rgb(214, 160, 62);
 
   /* Sizes */
   --container-padding: 1.5rem;
@@ -31,14 +26,148 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: var(--color-foreground);
-  background-color: var(--color-background);
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------------------------------------------------------------- light --- */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Darker than the dark-theme blue: the same hue does not carry the same
+  contrast on a near-white background. */
+  --color-primary: rgb(20, 91, 158);
+  --color-primary-foreground: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
+  --color-secondary-foreground: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
+  --color-primary-background: rgb(from var(--color-primary) calc(r + 200) calc(g + 200) calc(b + 200));
+  --color-secondary-background: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
+
+  --color-foreground: rgb(24, 27, 31);
+  --color-background: rgb(248, 249, 251);
+  --color-muted: rgb(96, 105, 118);
+
+  /* Raised / recessed surfaces */
+  --color-surface: rgb(255, 255, 255);
+  --color-surface-alt: rgb(240, 241, 243);
+  --color-surface-hover: rgb(233, 235, 238);
+  --color-border: rgb(219, 224, 230);
+  --color-border-muted: rgb(228, 230, 234);
+
+  /* Selected state: a tint of the brand colour, plus text that reads on it */
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  --color-primary-soft-foreground: var(--color-primary-foreground);
+
+  /* Code */
+  --color-code-background: rgb(240, 241, 243);
+  --color-code-foreground: rgb(28, 31, 35);
+  --color-code-block-background: rgb(246, 248, 250);
+  --color-code-block-border: rgb(216, 222, 228);
+
+  /* GitHub-style alert accents */
+  --color-alert-note: rgb(9, 105, 218);
+  --color-alert-tip: rgb(26, 127, 55);
+  --color-alert-important: rgb(130, 80, 223);
+  --color-alert-warning: rgb(154, 103, 0);
+  --color-alert-caution: rgb(207, 34, 46);
+
+  /* Decision statuses */
+  --color-accepted: rgb(30 116 46);
+  --color-amended: rgb(44 105 168);
+  --color-draft: rgb(100 106 116);
+  --color-rejected: rgb(175 64 64);
+  --color-proposed: rgb(140 108 12);
+  --color-superseded: rgb(110, 116, 126);
+  --color-superseded-strong: rgb(154, 103, 0);
+
+  /* Scrollbars */
+  --scrollbar-track: rgb(238, 239, 241);
+  --scrollbar-thumb: rgb(196, 200, 206);
+  --scrollbar-thumb-hover: rgb(160, 165, 173);
+}
+
+/* ----------------------------------------------------------------- dark --- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-primary: rgb(17, 104, 189);
+  --color-primary-foreground: rgb(from var(--color-primary) calc(r + 50) calc(g + 50) calc(b + 50));
+  --color-secondary-foreground: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
+  --color-primary-background: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
+  --color-secondary-background: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
+
+  --color-foreground: rgb(233, 237, 243);
+  --color-background: rgb(20, 20, 20);
+  --color-muted: rgb(150, 158, 168);
+
+  --color-surface: rgb(30, 30, 30);
+  --color-surface-alt: rgb(38, 40, 44);
+  --color-surface-hover: rgb(48, 50, 55);
+  --color-border: rgb(58, 58, 58);
+  --color-border-muted: rgb(52, 55, 61);
+
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 30%, var(--color-surface));
+  --color-primary-soft-foreground: var(--color-tertiary);
+
+  --color-code-background: rgb(45, 48, 54);
+  --color-code-foreground: rgb(226, 228, 232);
+  --color-code-block-background: rgb(28, 30, 34);
+  --color-code-block-border: rgb(58, 61, 67);
+
+  --color-alert-note: rgb(71, 138, 248);
+  --color-alert-tip: rgb(63, 185, 80);
+  --color-alert-important: rgb(171, 125, 248);
+  --color-alert-warning: rgb(210, 153, 34);
+  --color-alert-caution: rgb(248, 81, 73);
+
+  --color-accepted: rgb(94 185 93);
+  --color-amended: rgb(120 168 220);
+  --color-draft: rgb(168 168 176);
+  --color-rejected: rgb(185 94 94);
+  --color-proposed: rgb(185 185 94);
+  --color-superseded: rgb(153, 153, 153);
+  --color-superseded-strong: rgb(214, 160, 62);
+
+  --scrollbar-track: rgb(28, 29, 32);
+  --scrollbar-thumb: rgb(68, 71, 78);
+  --scrollbar-thumb-hover: rgb(92, 96, 104);
+}
+
+:root {
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+}
+
+/*
+ * Scrollbars follow the page theme. `color-scheme` above is what makes the
+ * native ones match: left at `light dark` the UA painted dark scrollbars on a
+ * light page whenever the OS was in dark mode.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
 body {
@@ -151,37 +280,4 @@ a:hover {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-/*
- * Three states, not two: the OS preference, and an explicit choice in either
- * direction stamped on the root element by the theme control. Every colour is
- * a token so a component never has to know which state it is in.
- */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --color-primary: rgb(20, 91, 158);
-    --color-primary-foreground: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
-    --color-secondary-foreground: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
-    --color-primary-background: rgb(from var(--color-primary) calc(r + 200) calc(g + 200) calc(b + 200));
-    --color-secondary-background: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
-    --color-foreground: rgb(24, 27, 31);
-    --color-background: rgb(248, 249, 251);
-    --color-surface: rgb(255, 255, 255);
-    --color-muted: rgb(96, 105, 118);
-    --color-border: rgb(219, 224, 230);
-  }
-}
-
-:root[data-theme="light"] {
-  --color-primary: rgb(20, 91, 158);
-  --color-primary-foreground: rgb(from var(--color-primary) calc(r - 50) calc(g - 50) calc(b - 50));
-  --color-secondary-foreground: rgb(from var(--color-secondary) calc(r - 50) calc(g - 50) calc(b - 50));
-  --color-primary-background: rgb(from var(--color-primary) calc(r + 200) calc(g + 200) calc(b + 200));
-  --color-secondary-background: rgb(from var(--color-secondary) calc(r + 50) calc(g + 50) calc(b + 50));
-  --color-foreground: rgb(24, 27, 31);
-  --color-background: rgb(248, 249, 251);
-  --color-surface: rgb(255, 255, 255);
-  --color-muted: rgb(96, 105, 118);
-  --color-border: rgb(219, 224, 230);
 }

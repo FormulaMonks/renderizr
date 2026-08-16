@@ -58,10 +58,16 @@
 }
 
 /*
- * Every colour here is a token, so the toolbar follows the page into either
- * theme. Written as literals, or behind a `prefers-color-scheme` query, the
- * buttons kept whichever colours the operating system implied and ignored the
- * theme switch entirely.
+ * These buttons are *page* chrome — they sit above the canvas, not on it — so
+ * they follow the page theme owned by `theme.ts`. Every colour is therefore a
+ * token: written as literals, or behind a `prefers-color-scheme` query, the
+ * buttons would keep whichever colours the operating system implied and ignore
+ * the theme switch entirely.
+ *
+ * The canvas beneath them is the other half of the split: it follows the
+ * independent diagram scheme (`<html data-diagram-theme>`), so the toolbar can
+ * legitimately be dark while the diagram it controls is light. See
+ * `../pages/diagrams.module.css`.
  */
 .btnGroup {
     display: flex;
@@ -103,12 +109,28 @@
         );
     }
 
-    /* A toggle that is on reads as on, in either theme. */
+    /*
+     * A toggle that is on reads as on, in either theme, and stays readable as
+     * on while the pointer is over it — the plain hover rule above carries
+     * more specificity, so the "on" look needs its own hover variant or it
+     * disappears exactly when the reader is about to click it again.
+     */
     & button[data-active="true"] {
         color: var(--color-primary);
         background-color: color-mix(
             in srgb,
             var(--color-primary) 15%,
+            transparent
+        );
+        box-shadow: inset 0 0 0 1px
+            color-mix(in srgb, var(--color-primary) 40%, transparent);
+    }
+
+    & button[data-active="true"]:hover:not(:disabled) {
+        color: var(--color-primary);
+        background-color: color-mix(
+            in srgb,
+            var(--color-primary) 24%,
             transparent
         );
     }

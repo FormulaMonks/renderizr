@@ -2,9 +2,30 @@ import type { Workspace } from "../types/structurizr-workspace";
 import history from "history/hash";
 import Component from "./_component";
 import styles from "./navigation.module.css";
+import { cycleMode, getMode, onThemeChange, type ThemeMode } from "./theme";
+import lightIcon from "../../vendor/structurizr/bootstrap-icons/sun-fill.svg?raw";
+import darkIcon from "../../vendor/structurizr/bootstrap-icons/moon-fill.svg?raw";
+import systemIcon from "../../vendor/structurizr/bootstrap-icons/circle-half.svg?raw";
+
+const THEME_ICON: Record<ThemeMode, string> = {
+    light: lightIcon,
+    dark: darkIcon,
+    system: systemIcon,
+};
+
+/**
+ * Named for the page, not the diagram: the diagram toolbar has a toggle of its
+ * own and the two are independent preferences.
+ */
+const THEME_LABEL: Record<ThemeMode, string> = {
+    light: "Page theme: light. Switch to dark",
+    dark: "Page theme: dark. Follow the system",
+    system: "Page theme: system. Switch to light",
+};
 
 export default class Navigation extends Component {
     #workspace: Workspace;
+    #unsubscribeTheme: (() => void) | null = null;
 
     constructor(element: HTMLElement, workspace: Workspace) {
         super(element);
@@ -48,6 +69,35 @@ export default class Navigation extends Component {
         return this.hasDocs && this.hasDecisions;
     }
 
+    #paintThemeToggle(mode: ThemeMode) {
+        const button =
+            this.element?.querySelector<HTMLButtonElement>("#theme-toggle");
+        if (!button) return;
+
+        button.innerHTML = THEME_ICON[mode];
+        button.title = THEME_LABEL[mode];
+        button.setAttribute("aria-label", THEME_LABEL[mode]);
+        button.dataset.mode = mode;
+    }
+
+    /**
+     * Lives in the shared header rather than the diagram toolbar, so the theme
+     * is reachable from the documentation and decision pages too.
+     */
+    #renderThemeToggle() {
+        const button =
+            this.element?.querySelector<HTMLButtonElement>("#theme-toggle");
+        if (!button) return;
+
+        this.#paintThemeToggle(getMode());
+        button.addEventListener("click", () => cycleMode());
+
+        this.#unsubscribeTheme?.();
+        this.#unsubscribeTheme = onThemeChange((__, mode) =>
+            this.#paintThemeToggle(mode),
+        );
+    }
+
     render() {
         if (!(this.#workspace && this.element)) return;
 
@@ -83,11 +133,16 @@ export default class Navigation extends Component {
                     <p>${this.#workspace.version ? `Version: ${this.#workspace.version} - ` : ""}Last modified: <strong>${new Date(this.#workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
                 </section>
             </div>
-            <ul>
-                ${!(this.hasDocs || this.hasDecisions) ? "" : link("diagrams", "Diagrams")}
-                ${this.hasDocs ? link("docs", "Documentation") : ""}
-                ${this.hasDecisions ? link("adrs", "Decisions") : ""}
-            </ul>`;
+            <div class="${styles.navActions}">
+                <ul>
+                    ${!(this.hasDocs || this.hasDecisions) ? "" : link("diagrams", "Diagrams")}
+                    ${this.hasDocs ? link("docs", "Documentation") : ""}
+                    ${this.hasDecisions ? link("adrs", "Decisions") : ""}
+                </ul>
+                <button type="button" id="theme-toggle" class="${styles.themeToggle}"></button>
+            </div>`;
+
+        this.#renderThemeToggle();
 
         history.listen((update) => {
             for (const link of this.#links()) {
@@ -106,6 +161,8 @@ export default class Navigation extends Component {
 
     clear() {
         this.element?.classList.remove(styles.navigation);
+        this.#unsubscribeTheme?.();
+        this.#unsubscribeTheme = null;
         this.#removeEvents();
 
         const children = this.element?.querySelectorAll("*");
