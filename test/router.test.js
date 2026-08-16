@@ -12,9 +12,9 @@
  */
 
 import assert from "node:assert/strict";
-import { afterEach, beforeEach, test } from "node:test";
+import { afterEach, beforeEach } from "node:test";
 import history from "./support/history.js";
-import { dom, importSrc } from "./support/ts.js";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: Router } = await importSrc("components/router");
 const { default: Page } = await importSrc("pages/_page");
@@ -192,24 +192,21 @@ test("a pasted link switches pages", () => {
     assert.equal(host.querySelector("h2").textContent, "adrs");
 });
 
-test("re-navigating to the page already open still pushes — the guard misses", () => {
-    // `navigateTo` means to replace rather than push when the search it is
-    // about to write is the one already in the URL, but it compares
-    // `newSearch.toString()` ("page=docs") with `history.location.search`
-    // ("?page=docs"). The leading "?" makes the two never equal, so the guard
-    // never fires and a second Back press is needed to leave the page.
-    //
-    // Nothing in the shipped UI reaches it today — the nav links push through
+test("re-navigating to the page already open replaces rather than pushes", () => {
+    // The guard compares the search it is about to write with the one already
+    // in the URL. `URLSearchParams.toString()` has no leading "?" and
+    // `history.location.search` does, so this used to never match: navigating
+    // to the page you are on pushed a duplicate entry and cost an extra Back
+    // press. Nothing in the shipped UI reached it — the nav links push through
     // history themselves and the router's own listener passes replace=true —
-    // which is why it has gone unnoticed. Strip the "?" before comparing and
-    // this assertion becomes `depth`.
+    // which is why it went unnoticed.
     const router = new Router(host, pages());
     router.navigateTo("docs");
     const depth = window.history.length;
 
     router.navigateTo("docs");
 
-    assert.equal(window.history.length, depth + 1);
+    assert.equal(window.history.length, depth);
     assert.equal(currentPage(), "docs");
 });
 

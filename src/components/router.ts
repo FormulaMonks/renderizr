@@ -69,7 +69,13 @@ export default class Router extends Component {
             hash: history.location.hash,
         };
 
-        if (replace || newSearch.toString() === history.location.search) {
+        // `URLSearchParams.toString()` has no leading "?" and
+        // `history.location.search` does, so comparing them directly never
+        // matched and re-navigating to the page already open pushed a second
+        // identical entry — one more Back press to leave the page.
+        const currentSearch = history.location.search.replace(/^\?/, "");
+
+        if (replace || newSearch.toString() === currentSearch) {
             history.replace(next);
         } else {
             history.push(next);
