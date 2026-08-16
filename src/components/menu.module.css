@@ -25,6 +25,7 @@
 
     li {
         list-style: none;
+        min-width: 0;
     }
 
     a {
@@ -44,11 +45,40 @@
     ul ul a {
         font-size: 0.8rem;
     }
+
+    /* The third level is the "on this page" anchors of the page being read;
+       they are a reading aid, not a list of destinations. */
+    ul ul ul a {
+        font-size: 0.78rem;
+        color: var(--color-muted);
+    }
+
+    /* An entry that owns a nested list is a group header — a documentation
+       section, or a page with headings. Flat menus, such as the Decisions
+       list, have none and are unaffected. */
+    a:has(+ ul) {
+        color: var(--color-foreground);
+        font-weight: 600;
+        margin-top: 0.35rem;
+    }
 }
 
-.active {
+/* The current selection: the section or page on screen. */
+.menu a.active {
+    color: var(--color-primary-soft-foreground);
+    background-color: var(--color-primary-soft);
+    font-weight: 650;
+}
+
+/* Ancestors of the current selection. */
+.menu a.activeTrail {
     color: var(--color-foreground);
     font-weight: 650;
-    background-color: var(--color-surface);
-    pointer-events: none;
+}
+
+/* The heading currently in view, tracked by the scroll spy. */
+.menu a.current {
+    color: var(--color-foreground);
+    background-color: var(--color-surface-alt);
+    font-weight: 600;
 }

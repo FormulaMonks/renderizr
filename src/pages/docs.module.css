@@ -10,6 +10,103 @@
     padding-bottom: 2rem;
 }
 
+.breadcrumb {
+    margin: 0 0 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.breadcrumb:empty {
+    display: none;
+}
+
+/*
+ * Only one page of a section is on screen at a time. The rest of the rendered
+ * markdown stays in the document — the anchor ids have to keep resolving, and
+ * re-parsing a section on every Next is a waste — but it is hidden.
+ */
+.docs .docBody .pageHidden {
+    display: none;
+}
+
+/*
+ * The heading that opens the current page reads as that page's title, whatever
+ * markdown level it happens to be. It is never `:first-child` (the hidden
+ * pages precede it), so its top margin has to be reset here too.
+ */
+.docs .docBody .pageHeading {
+    font-size: 2.1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--color-foreground);
+    margin: 0 0 1.1rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--color-border-muted);
+}
+
+.pager {
+    display: flex;
+    gap: 1rem;
+    align-items: stretch;
+    max-width: 72ch;
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.pager:empty {
+    display: none;
+}
+
+.pagerButton {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.pagerButton:hover {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-primary);
+}
+
+.pagerNext {
+    align-items: flex-end;
+    margin-left: auto;
+    text-align: right;
+}
+
+.pagerLabel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.pagerSection {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+.pagerTitle {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
 @media (min-width: 900px) {
     .docs {
         flex-direction: row;
