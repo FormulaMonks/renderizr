@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Exported by a drawing tool; the cruft below is what minifySvg strips. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" viewBox="0 0 120 40" inkscape:version="1.0">
+  <title>Fixture logo</title>
+  <desc>A blue rounded rectangle.</desc>
+  <metadata>
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" />
+  </metadata>
+  <rect inkscape:label="body" x="0" y="0" width="120" height="40" rx="6" fill="#2f6fed" />
+</svg>
