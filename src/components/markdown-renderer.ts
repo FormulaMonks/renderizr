@@ -109,7 +109,12 @@ export default class MarkdownRenderer extends Component {
      * so they scroll rather than navigate.
      */
     #handleAnchorClick = (event: Event) => {
-        const link = (event.target as HTMLElement).closest("a");
+        // An SVGElement when the click lands on an alert icon, so `Element` —
+        // where `closest()` is defined — is as specific as this can be.
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const link = target.closest("a");
         const href = link?.getAttribute("href");
         if (!href?.startsWith("#") || href.length < 2) return;
 

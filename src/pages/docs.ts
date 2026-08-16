@@ -527,7 +527,12 @@ export default class Docs extends Page {
      * the target is hidden; turn it into a page change instead.
      */
     #onContentClick = (event: Event) => {
-        const link = (event.target as HTMLElement).closest("a");
+        // Not necessarily an HTMLElement: clicking the icon inside an alert
+        // box targets an SVGElement. `Element` is what `closest()` needs.
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const link = target.closest("a");
         const href = link?.getAttribute("href");
         if (!href?.startsWith("#") || href.length < 2) return;
 
@@ -541,9 +546,12 @@ export default class Docs extends Page {
     };
 
     #onPagerClick = (event: Event) => {
-        const button = (event.target as HTMLElement)?.closest<HTMLElement>(
-            "[data-page-index]",
-        );
+        // The pager buttons wrap several spans, and a click lands on whichever
+        // one was under the pointer.
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        const button = target.closest<HTMLElement>("[data-page-index]");
 
         if (button) this.#goToPage(Number(button.dataset.pageIndex));
     };
