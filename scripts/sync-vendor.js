@@ -48,12 +48,24 @@ const IMPLICIT = RENDERER_FILES.map((file) => `js/${file}`);
 
 const REFERENCE = /vendor\/structurizr\/([\w./-]+\.(?:css|js|svg))/g;
 
-/** Every file under `dir`, as paths relative to it. */
+/**
+ * Tests are not sources.
+ *
+ * The scan is a regex over file text, so a `vendor/structurizr/...` string
+ * written as a test fixture reads exactly like a real import. Those paths do
+ * not exist upstream, and a single phantom aborts the sync — which used to mean
+ * aborting it after the vendor tree had already been deleted.
+ */
+const IS_TEST =
+    /(^|[./])(test|__fixtures__|__mocks__)([./]|$)|\.test\.[cm]?[jt]s$/;
+
+/** Every file under `dir`, as paths relative to it, tests excluded. */
 async function walk(dir) {
     const entries = await readdir(dir, { withFileTypes: true });
     const files = await Promise.all(
         entries.map((entry) => {
             const path = join(dir, entry.name);
+            if (IS_TEST.test(entry.name)) return [];
             return entry.isDirectory() ? walk(path) : [path];
         }),
     );
@@ -95,6 +107,20 @@ if (!existsSync(UPSTREAM)) {
 
 const paths = await referencedPaths();
 
+// Every source is resolved before anything is deleted. This check used to live
+// inside the copy loop, below the `rm` — so a path the source referenced but
+// upstream did not have exited 1 with the vendor tree already gone, leaving a
+// checkout that could not build and no way back but git.
+const missing = paths.filter((path) => !existsSync(resolve(UPSTREAM, path)));
+if (missing.length > 0) {
+    process.stderr.write(
+        `Referenced by the source but missing upstream:\n${missing
+            .map((path) => `    ${path}\n`)
+            .join("")}\nvendor/ has not been touched.\n`,
+    );
+    process.exit(1);
+}
+
 // Rebuilt from empty so that a file the source no longer imports stops being
 // shipped, rather than lingering because nothing ever deletes it.
 await rm(VENDOR, { recursive: true, force: true });
@@ -102,13 +128,6 @@ await rm(VENDOR, { recursive: true, force: true });
 let bytes = 0;
 for (const path of paths) {
     const from = resolve(UPSTREAM, path);
-    if (!existsSync(from)) {
-        process.stderr.write(
-            `Referenced by the source but missing upstream: ${path}\n`,
-        );
-        process.exit(1);
-    }
-
     const to = resolve(VENDOR, path);
     await mkdir(dirname(to), { recursive: true });
     await copyFile(from, to);
