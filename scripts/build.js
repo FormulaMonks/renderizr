@@ -45,5 +45,5 @@ await build(
 process.stdout.write(
     options.singleFile
         ? `Complete. Open ${outDir}/index.html directly, or upload ${outDir}/artifact.html as a Claude artifact.\n`
-        : "Complete!\n",
+        : `Complete. Serve ${outDir} with any static server; add --single-file for one self-contained document instead.\n`,
 );

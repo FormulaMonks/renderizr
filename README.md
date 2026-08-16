@@ -20,6 +20,8 @@ npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/
 npx servor structurizr-output
 ```
 
+The default output is a directory: `index.html` plus an `assets/` folder, written into the current working directory unless `--out` says otherwise. Anywhere that hosts exactly one file — a Claude artifact, for instance — needs [`--single-file`](#single-file).
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself into one document with no network requests at all:
@@ -71,7 +73,10 @@ Workspace themes, element icons and any branding logo referenced by URL are all 
 
 ```bash
 pnpm install
+pnpm hooks   # once, to install the git hooks
 ```
+
+Installing the hooks is a separate step rather than a `prepare` script: pnpm runs `prepare` when a package is installed from git, and refuses to do so unless the installing project has allow-listed this package by exact commit — which every consumer would have to paste, and re-paste on every commit.
 
 The Structurizr submodule is optional — the files the build reads from it are committed under `vendor/structurizr`. Check it out only to pull in a newer upstream:
 
@@ -110,6 +115,7 @@ pnpm build -- {path/to/workspace.json} [--single-file] [--logo ...] [--font ...]
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, icons, logo and font |
 | `scripts/config.js` | The Vite configuration, shared with the dev server |
 | `scripts/plugins.js` | Build plugins: Structurizr globals, CSS trimming, branding injection, single-file inlining |
+| `scripts/escapes.js` | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive |
 | `scripts/sync-vendor.js` | Copies the files the build reads out of the submodule into `vendor/structurizr` |
 | `vite.config.ts` | Dev server only; production goes through `scripts/build.js` |
 

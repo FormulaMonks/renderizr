@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { transformWithEsbuild } from "vite";
+import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 
 const RENDERER_DIR = fileURLToPath(
     new URL("../vendor/structurizr/js/", import.meta.url),
@@ -112,7 +113,9 @@ export function singleFile() {
                     // on a ReferenceError.
                     scripts.set(
                         basename(fileName),
-                        output.code.replace(/__VITE_PRELOAD__/g, "void 0"),
+                        makeArtifactSafe(
+                            output.code.replace(/__VITE_PRELOAD__/g, "void 0"),
+                        ),
                     );
                 } else if (fileName.endsWith(".css")) {
                     styles.set(basename(fileName), String(output.source));
@@ -177,10 +180,24 @@ export function singleFile() {
                     )
                     .trim();
 
+                const artifact = `${inlineStyles.join("")}\n${body}\n${inlineCode.join("")}`;
+
+                // The deploy API reads the file as text, so anything it refuses
+                // to carry has to be gone before the file is written rather
+                // than discovered on upload. `makeArtifactSafe` above handles
+                // the bundle; this catches whatever reached the page by some
+                // other route.
+                const rejected = findUnspellable(artifact);
+                if (rejected.length) {
+                    this.error(
+                        `artifact.html still spells out ${rejected.length} sequence(s) a Claude artifact upload rejects:\n${rejected.slice(0, 5).join("\n")}`,
+                    );
+                }
+
                 this.emitFile({
                     type: "asset",
                     fileName: "artifact.html",
-                    source: `${inlineStyles.join("")}\n${body}\n${inlineCode.join("")}`,
+                    source: artifact,
                 });
             }
         },

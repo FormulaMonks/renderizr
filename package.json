@@ -21,9 +21,10 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc && node scripts/build.js",
+        "test": "node --test scripts/*.test.js",
         "preview": "vite preview",
         "sync:vendor": "node scripts/sync-vendor.js",
-        "prepare": "husky || true"
+        "hooks": "husky || true"
     },
     "devDependencies": {
         "@biomejs/biome": "^1.8.2",
