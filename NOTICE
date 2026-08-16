@@ -74,16 +74,16 @@ Attribution for the components that ship inside every page Renderizr renders
     the npm registry at <https://www.npmjs.com/package/@joint/core>
     (version 4.1.3). JointJS is used unmodified.
 
-  jQuery (includes Sizzle.js) — version 3.6.3
+  jQuery (includes Sizzle.js) — version 3.7.1
   Copyright OpenJS Foundation and other contributors, https://openjsf.org/
   Licensed under the MIT License (text below)
 
-  highlight.js — version 11.9.0
+  highlight.js — version 11.12.0
   Copyright (c) 2006, Ivan Sagalaev. All rights reserved.
   Licensed under the BSD 3-Clause License (text below)
 
-  @dagrejs/dagre — version 1.0.4
-  @dagrejs/graphlib — version 2.1.13
+  @dagrejs/dagre — version 1.1.8
+  @dagrejs/graphlib — version 2.2.4
   Copyright (c) 2012-2014 Chris Pettitt
   Licensed under the MIT License (text below)
 
@@ -92,11 +92,11 @@ Attribution for the components that ship inside every page Renderizr renders
   Copyright (c) Remix Software 2020-2021
   Licensed under the MIT License (text below)
 
-  markdown-it — version 14.1.0
+  markdown-it — version 14.3.0
   Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin
   Licensed under the MIT License (text below)
 
-  markdown-it-anchor — version 9.0.1
+  markdown-it-anchor — version 9.2.1
   Released into the public domain under the Unlicense
   https://unlicense.org
 
@@ -104,7 +104,7 @@ Attribution for the components that ship inside every page Renderizr renders
   Copyright (c) 2019 Julien Dargelos
   Licensed under the MIT License (text below)
 
-  linkify-it — version 5.0.0
+  linkify-it — version 5.0.2
   Copyright (c) 2015 Vitaly Puzrin
   Licensed under the MIT License (text below)
 
