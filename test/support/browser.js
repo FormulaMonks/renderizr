@@ -106,7 +106,25 @@ export function dumpDOM(chrome, url, { timeout = 60_000 } = {}) {
             settled = true;
             clearTimeout(timer);
             child.kill("SIGKILL");
-            rmSync(profile, { recursive: true, force: true });
+            // SIGKILL is not synchronous, and Chrome's helper processes go on
+            // writing into the profile for a moment after the parent is gone —
+            // so this raced and threw ENOTEMPTY on `<profile>/Default`. Because
+            // `finish` runs from a socket handler, that surfaced as an uncaught
+            // exception and failed whichever test happened to be in flight.
+            //
+            // Retry a few times, and never let cleanup fail a run: a leftover
+            // directory under the OS temp root is not worth a red build, and
+            // the suite removes its scratch root on `after` regardless.
+            try {
+                rmSync(profile, {
+                    recursive: true,
+                    force: true,
+                    maxRetries: 10,
+                    retryDelay: 50,
+                });
+            } catch {
+                // Left for the OS to reap.
+            }
             if (error) reject(error);
             else resolve(value);
         };
