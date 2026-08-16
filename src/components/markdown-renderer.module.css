@@ -10,9 +10,11 @@
  */
 
 /*
- * A measure of about 72 characters. Neither Structurizr nor Renderizr used to
- * cap this, and unbroken 140-character lines are the single biggest thing
- * standing between a reader and a long architecture document.
+ * The measure was 72ch, which on a wide screen left more empty column than
+ * content — 700px of nothing beside a 630px page. It is 1000px now: wider for
+ * the prose, and enough room that most of these tables stop needing a
+ * horizontal scroll at all. The cap still matters — without one the text runs
+ * to 150-character lines on a large monitor.
  */
 .markdownRenderer {
     --md-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
@@ -39,7 +41,7 @@
 
     font-size: 1rem;
     line-height: 1.65;
-    max-width: 72ch;
+    max-width: 1000px;
     overflow-wrap: break-word;
 
     /* Every heading is an anchor target, and the header floats above them all
