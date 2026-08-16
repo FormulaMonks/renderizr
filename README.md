@@ -33,7 +33,7 @@ You need Node 20 or newer. Nothing else — no JVM, no Docker, no Graphviz, no P
 
 ## Who this is for
 
-You keep a C4 model in Structurizr, and you want everyone else to be able to look at it without an account, a running server or a copy of the DSL. Renderizr takes the workspace JSON you already have and turns it into pages you can put behind a URL: the views, the workspace documentation and the decision log, with the diagrams drawn by Structurizr's own renderer so they look exactly as they do in Structurizr Lite.
+You keep a C4 model in Structurizr, and you want everyone else to be able to look at it without an account, a running server or a copy of the DSL. Renderizr takes the workspace JSON you already have and turns it into pages you can put behind a URL: the views, the workspace documentation and the decision log, with the diagrams drawn by Structurizr's own renderer so they look exactly as they do in Structurizr itself.
 
 It renders a workspace. It does not define one — the model, the views and the styles all come from your workspace, unchanged.
 
@@ -85,7 +85,7 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 | `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. It is emptied before the build |
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
 | `--base <path>` | Base public path for the multi-file build. Default is empty, which emits relative URLs (`./assets/…`) that work from any subdirectory. Set it to something like `/renderizr/` when the assets must be referenced absolutely |
-| `--logo <path\|url>` | Image shown at the top left of the header. Fetched at build time, minified if it is SVG, and embedded as a data URI. PNG, JPEG, GIF, WebP and SVG are recognised from their bytes rather than their extension; an SVG containing script is rejected |
+| `--logo <path\|url>` | Image shown at the top left of the header. Fetched at build time, minified if it is SVG, and embedded as a data URI. PNG, JPEG, GIF, WebP and SVG are recognized from their bytes rather than their extension; an SVG containing script is rejected |
 | `--logo-alt <text>` | Alt text for the logo. Default empty |
 | `--logo-href <url>` | Wraps the logo in a link |
 | `--font <family>` | A [Google Web Font](https://fonts.google.com) family, e.g. `Inter` or `"Source Sans 3"`. Downloaded as woff2 at build time and embedded, including into the diagram labels |
@@ -110,16 +110,16 @@ A font is the one option with a real cost: Inter at latin, weights 400–700, ad
 | Full-text search | No | Yes, a Lunr index over the whole site |
 | Multiple branches | No | Yes, several branches of the model side by side |
 | Network at runtime | None. Every asset is inlined or local | Browser dependencies come from a CDN by default |
-| Styling | Your workspace's own styles and themes, plus a logo and a font | Site colours, favicon and a custom stylesheet, configured as view properties in the model |
+| Styling | Your workspace's own styles and themes, plus a logo and a font | Site colors, favicon and a custom stylesheet, configured as view properties in the model |
 
 Reach for **structurizr-site-generatr** when you want a browsable documentation site — search, one URL per system, several branches published together, per-system docs — and a JVM or Docker in the pipeline is not a problem.
 
-Reach for **Renderizr** when you want the workspace to *look like Structurizr* and to travel: a live renderer rather than exported images, no toolchain beyond Node, and an output you can attach to a message or drop into a bucket. If you keep your model in DSL, get the JSON first — [Structurizr Lite](https://docs.structurizr.com/lite) writes `workspace.json` next to your `workspace.dsl` every time it loads the model — and hand that to Renderizr.
+Reach for **Renderizr** when you want the workspace to *look like Structurizr* and to travel: a live renderer rather than exported images, no toolchain beyond Node, and an output you can attach to a message or drop into a bucket. If you keep your model in DSL, get the JSON first — [structurizr-cli](https://docs.structurizr.com/cli) exports a DSL workspace to JSON — and hand that to Renderizr.
 
 ## Requirements
 
 - **Node 20 or newer.** The build checks this before anything else and stops with a clear message, because `npx` runs against whatever Node is first on the `PATH` — often not the one your shell reports.
-- **A workspace in JSON.** [Structurizr Lite](https://docs.structurizr.com/lite) writes one next to your DSL; the Structurizr [server API](https://docs.structurizr.com/commands) hands one back. Renderizr does not parse DSL.
+- **A workspace in JSON.** [structurizr-cli](https://docs.structurizr.com/cli) exports one from your DSL; the Structurizr [server API](https://docs.structurizr.com/commands) hands one back. Renderizr does not parse DSL.
 - **Network access at build time** only if the workspace, the logo or the font is remote, or if the workspace references themes or icons by URL. The rendered output never needs it.
 
 ---
@@ -195,4 +195,4 @@ Please do not open a public issue for a security problem. Report it privately th
 
 MIT — see [LICENSE](LICENSE). Copyright (c) 2024-2026 Formula.Monks.
 
-Renderizr vendors, bundles and inlines a fair amount of code it did not write — the Structurizr renderer under `vendor/structurizr` (Apache 2.0), [Bootstrap Icons](https://icons.getbootstrap.com) (MIT), and the libraries that end up inside every rendered page. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists each one with its version, licence and copyright line, and says whether it ships in the output or only runs during the build. [NOTICE](NOTICE) is the short form.
+Renderizr vendors, bundles and inlines a fair amount of code it did not write — the Structurizr renderer under `vendor/structurizr` (Apache 2.0), [Bootstrap Icons](https://icons.getbootstrap.com) (MIT), and the libraries that end up inside every rendered page. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists each one with its version, license and copyright line, and says whether it ships in the output or only runs during the build. [NOTICE](NOTICE) is the short form.

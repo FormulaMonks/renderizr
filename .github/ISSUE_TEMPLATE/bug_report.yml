@@ -84,7 +84,7 @@ body:
         - A local workspace.json file
         - A URL passed on the command line
         - Exported from Structurizr Cloud or an on-premises install
-        - Generated from DSL by structurizr-cli or Structurizr Lite
+        - Generated from DSL by structurizr-cli or Structurizr local
         - Something else (say so above)
 
   - type: checkboxes
@@ -96,5 +96,5 @@ body:
           required: true
         - label: I searched the [existing issues](https://github.com/FormulaMonks/renderizr/issues?q=is%3Aissue), including closed ones, and this is not a duplicate.
           required: true
-        - label: The same workspace renders correctly in Structurizr's own tooling, so this looks like a Renderizr bug rather than a modelling one.
+        - label: The same workspace renders correctly in Structurizr's own tooling, so this looks like a Renderizr bug rather than a modeling one.
         - label: I would be willing to open a pull request — [CONTRIBUTING.md](https://github.com/FormulaMonks/renderizr/blob/main/CONTRIBUTING.md) covers setup and tests.
