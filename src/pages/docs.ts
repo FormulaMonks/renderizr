@@ -1,8 +1,9 @@
+import { asciidocToMarkdown, isAsciiDoc } from "../components/asciidoc";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import type { DocumentationSection } from "../types/structurizr-documentation";
 import Page from "./_page";
-import history from "history/browser";
+import history from "history/hash";
 import styles from "./docs.module.css";
 
 export default class Docs extends Page {
@@ -20,17 +21,27 @@ export default class Docs extends Page {
             .map((section) => {
                 section.id =
                     section.id ?? section.filename.replace(/\.md$/, "");
+                // The document's own first heading beats a filename every
+                // time; "0001-record-architecture-decisions.md" only becomes a
+                // title as a last resort.
                 section.title =
                     section.title ||
+                    (isAsciiDoc(section.filename)
+                        ? section.content.match(/^=\s+(.+)$/m)?.[1]
+                        : section.content.match(/^#\s+(.+)$/m)?.[1]
+                    )?.trim() ||
                     section.filename
+                        .replace(/\.[a-z]+$/i, "")
+                        .replace(/^\d+[-_. ]*/, "")
                         .replace(/[-_]/g, " ")
-                        .replace(/\.md$/, "")
                         .replace(/\b\w/g, (match) => match.toUpperCase());
 
+                const body = isAsciiDoc(section.filename)
+                    ? asciidocToMarkdown(section.content)
+                    : section.content;
+
                 const subtitles = Array.from(
-                    section.content.matchAll(
-                        /[^#]### (?:[_*]{1,2})?([^#_*\n]*)/g,
-                    ),
+                    body.matchAll(/^#{2,3} (?:[_*]{1,2})?([^#_*\n]*)/gm),
                 ).map((r) => ({
                     id: r[1].replace(/ /g, "-").toLowerCase(),
                     title: r[1],
@@ -48,12 +59,18 @@ export default class Docs extends Page {
         return this.#sections?.find((s) => s.id === sectionId);
     }
 
+    #opened = false;
+
     #setSectionInUrl(section: DocumentationSection) {
         const search = new URLSearchParams(history.location.search);
+        if (search.get("section") === section.id) return;
         search.set("section", section.id);
-        history.push({
-            search: search.toString(),
-        });
+
+        // The section the page opens on is where the reader already is.
+        const next = { search: search.toString() };
+        if (this.#opened) history.push(next);
+        else history.replace(next);
+        this.#opened = true;
     }
 
     render() {
@@ -80,6 +97,11 @@ export default class Docs extends Page {
         menu.onSelectionChange((section) => {
             if (!section) return;
             this.#setSectionInUrl(section);
+            docViewer.setContentFormatter(
+                isAsciiDoc(section.filename)
+                    ? asciidocToMarkdown
+                    : (content) => content,
+            );
             docViewer.setContent(section.content);
             this.container?.scrollTo(0, 0);
         });

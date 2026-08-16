@@ -1,73 +1,137 @@
+/*
+ * A measure of about 72 characters. Neither Structurizr nor Renderizr used to
+ * cap this, and unbroken 140-character lines are the single biggest thing
+ * standing between a reader and a long architecture document.
+ */
 .markdownRenderer {
-    font-size: 1.2rem;
-    line-height: 1.6;
-    color: var(--text-color);
+    font-size: 1rem;
+    line-height: 1.65;
+    max-width: 72ch;
+
+    /* Every heading is an anchor target, and the header floats above them all
+    — without this a jump lands the heading underneath it. */
+    & :is(h1, h2, h3, h4, h5, h6) {
+        scroll-margin-top: calc(var(--header-height, 5rem) + 1rem);
+    }
+
+    h1 {
+        font-size: 2.1rem;
+        line-height: 1.15;
+        margin: 2rem 0 1rem;
+    }
 
     h2 {
-        line-height: 1;
-        margin-top: 2rem;
-        margin-bottom: 1rem;
+        font-size: 1.6rem;
+        line-height: 1.2;
+        letter-spacing: -0.015em;
+        margin: 2.25rem 0 0.85rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid var(--color-border);
     }
 
-    h3, h4 {
-        margin-top: 1rem;
+    h3 {
+        font-size: 1.25rem;
+        margin: 1.75rem 0 0.6rem;
     }
 
+    /* Each level has to be visibly smaller than the one above and bigger than
+    body text, or the reader cannot tell structure from type. */
     h4 {
-        font-size: 1.3rem;
+        font-size: 1.1rem;
+        font-weight: 650;
+        margin: 1.5rem 0 0.5rem;
     }
 
     h5 {
-        font-size: 1.2rem;
+        font-size: 1rem;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+        margin: 1.35rem 0 0.4rem;
     }
 
     h6 {
-        font-size: 1.1rem;
-    }
-
-    ul {
-        margin: 0.5rem 0 0.5rem 1.5rem;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--color-muted);
+        margin: 1.25rem 0 0.4rem;
     }
 
     p {
         margin-bottom: 1rem;
     }
 
+    ul, ol {
+        margin: 0.75rem 0 1rem 1.5rem;
+    }
+
+    li {
+        margin-bottom: 0.35rem;
+        list-style: revert;
+    }
+
+    blockquote {
+        margin: 1rem 0;
+        padding: 0.25rem 0 0.25rem 1rem;
+        border-left: 3px solid var(--color-primary);
+        color: var(--color-muted);
+    }
+
+    img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 6px;
+    }
+
+    hr {
+        border: 0;
+        border-top: 1px solid var(--color-border);
+        margin: 2rem 0;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-size: 0.95rem;
+    }
+
+    th, td {
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    th {
+        font-weight: 600;
+        color: var(--color-muted);
+    }
+
     pre {
-        font-size: 0.9rem;
-        background: #333;
-        border-radius: 0.5rem;
-        padding: 2rem;
-        padding-right: 4rem;
-        overflow-y: auto;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 1rem;
+        overflow-x: auto;
         white-space: pre;
         word-wrap: normal;
-        max-width: 100cqw;
     }
 
     code {
-        background: #333;
-        color: var(--color-proposed);
-        border-radius: 0.2rem;
-        font-size: 0.95rem;
-        padding: 0.2rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 3px;
+        font-size: 0.88em;
+        padding: 0.05em 0.3em;
     }
 
     pre > code {
-        color: white;
-    }
-}
-
-@media (prefers-color-scheme: light) {
-    .markdownRenderer {
-        code {
-            background: #ccc;
-            color: var(--color-foreground);
-        }
-
-        pre > code {
-            background: unset;
-            color: white;
-        }
+        background: none;
+        border: 0;
+        padding: 0;
+        font-size: inherit;
     }
 }

@@ -1,62 +1,61 @@
 import { defineConfig } from "vite";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+// @ts-expect-error — plain ESM shared with scripts/build.js
+import { loadFont, loadLogo, loadWorkspace } from "./scripts/assets.js";
+// @ts-expect-error — plain ESM shared with scripts/build.js
+import { createConfig } from "./scripts/config.js";
 
-const stringIsAValidUrl = (s: string, protocols: string[]) => {
-    try {
-        const url = new URL(s);
-        return protocols
-            ? url.protocol
-                ? protocols
-                      .map((x: string) => `${x.toLowerCase()}:`)
-                      .includes(url.protocol)
-                : false
-            : true;
-    } catch (err) {
-        return false;
-    }
-};
+/** Whatever this repository documents about itself. */
+const DEFAULT_WORKSPACE = "architecture/workspace.json";
 
+/**
+ * Dev-server entry only. Production builds go through `scripts/build.js`, which
+ * owns argument parsing and asset embedding; both share `scripts/config.js`.
+ *
+ *   pnpm dev                                    (this repo's own workspace)
+ *   pnpm dev -- path/to/workspace.json [--logo x.svg] [--font Inter]
+ */
 export default async () => {
-    const workspace = process.argv[process.argv.length - 1];
-    const workspaceData = stringIsAValidUrl(workspace, ["http", "https"])
-        ? // If valid URL, fetch the workspace from the URL
-          await fetch(workspace)
-              .then((res) => res.json())
-              .then((res) => JSON.stringify(res))
-        : // Otherwise, read the contents of the resolved file
-          await readFile(resolve(process.cwd(), workspace), "utf-8");
+    const args = process.argv.slice(2);
+    const flag = (name: string) => {
+        const at = args.indexOf(`--${name}`);
+        return at === -1 ? undefined : args[at + 1];
+    };
 
-    process.env.VITE_WORKSPACE_NAME = JSON.parse(workspaceData).name;
-    console.log(
-        `Building workspace to ${resolve(process.cwd(), "structurizr-output")}...`,
+    // Falling back to this repository's own workspace means `pnpm dev` starts
+    // and renders something, rather than refusing to boot over a missing
+    // argument that most runs would have passed the same value for anyway.
+    const source =
+        args.filter((arg) => !arg.startsWith("-")).at(-1) ??
+        process.env.RENDERIZR_WORKSPACE ??
+        DEFAULT_WORKSPACE;
+
+    const fontFamily = flag("font");
+    const font = await loadFont(
+        fontFamily
+            ? {
+                  family: fontFamily,
+                  weights: ["400", "700"],
+                  subsets: ["latin"],
+                  italic: false,
+              }
+            : null,
     );
+    const logoSource = flag("logo");
 
-    return defineConfig({
-        base: "",
-        build: {
-            target: "esnext",
-            outDir: resolve(process.cwd(), "structurizr-output"),
-            cssCodeSplit: false,
-            emptyOutDir: true,
-            rollupOptions: {
-                output: {
-                    manualChunks(id) {
-                        if (id.includes("jointjs")) {
-                            return "joint";
-                        }
-                        if (id.includes("jquery")) {
-                            return "jquery";
-                        }
-                        if (!id.includes("@formula-monks/renderizr")) {
-                            return "vendor";
-                        }
-                    },
-                },
-            },
-        },
-        define: {
-            workspaceData,
-        },
-    });
+    const [workspace, logo] = await Promise.all([
+        loadWorkspace(source, { font }),
+        loadLogo(logoSource ? { source: logoSource, alt: "" } : null),
+    ]);
+
+    process.env.VITE_WORKSPACE_NAME = workspace.name ?? "Workspace";
+
+    return defineConfig(
+        createConfig({
+            workspace,
+            logo,
+            font,
+            singleFile: args.includes("--single-file"),
+            mode: "serve",
+        }),
+    );
 };

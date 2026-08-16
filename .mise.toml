@@ -1,4 +1,5 @@
 [tools]
+node = "24"
 "npm:pnpm" = "latest"
 
 [tasks."workspace-dev"]

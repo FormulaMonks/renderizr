@@ -1,97 +1,243 @@
-.diagramNavigation {
-    width: 100cqw;
-    overflow-y: hidden;
+/*
+ * A left drawer that collapses to icons. It costs a strip of width rather than
+ * a band of height, so the diagram keeps the taller half of the screen — and
+ * collapsed, it costs almost nothing at all.
+ */
+.drawer {
+    position: sticky;
+    top: calc(var(--header-height, 5rem) + 0.75rem);
+    align-self: flex-start;
+    flex: none;
+    width: 17rem;
+    max-height: calc(100dvh - var(--header-height, 5rem) - 2rem);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--color-border);
+    padding-right: 0.5rem;
+    transition: width 160ms ease;
+}
 
-    ul {
-        margin: 1rem 0;
-        display: flex;
-        justify-content: flex-start;
-        gap: 0.5rem;
-        list-style: none;
-    }
+.drawer.collapsed {
+    width: 3.5rem;
+}
 
-    li {
-        container: diagramButton / size;
-        display: block;
-        position: relative;
-        list-style: none;
-        background-color: var(--color-external);
-        flex-grow: 0;
-        flex-shrink: 0;
-        flex-basis: var(--nav-button-height);
-        width: var(--nav-button-height);
-        height: var(--nav-button-height);
-        cursor: pointer;
-        border-radius: 5px;
-    }
+.toggle {
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin-bottom: 0.4rem;
+    padding: 0;
+    color: var(--color-muted);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: none;
 
-    a {
-        position: absolute;
-        display: inline-block;
-        bottom: 5px;
-        left: 0;
-        font-size: 0.6rem;
-        text-align: center;
-        word-break: break-all;
+    &:hover {
         color: var(--color-foreground);
-        pointer-events: none;
-        line-height: 1;
-        width: calc(100cqw - 10px);
-        padding: 5px;
+        border-color: var(--color-border);
     }
 
-    svg {
-        width: 60px;
-        position: absolute;
-        fill: var(--color-foreground);
-        left: calc(50% - 30px);
-        transform: scale(1.25) translate(0, 12px);
-        pointer-events: none;
-    }
-
-    a:hover {
-        color: var(--color-primary-background);
-    }
-
-    li:hover {
-        cursor: pointer;
-    }
-
-    li.active {
-        background-color: var(--color-primary-background);
-    }
-
-    &.centered {
-        ul {
-            justify-content: center;
-        }
+    & svg {
+        width: 1rem;
+        height: 1rem;
+        fill: currentcolor;
     }
 }
 
-@media (prefers-color-scheme: light) {
-    .diagramNavigation {
-        li {
-            background-color: var(--color-tertiary);
+.collapsed .toggle {
+    align-self: center;
+}
+
+.list {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    min-height: 0;
+
+    & ul {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+
+    & li {
+        list-style: none;
+    }
+
+    & button {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        text-align: left;
+        font: inherit;
+        color: var(--color-muted);
+        background: none;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    & button:hover {
+        color: var(--color-foreground);
+        background-color: var(--color-surface);
+    }
+}
+
+.icon {
+    display: flex;
+    flex: none;
+    width: 1.15rem;
+    height: 1.15rem;
+
+    & svg {
+        width: 100%;
+        height: 100%;
+        fill: currentcolor;
+    }
+}
+
+/* Only shown once the drawer is down to icons, where several views share a
+glyph and nothing else distinguishes them. */
+.initials {
+    display: none;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--color-muted);
+}
+
+.label {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* Fades out with the drawer rather than reflowing every row. */
+    transition: opacity 120ms ease;
+}
+
+/*
+ * Two lines, not one with an ellipsis: the name has already been trimmed in
+ * the middle to keep the part that tells two views apart, and cutting it again
+ * at the end would throw exactly that part away.
+ */
+.name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-foreground);
+}
+
+.key {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.72rem;
+    line-height: 1.3;
+}
+
+.collapsed {
+    & .label {
+        display: none;
+    }
+
+    & .initials {
+        display: block;
+    }
+
+    & .list button {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.15rem;
+        padding: 0.4rem 0;
+    }
+}
+
+.active button {
+    color: var(--color-primary);
+    background-color: color-mix(
+        in srgb,
+        var(--color-primary) 12%,
+        transparent
+    );
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.active .name {
+    color: var(--color-primary);
+}
+
+/*
+ * On a phone the drawer becomes a strip of icons along the top — the collapsed
+ * desktop drawer turned on its side. A vertical rail would eat a third of the
+ * width and named cards would put most of the eleven views off-screen; as
+ * icons they nearly all fit at once, and the key under each one says which is
+ * which.
+ */
+@media (max-width: 767px) {
+    .drawer,
+    .drawer.collapsed {
+        position: static;
+        width: 100%;
+        max-height: none;
+        border-right: 0;
+        border-bottom: 1px solid var(--color-border);
+        padding: 0 0 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .toggle {
+        display: none;
+    }
+
+    .label {
+        display: none;
+    }
+
+    .initials {
+        display: block;
+    }
+
+    .list {
+        overflow-x: auto;
+        overflow-y: hidden;
+
+        & ul {
+            flex-direction: row;
+            width: max-content;
+            min-width: 100%;
+            gap: 0.3rem;
+            /* Centred while the views fit, left-aligned the moment they do
+            not — `safe` is what stops a centred overflow from putting the
+            first tile out of reach off the left edge. */
+            justify-content: safe center;
         }
 
-        a {
-            color: var(--color-primary);
-        }
-
-        svg {
-            fill: var(--color-primary);
-        }
-
-        li.active {
-            background-color: var(--color-secondary-background);
-    
-            a {
-                color: var(--color-primary-background);
-            }
-    
-            svg {
-                fill: var(--color-primary-background);
-            }
+        & button {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+            /* Wide enough to tap, narrow enough that most of a workspace's
+            views are reachable without scrolling the strip. */
+            width: 3.25rem;
+            /* Px, not rem: the root is 14px on a phone, so a rem-based tap
+            target would land under the 44px minimum. */
+            min-height: 44px;
+            padding: 0.4rem 0;
         }
     }
 }

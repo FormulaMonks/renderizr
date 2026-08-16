@@ -1,73 +1,99 @@
 .navigation {
-    margin: 0 0 .5rem;
-    font-size: .8rem;
     display: flex;
     flex-direction: column;
-    place-content: space-between;
+    gap: 0.5rem;
+    padding: 0.65rem 0 0.5rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--color-border);
 
     ul {
         list-style: none;
         display: flex;
-        justify-content: flex-start;
+        gap: 1.25rem;
         align-items: center;
     }
 
     li {
         list-style: none;
-        margin-right: 5px;
         white-space: nowrap;
-    }
-
-    li::after {
-        content: " | ";
-    }
-
-    li:last-child::after {
-        content: "";
     }
 }
 
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.logo {
+    height: 2.25rem;
+    width: auto;
+    max-width: 220px;
+    flex: none;
+}
+
 .workspaceTitle {
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
+    font-size: 1.75rem;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .titleAndDesc {
     display: flex;
     flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+
+    & section p {
+        color: var(--color-muted);
+        max-width: 75ch;
+    }
+}
+
+/*
+ * The diagram is the page. Every row of shared header above it comes straight
+ * off the height the diagram is drawn at, so on the diagrams page the workspace
+ * blurb steps aside — the reader has the documentation pages for it, and what
+ * they want here is the picture.
+ */
+:global([data-page="diagrams"]) .titleAndDesc section {
+    display: none;
 }
 
 .navigationActive {
-    font-weight: 800;
+    font-weight: 700;
     color: var(--color-foreground);
     pointer-events: none;
 }
 
-@media (orientation: landscape) {
-    .navigation, .titleAndDesc {
-        display: flex;
+@media (min-width: 900px) {
+    .navigation {
         flex-direction: row;
-        justify-content: space-between;
         align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
     }
+
     .titleAndDesc {
+        flex-direction: row;
+        align-items: center;
+        gap: 1.5rem;
+
         & section {
-            margin: 1rem 2rem 0;
+            min-width: 0;
         }
     }
-    .workspaceTitle {
-        font-size: 1.6em;
-    }
-}
 
-@media (orientation: landscape) and (min-width: 996px) {
-    .navigation {
-        font-size: 0.9rem;
+    .brand {
+        flex: none;
     }
 
     .workspaceTitle {
-        font-size: 2.4em;
-        display: block;
-        width: initial;
+        font-size: 2rem;
+    }
+
+    .navigation ul {
+        flex: none;
     }
 }

@@ -1,6 +1,6 @@
 # Renderizr
 
-Render a [Structurizr](https://structurizr.com/) Workspace as a Static Page (SPA). Useful for publishing to static site hosts like Github Pages, Netlify and others.
+Render a [Structurizr](https://structurizr.com/) workspace — its diagrams, documentation and architecture decisions — as a static site, or as a single self-contained HTML file you can host anywhere.
 
 ## Usage
 
@@ -8,17 +8,60 @@ Render a [Structurizr](https://structurizr.com/) Workspace as a Static Page (SPA
 npx --package=github:@formulamonks/renderizr -- build {path/to/workspace.json}
 ```
 
-Where `{path/to/workspace.json}` can be either an accessible URL or a local path.
+Where `{path/to/workspace.json}` is either a local path or an accessible URL.
 
 ### Example
 
 ```bash
-# This will render the default Structurizr example architecture
+# Renders the Structurizr Big Bank plc example
 npx --package=github:@formulamonks/renderizr -- build https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
 
-# Outputs to `./structurizr-output` Serve it with your favorite local static server
+# Outputs to ./structurizr-output — serve it with any static server
 npx servor structurizr-output
 ```
+
+## Single file
+
+`--single-file` inlines every stylesheet, script, font, icon and the workspace itself into one document with no network requests at all:
+
+```bash
+npx --package=github:@formulamonks/renderizr -- build ./workspace.json --single-file
+```
+
+You get two files:
+
+| File | Use it for |
+| --- | --- |
+| `index.html` | Anywhere a URL can point: GitHub Pages, S3, an email attachment, or straight off your disk over `file://` |
+| `artifact.html` | Hosts that supply their own document scaffolding, such as a Claude artifact — same page, no `<html>`/`<head>`/`<body>` of its own |
+
+Routing lives in the URL hash, so deep links to a view, a document or a decision survive a reload, a `file://` origin and a sandboxed frame.
+
+## Customization
+
+```bash
+npx --package=github:@formulamonks/renderizr -- build ./workspace.json \
+  --single-file \
+  --logo ./logo.svg \
+  --font "Inter"
+```
+
+| Flag | Effect |
+| --- | --- |
+| `--logo <path\|url>` | Image shown at the top left. Fetched at build time, minified if it is SVG, and embedded as a data URI |
+| `--logo-alt <text>` | Alt text for the logo |
+| `--logo-href <url>` | Wraps the logo in a link |
+| `--font <family>` | A [Google Web Font](https://fonts.google.com) family. Downloaded as woff2 and embedded, including into the diagram labels |
+| `--font-weights <list>` | Comma-separated weights, default `400,700`. A variable font covering the range is preferred when the family has one |
+| `--font-subsets <list>` | Comma-separated subsets, default `latin` |
+| `--font-italic` | Also embed the italic faces |
+| `--single-file` | Emit one self-contained document, as above |
+| `-o, --out <dir>` | Output directory, default `structurizr-output` |
+| `--base <path>` | Base public path for the multi-file build |
+
+A font is the one option with a real cost: Inter at latin, weights 400–700, adds about 50KB gzipped. Run with `--help` for the full list.
+
+Workspace themes, element icons and any branding logo referenced by URL are all fetched during the build and folded in, so the rendered page never reaches for the network.
 
 ---
 
@@ -27,7 +70,7 @@ npx servor structurizr-output
 ### Setup
 
 ```bash
-# Initialize the structurizr-ui submodule (required)
+# Initialize the Structurizr submodule (required) — it supplies the renderer
 git submodule update --init --recursive
 
 pnpm install
@@ -42,7 +85,7 @@ pnpm dev -- {path/to/workspace.json}
 ### Build locally
 
 ```bash
-pnpm build -- {path/to/workspace.json}
+pnpm build -- {path/to/workspace.json} [--single-file] [--logo ...] [--font ...]
 # Outputs to ./structurizr-output/
 ```
 
@@ -53,3 +96,16 @@ pnpm build -- {path/to/workspace.json}
 > #!/bin/bash
 > pnpm dev -- ./path/to/your/local-workspace.json
 > ```
+
+### How the build is put together
+
+| File | Responsibility |
+| --- | --- |
+| `scripts/build.js` | CLI entry point — parses arguments, loads the workspace and assets, runs the build |
+| `scripts/cli.js` | Argument definitions and `--help` |
+| `scripts/assets.js` | Fetching and embedding the workspace, themes, icons, logo and font |
+| `scripts/config.js` | The Vite configuration, shared with the dev server |
+| `scripts/plugins.js` | Build plugins: Structurizr globals, CSS trimming, branding injection, single-file inlining |
+| `vite.config.ts` | Dev server only; production goes through `scripts/build.js` |
+
+Diagrams are drawn by Structurizr's own renderer, taken from the [structurizr/structurizr](https://github.com/structurizr/structurizr) submodule — the same code the official local server serves, so a workspace renders here exactly as it does there. `src/structurizr-globals.ts` supplies the handful of globals it expects, and `scripts/plugins.js` concatenates and injects it as a classic script (the renderer is written for sloppy mode, which an ES module forbids; an inline script is not `eval`, so a strict CSP still passes). The comments in both explain the details.

@@ -1,30 +1,42 @@
+import { applyTheme, writeSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { View } from "../types/structurizr-workspace";
-import type DraggableZone from "./draggable-zone";
 import styles from "./current-view.module.css";
-import lightModeIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/moon-fill.svg?raw";
-import darkModeIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/sun-fill.svg?raw";
-import toggleDescriptionsIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/card-text.svg?raw";
-import toggleTechnologiesIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/code-square.svg?raw";
-import resetZoomIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/search.svg?raw";
-import playIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/play-fill.svg?raw";
-import stopIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/stop-fill.svg?raw";
-import prevStepIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/skip-start-fill.svg?raw";
-import nextStepIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/skip-end-fill.svg?raw";
+import lightModeIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/moon-fill.svg?raw";
+import darkModeIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/sun-fill.svg?raw";
+import toggleDescriptionsIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/card-text.svg?raw";
+import toggleTechnologiesIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/code-square.svg?raw";
+import resetZoomIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/aspect-ratio.svg?raw";
+import zoomInIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/zoom-in.svg?raw";
+import zoomOutIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/zoom-out.svg?raw";
+import playIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/play-fill.svg?raw";
+import stopIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/stop-fill.svg?raw";
+import prevStepIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/skip-start-fill.svg?raw";
+import nextStepIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/skip-end-fill.svg?raw";
 import Component from "./_component";
+
+export type DiagramControls = {
+    /** Return the diagram to the size the page chose for it. */
+    fit: () => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+};
 
 export default class CurrentView extends Component {
     #diagram: Diagram;
-    #draggableZone: DraggableZone | null = null;
+    #controls: DiagramControls;
 
     #actions = new Map([
-        ["reset-zoom", () => this.#draggableZone?.render()],
+        ["zoom-in", () => this.#controls.zoomIn()],
+        ["zoom-out", () => this.#controls.zoomOut()],
+        ["reset-zoom", () => this.#controls.fit()],
         [
             "dark-mode",
             (event: Event) => {
                 const isDarkMode = this.#diagram.isDarkMode();
                 this.#diagram.setDarkMode(!isDarkMode);
-                window.localStorage.setItem(
+                applyTheme(!isDarkMode);
+                writeSetting(
                     "structurizr_cooper:darkModeDiagrams",
                     !isDarkMode ? "dark" : "light",
                 );
@@ -93,11 +105,11 @@ export default class CurrentView extends Component {
     constructor(
         element: HTMLElement,
         diagram: Diagram,
-        draggableZone: DraggableZone,
+        controls: DiagramControls,
     ) {
         super(element);
         this.#diagram = diagram;
-        this.#draggableZone = draggableZone;
+        this.#controls = controls;
     }
 
     #toggleBackButton() {
@@ -124,18 +136,20 @@ export default class CurrentView extends Component {
 
         container.innerHTML = `
             <div class="actions ${styles.btnGroup}">
-                <button class="reset-zoom" title="Reset Zoom">${resetZoomIcon}</button>
-                <button class="dark-mode" title="Toggle ${isDarkMode ? "Light" : "Dark"} Mode">${isDarkMode ? darkModeIcon : lightModeIcon}</button>
-                <button class="toggle-description" title="Toggle Descriptions">${toggleDescriptionsIcon}</button>
-                <button class="toggle-technologies" title="Toggle Technologies">${toggleTechnologiesIcon}</button>
+                <button class="zoom-out" title="Zoom out" aria-label="Zoom out">${zoomOutIcon}</button>
+                <button class="zoom-in" title="Zoom in" aria-label="Zoom in">${zoomInIcon}</button>
+                <button class="reset-zoom" title="Fit diagram" aria-label="Fit diagram">${resetZoomIcon}</button>
+                <button class="dark-mode" title="Toggle ${isDarkMode ? "light" : "dark"} diagram" aria-label="Toggle ${isDarkMode ? "light" : "dark"} diagram">${isDarkMode ? darkModeIcon : lightModeIcon}</button>
+                <button class="toggle-description" title="Toggle descriptions" aria-label="Toggle descriptions">${toggleDescriptionsIcon}</button>
+                <button class="toggle-technologies" title="Toggle technologies" aria-label="Toggle technologies">${toggleTechnologiesIcon}</button>
             </div>
             ${
                 hasAnimations
                     ? `
             <div class="animation-buttons ${styles.btnGroup}">
-                <button class="prev-step" disabled="true" title="Previous Step">${prevStepIcon}</button>
-                <button class="play-animation" title="Play Animation">${playIcon}</button>
-                <button class="next-step" title="Next Step">${nextStepIcon}</button>
+                <button class="prev-step" disabled="true" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
+                <button class="play-animation" title="Play animation" aria-label="Play animation">${playIcon}</button>
+                <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
             </div>`
                     : ""
             }
@@ -185,15 +199,28 @@ export default class CurrentView extends Component {
         }
     }
 
-    render(currentView: View | null = null, element?: Record<string, unknown>) {
+    render(
+        currentView: View | null = null,
+        _element?: Record<string, unknown>,
+    ) {
         if (!this.element || !currentView) return;
-        const [description, author] = currentView.description.split("Author: ");
+        const [description, author] = (currentView.description ?? "").split(
+            "Author: ",
+        );
+        // Structurizr's own naming: an explicit title when the view has one,
+        // otherwise "[Container] Internet Banking System" and the like.
+        const title = structurizr.ui.getTitleForView(currentView);
+        const match = title.match(/^\[([^\]]+)\]\s*(.*)$/);
+        const kind = match?.[1] ?? "";
+        // A landscape view has no subject beyond its kind, so the kind is the
+        // name and there is nothing left to badge.
+        const name = match?.[2]?.trim() || (match ? "" : title);
         this.element.classList.add(styles.currentView);
 
         this.element.innerHTML = `
             <div class="${styles.description}">
-                <h2>[${currentView.type}] ${element?.name || currentView.key}${currentView.environment ? ` - ${currentView.environment}` : ""}</h2>
-                <p>${description || "(no description)"}</p>
+                <h2>${name || kind}${kind && name ? `<span class="${styles.kind}">${kind}</span>` : ""}</h2>
+                ${description ? `<p>${description}</p>` : ""}
                 ${
                     author
                         ? `<small>Author: ${author.replace(/(.*)<(.+@.+)>/, `<a href="mailto:$2">$1</a>`)}</small>`

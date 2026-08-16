@@ -1,28 +1,32 @@
 .docs {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+}
+
+.section {
+    min-width: 0;
+    padding-bottom: 2rem;
+}
+
+@media (min-width: 900px) {
+    .docs {
+        flex-direction: row;
+        gap: 2.5rem;
+        align-items: flex-start;
+    }
 
     .menu {
         position: sticky;
-        top: 0;
+        top: calc(var(--header-height, 5rem) + 0.75rem);
+        flex: none;
+        width: 15rem;
+        max-height: calc(100dvh - var(--header-height, 5rem) - 2rem);
+        overflow-y: auto;
     }
 
     .section {
-        width: 100cqw;
-    }
-}
-
-@media (orientation: landscape) {
-    .docs {
-        flex-direction: row;
-        gap: 1rem;
-
-        .section {
-            width: calc(80cqw - 3rem);
-            max-width: 996px;
-            margin: 0 auto 2rem;
-        }
+        flex: 1;
     }
 }

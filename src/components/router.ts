@@ -1,7 +1,7 @@
 import type { Location } from "history";
 import type Page from "../pages/_page";
 import Component from "./_component";
-import history from "history/browser";
+import history from "history/hash";
 
 export default class Router extends Component {
     #pageContainer: HTMLElement;
@@ -26,41 +26,62 @@ export default class Router extends Component {
             const search = new URLSearchParams(update.location.search);
             const page = search.get("page");
 
-            if (page && currentPageName !== page) this.navigateTo(page);
+            // Arriving from Back, Forward, or a pasted link: the URL already
+            // says where we are, so record nothing.
+            if (page && currentPageName !== page) {
+                this.navigateTo(page, update.location.search, true);
+            }
         });
 
-        if (!page) {
-            const [firstPage] = this.#pages.keys();
-            this.navigateTo(firstPage, history.location.search);
-        } else {
-            this.navigateTo(page, history.location.search);
-        }
+        const [firstPage] = this.#pages.keys();
+        // The first render only fills in what the URL left out.
+        this.navigateTo(page ?? firstPage, history.location.search, true);
     }
 
-    navigateTo(pageName: string, search: Location["search"] = ""): void {
+    /**
+     * @param replace Rewrite the current history entry instead of adding one.
+     * Filling in a default, following the URL, and redirecting away from an
+     * unknown page are all corrections to where the reader already is — pushing
+     * for those is what made the Back button need two presses per navigation.
+     */
+    navigateTo(
+        pageName: string,
+        search: Location["search"] = "",
+        replace = false,
+    ): void {
         if (this.#currentPage) this.#currentPage.clear();
+
         if (!this.#pages.has(pageName)) {
-            console.warn(
-                `Page ${pageName} not found. Redirecting to first page.`,
-            );
             const [firstPage] = this.#pages.keys();
-            this.navigateTo(firstPage);
+            this.navigateTo(firstPage, search, true);
             return;
         }
 
         this.#currentPage = this.#pages.get(pageName)!;
+        // Lets the page decide how much room the shared header may take.
+        document.documentElement.dataset.page = pageName;
+
         const newSearch = new URLSearchParams(search);
         newSearch.set("page", pageName);
-        history.push({
+
+        const next = {
             search: newSearch.toString(),
             hash: history.location.hash,
-        });
+        };
+
+        if (replace || newSearch.toString() === history.location.search) {
+            history.replace(next);
+        } else {
+            history.push(next);
+        }
+
         this.render();
     }
 
     render() {
         this.#currentPage!.render();
     }
+
     clear() {
         this.#currentPage!.clear();
     }

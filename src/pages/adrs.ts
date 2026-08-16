@@ -3,19 +3,44 @@ import Menu from "../components/menu";
 import type { Decision } from "../types/structurizr-documentation";
 import Page from "./_page";
 import styles from "./adrs.module.css";
-import history from "history/browser";
+import history from "history/hash";
 
-enum StatusColors {
-    proposed = "proposed",
-    accepted = "accepted",
-    rejected = "rejected",
-    deprecated = "deprecated",
-    superseded = "superseded",
-}
+/**
+ * The four states a decision can be in, plus the older spellings that mean the
+ * same thing. "Amended" is a partial supersession: the decision still stands,
+ * but a later one has changed part of it.
+ */
+const STATUS_CLASS: Record<string, string> = {
+    draft: "draft",
+    proposed: "draft",
+    accepted: "accepted",
+    amended: "amended",
+    superseded: "superseded",
+    rejected: "superseded",
+    deprecated: "superseded",
+};
+
+/** Decisions that still govern anything — amended ones still mostly do. */
+const IN_FORCE = new Set(["accepted", "amended"]);
+
+const longDate = (value?: string) =>
+    value
+        ? new Date(value).toLocaleDateString(undefined, { dateStyle: "long" })
+        : "";
+
+const statusClass = (status = "") =>
+    styles[STATUS_CLASS[status.trim().toLowerCase()] ?? "draft"];
+
+const statusPill = (status: string) =>
+    `<span class="${styles.status} ${statusClass(status)}">${status || "Unknown"}</span>`;
 
 export default class Decisions extends Page {
     #decisions: Decision[] = [];
     #currentDecision: Decision | null = null;
+    // Held directly rather than looked up by class name: the minifier renames
+    // classes, so `components.get("Menu")` is undefined in a built file — which
+    // is why every link out of the summary used to do nothing.
+    #menu: Menu<Decision> | null = null;
 
     constructor(
         container: HTMLElement | null = null,
@@ -23,38 +48,61 @@ export default class Decisions extends Page {
         decisions: Decision[] = [],
     ) {
         super(container, name);
-        this.#decisions = decisions.toSorted((a, b) =>
-            new Date(a.date) > new Date(b.date) ? -1 : 1,
-        );
-    }
-
-    #setAdrInUrl(adr: Decision) {
-        const search = new URLSearchParams(history?.location.search);
-        search.set("adr", adr.id);
-        history.push({
-            search: search.toString(),
+        // Newest first, and within the same date the higher number is the
+        // later decision.
+        this.#decisions = decisions.toSorted((a, b) => {
+            const byDate =
+                new Date(b.date).getTime() - new Date(a.date).getTime();
+            return byDate || Number(b.id) - Number(a.id);
         });
     }
 
+    #opened = false;
+
+    #setAdrInUrl(adr: Decision) {
+        const search = new URLSearchParams(history.location.search);
+        if (search.get("adr") === adr.id) return;
+        search.set("adr", adr.id);
+
+        // The decision the page opens on is where the reader already is.
+        const next = { search: search.toString() };
+        if (this.#opened) history.push(next);
+        else history.replace(next);
+        this.#opened = true;
+    }
+
     #getAdrFromUrl() {
-        const search = new URLSearchParams(window.location.search);
+        const search = new URLSearchParams(history.location.search);
         const adrId = search.get("adr");
         return this.#decisions.find((d) => d.id === adrId);
     }
 
     #formatContent(content: string): string {
-        return content
-            .replace(/#(.*)/, "")
-            .replace(/Date:.*/, "")
-            .replace(/## Status([\s\S]*)## Context/gim, (__, hit) => {
-                const statusLines = hit
-                    // biome-ignore lint/suspicious/noMisleadingCharacterClass: valid regex
-                    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-                    .split("\n")
-                    .filter(Boolean);
+        return (
+            content
+                .replace(/#(.*)/, "")
+                .replace(/Date:.*/, "")
+                // The status already appears as a pill above the body; keep only
+                // any supersession note that came with it.
+                .replace(/## Status([\s\S]*?)## Context/gim, (__, hit) => {
+                    const notes = hit
+                        // biome-ignore lint/suspicious/noMisleadingCharacterClass: valid regex
+                        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+                        .split("\n")
+                        .map((line: string) => line.trim())
+                        .filter(
+                            (line: string) =>
+                                line &&
+                                !/^(proposed|accepted|rejected|deprecated|superseded)\.?$/i.test(
+                                    line,
+                                ),
+                        );
 
-                return `## Status\n\n${statusLines.map((line: string) => `- ${line}`).join("\n")}\n---\n## Context`;
-            });
+                    return notes.length
+                        ? `${notes.map((line: string) => `> ${line}`).join("\n")}\n\n## Context`
+                        : "## Context";
+                })
+        );
     }
 
     #renderTitle() {
@@ -62,53 +110,110 @@ export default class Decisions extends Page {
         const decisionTitle = document.getElementById("decision-title");
         if (!decisionTitle) return;
 
-        const statusColor =
-            StatusColors[
-                this.#currentDecision?.status.toLowerCase() as keyof typeof StatusColors
-            ];
-
         decisionTitle.innerHTML = `
             <h2>${this.#decisionTitle(this.#currentDecision!)}</h2>
-            <p class="${styles.date}">Date: ${this.#currentDecision?.date ? new Date(this.#currentDecision?.date).toLocaleDateString() : ""}</p>
-            <p><span class="${styles.status} ${styles[statusColor] || ""}">${this.#currentDecision?.status}</span></p>
+            <p class="${styles.date}">${longDate(this.#currentDecision?.date)}</p>
+            <p>${statusPill(this.#currentDecision?.status ?? "")}</p>
         `;
     }
 
-    #addLinkEvents() {
-        const links = this.container?.querySelectorAll("#decision-content a");
+    /**
+     * "3. Another Realisation of Feature 1" inside decision 2's body is the one
+     * place the supersedes relationship is visible; it has to actually go
+     * there. Delegated, because the anchor's text may be the click target.
+     */
+    #handleDecisionLink = (event: Event) => {
+        const anchor = (event.target as HTMLElement).closest("a");
+        const href = anchor?.getAttribute("href");
+        if (!href?.startsWith("#")) return;
 
-        if (!links) return;
+        const decision = this.#decisions.find(
+            (d) => d.id === href.slice(1).split(/[^\d]/)[0],
+        );
+        if (!decision) return;
 
-        for (const link of links) {
-            link.addEventListener("click", (e) => {
-                if (
-                    !(e.target as HTMLAnchorElement)?.attributes
-                        .getNamedItem("href")
-                        ?.value.startsWith("#")
-                )
-                    return;
-
-                e.preventDefault();
-                const href = (e.target as HTMLAnchorElement).href;
-                const adrId = href.split("#")[1];
-                const decision = this.#decisions.find((d) => d.id === adrId);
-                if (decision) {
-                    const menu = this.components.get("Menu") as Menu<Decision>;
-                    menu?.setActive(decision);
-                }
-            });
-        }
-    }
+        event.preventDefault();
+        event.stopPropagation();
+        this.#select(decision);
+    };
 
     #decisionTitle = (item: Decision) => `#${item.id} - ${item.title}`;
 
+    /**
+     * The question a reader arrives with is "which of these still stand?", and
+     * no single decision answers it. So the landing page is the whole set:
+     * number, title, date and status, grouped by year, in one screen.
+     */
+    #renderSummary() {
+        const byYear = new Map<string, Decision[]>();
+        for (const decision of this.#decisions) {
+            const year = decision.date
+                ? String(new Date(decision.date).getFullYear())
+                : "Undated";
+            byYear.set(year, [...(byYear.get(year) ?? []), decision]);
+        }
+
+        const inForce = this.#decisions.filter((d) =>
+            IN_FORCE.has((d.status ?? "").trim().toLowerCase()),
+        ).length;
+
+        return `
+            <div class="${styles.summary}">
+                <h2>Decisions</h2>
+                <p class="${styles.summaryIntro}">${this.#decisions.length} recorded, ${inForce} currently in force.</p>
+                ${[...byYear]
+                    .map(
+                        ([year, decisions]) => `
+                    <h3 class="${styles.year}">${year}</h3>
+                    <ul class="${styles.summaryList}">
+                        ${decisions
+                            .map(
+                                (d) => `
+                            <li class="${styles.summaryRow}">
+                                <a href="#${d.id}">${this.#decisionTitle(d)}</a>
+                                <span class="${styles.date}">${longDate(d.date)}</span>
+                                ${statusPill(d.status ?? "")}
+                            </li>`,
+                            )
+                            .join("")}
+                    </ul>`,
+                    )
+                    .join("")}
+            </div>
+        `;
+    }
+
+    #select(decision: Decision | null) {
+        if (decision) {
+            this.#menu?.setActive(decision);
+        } else {
+            this.#currentDecision = null;
+            this.#showSummary();
+        }
+    }
+
+    #showSummary() {
+        const title = document.getElementById("decision-title");
+        const content = document.getElementById("decision-content");
+        if (title) title.innerHTML = "";
+        if (content) content.innerHTML = this.#renderSummary();
+
+        const search = new URLSearchParams(history.location.search);
+        if (search.has("adr")) {
+            search.delete("adr");
+            history.push({ search: search.toString() });
+        }
+        window.scrollTo({ top: 0 });
+    }
+
     render() {
         if (!this.container) return;
-        this.container.classList.add(styles.decisions);
 
         this.container!.innerHTML = `
             <div class="${styles.adrs}">
-                <section id="adrs-menu" class="${styles.menu}"></section>
+                <section id="adrs-menu" class="${styles.menu}">
+                    <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
+                </section>
                 <section id="decision" class="${styles.decision}">
                     <div id="decision-title"></div>
                     <div id="decision-content"></div>
@@ -116,16 +221,17 @@ export default class Decisions extends Page {
             </div>
         `;
 
+        const menuContainer = document.createElement("div");
+        document.getElementById("adrs-menu")!.appendChild(menuContainer);
+
         const menu = this.addComponent(
-            new Menu<Decision>(
-                document.getElementById("adrs-menu")!,
-                this.#decisions,
-            ),
+            new Menu<Decision>(menuContainer, this.#decisions),
         );
+        this.#menu = menu;
 
         menu.setTextContentFn(this.#decisionTitle);
 
-        this.#currentDecision = this.#getAdrFromUrl() || this.#decisions[0];
+        this.#currentDecision = this.#getAdrFromUrl() ?? null;
         const decisionViewer = this.addComponent(
             new MarkdownRenderer(document.getElementById("decision-content")!),
         );
@@ -136,22 +242,36 @@ export default class Decisions extends Page {
             decisionViewer.setContent(item.content);
             this.#renderTitle();
             this.#setAdrInUrl(item);
-            this.container?.scrollTo(0, 0);
-            this.#addLinkEvents();
+            window.scrollTo({ top: 0 });
         });
+
+        this.container.addEventListener("click", this.#handleDecisionLink);
+        document
+            .getElementById("adrs-summary")
+            ?.addEventListener("click", this.#handleSummaryClick);
 
         this.renderAllComponents();
 
         // Wait until menu is rendered
         window.setTimeout(() => {
-            menu.setActive(this.#currentDecision!);
-            this.#renderTitle();
+            if (this.#currentDecision) {
+                menu.setActive(this.#currentDecision);
+                this.#renderTitle();
+            } else {
+                this.#showSummary();
+            }
         }, 100);
     }
 
+    #handleSummaryClick = () => this.#select(null);
+
     clear(): void {
         this.removeAllComponents();
-        this.container!.classList.remove(styles.decisions);
+        this.#menu = null;
+        this.container?.removeEventListener("click", this.#handleDecisionLink);
+        document
+            .getElementById("adrs-summary")
+            ?.removeEventListener("click", this.#handleSummaryClick);
         this.container!.innerHTML = "";
     }
 }

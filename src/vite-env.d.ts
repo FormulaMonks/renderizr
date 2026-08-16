@@ -1,15 +1,43 @@
 /// <reference types="vite/client" />
 
+// Untyped browser builds and vendored sources, all of which communicate with
+// Structurizr's diagram engine through globals rather than exports.
+declare module "virtual:structurizr-renderer" {
+    const source: string;
+    export default source;
+}
+
 declare const workspaceData: Record<string, unknown>;
+
+/** Logo supplied via `--logo`, already embedded as a data URI. */
+declare const __RENDERIZR_LOGO__: {
+    src: string;
+    alt: string;
+    href: string | null;
+    width: number | null;
+    height: number | null;
+} | null;
+
+/** Font family supplied via `--font`. */
+declare const __RENDERIZR_FONT__: string | null;
 declare const structurizr: {
     Workspace: new (
         workspace: Record<string, unknown>,
     ) => import("./types/structurizr-workspace").Workspace;
     workspace: import("./types/structurizr-workspace").Workspace;
+    diagram: import("./types/structurizr-diagram").Diagram;
     io: Record<string, unknown>;
     shapes: Record<string, unknown>;
     ui: {
         loadThemes: (callback: () => void) => void;
+        DEFAULT_AUTOLAYOUT_RANK_DIRECTION: string;
+        DEFAULT_AUTOLAYOUT_RANK_SEPARATION: number;
+        DEFAULT_AUTOLAYOUT_NODE_SEPARATION: number;
+        DEFAULT_AUTOLAYOUT_EDGE_SEPARATION: number;
+        DEFAULT_AUTOLAYOUT_VERTICES: boolean;
+        getTitleForView: (
+            view: import("./types/structurizr-workspace").View,
+        ) => string;
         Diagram: new (
             id: string,
             diagramIsEditable: boolean,

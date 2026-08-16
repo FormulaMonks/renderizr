@@ -1,5 +1,5 @@
 import type { Workspace } from "../types/structurizr-workspace";
-import history from "history/browser";
+import history from "history/hash";
 import Component from "./_component";
 import styles from "./navigation.module.css";
 
@@ -23,7 +23,7 @@ export default class Navigation extends Component {
         for (const link of this.#links()) {
             const handler = (evt: Event) => {
                 evt.preventDefault();
-                history.push({ search: `page=${link.getAttribute("href")!}` });
+                history.push({ search: `page=${link.dataset.page}` });
             };
             link.addEventListener("click", handler);
             this.#linkEventHandlers.set(link, handler);
@@ -53,25 +53,47 @@ export default class Navigation extends Component {
 
         this.element.classList.add(styles.navigation);
 
+        // A real href, so middle-click, cmd-click and "copy link address" all
+        // produce a URL that works — a bare "docs" resolves against the host
+        // and 404s everywhere the file is published.
+        const link = (page: string, label: string) =>
+            `<li><a href="${history.createHref({ search: `?page=${page}` })}" data-page="${page}">${label}</a></li>`;
+
+        const logo = __RENDERIZR_LOGO__;
+        const logoImg = logo
+            ? `<img class="${styles.logo}" src="${logo.src}" alt="${logo.alt}"${
+                  logo.width ? ` width="${logo.width}"` : ""
+              }${logo.height ? ` height="${logo.height}"` : ""}>`
+            : "";
+
         this.element.innerHTML = `
             <div class="${styles.titleAndDesc}">
-                <h1 class="${styles.workspaceTitle}">${structurizr.workspace.name}</h1>
+                <div class="${styles.brand}">
+                    ${
+                        logo
+                            ? logo.href
+                                ? `<a href="${logo.href}" target="_blank" rel="noreferrer">${logoImg}</a>`
+                                : logoImg
+                            : ""
+                    }
+                    <h1 class="${styles.workspaceTitle}">${structurizr.workspace.name}</h1>
+                </div>
                 <section>
                     <p>${this.#workspace.description}</p>
                     <p>${this.#workspace.version ? `Version: ${this.#workspace.version} - ` : ""}Last modified: <strong>${new Date(this.#workspace.lastModifiedDate).toLocaleDateString()}</strong></p>
                 </section>
             </div>
             <ul>
-                ${!this.hasDocsAndDecisions ? "" : '<li><a href="diagrams">Diagrams</a></li>'}
-                ${this.hasDocs ? `<li><a href="docs">Documentation</a></li>` : ""}
-                ${this.hasDecisions ? `<li><a href="adrs">Decisions</a></li>` : ""}
+                ${!(this.hasDocs || this.hasDecisions) ? "" : link("diagrams", "Diagrams")}
+                ${this.hasDocs ? link("docs", "Documentation") : ""}
+                ${this.hasDecisions ? link("adrs", "Decisions") : ""}
             </ul>`;
 
         history.listen((update) => {
             for (const link of this.#links()) {
                 link.classList.remove(styles.navigationActive);
                 const search = new URLSearchParams(update.location.search);
-                if (link.getAttribute("href") === search.get("page")) {
+                if (link.dataset.page === search.get("page")) {
                     link.classList.add(styles.navigationActive);
                 }
             }

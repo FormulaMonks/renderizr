@@ -1,36 +1,52 @@
 .pageContent {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
 }
 
+.layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding-top: 1rem;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+}
+
+/*
+ * Height is set in JS from the diagram's own proportions, so the canvas is
+ * always as wide as the column: a diagram that fits gets exactly the height it
+ * needs, and one that does not runs past the fold for the page to scroll to.
+ */
 .diagramTarget {
-    width: 100cqw;
-    height: calc(100cqh - var(--nav-button-height) - 3rem - 10rem);
+    width: 100%;
+    /* Starting height only, so the engine has a box to measure. The script
+    replaces it with an inline style — which is why this is `height` and not
+    `min-height`: a min-height would keep winning and letterbox everything. */
+    height: 60dvh;
+    border-radius: 6px;
     overflow: hidden;
+    /* Vertical swipes scroll the page; pinch zooms natively. */
+    touch-action: pan-y pinch-zoom;
 }
 
 :global(.structurizrDiagramViewport) {
-    background: rgb(from var(--color-background) calc(r + 10) calc(g + 10) calc(b + 10));
-    /* Override the `hidden scroll` coming from Structurizr that causes
-    scrollbars on zoom in Chrome */
-    overflow: hidden !important; 
+    background: var(--color-surface);
+    /* The engine turns overflow on when the diagram is zoomed past its box.
+    Keeping the scrollbar visible is the only thing that says so — without it a
+    zoomed-in diagram looks like the whole diagram. */
+    scrollbar-width: thin;
 }
 
-@media (orientation: landscape) {
-    .pageContent {
-        display: block;
+@media (max-width: 767px) {
+    .layout {
+        flex-direction: column;
+        gap: 0;
     }
-    .diagramTarget {
-        height: 100cqh;
-    }
-}
 
-@media (orientation: landscape) and (min-width: 996px) {
-    .pageContent {
-        display: flex;
-    }
-    .diagramTarget {
-        height: calc(100cqh - var(--nav-button-height) - 10rem);
+    .main {
+        width: 100%;
     }
 }
