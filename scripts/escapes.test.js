@@ -133,21 +133,33 @@ test("the refusal says where in the bundle it gave up", () => {
 });
 
 /**
- * Two of the three refusals cannot fire, and both are worth pinning rather
- * than leaving as untested branches nobody has looked at.
+ * The tagged-template refusal fires, and it has to.
  *
- * The tagged-template one is a defect: `walk` gives a `TemplateElement` its
- * `TemplateLiteral` as parent, never the `TaggedTemplateExpression` above it,
- * so the guard's `parent?.type === "TaggedTemplateExpression"` is never true
- * and the quasi is rewritten instead of refused. Rewriting a quasi changes
- * what a tag function receives — the text moves out of `raw` and into a
- * substitution — which is exactly what the guard was written to prevent. It
- * happens to be harmless for `String.raw`, asserted below, and would not be
- * for a tag that reads `raw` or counts its arguments. The fix is to look up
- * the grandparent (or to pass the tagged expression through `walk`).
+ * Rewriting a quasi moves text out of the tag function's `raw` and into a
+ * substitution, changing both what the tag receives and how many arguments it
+ * gets. That is harmless for `String.raw` and wrong for a tag that reads `raw`
+ * or counts its arguments, so `makeArtifactSafe` refuses rather than guess.
+ *
+ * It used to be unreachable: `walk` gave a `TemplateElement` its
+ * `TemplateLiteral` as parent, never the `TaggedTemplateExpression` a level
+ * above, so the guard never matched and every tagged template was quietly
+ * rewritten. `walk` now carries the grandparent for exactly this check.
  */
-test("a tagged template is rewritten rather than refused — the guard misses", () => {
+test("a tagged template holding an unspellable unit is refused", () => {
     const source = `String.raw\`a${FFFD}b\``;
+
+    assert.throws(
+        () => makeArtifactSafe(source),
+        /a tagged template holds an unspellable unit/,
+        "the quasi was rewritten instead of refused",
+    );
+});
+
+test("an untagged template with the same content is rewritten, not refused", () => {
+    // The refusal is about what a tag function would receive, so it must not
+    // fire on an ordinary template literal — those are the common case and
+    // rewriting them is exactly what makeArtifactSafe is for.
+    const source = `\`a${FFFD}b\``;
     const rewritten = makeArtifactSafe(source);
 
     assert.ok(
@@ -160,7 +172,6 @@ test("a tagged template is rewritten rather than refused — the guard misses", 
         eval(rewritten),
         // biome-ignore lint/security/noGlobalEval: same
         eval(source),
-        "for String.raw the rewrite is at least value-preserving",
     );
 });
 

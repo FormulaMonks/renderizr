@@ -265,20 +265,27 @@ function isValuePosition(node, parent) {
     }
 }
 
-function walk(node, parent, visit) {
+/**
+ * Visits every node with both its parent and its grandparent.
+ *
+ * The grandparent is not decoration: a `TemplateElement`'s parent is always
+ * the `TemplateLiteral` holding it, so a guard that wants to know whether it
+ * sits inside a `TaggedTemplateExpression` has to look one level further up.
+ */
+function walk(node, parent, visit, grandparent = null) {
     if (!node || typeof node !== "object") return;
 
     if (Array.isArray(node)) {
-        for (const child of node) walk(child, parent, visit);
+        for (const child of node) walk(child, parent, visit, grandparent);
         return;
     }
 
     if (typeof node.type !== "string") return;
-    visit(node, parent);
+    visit(node, parent, grandparent);
 
     for (const key of Object.keys(node)) {
         if (NOT_A_CHILD.has(key)) continue;
-        walk(node[key], node, visit);
+        walk(node[key], node, visit, parent);
     }
 }
 
@@ -296,11 +303,13 @@ function collectEdits(code) {
         );
     };
 
-    walk(parseAst(code), null, (node, parent) => {
+    walk(parseAst(code), null, (node, parent, grandparent) => {
         if (node.type === "TemplateElement") {
             const raw = node.value.raw;
             if (!hasUnspellable(raw)) return;
-            if (parent?.type === "TaggedTemplateExpression") {
+            // The quasi's parent is the TemplateLiteral; the tag, if there is
+            // one, is the level above that.
+            if (grandparent?.type === "TaggedTemplateExpression") {
                 refuse(node, "a tagged template holds an unspellable unit");
             }
 
