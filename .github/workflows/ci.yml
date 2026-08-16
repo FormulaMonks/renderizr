@@ -1,0 +1,338 @@
+# Validates every pull request and every push to main.
+#
+# Five jobs, in order of how fast they tell you something is wrong:
+#
+#   title   the pull request title is a conventional commit (pull requests only)
+#   static  lint + typecheck, one Node, seconds
+#   test    the node:test suite, on every supported Node
+#   e2e     renders the Big Bank plc example end to end, on every supported Node,
+#           and guards the product's core promise: `--single-file` output that
+#           makes no network requests
+#   ci      one required status check that stands for all of the above
+#
+# Node matrix: package.json `engines.node` says ">=20" and README.md badges it,
+# so 20 is a contract and CI is what proves it still holds. 22 and 24 are the
+# LTS lines above it. .nvmrc/.mise.toml pin 24 for development; that is the
+# toolchain, not the supported range.
+#
+# Only the e2e job checks out the submodule. `submodules/structurizr` is an
+# upstream reference checkout used by `pnpm sync:vendor`; the renderer it
+# provides is already committed under `vendor/`, so lint, typecheck, test and
+# the build itself all pass without it. e2e wants it for one reason: it carries
+# a pinned, committed copy of the Big Bank plc workspace
+# (structurizr-export/src/test/resources/big-bank-plc.json), which lets the
+# end-to-end render run off disk instead of reaching for the network.
+#
+# `edited` is in the pull_request trigger list — which the default (opened,
+# synchronize, reopened) does not include — so that editing a pull request
+# title re-runs the `title` job and turns the check green without a push or a
+# manual re-run. The cost is that editing a description also re-runs the whole
+# matrix. That is deliberate: the alternative, skipping the heavy jobs on an
+# `edited` event, is a branch-protection bypass — push failing code, edit the
+# description, and the newest `ci` run reports success with everything skipped.
+# Wasting a few minutes of a hosted runner is the cheaper mistake.
+
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, reopened, synchronize]
+  push:
+    branches: [main]
+
+# Least privilege at the top; no job here escalates.
+permissions:
+  contents: read
+
+# Supersede in-flight PR runs, but let pushes to main finish — those are the
+# runs whose result the badge and the release process read.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Committed, pinned by the submodule gitlink, and the same workspace the
+  # README tells people to try first.
+  BIG_BANK: submodules/structurizr/structurizr-export/src/test/resources/big-bank-plc.json
+  PNPM_VERSION: "11"
+
+jobs:
+  # Every pull request is squash-merged and the squash message is the pull
+  # request title (MAINTAINERS.md → "What a maintainer does"; CONTRIBUTING.md →
+  # "How a review goes"), and release-please derives the next version and the
+  # CHANGELOG.md entry from exactly those messages. So the title is not a
+  # nicety — it is release input, and it is the one thing in this repository
+  # that nothing else validated: `.husky/commit-msg` runs commitlint on local
+  # commits, but `git commit --no-verify` skips it, a fork's clone never
+  # installs the hook at all, and none of those individual messages survive the
+  # squash anyway. This job checks the string that actually ships.
+  #
+  # It runs the repository's own `commitlint.config.cjs` through the
+  # `@commitlint/cli` already in devDependencies, rather than a third-party
+  # title-linting action: same rules locally and in CI by construction, and no
+  # fourth action to pin and keep pinned.
+  pr_title:
+    name: pr title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # The title goes through the environment, never through the run script's
+      # text — a pull request title is attacker-controlled and `${{ }}` would
+      # interpolate it into the shell before bash ever sees a quote.
+      - name: Lint the pull request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -uo pipefail
+          echo "Title: ${PR_TITLE}"
+          if printf '%s\n' "${PR_TITLE}" | pnpm exec commitlint --verbose; then
+            exit 0
+          fi
+          echo "::error title=Pull request title is not a conventional commit::This title becomes the squash-merge commit message and the changelog entry, so it has to parse. Use type(optional-scope): summary — e.g. 'fix(cli): reject a workspace path that is a directory'. Types: build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test — and nothing else. Edit the title and this check re-runs on its own; see CONTRIBUTING.md, 'Commits'."
+          exit 1
+
+  static:
+    name: lint + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm test
+
+  e2e:
+    name: e2e (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    steps:
+      - name: Check out, with the structurizr submodule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Confirm the fixture is really on disk
+        run: test -s "$BIG_BANK"
+
+      # `pnpm build` is `tsc && node scripts/build.js` — the same command the
+      # README and CONTRIBUTING document. No `--` before the arguments: pnpm
+      # forwards them, and node:util parseArgs would read everything after a
+      # `--` as a positional workspace.
+      - name: Render Big Bank plc (multi-file)
+        run: pnpm build "$BIG_BANK" --out dist-e2e
+
+      - name: Assert the multi-file output is a site
+        run: |
+          test -f dist-e2e/index.html
+          test -d dist-e2e/assets
+          test -f dist-e2e/favicon.png
+          # One entry script, one stylesheet, both emitted by the build.
+          ls dist-e2e/assets/index-*.js >/dev/null
+          ls dist-e2e/assets/style-*.css >/dev/null
+          grep -q '<div id="app"' dist-e2e/index.html
+          # The workspace really was baked in, not left to be fetched.
+          grep -q 'Big Bank plc' dist-e2e/assets/index-*.js
+
+      - name: Render Big Bank plc (--single-file)
+        run: pnpm build "$BIG_BANK" --single-file --out dist-single
+
+      - name: Assert the single-file output is one document
+        run: |
+          test -f dist-single/index.html
+          test -f dist-single/artifact.html
+          # Nothing else: no assets directory to go with it.
+          test ! -d dist-single/assets
+          # A real page, not a stub. The Big Bank render is ~1 MB.
+          test "$(wc -c < dist-single/index.html)" -gt 500000
+          # artifact.html is the same page without its own document
+          # scaffolding — that is the whole reason it is a second file.
+          grep -q 'Big Bank plc' dist-single/index.html
+          grep -q '<html' dist-single/index.html
+          if grep -q '<html' dist-single/artifact.html; then
+            echo "artifact.html must not carry its own <html> element" >&2
+            exit 1
+          fi
+
+      # The core promise: opened over file://, from an email attachment or
+      # inside a sandboxed frame, the single-file build makes no network
+      # requests. Asset-bearing tags only — ordinary <a href="https://..."> in
+      # the rendered documentation is content, not a request, and a blanket
+      # `grep https://` would fail forever on it.
+      - name: Assert no external asset references
+        run: |
+          cat > "${RUNNER_TEMP}/no-external-assets.mjs" <<'CHECK'
+          import { readFileSync } from "node:fs";
+
+          // Every way an HTML document can make the browser fetch something,
+          // matched only when the target is absolute (https:, http:, or
+          // protocol-relative //host). data: and relative URLs are fine.
+          const PATTERNS = [
+            ["script/img/media src", /<(?:script|img|iframe|embed|audio|video|track|source|input)\b[^>]*\bsrc\s*=\s*["']?(?:https?:)?\/\//gi],
+            ["srcset", /<(?:img|source)\b[^>]*\bsrcset\s*=\s*["'][^"']*(?:https?:)?\/\/[^"']/gi],
+            ["link href", /<link\b[^>]*\bhref\s*=\s*["']?(?:https?:)?\/\//gi],
+            ["object data", /<object\b[^>]*\bdata\s*=\s*["']?(?:https?:)?\/\//gi],
+            ["svg use href", /<use\b[^>]*\b(?:xlink:)?href\s*=\s*["']?(?:https?:)?\/\//gi],
+            ["css @import", /@import\s+(?:url\(\s*)?["']?(?:https?:)?\/\//gi],
+            ["css url()", /url\(\s*["']?(?:https?:)?\/\//gi],
+          ];
+
+          let failures = 0;
+          for (const file of process.argv.slice(2)) {
+            const html = readFileSync(file, "utf8");
+            for (const [label, pattern] of PATTERNS) {
+              for (const match of html.matchAll(pattern)) {
+                failures += 1;
+                const from = Math.max(0, match.index - 60);
+                const context = html.slice(from, match.index + 120).replace(/\s+/g, " ");
+                console.error(`${file}: external ${label}: ...${context}...`);
+              }
+            }
+            console.log(`${file}: scanned ${html.length} bytes`);
+          }
+
+          if (failures > 0) {
+            console.error(`FAIL: ${failures} external asset reference(s) in the single-file build`);
+            process.exit(1);
+          }
+          console.log("OK: no external asset references");
+          CHECK
+          node "${RUNNER_TEMP}/no-external-assets.mjs" \
+            dist-single/index.html \
+            dist-single/artifact.html
+
+      - name: Upload the rendered example
+        if: matrix.node == '24'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: big-bank-plc-single-file
+          path: dist-single/index.html
+          retention-days: 7
+          if-no-files-found: error
+
+  # One check to require in branch protection. A matrix leg that is skipped or
+  # cancelled is not a pass, so test the result explicitly rather than relying
+  # on `needs` alone.
+  ci:
+    name: ci
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [pr_title, static, test, e2e]
+    steps:
+      - name: Check the results
+        env:
+          RESULTS: ${{ needs.static.result }} ${{ needs.test.result }} ${{ needs.e2e.result }}
+          # `pr_title` is the one job that legitimately does not run on a push
+          # to main — there is no pull request to read a title from. That is
+          # the only case in which a non-success is accepted, and it is matched
+          # exactly rather than by treating "skipped" as a pass everywhere.
+          PR_TITLE_RESULT: ${{ needs.pr_title.result }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          echo "static/test/e2e: $RESULTS"
+          echo "pr title: $PR_TITLE_RESULT (event: $EVENT)"
+          failed=0
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              failed=1
+            fi
+          done
+          case "${EVENT}:${PR_TITLE_RESULT}" in
+            pull_request:success) ;;
+            push:skipped) ;;
+            *) failed=1 ;;
+          esac
+          if [ "$failed" -ne 0 ]; then
+            echo "A required job did not succeed." >&2
+            exit 1
+          fi

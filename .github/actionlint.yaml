@@ -1,0 +1,21 @@
+# actionlint configuration.
+#
+# actionlint is what makes "the workflows are valid" a checkable claim rather
+# than an assertion: it parses every file in .github/workflows, type-checks the
+# ${{ }} expressions against the real context schemas, verifies that action
+# inputs exist, and runs shellcheck over every `run:` block.
+#
+#   mise x actionlint@1.7.12 -- actionlint     # no global install
+#   brew install actionlint && actionlint      # or the packaged binary
+#
+# Run it before pushing a change to anything under .github/workflows.
+
+# Every job here runs on GitHub-hosted ubuntu-latest. There are no self-hosted
+# runners, so an unrecognised runner label is a typo and should be an error.
+self-hosted-runner:
+  labels: []
+
+# `null` disables the check rather than declaring an empty allow-list. The
+# repository uses no `vars.*` configuration variables today; if one is added,
+# actionlint should not fail on it before this file catches up.
+config-variables: null

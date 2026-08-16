@@ -1,0 +1,72 @@
+# OpenSSF Scorecard.
+#
+# Scores this repository against the OpenSSF's supply-chain checks — pinned
+# dependencies, token permissions, branch protection, dangerous workflow
+# patterns, code scanning, maintenance — and publishes the result so it can be
+# read from outside without cloning anything.
+#
+# `publish_results: true` is what puts the score on the public OpenSSF API,
+# which is where the README badge and deps.dev read it from. It requires
+# `id-token: write` (the run signs its own result); that permission is scoped
+# to this one job and used by nothing else in the repository.
+
+name: scorecard
+
+on:
+  # A change to branch protection changes the score, so re-measure on it.
+  branch_protection_rule:
+  schedule:
+    - cron: "18 5 * * 2"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analysis:
+    name: analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Upload the SARIF to the code-scanning dashboard.
+      security-events: write
+      # Publish the result to the OpenSSF API with a Sigstore-signed token.
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Scorecard's own Dangerous-Workflow guidance: never leave a
+          # credential in the working copy of a workflow that reads untrusted
+          # repository content.
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      # Kept for 5 days so a drop in the score can be diffed against the run
+      # that caused it, independent of the code-scanning retention window.
+      - name: Upload the raw result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+          if-no-files-found: error
+
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          sarif_file: results.sarif
+          category: scorecard
