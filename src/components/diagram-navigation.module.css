@@ -220,8 +220,8 @@ glyph and nothing else distinguishes them. */
             width: max-content;
             min-width: 100%;
             gap: 0.3rem;
-            /* Centred while the views fit, left-aligned the moment they do
-            not — `safe` is what stops a centred overflow from putting the
+            /* Centered while the views fit, left-aligned the moment they do
+            not — `safe` is what stops a centered overflow from putting the
             first tile out of reach off the left edge. */
             justify-content: safe center;
         }

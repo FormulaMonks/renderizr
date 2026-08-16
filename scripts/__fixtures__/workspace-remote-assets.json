@@ -1,0 +1,51 @@
+{
+    "id": 2,
+    "name": "Remote Assets Workspace",
+    "description": "Every asset the Structurizr UI would fetch at runtime, so the inliner has something to resolve.",
+    "model": {
+        "softwareSystems": [
+            {
+                "id": "1",
+                "name": "Themed System",
+                "tags": "Element,Software System"
+            }
+        ]
+    },
+    "views": {
+        "configuration": {
+            "branding": {
+                "logo": "https://example.test/branding/logo.png"
+            },
+            "themes": [
+                "https://example.test/themes/one/theme.json",
+                "https://example.test/themes/two/theme.json"
+            ],
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Themed",
+                        "icon": "https://example.test/icons/themed.png"
+                    },
+                    {
+                        "tag": "Local",
+                        "icon": "data:image/png;base64,AAAA"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Existing Relationship",
+                        "color": "#101010"
+                    }
+                ]
+            }
+        },
+        "systemContextViews": [
+            {
+                "key": "RemoteContext",
+                "order": 1,
+                "softwareSystemId": "1",
+                "elements": [{ "id": "1", "x": 100, "y": 100 }]
+            }
+        ]
+    }
+}

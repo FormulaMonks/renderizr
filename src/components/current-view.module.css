@@ -59,9 +59,9 @@
 
 /*
  * These buttons are *page* chrome — they sit above the canvas, not on it — so
- * they follow the page theme owned by `theme.ts`. Every colour is therefore a
+ * they follow the page theme owned by `theme.ts`. Every color is therefore a
  * token: written as literals, or behind a `prefers-color-scheme` query, the
- * buttons would keep whichever colours the operating system implied and ignore
+ * buttons would keep whichever colors the operating system implied and ignore
  * the theme switch entirely.
  *
  * The canvas beneath them is the other half of the split: it follows the

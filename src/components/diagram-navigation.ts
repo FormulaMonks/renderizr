@@ -34,11 +34,20 @@ const DiagramIcon = new Map([
  * View: Internet Banking System - Live" against "… - Development" — so cutting
  * the end is exactly the wrong half to lose. Trimming the middle keeps both
  * the kind and the thing that tells two views apart.
+ *
+ * The limit is a budget for the two lines `.name` clamps to, not a taste
+ * judgement: the label column is a fixed 226px inside the 17rem drawer, and at
+ * the 13.12px semibold body face a realistic view name measures about 7px per
+ * character, so two lines hold roughly 64 and word wrapping wastes some of
+ * that. 60 fits every view in the Big Bank plc example untouched — the longest,
+ * "Component View: Internet Banking System - API Application", is 57 — while
+ * still catching names long enough to spill past the clamp, where the browser
+ * would cut the end and throw away the half that matters.
  */
-const shorten = (name: string, limit = 34) => {
+const shorten = (name: string, limit = 60) => {
     if (name.length <= limit) return name;
 
-    const tail = Math.min(16, Math.floor(limit / 2));
+    const tail = Math.min(24, Math.floor(limit / 2));
     const head = limit - tail - 1;
     return `${name.slice(0, head).trimEnd()}…${name.slice(-tail).trimStart()}`;
 };

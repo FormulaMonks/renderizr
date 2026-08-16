@@ -1,0 +1,14 @@
+# Code owners for Renderizr. An owner listed here is requested for review automatically
+# when a pull request touches a matching path, but only if they have write access to this
+# repository — GitHub silently ignores rules naming anyone who does not.
+#
+# One rule, because there is one maintainer; MAINTAINERS.md is the list and the place it
+# grows. Several other FormulaMonks accounts hold admin on this repository by inheriting it
+# from the organisation — MAINTAINERS.md enumerates them — but inherited access is not a
+# claim on reviewing anything, so none of them is named here.
+#
+# GitHub never requests review from a PR's own author, so PRs opened by the owner below
+# arrive with no reviewer attached, and `main` carries no branch protection today to insist
+# on one. Add a reviewer by hand.
+
+*   @andreszorro

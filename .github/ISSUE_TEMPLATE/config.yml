@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Where each kind of question goes
+    url: https://github.com/FormulaMonks/renderizr/blob/main/SUPPORT.md
+    about: The flag table, the --help output, and what makes a question answerable.
+  - name: Search the existing issues, including closed ones
+    url: https://github.com/FormulaMonks/renderizr/issues?q=is%3Aissue
+    about: Closed issues are where the answers usually are. Worth 30 seconds.
+  - name: Report a security vulnerability
+    url: https://github.com/FormulaMonks/renderizr/blob/main/SECURITY.md
+    about: Never in a public issue. Email the maintainer — SECURITY.md has the address.
+  - name: Help with Structurizr itself — the DSL, the model, or the views
+    url: https://structurizr.com/help
+    about: Renderizr renders a workspace; it does not define one. Ask upstream.
+  - name: Structurizr community discussions
+    url: https://github.com/structurizr/structurizr/discussions
+    about: Diagrams come from Structurizr's own renderer, which Renderizr vendors unmodified.

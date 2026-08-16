@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest a capability or a flag Renderizr does not have yet.
+type: Feature
+labels: [enhancement, "needs triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation you are stuck in rather than the feature you have in mind — the problem often has a cheaper solution than the one you expected.
+      placeholder: |
+        I publish the rendered site to an internal portal that rewrites every URL, so the
+        hash-based deep links our reviewers paste into tickets stop resolving.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Renderizr to do?
+      description: If you have a flag name or an output shape in mind, spell it out. `--help` in `scripts/cli.js` is the current surface.
+      placeholder: |
+        A `--router path` flag that emits one HTML file per view instead of routing in the
+        URL hash.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Renderizr does this touch?
+      description: A guess is fine — leave it blank if none of these fit.
+      options:
+        - CLI flags and build options
+        - Single-file output
+        - Diagram rendering
+        - Documentation and ADR rendering
+        - Navigation, search, and deep links
+        - Branding, fonts, and theming
+        - Something else
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you tried instead?
+      description: Workarounds, other tools, or post-processing scripts. What almost worked tells us where the real gap is.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you post
+      options:
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/FormulaMonks/renderizr/blob/main/CODE_OF_CONDUCT.md).
+          required: true
+        - label: I searched the [existing issues](https://github.com/FormulaMonks/renderizr/issues?q=is%3Aissue), including closed ones, and this is not a duplicate.
+          required: true
+        - label: I would be willing to open a pull request — [CONTRIBUTING.md](https://github.com/FormulaMonks/renderizr/blob/main/CONTRIBUTING.md) covers setup and tests.

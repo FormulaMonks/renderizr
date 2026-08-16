@@ -1,8 +1,26 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { branding, singleFile, structurizrRenderer } from "./plugins.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+
+/**
+ * The version stamped into the rendered site's footer.
+ *
+ * Read from package.json rather than hard-coded, so the release that bumps the
+ * manifest also bumps what the output says about itself. Read once at module
+ * load: every build in a process renders the same version, and a missing or
+ * unreadable manifest is a footer without a version, never a failed build.
+ */
+const version = (() => {
+    try {
+        const manifest = readFileSync(resolve(root, "package.json"), "utf8");
+        return JSON.parse(manifest).version ?? null;
+    } catch {
+        return null;
+    }
+})();
 
 /**
  * The one place the Vite config is described, shared by `scripts/build.js` and
@@ -45,7 +63,7 @@ export function createConfig({
                 output: {
                     // Structurizr's engine reads jquery, lodash, backbone and
                     // jointjs off `window`; splitting them into chunks reorders
-                    // initialisation and throws before the app boots.
+                    // initialization and throws before the app boots.
                     manualChunks: undefined,
                     ...(asSingleFile ? { inlineDynamicImports: true } : {}),
                 },
@@ -55,6 +73,7 @@ export function createConfig({
             workspaceData: JSON.stringify(workspace),
             __RENDERIZR_LOGO__: JSON.stringify(logo),
             __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),
+            __RENDERIZR_VERSION__: JSON.stringify(version),
         },
         ...(mode === "serve" ? { server: { open: false } } : {}),
     };

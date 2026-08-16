@@ -1,0 +1,77 @@
+# CodeQL static analysis.
+#
+# Renderizr is entirely JavaScript and TypeScript — the `javascript-typescript`
+# pack covers `src/`, `scripts/` and the workflows' own JS. Nothing is compiled
+# to analyze, so `build-mode: none` is the correct mode and there is no build
+# step to keep in step with CI.
+#
+# `vendor/` is Structurizr's renderer, committed verbatim by `pnpm sync:vendor`
+# and never edited here; `submodules/` is an upstream checkout (and is not even
+# fetched by this workflow). Alerts in either would be reports against someone
+# else's code that no pull request here could fix, so both are excluded.
+
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so a newly published query still finds old code.
+    - cron: "27 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: analyze (javascript-typescript)
+    # Code scanning is free on public repositories and requires GitHub Advanced
+    # Security on private ones. This repository is private until it is
+    # published, and uploading the SARIF there fails with "Code Security must be
+    # enabled for this repository" — a red X on every pull request for a setting
+    # no pull request can change. Skipping while private is honest; the moment
+    # the repository is public this runs on its own with nothing to switch on.
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # Only this job may write alerts.
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The submodule is not analyzed, so do not spend a 76 MB fetch on it.
+          submodules: false
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          # Beyond the default pack: the extended suite trades a little noise
+          # for the injection and prototype-pollution queries that matter for a
+          # tool that inlines third-party workspace JSON into a page.
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - vendor
+              - submodules
+              - dist
+              - output
+              - structurizr-output
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          category: "/language:javascript-typescript"

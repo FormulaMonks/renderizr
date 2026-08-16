@@ -1,0 +1,208 @@
+# The live demo.
+#
+# Renders the Big Bank plc example with this tool, on every push to main, and
+# publishes it to GitHub Pages:
+#
+#   https://formulamonks.github.io/renderizr/                  the browsable site
+#   https://formulamonks.github.io/renderizr/single-file.html  the same workspace
+#                                                              as one document
+#
+# The workspace is the copy committed in the structurizr submodule
+# (structurizr-export/src/test/resources/big-bank-plc.json), so what is
+# published is pinned by the gitlink and nothing is fetched at build time.
+#
+# The build is a project-site build, not a root-site build: assets have to
+# resolve under /renderizr/, which is what `--base` is for (scripts/cli.js →
+# scripts/config.js → Vite's `base`). The path comes from actions/configure-
+# pages rather than being hardcoded, so a rename of the repository does not
+# silently publish a page of 404s.
+#
+# There IS one manual setup step, and this workflow cannot do it for you:
+# somebody with admin rights has to click Settings → Pages → Build and
+# deployment → Source = "GitHub Actions" once. `actions/configure-pages` has an
+# `enablement: true` input that looks like it removes that step, and it does
+# not: its own action.yml says the input "requires a token other than
+# `GITHUB_TOKEN` to be provided", because turning Pages on is
+# `administration:write`, a permission the Actions token can never be granted
+# (actions/configure-pages#40). Handing the build job `pages: write` buys
+# nothing against that ceiling. GitHub's own starter workflow
+# (actions/starter-workflows → pages/static.yml) does not use `enablement`
+# either.
+#
+# So the first job below asks GitHub whether a Pages site exists yet and whether
+# its Source is "GitHub Actions", and the rest of the workflow is gated on the
+# answer. Before the toggle is flipped, the probe job itself *succeeds* (it only
+# reports what it found) and the build and deploy jobs are skipped, so the run
+# reports success on the Actions tab: a green check with two skipped jobs and a
+# notice naming the button to press. Not gray — a run is only marked skipped
+# when every job in it is skipped — and, the point of the exercise, not the red
+# X that `actions/configure-pages` would produce against a missing site. After
+# the toggle is flipped every run builds and deploys, and the probe costs one
+# API call.
+#
+# The honest cost of that design: a pre-toggle run is green without having
+# published anything. That is why the skip is loud rather than silent — an
+# annotation on the run, two visibly skipped jobs, and an open checkbox in
+# MAINTAINERS.md — and why the probe checks `build_type`, not just existence. A
+# green-looking workflow that quietly never deployed would be no better than the
+# red X it replaced.
+
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time, and never cancel one in flight — a half-finished
+# deploy is a broken public page.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  BIG_BANK: submodules/structurizr/structurizr-export/src/test/resources/big-bank-plc.json
+  PNPM_VERSION: "11"
+
+jobs:
+  # Is there a Pages site to deploy to, and is it the kind this workflow can
+  # deploy to? Two different wrong states, one probe:
+  #
+  #   * GET /repos/{owner}/{repo}/pages 404s until somebody flips Settings →
+  #     Pages → Source, and `actions/configure-pages` fails hard on that 404.
+  #   * It returns 200 with `build_type: legacy` if they flipped Source to
+  #     "Deploy from a branch" instead of "GitHub Actions". `configure-pages`
+  #     succeeds there — its own src/api-client.js never looks at `build_type` —
+  #     and `actions/deploy-pages` then fails against the legacy site, which is
+  #     the same red X one job later.
+  #
+  # So the probe reads `build_type` rather than testing existence, and proceeds
+  # only on `workflow`. Anything else skips build and deploy with a notice
+  # naming the setting to change.
+  preflight:
+    name: is Pages set to GitHub Actions?
+    runs-on: ubuntu-latest
+    permissions:
+      # Read-only: enough for the probe, and all this workflow can usefully
+      # hold — enabling Pages is `administration:write`, which GITHUB_TOKEN
+      # cannot be granted at any permission level.
+      pages: read
+    outputs:
+      enabled: ${{ steps.probe.outputs.enabled }}
+    steps:
+      - name: Ask GitHub whether Pages is on, and set to GitHub Actions
+        id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          # A 404 (no site) leaves build_type empty rather than letting gh's
+          # error body land in the variable.
+          if ! build_type="$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null)"; then
+            build_type=""
+          fi
+          case "${build_type}" in
+            workflow)
+              echo "enabled=true" >> "$GITHUB_OUTPUT"
+              echo "Pages is on and its Source is GitHub Actions; building and deploying."
+              ;;
+            "")
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              echo "::notice title=GitHub Pages is not enabled, so the build and deploy jobs were skipped::Enable it once, by hand: Settings → Pages → Build and deployment → Source = \"GitHub Actions\". This workflow cannot do it for you — turning Pages on needs administration:write, which the Actions token cannot hold. Re-run this workflow afterwards and it will build and deploy. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
+              ;;
+            *)
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              echo "::notice title=GitHub Pages is on but its Source is not GitHub Actions, so the build and deploy jobs were skipped::The API reports build_type=\"${build_type}\", which means Settings → Pages → Build and deployment → Source is set to \"Deploy from a branch\". actions/deploy-pages cannot deploy to that kind of site. Change Source to \"GitHub Actions\" and re-run. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
+              ;;
+          esac
+
+  build:
+    name: render the example
+    needs: preflight
+    if: needs.preflight.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # `configure-pages` only reads here — it is called without `enablement`,
+      # so it fetches the site's base_path and nothing more. Deploying is the
+      # `deploy` job's `pages: write` plus `id-token: write`, which this job
+      # deliberately lacks.
+      pages: read
+    steps:
+      - name: Check out, with the structurizr submodule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Pages
+        id: pages
+        # No `enablement:` input on purpose — see the header comment. The
+        # `preflight` job above has already established that a site exists, so
+        # all this step does is read `base_path` off it.
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Render Big Bank plc for the Pages path
+        env:
+          # "/renderizr" for a project site, "" for a user or organization site.
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          base="${BASE_PATH:-/}"
+          case "$base" in
+            */) ;;
+            *) base="$base/" ;;
+          esac
+          echo "Rendering with --base $base"
+          pnpm build "$BIG_BANK" --base "$base" --out dist-pages
+
+      - name: Render the same workspace as a single document
+        run: pnpm build "$BIG_BANK" --single-file --out dist-single
+
+      - name: Assemble the site
+        run: |
+          cp dist-single/index.html dist-pages/single-file.html
+          # Pages runs Jekyll over the artifact unless told not to.
+          touch dist-pages/.nojekyll
+          test -f dist-pages/index.html
+          test -f dist-pages/single-file.html
+          grep -q 'Big Bank plc' dist-pages/index.html
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist-pages
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    # The only `id-token: write` in the repository, and it lives here,
+    # in a job that runs no project code and builds nothing.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

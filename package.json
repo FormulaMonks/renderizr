@@ -1,54 +1,100 @@
 {
     "name": "@formula-monks/renderizr",
-    "private": true,
     "version": "0.0.1",
+    "private": true,
+    "description": "Render a Structurizr workspace — its diagrams, documentation and architecture decisions — as a static site, or as a single self-contained HTML file with no network requests.",
+    "keywords": [
+        "structurizr",
+        "c4",
+        "c4-model",
+        "architecture",
+        "architecture-diagrams",
+        "architecture-as-code",
+        "diagrams",
+        "documentation",
+        "adr",
+        "architecture-decision-records",
+        "static-site",
+        "static-site-generator",
+        "single-file",
+        "offline",
+        "cli",
+        "vite"
+    ],
+    "homepage": "https://github.com/FormulaMonks/renderizr#readme",
+    "bugs": {
+        "url": "https://github.com/FormulaMonks/renderizr/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/FormulaMonks/renderizr.git",
+        "directory": "."
+    },
+    "license": "MIT",
+    "author": "Formula.Monks (https://www.monks.com)",
+    "contributors": [
+        "Andrés Zorro <andres.zorro@monks.com> (https://github.com/andreszorro)"
+    ],
     "type": "module",
     "bin": {
-        "renderizr": "scripts/build.js",
-        "build": "scripts/build.js"
+        "renderizr": "scripts/build.js"
+    },
+    "exports": {
+        "./package.json": "./package.json"
     },
     "engines": {
-        "node": ">=20"
+        "node": ">=20",
+        "pnpm": ">=10"
     },
     "files": [
         "scripts",
+        "!scripts/**/*.test.js",
+        "!scripts/__fixtures__",
         "src",
         "vendor",
         "public",
         "index.html",
-        "tsconfig.json"
+        "tsconfig.json",
+        "NOTICE",
+        "THIRD-PARTY-NOTICES.md"
     ],
     "scripts": {
         "dev": "vite",
         "build": "tsc && node scripts/build.js",
-        "test": "node --test scripts/*.test.js",
-        "preview": "vite preview",
+        "preview": "node scripts/build.js architecture/workspace.json && vite preview -- architecture/workspace.json",
+        "lint": "biome ci .",
+        "lint:renovate": "pnpm dlx --package renovate renovate-config-validator --strict",
+        "format": "biome check --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "node --test scripts/*.test.js test/*.test.js",
+        "test:coverage": "node --test --experimental-test-coverage scripts/*.test.js test/*.test.js",
         "sync:vendor": "node scripts/sync-vendor.js",
         "hooks": "husky || true"
     },
     "devDependencies": {
         "@biomejs/biome": "^1.8.2",
-        "@commitlint/cli": "^19.3.0",
-        "@commitlint/config-conventional": "^19.2.2",
-        "@types/jquery": "^3.5.30",
-        "@types/markdown-it": "^14.1.1",
-        "@types/node": "^22.10.2",
-        "czg": "^1.9.3",
-        "husky": "^9.0.11",
-        "lint-staged": "^15.2.7",
-        "typescript": "^5.5.2"
+        "@commitlint/cli": "^20.5.3",
+        "@commitlint/config-conventional": "^20.5.3",
+        "@types/jquery": "^3.5.34",
+        "@types/markdown-it": "^14.1.2",
+        "@types/node": "^22.20.1",
+        "czg": "^1.13.2",
+        "husky": "^9.1.7",
+        "lint-staged": "^16.4.0",
+        "rollup": "4.52.5",
+        "typescript": "^5.9.3"
     },
     "dependencies": {
         "@dagrejs/dagre": "1.1.8",
         "@dagrejs/graphlib": "2.2.4",
         "@joint/core": "4.1.3",
         "@joint/layout-directed-graph": "4.1.3",
-        "highlight.js": "^11.9.0",
+        "highlight.js": "^11.12.0",
         "history": "^5.3.0",
-        "jquery": "3.6.3",
-        "markdown-it": "^14.1.0",
-        "markdown-it-anchor": "^9.0.1",
+        "jquery": "3.7.1",
+        "markdown-it": "^14.3.0",
+        "markdown-it-anchor": "^9.2.1",
         "markdown-it-shift-headings": "^1.0.2",
-        "vite": "^5.2.0"
+        "vite": "^7.3.6"
     }
 }

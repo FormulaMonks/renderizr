@@ -1,0 +1,103 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        "config:recommended",
+        "helpers:pinGitHubActionDigests",
+        ":dependencyDashboard",
+        ":semanticCommits",
+        ":semanticCommitTypeAll(chore)"
+    ],
+    "enabledManagers": ["npm", "github-actions"],
+    "ignorePaths": [
+        "**/node_modules/**",
+        "vendor/**",
+        "submodules/**",
+        "architecture/**"
+    ],
+    "semanticCommits": "enabled",
+    "semanticCommitType": "chore",
+    "semanticCommitScope": "deps",
+    "commitMessageLowerCase": "auto",
+    "rangeStrategy": "auto",
+    "schedule": ["before 6am on monday"],
+    "timezone": "Etc/UTC",
+    "prConcurrentLimit": 5,
+    "prHourlyLimit": 2,
+    "minimumReleaseAge": "3 days",
+    "postUpdateOptions": ["pnpmDedupe"],
+    "dependencyDashboardTitle": "Dependency dashboard",
+    "lockFileMaintenance": {
+        "enabled": true,
+        "commitMessageAction": "refresh",
+        "schedule": ["before 6am on the first day of the month"],
+        "automerge": false
+    },
+    "vulnerabilityAlerts": {
+        "enabled": true,
+        "labels": ["security", "dependencies"],
+        "minimumReleaseAge": null
+    },
+    "osvVulnerabilityAlerts": true,
+    "packageRules": [
+        {
+            "description": "Keep the pinned action digests current. Every third-party action in .github/workflows is pinned to a full commit SHA for OpenSSF Scorecard's Pinned-Dependencies check; without this rule those pins rot into a security liability instead of being one. One PR, monthly, since they move together and none of them ship into user output.",
+            "matchManagers": ["github-actions"],
+            "groupName": "github actions",
+            "schedule": ["before 6am on the first day of the month"],
+            "pinDigests": true
+        },
+        {
+            "description": "Development tooling: lint, types, commit plumbing. None of it reaches a rendered workspace, so one grouped PR per week is enough review surface.",
+            "matchManagers": ["npm"],
+            "matchDepTypes": ["devDependencies"],
+            "matchPackageNames": [
+                "@biomejs/biome",
+                "typescript",
+                "@types/**",
+                "@commitlint/**",
+                "husky",
+                "lint-staged",
+                "czg"
+            ],
+            "groupName": "dev tooling"
+        },
+        {
+            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own reviewable PR — never grouped, never rolled up with anything else.",
+            "matchManagers": ["npm"],
+            "matchPackageNames": [
+                "jquery",
+                "@joint/**",
+                "@dagrejs/**",
+                "markdown-it",
+                "markdown-it-**",
+                "highlight.js",
+                "history",
+                "vite"
+            ],
+            "groupName": null,
+            "separateMinorPatch": true,
+            "labels": ["dependencies", "ships-to-users"]
+        },
+        {
+            "description": "jquery, @joint/* and @dagrejs/* are pinned to exact versions in package.json on purpose: Structurizr's vendored renderer reads them off `window` and is sensitive to which build it gets. Renovate replaces the exact version with a new exact version; it must never widen the pin into a range.",
+            "matchManagers": ["npm"],
+            "matchPackageNames": ["jquery", "@joint/**", "@dagrejs/**"],
+            "rangeStrategy": "auto",
+            "separateMajorMinor": true,
+            "minimumReleaseAge": "14 days"
+        },
+        {
+            "description": "rollup is held at 4.52.5 on purpose and Renovate must not move it. scripts/escapes.js parses the bundle with `parseAst`, which vite re-exports from rollup's native parser. Every rollup at or above 4.53.0 panics — `called Option::unwrap() on a None value` — on a directive prologue holding a lone-surrogate escape, the exact input scripts/escapes.test.js feeds it, so `pnpm test` fails on any version at or above 4.59.0, the floor that patches GHSA-mw96-cpmx-2vgc. The advisory is build-time only and the guard still refuses rather than emit an unsafe artifact, so the pin is the lesser harm until the parser is fixed upstream or escapes.js stops depending on it. `allowedVersions` states the boundary; `enabled: false` is what actually stops a security PR, since `vulnerabilityAlerts.enabled` and `osvVulnerabilityAlerts` above would otherwise raise one immediately and undo the pin without anyone deciding to. The exact pin in package.json is also what holds vite's own rollup down — pnpm resolves `vite > rollup` to the version the root manifest names — so this rule is what keeps a vite upgrade from dragging the broken parser in sideways. Lift it by hand, together, once `node --test scripts/escapes.test.js` passes on the newer rollup.",
+            "matchManagers": ["npm"],
+            "matchPackageNames": ["rollup"],
+            "allowedVersions": "<4.53.0",
+            "enabled": false
+        },
+        {
+            "description": "`engines` states the supported Node and pnpm range — a compatibility promise made in README.md and enforced by the CI matrix. Raising it is a decision, not a dependency update.",
+            "matchManagers": ["npm"],
+            "matchDepTypes": ["engines"],
+            "enabled": false
+        }
+    ]
+}

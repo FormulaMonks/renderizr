@@ -1,0 +1,228 @@
+Renderizr
+Copyright (c) 2024-2026 Formula.Monks
+
+Licensed under the MIT License. See LICENSE.
+
+--------------------------------------------------------------------------------
+
+What this file is, and what it is not
+
+Renderizr is MIT-licensed, not Apache-2.0, so this file is not an Apache-2.0
+section 4(d) NOTICE and imposes no section 4(d) obligation on anyone who
+redistributes Renderizr. It exists for a more practical reason: Renderizr's
+output is a bundle of minified third-party code with every licence header
+stripped by the minifier, and this is the attribution block that has to travel
+alongside that output for the MIT, BSD, Apache-2.0 and MPL-2.0 terms of the
+bundled components to be satisfied.
+
+It is written to be self-sufficient, because the whole premise of shipping it
+is that it may be the only file a recipient gets. So it carries, below, the
+copyright line and resolved version of every component that ships in rendered
+output; the verbatim permission notice MIT section 1 requires; the verbatim
+conditions and disclaimer BSD-2-Clause and BSD-3-Clause require; a URL to the
+Apache-2.0 licence text, which Apache-2.0 section 4(a) requires recipients be
+given; and the source-availability statement MPL-2.0 section 3.2(b) requires.
+Nothing here is a substitute for reading THIRD-PARTY-NOTICES.md, which has the
+provenance and the full licence texts — but this file on its own discharges the
+obligations it names.
+
+Neither of the Apache-2.0 works Renderizr uses — the Structurizr project and
+the TypeScript compiler — ships a NOTICE file of its own, so there is nothing
+to propagate under section 4(d). Verified on 2026-08-16 against structurizr
+commit 9ff16634c3b8574584262ae8545510bbb1d1b4bd (no NOTICE anywhere in the
+repository) and node_modules/typescript (ThirdPartyNoticeText.txt only, which
+covers TypeScript's own dependencies and is not a section 4(d) NOTICE for
+TypeScript).
+
+THIRD-PARTY-NOTICES.md is the authoritative document: full licence texts,
+exact versions, and which components ship in rendered output versus which are
+build-time only. docs/licensing.md explains how to make this attribution reach
+the pages Renderizr generates.
+
+--------------------------------------------------------------------------------
+
+Attribution for the components that ship inside every page Renderizr renders
+
+  Structurizr diagram renderer and stylesheet — upstream commit 9ff1663
+  Copyright Structurizr
+  Licensed under the Apache License, Version 2.0
+  https://github.com/structurizr/structurizr
+  Licence text: https://www.apache.org/licenses/LICENSE-2.0 (also at
+  vendor/structurizr/LICENSE in the Renderizr repository)
+  Modified as Apache-2.0 section 4(b) requires stating: the five renderer
+  files are concatenated into one unit and minified, and escape sequences a
+  Claude artifact upload rejects are rewritten. Not otherwise modified.
+
+  Bootstrap Icons — 28 icons, taken from structurizr commit 9ff1663
+  Copyright (c) 2019-2024 The Bootstrap Authors
+  Licensed under the MIT License (text below)
+  https://github.com/twbs/icons
+
+  JointJS (@joint/core, @joint/layout-directed-graph) — version 4.1.3
+  Copyright 2013 client IO
+  Licensed under the Mozilla Public License, Version 2.0
+  Licence text: https://mozilla.org/MPL/2.0/
+  https://github.com/clientIO/joint
+  Source availability, as MPL-2.0 section 3.2(b) requires:
+
+    This work includes JointJS (`@joint/core` and
+    `@joint/layout-directed-graph`, version 4.1.3), Copyright 2013 client IO,
+    in Executable Form. JointJS is licensed under the Mozilla Public License,
+    Version 2.0. A copy of the licence is available at
+    <https://mozilla.org/MPL/2.0/>. The corresponding Source Code Form is
+    available at no charge from <https://github.com/clientIO/joint> and from
+    the npm registry at <https://www.npmjs.com/package/@joint/core>
+    (version 4.1.3). JointJS is used unmodified.
+
+  jQuery (includes Sizzle.js) — version 3.7.1
+  Copyright OpenJS Foundation and other contributors, https://openjsf.org/
+  Licensed under the MIT License (text below)
+
+  highlight.js — version 11.12.0
+  Copyright (c) 2006, Ivan Sagalaev. All rights reserved.
+  Licensed under the BSD 3-Clause License (text below)
+
+  @dagrejs/dagre — version 1.1.8
+  @dagrejs/graphlib — version 2.2.4
+  Copyright (c) 2012-2014 Chris Pettitt
+  Licensed under the MIT License (text below)
+
+  history — version 5.3.0
+  Copyright (c) React Training 2016-2020
+  Copyright (c) Remix Software 2020-2021
+  Licensed under the MIT License (text below)
+
+  markdown-it — version 14.3.0
+  Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin
+  Licensed under the MIT License (text below)
+
+  markdown-it-anchor — version 9.2.1
+  Released into the public domain under the Unlicense
+  https://unlicense.org
+
+  markdown-it-shift-headings — version 1.0.2
+  Copyright (c) 2019 Julien Dargelos
+  Licensed under the MIT License (text below)
+
+  linkify-it — version 5.0.2
+  Copyright (c) 2015 Vitaly Puzrin
+  Licensed under the MIT License (text below)
+
+  mdurl — version 2.0.0
+  Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin
+  .parse() is based on Joyent's node.js url code:
+  Copyright Joyent, Inc. and other Node contributors. All rights reserved.
+  Licensed under the MIT License (text below)
+
+  punycode.js — version 2.3.1
+  Copyright Mathias Bynens, https://mathiasbynens.be/
+  Licensed under the MIT License (text below)
+
+  uc.micro — version 2.1.0
+  Copyright Mathias Bynens, https://mathiasbynens.be/
+  Licensed under the MIT License (text below)
+
+  entities — version 4.5.0
+  Copyright (c) Felix Böhm. All rights reserved.
+  Licensed under the BSD 2-Clause License (text below)
+
+--------------------------------------------------------------------------------
+
+The MIT License
+
+Applies to every component above marked "MIT License", each under its own
+copyright line as given above. MIT section 1 requires this notice to be
+included in all copies or substantial portions of the software, which is why it
+is reproduced here rather than merely named.
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+--------------------------------------------------------------------------------
+
+The BSD 3-Clause License — applies to highlight.js
+
+  Copyright (c) 2006, Ivan Sagalaev.
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+
+  * Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+  * Neither the name of the copyright holder nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+
+The BSD 2-Clause License — applies to entities
+
+  Copyright (c) Felix Böhm
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+
+  Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+  Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+  THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+--------------------------------------------------------------------------------
+
+Not covered here
+
+The workspace JSON, and any theme, element icon or branding logo it references,
+belong to whoever authored them. Renderizr embeds them unchanged and claims no
+rights over them.
+
+A font embedded with --font is downloaded from Google Fonts at build time.
+Renderizr does not inspect its licence, and different families on Google Fonts
+carry different ones. Attributing the embedded font is the responsibility of
+whoever runs the build. See THIRD-PARTY-NOTICES.md.

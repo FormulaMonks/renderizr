@@ -17,7 +17,7 @@ export const OPTIONS = {
 const USAGE = `
 Renderizr — render a Structurizr workspace as a static site.
 
-  build <workspace.json|url> [options]
+  renderizr <workspace.json|url> [options]
 
 Options
   -o, --out <dir>          Output directory (default: structurizr-output)
@@ -40,9 +40,11 @@ Options
   -h, --help               Show this message
 
 Examples
-  build ./workspace.json
-  build https://example.com/workspace.json --single-file
-  build ./workspace.json --single-file --font Inter --logo ./logo.svg
+  renderizr ./workspace.json
+  renderizr https://example.com/workspace.json --single-file
+  renderizr ./workspace.json --single-file --font Inter --logo ./logo.svg
+
+In a clone of this repository the same thing is: pnpm build <workspace> [options]
 `;
 
 export function usage(stream = process.stdout) {

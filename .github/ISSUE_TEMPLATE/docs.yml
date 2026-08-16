@@ -1,0 +1,46 @@
+name: Documentation problem
+description: Something in Renderizr's own README or docs is wrong, missing, or misleading.
+type: Task
+labels: [documentation, "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is for Renderizr's own documentation. If Renderizr renders *your*
+        workspace's documentation or decisions incorrectly, that is a bug — use the bug
+        report form, so we can ask for the workspace.
+
+  - type: input
+    id: location
+    attributes:
+      label: Where is it?
+      description: A heading, a file path, or a link to the exact line.
+      placeholder: README.md — "Local development" › "Dev server"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+      description: If a documented command did not work, paste what you ran and what it printed.
+      placeholder: |
+        The documented command exits with a usage error because the workspace path is
+        swallowed by pnpm.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: What should it say instead?
+      description: Optional — a rough wording is more useful than none.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you post
+      options:
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/FormulaMonks/renderizr/blob/main/CODE_OF_CONDUCT.md).
+          required: true
+        - label: I would be willing to open a pull request — documentation fixes are the easiest first PR here, and [CONTRIBUTING.md](https://github.com/FormulaMonks/renderizr/blob/main/CONTRIBUTING.md) covers setup.

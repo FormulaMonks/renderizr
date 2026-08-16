@@ -9,9 +9,39 @@ lerna-debug.log*
 
 node_modules
 dist
-*output
 dist-ssr
 *.local
+
+# Build output. `--out` takes an arbitrary directory, so these are the two
+# defaults only: `./structurizr-output` from `pnpm build` and `./output` from
+# the older scripts. Anchored, and directories, on purpose — the pattern used
+# to be `*output`, which also swallows any file whose name happens to end in
+# "output" anywhere in the tree.
+/structurizr-output/
+/output/
+
+# Wrong-package-manager lockfiles. pnpm-lock.yaml is the lockfile; npm and yarn
+# will happily produce a second one and drift it (see CONTRIBUTING.md).
+package-lock.json
+yarn.lock
+
+# `npm pack` output
+*.tgz
+
+# Local assistant / tooling scratch. None of it is project state, none of it is
+# reproducible from this repository, and all of it is machine-local — so it is
+# ignored rather than committed. Anchored to the root, because these names are
+# only ever created there.
+#
+# Listed by name on purpose. The alternative — leaving them out and relying on a
+# personal global gitignore — means every contributor who uses one of these
+# tools sees them in `git status` and one of them eventually commits a
+# directory of local scratch into a public repository. One line each is cheaper
+# than that.
+/.agents/
+/.claude/
+/.playwright-mcp/
+/skills-lock.json
 
 .vscode/*
 !.vscode/settings.json
@@ -28,5 +58,3 @@ dist-ssr
 *.sln
 *.sw?
 *.dot*
-
-.playwright-mcp

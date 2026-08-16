@@ -38,7 +38,7 @@
  * pages precede it), so its top margin has to be reset here too.
  */
 /*
- * The page's own title. It is a real `h1` now — `normaliseHeadingLevels()`
+ * The page's own title. It is a real `h1` now — `normalizeHeadingLevels()`
  * renumbers each page — so it takes the h1 type scale from the renderer and
  * only needs its top margin cleared: it is the first thing on the page, but
  * never `:first-child`, because the hidden pages are still its siblings.

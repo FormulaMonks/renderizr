@@ -1,0 +1,159 @@
+{
+    "id": 1,
+    "name": "Fixture Workspace",
+    "description": "A tiny workspace the build pipeline tests render end to end.",
+    "lastModifiedAgent": "renderizr-fixture",
+    "lastModifiedDate": "2024-12-16T16:19:31Z",
+    "configuration": {},
+    "documentation": {
+        "sections": [
+            {
+                "content": "# Overview\n\nThe fixture workspace exists so the build pipeline can be rendered\nwithout reaching the network.\n\n- one context view\n- one container view\n- two decisions\n",
+                "filename": "01-overview.md",
+                "format": "Markdown",
+                "order": 1,
+                "title": "Overview"
+            },
+            {
+                "content": "# Deployment\n\nThe fixture is served as a static site, or as one self-contained\nHTML document when `--single-file` is passed.\n",
+                "filename": "02-deployment.md",
+                "format": "Markdown",
+                "order": 2,
+                "title": "Deployment"
+            }
+        ],
+        "decisions": [
+            {
+                "id": "1",
+                "date": "2024-01-15T00:00:00Z",
+                "format": "Markdown",
+                "links": [],
+                "status": "Accepted",
+                "title": "Render diagrams in the browser",
+                "content": "# 1. Render diagrams in the browser\n\nDate: 2024-01-15\n\n## Status\n\nAccepted\n\n## Context\n\nThe Structurizr renderer draws views client side.\n\n## Decision\n\nShip the renderer with the page.\n\n## Consequences\n\nNo server is needed to view a diagram.\n"
+            },
+            {
+                "id": "2",
+                "date": "2024-02-20T00:00:00Z",
+                "format": "Markdown",
+                "links": [
+                    {
+                        "id": "1",
+                        "description": "Amends"
+                    }
+                ],
+                "status": "Proposed",
+                "title": "Inline every asset for single-file output",
+                "content": "# 2. Inline every asset for single-file output\n\nDate: 2024-02-20\n\n## Status\n\nProposed\n\n## Context\n\nA self-contained document cannot make network requests.\n\n## Decision\n\nFold scripts, styles and images into the document.\n\n## Consequences\n\nThe document is larger, and works offline.\n"
+            }
+        ]
+    },
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Reader",
+                "description": "Reads the rendered architecture",
+                "location": "Unspecified",
+                "tags": "Element,Person",
+                "relationships": [
+                    {
+                        "id": "10",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Browses",
+                        "tags": "Relationship",
+                        "technology": "HTTPS"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "name": "Fixture System",
+                "description": "The system under test",
+                "location": "Unspecified",
+                "tags": "Element,Software System",
+                "containers": [
+                    {
+                        "id": "3",
+                        "name": "Static Site",
+                        "description": "The rendered output",
+                        "technology": "HTML",
+                        "tags": "Element,Container"
+                    }
+                ]
+            }
+        ]
+    },
+    "views": {
+        "configuration": {
+            "branding": {},
+            "lastSavedView": "FixtureContext",
+            "metadataSymbols": "SquareBrackets",
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Person",
+                        "background": "#08427b",
+                        "color": "#ffffff",
+                        "shape": "Person"
+                    },
+                    {
+                        "tag": "Software System",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    }
+                ]
+            },
+            "terminology": {}
+        },
+        "systemContextViews": [
+            {
+                "key": "FixtureContext",
+                "order": 1,
+                "softwareSystemId": "2",
+                "description": "The fixture system in context",
+                "enterpriseBoundaryVisible": true,
+                "automaticLayout": {
+                    "applied": true,
+                    "edgeSeparation": 0,
+                    "implementation": "Dagre",
+                    "nodeSeparation": 300,
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "vertices": false
+                },
+                "elements": [
+                    { "id": "1", "x": 200, "y": 200 },
+                    { "id": "2", "x": 200, "y": 800 }
+                ],
+                "relationships": [{ "id": "10" }]
+            },
+            {
+                "key": "FixtureContainers",
+                "order": 2,
+                "softwareSystemId": "2",
+                "description": "Inside the fixture system",
+                "externalSoftwareSystemBoundariesVisible": false,
+                "automaticLayout": {
+                    "applied": true,
+                    "edgeSeparation": 0,
+                    "implementation": "Dagre",
+                    "nodeSeparation": 300,
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "vertices": false
+                },
+                "elements": [{ "id": "2", "x": 200, "y": 200 }]
+            }
+        ]
+    }
+}

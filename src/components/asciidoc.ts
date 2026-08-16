@@ -6,7 +6,7 @@
  * This covers the constructs that actually appear in architecture
  * documentation — headings, lists, code and literal blocks, admonitions,
  * tables, images, quotes. It is not a conformant AsciiDoc processor, and
- * anything it does not recognise passes through as plain text rather than
+ * anything it does not recognize passes through as plain text rather than
  * being mangled.
  */
 

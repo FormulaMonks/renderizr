@@ -1,0 +1,142 @@
+# Releases are prepared by release-please and cut by merging the pull request it
+# maintains. One source of truth — the conventional-commit messages on `main` —
+# produces the version in package.json, the CHANGELOG.md entry, the git tag and
+# the GitHub Release, so none of the four can drift from the others.
+#
+#   push to main        release-please recomputes the pending version from the
+#                       commits since the last tag and opens (or updates) a
+#                       "chore(release): X.Y.Z" pull request.
+#   merge that PR       release-please tags vX.Y.Z, publishes the GitHub Release
+#                       with the generated notes, and this workflow attaches the
+#                       build artifacts to it.
+#
+# Renderizr is not published to any registry. It is consumed straight from git
+# with `npx github:FormulaMonks/renderizr`, so the GitHub Release is the whole
+# distribution channel and `package.json` is marked private to keep it that way.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+# Least privilege by default: each job asks for what it needs and no more.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Keeps the release pull request in sync with `main`, and — when that pull
+  # request is merged — creates the tag and the GitHub Release.
+  release-please:
+    if: github.event_name == 'push'
+    name: prepare release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the tag and the GitHub Release
+      pull-requests: write # open and groom the release pull request
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      # Runs with the default GITHUB_TOKEN, which means the release pull request
+      # it opens does not itself trigger other workflows. That is accepted: the
+      # same commits were already checked by ci.yml on the pull request that
+      # introduced them, and the release pull request only edits package.json,
+      # CHANGELOG.md and the manifest. Supply a maintainer PAT as `token:` if
+      # CI is ever wanted on the release pull request too.
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Attaches something downloadable to the Release: a source tarball of exactly
+  # the files a consumer receives, and a rendered example of what Renderizr
+  # actually produces, in both of the shapes it produces — a static site, and
+  # one self-contained file.
+  #
+  # `npm pack` builds the tarball because it already honors the `files` array;
+  # it works on a private package and publishes nothing.
+  release-assets:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    name: attach build artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload assets to the Release
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      VERSION: ${{ needs.release-please.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          # The build does not need submodules/structurizr — the renderer is
+          # vendored under vendor/. Left off on purpose.
+          submodules: false
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11 # matches .mise.toml ("npm:pnpm" = "11")
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `pnpm build` is `tsc && node scripts/build.js`, so the typecheck runs
+      # here too. The example workspace is the fixture the test suite already
+      # renders, which keeps this job offline.
+      - name: Render the example site
+        run: pnpm build scripts/__fixtures__/workspace.json --out example-site
+
+      - name: Render the single-file example
+        run: pnpm build scripts/__fixtures__/workspace.json --single-file --out example-single
+
+      # The single-file promise is "no network requests". Assert it on the
+      # artifact that is about to be attached, matching asset-bearing tags
+      # specifically: ordinary hyperlinks in the rendered documentation are
+      # content, not a dependency, and a blanket search for "https://" would
+      # fail on them forever.
+      - name: Assert the single-file output loads nothing over the network
+        run: |
+          set -euo pipefail
+          pattern='<(script|link|img|source|iframe|embed|video|audio|track|object)[^>]+(src|href|srcset|data)[[:space:]]*=[[:space:]]*["'"'"']?(https?:)?//'
+          for file in example-single/index.html example-single/artifact.html; do
+            if grep -Eoi "$pattern" "$file"; then
+              echo "::error file=$file::$file references an external asset; --single-file must inline everything"
+              exit 1
+            fi
+            echo "ok: $file has no external asset references"
+          done
+
+      - name: Pack the npm tarball
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          npm pack --pack-destination artifacts
+
+      - name: Collect the artifacts
+        run: |
+          set -euo pipefail
+          cp example-single/index.html "artifacts/renderizr-example-${VERSION}.html"
+          cp example-single/artifact.html "artifacts/renderizr-example-artifact-${VERSION}.html"
+          (cd example-site && zip -qr "../artifacts/renderizr-example-site-${VERSION}.zip" .)
+          (cd artifacts && sha256sum ./* > SHA256SUMS.txt)
+          ls -l artifacts
+
+      - name: Upload the artifacts to the Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" artifacts/* --clobber --repo "$GITHUB_REPOSITORY"

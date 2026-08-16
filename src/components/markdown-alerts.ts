@@ -26,7 +26,7 @@ export interface AlertClassNames {
     alert: string;
     /** Applied to the injected icon + label row. */
     title: string;
-    /** Per-type modifier classes, they carry the accent colour. */
+    /** Per-type modifier classes, they carry the accent color. */
     note: string;
     tip: string;
     important: string;
