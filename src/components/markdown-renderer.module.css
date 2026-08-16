@@ -10,9 +10,11 @@
  */
 
 /*
- * A measure of about 72 characters. Neither Structurizr nor Renderizr used to
- * cap this, and unbroken 140-character lines are the single biggest thing
- * standing between a reader and a long architecture document.
+ * The measure was 72ch, which on a wide screen left more empty column than
+ * content — 700px of nothing beside a 630px page. It is 1000px now: wider for
+ * the prose, and enough room that most of these tables stop needing a
+ * horizontal scroll at all. The cap still matters — without one the text runs
+ * to 150-character lines on a large monitor.
  */
 .markdownRenderer {
     --md-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
@@ -37,10 +39,25 @@
     --md-hljs-addition: #0a5f33;
     --md-hljs-deletion: #82071e;
 
+    --md-measure: 80ch;
+
     font-size: 1rem;
     line-height: 1.65;
-    max-width: 72ch;
+    max-width: 1000px;
     overflow-wrap: break-word;
+
+    /*
+     * The container is as wide as the column allows, but a sentence running
+     * the full 1000px is no more comfortable than one running 150 characters
+     * on a large monitor. Text-bearing blocks keep a measure of their own;
+     * the blocks that earn the extra width — tables, code, images — take all
+     * of it. Only the top-level blocks are constrained, so nested content
+     * follows whatever contains it.
+     */
+    & > :global(.markdown-renderer) > :is(p, ul, ol, dl, blockquote, hr, h1, h2, h3, h4, h5, h6),
+    & > :global(.markdown-renderer) > .alert {
+        max-width: var(--md-measure);
+    }
 
     /* Every heading is an anchor target, and the header floats above them all
     — without this a jump lands the heading underneath it. */
@@ -49,46 +66,57 @@
         text-wrap: balance;
     }
 
+    /*
+     * Each level has to read as less prominent than the one above it, and
+     * size alone does not decide that. The old h6 was uppercase, tracked and
+     * bolder than the h5 above it, so despite being the smaller type it
+     * shouted louder — the hierarchy inverted at the bottom. Prominence here
+     * falls monotonically: size, then weight, then colour, and no level
+     * borrows emphasis from a treatment the level above it does not have.
+     *
+     * On the documentation pages these are renumbered per page, so the page
+     * title is the h1 and its sub-heads are h2/h3; h4 and below only turn up
+     * in unusually deep documents.
+     */
     h1 {
-        font-size: 2.1rem;
+        font-size: 2rem;
+        font-weight: 700;
         line-height: 1.15;
+        letter-spacing: -0.02em;
         margin: 2rem 0 1rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid var(--color-border-muted);
     }
 
     h2 {
-        font-size: 1.6rem;
-        line-height: 1.2;
-        letter-spacing: -0.015em;
-        margin: 2.25rem 0 0.85rem;
-        padding-bottom: 0.35rem;
-        border-bottom: 1px solid var(--color-border);
+        font-size: 1.45rem;
+        font-weight: 650;
+        line-height: 1.25;
+        letter-spacing: -0.01em;
+        margin: 2.25rem 0 0.75rem;
     }
 
     h3 {
-        font-size: 1.25rem;
-        margin: 1.75rem 0 0.6rem;
+        font-size: 1.15rem;
+        font-weight: 650;
+        margin: 1.75rem 0 0.5rem;
     }
 
-    /* Each level has to be visibly smaller than the one above and bigger than
-    body text, or the reader cannot tell structure from type. */
     h4 {
-        font-size: 1.1rem;
-        font-weight: 650;
-        margin: 1.5rem 0 0.5rem;
+        font-size: 1.02rem;
+        font-weight: 700;
+        margin: 1.5rem 0 0.45rem;
     }
 
     h5 {
-        font-size: 1rem;
-        font-weight: 650;
-        letter-spacing: 0.01em;
+        font-size: 0.95rem;
+        font-weight: 700;
         margin: 1.35rem 0 0.4rem;
     }
 
     h6 {
-        font-size: 0.85rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
+        font-size: 0.9rem;
+        font-weight: 650;
         color: var(--color-muted);
         margin: 1.25rem 0 0.4rem;
     }
@@ -223,6 +251,14 @@ separator has to be matched with the id here too. */
     text-align: left;
     /* Keep columns readable instead of crushing them to one character. */
     min-width: 4.5rem;
+    /*
+     * And cap them at a readable line length. Without this a single cell of
+     * prose sets the width of its whole column — a two-column "role /
+     * description" table was rendering 3000px wide inside a 630px measure,
+     * which is a five-screen scroll to read one sentence. Capped, the prose
+     * wraps and the scroll is left for tables that are genuinely wide.
+     */
+    max-width: 40ch;
     overflow-wrap: anywhere;
 }
 
