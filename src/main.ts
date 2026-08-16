@@ -6,6 +6,29 @@ import Router from "./components/router.ts";
 import Navigation from "./components/navigation.ts";
 import type Page from "./pages/_page.ts";
 
+/**
+ * Publish the sticky header's height as a custom property.
+ *
+ * Anything that scrolls something into view has to clear that header, and its
+ * height is not a constant: it changes with the viewport, with the page (the
+ * diagrams page drops the workspace blurb), and with a logo if one was
+ * embedded. A hard-coded offset in the stylesheet is wrong for most of those,
+ * which is how heading anchors ended up landing underneath it.
+ */
+function trackHeaderHeight() {
+    const header = document.querySelector(".workspace-header");
+    if (!header) return;
+
+    const publish = () =>
+        document.documentElement.style.setProperty(
+            "--header-height",
+            `${Math.round(header.getBoundingClientRect().height)}px`,
+        );
+
+    publish();
+    new ResizeObserver(publish).observe(header);
+}
+
 async function init() {
     // Before the first paint, so the documentation and decision pages open in
     // the same theme the diagrams were last left in.
@@ -38,6 +61,7 @@ async function init() {
     );
 
     nav.render();
+    trackHeaderHeight();
 
     const routes: Page[] = [new DiagramsPage(null, "diagrams")];
 

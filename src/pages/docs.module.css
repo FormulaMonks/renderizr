@@ -19,10 +19,10 @@
 
     .menu {
         position: sticky;
-        top: 5.5rem;
+        top: calc(var(--header-height, 5rem) + 0.75rem);
         flex: none;
         width: 15rem;
-        max-height: calc(100dvh - 7rem);
+        max-height: calc(100dvh - var(--header-height, 5rem) - 2rem);
         overflow-y: auto;
     }
 
