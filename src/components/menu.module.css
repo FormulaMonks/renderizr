@@ -28,8 +28,15 @@
         min-width: 0;
     }
 
+    /* Long entries wrap — decision titles are sentences — but they are capped,
+       so an over-long heading costs three lines of sidebar rather than thirty. */
     a {
-        display: block;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow: hidden;
+        overflow-wrap: anywhere;
         font-size: 0.85rem;
         line-height: 1.35;
         color: var(--color-muted);

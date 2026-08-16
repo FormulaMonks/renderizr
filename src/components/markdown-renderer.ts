@@ -67,6 +67,22 @@ export default class MarkdownRenderer extends Component {
     })
         .use(shiftHeadings)
         .use(anchor)
+        /*
+         * Setext headings are off.
+         *
+         * These documents use `---` as a separator, and in markdown a `---`
+         * that has lost the blank line above it turns the whole preceding
+         * paragraph into an <h2>. That used to be a cosmetic surprise; now
+         * that the navigation is derived from heading structure it is a
+         * structural one — the paragraph becomes the shallowest heading in
+         * the document, so it takes over as a page, demotes the real title
+         * and pushes the real sub-heads down a level.
+         *
+         * Every heading here is written ATX (`##`), which is also what
+         * markdownlint enforces on this content, so nothing is lost. With the
+         * rule off, `---` is always the thematic break the author meant.
+         */
+        .disable("lheading")
         .use(alerts, {
             alert: styles.alert,
             title: styles.alertTitle,
