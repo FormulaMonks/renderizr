@@ -123,53 +123,46 @@ glyph and nothing else distinguishes them. */
     transition: opacity 120ms ease;
 }
 
-.key {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 /*
  * Two lines, not one with an ellipsis: the name has already been trimmed in
  * the middle to keep the part that tells two views apart, and cutting it again
  * at the end would throw exactly that part away.
  */
 .name {
-    font-size: 0.82rem;
-    font-weight: 600;
-    line-height: 1.3;
-    color: var(--color-foreground);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     overflow-wrap: anywhere;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-foreground);
 }
 
 .key {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 0.72rem;
     line-height: 1.3;
 }
 
 .collapsed {
-    & /* Only shown once the drawer is down to icons, where several views share a
-glyph and nothing else distinguishes them. */
-.initials {
-    display: none;
-    font-size: 0.55rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1;
-    color: var(--color-muted);
-}
-
-.label {
+    & .label {
         display: none;
     }
 
+    & .initials {
+        display: block;
+    }
+
     & .list button {
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
-        padding: 0.45rem 0;
+        gap: 0.15rem;
+        padding: 0.4rem 0;
     }
 }
 
@@ -224,23 +217,18 @@ glyph and nothing else distinguishes them. */
     }
 
     .collapsed {
-        & /* Only shown once the drawer is down to icons, where several views share a
-glyph and nothing else distinguishes them. */
-.initials {
-    display: none;
-    font-size: 0.55rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1;
-    color: var(--color-muted);
-}
-
-.label {
+        & .label {
             display: flex;
         }
 
+        & .initials {
+            display: none;
+        }
+
         & .list button {
+            flex-direction: row;
             justify-content: flex-start;
+            gap: 0.6rem;
             padding: 0.4rem 0.5rem;
         }
     }

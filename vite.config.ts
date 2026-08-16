@@ -4,10 +4,14 @@ import { loadFont, loadLogo, loadWorkspace } from "./scripts/assets.js";
 // @ts-expect-error — plain ESM shared with scripts/build.js
 import { createConfig } from "./scripts/config.js";
 
+/** Whatever this repository documents about itself. */
+const DEFAULT_WORKSPACE = "architecture/workspace.json";
+
 /**
  * Dev-server entry only. Production builds go through `scripts/build.js`, which
  * owns argument parsing and asset embedding; both share `scripts/config.js`.
  *
+ *   pnpm dev                                    (this repo's own workspace)
  *   pnpm dev -- path/to/workspace.json [--logo x.svg] [--font Inter]
  */
 export default async () => {
@@ -17,15 +21,13 @@ export default async () => {
         return at === -1 ? undefined : args[at + 1];
     };
 
+    // Falling back to this repository's own workspace means `pnpm dev` starts
+    // and renders something, rather than refusing to boot over a missing
+    // argument that most runs would have passed the same value for anyway.
     const source =
         args.filter((arg) => !arg.startsWith("-")).at(-1) ??
-        process.env.RENDERIZR_WORKSPACE;
-
-    if (!source) {
-        throw new Error(
-            "No workspace given. Run: pnpm dev -- path/to/workspace.json",
-        );
-    }
+        process.env.RENDERIZR_WORKSPACE ??
+        DEFAULT_WORKSPACE;
 
     const fontFamily = flag("font");
     const font = await loadFont(
