@@ -34,7 +34,7 @@
 # answer. Before the toggle is flipped, the probe job itself *succeeds* (it only
 # reports what it found) and the build and deploy jobs are skipped, so the run
 # reports success on the Actions tab: a green check with two skipped jobs and a
-# notice naming the button to press. Not grey — a run is only marked skipped
+# notice naming the button to press. Not gray — a run is only marked skipped
 # when every job in it is skipped — and, the point of the exercise, not the red
 # X that `actions/configure-pages` would produce against a missing site. After
 # the toggle is flipped every run builds and deploys, and the probe costs one
@@ -162,7 +162,7 @@ jobs:
 
       - name: Render Big Bank plc for the Pages path
         env:
-          # "/renderizr" for a project site, "" for a user or organisation site.
+          # "/renderizr" for a project site, "" for a user or organization site.
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: |
           base="${BASE_PATH:-/}"
@@ -194,7 +194,7 @@ jobs:
     name: deploy
     needs: build
     runs-on: ubuntu-latest
-    # The only `id-token: write` outside the npm publish job, and it lives here,
+    # The only `id-token: write` in the repository, and it lives here,
     # in a job that runs no project code and builds nothing.
     permissions:
       pages: write

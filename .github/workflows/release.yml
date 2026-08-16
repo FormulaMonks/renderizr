@@ -9,29 +9,15 @@
 #   merge that PR       release-please tags vX.Y.Z, publishes the GitHub Release
 #                       with the generated notes, and this workflow attaches the
 #                       build artifacts to it.
-#   workflow_dispatch   a maintainer publishes an already-released tag to npm.
-#                       Never automatic, never on merge.
 #
-# Publishing to npm is deliberately a separate, manual, environment-gated job:
-# the package is consumed with `npx github:FormulaMonks/renderizr`, so npm is a
-# convenience, not the distribution channel, and it should not be able to fire
-# unattended.
+# Renderizr is not published to any registry. It is consumed straight from git
+# with `npx github:FormulaMonks/renderizr`, so the GitHub Release is the whole
+# distribution channel and `package.json` is marked private to keep it that way.
 name: release
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing release tag to publish to npm, e.g. v0.1.0"
-        required: true
-        type: string
-      dry_run:
-        description: "Only run `npm publish --dry-run`; nothing is published"
-        required: true
-        default: true
-        type: boolean
 
 # Least privilege by default: each job asks for what it needs and no more.
 permissions:
@@ -72,9 +58,13 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Attaches something downloadable to the Release: the packed npm tarball, and
-  # a rendered example of what Renderizr actually produces, in both of the
-  # shapes it produces — a static site, and one self-contained file.
+  # Attaches something downloadable to the Release: a source tarball of exactly
+  # the files a consumer receives, and a rendered example of what Renderizr
+  # actually produces, in both of the shapes it produces — a static site, and
+  # one self-contained file.
+  #
+  # `npm pack` builds the tarball because it already honors the `files` array;
+  # it works on a private package and publishes nothing.
   release-assets:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
@@ -150,135 +140,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" artifacts/* --clobber --repo "$GITHUB_REPOSITORY"
-
-  # Manual, secret-gated npm publish. Dispatched by a maintainer against a tag
-  # that already exists; unreachable from a push or a merge.
-  publish-npm:
-    if: github.event_name == 'workflow_dispatch'
-    name: publish to npm
-    runs-on: ubuntu-latest
-    # Configure this environment with required reviewers and keep NPM_TOKEN in
-    # it — see CONTRIBUTING.md, "How a release happens". Until it is configured
-    # the job still cannot publish: no token, no publish.
-    environment: npm-publish
-    permissions:
-      contents: read
-      id-token: write # npm provenance; nothing else in this file needs it
-    env:
-      TAG: ${{ inputs.tag }}
-      DRY_RUN: ${{ inputs.dry_run }}
-    steps:
-      - name: Validate the tag
-        run: |
-          set -euo pipefail
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::'$TAG' is not a release tag. Expected vMAJOR.MINOR.PATCH, e.g. v0.1.0."
-            exit 1
-          fi
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.tag }}
-          submodules: false
-          persist-credentials: false
-
-      # The tag, package.json and CHANGELOG.md are all written by release-please
-      # from the same commit history. Prove it here rather than trusting it,
-      # because this is the one step that puts a version number in front of the
-      # public.
-      - name: Assert the tag, package.json and CHANGELOG.md agree
-        run: |
-          set -euo pipefail
-          pkg="$(node --print 'require("./package.json").version')"
-          if [ "v${pkg}" != "$TAG" ]; then
-            echo "::error::package.json says ${pkg} at $TAG. The tag and the manifest disagree; not publishing."
-            exit 1
-          fi
-          if ! grep -qF "[${pkg}]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no entry for ${pkg}."
-            exit 1
-          fi
-
-      # Degrade gracefully: a maintainer who dispatches this before the secret
-      # exists gets a plain explanation, not an npm auth stack trace. Every
-      # publishing step below is gated on this output.
-      - name: Check for a publish token
-        id: token
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -n "${NPM_TOKEN:-}" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=NPM_TOKEN is not configured::Nothing was published. Add an npm automation token as the NPM_TOKEN secret of the 'npm-publish' environment, then dispatch this workflow again."
-          fi
-
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        if: steps.token.outputs.configured == 'true'
-        with:
-          version: 11
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        if: steps.token.outputs.configured == 'true'
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-
-      - if: steps.token.outputs.configured == 'true'
-        run: pnpm install --frozen-lockfile
-
-      # Nothing reaches npm that has not passed the same gate `main` does.
-      - name: Verify the tagged tree
-        if: steps.token.outputs.configured == 'true'
-        run: |
-          set -euo pipefail
-          pnpm exec biome ci .
-          pnpm exec tsc --noEmit
-          pnpm test
-
-      - name: Publish
-        if: steps.token.outputs.configured == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # package.json refuses to publish without this, so that a stray
-          # `npm publish` on a laptop cannot ship a release.
-          RENDERIZR_PUBLISH_OK: "1"
-        run: |
-          set -euo pipefail
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "Dry run: resolving the tarball and the registry, publishing nothing."
-            npm publish --dry-run
-          else
-            # --provenance needs the id-token permission above; access and
-            # provenance are also declared in package.json publishConfig.
-            npm publish --provenance --access public
-          fi
-
-      - name: Summarise
-        if: always()
-        env:
-          TOKEN_CONFIGURED: ${{ steps.token.outputs.configured }}
-        run: |
-          set -euo pipefail
-          {
-            echo "## npm publish"
-            echo
-            echo "| | |"
-            echo "| --- | --- |"
-            echo "| Tag | \`${TAG}\` |"
-            echo "| Dry run | \`${DRY_RUN}\` |"
-            if [ "${TOKEN_CONFIGURED}" != "true" ]; then
-              echo "| Result | **Skipped — no NPM_TOKEN** |"
-              echo
-              echo "Nothing was published. Add an npm automation token as the \`NPM_TOKEN\` secret of the"
-              echo "\`npm-publish\` environment and dispatch this workflow again. The GitHub Release for"
-              echo "\`${TAG}\` is unaffected — \`npx github:FormulaMonks/renderizr\` never reads npm."
-            elif [ "${DRY_RUN}" = "true" ]; then
-              echo "| Result | Dry run only — nothing published |"
-            else
-              echo "| Result | Published \`@formula-monks/renderizr@${TAG#v}\` |"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"

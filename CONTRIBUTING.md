@@ -208,7 +208,7 @@ If the commit was already created and only the message is wrong, `git commit --a
 
 ### Turning a hook off
 
-Each hook honours a per-clone git config switch, which is the polite way to opt out for a stretch of work (a long rebase, a scripted batch of commits):
+Each hook honors a per-clone git config switch, which is the polite way to opt out for a stretch of work (a long rebase, a scripted batch of commits):
 
 ```bash
 git config custom.hooks.pre-commit false
@@ -290,7 +290,7 @@ Then:
 pnpm test
 ```
 
-`scripts/escapes.test.js` is the model to copy — it drives table-style cases through a single `test()` per input and asserts on behaviour rather than on internals.
+`scripts/escapes.test.js` is the model to copy — it drives table-style cases through a single `test()` per input and asserts on behavior rather than on internals.
 
 Export the function you want to test from its module. Everything in `scripts/` is ESM, so this is a plain named export; there is no need to make the CLI's `main` path testable to test the parts.
 
@@ -350,7 +350,7 @@ What a good pull request looks like here:
 - **One concern per PR.** Branch off `main`; name the branch after the change (`fix/setext-headings-hijack-page-structure`, `feat/reading-experience`).
 - **Conventional commits throughout**, because the changelog and the version bump are generated from them. A `feat:` in a PR of `fix:` commits changes what the next release is called.
 - **A description that says what changed and why.** For anything visual, a before/after screenshot or a link to a rendered `--single-file` output is worth more than a paragraph.
-- **Tests for anything in `scripts/`.** New behaviour gets a test; a fixed bug gets the test that would have caught it.
+- **Tests for anything in `scripts/`.** New behavior gets a test; a fixed bug gets the test that would have caught it.
 - **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text *and* the flag table in `README.md`. A changed workflow means this file.
 - **No unrelated reformatting.** Biome's settings are the settings; if a diff is mostly whitespace, something is configured wrong locally.
 - **No new runtime dependency without saying why.** Everything in `dependencies` ends up inlined into a self-contained HTML file that people email around — weight is a feature here, and adding to it needs a sentence of justification in the PR.
@@ -360,7 +360,7 @@ What a good pull request looks like here:
 
 1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 20/22/24, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
-3. Review comments come in three flavours, and they are labelled so you are never guessing:
+3. Review comments come in three flavours, and they are labeled so you are never guessing:
    - **blocking** — must change before merge.
    - **suggestion** — take it or explain why not; either answer merges.
    - **nit** — cosmetic, never blocking.
@@ -377,7 +377,7 @@ You do not need to do anything for a release; this section is so you know what h
 - **`main` is the shipping surface.** Consumers run `npx github:FormulaMonks/renderizr`, which resolves to the default branch, so a merged PR is in front of users as soon as it lands. That is the main reason every change goes through a reviewed, CI-green pull request — see [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to).
 - **Releases are prepared by [release-please](https://github.com/googleapis/release-please).** Every push to `main` runs `.github/workflows/release.yml`, which recomputes the next version from the conventional-commit types since the last tag and keeps a `chore(release): X.Y.Z` pull request open with the version bump and the [CHANGELOG.md](CHANGELOG.md) entry in it. That is why the commit convention is enforced rather than merely suggested.
 - **Merging that pull request is the release.** It bumps `package.json`, writes the changelog entry, creates the `vX.Y.Z` tag and publishes the GitHub Release with the generated notes — all from the same commit history, so the four can never disagree. Below `1.0.0`, `feat:` bumps the minor, everything else the patch, and a breaking change bumps the minor rather than the major (`bump-minor-pre-major` in `release-please-config.json`).
-- **Each Release carries artifacts**: the packed npm tarball, the fixture workspace rendered as a static site (`.zip`), the same workspace rendered with `--single-file`, and `SHA256SUMS.txt`. The job asserts the single-file build references no external assets before it uploads anything.
-- **npm publishing is manual and gated.** Nothing is published as a side effect of a merge. A maintainer dispatches the `release` workflow with the tag to publish; the `publish-npm` job runs in the `npm-publish` environment, re-runs lint, typecheck and tests on the tagged tree, checks that the tag and `package.json` agree, and defaults to `--dry-run`. Without an `NPM_TOKEN` secret in that environment it publishes nothing and says so. `npx github:FormulaMonks/renderizr` reads git, not npm, so this path is a convenience rather than the distribution channel.
+- **Each Release carries artifacts**: a source tarball built with `npm pack`, the fixture workspace rendered as a static site (`.zip`), the same workspace rendered with `--single-file`, and `SHA256SUMS.txt`. The job asserts the single-file build references no external assets before it uploads anything.
+- **Nothing is published to a registry.** `package.json` is marked `"private": true` and there is no publish job, so a release cannot reach npm by any path, deliberate or accidental. `npx github:FormulaMonks/renderizr` reads git, and the GitHub Release is the whole distribution channel.
 
 Your commit subject is the line that shows up in those notes. Write it for the person reading the changelog, not for the person reading the diff.
