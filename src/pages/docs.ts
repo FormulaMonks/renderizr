@@ -138,6 +138,60 @@ function splitIntoPages(root: HTMLElement | null): PageGroup[] {
     return pages;
 }
 
+/** Re-tag an element, keeping its id, classes and content. */
+function retag(element: HTMLElement, level: number): HTMLElement {
+    const tag = `h${level}`;
+    if (element.tagName.toLowerCase() === tag) return element;
+
+    const next = document.createElement(tag);
+    for (const attribute of Array.from(element.attributes)) {
+        next.setAttribute(attribute.name, attribute.value);
+    }
+    next.innerHTML = element.innerHTML;
+    element.replaceWith(next);
+
+    return next;
+}
+
+/**
+ * Renumber each page's headings so they start at `h1`.
+ *
+ * A page is its own document here — one is on screen at a time — but the
+ * levels its headings carry are the ones they had within the whole section.
+ * That left a page titled by an `<h4>` sitting under no `h1`, `h2` or `h3`: a
+ * broken outline for a screen reader, and a title that reads as a footnote.
+ *
+ * The mapping is order-preserving. The shallowest level on the page becomes
+ * `h1`, the next distinct one `h2`, and so on, so relative nesting — which is
+ * what the sidebar tree is built from — comes out unchanged.
+ */
+function normaliseHeadingLevels(groups: PageGroup[]): void {
+    for (const group of groups) {
+        const headings = group.nodes.filter(isHeading);
+        if (!headings.length) continue;
+
+        const levels = [...new Set(headings.map(headingLevel))].sort(
+            (a, b) => a - b,
+        );
+        const depth = new Map(
+            levels.map((level, index) => [level, Math.min(index + 1, 6)]),
+        );
+
+        const replaced = new Map<HTMLElement, HTMLElement>();
+        for (const heading of headings) {
+            const next = retag(heading, depth.get(headingLevel(heading)) ?? 1);
+            if (next !== heading) replaced.set(heading, next);
+        }
+
+        if (!replaced.size) continue;
+
+        group.nodes = group.nodes.map((node) => replaced.get(node) ?? node);
+        if (group.heading) {
+            group.heading = replaced.get(group.heading) ?? group.heading;
+        }
+    }
+}
+
 /** Nest the "on this page" headings by their level. */
 function buildHeadingTree(headings: HTMLElement[]): DocsMenuItem[] {
     const roots: DocsMenuItem[] = [];
@@ -354,6 +408,9 @@ export default class Docs extends Page {
         this.#groups = splitIntoPages(
             content.querySelector<HTMLElement>(".markdown-renderer") ?? content,
         );
+        // After the split, so the boundaries are still decided by the levels
+        // the author wrote.
+        normaliseHeadingLevels(this.#groups);
         this.#renderedSectionId = sectionId;
 
         const base = this.#flatPages.findIndex(
