@@ -2,27 +2,34 @@ import { applyTheme, writeSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { View } from "../types/structurizr-workspace";
 import styles from "./current-view.module.css";
-import lightModeIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/moon-fill.svg?raw";
-import darkModeIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/sun-fill.svg?raw";
-import toggleDescriptionsIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/card-text.svg?raw";
-import toggleTechnologiesIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/code-square.svg?raw";
-import resetZoomIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/aspect-ratio.svg?raw";
-import zoomInIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/zoom-in.svg?raw";
-import zoomOutIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/zoom-out.svg?raw";
-import playIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/play-fill.svg?raw";
-import stopIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/stop-fill.svg?raw";
-import prevStepIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/skip-start-fill.svg?raw";
-import nextStepIcon from "../../submodules/structurizr-ui/src/bootstrap-icons/skip-end-fill.svg?raw";
+import lightModeIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/moon-fill.svg?raw";
+import darkModeIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/sun-fill.svg?raw";
+import toggleDescriptionsIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/card-text.svg?raw";
+import toggleTechnologiesIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/code-square.svg?raw";
+import resetZoomIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/aspect-ratio.svg?raw";
+import zoomInIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/zoom-in.svg?raw";
+import zoomOutIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/zoom-out.svg?raw";
+import playIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/play-fill.svg?raw";
+import stopIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/stop-fill.svg?raw";
+import prevStepIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/skip-start-fill.svg?raw";
+import nextStepIcon from "../../submodules/structurizr/structurizr-application/src/main/resources/static/static/bootstrap-icons/skip-end-fill.svg?raw";
 import Component from "./_component";
+
+export type DiagramControls = {
+    /** Return the diagram to the size the page chose for it. */
+    fit: () => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+};
 
 export default class CurrentView extends Component {
     #diagram: Diagram;
-    #resetZoom: () => void;
+    #controls: DiagramControls;
 
     #actions = new Map([
-        ["zoom-in", () => this.#diagram.zoomIn()],
-        ["zoom-out", () => this.#diagram.zoomOut()],
-        ["reset-zoom", () => this.#resetZoom()],
+        ["zoom-in", () => this.#controls.zoomIn()],
+        ["zoom-out", () => this.#controls.zoomOut()],
+        ["reset-zoom", () => this.#controls.fit()],
         [
             "dark-mode",
             (event: Event) => {
@@ -95,10 +102,14 @@ export default class CurrentView extends Component {
         ],
     ]);
 
-    constructor(element: HTMLElement, diagram: Diagram, resetZoom: () => void) {
+    constructor(
+        element: HTMLElement,
+        diagram: Diagram,
+        controls: DiagramControls,
+    ) {
         super(element);
         this.#diagram = diagram;
-        this.#resetZoom = resetZoom;
+        this.#controls = controls;
     }
 
     #toggleBackButton() {

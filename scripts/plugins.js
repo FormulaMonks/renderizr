@@ -1,52 +1,64 @@
-const STRUCTURIZR_ENTRY = "structurizr-ui/src/js/structurizr.js";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { transformWithEsbuild } from "vite";
+
+const RENDERER_DIR = fileURLToPath(
+    new URL(
+        "../submodules/structurizr/structurizr-application/src/main/resources/static/static/js/",
+        import.meta.url,
+    ),
+);
+
+/** In load order: each file extends the namespace the one before it created. */
+const RENDERER_FILES = [
+    "structurizr.js",
+    "structurizr-util.js",
+    "structurizr-ui.js",
+    "structurizr-workspace.js",
+    "structurizr-diagram.js",
+];
+
+const VIRTUAL_ID = "virtual:structurizr-renderer";
+const RESOLVED_ID = `\0${VIRTUAL_ID}`;
 
 /**
- * structurizr.js opens with `var structurizr = structurizr || {...}`, which as
- * a module only ever creates a module-local binding. Rewriting it to the window
- * lets the other four files — which merely read the free `structurizr` name —
- * resolve against it, so the whole set can be imported statically instead of
- * eval'd. Static imports are what make the artifact CSP (no `unsafe-eval`) and
- * a deterministic evaluation order possible.
+ * Exposes Structurizr's own renderer as a string, to be injected at runtime as
+ * a classic script.
+ *
+ * It cannot be bundled as ES modules. The five files share one `structurizr`
+ * namespace through a free global, and they are written for sloppy mode: they
+ * assign to undeclared names in a dozen places, which is legal in a classic
+ * script and a ReferenceError inside a module. Rewriting each occurrence would
+ * mean re-auditing every upstream release; injecting the source as a script
+ * runs it exactly as the Structurizr server runs it, and stays inside a strict
+ * CSP because an inline script is not `eval`.
+ *
+ * The five are concatenated before minification so that names shared across
+ * them survive, and so the whole renderer costs one string in the bundle.
  */
-export function structurizrGlobals() {
+export function structurizrRenderer() {
     return {
-        name: "renderizr:structurizr-globals",
-        enforce: "pre",
-        transform(code, id) {
-            if (!id.includes(STRUCTURIZR_ENTRY)) return null;
-
-            return {
-                code: code.replace(
-                    "var structurizr = structurizr ||",
-                    "window.structurizr = window.structurizr ||",
-                ),
-                map: null,
-            };
+        name: "renderizr:structurizr-renderer",
+        resolveId(id) {
+            return id === VIRTUAL_ID ? RESOLVED_ID : null;
         },
-    };
-}
+        async load(id) {
+            if (id !== RESOLVED_ID) return null;
 
-/**
- * joint.css carries an embedded `lato-light` webfont that nothing references,
- * plus three alternate themes Renderizr never switches to. Together they are
- * the single largest block of dead weight in the CSS.
- */
-export function trimJointCss() {
-    return {
-        name: "renderizr:trim-joint-css",
-        enforce: "pre",
-        transform(code, id) {
-            if (!id.includes("jointjs/dist/joint.css")) return null;
+            const sources = await Promise.all(
+                RENDERER_FILES.map((file) =>
+                    readFile(resolve(RENDERER_DIR, file), "utf-8"),
+                ),
+            );
 
-            return {
-                code: code
-                    .replace(/@font-face\s*\{[^}]*\}/g, "")
-                    .replace(
-                        /\.joint-theme-(dark|material|modern)[^{]*\{[^}]*\}/g,
-                        "",
-                    ),
-                map: null,
-            };
+            const { code } = await transformWithEsbuild(
+                sources.join("\n;\n"),
+                "structurizr-renderer.js",
+                { minify: true, loader: "js" },
+            );
+
+            return `export default ${JSON.stringify(code)};`;
         },
     };
 }

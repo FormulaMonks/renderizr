@@ -1,11 +1,6 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-    branding,
-    singleFile,
-    structurizrGlobals,
-    trimJointCss,
-} from "./plugins.js";
+import { branding, singleFile, structurizrRenderer } from "./plugins.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -32,8 +27,7 @@ export function createConfig({
         ...(mode === "build" ? { configFile: false } : {}),
         publicDir: asSingleFile ? false : resolve(root, "public"),
         plugins: [
-            structurizrGlobals(),
-            trimJointCss(),
+            structurizrRenderer(),
             branding({ font }),
             ...(asSingleFile ? [singleFile()] : []),
         ],

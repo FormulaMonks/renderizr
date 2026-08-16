@@ -3,17 +3,28 @@
     flex-direction: column;
 }
 
+.layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding-top: 1rem;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+}
+
 /*
- * Height is set in JS from the diagram's own aspect ratio, so the canvas is
- * always full width: landscape diagrams fit on screen, portrait ones run past
- * the fold and the page scrolls to them.
+ * Height is set in JS from the diagram's own proportions, so the canvas is
+ * always as wide as the column: a diagram that fits gets exactly the height it
+ * needs, and one that does not runs past the fold for the page to scroll to.
  */
 .diagramTarget {
     width: 100%;
     /* Starting height only, so the engine has a box to measure. The script
-    replaces it with the diagram's own aspect ratio as an inline style — which
-    is why this is `height` and not `min-height`: a min-height would keep
-    winning and letterbox every landscape diagram. */
+    replaces it with an inline style — which is why this is `height` and not
+    `min-height`: a min-height would keep winning and letterbox everything. */
     height: 60dvh;
     border-radius: 6px;
     overflow: hidden;
@@ -26,4 +37,15 @@
     /* The engine sets `hidden scroll`, which leaves a permanent scrollbar
     gutter in Chrome even when the diagram fits. */
     overflow: hidden !important;
+}
+
+@media (max-width: 767px) {
+    .layout {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .main {
+        width: 100%;
+    }
 }

@@ -14,6 +14,8 @@
   --color-muted: rgb(150, 158, 168);
   --color-border: rgb(58, 58, 58);
   --color-accepted: rgb(94 185 93);
+  --color-amended: rgb(120 168 220);
+  --color-draft: rgb(168 168 176);
   --color-rejected: rgb(185 94 94);
   --color-proposed: rgb(185 185 94);
   --color-superseded: rgb(153, 153, 153);

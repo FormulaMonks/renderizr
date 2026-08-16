@@ -17,6 +17,8 @@ export type Diagram = {
     isDarkMode(): boolean;
     zoomIn(event?: Event): void;
     zoomOut(event?: Event): void;
+    zoomTo(scale: number): void;
+    scrollToCentre(): void;
     onAnimationStarted(callback: () => void): void;
     onAnimationStopped(callback: () => void): void;
     onElementDoubleClicked(
@@ -33,13 +35,8 @@ export type Diagram = {
     toggleDescription(): void;
     toggleMetadata(): void;
     zoomToWidthOrHeight(): void;
-    runDagre(
-        rankDirection: "TopBottom" | "BottomTop" | "LeftRight" | "RightLeft",
-        rankSeparation: number,
-        nodeSeparation: number,
-        edgeSeparation: number,
-        linkVertices: boolean,
-        margin: number,
-        resize: boolean,
-    ): void;
+    zoomFitContent(): void;
+    getAspectRatio(): number;
+    currentViewIsImage(): boolean;
+    setEmbedded(embedded: boolean): void;
 };

@@ -1,5 +1,5 @@
 import { applyTheme, readSetting } from "./storage.ts";
-import getStructurizr from "./structurizr.ts";
+import getStructurizr from "./structurizr-runtime.ts";
 import DiagramsPage from "./pages/diagrams.ts";
 import "./main.css";
 import Router from "./components/router.ts";

@@ -34,17 +34,18 @@
     padding: 0.2rem 0.65rem;
 }
 
+/* Accepted stands, amended mostly stands, draft is not yet in force, and
+superseded no longer is. */
 .status.accepted {
     color: var(--color-accepted);
 }
 
-.status.proposed {
-    color: var(--color-proposed);
+.status.amended {
+    color: var(--color-amended);
 }
 
-.status.rejected,
-.status.deprecated {
-    color: var(--color-rejected);
+.status.draft {
+    color: var(--color-draft);
 }
 
 .status.superseded {

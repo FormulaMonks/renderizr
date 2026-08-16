@@ -2,15 +2,10 @@
 
 // Untyped browser builds and vendored sources, all of which communicate with
 // Structurizr's diagram engine through globals rather than exports.
-declare module "dagre/dist/dagre.core.min.js";
-declare module "graphlib/dist/graphlib.core.min.js";
-declare module "jointjs/src/core.mjs";
-declare module "jointjs/src/layout/DirectedGraph/DirectedGraph.mjs";
-declare module "*/structurizr-ui/src/js/structurizr.js";
-declare module "*/structurizr-ui/src/js/structurizr-util.js";
-declare module "*/structurizr-ui/src/js/structurizr-ui.js";
-declare module "*/structurizr-ui/src/js/structurizr-workspace.js";
-declare module "*/structurizr-ui/src/js/structurizr-diagram.js";
+declare module "virtual:structurizr-renderer" {
+    const source: string;
+    export default source;
+}
 
 declare const workspaceData: Record<string, unknown>;
 
@@ -30,10 +25,16 @@ declare const structurizr: {
         workspace: Record<string, unknown>,
     ) => import("./types/structurizr-workspace").Workspace;
     workspace: import("./types/structurizr-workspace").Workspace;
+    diagram: import("./types/structurizr-diagram").Diagram;
     io: Record<string, unknown>;
     shapes: Record<string, unknown>;
     ui: {
         loadThemes: (callback: () => void) => void;
+        DEFAULT_AUTOLAYOUT_RANK_DIRECTION: string;
+        DEFAULT_AUTOLAYOUT_RANK_SEPARATION: number;
+        DEFAULT_AUTOLAYOUT_NODE_SEPARATION: number;
+        DEFAULT_AUTOLAYOUT_EDGE_SEPARATION: number;
+        DEFAULT_AUTOLAYOUT_VERTICES: boolean;
         getTitleForView: (
             view: import("./types/structurizr-workspace").View,
         ) => string;

@@ -5,25 +5,42 @@ import Page from "./_page";
 import styles from "./adrs.module.css";
 import history from "history/hash";
 
+/**
+ * The four states a decision can be in, plus the older spellings that mean the
+ * same thing. "Amended" is a partial supersession: the decision still stands,
+ * but a later one has changed part of it.
+ */
 const STATUS_CLASS: Record<string, string> = {
-    proposed: "proposed",
+    draft: "draft",
+    proposed: "draft",
     accepted: "accepted",
-    rejected: "rejected",
-    deprecated: "deprecated",
+    amended: "amended",
     superseded: "superseded",
+    rejected: "superseded",
+    deprecated: "superseded",
 };
+
+/** Decisions that still govern anything — amended ones still mostly do. */
+const IN_FORCE = new Set(["accepted", "amended"]);
 
 const longDate = (value?: string) =>
     value
         ? new Date(value).toLocaleDateString(undefined, { dateStyle: "long" })
         : "";
 
+const statusClass = (status = "") =>
+    styles[STATUS_CLASS[status.trim().toLowerCase()] ?? "draft"];
+
 const statusPill = (status: string) =>
-    `<span class="${styles.status} ${styles[STATUS_CLASS[status?.toLowerCase()] ?? ""] ?? ""}">${status}</span>`;
+    `<span class="${styles.status} ${statusClass(status)}">${status || "Unknown"}</span>`;
 
 export default class Decisions extends Page {
     #decisions: Decision[] = [];
     #currentDecision: Decision | null = null;
+    // Held directly rather than looked up by class name: the minifier renames
+    // classes, so `components.get("Menu")` is undefined in a built file — which
+    // is why every link out of the summary used to do nothing.
+    #menu: Menu<Decision> | null = null;
 
     constructor(
         container: HTMLElement | null = null,
@@ -130,14 +147,14 @@ export default class Decisions extends Page {
             byYear.set(year, [...(byYear.get(year) ?? []), decision]);
         }
 
-        const decided = this.#decisions.filter(
-            (d) => d.status?.toLowerCase() === "accepted",
+        const inForce = this.#decisions.filter((d) =>
+            IN_FORCE.has((d.status ?? "").trim().toLowerCase()),
         ).length;
 
         return `
             <div class="${styles.summary}">
                 <h2>Decisions</h2>
-                <p class="${styles.summaryIntro}">${this.#decisions.length} recorded, ${decided} currently in force.</p>
+                <p class="${styles.summaryIntro}">${this.#decisions.length} recorded, ${inForce} currently in force.</p>
                 ${[...byYear]
                     .map(
                         ([year, decisions]) => `
@@ -161,9 +178,8 @@ export default class Decisions extends Page {
     }
 
     #select(decision: Decision | null) {
-        const menu = this.components.get("Menu") as Menu<Decision> | undefined;
         if (decision) {
-            menu?.setActive(decision);
+            this.#menu?.setActive(decision);
         } else {
             this.#currentDecision = null;
             this.#showSummary();
@@ -205,6 +221,7 @@ export default class Decisions extends Page {
         const menu = this.addComponent(
             new Menu<Decision>(menuContainer, this.#decisions),
         );
+        this.#menu = menu;
 
         menu.setTextContentFn(this.#decisionTitle);
 
@@ -244,6 +261,7 @@ export default class Decisions extends Page {
 
     clear(): void {
         this.removeAllComponents();
+        this.#menu = null;
         this.container?.removeEventListener("click", this.#handleDecisionLink);
         document
             .getElementById("adrs-summary")
