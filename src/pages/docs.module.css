@@ -37,15 +37,14 @@
  * markdown level it happens to be. It is never `:first-child` (the hidden
  * pages precede it), so its top margin has to be reset here too.
  */
+/*
+ * The page's own title. It is a real `h1` now — `normaliseHeadingLevels()`
+ * renumbers each page — so it takes the h1 type scale from the renderer and
+ * only needs its top margin cleared: it is the first thing on the page, but
+ * never `:first-child`, because the hidden pages are still its siblings.
+ */
 .docs .docBody .pageHeading {
-    font-size: 2.1rem;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: -0.015em;
-    color: var(--color-foreground);
-    margin: 0 0 1.1rem;
-    padding-bottom: 0.35rem;
-    border-bottom: 1px solid var(--color-border-muted);
+    margin-top: 0;
 }
 
 .pager {
