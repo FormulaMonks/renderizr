@@ -25,7 +25,7 @@ GitHub Issues is the only channel. Pick the one that fits:
 | --- | --- |
 | A question — "how do I…", "is it supposed to…", "why does it…" | [an issue](https://github.com/FormulaMonks/renderizr/issues/new/choose), and we will label it `question` |
 | Something broken — a crash, a wrong render, output that does not match what you expected | [a bug report](https://github.com/FormulaMonks/renderizr/issues/new/choose) |
-| An idea — a flag, a rendering behaviour, a format Renderizr should understand | [a feature request](https://github.com/FormulaMonks/renderizr/issues/new/choose) |
+| An idea — a flag, a rendering behavior, a format Renderizr should understand | [a feature request](https://github.com/FormulaMonks/renderizr/issues/new/choose) |
 | A change you have already written | [a pull request](https://github.com/FormulaMonks/renderizr/pulls), after reading [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 The issue templates ask for what we need. GitHub Discussions is deliberately not enabled: two places to ask means half the answers end up in the place you did not look.
@@ -63,6 +63,6 @@ If something has gone quiet for two weeks, a comment on the thread is welcome an
 
 ## What is out of scope
 
-- **Structurizr itself** — the DSL, the workspace format, the cloud service, the modelling questions. Those belong at [structurizr/structurizr](https://github.com/structurizr/structurizr) or on the [Structurizr community forum](https://github.com/structurizr/structurizr/discussions). Renderizr renders a workspace; it does not author one.
+- **Structurizr itself** — the DSL, the workspace format, the cloud service, the modeling questions. Those belong at [structurizr/structurizr](https://github.com/structurizr/structurizr) or on the [Structurizr community forum](https://github.com/structurizr/structurizr/discussions). Renderizr renders a workspace; it does not author one.
 - **Bugs in the diagram renderer.** The renderer in `vendor/structurizr` is Structurizr's own code, taken verbatim, so a diagram that renders wrong here almost certainly renders wrong in Structurizr's own viewer. Check there first — if it does, report it upstream and link the issue here so we can pull the fix through.
 - **General hosting and static-site questions** — how to configure S3, GitHub Pages or your CDN. We will happily fix anything about the output that *makes* it hard to host.

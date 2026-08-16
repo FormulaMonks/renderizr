@@ -18,7 +18,7 @@ import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 // No highlight.js stylesheet is imported on purpose: every shipped theme is
-// hardcoded to one colour scheme. The `hljs-*` token colours live in the module
+// hardcoded to one color scheme. The `hljs-*` token colors live in the module
 // CSS instead, where they follow `data-theme`.
 import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";

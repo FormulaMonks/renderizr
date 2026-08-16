@@ -1,7 +1,7 @@
 /*
  * Rendered markdown (documentation sections and ADRs).
  *
- * Every colour comes from the theme tokens in `main.css`. The few values this
+ * Every color comes from the theme tokens in `main.css`. The few values this
  * component owns (the monospace stack, the highlight.js palette, the table
  * scroll fade) are declared as local custom properties and re-declared for the
  * dark theme under `:root[data-theme="dark"]` — `theme.ts` and the inline
@@ -21,7 +21,7 @@
         "Liberation Mono", monospace;
     --md-table-fade: color-mix(in srgb, var(--color-foreground) 20%, transparent);
 
-    /* highlight.js palette — light. Every colour is at least 5:1 against
+    /* highlight.js palette — light. Every color is at least 5:1 against
     --color-code-block-background (rgb(246, 248, 250)). */
     --md-hljs-base: #1f2328;
     --md-hljs-comment: #57606a;
@@ -71,7 +71,7 @@
      * size alone does not decide that. The old h6 was uppercase, tracked and
      * bolder than the h5 above it, so despite being the smaller type it
      * shouted louder — the hierarchy inverted at the bottom. Prominence here
-     * falls monotonically: size, then weight, then colour, and no level
+     * falls monotonically: size, then weight, then color, and no level
      * borrows emphasis from a treatment the level above it does not have.
      *
      * On the documentation pages these are renumbered per page, so the page
@@ -505,7 +505,7 @@ separator has to be matched with the id here too. */
 
 /* ----------------------------------------------------------------- dark --- */
 :root[data-theme="dark"] .markdownRenderer {
-    /* highlight.js palette — dark. Every colour is at least 6:1 against
+    /* highlight.js palette — dark. Every color is at least 6:1 against
     --color-code-block-background (rgb(28, 30, 34)). */
     --md-hljs-base: #e2e4e8;
     --md-hljs-comment: #9aa4b0;

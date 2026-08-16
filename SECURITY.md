@@ -68,7 +68,7 @@ Renderizr is a build tool. You point it at a workspace — a local file or a URL
 ### Out of scope
 
 - **Rendering untrusted workspace documentation.** Structurizr documentation is Markdown with inline HTML, and Renderizr renders it with `html: true` (`src/components/markdown-renderer.ts`) because that is what the format specifies and what the official Structurizr renderer does. A workspace can therefore put arbitrary HTML — and therefore arbitrary script — into the page it produces. **Treat a `workspace.json` the way you would treat a script: rendering one you did not write runs its author's code in the browser of everyone you hand the output to.** This is a documented property of the input format, not a defect we can fix without breaking the format. Reports that a hand-crafted workspace can inject script into its own output will be closed as out of scope.
-- **Renderizr fetching the URL you gave it.** Passing a URL as the workspace, or as `--logo`, or a font family as `--font`, makes a network request to that URL. That is the documented behaviour of those flags.
+- **Renderizr fetching the URL you gave it.** Passing a URL as the workspace, or as `--logo`, or a font family as `--font`, makes a network request to that URL. That is the documented behavior of those flags.
 - **Anything reachable only by an attacker who can already run commands on the build machine**, edit the repository, or modify the workspace you were going to render anyway.
 - **Vulnerabilities in Structurizr itself.** `vendor/structurizr` is upstream code. Report those to [structurizr/structurizr](https://github.com/structurizr/structurizr/security) and tell us the advisory number so we can pull the fix through `pnpm sync:vendor`.
 - **Dependency advisories with no path to exploitation here** — a CVE in a transitive package whose affected code the build never reaches. Send them anyway if you are unsure; we would rather triage a false positive than miss a real one. Routine dependency bumps are handled by Renovate (`renovate.json`) and do not need a security report.
@@ -77,5 +77,5 @@ Renderizr is a build tool. You point it at a workspace — a local file or a URL
 ## Hardening notes for people running Renderizr
 
 - Render workspaces you trust, or render untrusted ones and treat the resulting HTML as untrusted too — do not host it on an origin that holds anything worth stealing.
-- `--single-file` output is intentionally self-contained: once built, it makes no network requests, so it is safe to open from `file://` or inside a sandboxed frame. That property is worth checking if you are handling a workspace from outside your organisation.
+- `--single-file` output is intentionally self-contained: once built, it makes no network requests, so it is safe to open from `file://` or inside a sandboxed frame. That property is worth checking if you are handling a workspace from outside your organization.
 - The build itself needs network access only for what your workspace and flags reference. Building from a fully local workspace with no `--font`, no remote `--logo` and no themed elements needs no network at all.

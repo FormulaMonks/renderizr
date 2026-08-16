@@ -63,7 +63,7 @@ export function createConfig({
                 output: {
                     // Structurizr's engine reads jquery, lodash, backbone and
                     // jointjs off `window`; splitting them into chunks reorders
-                    // initialisation and throws before the app boots.
+                    // initialization and throws before the app boots.
                     manualChunks: undefined,
                     ...(asSingleFile ? { inlineDynamicImports: true } : {}),
                 },

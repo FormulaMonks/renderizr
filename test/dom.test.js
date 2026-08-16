@@ -5,7 +5,7 @@
  * rests on `support/dom.js`, and a harness nobody checks is a place for a
  * false green to hide: a `querySelectorAll` that quietly returns nothing makes
  * "the menu rendered no stale entries" pass for the wrong reason. So the
- * pieces the suite leans on — parsing, serialising, selectors, bubbling,
+ * pieces the suite leans on — parsing, serializing, selectors, bubbling,
  * `classList`, `dataset`, and the fake clock — are asserted directly here.
  */
 
@@ -130,7 +130,7 @@ test("matches tag, id, class and attribute selectors", () => {
     assert.equal(host.querySelectorAll(".a").length, 2);
 });
 
-test("honours the child combinator", () => {
+test("honors the child combinator", () => {
     const host = parse(
         "<ul><li><a>direct</a><ul><li><a>nested</a></li></ul></li></ul>",
     );
@@ -143,7 +143,7 @@ test("honours the child combinator", () => {
     );
 });
 
-test("honours descendant combinators and selector lists", () => {
+test("honors descendant combinators and selector lists", () => {
     const host = parse("<section><p><em>deep</em></p></section><b>flat</b>");
 
     assert.equal(host.querySelectorAll("section em").length, 1);
@@ -306,9 +306,9 @@ test("timers do not run until the test says so", () => {
 test("timers run soonest first and a cleared timer never runs", () => {
     const order = [];
     window.setTimeout(() => order.push("late"), 300);
-    const cancelled = window.setTimeout(() => order.push("cancelled"), 10);
+    const canceled = window.setTimeout(() => order.push("canceled"), 10);
     window.setTimeout(() => order.push("early"), 100);
-    window.clearTimeout(cancelled);
+    window.clearTimeout(canceled);
 
     dom.runTimers();
 

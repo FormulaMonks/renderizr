@@ -5,12 +5,12 @@
  * are the parts that break, and none of them can be exercised without a
  * document to write into. Node has no DOM, and adding jsdom would add a
  * dependency (and 3MB) for the sake of the test suite alone — so this is the
- * subset the application actually uses, written out: parsing, serialising,
+ * subset the application actually uses, written out: parsing, serializing,
  * selectors, events, and the handful of window APIs the components reach for.
  *
  * It is deliberately not a DOM implementation. It has no layout, no CSS
  * cascade, and no HTML parse-error recovery. It is checked against its own
- * behaviour in `test/dom.test.js`, so a test that passes here is resting on
+ * behavior in `test/dom.test.js`, so a test that passes here is resting on
  * something that has itself been tested.
  *
  * Design notes for anyone extending it:
@@ -543,7 +543,7 @@ export class DOMElement extends DOMNode {
         return found;
     }
 
-    /* --- behaviour the components use --- */
+    /* --- behavior the components use --- */
 
     click() {
         this.dispatchEvent(new DOMEvent("click", { bubbles: true }));
@@ -1070,7 +1070,7 @@ class DOMWindow extends DOMEventTarget {
 
     /**
      * Only the two queries the application asks: a width breakpoint and the
-     * colour-scheme preference.
+     * color-scheme preference.
      */
     evaluateMedia(list) {
         const width = list.media.match(/\(\s*(min|max)-width:\s*(\d+)px\s*\)/);
@@ -1310,7 +1310,7 @@ export function installDOM() {
             }
         },
 
-        /** Flip the OS colour-scheme preference and fire the media change. */
+        /** Flip the OS color-scheme preference and fire the media change. */
         setColorScheme(scheme) {
             window.colorScheme = scheme;
             for (const list of window.mediaQueries) {

@@ -367,7 +367,7 @@ jobs:
           fi
 
   # One check to require in branch protection. A matrix leg that is skipped or
-  # cancelled is not a pass, so test the result explicitly rather than relying
+  # canceled is not a pass, so test the result explicitly rather than relying
   # on `needs` alone.
   ci:
     name: ci

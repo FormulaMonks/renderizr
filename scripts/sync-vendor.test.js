@@ -8,7 +8,7 @@
  * this script's output. So it is tested here, and against a synthetic tree
  * rather than the real repository: the script deletes `vendor/` before
  * rebuilding it, and it must be testable on a clone whose submodule was never
- * initialised.
+ * initialized.
  *
  * The trick is that the script derives its root from `import.meta.url`, so a
  * copy of it in a scratch directory roots itself there. The scratch tree gets
@@ -58,7 +58,7 @@ const write = async (path, contents) => {
  * `upstream` maps a path under the submodule's static directory to its
  * contents; `sources` maps a path under `src/` to a file that may reference
  * `vendor/structurizr/...`. Pass `submodule: false` to leave the submodule
- * uninitialised.
+ * uninitialized.
  */
 async function scratchRepo(
     dir,
@@ -276,7 +276,7 @@ test("the copies are byte-for-byte", async () => {
     });
 });
 
-/* ------------------------------------------------------- licence and notice */
+/* ------------------------------------------------------- license and notice */
 
 test("the upstream LICENSE is copied next to the files it covers", async () => {
     await withTempDir(async (dir) => {
@@ -353,7 +353,7 @@ test("without a git checkout the commit is recorded as unknown rather than crash
 
 /* -------------------------------------------------------------- failure modes */
 
-test("an uninitialised submodule fails with the command that fixes it", async () => {
+test("an uninitialized submodule fails with the command that fixes it", async () => {
     await withTempDir(async (dir) => {
         await scratchRepo(dir, { submodule: false });
 

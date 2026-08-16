@@ -2,7 +2,7 @@
 #
 # Renderizr is entirely JavaScript and TypeScript — the `javascript-typescript`
 # pack covers `src/`, `scripts/` and the workflows' own JS. Nothing is compiled
-# to analyse, so `build-mode: none` is the correct mode and there is no build
+# to analyze, so `build-mode: none` is the correct mode and there is no build
 # step to keep in step with CI.
 #
 # `vendor/` is Structurizr's renderer, committed verbatim by `pnpm sync:vendor`
@@ -50,7 +50,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The submodule is not analysed, so do not spend a 76 MB fetch on it.
+          # The submodule is not analyzed, so do not spend a 76 MB fetch on it.
           submodules: false
           persist-credentials: false
 

@@ -24,7 +24,7 @@ export type DiagramControls = {
 };
 
 /* -------------------------------------------------------------------------
- * Diagram colour scheme
+ * Diagram color scheme
  *
  * Deliberately *independent* of the page theme owned by `theme.ts`: a reader
  * can keep the documentation dark while diagrams stay light, or the other way
@@ -65,12 +65,12 @@ export function getStoredDiagramTheme(): DiagramTheme | null {
     return null;
 }
 
-/** The colour scheme diagrams should be drawn in right now. */
+/** The color scheme diagrams should be drawn in right now. */
 export function getDiagramTheme(): DiagramTheme {
     return getStoredDiagramTheme() ?? getResolvedTheme();
 }
 
-/** Records an explicit diagram colour scheme choice. */
+/** Records an explicit diagram color scheme choice. */
 export function storeDiagramTheme(theme: DiagramTheme): void {
     writeSetting(DIAGRAM_THEME_STORAGE_KEY, theme);
     // Keep the legacy key in step for anything still reading it.
@@ -78,7 +78,7 @@ export function storeDiagramTheme(theme: DiagramTheme): void {
 }
 
 /**
- * Mirrors the diagram colour scheme onto `<html>` for CSS to pick up. Called
+ * Mirrors the diagram color scheme onto `<html>` for CSS to pick up. Called
  * before the diagram is constructed so the canvas never flashes the wrong
  * backdrop on its way in.
  */
@@ -93,7 +93,7 @@ type LabelState = {
 };
 
 /**
- * `structurizr-diagram.js` initialises `descriptionEnabled` and
+ * `structurizr-diagram.js` initializes `descriptionEnabled` and
  * `metadataEnabled` to `true`, so a freshly constructed diagram shows both.
  */
 const STRUCTURIZR_LABEL_DEFAULTS: LabelState = {
@@ -245,7 +245,7 @@ export default class CurrentView extends Component {
     }
 
     /**
-     * Applies a diagram colour scheme. Pass `persist` when it comes from the
+     * Applies a diagram color scheme. Pass `persist` when it comes from the
      * reader clicking the toolbar button: that pins the choice, so later page
      * or OS theme changes leave diagrams alone.
      */

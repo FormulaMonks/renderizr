@@ -3,7 +3,7 @@ import { readSetting, writeSetting } from "../storage";
 /**
  * Page theme controller.
  *
- * Owns the *page* colour scheme only. Diagrams keep their own, independent
+ * Owns the *page* color scheme only. Diagrams keep their own, independent
  * preference (see `current-view.ts`), so a reader can view diagrams in light
  * mode while reading documentation in dark mode, or the other way around.
  *
@@ -75,11 +75,11 @@ export function onThemeChange(
     return () => listeners.delete(listener);
 }
 
-let initialised = false;
+let initialized = false;
 
 export function initTheme(): void {
-    if (initialised) return;
-    initialised = true;
+    if (initialized) return;
+    initialized = true;
 
     darkQuery().addEventListener("change", () => {
         // Only the "system" mode tracks the OS preference.

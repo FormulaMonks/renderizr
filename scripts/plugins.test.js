@@ -141,7 +141,7 @@ test("the renderer loads as one minified string, not as modules", async () => {
     );
 
     // Minified: smaller than the files it was built from, and free of the
-    // licence banners and doc comments those files open with.
+    // license banners and doc comments those files open with.
     const raw = (
         await Promise.all(
             RENDERER_FILES.map((file) =>
@@ -212,7 +212,7 @@ test("the modulepreload and favicon links are dropped", () => {
     assert.ok(!html.includes("favicon.png"));
 });
 
-test("Vite's preload marker is neutralised rather than left dangling", () => {
+test("Vite's preload marker is neutralized rather than left dangling", () => {
     const bundle = makeBundle({
         code: "const m = __VITE_PRELOAD__; export default __VITE_PRELOAD__;",
     });

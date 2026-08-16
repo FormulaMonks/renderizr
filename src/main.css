@@ -56,7 +56,7 @@
   --color-border: rgb(219, 224, 230);
   --color-border-muted: rgb(228, 230, 234);
 
-  /* Selected state: a tint of the brand colour, plus text that reads on it */
+  /* Selected state: a tint of the brand color, plus text that reads on it */
   --color-primary-soft: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
   --color-primary-soft-foreground: var(--color-primary-foreground);
 

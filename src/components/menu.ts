@@ -97,7 +97,7 @@ export default class Menu<Item extends MenuItem> extends Component {
     }
 
     /**
-     * Always cancelled: the router lives in the URL hash, so letting a
+     * Always canceled: the router lives in the URL hash, so letting a
      * `href="#id"` through would throw the reader off the current page.
      */
     #onLinkClick = (event: Event) => {

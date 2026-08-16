@@ -130,7 +130,7 @@ export default class Decisions extends Page {
     }
 
     /**
-     * "3. Another Realisation of Feature 1" inside decision 2's body is the one
+     * "3. Another Realization of Feature 1" inside decision 2's body is the one
      * place the supersedes relationship is visible; it has to actually go
      * there. Delegated, because the anchor's text may be the click target.
      */

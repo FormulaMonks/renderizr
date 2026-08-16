@@ -1,5 +1,5 @@
 /**
- * Module customisation hooks that let `node --test` import the application's
+ * Module customization hooks that let `node --test` import the application's
  * TypeScript sources directly, without a build step and without adding a test
  * framework or a transpiler to the dependency list.
  *

@@ -2,7 +2,7 @@
 
 Renderizr is MIT-licensed. The pages it produces are not purely Renderizr: every rendered `index.html` is a bundle of minified third-party code — Structurizr's diagram renderer under Apache-2.0, JointJS under MPL-2.0, jQuery, highlight.js, markdown-it and a dozen others under MIT and BSD terms. This page explains who owes attribution to whom, and the routes by which that attribution can reach the page a reader actually opens.
 
-The component-by-component list, with versions, exact copyright lines and full licence texts, is [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md). The short-form block meant for pasting is [`NOTICE`](../NOTICE). This page is about plumbing, not inventory.
+The component-by-component list, with versions, exact copyright lines and full license texts, is [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md). The short-form block meant for pasting is [`NOTICE`](../NOTICE). This page is about plumbing, not inventory.
 
 ## Three parties, three obligations
 
@@ -18,7 +18,7 @@ The component-by-component list, with versions, exact copyright lines and full l
 
 > Diagrams rendered using [Structurizr](https://structurizr.com/) and [C4 notation.](https://c4model.com/) Created with [Renderizr](https://github.com/FormulaMonks/renderizr).
 
-That is credit, and it is genuinely useful — it names the two upstreams a reader is most likely to want to look up. It is **not** licence attribution: it carries no copyright lines, no licence names, and no source-availability statement for JointJS. Do not treat it as discharging anything.
+That is credit, and it is genuinely useful — it names the two upstreams a reader is most likely to want to look up. It is **not** license attribution: it carries no copyright lines, no license names, and no source-availability statement for JointJS. Do not treat it as discharging anything.
 
 ## Route 1 — ship `NOTICE` beside the output
 
@@ -29,9 +29,9 @@ npx github:FormulaMonks/renderizr ./workspace.json --out ./site
 cp NOTICE ./site/NOTICE          # from a clone of this repository
 ```
 
-`NOTICE` is written to stand on its own: it carries the copyright line and resolved version of all 17 bundled components, the MIT permission notice verbatim, the BSD-2 and BSD-3 conditions and disclaimers verbatim, a URL to the Apache-2.0 licence text, and the JointJS source-availability statement. Copying that one file is therefore enough to discharge MIT section 1, the BSD conditions, Apache-2.0 section 4(a) and MPL-2.0 section 3.2(b) for the rendered output. Serve or publish the directory as a whole and the notices travel with the pages, which is what MIT's "included in all copies or substantial portions" asks for.
+`NOTICE` is written to stand on its own: it carries the copyright line and resolved version of all 17 bundled components, the MIT permission notice verbatim, the BSD-2 and BSD-3 conditions and disclaimers verbatim, a URL to the Apache-2.0 license text, and the JointJS source-availability statement. Copying that one file is therefore enough to discharge MIT section 1, the BSD conditions, Apache-2.0 section 4(a) and MPL-2.0 section 3.2(b) for the rendered output. Serve or publish the directory as a whole and the notices travel with the pages, which is what MIT's "included in all copies or substantial portions" asks for.
 
-Copy `THIRD-PARTY-NOTICES.md` alongside it if you want the recipient to have the provenance and the full licence texts too — that is generosity, not obligation:
+Copy `THIRD-PARTY-NOTICES.md` alongside it if you want the recipient to have the provenance and the full license texts too — that is generosity, not obligation:
 
 ```bash
 cp NOTICE THIRD-PARTY-NOTICES.md ./site/
@@ -57,7 +57,7 @@ Add a section to your workspace JSON:
         "filename": "colophon.md",
         "order": 99,
         "format": "Markdown",
-        "content": "# Colophon\n\n## Credits and licences\n\nRendered with Renderizr (MIT).\n\n- Structurizr diagram renderer — Copyright Structurizr — Apache-2.0\n- Bootstrap Icons — Copyright (c) 2019-2024 The Bootstrap Authors — MIT\n- JointJS — Copyright 2013 client IO — MPL-2.0 — source: https://github.com/clientIO/joint\n- jQuery — Copyright OpenJS Foundation and other contributors — MIT\n- highlight.js — Copyright (c) 2006, Ivan Sagalaev — BSD-3-Clause\n"
+        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr diagram renderer — Copyright Structurizr — Apache-2.0\n- Bootstrap Icons — Copyright (c) 2019-2024 The Bootstrap Authors — MIT\n- JointJS — Copyright 2013 client IO — MPL-2.0 — source: https://github.com/clientIO/joint\n- jQuery — Copyright OpenJS Foundation and other contributors — MIT\n- highlight.js — Copyright (c) 2006, Ivan Sagalaev — BSD-3-Clause\n"
       }
     ]
   }
@@ -68,7 +68,7 @@ The fields match the section shape declared in `src/types/structurizr-documentat
 
 **The `content` string in that example is truncated to keep it readable.** It names 5 of the 17 components that ship in rendered output, and it shortens the JointJS entry to a bare repository URL — no version, no "at no charge" — so it is *not* compliant as written. Do not copy it into a workspace.
 
-Take the real body from [`NOTICE`](../NOTICE), which carries all 17 components with their resolved versions, the MIT permission notice, the BSD conditions and disclaimers, the Apache-2.0 licence URL and the JointJS source-availability statement MPL-2.0 section 3.2(b) requires. JSON has no multi-line strings, so the whole file has to become one escaped string. Generate it rather than retyping it — **from the root of a Renderizr checkout**, since the path is relative and `NOTICE` lives there:
+Take the real body from [`NOTICE`](../NOTICE), which carries all 17 components with their resolved versions, the MIT permission notice, the BSD conditions and disclaimers, the Apache-2.0 license URL and the JointJS source-availability statement MPL-2.0 section 3.2(b) requires. JSON has no multi-line strings, so the whole file has to become one escaped string. Generate it rather than retyping it — **from the root of a Renderizr checkout**, since the path is relative and `NOTICE` lives there:
 
 ````bash
 node -e 'console.log(JSON.stringify("# Colophon\n\n```\n" + require("fs").readFileSync("NOTICE","utf8") + "```\n"))'
@@ -98,18 +98,18 @@ This does not exist today. It is written down here so that the absence is a know
 
 `--font Inter` downloads the family from Google Fonts at build time and inlines the woff2 files as data URIs. The embedded font is then part of your distribution.
 
-Renderizr does not read that family's licence and cannot — Google Fonts serves families under SIL OFL 1.1, Apache-2.0 and the Ubuntu Font Licence, and the `css2` API returns no licence information. **Attribution for the embedded font is yours.** Check the family's page on fonts.google.com, and add its copyright line to whichever route above you chose. OFL 1.1 families in particular carry a Reserved Font Name and a copyright notice that has to be reproduced.
+Renderizr does not read that family's license and cannot — Google Fonts serves families under SIL OFL 1.1, Apache-2.0 and the Ubuntu Font License, and the `css2` API returns no license information. **Attribution for the embedded font is yours.** Check the family's page on fonts.google.com, and add its copyright line to whichever route above you chose. OFL 1.1 families in particular carry a Reserved Font Name and a copyright notice that has to be reproduced.
 
 Builds without `--font` embed no font and use the system stack, and this section does not apply to them.
 
 ## Your own content is yours
 
-The workspace JSON, its documentation and decision records, and any theme, element icon or branding logo it references are embedded verbatim and belong to whoever wrote them. Renderizr applies no licence to them and claims nothing over the rendered result. A `--logo` image is likewise yours to clear.
+The workspace JSON, its documentation and decision records, and any theme, element icon or branding logo it references are embedded verbatim and belong to whoever wrote them. Renderizr applies no license to them and claims nothing over the rendered result. A `--logo` image is likewise yours to clear.
 
 ## Before a release
 
 - [ ] `LICENSE` year range still covers the current year.
 - [ ] `THIRD-PARTY-NOTICES.md` matches the resolved dependency tree. The way to check is to re-run the Rollup scan described under [How this list was produced](../THIRD-PARTY-NOTICES.md#how-this-list-was-produced) — not to read `package.json`, which lists ranges that do not match what gets bundled.
 - [ ] `pnpm sync:vendor` has been run if the Structurizr submodule moved, so `vendor/structurizr/LICENSE` and the recorded upstream commit are current.
-- [ ] Any new runtime dependency has been added to the "ships in the rendered output" table with its licence checked on disk, in `node_modules`, rather than guessed from the package name.
-- [ ] A new licence family — anything reciprocal beyond MPL-2.0, anything with an advertising clause, anything unlicensed — is escalated rather than added quietly. MPL-2.0 is already the strictest thing in the tree.
+- [ ] Any new runtime dependency has been added to the "ships in the rendered output" table with its license checked on disk, in `node_modules`, rather than guessed from the package name.
+- [ ] A new license family — anything reciprocal beyond MPL-2.0, anything with an advertising clause, anything unlicensed — is escalated rather than added quietly. MPL-2.0 is already the strictest thing in the tree.

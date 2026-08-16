@@ -93,7 +93,7 @@ test("trailing spaces after the marker do not break the match", () => {
 
 /* ------------------------------------------------------- what stays a quote */
 
-test("an unrecognised marker leaves the blockquote alone", () => {
+test("an unrecognized marker leaves the blockquote alone", () => {
     assert.equal(
         render("> [!DANGER]\n> body\n"),
         "<blockquote>\n<p>[!DANGER]\nbody</p>\n</blockquote>\n",

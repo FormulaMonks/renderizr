@@ -6,7 +6,7 @@
  * `test/*.test.js` proves each controller does its job in a DOM of our own.
  * Both can be green while the shipped artifact opens to a blank screen — a
  * failure in the Structurizr engine, in the bundling, or in the order the
- * chunks initialise would show up nowhere else.
+ * chunks initialize would show up nowhere else.
  *
  * So: build the committed fixture workspace with the real CLI, load the result
  * in headless Chrome, and read the rendered document back. The assertions are
@@ -169,7 +169,7 @@ test("the single-file document draws a diagram", { skip: SKIP }, async () => {
     assert.match(
         canvas.textContent,
         /Fixture\sSystem/,
-        "the shapes should be labelled from the workspace model",
+        "the shapes should be labeled from the workspace model",
     );
 });
 

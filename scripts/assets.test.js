@@ -39,7 +39,7 @@ async function captured(stream, body) {
 
 /* -------------------------------------------------------------------- isUrl */
 
-test("isUrl recognises http and https and nothing else", () => {
+test("isUrl recognizes http and https and nothing else", () => {
     for (const value of [
         "http://example.test/a.json",
         "https://example.test/a.json",
@@ -235,7 +235,7 @@ test("a file that is not an image at all is refused", async () => {
 
         await assert.rejects(
             loadLogo({ source: path }),
-            /Unrecognised image format/,
+            /Unrecognized image format/,
         );
     });
 });
@@ -339,7 +339,7 @@ test("a font is fetched, its faces embedded, and a CSS variable declared", async
             );
             assert.match(text, /Embedded Inter \(1 face, \d+KB\)/);
 
-            // Google only serves woff2 to a browser it recognises.
+            // Google only serves woff2 to a browser it recognizes.
             for (const call of calls) {
                 assert.match(
                     call.init.headers["User-Agent"],
@@ -812,7 +812,7 @@ test("a workspace with no views at all still receives the font", async () => {
 
 /* ------------------------------------------------------------ known defects */
 
-test("a workspace with no views comes back un-normalised", async () => {
+test("a workspace with no views comes back un-normalized", async () => {
     // Pinning a defect, not endorsing it. `inlineWorkspaceAssets` opens with
     //
     //     const views = workspace.views ?? {};
@@ -820,9 +820,9 @@ test("a workspace with no views comes back un-normalised", async () => {
     // which binds a *fresh* object when the workspace has no `views`, so the
     // `views.configuration ??= {}` and `configuration.styles ??= {}` that
     // follow are written to a throwaway and the workspace itself is never
-    // normalised. Nothing downstream notices today: the only caller that needs
+    // normalized. Nothing downstream notices today: the only caller that needs
     // `views.configuration` is the font branch of `loadWorkspace`, which does
-    // the normalisation again on the workspace itself — which is why the test
+    // the normalization again on the workspace itself — which is why the test
     // above this one passes.
     //
     // The fix is two lines:

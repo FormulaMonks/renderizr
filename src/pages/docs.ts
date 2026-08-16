@@ -165,7 +165,7 @@ function retag(element: HTMLElement, level: number): HTMLElement {
  * `h1`, the next distinct one `h2`, and so on, so relative nesting — which is
  * what the sidebar tree is built from — comes out unchanged.
  */
-function normaliseHeadingLevels(groups: PageGroup[]): void {
+function normalizeHeadingLevels(groups: PageGroup[]): void {
     for (const group of groups) {
         const headings = group.nodes.filter(isHeading);
         if (!headings.length) continue;
@@ -410,7 +410,7 @@ export default class Docs extends Page {
         );
         // After the split, so the boundaries are still decided by the levels
         // the author wrote.
-        normaliseHeadingLevels(this.#groups);
+        normalizeHeadingLevels(this.#groups);
         this.#renderedSectionId = sectionId;
 
         const base = this.#flatPages.findIndex(

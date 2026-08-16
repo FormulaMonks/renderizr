@@ -146,7 +146,7 @@ export default class Diagrams extends Page {
             )}px`;
         }
 
-        // The engine reads the viewport's offset when it centres, so it can
+        // The engine reads the viewport's offset when it centers, so it can
         // only be correct once the height above has been laid out.
         requestAnimationFrame(settle);
 
@@ -200,7 +200,7 @@ export default class Diagrams extends Page {
         this.#diagram.zoomTo(
             Math.max(this.#wholeDiagramScale(), this.#currentScale() * factor),
         );
-        this.#diagram.scrollToCentre();
+        this.#diagram.scrollToCenter();
     }
 
     zoomIn = () => this.#zoomBy(ZOOM_STEP);

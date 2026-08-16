@@ -58,7 +58,7 @@ changelog:
         - deps
         - dependencies
 
-    # Catch-all, so a pull request that nobody labelled is still listed rather
+    # Catch-all, so a pull request that nobody labeled is still listed rather
     # than silently dropped from the notes.
     - title: Other changes
       labels:

@@ -25,7 +25,7 @@ export type Diagram = {
     zoomIn(event?: Event): void;
     zoomOut(event?: Event): void;
     zoomTo(scale: number): void;
-    scrollToCentre(): void;
+    scrollToCenter(): void;
     onAnimationStarted(callback: () => void): void;
     onAnimationStopped(callback: () => void): void;
     onElementDoubleClicked(

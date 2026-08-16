@@ -5,7 +5,7 @@
  *
  * It is a pure `string -> string` function, so these are exact-output tests.
  * It is deliberately not a conformant AsciiDoc processor: what it does not
- * recognise has to pass through unharmed, and there are tests for that too.
+ * recognize has to pass through unharmed, and there are tests for that too.
  *
  * The file lives in `scripts/` because `pnpm test` globs `scripts/*.test.js`.
  */
@@ -106,7 +106,7 @@ test("a word that is not an admonition keeps its colon", () => {
     assert.equal(asciidocToMarkdown("Note: not one\n"), "Note: not one\n");
 });
 
-test("every admonition label is recognised", () => {
+test("every admonition label is recognized", () => {
     for (const label of ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"]) {
         assert.equal(
             asciidocToMarkdown(`${label}: text\n`),
@@ -212,12 +212,12 @@ test("the doubled monospace form and attribute references are unwrapped", () => 
 
 /* ------------------------------------------------------------ pass-through */
 
-test("anything unrecognised survives verbatim", () => {
+test("anything unrecognized survives verbatim", () => {
     const source = "some ((weird)) asciidoc\nwith <<a cross reference>>\n";
     assert.equal(asciidocToMarkdown(source), source);
 });
 
-test("CRLF input is normalised to LF", () => {
+test("CRLF input is normalized to LF", () => {
     assert.equal(asciidocToMarkdown("= A\r\n\r\nb\r\n"), "# A\n\nb\n");
 });
 

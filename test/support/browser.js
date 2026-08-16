@@ -7,7 +7,7 @@
  * document out of it, which is the only way to catch a build that ships
  * perfectly and renders a blank page.
  *
- * `--dump-dom` prints the serialised document *after* scripts have run, which
+ * `--dump-dom` prints the serialized document *after* scripts have run, which
  * is all that is needed and needs no protocol client, no WebSocket and no new
  * dependency. Chrome does not always exit once it has printed, so the process
  * is killed as soon as the document is complete.
@@ -84,7 +84,7 @@ const FLAGS = [
 ];
 
 /**
- * Load `url` and resolve with the serialised DOM once the document is
+ * Load `url` and resolve with the serialized DOM once the document is
  * complete. Rejects if Chrome fails or takes longer than `timeout`.
  */
 export function dumpDOM(chrome, url, { timeout = 60_000 } = {}) {

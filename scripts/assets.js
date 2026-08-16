@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-/** Google only serves woff2 to browsers it recognises. */
+/** Google only serves woff2 to browsers it recognizes. */
 const BROWSER_UA =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -89,7 +89,7 @@ function describeImage(buffer) {
         };
     }
 
-    throw new Error("Unrecognised image format");
+    throw new Error("Unrecognized image format");
 }
 
 /** Editor cruft is where the savings are; path data is left alone. */
