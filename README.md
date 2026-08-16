@@ -70,7 +70,7 @@ Workspace themes, element icons and any branding logo referenced by URL are all 
 ### Setup
 
 ```bash
-# Initialize the structurizr-ui submodule (required)
+# Initialize the Structurizr submodule (required) — it supplies the renderer
 git submodule update --init --recursive
 
 pnpm install
@@ -108,4 +108,4 @@ pnpm build -- {path/to/workspace.json} [--single-file] [--logo ...] [--font ...]
 | `scripts/plugins.js` | Build plugins: Structurizr globals, CSS trimming, branding injection, single-file inlining |
 | `vite.config.ts` | Dev server only; production goes through `scripts/build.js` |
 
-Structurizr's own UI sources are loaded from the submodule as static imports in a fixed order, and its dependencies (`jquery`, `lodash`, `jointjs`, `dagre`, `graphlib`) are placed on `window` by `src/structurizr-globals.ts` before they are needed. The order in `src/globals/` is load-bearing — the comments there explain why.
+Diagrams are drawn by Structurizr's own renderer, taken from the [structurizr/structurizr](https://github.com/structurizr/structurizr) submodule — the same code the official local server serves, so a workspace renders here exactly as it does there. `src/structurizr-globals.ts` supplies the handful of globals it expects, and `scripts/plugins.js` concatenates and injects it as a classic script (the renderer is written for sloppy mode, which an ES module forbids; an inline script is not `eval`, so a strict CSP still passes). The comments in both explain the details.
