@@ -43,6 +43,38 @@ const ZOOM_STEP = 1.2;
  * diagram fits", computed per view. */
 const MIN_ZOOM_SCALE = 0.02;
 
+/**
+ * Run `start` once `element` has a box with size in it — at once if it already
+ * has one — and hand back a way to stop waiting.
+ *
+ * The engine measures the canvas while it lays a view out, and a box of no size
+ * takes it through a division by zero: every element lands on
+ * `translate(20,NaN)`, the automatic layout gives up, and the canvas is left
+ * empty. That is the ordinary state of a document that has been parsed but not
+ * yet put on screen, which is exactly how a Claude artifact starts: the payload
+ * runs inside the host's page while the viewport the canvas is sized in is
+ * still 0x0. Nothing here is specific to that host — a background tab or a
+ * collapsed container is the same situation.
+ */
+function whenMeasurable(element: HTMLElement, start: () => void) {
+    const measurable = () =>
+        element.clientWidth > 0 && element.clientHeight > 0;
+
+    if (measurable()) {
+        start();
+        return () => {};
+    }
+
+    const observer = new ResizeObserver(() => {
+        if (!measurable()) return;
+        observer.disconnect();
+        start();
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+}
+
 /** Whether a view already carries coordinates worth rendering. */
 const hasStoredPositions = (view: View) =>
     Boolean(
@@ -54,6 +86,7 @@ const hasStoredPositions = (view: View) =>
 
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
+    #stopWaiting: (() => void) | null = null;
     #resizeObserver: ResizeObserver | null = null;
     #refitTimer = 0;
     #lastWidth = 0;
@@ -355,145 +388,164 @@ export default class Diagrams extends Page {
             </div>
         `;
 
-        structurizr.ui.loadThemes(() => {
-            this.#diagram = new structurizr.ui.Diagram(
+        this.#stopWaiting = whenMeasurable(
+            document.getElementById(
                 "structurizr-diagram-target",
-                false,
-                // Deferred by a microtask so that both `this.#diagram` and the
-                // `structurizr.diagram` the renderer looks itself up by are
-                // assigned before anything asks the diagram to do work.
-                () =>
-                    queueMicrotask(() => {
-                        if (!this.#diagram) return;
-                        document.querySelector(".loading")?.remove();
-                        this.#diagram.setNavigationEnabled(true);
+            ) as HTMLElement,
+            () => {
+                structurizr.ui.loadThemes(() => {
+                    this.#diagram = new structurizr.ui.Diagram(
+                        "structurizr-diagram-target",
+                        false,
+                        // Deferred by a microtask so that both `this.#diagram` and the
+                        // `structurizr.diagram` the renderer looks itself up by are
+                        // assigned before anything asks the diagram to do work.
+                        () =>
+                            queueMicrotask(() => {
+                                if (!this.#diagram) return;
+                                document.querySelector(".loading")?.remove();
+                                this.#diagram.setNavigationEnabled(true);
 
-                        const canvas = document.getElementById(
-                            "structurizr-diagram-target",
-                        );
-                        canvas?.addEventListener("wheel", this.#handleWheel, {
-                            passive: false,
-                        });
-                        canvas?.addEventListener(
-                            "pointerdown",
-                            this.#handlePointerDown,
-                        );
-                        canvas?.addEventListener(
-                            "pointermove",
-                            this.#handlePointerMove,
-                            { passive: false },
-                        );
-                        for (const type of [
-                            "pointerup",
-                            "pointercancel",
-                            "pointerleave",
-                        ]) {
-                            canvas?.addEventListener(
-                                type,
-                                this.#handlePointerUp as EventListener,
-                            );
-                        }
+                                const canvas = document.getElementById(
+                                    "structurizr-diagram-target",
+                                );
+                                canvas?.addEventListener(
+                                    "wheel",
+                                    this.#handleWheel,
+                                    {
+                                        passive: false,
+                                    },
+                                );
+                                canvas?.addEventListener(
+                                    "pointerdown",
+                                    this.#handlePointerDown,
+                                );
+                                canvas?.addEventListener(
+                                    "pointermove",
+                                    this.#handlePointerMove,
+                                    { passive: false },
+                                );
+                                for (const type of [
+                                    "pointerup",
+                                    "pointercancel",
+                                    "pointerleave",
+                                ]) {
+                                    canvas?.addEventListener(
+                                        type,
+                                        this.#handlePointerUp as EventListener,
+                                    );
+                                }
 
-                        // Width only: the canvas height is derived from the width,
-                        // so observing height as well would feed back on itself.
-                        this.#resizeObserver = new ResizeObserver(([entry]) => {
-                            const width = Math.round(entry.contentRect.width);
-                            if (width === this.#lastWidth) return;
-                            this.#lastWidth = width;
-                            this.#fitDiagram();
-                        });
-                        // The canvas itself, not the page: collapsing the view
-                        // drawer changes the width available to the diagram
-                        // without the page changing size at all.
-                        this.#resizeObserver.observe(
-                            document.getElementById(
-                                "structurizr-diagram-target",
-                            ) as HTMLElement,
-                        );
+                                // Width only: the canvas height is derived from the width,
+                                // so observing height as well would feed back on itself.
+                                this.#resizeObserver = new ResizeObserver(
+                                    ([entry]) => {
+                                        const width = Math.round(
+                                            entry.contentRect.width,
+                                        );
+                                        if (width === this.#lastWidth) return;
+                                        this.#lastWidth = width;
+                                        this.#fitDiagram();
+                                    },
+                                );
+                                // The canvas itself, not the page: collapsing the view
+                                // drawer changes the width available to the diagram
+                                // without the page changing size at all.
+                                this.#resizeObserver.observe(
+                                    document.getElementById(
+                                        "structurizr-diagram-target",
+                                    ) as HTMLElement,
+                                );
 
-                        const stored = readSetting(DARK_MODE_KEY);
-                        const prefersDark = window?.matchMedia(
-                            "(prefers-color-scheme: dark)",
-                        );
+                                const stored = readSetting(DARK_MODE_KEY);
+                                const prefersDark = window?.matchMedia(
+                                    "(prefers-color-scheme: dark)",
+                                );
 
-                        const dark = stored
-                            ? stored === "dark"
-                            : prefersDark.matches;
-                        this.#diagram.setDarkMode(dark);
-                        applyTheme(dark);
+                                const dark = stored
+                                    ? stored === "dark"
+                                    : prefersDark.matches;
+                                this.#diagram.setDarkMode(dark);
+                                applyTheme(dark);
 
-                        prefersDark.addEventListener("change", (e) => {
-                            if (readSetting(DARK_MODE_KEY)) return;
-                            this.#diagram?.setDarkMode(e.matches);
-                            applyTheme(e.matches);
-                        });
+                                prefersDark.addEventListener("change", (e) => {
+                                    if (readSetting(DARK_MODE_KEY)) return;
+                                    this.#diagram?.setDarkMode(e.matches);
+                                    applyTheme(e.matches);
+                                });
 
-                        const nav = this.addComponent(
-                            new DiagramNavigation(
-                                document.querySelector<HTMLDivElement>(
-                                    "#structurizr-diagram-navigation",
-                                ) as HTMLElement,
-                                this.#diagram,
-                                structurizr.workspace.getViews(),
-                            ),
-                        );
+                                const nav = this.addComponent(
+                                    new DiagramNavigation(
+                                        document.querySelector<HTMLDivElement>(
+                                            "#structurizr-diagram-navigation",
+                                        ) as HTMLElement,
+                                        this.#diagram,
+                                        structurizr.workspace.getViews(),
+                                    ),
+                                );
 
-                        const currentView = this.addComponent(
-                            new CurrentView(
-                                document.querySelector<HTMLDivElement>(
-                                    "#structurizr-current-view",
-                                ) as HTMLElement,
-                                this.#diagram,
-                                {
-                                    fit: this.#fitDiagram,
-                                    zoomIn: this.zoomIn,
-                                    zoomOut: this.zoomOut,
-                                },
-                            ),
-                        );
+                                const currentView = this.addComponent(
+                                    new CurrentView(
+                                        document.querySelector<HTMLDivElement>(
+                                            "#structurizr-current-view",
+                                        ) as HTMLElement,
+                                        this.#diagram,
+                                        {
+                                            fit: this.#fitDiagram,
+                                            zoomIn: this.zoomIn,
+                                            zoomOut: this.zoomOut,
+                                        },
+                                    ),
+                                );
 
-                        this.#diagram.onViewChanged((viewKey) => {
-                            const view =
-                                structurizr.workspace.findViewByKey(viewKey);
-                            const parentId =
-                                view?.containerId ??
-                                view?.softwareSystemId ??
-                                view?.parentId;
+                                this.#diagram.onViewChanged((viewKey) => {
+                                    const view =
+                                        structurizr.workspace.findViewByKey(
+                                            viewKey,
+                                        );
+                                    const parentId =
+                                        view?.containerId ??
+                                        view?.softwareSystemId ??
+                                        view?.parentId;
 
-                            // The renderer applies the view's automatic layout
-                            // itself while rendering, exactly as the Structurizr
-                            // server does — there is nothing to re-run here.
-                            this.#fitDiagram();
-                            nav.changeView(viewKey);
-                            currentView.render(
-                                view,
-                                parentId
-                                    ? structurizr.workspace.findElementById(
-                                          parentId,
-                                      )
-                                    : undefined,
-                            );
-                            // A previous view may have left the page scrolled a
-                            // few thousand pixels down.
-                            window.scrollTo({ top: 0 });
-                        });
+                                    // The renderer applies the view's automatic layout
+                                    // itself while rendering, exactly as the Structurizr
+                                    // server does — there is nothing to re-run here.
+                                    this.#fitDiagram();
+                                    nav.changeView(viewKey);
+                                    currentView.render(
+                                        view,
+                                        parentId
+                                            ? structurizr.workspace.findElementById(
+                                                  parentId,
+                                              )
+                                            : undefined,
+                                    );
+                                    // A previous view may have left the page scrolled a
+                                    // few thousand pixels down.
+                                    window.scrollTo({ top: 0 });
+                                });
 
-                        this.#diagram.onElementDoubleClicked(
-                            this.#handleElementDoubleClick.bind(this),
-                        );
+                                this.#diagram.onElementDoubleClicked(
+                                    this.#handleElementDoubleClick.bind(this),
+                                );
 
-                        this.renderAllComponents();
-                    }),
-            );
+                                this.renderAllComponents();
+                            }),
+                    );
 
-            // The renderer reaches for itself here when it applies a view's
-            // automatic layout, exactly as Structurizr's own pages set it.
-            structurizr.diagram = this.#diagram;
-        });
+                    // The renderer reaches for itself here when it applies a view's
+                    // automatic layout, exactly as Structurizr's own pages set it.
+                    structurizr.diagram = this.#diagram;
+                });
+            },
+        );
     }
 
     clear() {
         this.removeAllComponents();
+        this.#stopWaiting?.();
+        this.#stopWaiting = null;
         this.#resizeObserver?.disconnect();
         window.clearTimeout(this.#refitTimer);
         this.#lastWidth = 0;
