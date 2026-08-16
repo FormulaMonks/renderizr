@@ -23,6 +23,18 @@ const STATUS_CLASS: Record<string, string> = {
 /** Decisions that still govern anything — amended ones still mostly do. */
 const IN_FORCE = new Set(["accepted", "amended"]);
 
+/**
+ * A line that says nothing but the status. The pill above the body already says
+ * it, so it is dropped from the note — for every spelling, which is why the
+ * list comes from the table above rather than a second one that can drift from
+ * it. ("Amended" was missing from that second list, and turned up in front of
+ * the amendment note as "Amended Amends 15. …".)
+ */
+const BARE_STATUS = new RegExp(
+    `^(${Object.keys(STATUS_CLASS).join("|")})\\.?$`,
+    "i",
+);
+
 const longDate = (value?: string) =>
     value
         ? new Date(value).toLocaleDateString(undefined, { dateStyle: "long" })
@@ -91,15 +103,15 @@ export default class Decisions extends Page {
                         .split("\n")
                         .map((line: string) => line.trim())
                         .filter(
-                            (line: string) =>
-                                line &&
-                                !/^(proposed|accepted|rejected|deprecated|superseded)\.?$/i.test(
-                                    line,
-                                ),
+                            (line: string) => line && !BARE_STATUS.test(line),
                         );
 
+                    // "Amends 15." and "Amended by 39." are separate facts and
+                    // each gets its own line. Markdown folds consecutive quoted
+                    // lines into one paragraph, so each needs a hard break — a
+                    // trailing backslash — to stay where it was put.
                     return notes.length
-                        ? `${notes.map((line: string) => `> ${line}`).join("\n")}\n\n## Context`
+                        ? `${notes.map((line: string) => `> ${line}`).join("\\\n")}\n\n## Context`
                         : "## Context";
                 })
         );
