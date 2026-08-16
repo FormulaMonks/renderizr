@@ -223,6 +223,14 @@ separator has to be matched with the id here too. */
     text-align: left;
     /* Keep columns readable instead of crushing them to one character. */
     min-width: 4.5rem;
+    /*
+     * And cap them at a readable line length. Without this a single cell of
+     * prose sets the width of its whole column — a two-column "role /
+     * description" table was rendering 3000px wide inside a 630px measure,
+     * which is a five-screen scroll to read one sentence. Capped, the prose
+     * wraps and the scroll is left for tables that are genuinely wide.
+     */
+    max-width: 40ch;
     overflow-wrap: anywhere;
 }
 
