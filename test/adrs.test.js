@@ -13,10 +13,10 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { beforeEach, test } from "node:test";
+import { beforeEach } from "node:test";
 import { DOMEvent } from "./support/dom.js";
 import history from "./support/history.js";
-import { dom, importSrc } from "./support/ts.js";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: Decisions } = await importSrc("pages/adrs");
 
@@ -135,7 +135,7 @@ test("a decision with no date is grouped as Undated", () => {
     );
 });
 
-test("each status gets the class its colour comes from", () => {
+test("each status gets the class its color comes from", () => {
     renderPage([
         decision("1", { status: "Accepted" }),
         decision("2", { status: "Proposed" }),

@@ -13,10 +13,10 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { beforeEach, test } from "node:test";
+import { beforeEach } from "node:test";
 import { DOMEvent } from "./support/dom.js";
 import history from "./support/history.js";
-import { dom, importSrc } from "./support/ts.js";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: Navigation } = await importSrc("components/navigation");
 const { getMode, setMode } = await importSrc("components/theme");
@@ -131,7 +131,7 @@ test("clicking a tab navigates through history rather than the browser", () => {
     );
 });
 
-test("a tab click is cancelled, so the hash router keeps the URL", () => {
+test("a tab click is canceled, so the hash router keeps the URL", () => {
     render();
 
     const event = new DOMEvent("click", { bubbles: true });

@@ -10,8 +10,8 @@
  */
 
 import assert from "node:assert/strict";
-import { beforeEach, test } from "node:test";
-import { dom, importSrc } from "./support/ts.js";
+import { beforeEach } from "node:test";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: ScrollSpy } = await importSrc("components/scroll-spy");
 

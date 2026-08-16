@@ -8,9 +8,9 @@
  */
 
 import assert from "node:assert/strict";
-import { beforeEach, test } from "node:test";
+import { beforeEach } from "node:test";
 import { DOMEvent } from "./support/dom.js";
-import { dom, importSrc } from "./support/ts.js";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: Menu } = await importSrc("components/menu");
 

@@ -9,8 +9,8 @@
  */
 
 import assert from "node:assert/strict";
-import { beforeEach, test } from "node:test";
-import { dom, importSrc } from "./support/ts.js";
+import { beforeEach } from "node:test";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const theme = await importSrc("components/theme");
 const { readSetting, writeSetting } = await importSrc("storage");

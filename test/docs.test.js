@@ -16,9 +16,9 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { beforeEach, test } from "node:test";
+import { beforeEach } from "node:test";
 import history from "./support/history.js";
-import { dom, importSrc } from "./support/ts.js";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: Docs } = await importSrc("pages/docs");
 
