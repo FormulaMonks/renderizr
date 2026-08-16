@@ -1,0 +1,100 @@
+name: Bug report
+description: Renderizr crashed, or the page it produced is wrong.
+type: Bug
+labels: [bug, "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The workspace is the field that matters most — almost every rendering bug is
+        invisible without the JSON that triggers it. Skip anything that does not apply.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect instead?
+      description: Screenshots and short screen recordings can be dragged straight into this box, and are the fastest way to explain a rendering problem.
+      placeholder: |
+        Expected: the Container view to show the four containers in my workspace.
+        Actual: the view renders empty, with the legend but no elements.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workspace
+    attributes:
+      label: The workspace that reproduces it
+      description: A link, a dragged-in attachment, or the smallest cut-down workspace that still shows the problem. If yours is confidential, do not paste it — reproduce against the public [Big Bank plc example](https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json) and say so. If you can share nothing at all, say that here rather than leaving it blank, and describe the smallest shape that triggers it.
+      placeholder: |
+        https://gist.github.com/me/0000000/raw/minimal-workspace.json
+        (or drag the .json file into this box)
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: The exact command you ran
+      description: Verbatim, including every flag.
+      placeholder: npx github:FormulaMonks/renderizr ./workspace.json --single-file --font Inter
+    validations:
+      required: true
+
+  - type: dropdown
+    id: output-mode
+    attributes:
+      label: Output mode
+      description: "--single-file writes two documents; which one you opened changes what we look at, so please pick the exact one."
+      options:
+        - Default (a directory of index.html + assets/)
+        - Single file (--single-file) — opened index.html
+        - Single file (--single-file) — opened artifact.html, e.g. as a Claude artifact
+        - Both, or not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: "Output of `npx --yes envinfo --system --binaries`, plus which Renderizr you ran: the ref after `#` in your npx command, or `git rev-parse --short HEAD` from a clone. Renderizr needs Node 20 or newer."
+      render: shell
+      placeholder: |
+        Renderizr: main @ 15b1bbe
+          System:
+            OS: macOS 26.6.1
+          Binaries:
+            Node: 24.19.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Console output
+      description: Everything the command printed, stack trace included. Leave blank if the command succeeded and the problem is in the rendered page.
+      render: shell
+
+  - type: dropdown
+    id: workspace-source
+    attributes:
+      label: Where does the workspace come from?
+      description: How the JSON reaches Renderizr, not what it models.
+      options:
+        - A local workspace.json file
+        - A URL passed on the command line
+        - Exported from Structurizr Cloud or an on-premises install
+        - Generated from DSL by structurizr-cli or Structurizr Lite
+        - Something else (say so above)
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you post
+      options:
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/FormulaMonks/renderizr/blob/main/CODE_OF_CONDUCT.md).
+          required: true
+        - label: I searched the [existing issues](https://github.com/FormulaMonks/renderizr/issues?q=is%3Aissue), including closed ones, and this is not a duplicate.
+          required: true
+        - label: The same workspace renders correctly in Structurizr's own tooling, so this looks like a Renderizr bug rather than a modelling one.
+        - label: I would be willing to open a pull request — [CONTRIBUTING.md](https://github.com/FormulaMonks/renderizr/blob/main/CONTRIBUTING.md) covers setup and tests.

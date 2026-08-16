@@ -1,0 +1,39 @@
+name: Question
+description: "How do I…, is it supposed to…, why does it… — anything that is not yet a bug."
+type: Task
+labels: [question, "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discussions are not enabled here, so ask in the tracker. If it turns out to be a
+        defect we relabel it and keep the history.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to do, and where did you get stuck?
+      description: If a command is involved, paste it and what it printed — that turns a week of back-and-forth into a same-day answer.
+      placeholder: |
+        We keep our architecture docs in Confluence. Can the single HTML file that
+        --single-file produces be embedded in a Confluence page, or is it only meant to be
+        opened on its own?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Optional, but paste it if anything behaves unexpectedly — the output of `npx --yes envinfo --system --binaries`, plus which Renderizr you ran.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you post
+      options:
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/FormulaMonks/renderizr/blob/main/CODE_OF_CONDUCT.md).
+          required: true
+        - label: I checked [SUPPORT.md](https://github.com/FormulaMonks/renderizr/blob/main/SUPPORT.md) and the [existing issues](https://github.com/FormulaMonks/renderizr/issues?q=is%3Aissue), closed ones included.
+          required: true
