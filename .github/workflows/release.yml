@@ -13,6 +13,11 @@
 # Renderizr is not published to any registry. It is consumed straight from git
 # with `npx github:FormulaMonks/renderizr`, so the GitHub Release is the whole
 # distribution channel and `package.json` is marked private to keep it that way.
+#
+# release-please runs as a GitHub App rather than as GitHub Actions. That is
+# not a preference — see the comment on the first step; with GITHUB_TOKEN this
+# workflow cannot open the release pull request at all, and if it could, `ci`
+# would never run on it.
 name: release
 
 on:
@@ -35,28 +40,62 @@ jobs:
   # Keeps the release pull request in sync with `main`, and — when that pull
   # request is merged — creates the tag and the GitHub Release.
   release-please:
-    if: github.event_name == 'push'
+    # Skipped, not failed, until the GitHub App is installed — see the
+    # `release-app-missing` job below and MAINTAINERS.md. A brand-new clone of
+    # this repository should not show a red release run for a setting nobody
+    # has had the chance to configure yet.
+    if: github.event_name == 'push' && vars.RELEASE_APP_ID != ''
     name: prepare release
     runs-on: ubuntu-latest
     permissions:
-      contents: write # create the tag and the GitHub Release
-      pull-requests: write # open and groom the release pull request
+      # Deliberately read-only. Every write below is made with the App token
+      # minted in the first step, not with GITHUB_TOKEN.
+      contents: read
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      # Runs with the default GITHUB_TOKEN, which means the release pull request
-      # it opens does not itself trigger other workflows. That is accepted: the
-      # same commits were already checked by ci.yml on the pull request that
-      # introduced them, and the release pull request only edits package.json,
-      # CHANGELOG.md and the manifest. Supply a maintainer PAT as `token:` if
-      # CI is ever wanted on the release pull request too.
+      # release-please must not act as GitHub Actions itself, for two reasons.
+      #
+      # It cannot: "Allow GitHub Actions to create and approve pull requests"
+      # is off for this repository, so opening the release pull request with
+      # GITHUB_TOKEN fails with "GitHub Actions is not permitted to create or
+      # approve pull requests".
+      #
+      # And it should not: a pull request opened with GITHUB_TOKEN does not
+      # trigger other workflows, so `ci` would never report on the release pull
+      # request — and `ci` is a required status check in the `main` ruleset.
+      # Every release would need an administrator to bypass the ruleset.
+      #
+      # An App identity solves both. The pull request is not "GitHub Actions",
+      # so the restriction does not apply, and it triggers ci.yml like any
+      # other pull request.
+      - name: Mint a token for the release pull request
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
         with:
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # Says why nothing was released, rather than leaving a silently skipped job.
+  # Green on purpose: not having configured the App yet is a to-do, not a
+  # broken build.
+  release-app-missing:
+    if: github.event_name == 'push' && vars.RELEASE_APP_ID == ''
+    name: prepare release (not configured)
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: |
+          echo "::warning title=Releases are not configured::No RELEASE_APP_ID variable is set, so release-please did not run and no release pull request was opened or updated. Install the release GitHub App and add the RELEASE_APP_ID variable and RELEASE_APP_PRIVATE_KEY secret — see MAINTAINERS.md, 'Repository setup still to be done'."
 
   # Attaches something downloadable to the Release: a source tarball of exactly
   # the files a consumer receives, and a rendered example of what Renderizr
