@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-The MIT licence above covers the code written for this project. It does not
-cover the third-party code Renderizr vendors and bundles, some of which is
-under other licences — notably Apache-2.0 (the Structurizr diagram renderer)
-and MPL-2.0 (JointJS). Those components, their copyright lines and the
-obligations they carry are listed in THIRD-PARTY-NOTICES.md, and NOTICE
-carries the short-form attribution that must travel with anything Renderizr
-renders.
