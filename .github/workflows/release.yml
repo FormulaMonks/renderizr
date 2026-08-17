@@ -9,6 +9,10 @@
 #   merge that PR       release-please tags vX.Y.Z, publishes the GitHub Release
 #                       with the generated notes, and this workflow attaches the
 #                       build artifacts to it.
+#   workflow_dispatch   attach the build artifacts to a tag and Release that
+#                       already exist. For a release cut by hand — the first
+#                       one, or any made before the App was configured — which
+#                       would otherwise carry no downloads at all.
 #
 # Renderizr is not published to any registry. It is consumed straight from git
 # with `npx github:FormulaMonks/renderizr`, so the GitHub Release is the whole
@@ -23,6 +27,12 @@ name: release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Attach build artifacts to this existing release tag, e.g. v1.0.0"
+        required: true
+        type: string
 
 # Least privilege by default: each job asks for what it needs and no more.
 permissions:
@@ -106,18 +116,48 @@ jobs:
   # it works on a private package and publishes nothing.
   release-assets:
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    # Two ways in. Normally release-please has just created the Release and
+    # this fills it. But a tag cut by hand — the first one, or any release made
+    # before the App exists — produces a Release with nothing attached and no
+    # way to fix it, so `workflow_dispatch` can point this job at an existing
+    # tag instead. `always()` is required because release-please is skipped on
+    # a dispatch, and a skipped dependency would otherwise skip this too.
+    if: >-
+      always() &&
+      (needs.release-please.outputs.release_created == 'true' ||
+       github.event_name == 'workflow_dispatch')
     name: attach build artifacts
     runs-on: ubuntu-latest
     permissions:
       contents: write # upload assets to the Release
     env:
-      TAG: ${{ needs.release-please.outputs.tag_name }}
-      VERSION: ${{ needs.release-please.outputs.version }}
+      # On a dispatch `inputs.tag` is set and release-please did not run; on a
+      # push it is empty and the tag comes from release-please.
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
     steps:
+      - name: Check the tag before building anything
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$TAG' is not a release tag. Expected vMAJOR.MINOR.PATCH, e.g. v1.0.0."
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG does not exist. Create and push it first."
+            exit 1
+          fi
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::No GitHub Release for $TAG. This job attaches assets to a Release; it does not create one."
+            exit 1
+          fi
+          # `npm pack` and the artifact names use the bare version.
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ env.TAG }}
           # The build does not need submodules/structurizr — the renderer is
           # vendored under vendor/. Left off on purpose.
           submodules: false
