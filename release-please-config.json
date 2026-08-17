@@ -1,5 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+    "last-release-sha": "5e0ec6d37b8a733f3626f415e1d30a4d954b9ef1",
     "separate-pull-requests": false,
     "pull-request-title-pattern": "chore(release): ${version}",
     "pull-request-header": "The next release, assembled from the conventional-commit messages on `main`. Merging this pull request bumps `package.json`, writes `CHANGELOG.md`, creates the `v${version}` tag and publishes the GitHub Release. Nothing goes to any registry; the GitHub Release is the whole distribution channel. See CONTRIBUTING.md, \"How a release happens\".",
@@ -13,21 +14,55 @@
             "draft": false,
             "prerelease": false,
             "changelog-sections": [
-                { "type": "feat", "section": "Added" },
-                { "type": "fix", "section": "Fixed" },
-                { "type": "perf", "section": "Changed" },
-                { "type": "refactor", "section": "Changed" },
-                { "type": "revert", "section": "Removed" },
-                { "type": "docs", "section": "Documentation" },
-                { "type": "build", "section": "Build", "hidden": true },
-                { "type": "chore", "section": "Miscellaneous", "hidden": true },
+                {
+                    "type": "feat",
+                    "section": "Added"
+                },
+                {
+                    "type": "fix",
+                    "section": "Fixed"
+                },
+                {
+                    "type": "perf",
+                    "section": "Changed"
+                },
+                {
+                    "type": "refactor",
+                    "section": "Changed"
+                },
+                {
+                    "type": "revert",
+                    "section": "Removed"
+                },
+                {
+                    "type": "docs",
+                    "section": "Documentation"
+                },
+                {
+                    "type": "build",
+                    "section": "Build",
+                    "hidden": true
+                },
+                {
+                    "type": "chore",
+                    "section": "Miscellaneous",
+                    "hidden": true
+                },
                 {
                     "type": "ci",
                     "section": "CI",
                     "hidden": true
                 },
-                { "type": "style", "section": "Styling", "hidden": true },
-                { "type": "test", "section": "Tests", "hidden": true }
+                {
+                    "type": "style",
+                    "section": "Styling",
+                    "hidden": true
+                },
+                {
+                    "type": "test",
+                    "section": "Tests",
+                    "hidden": true
+                }
             ]
         }
     }
