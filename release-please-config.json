@@ -1,21 +1,17 @@
 {
     "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-    "bootstrap-sha": "15b1bbe17f72de3d97046cf6e789bb7746a447c0",
     "separate-pull-requests": false,
     "pull-request-title-pattern": "chore(release): ${version}",
-    "pull-request-header": "The next release, assembled from the conventional-commit messages on `main`. Merging this pull request bumps `package.json`, writes `CHANGELOG.md`, creates the `v${version}` tag and publishes the GitHub Release. Nothing goes to npm — that is a separate, manually dispatched job. See CONTRIBUTING.md, \"How a release happens\".",
+    "pull-request-header": "The next release, assembled from the conventional-commit messages on `main`. Merging this pull request bumps `package.json`, writes `CHANGELOG.md`, creates the `v${version}` tag and publishes the GitHub Release. Nothing goes to any registry; the GitHub Release is the whole distribution channel. See CONTRIBUTING.md, \"How a release happens\".",
     "packages": {
         ".": {
             "release-type": "node",
-            "release-as": "0.1.0",
             "package-name": "@formula-monks/renderizr",
             "changelog-path": "CHANGELOG.md",
             "include-v-in-tag": true,
             "include-component-in-tag": false,
             "draft": false,
             "prerelease": false,
-            "bump-minor-pre-major": true,
-            "bump-patch-for-minor-pre-major": false,
             "changelog-sections": [
                 { "type": "feat", "section": "Added" },
                 { "type": "fix", "section": "Fixed" },

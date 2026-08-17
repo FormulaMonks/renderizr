@@ -19,18 +19,13 @@ That table is exhaustive on both sides: the eleven types above are exactly the e
 
 A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-changes section at the top of the entry, whatever the commit type was.
 
-While the version stays below `1.0.0`, a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the minor rather than the major — the pre-1.0 convention, configured as `bump-minor-pre-major`.
+Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
-## [Unreleased]
+## [1.0.0](https://github.com/FormulaMonks/renderizr/releases/tag/v1.0.0) - 2026-08-16
 
-Nothing has been released yet. The repository has never been tagged and `package.json` still carries `0.0.1`, a placeholder that predates any release process. The first release pull request will propose **0.1.0** — the initial public release — covering everything below.
+The first public release, and the first tag this repository has ever carried. Everything below already worked; what changed is that it is now versioned, licensed, tested in CI and documented for people who did not write it.
 
-Two settings in `release-please-config.json` make that a certainty rather than an inference, and both exist because there is no `v0.0.1` tag for release-please to measure against:
-
-- **`bootstrap-sha`** pins where history starts for changelog purposes. Without it release-please walks all 79 commits made before the repository was opened up and emits a 63-entry changelog of internal development, directly above this hand-written section describing the same release in different words. With it, only what lands after that commit is described.
-- **`release-as: "0.1.0"`** fixes the version, so the tag, `package.json` and the heading below cannot disagree with the sentence above.
-
-That pull request inserts its own generated `## [0.1.0](…)` entry directly above this section. Reviewing it means three edits, all in the release pull request itself: drop this hand-written section, delete `release-as` from `release-please-config.json` (it does not clear itself — left in, every later release is proposed as 0.1.0 too), and check the generated entry says what this one says. Everything after that is generated and nothing here is written by hand again.
+This entry is hand-written because there was no previous release for release-please to measure against. Every entry after this one is generated from commit messages.
 
 ### Added
 
@@ -43,7 +38,7 @@ That pull request inserts its own generated `## [0.1.0](…)` entry directly abo
 - **Hash-based routing**, so a link to a view, a document or a decision survives a reload, works over `file://` and works inside a sandboxed frame.
 - **`--single-file`**, which inlines every stylesheet, script, font, icon and the workspace itself into one document that makes no network requests, and emits `artifact.html` alongside it for hosts that supply their own document scaffolding.
 - **Branding and layout flags**: `--out`, `--base`, `--logo`, `--logo-alt`, `--logo-href`, `--font`, `--font-weights`, `--font-subsets`, `--font-italic`, `--help`. Fonts are fetched at build time and embedded as woff2 data URIs, so a branded build stays as offline as an unbranded one.
-- **Release automation**: versions, tags, GitHub Releases and this changelog are derived from conventional commits, each Release carries the packed npm tarball and a rendered example — as a static site and as a single self-contained file — and publishing to npm is a separate, manually dispatched, environment-gated job.
+- **Release automation**: versions, tags, GitHub Releases and this changelog are derived from conventional commits, and each Release carries a source tarball and a rendered example — as a static site and as a single self-contained file. Nothing is published to a registry; `npx github:FormulaMonks/renderizr` reads git.
 - **Project documentation** for a public repository: README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, SUPPORT, MAINTAINERS, THIRD-PARTY-NOTICES, issue and pull request templates, and CODEOWNERS.
 
-[Unreleased]: https://github.com/FormulaMonks/renderizr/commits/main
+[1.0.0]: https://github.com/FormulaMonks/renderizr/releases/tag/v1.0.0
