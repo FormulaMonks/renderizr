@@ -1,8 +1,8 @@
 {
     "name": "@formula-monks/renderizr",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "private": true,
-    "description": "Render a Structurizr workspace \u2014 its diagrams, documentation and architecture decisions \u2014 as a static site, or as a single self-contained HTML file with no network requests.",
+    "description": "Render a Structurizr workspace — its diagrams, documentation and architecture decisions — as a static site, or as a single self-contained HTML file with no network requests.",
     "keywords": [
         "structurizr",
         "c4",
@@ -33,7 +33,7 @@
     "license": "MIT",
     "author": "Formula.Monks (https://www.monks.com)",
     "contributors": [
-        "Andr\u00e9s Zorro <andres.zorro@monks.com> (https://github.com/andreszorro)"
+        "Andrés Zorro <andres.zorro@monks.com> (https://github.com/andreszorro)"
     ],
     "type": "module",
     "bin": {
