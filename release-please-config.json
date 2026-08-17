@@ -2,7 +2,7 @@
     "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
     "last-release-sha": "5e0ec6d37b8a733f3626f415e1d30a4d954b9ef1",
     "separate-pull-requests": false,
-    "pull-request-title-pattern": "chore(release): ${version}",
+    "pull-request-title-pattern": "chore${scope}: release${component} ${version}",
     "pull-request-header": "The next release, assembled from the conventional-commit messages on `main`. Merging this pull request bumps `package.json`, writes `CHANGELOG.md`, creates the `v${version}` tag and publishes the GitHub Release. Nothing goes to any registry; the GitHub Release is the whole distribution channel. See CONTRIBUTING.md, \"How a release happens\".",
     "packages": {
         ".": {
