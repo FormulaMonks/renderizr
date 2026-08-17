@@ -25,6 +25,9 @@
     "prHourlyLimit": 2,
     "minimumReleaseAge": "3 days",
     "postUpdateOptions": ["pnpmDedupe"],
+    "automerge": false,
+    "platformAutomerge": true,
+    "automergeStrategy": "squash",
     "dependencyDashboardTitle": "Dependency dashboard",
     "lockFileMaintenance": {
         "enabled": true,
@@ -47,6 +50,12 @@
             "pinDigests": true
         },
         {
+            "description": "Auto-merge the action pins. A digest or pin refresh moves a SHA to a newer commit of the same action, and patch and minor bumps of an action are the kind of change a human reads by scrolling past it. CI is the review: nothing merges without the `ci` check, which runs the whole suite and both render modes. Major action bumps are excluded on purpose \u2014 those change inputs and behavior.",
+            "matchManagers": ["github-actions"],
+            "matchUpdateTypes": ["digest", "pin", "patch", "minor"],
+            "automerge": true
+        },
+        {
             "description": "Development tooling: lint, types, commit plumbing. None of it reaches a rendered workspace, so one grouped PR per week is enough review surface.",
             "matchManagers": ["npm"],
             "matchDepTypes": ["devDependencies"],
@@ -62,7 +71,23 @@
             "groupName": "dev tooling"
         },
         {
-            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own reviewable PR — never grouped, never rolled up with anything else.",
+            "description": "Auto-merge dev tooling on patch and minor. None of this reaches a rendered workspace: if Biome or TypeScript breaks something, `lint + typecheck` fails and the merge does not happen. Majors stay manual \u2014 a Biome 1.x to 2.x is a config migration and a re-format of every file, not a dependency bump.",
+            "matchManagers": ["npm"],
+            "matchDepTypes": ["devDependencies"],
+            "matchPackageNames": [
+                "@biomejs/biome",
+                "typescript",
+                "@types/**",
+                "@commitlint/**",
+                "husky",
+                "lint-staged",
+                "czg"
+            ],
+            "matchUpdateTypes": ["patch", "minor", "pin", "digest"],
+            "automerge": true
+        },
+        {
+            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own reviewable PR \u2014 never grouped, never rolled up with anything else.",
             "matchManagers": ["npm"],
             "matchPackageNames": [
                 "jquery",
@@ -87,17 +112,32 @@
             "minimumReleaseAge": "14 days"
         },
         {
-            "description": "rollup is held at 4.52.5 on purpose and Renovate must not move it. scripts/escapes.js parses the bundle with `parseAst`, which vite re-exports from rollup's native parser. Every rollup at or above 4.53.0 panics — `called Option::unwrap() on a None value` — on a directive prologue holding a lone-surrogate escape, the exact input scripts/escapes.test.js feeds it, so `pnpm test` fails on any version at or above 4.59.0, the floor that patches GHSA-mw96-cpmx-2vgc. The advisory is build-time only and the guard still refuses rather than emit an unsafe artifact, so the pin is the lesser harm until the parser is fixed upstream or escapes.js stops depending on it. `allowedVersions` states the boundary; `enabled: false` is what actually stops a security PR, since `vulnerabilityAlerts.enabled` and `osvVulnerabilityAlerts` above would otherwise raise one immediately and undo the pin without anyone deciding to. The exact pin in package.json is also what holds vite's own rollup down — pnpm resolves `vite > rollup` to the version the root manifest names — so this rule is what keeps a vite upgrade from dragging the broken parser in sideways. Lift it by hand, together, once `node --test scripts/escapes.test.js` passes on the newer rollup.",
+            "description": "rollup is held at 4.52.5 on purpose and Renovate must not move it. scripts/escapes.js parses the bundle with `parseAst`, which vite re-exports from rollup's native parser. Every rollup at or above 4.53.0 panics \u2014 `called Option::unwrap() on a None value` \u2014 on a directive prologue holding a lone-surrogate escape, the exact input scripts/escapes.test.js feeds it, so `pnpm test` fails on any version at or above 4.59.0, the floor that patches GHSA-mw96-cpmx-2vgc. The advisory is build-time only and the guard still refuses rather than emit an unsafe artifact, so the pin is the lesser harm until the parser is fixed upstream or escapes.js stops depending on it. `allowedVersions` states the boundary; `enabled: false` is what actually stops a security PR, since `vulnerabilityAlerts.enabled` and `osvVulnerabilityAlerts` above would otherwise raise one immediately and undo the pin without anyone deciding to. The exact pin in package.json is also what holds vite's own rollup down \u2014 pnpm resolves `vite > rollup` to the version the root manifest names \u2014 so this rule is what keeps a vite upgrade from dragging the broken parser in sideways. Lift it by hand, together, once `node --test scripts/escapes.test.js` passes on the newer rollup.",
             "matchManagers": ["npm"],
             "matchPackageNames": ["rollup"],
             "allowedVersions": "<4.53.0",
             "enabled": false
         },
         {
-            "description": "`engines` states the supported Node and pnpm range — a compatibility promise made in README.md and enforced by the CI matrix. Raising it is a decision, not a dependency update.",
+            "description": "`engines` states the supported Node and pnpm range \u2014 a compatibility promise made in README.md and enforced by the CI matrix. Raising it is a decision, not a dependency update.",
             "matchManagers": ["npm"],
             "matchDepTypes": ["engines"],
             "enabled": false
+        },
+        {
+            "description": "Never auto-merge anything whose code is inlined into the page a user publishes. This repeats what the grouping rule above already implies, and it is deliberate belt and braces: it is the last rule that mentions these packages, so it wins whatever a broader rule earlier in this list says, now or later. A green CI proves Renderizr still builds and renders \u2014 it cannot prove a jQuery or JointJS change did not alter how somebody's diagram looks.",
+            "matchManagers": ["npm"],
+            "matchPackageNames": [
+                "jquery",
+                "@joint/**",
+                "@dagrejs/**",
+                "markdown-it",
+                "markdown-it-**",
+                "highlight.js",
+                "history",
+                "vite"
+            ],
+            "automerge": false
         }
     ]
 }
