@@ -26,7 +26,7 @@
     "minimumReleaseAge": "3 days",
     "postUpdateOptions": ["pnpmDedupe"],
     "automerge": false,
-    "platformAutomerge": true,
+    "platformAutomerge": false,
     "automergeStrategy": "squash",
     "dependencyDashboardTitle": "Dependency dashboard",
     "lockFileMaintenance": {

@@ -1,0 +1,102 @@
+# Renovate, self-hosted.
+#
+# Renovate runs here rather than through the hosted Mend app at
+# github.com/apps/renovate, for one practical reason: the `main` ruleset
+# requires a review, auto-merge cannot satisfy a review requirement, and the
+# only way to let a bot merge is to add it to the ruleset's bypass list — which
+# lists apps installed on this repository. An app we install ourselves is one
+# we can add there. It also means the Renovate version is pinned in this file
+# rather than being whatever the hosted service ships today.
+#
+# The App is the same one release.yml uses. See MAINTAINERS.md, "Repository
+# setup still to be done", for what it needs and why.
+#
+# The cron below is how often Renovate *looks*; `renovate.json` decides what it
+# is allowed to do when it looks. Most updates are gated to Monday mornings by
+# the `schedule` there, and vulnerability alerts deliberately ignore that gate,
+# which is why this runs daily rather than weekly.
+name: renovate
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: "Renovate log level"
+        required: false
+        default: "info"
+        type: choice
+        options: [info, debug]
+      dryRun:
+        description: "Report what would happen without opening or merging anything"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+# Never two Renovate runs at once: they would fight over the same branches.
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    # Skipped rather than failed until the App exists, matching release.yml.
+    if: vars.AUTOMATION_APP_ID != ''
+    name: renovate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint an App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+
+      # Renovate has to know which identity its commits belong to, and getting
+      # this wrong is how a bot ends up authoring commits as a person. Both
+      # values are derived from the App rather than written down, so renaming
+      # the App does not silently break attribution.
+      - name: Resolve the App's bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          id=$(gh api "/users/${SLUG}%5Bbot%5D" --jq .id)
+          echo "id=${id}" >> "$GITHUB_OUTPUT"
+          echo "Running as ${SLUG}[bot] (${id})"
+
+      - name: Renovate
+        uses: renovatebot/github-action@e09d604f8f803bb527bd8321ed5be06c460b8682 # v46.2.2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+        env:
+          # Only this repository. The App may be installed on others later;
+          # this workflow is not a licence to touch them.
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_USERNAME: ${{ steps.app-token.outputs.app-slug }}[bot]
+          RENOVATE_GIT_AUTHOR: >-
+            ${{ steps.app-token.outputs.app-slug }}[bot]
+            <${{ steps.bot.outputs.id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com>
+          # renovate.json is committed, so there is nothing to onboard and no
+          # onboarding pull request should ever be opened.
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_REQUIRE_CONFIG: "required"
+          RENOVATE_DRY_RUN: ${{ inputs.dryRun && 'full' || '' }}
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+
+  # Same idea as release.yml: say why nothing happened instead of leaving a
+  # silently skipped job on the Actions tab.
+  renovate-app-missing:
+    if: vars.AUTOMATION_APP_ID == ''
+    name: renovate (not configured)
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - run: |
+          echo "::warning title=Renovate is not configured::No AUTOMATION_APP_ID variable is set, so Renovate did not run and no dependency pull requests were opened. Create the automation GitHub App and add the AUTOMATION_APP_ID variable and AUTOMATION_APP_PRIVATE_KEY secret — see MAINTAINERS.md, 'Repository setup still to be done'."
