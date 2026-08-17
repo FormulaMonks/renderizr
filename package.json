@@ -81,7 +81,7 @@
         "czg": "^1.13.2",
         "husky": "^9.1.7",
         "lint-staged": "^16.4.0",
-        "rollup": "4.52.5",
+        "rollup": "4.62.4",
         "typescript": "^5.9.3"
     },
     "dependencies": {

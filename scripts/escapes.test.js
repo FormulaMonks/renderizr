@@ -107,7 +107,6 @@ const REFUSED = {
     "an export binding named by a string": String.raw`const x = 1; export { x as "\uD800" };`,
     "a property key": `({ "${FFFD}": 1 })`,
     "a destructured key": `const { "${FFFD}": a } = o;`,
-    "a directive prologue": String.raw`"\uD800";`,
 };
 
 for (const [position, source] of Object.entries(REFUSED)) {
@@ -118,6 +117,34 @@ for (const [position, source] of Object.entries(REFUSED)) {
         });
     });
 }
+
+/**
+ * A directive prologue belongs in the list above — it is a string in a position
+ * no expression can occupy — but it never reaches that check, because rollup's
+ * native parser panics on it first: `"\uD800";` as source text makes it unwrap
+ * a `None`. Verified across rollup 4.59 to 4.62, and narrower than it sounds —
+ * it needs the escape *sequence*, in a directive, holding a lone surrogate. A
+ * raw surrogate parses, and the same escape parses everywhere else.
+ *
+ * What matters is the guarantee, which is unchanged: the build stops rather
+ * than emit an artifact the upload would reject. So this asserts the refusal
+ * and the fail-closed behaviour, not which of the two produced it.
+ */
+test("refuses to rewrite a directive prologue, whoever gives up first", () => {
+    assert.throws(
+        () => makeArtifactSafe(String.raw`"\uD800";`),
+        /Cannot make this bundle artifact-safe:/,
+    );
+});
+
+test("a bundle the parser cannot read is refused, never passed through", () => {
+    // Fail closed. Returning unparseable input unchanged would hand back
+    // exactly the artifact the caller asked to have made safe.
+    assert.throws(
+        () => makeArtifactSafe("const = ;"),
+        /Cannot make this bundle artifact-safe: it could not be parsed/,
+    );
+});
 
 test("the refusal says where in the bundle it gave up", () => {
     // A megabyte of minified code needs more than "it failed": the offset and

@@ -289,6 +289,34 @@ function walk(node, parent, visit, grandparent = null) {
     }
 }
 
+/**
+ * `parseAst`, with a parser failure turned into the same refusal as anything
+ * else this module cannot handle.
+ *
+ * Rollup's parser is native, and it panics rather than returns an error on at
+ * least one input: a directive prologue holding a lone-surrogate *escape
+ * sequence* — `"\uD800";` as source text — makes it unwrap a `None`. The panic
+ * surfaces in JavaScript as a thrown `Error`, so it is catchable; what it is
+ * not is legible, and an unexplained "called `Option::unwrap()` on a `None`
+ * value" from a build is worse than a refusal.
+ *
+ * Failing closed is the right answer regardless of the cause. A bundle this
+ * module cannot read is a bundle it cannot certify, and emitting it unchanged
+ * would ship exactly the artifact the caller asked to be made safe. That is
+ * also what the input above would have got anyway: a directive prologue is not
+ * a value position, so `isValuePosition` refuses it.
+ */
+function parse(code) {
+    try {
+        return parseAst(code);
+    } catch (error) {
+        throw new Error(
+            `Cannot make this bundle artifact-safe: it could not be parsed (${error.message.split("\n")[0]}).`,
+            { cause: error },
+        );
+    }
+}
+
 /** Every rewrite `code` needs, in the order the parser found them. */
 function collectEdits(code) {
     const edits = [];
@@ -303,7 +331,7 @@ function collectEdits(code) {
         );
     };
 
-    walk(parseAst(code), null, (node, parent, grandparent) => {
+    walk(parse(code), null, (node, parent, grandparent) => {
         if (node.type === "TemplateElement") {
             const raw = node.value.raw;
             if (!hasUnspellable(raw)) return;
