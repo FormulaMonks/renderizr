@@ -2,7 +2,7 @@
     "name": "@formula-monks/renderizr",
     "version": "1.0.0",
     "private": true,
-    "description": "Render a Structurizr workspace — its diagrams, documentation and architecture decisions — as a static site, or as a single self-contained HTML file with no network requests.",
+    "description": "Render a Structurizr workspace \u2014 its diagrams, documentation and architecture decisions \u2014 as a static site, or as a single self-contained HTML file with no network requests.",
     "keywords": [
         "structurizr",
         "c4",
@@ -33,7 +33,7 @@
     "license": "MIT",
     "author": "Formula.Monks (https://www.monks.com)",
     "contributors": [
-        "Andrés Zorro <andres.zorro@monks.com> (https://github.com/andreszorro)"
+        "Andr\u00e9s Zorro <andres.zorro@monks.com> (https://github.com/andreszorro)"
     ],
     "type": "module",
     "bin": {
@@ -68,6 +68,8 @@
         "typecheck": "tsc --noEmit",
         "test": "node --test scripts/*.test.js test/*.test.js",
         "test:coverage": "node --test --experimental-test-coverage scripts/*.test.js test/*.test.js",
+        "release:pr": "./scripts/release.sh pr",
+        "release:tag": "./scripts/release.sh tag",
         "sync:vendor": "node scripts/sync-vendor.js",
         "hooks": "husky || true"
     },
