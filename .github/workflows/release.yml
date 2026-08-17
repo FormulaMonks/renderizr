@@ -44,7 +44,7 @@ jobs:
     # `release-app-missing` job below and MAINTAINERS.md. A brand-new clone of
     # this repository should not show a red release run for a setting nobody
     # has had the chance to configure yet.
-    if: github.event_name == 'push' && vars.RELEASE_APP_ID != ''
+    if: github.event_name == 'push' && vars.AUTOMATION_APP_ID != ''
     name: prepare release
     runs-on: ubuntu-latest
     permissions:
@@ -75,8 +75,8 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
 
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
@@ -89,13 +89,13 @@ jobs:
   # Green on purpose: not having configured the App yet is a to-do, not a
   # broken build.
   release-app-missing:
-    if: github.event_name == 'push' && vars.RELEASE_APP_ID == ''
+    if: github.event_name == 'push' && vars.AUTOMATION_APP_ID == ''
     name: prepare release (not configured)
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - run: |
-          echo "::warning title=Releases are not configured::No RELEASE_APP_ID variable is set, so release-please did not run and no release pull request was opened or updated. Install the release GitHub App and add the RELEASE_APP_ID variable and RELEASE_APP_PRIVATE_KEY secret — see MAINTAINERS.md, 'Repository setup still to be done'."
+          echo "::warning title=Releases are not configured::No AUTOMATION_APP_ID variable is set, so release-please did not run and no release pull request was opened or updated. Install the release GitHub App and add the AUTOMATION_APP_ID variable and AUTOMATION_APP_PRIVATE_KEY secret — see MAINTAINERS.md, 'Repository setup still to be done'."
 
   # Attaches something downloadable to the Release: a source tarball of exactly
   # the files a consumer receives, and a rendered example of what Renderizr
