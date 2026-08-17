@@ -96,6 +96,18 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 
 A font is the one option with a real cost: Inter at latin, weights 400–700, adds about 50KB gzipped. Everything else is a few kilobytes at most.
 
+## Use it from an AI agent
+
+Renderizr ships an agent skill, so a coding agent can render a workspace for you without being told how each time:
+
+```bash
+npx skills add formulamonks/renderizr
+```
+
+It teaches the agent the one command, which of the two `--single-file` outputs to hand over, how to get JSON out of a DSL workspace, and how to check the result is genuinely self-contained before passing it on. Ask for "an artifact of the architecture" and you get one back.
+
+It pairs with [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/), whose skill authors a workspace where this one renders it — `npx skills add formulamonks/scaffoldizr`. The skill lives in [`.agents/skills/renderizr`](.agents/skills/renderizr) if you would rather read it than install it.
+
 ## Renderizr or structurizr-site-generatr?
 
 [structurizr-site-generatr](https://github.com/avisi-cloud/structurizr-site-generatr) solves the same problem and solves parts of it better. The two make opposite trades, so the choice is usually clear:

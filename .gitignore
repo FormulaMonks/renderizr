@@ -38,7 +38,14 @@ yarn.lock
 # tools sees them in `git status` and one of them eventually commits a
 # directory of local scratch into a public repository. One line each is cheaper
 # than that.
-/.agents/
+# Agent scaffolding is local, with one exception: the Renderizr skill under
+# .agents/skills/renderizr is a published part of this project. A negation
+# cannot reach inside an excluded directory, so the parents are opened and
+# their contents excluded instead.
+/.agents/*
+!/.agents/skills
+/.agents/skills/*
+!/.agents/skills/renderizr
 /.claude/
 /.playwright-mcp/
 /skills-lock.json
