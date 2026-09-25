@@ -4,6 +4,7 @@ import DiagramsPage from "./pages/diagrams.ts";
 import "./main.css";
 import Router from "./components/router.ts";
 import Navigation from "./components/navigation.ts";
+import { createLinkResolver } from "./components/doc-links.ts";
 import type Page from "./pages/_page.ts";
 
 /**
@@ -66,15 +67,17 @@ async function init() {
 
     const routes: Page[] = [new DiagramsPage(null, "diagrams")];
 
+    // Links between sections and decisions are written as relative file
+    // paths; this maps them onto the routes below.
+    const { sections, decisions } = structurizr.workspace.documentation;
+    const resolveLink = createLinkResolver({
+        docs: nav.hasDocs ? { page: "docs", sections } : null,
+        decisions: nav.hasDecisions ? { page: "adrs", decisions } : null,
+    });
+
     if (nav.hasDocs) {
         const DocsPage = (await import("./pages/docs.ts")).default;
-        routes.push(
-            new DocsPage(
-                null,
-                "docs",
-                structurizr.workspace.documentation.sections,
-            ),
-        );
+        routes.push(new DocsPage(null, "docs", sections, resolveLink("docs")));
     }
 
     if (nav.hasDecisions) {
@@ -83,7 +86,8 @@ async function init() {
             new DecisionsPage(
                 null,
                 "adrs",
-                structurizr.workspace.documentation.decisions,
+                decisions,
+                resolveLink("decisions"),
             ),
         );
     }

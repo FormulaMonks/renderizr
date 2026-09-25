@@ -234,8 +234,12 @@ separator has to be matched with the id here too. */
 .tableWrap > table {
     grid-area: 1 / 1;
     /* Shrink to the content — a table of `ID | Qty | OK` has no business
-    sprawling across the whole measure — but never past the available width. */
-    width: max-content;
+    sprawling across the whole measure — but never past the available width.
+    `fit-content` rather than `max-content` plus `max-width: 100%`: a table
+    ignores its own max-width, so three prose columns at the 40ch cap came out
+    their padding and borders wider than the measure and scrolled sideways on
+    every screen size, by a dozen pixels, instead of wrapping. */
+    width: fit-content;
     max-width: 100%;
     border-collapse: collapse;
     border: 1px solid var(--color-border);
@@ -538,4 +542,16 @@ separator has to be matched with the id here too. */
     .markdownRenderer pre {
         padding: 0.75rem 0.85rem;
     }
+}
+
+/*
+ * A link to a file the workspace does not include — `reference/data-model.md`
+ * — keeps its text but has nowhere to go. The dotted underline and the title
+ * say so, rather than leaving a link that navigates out of the site.
+ */
+.unresolvedLink {
+    text-decoration: underline dotted;
+    text-decoration-color: var(--color-muted);
+    text-underline-offset: 0.2em;
+    cursor: help;
 }

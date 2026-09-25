@@ -20,6 +20,8 @@ import yaml from "highlight.js/lib/languages/yaml";
 // No highlight.js stylesheet is imported on purpose: every shipped theme is
 // hardcoded to one color scheme. The `hljs-*` token colors live in the module
 // CSS instead, where they follow `data-theme`.
+import type StateCore from "markdown-it/lib/rules_core/state_core.mjs";
+import { githubSlug, type LinkResolver } from "./doc-links";
 import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";
 
@@ -50,8 +52,41 @@ const EMPTY_ELEMENT_PATTERN =
     // biome-ignore lint/suspicious/noMisleadingCharacterClass: zero-width characters are intentionally matched as whitespace
     /<(p|h[1-6]|em|strong|b|i|s|small|span|a|ul|ol|li|blockquote)(?:\s[^>]*)?>[\s\u200B-\u200D\uFEFF]*<\/\1\s*>/gi;
 
+/**
+ * Give every heading its GitHub id, from the text as it was written.
+ *
+ * It has to run before `replacements` and `smartquotes`: by the time
+ * `markdown-it-anchor` sees the heading, the typographer has turned `--` into
+ * `–` and `"` into `”`, and GitHub slugs the text before any of that. The ids
+ * are made unique here too, the way GitHub does it (`same`, `same-1`, …) —
+ * the anchor plugin treats an id that is already set as the author's own and
+ * refuses a duplicate rather than numbering it.
+ */
+function headingIds(state: StateCore): void {
+    const seen = new Set<string>();
+
+    state.tokens.forEach((token, index) => {
+        if (token.type !== "heading_open") return;
+
+        const text = (state.tokens[index + 1]?.children ?? [])
+            .filter((child) =>
+                ["text", "text_special", "code_inline"].includes(child.type),
+            )
+            .map((child) => child.content)
+            .join("");
+
+        const slug = githubSlug(text);
+        let id = slug;
+        for (let n = 1; seen.has(id); n++) id = `${slug}-${n}`;
+        seen.add(id);
+
+        token.attrSet("id", id);
+    });
+}
+
 export default class MarkdownRenderer extends Component {
     #markdownContent = "";
+    #resolveLink: LinkResolver | null = null;
     #md = markdownIt({
         html: true,
         typographer: true,
@@ -66,6 +101,9 @@ export default class MarkdownRenderer extends Component {
         },
     })
         .use(shiftHeadings)
+        .use((md) =>
+            md.core.ruler.before("replacements", "heading_ids", headingIds),
+        )
         .use(anchor)
         /*
          * Setext headings are off.
@@ -108,7 +146,56 @@ export default class MarkdownRenderer extends Component {
         ) =>
             `<div class="${styles.tableWrap}">${self.renderToken(tokens, idx, options)}`;
         this.#md.renderer.rules.table_close = () => "</table></div>";
+
+        this.#md.core.ruler.push("doc_links", this.#rewriteLinks);
     }
+
+    /**
+     * Point relative links at the page of this site that holds the same
+     * content. See `createLinkResolver`.
+     */
+    setLinkResolver(resolve: LinkResolver | null): void {
+        this.#resolveLink = resolve;
+    }
+
+    /**
+     * A link to a document the workspace does not contain stays readable but
+     * stops being a link: there is nothing to follow it to, and following it
+     * anyway left the site.
+     */
+    #rewriteLinks = (state: StateCore): void => {
+        const resolve = this.#resolveLink;
+        if (!resolve) return;
+
+        for (const block of state.tokens) {
+            const children = block.children ?? [];
+
+            children.forEach((token, index) => {
+                if (token.type !== "link_open") return;
+
+                const href = token.attrGet("href") ?? "";
+                const resolved = resolve(href);
+
+                if (typeof resolved === "string") {
+                    token.attrSet("href", resolved);
+                    return;
+                }
+
+                if (resolved !== null) return;
+
+                const close = children.findIndex(
+                    (other, at) => at > index && other.type === "link_close",
+                );
+
+                token.tag = "span";
+                token.attrs = [
+                    ["class", styles.unresolvedLink],
+                    ["title", `Not part of this workspace: ${href}`],
+                ];
+                if (close >= 0) children[close].tag = "span";
+            });
+        }
+    };
 
     #formatContentFn = (content: string): string => content;
     setContentFormatter = (fn: (content: string) => string): void => {

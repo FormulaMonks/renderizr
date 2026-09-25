@@ -49,6 +49,30 @@ test("headings get anchor ids, and a repeated heading gets a distinct one", () =
     );
 });
 
+test("heading ids follow GitHub, so the documents' own links land", () => {
+    // `markdown-it-anchor`'s default gave this `customs-%26-documentation-terms`,
+    // and every `[…](#customs--documentation-terms)` in the source went nowhere.
+    assert.equal(
+        render("## Customs & documentation terms"),
+        '<h3 id="customs--documentation-terms" tabindex="-1">Customs &amp; documentation terms</h3>',
+    );
+});
+
+test("the id is taken from the text as written, before the typographer", () => {
+    // Rendered, `--` is an en dash and the quotes are curly; GitHub slugs the
+    // source, where they are two hyphens and straight quotes.
+    assert.match(render('## A -- "B"'), /id="a----b"/);
+});
+
+test("repeats of a GitHub-style id are numbered the way GitHub numbers them", () => {
+    const html = render("## A & B\n\n## A & B\n\n## A & B\n");
+
+    assert.deepEqual(
+        [...html.matchAll(/id="([^"]+)"/g)].map((match) => match[1]),
+        ["a--b", "a--b-1", "a--b-2"],
+    );
+});
+
 test("a `---` under a paragraph is a rule, not a setext heading", () => {
     // With `lheading` enabled this paragraph would become an <h2> and, because
     // the navigation is derived from heading structure, would take over the
@@ -225,6 +249,49 @@ test("rendering tags the host element and attaches exactly one click listener", 
         element.listeners.length,
         1,
         "re-rendering stacked up duplicate listeners",
+    );
+});
+
+/* --------------------------------------------------------------- links */
+
+/** Render with a resolver that knows one sibling file. */
+function renderWithLinks(markdown) {
+    const element = stubElement();
+    const renderer = new MarkdownRenderer(element);
+    renderer.setLinkResolver((href) => {
+        if (href === "02-other.md") return "#/?page=docs&section=02-other";
+        if (href.endsWith(".md")) return null;
+        return undefined;
+    });
+    renderer.setContent(markdown);
+    return element.html;
+}
+
+test("a resolved link gets the route as its href", () => {
+    assert.equal(
+        renderWithLinks("[Other](02-other.md)"),
+        '<p><a href="#/?page=docs&amp;section=02-other">Other</a></p>',
+    );
+});
+
+test("a link to a file the workspace lacks keeps its text but stops being a link", () => {
+    assert.equal(
+        renderWithLinks("See [the model](reference/data-model.md) here."),
+        '<p>See <span class="unresolvedLink" title="Not part of this workspace: reference/data-model.md">the model</span> here.</p>',
+    );
+});
+
+test("links the resolver has no opinion about are left as written", () => {
+    assert.equal(
+        renderWithLinks("[CBP](https://www.cbp.gov/) [up](#top)"),
+        '<p><a href="https://www.cbp.gov/">CBP</a> <a href="#top">up</a></p>',
+    );
+});
+
+test("without a resolver every link is left as written", () => {
+    assert.equal(
+        render("[the model](reference/data-model.md)"),
+        '<p><a href="reference/data-model.md">the model</a></p>',
     );
 });
 

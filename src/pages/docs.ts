@@ -1,4 +1,5 @@
 import { asciidocToMarkdown, isAsciiDoc } from "../components/asciidoc";
+import { type LinkResolver, sectionId } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
@@ -233,7 +234,10 @@ export default class Docs extends Page {
     #sectionPages = new Map<string, DocsMenuItem[]>();
     #flatPages: FlatPage[] = [];
     #pageOwners = new Map<number, DocsMenuItem>();
+    /** `section:heading` -> the page that holds it, across every section. */
+    #headingIndex = new Map<string, number>();
     #modelBuilt = false;
+    #resolveLink: LinkResolver | null;
 
     #groups: PageGroup[] = [];
     #renderedSectionId: string | null = null;
@@ -251,8 +255,10 @@ export default class Docs extends Page {
         container: HTMLElement | null = null,
         name = "Docs",
         sections: DocumentationSection[] = [],
+        resolveLink: LinkResolver | null = null,
     ) {
         super(container, name);
+        this.#resolveLink = resolveLink;
 
         this.#sections = sections
             .toSorted((a, b) => (a.order < b.order ? -1 : 1))
@@ -260,7 +266,7 @@ export default class Docs extends Page {
                 const adoc = isAsciiDoc(section.filename);
 
                 return {
-                    id: section.id ?? section.filename.replace(/\.md$/, ""),
+                    id: sectionId(section),
                     // The document's own first heading beats a filename every
                     // time; "0001-record-architecture-decisions.md" only
                     // becomes a title as a last resort.
@@ -321,6 +327,15 @@ export default class Docs extends Page {
             groups.forEach((group, groupIndex) => {
                 const index = this.#flatPages.length;
 
+                for (const node of group.nodes) {
+                    if (node.id && isHeading(node)) {
+                        this.#headingIndex.set(
+                            `${section.id}:${node.id}`,
+                            index,
+                        );
+                    }
+                }
+
                 this.#flatPages.push({
                     id: group.id,
                     title: group.title || section.title,
@@ -370,6 +385,14 @@ export default class Docs extends Page {
                 (page) => page.sectionId === sectionId && page.id === pageId,
             );
             if (exact >= 0) return exact;
+
+            // Not a page but a heading somewhere inside one — where a link
+            // from another section (`01-context.md#intake-criteria`) points.
+            const holder = this.#headingIndex.get(`${sectionId}:${pageId}`);
+            if (holder !== undefined) {
+                this.#pendingHeadingId = pageId;
+                return holder;
+            }
         }
 
         const first = this.#flatPages.findIndex(
@@ -532,10 +555,24 @@ export default class Docs extends Page {
 
     #goToPage(index: number, push = true) {
         if (index < 0 || index >= this.#flatPages.length) return;
-        if (index === this.#currentIndex) return;
+        if (index === this.#currentIndex) {
+            // Already on the page; a link to a heading further down it only
+            // has to scroll there.
+            const heading = this.#pendingHeadingId;
+            this.#pendingHeadingId = null;
+            this.#scrollToHeading(heading);
+            if (heading) this.#setUrl(this.#flatPages[index], false);
+            return;
+        }
 
         const target = this.#flatPages[index];
         this.#currentIndex = index;
+
+        // Taken now: the menu and the URL updates below both re-enter this
+        // method for the page already being shown, and that path consumes a
+        // pending heading of its own.
+        const heading = this.#pendingHeadingId;
+        this.#pendingHeadingId = null;
 
         if (this.#renderedSectionId !== target.sectionId) {
             this.#renderSection(target.sectionId);
@@ -556,9 +593,6 @@ export default class Docs extends Page {
         this.#renderPager(index);
         this.#syncMenu(index, headings);
         this.#setUrl(target, push);
-
-        const heading = this.#pendingHeadingId;
-        this.#pendingHeadingId = null;
 
         // A new page starts at its top, unless the reader followed a link to
         // something further down it.
@@ -636,6 +670,7 @@ export default class Docs extends Page {
         this.#viewer = this.addComponent(
             new MarkdownRenderer(document.getElementById("docs-content")!),
         );
+        this.#viewer.setLinkResolver(this.#resolveLink);
 
         this.#buildModel();
 

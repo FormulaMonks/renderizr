@@ -41,7 +41,7 @@ It renders a workspace. It does not define one — the model, the views and the 
 
 - **Every view**, listed down the side: landscape, context, container, component, dynamic, deployment, image, filtered and custom — each with its own mark and key.
 - **The real Structurizr renderer**, vendored from [structurizr/structurizr](https://github.com/structurizr/structurizr), not a PlantUML export. Diagrams pan and zoom, dynamic views play back, labels toggle.
-- **Workspace documentation** as pages, with a table of contents and heading anchors. Markdown gets GitHub-style alerts, permalinks and highlighting; AsciiDoc is converted, not dumped as `:toc:` noise.
+- **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions (`02-containers.md#api`, `../decisions/0005-foo.md`) open the matching page; a link to a file the workspace doesn't include is shown as plain text. Markdown gets GitHub-style alerts, permalinks and highlighting; AsciiDoc is converted, not dumped as `:toc:` noise.
 - **The decision log**: status pills, supersessions and amendments, grouped by year, headed by how many are recorded and how many still stand.
 - **Light and dark**, following the reader's system setting until they override it. Page and diagrams keep separate preferences.
 - **Deep links that survive**: routing lives in the URL hash, so a link to a view, document or decision still works after a reload, over `file://`, and inside a sandboxed frame.

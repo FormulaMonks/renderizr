@@ -1,3 +1,4 @@
+import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import type { Decision } from "../types/structurizr-documentation";
@@ -53,13 +54,16 @@ export default class Decisions extends Page {
     // classes, so `components.get("Menu")` is undefined in a built file — which
     // is why every link out of the summary used to do nothing.
     #menu: Menu<Decision> | null = null;
+    #resolveLink: LinkResolver | null;
 
     constructor(
         container: HTMLElement | null = null,
         name = "Decisions",
         decisions: Decision[] = [],
+        resolveLink: LinkResolver | null = null,
     ) {
         super(container, name);
+        this.#resolveLink = resolveLink;
         // Newest first, and within the same date the higher number is the
         // later decision.
         this.#decisions = decisions.toSorted((a, b) => {
@@ -135,13 +139,18 @@ export default class Decisions extends Page {
      * there. Delegated, because the anchor's text may be the click target.
      */
     #handleDecisionLink = (event: Event) => {
+        // Already handled: the markdown renderer scrolled to a heading.
+        if (event.defaultPrevented) return;
+
         const anchor = (event.target as HTMLElement).closest("a");
         const href = anchor?.getAttribute("href");
-        if (!href?.startsWith("#")) return;
+        // Exactly `#3`, which is how Structurizr rewrites a link between
+        // decisions. A heading anchor that merely starts with a number —
+        // `## 1. Option A` is `#1-option-a` — used to open decision 1.
+        const id = href?.match(/^#(\d+)$/)?.[1];
+        if (!id) return;
 
-        const decision = this.#decisions.find(
-            (d) => d.id === href.slice(1).split(/[^\d]/)[0],
-        );
+        const decision = this.#decisions.find((d) => d.id === id);
         if (!decision) return;
 
         event.preventDefault();
@@ -247,6 +256,7 @@ export default class Decisions extends Page {
         const decisionViewer = this.addComponent(
             new MarkdownRenderer(document.getElementById("decision-content")!),
         );
+        decisionViewer.setLinkResolver(this.#resolveLink);
 
         menu.onSelectionChange((item) => {
             this.#currentDecision = item;
