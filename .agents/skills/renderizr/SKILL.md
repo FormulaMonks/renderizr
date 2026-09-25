@@ -4,6 +4,7 @@ description: Renders a Structurizr workspace as a Claude artifact or a static si
 license: MIT
 compatibility: Requires Node 20 or newer. Nothing else — no JVM, no Docker, no Graphviz, no PlantUML. Renderizr itself is run with `npx` and needs no installation.
 allowed-tools: Bash(npx:*), Bash(node:*)
+disable-model-invocation: true
 metadata:
   author: Andrés Zorro <andres.zorro@monks.com>
   version: 1.0.0
