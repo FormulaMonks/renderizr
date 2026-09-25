@@ -325,6 +325,48 @@ test("a link to something that is not a decision is left alone", () => {
     );
 });
 
+test("a heading anchor that starts with a number does not open that decision", () => {
+    // `## 1. Option A` is `#1-option-a`. Only the first run of digits used to
+    // be read, so following it opened decision 1 instead of scrolling.
+    renderPage([
+        decision("1"),
+        decision("2", {
+            content:
+                "# 2. Second\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nSee [option A](#1-option-a).\n\n## 1. Option A\n\nThis one.\n",
+        }),
+    ]);
+
+    document.querySelector('#adrs-menu a[data-item-id="2"]').click();
+    content().querySelector('a[href="#1-option-a"]').click();
+
+    assert.equal(title().querySelector("h2").textContent, "#2 - Decision 2");
+    assert.deepEqual(
+        document.scrolledIntoView.map((entry) => entry.id),
+        ["1-option-a"],
+    );
+});
+
+test("a relative link to another decision is routed through the resolver", () => {
+    const page = new Decisions(
+        host,
+        "adrs",
+        [
+            decision("1"),
+            decision("2", {
+                content:
+                    "# 2. Second\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nSee [the first](0001-first.md).\n",
+            }),
+        ],
+        (href) => (href === "0001-first.md" ? "#/?page=adrs&adr=1" : undefined),
+    );
+    page.render();
+    dom.runTimers();
+
+    document.querySelector('#adrs-menu a[data-item-id="2"]').click();
+
+    assert.ok(content().querySelector('a[href="#/?page=adrs&adr=1"]'));
+});
+
 /* ------------------------------------------------------- back to summary -- */
 
 test("All decisions returns to the summary and drops the decision from the URL", () => {

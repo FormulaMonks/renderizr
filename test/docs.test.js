@@ -427,6 +427,98 @@ test("a link to a heading on the page being read is left to scroll", () => {
     assert.deepEqual(visible()[0], "H1:Install", "the page has not changed");
 });
 
+test("a URL naming a heading opens the page that holds it and scrolls there", () => {
+    // What a link from another section — `01-guide.md#requirements` — turns
+    // into: the heading is on the Install page, not a page of its own.
+    renderPage();
+    document.scrolledIntoView.length = 0;
+
+    history.push({
+        search: "?page=docs&section=01-guide&subsection=requirements",
+    });
+
+    assert.equal(visible()[0], "H1:Install");
+    // Pages rendered by earlier tests are still listening to the shared
+    // history, so the count is not this page's to pin; the target is.
+    const scrolled = document.scrolledIntoView.map((entry) => entry.id);
+    assert.ok(scrolled.length, "nothing was scrolled into view");
+    assert.ok(
+        scrolled.every((id) => id === "requirements"),
+        `${scrolled}`,
+    );
+    assert.equal(
+        params().get("subsection"),
+        "install",
+        "the URL names the page",
+    );
+});
+
+test("a URL naming a heading on the page being read only scrolls", () => {
+    renderPage();
+    menuItem("Install").click();
+    document.scrolledIntoView.length = 0;
+
+    history.push({
+        search: "?page=docs&section=01-guide&subsection=requirements",
+    });
+
+    assert.equal(visible()[0], "H1:Install");
+    // Pages rendered by earlier tests are still listening to the shared
+    // history, so the count is not this page's to pin; the target is.
+    const scrolled = document.scrolledIntoView.map((entry) => entry.id);
+    assert.ok(scrolled.length, "nothing was scrolled into view");
+    assert.ok(
+        scrolled.every((id) => id === "requirements"),
+        `${scrolled}`,
+    );
+});
+
+test("a heading with an ampersand is a page the menu can open", () => {
+    // Its id used to be percent-encoded, and was encoded again on its way into
+    // the URL, so the page could never be found from its own menu entry.
+    renderPage([
+        {
+            filename: "06-glossary.md",
+            order: 1,
+            title: "Glossary",
+            content:
+                "# Glossary\n\nTerms.\n\n## People & parties\n\nOne.\n\n## Customs & documentation terms\n\nTwo.\n",
+        },
+    ]);
+
+    menuItem("Customs & documentation terms").click();
+
+    assert.deepEqual(visible(), ["H1:Customs & documentation terms", "P:Two."]);
+    assert.equal(params().get("subsection"), "customs--documentation-terms");
+});
+
+test("links between sections are routed through the resolver it was given", () => {
+    const page = new Docs(
+        host,
+        "docs",
+        [
+            {
+                ...GUIDE,
+                content: `${GUIDE.content}\nSee [ops](02-operations.md).\n`,
+            },
+            OPERATIONS,
+        ],
+        (href) =>
+            href === "02-operations.md"
+                ? "#/?page=docs&section=02-operations"
+                : undefined,
+    );
+    page.render();
+    menuItem("Configure").click();
+
+    assert.ok(
+        document.querySelector(
+            '.markdown-renderer a[href="#/?page=docs&section=02-operations"]',
+        ),
+        "the sibling link was not rerouted",
+    );
+});
+
 /* ------------------------------------------------ the committed workspace */
 
 test("the fixture workspace builds one menu entry per section", () => {
