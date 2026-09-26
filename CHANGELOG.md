@@ -21,14 +21,11 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
-## [1.1.1](https://github.com/FormulaMonks/renderizr/compare/v1.1.0...v1.1.1) (2026-09-26)
-
+## [1.1.1](https://github.com/FormulaMonks/renderizr/compare/v1.1.0...v1.1.1) - 2026-09-26
 
 ### Fixed
 
-* **ci:** let release-please parse back its own release pull request ([966f939](https://github.com/FormulaMonks/renderizr/commit/966f939659c7f447ac9897d0c379db3e678ceb1d))
 * **ci:** let release-please parse back its own release pull request ([6fb83d9](https://github.com/FormulaMonks/renderizr/commit/6fb83d91899f4a6b320d009bc50f0fb5895f476f))
-* make documentation links followable and stop tables overflowing ([f6879e3](https://github.com/FormulaMonks/renderizr/commit/f6879e349ddda180f56128cc186921fe05716c42))
 * make documentation links followable and stop tables overflowing ([937b751](https://github.com/FormulaMonks/renderizr/commit/937b751433ad59ad2e4c75c1c3e7a1f7797b8f30))
 * **skill:** only load the renderizr skill when the user invokes it ([ce03757](https://github.com/FormulaMonks/renderizr/commit/ce0375754e2262be1e662137946635c60cc50201))
 
