@@ -7,7 +7,7 @@ allowed-tools: Bash(npx:*), Bash(node:*)
 disable-model-invocation: true
 metadata:
   author: Andrés Zorro <andres.zorro@monks.com>
-  version: 1.0.0
+  version: 1.1.1
 ---
 
 # Renderizr — a Structurizr workspace as one shareable file
