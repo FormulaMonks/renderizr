@@ -1,0 +1,101 @@
+<title>Artifact CSP Probe</title>
+<script>
+  // Registered before anything else on the page so that a violation raised by
+  // the <style> element or the style attribute below is caught.
+  window.__violations = [];
+  document.addEventListener("securitypolicyviolation", function (e) {
+    window.__violations.push({
+      directive: e.effectiveDirective || e.violatedDirective,
+      blocked: e.blockedURI,
+      sample: (e.sample || "").slice(0, 60),
+      line: e.lineNumber,
+    });
+  });
+</script>
+<style>
+  /* Layout: one column of probe results, each a labelled row. */
+  :root {
+    --bg: #f6f7f4;
+    --fg: #1f2420;
+    --muted: #5d665f;
+    --accent: #2f6f5e;
+    --rule: #d9ded9;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161a17; --fg: #e8ece8; --muted: #9aa49c; --accent: #7fc4ad; --rule: #2d342f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161a17; --fg: #e8ece8; --muted: #9aa49c; --accent: #7fc4ad; --rule: #2d342f;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--sans); padding-block: 24px; padding-inline: 16px; }
+  main { max-width: 56rem; margin: 0 auto; display: grid; gap: 16px; }
+  h1 { font-size: 1.25rem; margin: 0; text-wrap: balance; }
+  p { margin: 0; color: var(--muted); max-width: 65ch; }
+  pre { font-family: var(--mono); font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; border-top: 1px solid var(--rule); padding-top: 12px; margin: 0; min-width: 0; }
+  #probe-marker { color: var(--accent); }
+</style>
+<main>
+  <h1>Artifact CSP Probe</h1>
+  <p>Each line below is one thing a React Flow island does at runtime, and whether this host's Content Security Policy let it happen.</p>
+  <div id="probe-attr" style="color: rgb(1, 2, 3)">inline style attribute in markup</div>
+  <div id="probe-cssom">style set through the CSSOM (element.style.transform)</div>
+  <div id="probe-setattr">style set through setAttribute("style")</div>
+  <div id="probe-marker">this text is coloured by the inline &lt;style&gt; element</div>
+  <pre id="out">running…</pre>
+</main>
+<script>
+  (async function () {
+    var out = {};
+    var attr = document.getElementById("probe-attr");
+    out.inlineStyleAttributeApplied = getComputedStyle(attr).color === "rgb(1, 2, 3)";
+
+    var cssom = document.getElementById("probe-cssom");
+    cssom.style.transform = "translate(3px, 4px)";
+    out.cssomStyleApplied = getComputedStyle(cssom).transform !== "none";
+
+    var setattr = document.getElementById("probe-setattr");
+    setattr.setAttribute("style", "color: rgb(4, 5, 6)");
+    out.setAttributeStyleApplied = getComputedStyle(setattr).color === "rgb(4, 5, 6)";
+
+    var marker = document.getElementById("probe-marker");
+    out.styleElementApplied = getComputedStyle(marker).color !== getComputedStyle(document.body).color;
+
+    out.inlineScriptRan = true;
+    out.origin = location.origin;
+    out.ancestorOrigins = Array.from(location.ancestorOrigins || []);
+    out.inIframe = window.top !== window.self;
+
+    try {
+      var w = new Worker(URL.createObjectURL(new Blob(["self.postMessage(1)"], { type: "text/javascript" })));
+      out.blobWorker = await new Promise(function (resolve) {
+        var t = setTimeout(function () { resolve("timeout"); }, 1500);
+        w.onmessage = function () { clearTimeout(t); resolve("ok"); };
+        w.onerror = function (e) { clearTimeout(t); resolve("error: " + (e.message || "")); };
+      });
+    } catch (e) { out.blobWorker = "threw: " + e; }
+
+    try {
+      var r = await fetch(location.href, { cache: "no-store" });
+      out.selfFetch = r.status;
+      out.cspHeader = r.headers.get("content-security-policy") || "(not exposed to script)";
+    } catch (e) { out.selfFetch = "threw: " + String(e).slice(0, 80); }
+
+    try {
+      var r2 = await fetch("https://example.com/", { mode: "no-cors" });
+      out.externalFetch = "allowed (" + r2.type + ")";
+    } catch (e) { out.externalFetch = "blocked: " + String(e).slice(0, 60); }
+
+    var meta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    out.metaCsp = meta ? meta.content : null;
+
+    await new Promise(function (r) { setTimeout(r, 300); });
+    out.violations = window.__violations;
+    document.getElementById("out").textContent = JSON.stringify(out, null, 2);
+  })();
+</script>
