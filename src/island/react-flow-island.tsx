@@ -6,9 +6,10 @@
  * page beyond the box it is mounted in.
  *
  * In scope: Box, Person and Cylinder shapes, one software system boundary as a
- * parent node, straight floating edges with their labels, React Flow's own fit
- * and zoom. Everything else (other shapes, routing, vertices, label position,
- * opacity, themes, icons) is ignored on purpose.
+ * parent node, floating edges with their labels in each of React Flow's path
+ * styles, the light and dark colour schemes, React Flow's own fit and zoom.
+ * Everything else (other shapes, vertices, label position, opacity, themes,
+ * icons) is ignored on purpose.
  */
 import {
     BaseEdge,
@@ -24,13 +25,23 @@ import {
     Position,
     ReactFlow,
     ReactFlowProvider,
+    getBezierPath,
+    getSimpleBezierPath,
+    getSmoothStepPath,
+    getStraightPath,
     useInternalNode,
     useNodesInitialized,
     useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./react-flow-island.css";
-import { useEffect, useImperativeHandle, type Ref } from "react";
+import {
+    type CSSProperties,
+    useEffect,
+    useImperativeHandle,
+    useMemo,
+    type Ref,
+} from "react";
 import { createRoot } from "react-dom/client";
 
 /* ------------------------------------------------------------------------ */
@@ -61,37 +72,74 @@ type ModelRelationship = {
 type ElementStyle = {
     width: number;
     height: number;
-    background: string;
-    color: string;
+    background?: string;
+    color?: string;
     stroke?: string;
     fontSize: number;
     shape: string;
 };
 
+type ResolvedElementStyle = Required<ElementStyle>;
+
 type RelationshipStyle = {
-    color: string;
+    color?: string;
     thickness: number;
     fontSize: number;
     width: number;
     dashed: boolean;
+    routing: "Direct" | "Orthogonal" | "Curved";
 };
+
+export type ColorScheme = "light" | "dark";
+
+/**
+ * What a colour scheme changes, per `structurizr-ui.js`: the paper, and the
+ * defaults for anything a style leaves unset. Workspace colours themselves are
+ * never shifted; a workspace that wants different colours in the dark says so
+ * with `colorScheme: "Dark"` styles.
+ */
+const SCHEMES = {
+    light: { canvas: "#ffffff", background: "#ffffff", color: "#444444" },
+    dark: { canvas: "#111111", background: "#111111", color: "#cccccc" },
+} as const;
 
 /** Structurizr's defaults for anything a tag style does not override. */
 const DEFAULT_ELEMENT_STYLE: ElementStyle = {
     width: 450,
     height: 300,
-    background: "#dddddd",
-    color: "#000000",
     fontSize: 24,
     shape: "Box",
 };
 
 const DEFAULT_RELATIONSHIP_STYLE: RelationshipStyle = {
-    color: "#707070",
     thickness: 2,
     fontSize: 24,
     width: 200,
     dashed: true,
+    routing: "Direct",
+};
+
+/**
+ * React Flow's path helpers, all of which this edge can draw. `workspace`
+ * means "whatever the relationship's `routing` says", mapped below.
+ */
+export const PATHS = [
+    "workspace",
+    "straight",
+    "step",
+    "smoothstep",
+    "bezier",
+    "simplebezier",
+] as const;
+export type PathStyle = (typeof PATHS)[number];
+
+const PATH_FOR_ROUTING: Record<
+    RelationshipStyle["routing"],
+    Exclude<PathStyle, "workspace">
+> = {
+    Direct: "straight",
+    Orthogonal: "step",
+    Curved: "bezier",
 };
 
 /** The vendored renderer's own ratios and paddings, kept so sizes line up. */
@@ -138,12 +186,22 @@ function indexModel(model: Json) {
     return { elements, relationships };
 }
 
-/** Tag cascade: later tags win, the way Structurizr applies them. */
-function resolveStyle<T>(styles: Json[], tags: string[], defaults: T): T {
+/**
+ * Tag cascade: later tags win, the way Structurizr applies them. A style with
+ * a `colorScheme` only counts in that scheme.
+ */
+function resolveStyle<T>(
+    styles: Json[],
+    tags: string[],
+    defaults: T,
+    scheme: ColorScheme,
+): T {
     const resolved = { ...defaults } as Json;
+    const wanted = scheme === "dark" ? "Dark" : "Light";
     for (const tag of tags) {
         for (const style of styles) {
             if (style.tag !== tag) continue;
+            if (style.colorScheme && style.colorScheme !== wanted) continue;
             for (const [key, value] of Object.entries(style)) {
                 if (key !== "tag" && value !== undefined && value !== null)
                     resolved[key] = value;
@@ -153,12 +211,37 @@ function resolveStyle<T>(styles: Json[], tags: string[], defaults: T): T {
     return resolved as T;
 }
 
-/** A stroke a shade darker than the fill, as Structurizr derives one. */
-function darken(hex: string, amount = 0.15) {
-    const value = Number.parseInt(hex.replace("#", ""), 16);
-    const channel = (shift: number) =>
-        Math.round(((value >> shift) & 0xff) * (1 - amount));
-    return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+/** `structurizr.util.shadeColor`, minus the dark-mode flip nobody passes here. */
+function shadeColor(hex: string, percent: number) {
+    const p = Math.min(Math.abs(percent), 90) / 100;
+    const t = percent < 0 ? 0 : 255;
+    const value = Number.parseInt(hex.slice(1), 16);
+    const channel = (shift: number) => {
+        const c = (value >> shift) & 0xff;
+        return Math.round((t - c) * p) + c;
+    };
+    return `#${((1 << 24) + (channel(16) << 16) + (channel(8) << 8) + channel(0)).toString(16).slice(1)}`;
+}
+
+/**
+ * Fill in what the styles left unset, in the order `findElementStyle` does: a
+ * styled background gets a stroke 10% darker in either scheme; anything else
+ * falls back to the scheme's defaults.
+ */
+function completeElementStyle(
+    style: ElementStyle,
+    scheme: ColorScheme,
+): ResolvedElementStyle {
+    const defaults = SCHEMES[scheme];
+    const stroke =
+        style.stroke ??
+        (style.background ? shadeColor(style.background, -10) : defaults.color);
+    return {
+        ...style,
+        background: style.background ?? defaults.background,
+        color: style.color ?? defaults.color,
+        stroke,
+    };
 }
 
 function metadataFor(element: ModelElement) {
@@ -174,12 +257,15 @@ function metadataFor(element: ModelElement) {
 
 type ElementData = {
     element: ModelElement;
-    style: ElementStyle;
+    style: ResolvedElementStyle;
 };
 
 type BoundaryData = {
     element: ModelElement;
     fontSize: number;
+    stroke: string;
+    color: string;
+    background: string;
 };
 
 type ElementNode = Node<ElementData, "element">;
@@ -254,7 +340,7 @@ function ElementOutline({ data }: NodeProps<ElementNode>) {
     const { style } = data;
     const { width, height } = style;
     const fill = style.background;
-    const stroke = style.stroke ?? darken(style.background);
+    const stroke = style.stroke;
 
     switch (style.shape) {
         case "Person": {
@@ -332,8 +418,16 @@ function ElementOutline({ data }: NodeProps<ElementNode>) {
 
 function BoundaryShape({ data, width, height }: NodeProps<BoundaryNode>) {
     return (
-        <div className="rfi-boundary" style={{ width, height }}>
-            <div className="rfi-boundary-label">
+        <div
+            className="rfi-boundary"
+            style={{
+                width,
+                height,
+                borderColor: data.stroke,
+                background: data.background,
+            }}
+        >
+            <div className="rfi-boundary-label" style={{ color: data.color }}>
                 <div
                     className="rfi-name"
                     style={{ fontSize: data.fontSize * NAME_RATIO }}
@@ -352,36 +446,103 @@ function BoundaryShape({ data, width, height }: NodeProps<BoundaryNode>) {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Edges: straight, centre to centre, clipped at each bounding box            */
+/* Edges: floating, from box to box, in any of React Flow's path styles     */
 /* ------------------------------------------------------------------------ */
 
 type RelationshipData = {
     relationship: ModelRelationship;
-    style: RelationshipStyle;
+    style: Required<RelationshipStyle>;
+    path: Exclude<PathStyle, "workspace">;
 };
 
 type RelationshipEdge = Edge<RelationshipData, "relationship">;
 
-function centreOf(node: InternalNode) {
+type Box = { x: number; y: number; width: number; height: number };
+
+function boxOf(node: InternalNode): Box {
     const { x, y } = node.internals.positionAbsolute;
     const width = node.measured.width ?? 0;
     const height = node.measured.height ?? 0;
     return { x: x + width / 2, y: y + height / 2, width, height };
 }
 
-/** Where the line from `from`'s centre towards `to` leaves `from`'s box. */
-function clipToBox(
-    from: ReturnType<typeof centreOf>,
-    to: { x: number; y: number },
-) {
+/**
+ * Where the line from `from`'s centre towards `to` leaves `from`'s box, and
+ * which side it leaves through.
+ */
+function clipToBox(from: Box, to: { x: number; y: number }) {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    if (dx === 0 && dy === 0) return { x: from.x, y: from.y };
-    const scale = Math.min(
-        dx === 0 ? Number.POSITIVE_INFINITY : from.width / 2 / Math.abs(dx),
-        dy === 0 ? Number.POSITIVE_INFINITY : from.height / 2 / Math.abs(dy),
-    );
-    return { x: from.x + dx * scale, y: from.y + dy * scale };
+    const sx =
+        dx === 0 ? Number.POSITIVE_INFINITY : from.width / 2 / Math.abs(dx);
+    const sy =
+        dy === 0 ? Number.POSITIVE_INFINITY : from.height / 2 / Math.abs(dy);
+    const scale = Math.min(sx, sy);
+    const side =
+        sx <= sy
+            ? dx > 0
+                ? Position.Right
+                : Position.Left
+            : dy > 0
+              ? Position.Bottom
+              : Position.Top;
+    if (!Number.isFinite(scale)) return { x: from.x, y: from.y, side };
+    return { x: from.x + dx * scale, y: from.y + dy * scale, side };
+}
+
+/** The middle of one side of a box. */
+function sideMiddle(box: Box, side: Position) {
+    switch (side) {
+        case Position.Left:
+            return { x: box.x - box.width / 2, y: box.y };
+        case Position.Right:
+            return { x: box.x + box.width / 2, y: box.y };
+        case Position.Top:
+            return { x: box.x, y: box.y - box.height / 2 };
+        default:
+            return { x: box.x, y: box.y + box.height / 2 };
+    }
+}
+
+/**
+ * One path, whatever its style. A straight line leaves the box exactly where
+ * the centre-to-centre line crosses it, as Structurizr's `bbox` connection
+ * point does. The step and curve helpers need a side to leave from, so they
+ * start at the middle of the side facing the other box: leaving from an
+ * arbitrary point on the border makes their first segment look broken.
+ */
+function pathBetween(a: Box, b: Box, style: RelationshipData["path"]) {
+    const start = clipToBox(a, b);
+    const end = clipToBox(b, a);
+    if (style === "straight") {
+        return getStraightPath({
+            sourceX: start.x,
+            sourceY: start.y,
+            targetX: end.x,
+            targetY: end.y,
+        });
+    }
+
+    const from = sideMiddle(a, start.side);
+    const to = sideMiddle(b, end.side);
+    const params = {
+        sourceX: from.x,
+        sourceY: from.y,
+        sourcePosition: start.side,
+        targetX: to.x,
+        targetY: to.y,
+        targetPosition: end.side,
+    };
+    switch (style) {
+        case "step":
+            return getSmoothStepPath({ ...params, borderRadius: 0 });
+        case "smoothstep":
+            return getSmoothStepPath({ ...params, borderRadius: 16 });
+        case "bezier":
+            return getBezierPath(params);
+        case "simplebezier":
+            return getSimpleBezierPath(params);
+    }
 }
 
 function FloatingEdge({
@@ -396,21 +557,15 @@ function FloatingEdge({
     const targetNode = useInternalNode(target);
     if (!sourceNode || !targetNode || !data) return null;
 
-    const a = centreOf(sourceNode);
-    const b = centreOf(targetNode);
-    const start = clipToBox(a, b);
-    const end = clipToBox(b, a);
-    const labelX = (start.x + end.x) / 2;
-    const labelY = (start.y + end.y) / 2;
+    const [path, labelX, labelY] = pathBetween(
+        boxOf(sourceNode),
+        boxOf(targetNode),
+        data.path,
+    );
 
     return (
         <>
-            <BaseEdge
-                id={id}
-                path={`M ${start.x},${start.y} L ${end.x},${end.y}`}
-                markerEnd={markerEnd}
-                style={style}
-            />
+            <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
             <EdgeLabelRenderer>
                 <div
                     className="rfi-edge-label"
@@ -449,7 +604,16 @@ const edgeTypes = { relationship: FloatingEdge };
 
 export type Bounds = { x: number; y: number; width: number; height: number };
 
-export function buildFlow(workspace: Json, viewKey: string) {
+export type IslandOptions = {
+    colorScheme: ColorScheme;
+    path: PathStyle;
+};
+
+export function buildFlow(
+    workspace: Json,
+    viewKey: string,
+    { colorScheme, path }: IslandOptions,
+) {
     const views = workspace.views as Json;
     const view = (views.containerViews as Json[] | undefined)?.find(
         (candidate) => candidate.key === viewKey,
@@ -465,10 +629,14 @@ export function buildFlow(workspace: Json, viewKey: string) {
     for (const placed of view.elements as Json[]) {
         const element = elements.get(placed.id as string);
         if (!element) continue;
-        const style = resolveStyle(
-            elementStyles,
-            tagsOf(element),
-            DEFAULT_ELEMENT_STYLE,
+        const style = completeElementStyle(
+            resolveStyle(
+                elementStyles,
+                tagsOf(element),
+                DEFAULT_ELEMENT_STYLE,
+                colorScheme,
+            ),
+            colorScheme,
         );
         // A person is drawn in a square, whatever height its style says.
         const height = style.shape === "Person" ? style.width : style.height;
@@ -491,11 +659,23 @@ export function buildFlow(workspace: Json, viewKey: string) {
         (node) => node.data.element.parentId === system?.id,
     );
     if (system && inside.length) {
-        const fontSize = resolveStyle(
-            elementStyles,
-            tagsOf(system),
-            DEFAULT_ELEMENT_STYLE,
-        ).fontSize;
+        // As the vendored `createBoundary` resolves it: the system's stroke,
+        // the scheme's background as the fill, and the system's text colour
+        // unless that matches the fill, in which case the stroke again. So
+        // white text on dark paper, the system's stroke on light paper.
+        const systemStyle = completeElementStyle(
+            resolveStyle(
+                elementStyles,
+                tagsOf(system),
+                DEFAULT_ELEMENT_STYLE,
+                colorScheme,
+            ),
+            colorScheme,
+        );
+        const { fontSize, stroke } = systemStyle;
+        const background = SCHEMES[colorScheme].background;
+        const color =
+            systemStyle.color === background ? stroke : systemStyle.color;
         const minX = Math.min(...inside.map((n) => n.position.x));
         const minY = Math.min(...inside.map((n) => n.position.y));
         const maxX = Math.max(
@@ -519,7 +699,7 @@ export function buildFlow(workspace: Json, viewKey: string) {
             position: { x, y },
             width: maxX - minX + BOUNDARY_PADDING * 2,
             height: maxY - minY + BOUNDARY_PADDING + bottom,
-            data: { element: system, fontSize },
+            data: { element: system, fontSize, stroke, color, background },
             // Boundaries sit under everything, edges included.
             zIndex: -1,
         });
@@ -536,17 +716,29 @@ export function buildFlow(workspace: Json, viewKey: string) {
     for (const placed of view.relationships as Json[]) {
         const relationship = relationships.get(placed.id as string);
         if (!relationship) continue;
-        const style = resolveStyle(
+        const resolved = resolveStyle(
             relationshipStyles,
             ["Relationship", ...tagsOf(relationship)],
             DEFAULT_RELATIONSHIP_STYLE,
+            colorScheme,
         );
+        const style = {
+            ...resolved,
+            color: resolved.color ?? SCHEMES[colorScheme].color,
+        };
         edges.push({
             id: relationship.id,
             type: "relationship",
             source: relationship.sourceId,
             target: relationship.destinationId,
-            data: { relationship, style },
+            data: {
+                relationship,
+                style,
+                path:
+                    path === "workspace"
+                        ? PATH_FOR_ROUTING[style.routing] ?? "straight"
+                        : path,
+            },
             style: {
                 stroke: style.color,
                 strokeWidth: style.thickness,
@@ -585,16 +777,19 @@ export function buildFlow(workspace: Json, viewKey: string) {
 
 export type IslandHandle = { fit: () => void };
 
-type FlowProps = {
-    nodes: Node[];
-    edges: Edge[];
-    colorMode: "light" | "dark";
+type FlowProps = IslandOptions & {
+    workspace: Json;
+    viewKey: string;
     handle: Ref<IslandHandle>;
 };
 
-function Flow({ nodes, edges, colorMode, handle }: FlowProps) {
+function Flow({ workspace, viewKey, colorScheme, path, handle }: FlowProps) {
     const { fitView } = useReactFlow();
     const initialized = useNodesInitialized();
+    const { nodes, edges } = useMemo(
+        () => buildFlow(workspace, viewKey, { colorScheme, path }),
+        [workspace, viewKey, colorScheme, path],
+    );
 
     // React Flow fits once against whatever size it measured at mount, and
     // never again; the page's own width observer drives every later fit.
@@ -611,7 +806,14 @@ function Flow({ nodes, edges, colorMode, handle }: FlowProps) {
             edges={edges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            colorMode={colorMode}
+            // Only flips React Flow's own chrome (controls, pane); every colour
+            // in the diagram comes from the scheme-aware styles above.
+            colorMode={colorScheme}
+            style={
+                {
+                    "--xy-background-color": SCHEMES[colorScheme].canvas,
+                } as CSSProperties
+            }
             nodeOrigin={[0, 0]}
             fitView
             minZoom={0.05}
@@ -632,25 +834,40 @@ function Flow({ nodes, edges, colorMode, handle }: FlowProps) {
 
 /**
  * Mount the island into `target`, which must already have a size. Returns the
- * handle the page uses to refit, and the unmount the page must call before it
- * wipes the DOM.
+ * handle the page uses to refit and to change the colour scheme or path style
+ * in place, and the unmount the page must call before it wipes the DOM.
  */
 export function mountIsland(
     target: HTMLElement,
-    flow: { nodes: Node[]; edges: Edge[] },
-    colorMode: "light" | "dark",
+    workspace: Json,
+    viewKey: string,
+    initial: IslandOptions,
 ) {
     const root = createRoot(target);
     const handle: { current: IslandHandle | null } = { current: null };
+    let options = initial;
 
-    root.render(
-        <ReactFlowProvider>
-            <Flow {...flow} colorMode={colorMode} handle={handle} />
-        </ReactFlowProvider>,
-    );
+    // Rendering the same root again is how React takes new props from
+    // outside: the tree, React Flow's store and the viewport all survive.
+    const render = () =>
+        root.render(
+            <ReactFlowProvider>
+                <Flow
+                    workspace={workspace}
+                    viewKey={viewKey}
+                    {...options}
+                    handle={handle}
+                />
+            </ReactFlowProvider>,
+        );
+    render();
 
     return {
         fit: () => handle.current?.fit(),
+        update: (next: Partial<IslandOptions>) => {
+            options = { ...options, ...next };
+            render();
+        },
         unmount: () => root.unmount(),
     };
 }

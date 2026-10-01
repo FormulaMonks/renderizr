@@ -1,9 +1,17 @@
 import CurrentView, {
     applyDiagramTheme,
     getDiagramTheme,
+    getStoredDiagramTheme,
+    storeDiagramTheme,
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
-import { buildFlow, mountIsland } from "../island/react-flow-island";
+import { onThemeChange } from "../components/theme";
+import {
+    buildFlow,
+    mountIsland,
+    PATHS,
+    type PathStyle,
+} from "../island/react-flow-island";
 import type { Diagram } from "../types/structurizr-diagram";
 import type {
     AutomaticLayout,
@@ -87,18 +95,23 @@ const hasStoredPositions = (view: View) =>
 
 /**
  * PROTOTYPE (#23): `?engine=react-flow` draws one container view with React
- * Flow instead of the vendored engine; `&view=<key>` picks which one.
+ * Flow instead of the vendored engine; `&view=<key>` picks which one and
+ * `&path=<style>` how its edges are drawn.
  */
 const islandRequest = () => {
     const search = new URLSearchParams(window.location.search);
-    return search.get("engine") === "react-flow"
-        ? search.get("view") ?? "Containers"
-        : null;
+    if (search.get("engine") !== "react-flow") return null;
+    const path = search.get("path") as PathStyle | null;
+    return {
+        viewKey: search.get("view") ?? "Containers",
+        path: path && PATHS.includes(path) ? path : ("workspace" as const),
+    };
 };
 
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
     #island: ReturnType<typeof mountIsland> | null = null;
+    #unsubscribeTheme: (() => void) | null = null;
     #stopWaiting: (() => void) | null = null;
     #resizeObserver: ResizeObserver | null = null;
     #refitTimer = 0;
@@ -408,9 +421,9 @@ export default class Diagrams extends Page {
             </div>
         `;
 
-        const islandView = islandRequest();
-        if (islandView) {
-            this.#renderIsland(islandView);
+        const island = islandRequest();
+        if (island) {
+            this.#renderIsland(island.viewKey, island.path);
             return;
         }
 
@@ -556,16 +569,69 @@ export default class Diagrams extends Page {
      * wired to it, because there is no diagram contract yet for the view
      * drawer and toolbar to drive.
      */
-    #renderIsland(viewKey: string) {
+    #renderIsland(viewKey: string, path: PathStyle) {
         const target = document.getElementById(
             "structurizr-diagram-target",
         ) as HTMLElement;
+        let colorScheme = getDiagramTheme();
+
+        // A stand-in for the real toolbar, which is wired to the vendored
+        // engine: just the two things this prototype is validating.
         const current = document.getElementById("structurizr-current-view");
         if (current) {
-            current.textContent = `React Flow prototype (#23): view "${viewKey}", stored layout only.`;
+            const options = PATHS.map(
+                (option) =>
+                    `<option value="${option}"${option === path ? " selected" : ""}>${
+                        option === "workspace" ? "workspace routing" : option
+                    }</option>`,
+            ).join("");
+            current.innerHTML = `
+                <p>React Flow prototype (#23): view "${viewKey}", stored layout only.</p>
+                <div class="rfi-toolbar">
+                    <label>Edges <select name="path">${options}</select></label>
+                    <button type="button" name="scheme"></button>
+                </div>
+            `;
         }
+        const select =
+            current?.querySelector<HTMLSelectElement>("select[name=path]");
+        const toggle = current?.querySelector<HTMLButtonElement>(
+            "button[name=scheme]",
+        );
 
-        const flow = buildFlow(workspaceData, viewKey);
+        // The same rules as `CurrentView`: the diagram follows the page until
+        // the reader picks a diagram scheme, and from then on keeps its own.
+        const setScheme = (next: typeof colorScheme) => {
+            colorScheme = next;
+            applyDiagramTheme(next);
+            this.#island?.update({ colorScheme: next });
+            if (toggle) {
+                toggle.textContent =
+                    next === "dark" ? "Light diagram" : "Dark diagram";
+            }
+        };
+        setScheme(colorScheme);
+        toggle?.addEventListener("click", () => {
+            const next = colorScheme === "dark" ? "light" : "dark";
+            storeDiagramTheme(next);
+            setScheme(next);
+        });
+        this.#unsubscribeTheme = onThemeChange((resolved) => {
+            if (getStoredDiagramTheme()) return;
+            setScheme(resolved);
+        });
+
+        select?.addEventListener("change", () => {
+            const next = select.value as PathStyle;
+            this.#island?.update({ path: next });
+            // Kept in the address so a reload, or a link, shows the same thing.
+            const url = new URL(window.location.href);
+            url.searchParams.set("path", next);
+            window.history.replaceState(window.history.state, "", url);
+        });
+
+        // Geometry only; the bounds do not depend on scheme or path style.
+        const flow = buildFlow(workspaceData, viewKey, { colorScheme, path });
         target.innerHTML = "";
 
         // The same proportional sizing the vendored path does, from the
@@ -588,7 +654,10 @@ export default class Diagrams extends Page {
 
         this.#stopWaiting = whenMeasurable(target, () => {
             size();
-            this.#island = mountIsland(target, flow, getDiagramTheme());
+            this.#island = mountIsland(target, workspaceData, viewKey, {
+                colorScheme,
+                path,
+            });
 
             this.#resizeObserver = new ResizeObserver(([entry]) => {
                 const width = Math.round(entry.contentRect.width);
@@ -607,6 +676,8 @@ export default class Diagrams extends Page {
         // outlive the page.
         this.#island?.unmount();
         this.#island = null;
+        this.#unsubscribeTheme?.();
+        this.#unsubscribeTheme = null;
         this.#stopWaiting?.();
         this.#stopWaiting = null;
         this.#resizeObserver?.disconnect();
