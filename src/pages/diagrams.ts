@@ -3,6 +3,7 @@ import CurrentView, {
     getDiagramTheme,
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
+import { buildFlow, mountIsland } from "../island/react-flow-island";
 import type { Diagram } from "../types/structurizr-diagram";
 import type {
     AutomaticLayout,
@@ -84,8 +85,20 @@ const hasStoredPositions = (view: View) =>
         }),
     );
 
+/**
+ * PROTOTYPE (#23): `?engine=react-flow` draws one container view with React
+ * Flow instead of the vendored engine; `&view=<key>` picks which one.
+ */
+const islandRequest = () => {
+    const search = new URLSearchParams(window.location.search);
+    return search.get("engine") === "react-flow"
+        ? search.get("view") ?? "Containers"
+        : null;
+};
+
 export default class Diagrams extends Page {
     #diagram: Diagram | null = null;
+    #island: ReturnType<typeof mountIsland> | null = null;
     #stopWaiting: (() => void) | null = null;
     #resizeObserver: ResizeObserver | null = null;
     #refitTimer = 0;
@@ -395,6 +408,12 @@ export default class Diagrams extends Page {
             </div>
         `;
 
+        const islandView = islandRequest();
+        if (islandView) {
+            this.#renderIsland(islandView);
+            return;
+        }
+
         this.#stopWaiting = whenMeasurable(
             document.getElementById(
                 "structurizr-diagram-target",
@@ -532,8 +551,62 @@ export default class Diagrams extends Page {
         );
     }
 
+    /**
+     * PROTOTYPE (#23). The island owns the target; nothing else on the page is
+     * wired to it, because there is no diagram contract yet for the view
+     * drawer and toolbar to drive.
+     */
+    #renderIsland(viewKey: string) {
+        const target = document.getElementById(
+            "structurizr-diagram-target",
+        ) as HTMLElement;
+        const current = document.getElementById("structurizr-current-view");
+        if (current) {
+            current.textContent = `React Flow prototype (#23): view "${viewKey}", stored layout only.`;
+        }
+
+        const flow = buildFlow(workspaceData, viewKey);
+        target.innerHTML = "";
+
+        // The same proportional sizing the vendored path does, from the
+        // view's own bounds instead of the engine's paper.
+        const size = () => {
+            const available = target.clientWidth;
+            if (available <= 0) return;
+            const atFullWidth =
+                (available * flow.bounds.height) / flow.bounds.width;
+            const footer =
+                document.getElementById("disclaimer")?.offsetHeight ?? 0;
+            const onScreen = Math.max(
+                MIN_CANVAS_HEIGHT,
+                window.innerHeight -
+                    (target.getBoundingClientRect().top + window.scrollY) -
+                    footer,
+            );
+            target.style.height = `${Math.round(Math.min(atFullWidth, onScreen))}px`;
+        };
+
+        this.#stopWaiting = whenMeasurable(target, () => {
+            size();
+            this.#island = mountIsland(target, flow, getDiagramTheme());
+
+            this.#resizeObserver = new ResizeObserver(([entry]) => {
+                const width = Math.round(entry.contentRect.width);
+                if (width === this.#lastWidth) return;
+                this.#lastWidth = width;
+                size();
+                requestAnimationFrame(() => this.#island?.fit());
+            });
+            this.#resizeObserver.observe(target);
+        });
+    }
+
     clear() {
         this.removeAllComponents();
+        // Before the DOM goes, or the fiber tree and React Flow's listeners
+        // outlive the page.
+        this.#island?.unmount();
+        this.#island = null;
         this.#stopWaiting?.();
         this.#stopWaiting = null;
         this.#resizeObserver?.disconnect();
