@@ -46,7 +46,8 @@ yarn.lock
 !/.agents/skills
 /.agents/skills/*
 !/.agents/skills/renderizr
-/.claude/
+/.claude/*
+!/.claude/rules/
 /.playwright-mcp/
 /skills-lock.json
 
@@ -65,3 +66,6 @@ yarn.lock
 *.sln
 *.sw?
 *.dot*
+
+# Specs live in GitHub issues; local drafts stay out of the repo
+/architecture/docs/specs/

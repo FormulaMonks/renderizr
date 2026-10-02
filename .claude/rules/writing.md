@@ -1,0 +1,19 @@
+---
+paths:
+  - "**/*.md"
+---
+
+# Writing Markdown documentation
+
+How to write every Markdown file in this repo: ADRs, pages in `architecture/docs/` and `docs/`, the README, the glossary and these rules. ADRs follow `adr-guidelines.md` on top of this. Issue and pull request bodies live outside the repo and may reference tickets freely.
+
+## Style
+
+- **Write in the imperative, plainly.** State decisions as instructions: "Use Dagre for automatic layout", "Derive every boundary from its children". Prefer short sentences and common words. Lead with the point; put the reasoning after it.
+- **Leave out ticket references.** No `#123`, no issue or pull request links, no "decided on the map". A document should stand on its own long after the tracker has moved on. Say what was found or measured instead of pointing at where. Links to other documents in the repo (another ADR, the glossary, a spec section) are fine.
+- **Say what something is, and stop.** Avoid contrast built on a negation: "semantics, not pixels", "it's X, not Y", "Direct means as straight as possible, not straight regardless". Write the positive statement on its own ("Honour workspace semantics"). When a rejected alternative matters, give it its own sentence under the alternatives considered.
+- **Name things by what they are.** Call a system, component or approach by its name ("the React Flow engine", "the vendored Structurizr renderer"), and avoid labels that only say when it arrived: "new", "old", "next", "current", "upcoming", "legacy". Those go stale the moment the change lands, and the document then misleads. The same goes for flags and identifiers: `--engine react-flow` stays accurate, `--engine next` stops being true at cutover.
+- **Use no em dashes.** Use a colon, a comma, parentheses or a new sentence instead. En dashes are fine for ranges (`1–10`).
+- **Never hard-wrap.** One paragraph per line, one list item per line.
+- **Use the glossary's terms** (`GLOSSARY.md`), and none of the words it lists under _Avoid_.
+
