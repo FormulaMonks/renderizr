@@ -487,3 +487,40 @@ test(
         await rm(alone, { recursive: true, force: true });
     },
 );
+
+test(
+    "--engine react-flow: a view with nothing to draw still counts as painted",
+    { skip: SKIP },
+    async () => {
+        // A view with no elements has nothing to fit, but it is still shown,
+        // so mounting has to resolve and the canvas has to say it is ready.
+        const workspace = JSON.parse(
+            await readFile(fixture("workspace.json"), "utf8"),
+        );
+        workspace.views.systemContextViews.push({
+            key: "FixtureEmpty",
+            order: 3,
+            softwareSystemId: "2",
+            elements: [],
+            relationships: [],
+        });
+        const source = join(SCRATCH, "empty-view.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const out = join(SCRATCH, "react-flow-empty");
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}#/?page=diagrams&view=FixtureEmpty`,
+        );
+
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-view-key"), "FixtureEmpty");
+        assert.equal(canvas.querySelectorAll("[data-element-id]").length, 0);
+        assert.equal(root.getAttribute("data-ready"), "true");
+    },
+);

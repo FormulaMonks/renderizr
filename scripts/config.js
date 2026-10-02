@@ -85,7 +85,6 @@ export function createConfig({
         // The React Flow island is the one place JSX is written.
         esbuild: { jsx: "automatic" },
         define: {
-            __RENDERIZR_ENGINE__: JSON.stringify(engine),
             workspaceData: JSON.stringify(workspace),
             __RENDERIZR_LOGO__: JSON.stringify(logo),
             __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),

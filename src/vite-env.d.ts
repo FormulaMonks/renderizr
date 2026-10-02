@@ -27,9 +27,6 @@ declare const __RENDERIZR_LOGO__: {
 /** Font family supplied via `--font`. */
 declare const __RENDERIZR_FONT__: string | null;
 
-/** The diagram engine this build carries (`--engine`). */
-declare const __RENDERIZR_ENGINE__: "structurizr" | "react-flow";
-
 /** Renderizr's own version, read from package.json at build time. */
 declare const __RENDERIZR_VERSION__: string | null;
 declare const structurizr: {

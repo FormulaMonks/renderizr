@@ -18,9 +18,9 @@ import {
     type WorkspaceModel,
 } from "../../model/index";
 
-export type ColorScheme = "light" | "dark";
+import type { ColorScheme, Labels } from "../contract";
 
-export type Labels = { descriptions: boolean; technologies: boolean };
+export type { ColorScheme, Labels };
 
 export type Point = { x: number; y: number };
 

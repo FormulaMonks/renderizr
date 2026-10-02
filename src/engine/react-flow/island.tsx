@@ -342,9 +342,11 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
     }, [key]);
 
     // Fit on every view change and container resize until the reader moves.
+    // A view with nothing drawable has nothing to fit, but is still painted.
+    const empty = bounds !== undefined && !(bounds.width > 0);
     useEffect(() => {
-        if (!fitted || key === undefined) return;
-        if (!moved.current) flow.setViewport(fitted);
+        if (key === undefined || (!fitted && !empty)) return;
+        if (fitted && !moved.current) flow.setViewport(fitted);
         if (painted.current === key) return;
         // The next frame is when the view is on screen. A hidden tab, or a
         // headless browser on virtual time, may never produce one; the
@@ -362,7 +364,7 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
         };
-    }, [fitted, key, flow, onPainted]);
+    }, [fitted, empty, key, flow, onPainted]);
 
     return (
         <div

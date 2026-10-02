@@ -150,13 +150,11 @@ test("the Structurizr engine is the default, and the only one bundling the vendo
     const config = createConfig({ workspace: WORKSPACE });
     assert.ok(pluginNames(config).includes("renderizr:structurizr-renderer"));
     assert.ok(pluginNames(config).includes("renderizr:engine"));
-    assert.equal(config.define.__RENDERIZR_ENGINE__, '"structurizr"');
 });
 
 test("--engine react-flow bundles the React Flow engine instead", () => {
     const config = createConfig({ workspace: WORKSPACE, engine: "react-flow" });
     assert.ok(!pluginNames(config).includes("renderizr:structurizr-renderer"));
-    assert.equal(config.define.__RENDERIZR_ENGINE__, '"react-flow"');
     assert.equal(config.esbuild.jsx, "automatic");
 });
 
