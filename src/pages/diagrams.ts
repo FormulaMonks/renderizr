@@ -3,6 +3,7 @@ import CurrentView, {
     getDiagramTheme,
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
+import { WorkspaceModel } from "../model";
 import type { Diagram } from "../types/structurizr-diagram";
 import type {
     AutomaticLayout,
@@ -381,6 +382,10 @@ export default class Diagrams extends Page {
         // the page theme: diagrams keep their own.
         applyDiagramTheme(getDiagramTheme());
 
+        // The toolbar and the view drawer read view lists and titles from the
+        // typed model; the vendored renderer still draws the view itself.
+        const model = new WorkspaceModel(workspaceData);
+
         this.container.classList.add(styles.pageContent);
 
         this.container.innerHTML = `
@@ -470,7 +475,7 @@ export default class Diagrams extends Page {
                                             "#structurizr-diagram-navigation",
                                         ) as HTMLElement,
                                         this.#diagram,
-                                        structurizr.workspace.getViews(),
+                                        model,
                                     ),
                                 );
 
@@ -485,6 +490,7 @@ export default class Diagrams extends Page {
                                             zoomIn: this.zoomIn,
                                             zoomOut: this.zoomOut,
                                         },
+                                        model,
                                     ),
                                 );
 

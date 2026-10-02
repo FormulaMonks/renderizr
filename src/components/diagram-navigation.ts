@@ -1,6 +1,6 @@
 import { readSetting, writeSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
-import type { View } from "../types/structurizr-workspace";
+import type { ModelView, WorkspaceModel } from "../model";
 import collapseIcon from "../../vendor/structurizr/bootstrap-icons/arrow-bar-left.svg?raw";
 import expandIcon from "../../vendor/structurizr/bootstrap-icons/arrow-bar-right.svg?raw";
 import componentIcon from "../../vendor/structurizr/bootstrap-icons/box-seam.svg?raw";
@@ -73,16 +73,18 @@ const SCROLL_KEY = "renderizr:diagramDrawerScroll";
 
 export default class DiagramNavigation extends Component {
     #diagram: Diagram;
-    #navElements: View[] = [];
+    #model: WorkspaceModel;
+    #navElements: ModelView[] = [];
     #eventListeners: Map<string, (event: Event) => void> = new Map();
     #unlisten: (() => void) | null = null;
     #collapsed = readSetting(COLLAPSED_KEY) === "true";
     #list: HTMLElement | null = null;
 
-    constructor(element: HTMLElement, diagram: Diagram, navElements: View[]) {
+    constructor(element: HTMLElement, diagram: Diagram, model: WorkspaceModel) {
         super(element);
         this.#diagram = diagram;
-        this.#navElements = navElements;
+        this.#model = model;
+        this.#navElements = model.getViews();
     }
 
     #items() {
@@ -217,10 +219,10 @@ export default class DiagramNavigation extends Component {
                 <ul>
                     ${this.#navElements
                         .map((view) => {
-                            // getTitleForView prefixes a bracketed kind when a
+                            // A view title may prefix a bracketed kind when a
                             // view has no title of its own; the icon already
                             // says which kind it is.
-                            const title = structurizr.ui.getTitleForView(view);
+                            const title = this.#model.getTitleForView(view);
                             const name =
                                 title.replace(/^\[([^\]]+)\]\s*/, "").trim() ||
                                 title.replace(/[[\]]/g, "");
