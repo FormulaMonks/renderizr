@@ -5,21 +5,21 @@ CONTRIBUTING.md is the long version of everything below: https://github.com/Form
 
 ## What this changes
 
-<!-- One or two sentences. Link the issue it closes: "Closes #123". -->
+<!-- What the change is about and why it was needed, in one short paragraph. Link the issue it closes: "Closes #123". -->
 
-## Why
-
-<!-- The behavior that was wrong, or the thing that was impossible before. -->
-
-## How to see it
+## How to verify it
 
 <!--
-For anything touching the renderer, the build pipeline or the output, paste the command a reviewer should run and say what to look at. For example:
+What a reviewer can see or try to know the change works: how to run it, where to go, what to do and what they should notice. Say what should look the same as before, too. Not "tests pass": CI already says that. For example:
 
     pnpm build architecture/workspace.json --single-file
     # then open structurizr-output/index.html in a browser — it needs no server
 
 Screenshots or a before/after pair help a lot for visual changes. -->
+
+## Additional notes
+
+<!-- Behaviour changes a reader might notice, follow-up work left out on purpose, decisions taken along the way. Write "None." rather than deleting the section. -->
 
 ## Checklist
 
