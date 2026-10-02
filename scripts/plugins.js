@@ -17,6 +17,32 @@ export const RENDERER_FILES = [
     "structurizr-diagram.js",
 ];
 
+const SRC_DIR = fileURLToPath(new URL("../src/", import.meta.url));
+
+/** Each engine's entry module, which `virtual:renderizr-engine` resolves to. */
+export const ENGINE_ENTRIES = {
+    structurizr: "engine/structurizr-entry.ts",
+    "react-flow": "engine/react-flow-entry.ts",
+};
+
+const ENGINE_ID = "virtual:renderizr-engine";
+
+/**
+ * Points `virtual:renderizr-engine` at the chosen engine's entry module, so a
+ * build carries exactly one engine and the other is never even parsed
+ * (ADR 12).
+ */
+export function engineEntry(engine) {
+    const entry = resolve(SRC_DIR, ENGINE_ENTRIES[engine]);
+    return {
+        name: "renderizr:engine",
+        enforce: "pre",
+        resolveId(id) {
+            return id === ENGINE_ID ? entry : null;
+        },
+    };
+}
+
 const VIRTUAL_ID = "virtual:structurizr-renderer";
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
 

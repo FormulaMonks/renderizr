@@ -7,6 +7,12 @@ declare module "virtual:structurizr-renderer" {
     export default source;
 }
 
+declare module "virtual:renderizr-engine" {
+    export const loadEngine: () => Promise<
+        import("./engine/entry").EngineEntry
+    >;
+}
+
 declare const workspaceData: Record<string, unknown>;
 
 /** Logo supplied via `--logo`, already embedded as a data URI. */
@@ -20,6 +26,9 @@ declare const __RENDERIZR_LOGO__: {
 
 /** Font family supplied via `--font`. */
 declare const __RENDERIZR_FONT__: string | null;
+
+/** The diagram engine this build carries (`--engine`). */
+declare const __RENDERIZR_ENGINE__: "structurizr" | "react-flow";
 
 /** Renderizr's own version, read from package.json at build time. */
 declare const __RENDERIZR_VERSION__: string | null;

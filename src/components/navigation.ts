@@ -1,4 +1,10 @@
 import type { Workspace } from "../types/structurizr-workspace";
+
+/** What the header reads off the workspace, whichever engine loaded it. */
+export type WorkspaceSummary = Pick<
+    Workspace,
+    "name" | "description" | "version" | "lastModifiedDate" | "documentation"
+>;
 import history from "history/hash";
 import Component from "./_component";
 import styles from "./navigation.module.css";
@@ -24,10 +30,10 @@ const THEME_LABEL: Record<ThemeMode, string> = {
 };
 
 export default class Navigation extends Component {
-    #workspace: Workspace;
+    #workspace: WorkspaceSummary;
     #unsubscribeTheme: (() => void) | null = null;
 
-    constructor(element: HTMLElement, workspace: Workspace) {
+    constructor(element: HTMLElement, workspace: WorkspaceSummary) {
         super(element);
         this.#workspace = workspace;
     }
@@ -126,7 +132,7 @@ export default class Navigation extends Component {
                                 : logoImg
                             : ""
                     }
-                    <h1 class="${styles.workspaceTitle}">${structurizr.workspace.name}</h1>
+                    <h1 class="${styles.workspaceTitle}">${this.#workspace.name}</h1>
                 </div>
                 <section>
                     <p>${this.#workspace.description}</p>

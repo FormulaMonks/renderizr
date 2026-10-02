@@ -16,6 +16,25 @@ import prevStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-start-fi
 import nextStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-end-fill.svg?raw";
 import Component from "./_component";
 
+/** The part of the Structurizr `Diagram` the toolbar drives. */
+export type ToolbarDiagram = Pick<
+    Diagram,
+    | "animationStarted"
+    | "currentViewHasAnimation"
+    | "currentViewIsDynamic"
+    | "getCurrentView"
+    | "isDarkMode"
+    | "onAnimationStarted"
+    | "onAnimationStopped"
+    | "setDarkMode"
+    | "startAnimation"
+    | "stepBackwardInAnimation"
+    | "stepForwardInAnimation"
+    | "stopAnimation"
+    | "toggleDescription"
+    | "toggleMetadata"
+>;
+
 export type DiagramControls = {
     /** Return the diagram to the size the page chose for it. */
     fit: () => void;
@@ -87,7 +106,7 @@ export function applyDiagramTheme(theme: DiagramTheme): void {
 }
 
 /** Visibility of the optional labels Structurizr draws inside elements. */
-type LabelState = {
+export type LabelState = {
     descriptions: boolean;
     technologies: boolean;
 };
@@ -96,12 +115,12 @@ type LabelState = {
  * `structurizr-diagram.js` initializes `descriptionEnabled` and
  * `metadataEnabled` to `true`, so a freshly constructed diagram shows both.
  */
-const STRUCTURIZR_LABEL_DEFAULTS: LabelState = {
+export const STRUCTURIZR_LABEL_DEFAULTS: LabelState = {
     descriptions: true,
     technologies: true,
 };
 
-function readLabelState(): LabelState {
+export function readLabelState(): LabelState {
     const raw = readSetting(DIAGRAM_LABELS_STORAGE_KEY);
     if (!raw) return { ...STRUCTURIZR_LABEL_DEFAULTS };
 
@@ -127,7 +146,7 @@ function writeLabelState(state: LabelState): void {
 }
 
 export default class CurrentView extends Component {
-    #diagram: Diagram;
+    #diagram: ToolbarDiagram;
     #controls: DiagramControls;
     #model: WorkspaceModel;
 
@@ -200,7 +219,7 @@ export default class CurrentView extends Component {
 
     constructor(
         element: HTMLElement,
-        diagram: Diagram,
+        diagram: ToolbarDiagram,
         controls: DiagramControls,
         model: WorkspaceModel,
     ) {
