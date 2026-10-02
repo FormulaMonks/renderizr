@@ -5,7 +5,7 @@ How the engineering skills should consume this repo's domain documentation when 
 ## Before exploring, read these
 
 - **`GLOSSARY.md`** at the repo root.
-- **`architecture/decisions/`**: read ADRs that touch the area you're about to work in.
+- **`architecture/decisions/`**: read ADRs that touch the area you're about to work in. Writing or editing one follows `adr-guidelines.md`.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
@@ -20,19 +20,9 @@ Single-context repo:
 │   ├── workspace.dsl          ← `!adrs decisions` imports the folder below
 │   └── decisions/
 │       ├── 0001-record-architecture-decisions.md
-│       └── 0002-single-file-output.md
+│       └── 0002-draw-diagrams-from-workspace-semantics.md
 └── src/
 ```
-
-## ADR format
-
-`architecture/decisions/` is imported into the Structurizr workspace by `!adrs decisions` in `architecture/workspace.dsl`, so ADRs render in renderizr's own architecture site. Structurizr's default importer expects **adr-tools format**; anything else fails to parse:
-
-- File name: `NNNN-kebab-title.md` (zero-padded, sequential).
-- First line: `# N. Title`.
-- A `Date: YYYY-MM-DD` line.
-- A `## Status` section whose first line is the status (e.g. `Accepted`, `Superseded by [3. ...](0003-....md)`).
-- Then `## Context`, `## Decision`, `## Consequences`.
 
 ## Use the glossary's vocabulary
 
@@ -44,4 +34,4 @@ If the concept you need isn't in the glossary yet, that's a signal: either you'r
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0007 (single-file output), but worth reopening because…_
+> _Contradicts [9. Derive boundaries from their children](architecture/decisions/0009-derive-boundaries-from-their-children.md), but worth reopening because…_
