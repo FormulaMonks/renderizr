@@ -54,20 +54,35 @@ export type ResolvedView = {
     /** Ids of the unplaced elements, in view order. Empty unless `layout` is `unplaced`. */
     unplaced: string[];
     automaticLayout: AutomaticLayoutSettings;
+    /** Set on a filtered view: its base view and the tag filter to apply to it. */
+    filter?: ViewFilter;
     view: ModelView;
+};
+
+export type ViewFilter = {
+    baseViewKey: string;
+    mode: "Include" | "Exclude";
+    tags: string[];
 };
 
 /**
  * Turn a view key into a concrete view: its type, elements with coordinates,
- * relationships, layout settings, title and description. `undefined` when the
- * workspace has no view with that key.
+ * relationships, layout settings, title and description. A filtered view
+ * resolves to its base view's contents under its own key, with `filter` set;
+ * the tags are not applied here. `undefined` when the workspace has no view
+ * with that key, or a filtered view's base is missing.
  */
 export function resolveView(
     model: WorkspaceModel,
     key: string,
 ): ResolvedView | undefined {
-    const view = model.findViewByKey(key);
-    if (!view) return undefined;
+    const requested = model.findViewByKey(key);
+    if (!requested) return undefined;
+    const filtered = requested.type === "Filtered";
+    const view = filtered
+        ? model.findViewByKey(requested.baseViewKey)
+        : requested;
+    if (!view || view.type === "Filtered") return undefined;
 
     const elements: ResolvedElement[] = [];
     for (const placement of view.elements ?? []) {
@@ -110,16 +125,23 @@ export function resolveView(
     const { applied: _applied, ...settings } = view.automaticLayout ?? {};
 
     return {
-        key: view.key,
+        key: requested.key,
         type: view.type,
-        title: model.getTitleForView(view),
-        description: view.description ?? "",
+        title: model.getTitleForView(requested),
+        description: requested.description || view.description || "",
         elements,
         relationships,
         boundaries,
         layout,
         unplaced: layout === "unplaced" ? atOrigin.map((e) => e.id) : [],
         automaticLayout: { ...DEFAULT_AUTOMATIC_LAYOUT, ...settings },
-        view,
+        ...(filtered && {
+            filter: {
+                baseViewKey: view.key,
+                mode: requested.mode === "Include" ? "Include" : "Exclude",
+                tags: (requested.tags as string[] | undefined) ?? [],
+            },
+        }),
+        view: requested,
     };
 }
