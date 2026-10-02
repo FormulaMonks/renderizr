@@ -1,6 +1,6 @@
 import { readSetting, writeSetting } from "../storage";
 import type { Diagram } from "../types/structurizr-diagram";
-import type { View } from "../types/structurizr-workspace";
+import type { WorkspaceModel } from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
 import styles from "./current-view.module.css";
 import lightModeIcon from "../../vendor/structurizr/bootstrap-icons/moon-fill.svg?raw";
@@ -129,6 +129,7 @@ function writeLabelState(state: LabelState): void {
 export default class CurrentView extends Component {
     #diagram: Diagram;
     #controls: DiagramControls;
+    #model: WorkspaceModel;
 
     /**
      * What the reader wants to see. Lives on the component — which survives
@@ -201,10 +202,12 @@ export default class CurrentView extends Component {
         element: HTMLElement,
         diagram: Diagram,
         controls: DiagramControls,
+        model: WorkspaceModel,
     ) {
         super(element);
         this.#diagram = diagram;
         this.#controls = controls;
+        this.#model = model;
 
         // Seed the engine from the persisted preferences before anything is
         // drawn. Both are safe this early: `setDarkMode()` bails out of
@@ -423,16 +426,16 @@ export default class CurrentView extends Component {
     }
 
     render(
-        currentView: View | null = null,
+        currentView: { key: string } | null = null,
         _element?: Record<string, unknown>,
     ) {
         if (!this.element || !currentView) return;
-        const [description, author] = (currentView.description ?? "").split(
-            "Author: ",
-        );
+        const view = this.#model.findViewByKey(currentView.key);
+        if (!view) return;
+        const [description, author] = view.description.split("Author: ");
         // Structurizr's own naming: an explicit title when the view has one,
-        // otherwise "[Container] Internet Banking System" and the like.
-        const title = structurizr.ui.getTitleForView(currentView);
+        // otherwise "Container View: Internet Banking System" and the like.
+        const title = this.#model.getTitleForView(view);
         const match = title.match(/^\[([^\]]+)\]\s*(.*)$/);
         const kind = match?.[1] ?? "";
         // A landscape view has no subject beyond its kind, so the kind is the

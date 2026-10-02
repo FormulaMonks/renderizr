@@ -1,7 +1,12 @@
 {
     "$schema": "https://biomejs.dev/schemas/1.8.1/schema.json",
     "files": {
-        "ignore": ["submodules", "vendor", "architecture"]
+        "ignore": [
+            "submodules",
+            "vendor",
+            "architecture",
+            "test/__fixtures__/big-bank-plc.json"
+        ]
     },
     "organizeImports": {
         "enabled": false
