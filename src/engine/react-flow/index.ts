@@ -80,6 +80,8 @@ export function mountEngine(
             zoomOut: () => commands.zoomOut(),
             onViewShown(callback) {
                 shown.add(callback);
+                // A late subscriber still hears about the view already shown.
+                if (mounted) callback(getCurrentView(), NO_ANIMATION);
                 return () => shown.delete(callback);
             },
             unmount() {

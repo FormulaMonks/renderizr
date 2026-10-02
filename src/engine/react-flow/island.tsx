@@ -278,7 +278,8 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
     const flow = useReactFlow();
     const wrapper = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
-    const [ready, setReady] = useState(false);
+    /** The key of the last view fully painted; `data-ready` is true only for it. */
+    const [readyKey, setReadyKey] = useState<string | null>(null);
     /** Set once the reader zooms or pans; refits on resize stop until `fit()`. */
     const moved = useRef(false);
     const painted = useRef<string | null>(null);
@@ -338,7 +339,6 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
     useEffect(() => {
         if (key === undefined) return;
         moved.current = false;
-        setReady(false);
     }, [key]);
 
     // Fit on every view change and container resize until the reader moves.
@@ -355,7 +355,7 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
             painted.current = key;
-            setReady(true);
+            setReadyKey(key);
             onPainted(key);
         };
         const frame = requestAnimationFrame(done);
@@ -370,7 +370,9 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
         <div
             ref={wrapper}
             data-view-key={key ?? ""}
-            data-ready={ready ? "true" : "false"}
+            data-ready={
+                key !== undefined && readyKey === key ? "true" : "false"
+            }
             style={{
                 width: "100%",
                 height: "100%",

@@ -159,13 +159,13 @@ export default class ReactFlowDiagrams extends Page {
             ),
         );
 
-        // The toolbar follows what the engine has painted, not what was asked.
+        this.renderAllComponents();
+
+        // The toolbar follows what the engine has painted, not what was asked;
+        // subscribing replays the view already on screen.
         this.#unsubscribe = engine.onViewShown((view) =>
             currentView.render(view),
         );
-
-        this.renderAllComponents();
-        currentView.render(engine.getCurrentView());
     }
 
     clear() {
