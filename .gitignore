@@ -46,7 +46,8 @@ yarn.lock
 !/.agents/skills
 /.agents/skills/*
 !/.agents/skills/renderizr
-/.claude/
+/.claude/*
+!/.claude/rules/
 /.playwright-mcp/
 /skills-lock.json
 
