@@ -10,7 +10,7 @@ CONTRIBUTING.md is the long version of everything below: https://github.com/Form
 ## How to verify it
 
 <!--
-Steps a reviewer can follow without reading the diff: the commands to run, the tests that cover the change, and what to look at with the expected result. Say what should look the same as before, too. For example:
+What a reviewer can see or try to know the change works: how to run it, where to go, what to do and what they should notice. Say what should look the same as before, too. Not "tests pass": CI already says that. For example:
 
     pnpm build architecture/workspace.json --single-file
     # then open structurizr-output/index.html in a browser — it needs no server
