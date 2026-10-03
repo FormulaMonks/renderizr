@@ -566,7 +566,7 @@ test("a relationship with vertices is routed through them", () => {
     assert.deepEqual(graph.edges[0].route.slice(1, -1), vertices);
 });
 
-test("jump comes from the view, then the style, and the later edge hops", () => {
+test("jump comes from the view, then the style, and the later edge draws the jump-over", () => {
     // Reader → system runs down the middle; Reviewer → Writer runs across it.
     const crossing = (json) => {
         json.model.people.push({
@@ -591,11 +591,19 @@ test("jump comes from the view, then the style, and the later edge hops", () => 
 
     const plain = routedGraph(crossing);
     assert.equal(plain.edges[1].jump, false);
-    assert.doesNotMatch(plain.edges[1].path, / A /, "no hop without jump");
+    assert.doesNotMatch(
+        plain.edges[1].path,
+        / A /,
+        "no jump-over without jump",
+    );
 
     const styled = routedGraph(jumping);
     assert.equal(styled.edges[1].jump, true);
-    assert.match(styled.edges[1].path, / A /, "the later edge hops");
+    assert.match(
+        styled.edges[1].path,
+        / A /,
+        "the later edge draws the jump-over",
+    );
     assert.doesNotMatch(styled.edges[0].path, / A /, "the earlier does not");
 
     const viewed = routedGraph((json) => {
@@ -603,7 +611,11 @@ test("jump comes from the view, then the style, and the later edge hops", () => 
         json.views.systemContextViews[0].relationships[1].jump = false;
     });
     assert.equal(viewed.edges[1].jump, false);
-    assert.match(viewed.edges[0].path, / A /, "now the first edge hops");
+    assert.match(
+        viewed.edges[0].path,
+        / A /,
+        "now the first edge draws the jump-over",
+    );
 });
 
 test("a relationship ending at a boundary is skipped with a warning naming it", () => {

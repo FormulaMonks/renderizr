@@ -608,7 +608,7 @@ const dashes = (style: EdgeLine["style"], t: number) =>
           : undefined;
 
 /**
- * One edge in any routing mode, drawn from the path the router worked out
+ * One edge in any routing mode, drawn from the path data the router wrote
  * (spec 10.1): React Flow's own path helpers take no vertices.
  */
 function RouteEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {

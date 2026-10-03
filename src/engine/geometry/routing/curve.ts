@@ -2,8 +2,8 @@
  * Curved routes (spec 10.2, 10.3): a smooth curve through the points of a
  * Direct route or a relationship's vertices, as a Catmull–Rom spline written
  * as cubic Béziers. Avoidance only checks the curve: where it would swing
- * into a padded element, the smoothing is eased off until it does not, down to the
- * Direct route itself.
+ * into a padded element, the smoothing is eased off until it does not, down
+ * to the Direct route itself.
  */
 
 import type { Point, Rect } from "../shapes/types";

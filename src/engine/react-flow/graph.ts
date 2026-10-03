@@ -41,7 +41,6 @@ import {
 import { type Bounds, boundsOf } from "../geometry/bounds";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
 import {
-    type RoutingEdge,
     type RoutingElement,
     type RoutingMode,
     routeView,
@@ -124,10 +123,10 @@ export type EdgeLine = {
     target: Point;
     /** The drawn route, as the points it passes through, source first. */
     route: Point[];
-    /** SVG path data for the line as drawn, curves and hops included. */
+    /** SVG path data for the edge as drawn, curves and jump-overs included. */
     path: string;
     routing: RoutingMode;
-    /** Whether the edge hops where it crosses another (spec 10.11). */
+    /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
     jump: boolean;
     /** The relationship's stored vertices, which the route passes through. */
     vertices: Point[];
@@ -339,6 +338,7 @@ export function buildGraph(
         });
     }
 
+    // Each edge already carries every field a `RoutingEdge` names.
     const routes = routeView(
         [...drawn.values()].map(
             ({ box, geometry }): RoutingElement => ({
@@ -348,20 +348,10 @@ export function buildGraph(
                 geometry,
             }),
         ),
-        edges.map(
-            (edge): RoutingEdge => ({
-                key: edge.key,
-                sourceId: edge.sourceId,
-                targetId: edge.targetId,
-                routing: edge.routing,
-                vertices: edge.vertices,
-                jump: edge.jump,
-                thickness: edge.thickness,
-            }),
-        ),
+        edges,
     );
-    const lines: EdgeLine[] = edges.map((edge, at) => {
-        const { route, path } = routes[at];
+    const routed: EdgeLine[] = edges.map((edge, index) => {
+        const { route, path } = routes[index];
         return {
             ...edge,
             source: route[0],
@@ -377,12 +367,12 @@ export function buildGraph(
         background: defaults.background,
         elements,
         boundaries: drawnBoundaries,
-        edges: lines,
+        edges: routed,
         bounds:
             boundsOf([
                 ...elements,
                 ...drawnBoundaries,
-                ...lines.flatMap((line) => line.route.map(pointBox)),
+                ...routed.flatMap((edge) => edge.route.map(pointBox)),
             ]) ?? NO_BOUNDS,
         warnings,
     };
