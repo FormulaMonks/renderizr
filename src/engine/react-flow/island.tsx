@@ -23,6 +23,7 @@ import {
     ReactFlow,
     ReactFlowProvider,
     useReactFlow,
+    useStore,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -43,8 +44,9 @@ import {
     type ElementBox,
     type Graph,
     type Labels,
-    stepZoom,
     readyFor,
+    stepZoom,
+    zoomLimits,
 } from "./graph";
 
 export type IslandState = {
@@ -97,7 +99,7 @@ type BoxNode = Node<ElementBox, "box">;
 type LineEdge = Edge<EdgeLine, "line">;
 
 /** Names and descriptions break on a real newline and on a literal `\n` (spec 9.3). */
-const breaks = (text: string) => text.replace(/\\n/g, "\n");
+const unescapeNewlines = (text: string) => text.replace(/\\n/g, "\n");
 
 function BoxElement({ data }: NodeProps<BoxNode>) {
     const fullText = [data.name, data.metadata, data.description]
@@ -143,7 +145,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                     marginBottom: 8,
                 }}
             >
-                {breaks(data.name)}
+                {unescapeNewlines(data.name)}
             </div>
             {data.metadata && (
                 <div style={{ fontSize: data.fontSize * 0.7 }}>
@@ -158,7 +160,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                         overflow: "hidden",
                     }}
                 >
-                    {breaks(data.description)}
+                    {unescapeNewlines(data.description)}
                 </div>
             )}
         </div>
@@ -214,7 +216,7 @@ function StraightEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
                             padding: 4,
                         }}
                     >
-                        {breaks(data.label)}
+                        {unescapeNewlines(data.label)}
                     </div>
                 </EdgeLabelRenderer>
             )}
@@ -314,9 +316,12 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
                 : null,
         [bounds, size],
     );
-    /** Zooming out stops at the scale that shows the whole view. */
-    const floor = fitted ? fitted.zoom : 0.05;
-    const ceiling = Math.max(4, floor * 4);
+    const zoom = useStore((flowState) => flowState.transform[2]);
+    const { floor, ceiling } = zoomLimits(
+        fitted?.zoom ?? null,
+        zoom,
+        moved.current,
+    );
 
     const fit = useCallback(() => {
         moved.current = false;

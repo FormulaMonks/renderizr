@@ -11,6 +11,7 @@ import {
     type ColorScheme,
     type Engine,
     isAbortError,
+    type Labels,
 } from "../engine/contract";
 import { mountEngine } from "../engine/react-flow";
 import { WorkspaceModel } from "../model";
@@ -25,7 +26,7 @@ import styles from "./diagrams-shell.module.css";
 function toolbarFor(engine: Engine, scheme: ColorScheme): ToolbarDiagram {
     let current = scheme;
     // The toolbar reconciles from Structurizr's defaults, so start there.
-    const labels = { ...STRUCTURIZR_LABEL_DEFAULTS };
+    const labels: Labels = { ...STRUCTURIZR_LABEL_DEFAULTS };
 
     return {
         isDarkMode: () => current === "dark",

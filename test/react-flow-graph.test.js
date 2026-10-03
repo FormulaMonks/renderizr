@@ -9,9 +9,8 @@ import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
-const { buildGraph, exitPoint, stepZoom, ZOOM_STEP } = await importSrc(
-    "engine/react-flow/graph",
-);
+const { buildGraph, exitPoint, stepZoom, ZOOM_STEP, zoomLimits } =
+    await importSrc("engine/react-flow/graph");
 
 const FIXTURE = JSON.parse(
     readFileSync(
@@ -124,4 +123,20 @@ test("zooming steps by 1.2 and never past the scale that shows the whole view", 
     assert.equal(stepZoom(1.2, "out", 0.5), 1);
     assert.equal(stepZoom(0.55, "out", 0.5), 0.5);
     assert.equal(stepZoom(3.9, "in", 0.5, 4), 4);
+});
+
+test("zoom limits follow the fitted scale until the reader moves", () => {
+    assert.deepEqual(zoomLimits(0.5, 0.5, false), { floor: 0.5, ceiling: 4 });
+    assert.deepEqual(zoomLimits(2, 2, false), { floor: 2, ceiling: 8 });
+    assert.deepEqual(zoomLimits(null, 1, false), { floor: 0.05, ceiling: 4 });
+});
+
+test("a resize never clamps the zoom of a reader who has moved", () => {
+    // Zoomed to 0.6, then the window grows and the fitted scale rises to 0.9.
+    assert.deepEqual(zoomLimits(0.9, 0.6, true), { floor: 0.6, ceiling: 4 });
+    // Zoomed to 3.5, then the window shrinks and the fitted scale drops.
+    assert.equal(zoomLimits(0.2, 3.5, true).ceiling, 4);
+    assert.equal(zoomLimits(0.2, 6, true).ceiling, 6);
+    // Zooming out still stops at the fitted scale.
+    assert.equal(zoomLimits(0.5, 1.2, true).floor, 0.5);
 });

@@ -211,6 +211,23 @@ export function stepZoom(
 }
 
 /**
+ * The zoom range the canvas allows. Zooming out stops at `fitted`, the scale
+ * that shows the whole view, and zooming in at four times that (at least 4).
+ * Once the reader has moved, `fitted` still shifts with every resize, so the
+ * range widens to take in their `zoom`: a resize never clamps it.
+ */
+export function zoomLimits(
+    fitted: number | null,
+    zoom: number,
+    moved: boolean,
+): { floor: number; ceiling: number } {
+    const fit = fitted ?? 0.05;
+    const floor = moved ? Math.min(fit, zoom) : fit;
+    const ceiling = Math.max(4, fit * 4, moved ? zoom : 0);
+    return { floor, ceiling };
+}
+
+/**
  * Whether the canvas showing `viewKey` is ready: only once that same view,
  * and not an earlier one, has been painted.
  */
