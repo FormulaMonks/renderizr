@@ -85,17 +85,24 @@ const LINE = 24 * LINE_HEIGHT;
 const NAME = 24 * 1.4 * LINE_HEIGHT;
 const META = 24 * 0.7 * LINE_HEIGHT;
 
-const fit = (overrides) =>
-    fitLabel({
+// `icon: true` gives the element an icon whose text width the fixed parts
+// were measured at, as they are for Top and Bottom or a drawn Left icon.
+const fit = ({ icon = false, ...overrides } = {}) => {
+    const measure = {
         height: 300,
         fontSize: 24,
         iconPosition: "Bottom",
-        icon: false,
         name: NAME,
         metadata: META,
         description: true,
         ...overrides,
+    };
+    const { name, metadata } = measure;
+    return fitLabel({
+        ...measure,
+        withIcon: icon ? { name, metadata } : undefined,
     });
+};
 
 test("the description gets every whole line left after the fixed parts and gaps", () => {
     // 300 - name - 8 - metadata - 15 = 216.52, which holds 7 lines.
@@ -154,6 +161,54 @@ test("name and metadata that still overflow without the icon are reported", () =
     assert.equal(result.overflows, true);
     assert.equal(result.descriptionLines, 0);
     assert.equal(fit({ height: 60 }).overflows, true);
+});
+
+test("a dropped icon comes back once the fixed parts fit again", () => {
+    // A Top icon over a name that wraps to three lines in the fallback font,
+    // then to one once the web font loads (spec 9.5). The icon is not drawn
+    // in between, and that must not keep it out.
+    const before = fitLabel({
+        height: 150,
+        fontSize: 24,
+        iconPosition: "Top",
+        name: 3 * NAME,
+        metadata: META,
+        withIcon: { name: 3 * NAME, metadata: META },
+        description: false,
+    });
+    const after = fitLabel({
+        height: 150,
+        fontSize: 24,
+        iconPosition: "Top",
+        name: NAME,
+        metadata: META,
+        withIcon: { name: NAME, metadata: META },
+        description: false,
+    });
+
+    assert.equal(
+        before.icon,
+        false,
+        "the icon should go while the name is tall",
+    );
+    assert.equal(after.icon, true, "the icon should return once it fits");
+});
+
+test("a dropped Left icon is judged by the text measured beside it, not the wider text drawn without it", () => {
+    const narrow = { name: 3 * NAME };
+    const wide = { name: NAME };
+    const kept = (withIcon) =>
+        fitLabel({
+            height: 100,
+            fontSize: 24,
+            iconPosition: "Left",
+            ...wide,
+            withIcon,
+            description: false,
+        }).icon;
+
+    assert.equal(kept(narrow), false, "three name lines beside it overflow");
+    assert.equal(kept(wide), true, "one name line beside it fits");
 });
 
 /* ---------------- paint */

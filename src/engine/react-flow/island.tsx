@@ -28,6 +28,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
     createContext,
+    type RefObject,
     useCallback,
     useContext,
     useEffect,
@@ -41,12 +42,10 @@ import type { WorkspaceModel } from "../../model";
 import {
     breakLines,
     DESCRIPTION_GAP,
+    type FixedHeights,
     fitLabel,
-    ICON_BOTTOM_GAP,
-    ICON_LEFT_INSET,
+    ICON_LAYOUTS,
     ICON_SIZE,
-    ICON_TOP_GAP,
-    type IconPosition,
     LINE_HEIGHT,
     labelText,
     METADATA_SCALE,
@@ -57,7 +56,6 @@ import {
 } from "../geometry/label";
 import { paintPart } from "../geometry/paint";
 import {
-    type Bounds,
     buildGraph,
     type ColorScheme,
     type EdgeLine,
@@ -118,19 +116,72 @@ const FIT_PADDING = 0.05;
 type BoxNode = Node<ElementBox, "box">;
 type LineEdge = Edge<EdgeLine, "line">;
 
-type ElementLabelProps = {
-    /** Names the element in the overflow warning. */
-    id: string;
-    /** The rect the label fills, relative to the element's top-left. */
-    content: Bounds;
+type ElementLabelProps = Pick<
+    ElementBox,
+    | "id"
+    | "content"
+    | "name"
+    | "metadata"
+    | "description"
+    | "icon"
+    | "iconPosition"
+    | "fontSize"
+    | "color"
+>;
+
+type FixedPartsProps = {
     name: string;
     metadata: string;
-    description: string;
-    icon?: string;
-    iconPosition: IconPosition;
     fontSize: number;
-    color: string;
+    nameRef: RefObject<HTMLDivElement | null>;
+    metadataRef: RefObject<HTMLDivElement | null>;
 };
+
+/** The name and the metadata under it: the label's fixed text parts. */
+function FixedParts({
+    name,
+    metadata,
+    fontSize,
+    nameRef,
+    metadataRef,
+}: FixedPartsProps) {
+    return (
+        <>
+            <div
+                ref={nameRef}
+                style={{
+                    flexShrink: 0,
+                    fontWeight: "bold",
+                    fontSize: fontSize * NAME_SCALE,
+                    whiteSpace: "pre-line",
+                }}
+            >
+                {breakLines(name)}
+            </div>
+            {metadata && (
+                <div
+                    ref={metadataRef}
+                    style={{
+                        flexShrink: 0,
+                        marginTop: NAME_GAP,
+                        fontSize: fontSize * METADATA_SCALE,
+                    }}
+                >
+                    {metadata}
+                </div>
+            )}
+        </>
+    );
+}
+
+/** The rendered heights of a name block and an optional metadata block. */
+const heightsOf = (
+    name: HTMLElement,
+    metadata: HTMLElement | null,
+): FixedHeights => ({
+    name: name.offsetHeight,
+    metadata: metadata?.offsetHeight,
+});
 
 /**
  * The label template (spec 9.2): icon, name, metadata and description in a
@@ -138,6 +189,11 @@ type ElementLabelProps = {
  * content area. Content never resizes the element (spec 9.1): the fixed
  * parts are measured and `fitLabel` says whether the icon stays and how many
  * description lines fit. All text goes in as React text, never as HTML.
+ *
+ * The icon is judged by the fixed parts at the text width it leaves, whether
+ * it is drawn or not, so a dropped icon comes back once they shrink. Only a
+ * dropped Left icon changes that width, so only then is a hidden copy of the
+ * fixed parts kept at the narrower width to measure.
  */
 function ElementLabel({
     id,
@@ -150,11 +206,15 @@ function ElementLabel({
     fontSize,
     color,
 }: ElementLabelProps) {
+    const layout = ICON_LAYOUTS[iconPosition];
     const nameRef = useRef<HTMLDivElement>(null);
     const metadataRef = useRef<HTMLDivElement>(null);
+    const probeNameRef = useRef<HTMLDivElement>(null);
+    const probeMetadataRef = useRef<HTMLDivElement>(null);
     const [showIcon, setShowIcon] = useState(Boolean(icon));
     const [lines, setLines] = useState<number | undefined>(undefined);
     const warned = useRef(false);
+    const probing = Boolean(icon) && !showIcon && layout.inset > 0;
 
     // Measure again whenever the fixed parts change size, which is also how
     // a late web font reflows the label (spec 9.5).
@@ -162,21 +222,29 @@ function ElementLabel({
         const nameBlock = nameRef.current;
         if (!nameBlock) return;
         const measure = () => {
+            const drawn = heightsOf(nameBlock, metadataRef.current);
+            const probe = probeNameRef.current;
             const fit = fitLabel({
                 height: content.height,
                 fontSize,
                 iconPosition,
-                icon: showIcon,
-                name: nameBlock.offsetHeight,
-                metadata: metadataRef.current?.offsetHeight,
+                ...drawn,
+                withIcon: !icon
+                    ? undefined
+                    : probe
+                      ? heightsOf(probe, probeMetadataRef.current)
+                      : drawn,
                 description: Boolean(description),
             });
-            // A dropped Left icon widens the text, so the heights just read
-            // are stale: render without it and measure again.
+            // A Left icon changes the text width, so the heights just read
+            // are stale: draw the icon as decided and measure again.
             if (fit.icon !== showIcon) return setShowIcon(fit.icon);
             setLines(fit.descriptionLines);
             if (fit.overflows && !warned.current) {
                 warned.current = true;
+                // The one console call in shipped code: spec 9.1 asks for a
+                // warning when name and metadata overflow, and the page has
+                // nowhere else to report a workspace authoring problem.
                 console.warn(
                     `Element ${id} ("${name}"): its name and metadata do not fit its ${content.width}×${content.height} content area.`,
                 );
@@ -184,27 +252,47 @@ function ElementLabel({
         };
         measure();
         const observer = new ResizeObserver(measure);
-        observer.observe(nameBlock);
-        if (metadataRef.current) observer.observe(metadataRef.current);
+        const blocks = [
+            nameBlock,
+            metadataRef.current,
+            probeNameRef.current,
+            probeMetadataRef.current,
+        ];
+        for (const block of blocks) if (block) observer.observe(block);
         return () => observer.disconnect();
-    }, [content, description, fontSize, iconPosition, id, name, showIcon]);
+    }, [
+        content,
+        description,
+        fontSize,
+        icon,
+        iconPosition,
+        id,
+        name,
+        showIcon,
+    ]);
 
-    const left = showIcon && iconPosition === "Left";
+    const beside = showIcon && layout.beside;
     const image = showIcon && icon && (
         <img
             src={icon}
             alt=""
             style={{
                 flexShrink: 0,
-                width: left ? ICON_SIZE : "100%",
+                width: beside ? ICON_SIZE : "100%",
                 height: ICON_SIZE,
                 objectFit: "contain",
-                marginTop: iconPosition === "Bottom" ? ICON_BOTTOM_GAP : 0,
-                marginBottom: iconPosition === "Top" ? ICON_TOP_GAP : 0,
-                marginRight: left ? ICON_LEFT_INSET - ICON_SIZE : 0,
+                marginTop: layout.margin.top,
+                marginBottom: layout.margin.bottom,
+                marginRight: layout.margin.right,
             }}
         />
     );
+    const column = {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        overflowWrap: "break-word",
+    } as const;
 
     return (
         <div
@@ -218,7 +306,7 @@ function ElementLabel({
                 boxSizing: "border-box",
                 padding: `0 ${SIDE_PADDING}px`,
                 display: "flex",
-                flexDirection: left ? "row" : "column",
+                flexDirection: beside ? "row" : "column",
                 justifyContent: "center",
                 alignItems: "center",
                 textAlign: "center",
@@ -227,40 +315,40 @@ function ElementLabel({
                 lineHeight: LINE_HEIGHT,
             }}
         >
-            {iconPosition !== "Bottom" && image}
-            <div
-                style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    flexShrink: 0,
-                    width: textWidth(content.width, iconPosition, showIcon),
-                    overflowWrap: "break-word",
-                }}
-            >
+            {probing && (
                 <div
-                    ref={nameRef}
+                    aria-hidden="true"
                     style={{
-                        flexShrink: 0,
-                        fontWeight: "bold",
-                        fontSize: fontSize * NAME_SCALE,
-                        whiteSpace: "pre-line",
+                        ...column,
+                        position: "absolute",
+                        visibility: "hidden",
+                        width: textWidth(content.width, iconPosition, true),
                     }}
                 >
-                    {breakLines(name)}
+                    <FixedParts
+                        name={name}
+                        metadata={metadata}
+                        fontSize={fontSize}
+                        nameRef={probeNameRef}
+                        metadataRef={probeMetadataRef}
+                    />
                 </div>
-                {metadata && (
-                    <div
-                        ref={metadataRef}
-                        style={{
-                            flexShrink: 0,
-                            marginTop: NAME_GAP,
-                            fontSize: fontSize * METADATA_SCALE,
-                        }}
-                    >
-                        {metadata}
-                    </div>
-                )}
+            )}
+            {!layout.after && image}
+            <div
+                style={{
+                    ...column,
+                    flexShrink: 0,
+                    width: textWidth(content.width, iconPosition, showIcon),
+                }}
+            >
+                <FixedParts
+                    name={name}
+                    metadata={metadata}
+                    fontSize={fontSize}
+                    nameRef={nameRef}
+                    metadataRef={metadataRef}
+                />
                 {description && lines !== 0 && (
                     <div
                         data-element-description=""
@@ -282,7 +370,7 @@ function ElementLabel({
                     </div>
                 )}
             </div>
-            {iconPosition === "Bottom" && image}
+            {layout.after && image}
         </div>
     );
 }
@@ -334,19 +422,11 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                     ))}
                 </g>
             </svg>
-            {/* A new name, metadata or icon starts the fitting over, so a
-                dropped icon can come back. */}
+            {/* A new name, metadata or icon is a new label: its fitting
+                starts over from the icon drawn. */}
             <ElementLabel
                 key={[data.name, data.metadata, data.icon].join("\n")}
-                id={data.id}
-                content={data.content}
-                name={data.name}
-                metadata={data.metadata}
-                description={data.description}
-                icon={data.icon}
-                iconPosition={data.iconPosition}
-                fontSize={data.fontSize}
-                color={data.color}
+                {...data}
             />
         </div>
     );
