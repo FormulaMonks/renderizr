@@ -766,6 +766,78 @@ test("Big Bank leave-one-out through buildGraph: no overlaps, no foreign boundar
     assert.deepEqual(problems, []);
 });
 
+/**
+ * The unplaced-elements fixture (spec 7.2), pinned so that each of its views
+ * keeps showing the case it is named for.
+ */
+const UNPLACED = JSON.parse(
+    readFileSync(
+        new URL("./__fixtures__/unplaced-elements.json", import.meta.url),
+        "utf-8",
+    ),
+);
+
+const UNPLACED_CASES = [
+    // Nothing at (0,0): the stored layout is drawn as it is.
+    { key: "StoredLayout", placements: [] },
+    // Mail goes one separation (100) below Shop, its only neighbor here.
+    // Ledger, placed next, relates to Mail and Payments: the slot right of
+    // Mail is the one nearest their centroid.
+    {
+        key: "PartlyUnplaced",
+        placements: [
+            { id: "5", x: 100, y: 500 },
+            { id: "6", x: 650, y: 500 },
+        ],
+    },
+    // The slot right of the API is nearest Mail's neighbors, but it comes
+    // within 60 of the Shop boundary Mail is not inside, so Mail takes the
+    // next nearest, left of Payments.
+    { key: "ForeignBoundary", placements: [{ id: "5", x: 800, y: 700 }] },
+    // Walls cover every slot around the Hub, so the Stray goes one
+    // separation right of the view, level with the Hub's center.
+    { key: "AllSlotsTaken", placements: [{ id: "12", x: 2900, y: 500 }] },
+];
+
+test("each unplaced element of the unplaced-elements fixture lands where its view says", () => {
+    for (const { key, placements } of UNPLACED_CASES) {
+        const graph = buildGraph(
+            new WorkspaceModel(UNPLACED),
+            key,
+            "light",
+            LABELS,
+        );
+        assert.deepEqual(
+            graph.placements.map(({ id, x, y }) => ({ id, x, y })),
+            placements,
+            `${key}: the unplaced elements moved`,
+        );
+    }
+});
+
+test("in ForeignBoundary, Mail keeps 60 clear of the Shop boundary", () => {
+    const graph = buildGraph(
+        new WorkspaceModel(UNPLACED),
+        "ForeignBoundary",
+        "light",
+        LABELS,
+    );
+    const mail = graph.elements.find((e) => e.id === "5");
+    const api = graph.elements.find((e) => e.id === "3");
+    const shop = graph.boundaries.find((b) => b.id === "1");
+    const shopRight = shop.x + shop.width;
+    assert.ok(
+        mail.x - shopRight >= 60,
+        `Mail is ${mail.x - shopRight} from the Shop boundary`,
+    );
+    // The slot right of the API, one separation (100) past it, is the one
+    // the boundary gap turns down; the view shows nothing if it would not.
+    assert.ok(
+        api.x + api.width + 100 - shopRight < 60,
+        "the slot right of the API keeps 60 clear of Shop, so no gap is shown",
+    );
+});
+
 /* ---------------- routing (spec 10) */
 
 /**
