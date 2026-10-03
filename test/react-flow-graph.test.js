@@ -668,14 +668,53 @@ test("an unplaced element goes next to its neighbor and the rest stay put", () =
         [person.x, person.y],
         [200 + (450 - 400) / 2, 800 + 300 + 300],
     );
-    assert.deepEqual(graph.placements, [
-        { id: "1", name: person.name, x: person.x, y: person.y },
-    ]);
+    assert.deepEqual(
+        graph.placements,
+        [{ id: "1", name: person.name, x: person.x, y: person.y }],
+        "the placement is not reported for the console line",
+    );
+});
+
+test("an unplaced element is one separation away: the wider of the view's two", () => {
+    const placedWith = (rankSeparation, nodeSeparation) => {
+        const json = structuredClone(FIXTURE);
+        const [view] = json.views.systemContextViews;
+        view.elements[0] = { id: "1", x: 0, y: 0 };
+        Object.assign(view.automaticLayout, { rankSeparation, nodeSeparation });
+        const graph = buildGraph(
+            new WorkspaceModel(json),
+            "FixtureContext",
+            "light",
+            LABELS,
+        );
+        return graph.elements.find((e) => e.id === "1").y;
+    };
+    // The system's bottom edge is at 800 + 300.
+    assert.equal(placedWith(100, 250), 1100 + 250, "nodeSeparation is wider");
+    assert.equal(placedWith(400, 120), 1100 + 400, "rankSeparation is wider");
 });
 
 /**
- * Big Bank's views with their automatic layout saved as a stored one, each
- * element in turn sent back to (0,0) and placed again: with boundaries
+ * Two separations that differ, so the leave-one-out below places by the
+ * wider one, not by a separation every Big Bank view happens to share.
+ */
+const LEAVE_ONE_OUT_SEPARATIONS = { rankSeparation: 300, nodeSeparation: 120 };
+
+/** Big Bank with `key`'s separations set to `LEAVE_ONE_OUT_SEPARATIONS`. */
+const bigBankWithSeparations = (key) => {
+    const json = structuredClone(BIG_BANK);
+    const view = Object.values(json.views)
+        .filter(Array.isArray)
+        .flat()
+        .find((v) => v.key === key);
+    Object.assign(view.automaticLayout, LEAVE_ONE_OUT_SEPARATIONS);
+    return { json, view };
+};
+
+/**
+ * #35's leave-one-out measurement through `buildGraph`: Big Bank's views,
+ * with separations that differ, laid out and saved as stored layouts, each
+ * element in turn sent back to (0,0) and placed again. With boundaries
  * derived around the rest, it lands on no element and inside no boundary it
  * does not belong to.
  */
@@ -684,18 +723,14 @@ test("Big Bank leave-one-out through buildGraph: no overlaps, no foreign boundar
     let placements = 0;
     for (const key of BIG_BANK_VIEWS) {
         const laidOut = buildGraph(
-            new WorkspaceModel(BIG_BANK),
+            new WorkspaceModel(bigBankWithSeparations(key).json),
             key,
             "light",
             LABELS,
         );
         const saved = new Map(laidOut.elements.map((e) => [e.id, e]));
         for (const { id } of laidOut.elements) {
-            const json = structuredClone(BIG_BANK);
-            const view = Object.values(json.views)
-                .filter(Array.isArray)
-                .flat()
-                .find((v) => v.key === key);
+            const { json, view } = bigBankWithSeparations(key);
             view.automaticLayout.applied = true;
             for (const placement of view.elements) {
                 const box = saved.get(placement.id);
