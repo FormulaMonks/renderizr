@@ -4,6 +4,8 @@
  * stays a matter of geometry.
  */
 
+import type { Paint } from "./shapes/types";
+
 /**
  * The SVG `stroke-dasharray` for a style's `border` at `strokeWidth`:
  * `Dashed` is a dash and gap of 4× the stroke width and `Dotted` 1×, as the
@@ -39,4 +41,74 @@ export function withAlpha(color: string, alpha: number): string {
         Number.parseInt(hex.slice(at, at + 2), 16),
     );
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** What `paintPart` reads from an element's style. */
+export type PartStyle = {
+    background: string;
+    stroke: string;
+    strokeWidth: number;
+    border: string;
+};
+
+/** The SVG paint of one drawn part. */
+export type PartPaint = {
+    fill: string;
+    stroke: string;
+    strokeWidth: number;
+    strokeDasharray: string | undefined;
+};
+
+/**
+ * How a shape part with paint role `paint` is drawn in `style` (see `Paint`
+ * in `shapes/types.ts`). Border dashes go on the outline (`body`) and on
+ * Person and Robot arms (`rule`), as upstream dashes them; bezels, panels
+ * and the prompt stay solid.
+ */
+export function paintPart(paint: Paint, style: PartStyle): PartPaint {
+    const { background, stroke, strokeWidth, border } = style;
+    switch (paint) {
+        case "body":
+            return {
+                fill: background,
+                stroke,
+                strokeWidth,
+                strokeDasharray: borderDashes(border, strokeWidth),
+            };
+        case "frame":
+            return {
+                fill: stroke,
+                stroke,
+                strokeWidth,
+                strokeDasharray: undefined,
+            };
+        case "screen":
+            return {
+                fill: background,
+                stroke: "none",
+                strokeWidth: 0,
+                strokeDasharray: undefined,
+            };
+        case "ink":
+            return {
+                fill: stroke,
+                stroke: "none",
+                strokeWidth: 0,
+                strokeDasharray: undefined,
+            };
+        case "rule":
+            return {
+                fill: "none",
+                stroke,
+                strokeWidth: 1,
+                strokeDasharray: borderDashes(border, strokeWidth),
+            };
+        case "grille":
+            return {
+                fill: "none",
+                stroke: background,
+                strokeWidth: 2,
+                strokeDasharray: undefined,
+            };
+    }
 }

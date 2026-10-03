@@ -4,8 +4,9 @@
  * edges join them. Nothing here knows about React.
  *
  * The tracer covers stored layouts only. Boundaries, automatic layout,
- * unplaced elements, shapes and routing arrive in later tickets; until then
- * boundaries are left out and every edge is a straight line between centers.
+ * unplaced elements and routing arrive in later tickets; until then
+ * boundaries are left out and every edge is a straight line between centers,
+ * cut short where it crosses each end's drawn outline.
  */
 
 import {
@@ -20,6 +21,9 @@ import {
 
 import type { ColorScheme, Labels } from "../contract";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
+import { shapeGeometry, shapeSize } from "../geometry/shapes/index";
+import { intersect } from "../geometry/shapes/outline";
+import type { Shape, ShapePart } from "../geometry/shapes/types";
 
 export type { ColorScheme, Labels };
 
@@ -30,9 +34,13 @@ export type ElementBox = {
     /** Top-left, in model units. */
     x: number;
     y: number;
+    /** The box the shape is drawn in (`shapeSize`), not always the style's. */
     width: number;
     height: number;
-    shape: string;
+    /** The shape drawn: the style's, or Box when it names none of the 19. */
+    shape: Shape;
+    /** What the outline is drawn as, back to front (spec 9.4). */
+    parts: ShapePart[];
     name: string;
     metadata: string;
     description: string;
@@ -49,7 +57,7 @@ export type ElementBox = {
     iconPosition: IconPosition;
     /**
      * The rect inside the box the label template fills, relative to the
-     * box's top-left. The whole box until shapes narrow it (spec 9.4).
+     * box's top-left: the shape's content area (spec 9.4).
      */
     content: Bounds;
 };
@@ -92,20 +100,20 @@ const center = (box: ElementBox): Point => ({
 });
 
 /**
- * Where the line from `box`'s center towards `toward` leaves the box. The
- * tracer's stand-in for edge ends on the drawn outline (spec 10.5), so that
- * an arrowhead is not hidden underneath the element it points at.
+ * Where the line from `box`'s center towards `toward` leaves the shape drawn
+ * in it, so that an arrowhead touches the outline it points at rather than
+ * the box around it (spec 10.5).
  */
-export function exitPoint(box: ElementBox, toward: Point): Point {
-    const from = center(box);
-    const dx = toward.x - from.x;
-    const dy = toward.y - from.y;
-    if (dx === 0 && dy === 0) return from;
-    const scale = Math.min(
-        dx === 0 ? Number.POSITIVE_INFINITY : box.width / 2 / Math.abs(dx),
-        dy === 0 ? Number.POSITIVE_INFINITY : box.height / 2 / Math.abs(dy),
-    );
-    return { x: from.x + dx * scale, y: from.y + dy * scale };
+export function exitPoint(
+    box: Bounds & { shape: string },
+    toward: Point,
+): Point {
+    const geometry = shapeGeometry(box.shape, box.width, box.height);
+    const end = intersect(geometry, {
+        x: toward.x - box.x,
+        y: toward.y - box.y,
+    });
+    return { x: box.x + end.x, y: box.y + end.y };
 }
 
 /** The box around every element, or an empty box at the origin. */
@@ -138,13 +146,19 @@ export function buildGraph(
     for (const placed of view.elements) {
         if (boundaries.has(placed.id)) continue;
         const style = findElementStyle(model, placed.element, colorScheme);
+        // An unknown shape draws as a Box, at the style's size.
+        const shape = style.shape ?? "Box";
+        const { width, height } = shapeSize(shape, style.width, style.height);
+        const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
+        const geometry = shapeGeometry(shape, width, height, strokeWidth);
         elements.push({
             id: placed.id,
             x: placed.x,
             y: placed.y,
-            width: style.width,
-            height: style.height,
-            shape: style.shape ?? "Box",
+            width,
+            height,
+            shape: geometry.shape,
+            parts: geometry.parts,
             name: placed.element.name,
             metadata: style.metadata
                 ? getMetadataForElement(
@@ -159,14 +173,14 @@ export function buildGraph(
                     : "",
             background: style.background,
             stroke: style.stroke ?? defaults.color,
-            strokeWidth: style.strokeWidth ?? defaults.strokeWidth,
+            strokeWidth,
             color: style.color ?? defaults.color,
             fontSize: style.fontSize,
             border: style.border ?? "Solid",
             opacity: style.opacity / 100,
             icon: style.icon,
             iconPosition: iconPositionOf(style.iconPosition),
-            content: { x: 0, y: 0, width: style.width, height: style.height },
+            content: geometry.content,
         });
     }
 
