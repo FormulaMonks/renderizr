@@ -4,11 +4,13 @@
  * the only module that knows which library lays a view out, so a swap stays
  * a one-file change.
  *
- * It does what the JointJS `DirectedGraph` adapter in today's renderer does:
- * one `setParent` per boundary, the view's rank direction and separations
- * mapped one to one, edges of zero size, and each route simplified at 0.001
- * with its end points dropped before it is kept as vertices. Dagre places
- * elements only. Its cluster boxes are discarded and every boundary is
+ * It sets Dagre up the way today's renderer does through JointJS's
+ * `DirectedGraph` adapter, so automatic layouts keep their look: one
+ * `setParent` per boundary, the view's rank direction and separations
+ * mapped one to one, edges of zero size, and each route's points kept as
+ * vertices once the collinear ones and the two ends are dropped. The code
+ * is written here, not copied from the adapter. Dagre places elements only;
+ * the boxes it computes for boundaries are discarded and every boundary is
  * derived from its children afterwards (spec 8, ADR 9).
  */
 
@@ -16,8 +18,9 @@ import dagre from "@dagrejs/dagre";
 
 import type { AutomaticLayoutSettings } from "../../model/index";
 import type { Bounds } from "../geometry/bounds";
+import type { Point } from "../geometry/shapes/types";
 
-export type Point = { x: number; y: number };
+export type { Point };
 
 /** An element Dagre places, at its drawn size, inside its boundary if any. */
 export type LayoutNode = {
@@ -29,14 +32,14 @@ export type LayoutNode = {
 };
 
 /** A boundary: Dagre keeps its children together but never sizes it. */
-export type LayoutCluster = { id: string; parent?: string };
+export type LayoutBoundary = { id: string; parent?: string };
 
 export type LayoutEdge = { id: string; source: string; target: string };
 
 /** Elements, the boundaries they nest in and the edges between elements. */
 export type CompoundGraph = {
     nodes: LayoutNode[];
-    clusters: LayoutCluster[];
+    boundaries: LayoutBoundary[];
     edges: LayoutEdge[];
 };
 
@@ -64,11 +67,14 @@ const RANK_DIRECTION = {
     RightLeft: "RL",
 } as const;
 
-/** How far off the line a bend must be to survive (JointJS's threshold). */
+/**
+ * How far off the line through its neighbors a point must be to stay a
+ * vertex: the threshold today's renderer simplifies Dagre's routes with.
+ */
 const COLLINEAR_THRESHOLD = 0.001;
 
 /**
- * Lay out `graph` with Dagre. An edge that names a cluster at either end is
+ * Lay out `graph` with Dagre. An edge that names a boundary at either end is
  * left out: Dagre throws on one (`Cannot set properties of undefined
  * (setting 'rank')`), which is how today's renderer loses Big Bank's whole
  * Live deployment layout (spec 10.6).
@@ -89,11 +95,11 @@ export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
     });
     g.setDefaultEdgeLabel(() => ({}));
 
-    for (const cluster of graph.clusters) g.setNode(cluster.id, {});
+    for (const boundary of graph.boundaries) g.setNode(boundary.id, {});
     for (const node of graph.nodes)
         g.setNode(node.id, { width: node.width, height: node.height });
-    for (const cluster of graph.clusters)
-        if (cluster.parent) g.setParent(cluster.id, cluster.parent);
+    for (const boundary of graph.boundaries)
+        if (boundary.parent) g.setParent(boundary.id, boundary.parent);
     for (const node of graph.nodes)
         if (node.parent) g.setParent(node.id, node.parent);
 

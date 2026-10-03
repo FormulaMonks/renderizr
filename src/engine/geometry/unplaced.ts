@@ -22,7 +22,16 @@ export type UnplacedElement = {
     ancestors: string[];
 };
 
+/** Where an unplaced element was put: its new top-left. */
 export type Placement = { id: string; x: number; y: number };
+
+/**
+ * Every boundary's box by id, derived around the elements placed so far, so
+ * that a boundary grows as its children are placed.
+ */
+export type DeriveBoundaries = (
+    placed: ReadonlyMap<string, Bounds>,
+) => ReadonlyMap<string, Bounds>;
 
 export type UnplacedInput = {
     /** Elements already where they will be drawn, by id. */
@@ -34,15 +43,23 @@ export type UnplacedInput = {
     /** How far from a neighbor a slot starts, and how far apart slots step. */
     separation: number;
     /** Every boundary's box, derived around what has been placed so far. */
-    boundaries: (
-        placed: ReadonlyMap<string, Bounds>,
-    ) => ReadonlyMap<string, Bounds>;
+    boundaries: DeriveBoundaries;
 };
 
 const centerOf = (box: Bounds) => ({
     x: box.x + box.width / 2,
     y: box.y + box.height / 2,
 });
+
+/** The mean of the centers of `boxes`, or undefined when there are none. */
+function centroidOf(boxes: Bounds[]): { x: number; y: number } | undefined {
+    if (!boxes.length) return undefined;
+    const centers = boxes.map(centerOf);
+    return {
+        x: centers.reduce((sum, c) => sum + c.x, 0) / centers.length,
+        y: centers.reduce((sum, c) => sum + c.y, 0) / centers.length,
+    };
+}
 
 /** Whether `a` and `b` come closer than `gap` on both axes at once. */
 const crowds = (a: Bounds, b: Bounds, gap: number) =>
@@ -116,17 +133,17 @@ export function placeUnplaced(input: UnplacedInput): Placement[] {
                     : target === element.id
                       ? source
                       : undefined;
+            // The element itself is not placed yet, so a relationship to
+            // itself finds no box here.
             const box = other === undefined ? undefined : placed.get(other);
-            if (box && other !== element.id) neighbors.push(box);
+            if (box) neighbors.push(box);
         }
-        const centers = neighbors.map(centerOf);
-        const centroid = {
-            x: centers.reduce((sum, c) => sum + c.x, 0) / centers.length,
-            y: centers.reduce((sum, c) => sum + c.y, 0) / centers.length,
-        };
+        const centroid = centroidOf(neighbors);
         const distance = (slot: Bounds) => {
             const c = centerOf(slot);
-            return Math.hypot(c.x - centroid.x, c.y - centroid.y);
+            return centroid
+                ? Math.hypot(c.x - centroid.x, c.y - centroid.y)
+                : 0;
         };
         const slots = neighbors
             .flatMap((n) =>
@@ -151,9 +168,7 @@ export function placeUnplaced(input: UnplacedInput): Placement[] {
         const view = boundsOf([...placed.values(), ...boundaries.values()]);
         const at = free ?? {
             x: view ? view.x + view.width + input.separation : 0,
-            y: neighbors.length
-                ? centroid.y - element.height / 2
-                : view?.y ?? 0,
+            y: centroid ? centroid.y - element.height / 2 : view?.y ?? 0,
         };
         placements.push({ id: element.id, x: at.x, y: at.y });
         placed.set(element.id, {

@@ -47,13 +47,22 @@ import { type Bounds, boundsOf } from "../geometry/bounds";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
 import { shapeGeometry, shapeSize } from "../geometry/shapes/index";
 import { intersect } from "../geometry/shapes/outline";
-import type { Shape, ShapeGeometry, ShapePart } from "../geometry/shapes/types";
-import { placeUnplaced } from "../geometry/unplaced";
+import type {
+    Point,
+    Shape,
+    ShapeGeometry,
+    ShapePart,
+} from "../geometry/shapes/types";
+import {
+    type DeriveBoundaries,
+    type Placement,
+    placeUnplaced,
+} from "../geometry/unplaced";
 import { layOut } from "../layout/automatic";
 
 export type { Bounds, ColorScheme, Labels };
 
-export type Point = { x: number; y: number };
+export type { Point };
 
 export type ElementBox = {
     id: string;
@@ -153,11 +162,8 @@ export type Graph = {
      * Where each unplaced element of a stored layout was put, in view order,
      * for the console line that names it (spec 7.2).
      */
-    placements: Placement[];
+    placements: (Placement & { name: string })[];
 };
-
-/** An unplaced element and where it was put. */
-export type Placement = { id: string; name: string; x: number; y: number };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
 
@@ -306,7 +312,7 @@ export function buildGraph(
     );
     const inputs = boundaryInputs(model, view.boundaries, styles, labels);
     const keys = edgeKeys(view.relationships, drawn);
-    const { vertices, placements } = positionElements(
+    const { moved, vertices, placements } = positionElements(
         view,
         elements,
         keys,
@@ -315,6 +321,14 @@ export function buildGraph(
                 deriveBoundaries(inputs, placed, measure).map((b) => [b.id, b]),
             ),
     );
+    const names = new Map<string, string>();
+    for (const element of elements) {
+        names.set(element.id, element.name);
+        const at = moved.get(element.id);
+        if (!at) continue;
+        element.x = at.x;
+        element.y = at.y;
+    }
 
     const drawnBoundaries = boundaryBoxes(
         view.boundaries,
@@ -371,7 +385,10 @@ export function buildGraph(
         boundaries: drawnBoundaries,
         edges,
         bounds: boundsOf([...elements, ...drawnBoundaries]) ?? NO_BOUNDS,
-        placements,
+        placements: placements.map((p) => ({
+            ...p,
+            name: names.get(p.id) ?? "",
+        })),
     };
 }
 
@@ -403,23 +420,30 @@ function edgeKeys(
     });
 }
 
+/** Where the view's layout moves elements, and the vertices Dagre kept. */
+type Positions = {
+    /** The new top-left of each element that moves, by id. */
+    moved: Map<string, Point>;
+    /** Dagre's vertices by edge key, in an automatic layout. */
+    vertices: Map<string, Point[]>;
+    /** Where each unplaced element went, in view order. */
+    placements: Placement[];
+};
+
 /**
- * Move `elements` to where the view's layout puts them (spec 7): all of
- * them by Dagre in an automatic layout, only the unplaced ones in a stored
- * layout that has some, none otherwise. Returns the vertices Dagre kept, by
- * edge key, and where each unplaced element went.
+ * Where the view's layout puts `elements` (spec 7): all of them by Dagre in
+ * an automatic layout, only the unplaced ones in a stored layout that has
+ * some, none otherwise.
  */
 function positionElements(
     view: ResolvedView,
     elements: ElementBox[],
     keys: (string | undefined)[],
-    boundaries: (
-        placed: ReadonlyMap<string, Bounds>,
-    ) => ReadonlyMap<string, Bounds>,
-): { vertices: Map<string, Point[]>; placements: Placement[] } {
+    boundaries: DeriveBoundaries,
+): Positions {
     const vertices = new Map<string, Point[]>();
-    const placements: Placement[] = [];
-    if (view.layout === "stored") return { vertices, placements };
+    if (view.layout === "stored")
+        return { moved: new Map(), vertices, placements: [] };
 
     const parent = new Map<string, string>();
     for (const boundary of view.boundaries)
@@ -436,7 +460,6 @@ function positionElements(
                   },
               ];
     });
-    const byId = new Map(elements.map((e) => [e.id, e]));
 
     if (view.layout === "automatic") {
         const layout = layOut(
@@ -447,7 +470,7 @@ function positionElements(
                     height,
                     parent: parent.get(id),
                 })),
-                clusters: view.boundaries.map(({ id, parent }) => ({
+                boundaries: view.boundaries.map(({ id, parent }) => ({
                     id,
                     parent,
                 })),
@@ -455,12 +478,9 @@ function positionElements(
             },
             view.automaticLayout,
         );
-        for (const [id, box] of layout.boxes) {
-            const element = byId.get(id)!;
-            element.x = box.x;
-            element.y = box.y;
-        }
-        return { vertices: layout.edges, placements };
+        const moved = new Map<string, Point>();
+        for (const [id, { x, y }] of layout.boxes) moved.set(id, { x, y });
+        return { moved, vertices: layout.edges, placements: [] };
     }
 
     const unplaced = new Set(view.unplaced);
@@ -470,7 +490,7 @@ function positionElements(
         return around;
     };
     const { rankSeparation, nodeSeparation } = view.automaticLayout;
-    const placed = placeUnplaced({
+    const placements = placeUnplaced({
         placed: new Map(
             elements.filter((e) => !unplaced.has(e.id)).map((e) => [e.id, e]),
         ),
@@ -488,13 +508,8 @@ function positionElements(
         separation: Math.max(rankSeparation, nodeSeparation),
         boundaries,
     });
-    for (const { id, x, y } of placed) {
-        const element = byId.get(id)!;
-        element.x = x;
-        element.y = y;
-        placements.push({ id, name: element.name, x, y });
-    }
-    return { vertices, placements };
+    const moved = new Map(placements.map(({ id, x, y }) => [id, { x, y }]));
+    return { moved, vertices, placements };
 }
 
 /* ----------------------------------------------------------- boundaries */

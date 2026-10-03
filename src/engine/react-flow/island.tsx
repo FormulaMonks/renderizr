@@ -257,9 +257,11 @@ function ElementLabel({
             setLines(fit.descriptionLines);
             if (fit.overflows && !warned.current) {
                 warned.current = true;
-                // Spec 9.1 asks for a warning when name and metadata
-                // overflow, and the page has nowhere else to report a
-                // workspace authoring problem.
+                // One of the two console calls in shipped code, both in this
+                // file and both warnings the spec asks for (the other names
+                // each placed unplaced element, spec 7.2): spec 9.1 asks for
+                // one when name and metadata overflow, and the page has
+                // nowhere else to report a workspace authoring problem.
                 console.warn(
                     `Element ${id} ("${name}"): its name and metadata do not fit its ${content.width}×${content.height} content area.`,
                 );
@@ -837,8 +839,9 @@ function Canvas({
     useEffect(() => {
         if (key === undefined || logged.current === key) return;
         logged.current = key;
-        // Spec 7.2 asks for this line; like the overflow warning, the
-        // page has nowhere else to report a workspace authoring gap.
+        // The other console call in shipped code, beside the overflow
+        // warning in ElementLabel: spec 7.2 asks for this line, and the page
+        // has nowhere else to report a workspace authoring gap.
         for (const { id, name, x, y } of placements ?? [])
             console.warn(
                 `Placed unplaced element ${id} ("${name}") at (${x}, ${y}) in view ${key}.`,
