@@ -147,6 +147,9 @@ const chromeLaunch = () => {
  * long the view took to arrive in wall-clock time, Chrome's start aside.
  */
 async function drawView(site, key) {
+    // Measured before the first view opens, so that view is not the one to
+    // pay for Chrome's cold start, which `launchCost` would not take off.
+    const launched = await chromeLaunch();
     const page = await renderPage(CHROME, viewUrl(site, key), {
         offline: true,
     });
@@ -158,7 +161,7 @@ async function drawView(site, key) {
     return {
         viewKey: root?.getAttribute("data-view-key") ?? null,
         ready: root?.getAttribute("data-ready") === "true",
-        readyIn: page.elapsed - (await chromeLaunch()),
+        readyIn: page.elapsed - launched,
         report: script ? JSON.parse(script.textContent) : null,
         console: page.console,
     };
