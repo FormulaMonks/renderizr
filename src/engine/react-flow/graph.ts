@@ -4,8 +4,9 @@
  * edges join them. Nothing here knows about React.
  *
  * The tracer covers stored layouts only. Boundaries, automatic layout,
- * unplaced elements, shapes and routing arrive in later tickets; until then
- * boundaries are left out and every edge is a straight line between centers.
+ * unplaced elements and routing arrive in later tickets; until then
+ * boundaries are left out and every edge is a straight line between centers,
+ * cut short where it crosses each end's drawn outline.
  */
 
 import {
@@ -19,6 +20,10 @@ import {
 } from "../../model/index";
 
 import type { ColorScheme, Labels } from "../contract";
+import { type IconPosition, iconPositionOf } from "../geometry/label";
+import { shapeGeometry, shapeSize } from "../geometry/shapes/index";
+import { intersect } from "../geometry/shapes/outline";
+import type { Shape, ShapeGeometry, ShapePart } from "../geometry/shapes/types";
 
 export type { ColorScheme, Labels };
 
@@ -29,9 +34,13 @@ export type ElementBox = {
     /** Top-left, in model units. */
     x: number;
     y: number;
+    /** The box the shape is drawn in (`shapeSize`), not always the style's. */
     width: number;
     height: number;
-    shape: string;
+    /** The shape drawn: the style's, or Box when it names none of the 19. */
+    shape: Shape;
+    /** What the outline is drawn as, back to front (spec 9.4). */
+    parts: ShapePart[];
     name: string;
     metadata: string;
     description: string;
@@ -41,7 +50,16 @@ export type ElementBox = {
     color: string;
     fontSize: number;
     border: string;
+    /** Real alpha on fill and stroke, 0 to 1; text and icon stay opaque. */
     opacity: number;
+    /** A URL or, at runtime, a data URI. */
+    icon?: string;
+    iconPosition: IconPosition;
+    /**
+     * The rect inside the box the label template fills, relative to the
+     * box's top-left: the shape's content area (spec 9.4).
+     */
+    content: Bounds;
 };
 
 export type EdgeLine = {
@@ -82,20 +100,20 @@ const center = (box: ElementBox): Point => ({
 });
 
 /**
- * Where the line from `box`'s center towards `toward` leaves the box. The
- * tracer's stand-in for edge ends on the drawn outline (spec 10.5), so that
- * an arrowhead is not hidden underneath the element it points at.
+ * Where the line from the center of `geometry`, drawn with its top-left at
+ * `box`, towards `toward` leaves the shape, so that an arrowhead touches the
+ * outline it points at rather than the box around it (spec 10.5).
  */
-export function exitPoint(box: ElementBox, toward: Point): Point {
-    const from = center(box);
-    const dx = toward.x - from.x;
-    const dy = toward.y - from.y;
-    if (dx === 0 && dy === 0) return from;
-    const scale = Math.min(
-        dx === 0 ? Number.POSITIVE_INFINITY : box.width / 2 / Math.abs(dx),
-        dy === 0 ? Number.POSITIVE_INFINITY : box.height / 2 / Math.abs(dy),
-    );
-    return { x: from.x + dx * scale, y: from.y + dy * scale };
+export function exitPoint(
+    box: Point,
+    geometry: ShapeGeometry,
+    toward: Point,
+): Point {
+    const end = intersect(geometry, {
+        x: toward.x - box.x,
+        y: toward.y - box.y,
+    });
+    return { x: box.x + end.x, y: box.y + end.y };
 }
 
 /** The box around every element, or an empty box at the origin. */
@@ -125,16 +143,27 @@ export function buildGraph(
     const boundaries = new Set(view.boundaries);
 
     const elements: ElementBox[] = [];
+    /** Each element by id, with the geometry its edge ends are clipped to. */
+    const drawn = new Map<
+        string,
+        { box: ElementBox; geometry: ShapeGeometry }
+    >();
     for (const placed of view.elements) {
         if (boundaries.has(placed.id)) continue;
         const style = findElementStyle(model, placed.element, colorScheme);
-        elements.push({
+        // An unknown shape draws as a Box, at the style's size.
+        const shape = style.shape ?? "Box";
+        const { width, height } = shapeSize(shape, style.width, style.height);
+        const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
+        const geometry = shapeGeometry(shape, width, height, strokeWidth);
+        const box: ElementBox = {
             id: placed.id,
             x: placed.x,
             y: placed.y,
-            width: style.width,
-            height: style.height,
-            shape: style.shape ?? "Box",
+            width,
+            height,
+            shape: geometry.shape,
+            parts: geometry.parts,
             name: placed.element.name,
             metadata: style.metadata
                 ? getMetadataForElement(
@@ -149,22 +178,26 @@ export function buildGraph(
                     : "",
             background: style.background,
             stroke: style.stroke ?? defaults.color,
-            strokeWidth: style.strokeWidth ?? defaults.strokeWidth,
+            strokeWidth,
             color: style.color ?? defaults.color,
             fontSize: style.fontSize,
             border: style.border ?? "Solid",
             opacity: style.opacity / 100,
-        });
+            icon: style.icon,
+            iconPosition: iconPositionOf(style.iconPosition),
+            content: geometry.content,
+        };
+        elements.push(box);
+        drawn.set(box.id, { box, geometry });
     }
 
-    const byId = new Map(elements.map((e) => [e.id, e]));
     const edges: EdgeLine[] = [];
     const seen = new Map<string, number>();
     for (const placed of view.relationships) {
         const { relationship } = placed;
-        const source = byId.get(relationship.sourceId);
-        const target = byId.get(relationship.destinationId);
-        if (!source || !target || source === target) continue;
+        const from = drawn.get(relationship.sourceId);
+        const to = drawn.get(relationship.destinationId);
+        if (!from || !to || from === to) continue;
         const style = findRelationshipStyle(model, relationship, colorScheme);
         const description =
             labels.descriptions && style.description
@@ -179,10 +212,10 @@ export function buildGraph(
         edges.push({
             key: repeat === 0 ? placed.id : `${placed.id}#${repeat}`,
             id: placed.id,
-            sourceId: source.id,
-            targetId: target.id,
-            source: exitPoint(source, center(target)),
-            target: exitPoint(target, center(source)),
+            sourceId: from.box.id,
+            targetId: to.box.id,
+            source: exitPoint(from.box, from.geometry, center(to.box)),
+            target: exitPoint(to.box, to.geometry, center(from.box)),
             label: [description, technology].filter(Boolean).join("\n"),
             fontSize: style.fontSize,
             labelWidth: style.width,

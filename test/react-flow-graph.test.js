@@ -11,6 +11,7 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 const { WorkspaceModel } = await importSrc("model/index");
 const { buildGraph, exitPoint, stepZoom, ZOOM_STEP, zoomLimits } =
     await importSrc("engine/react-flow/graph");
+const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
 
 const FIXTURE = JSON.parse(
     readFileSync(
@@ -64,6 +65,136 @@ test("an element carries its name, metadata and description, styled for the sche
     assert.equal(dark.background, "#111111");
 });
 
+test("an element's label fills its whole box and carries its style's icon", () => {
+    const json = structuredClone(FIXTURE);
+    json.views.configuration.styles.elements.push({
+        tag: "Software System",
+        icon: "data:image/png;base64,AAAA",
+        iconPosition: "Left",
+        opacity: 40,
+        border: "Dotted",
+    });
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+    const [person, system] = graph.elements;
+
+    assert.deepEqual(system.content, { x: 0, y: 0, width: 450, height: 300 });
+    assert.equal(system.icon, "data:image/png;base64,AAAA");
+    assert.equal(system.iconPosition, "Left");
+    assert.equal(system.opacity, 0.4);
+    assert.equal(system.border, "Dotted");
+    assert.equal(person.icon, undefined, "the Person has no icon");
+    assert.equal(person.iconPosition, "Bottom", "Bottom is the default");
+});
+
+/* ------------------------------------------------------------------ shapes */
+
+/**
+ * The fixture's context view plus one software system per `shape`, each
+ * tagged so a style of its own gives it that shape at 450×300.
+ */
+const withShapes = (shapes) => {
+    const json = structuredClone(FIXTURE);
+    const [context] = json.views.systemContextViews;
+    for (const [index, shape] of shapes.entries()) {
+        const id = String(100 + index);
+        const tag = `Shape ${shape}`;
+        json.model.softwareSystems.push({
+            id,
+            name: `${shape} System`,
+            tags: `Element,Software System,${tag}`,
+        });
+        json.views.configuration.styles.elements.push({
+            tag,
+            shape,
+            width: 450,
+            height: 300,
+        });
+        context.elements.push({ id, x: 1000 + 600 * index, y: 200 });
+    }
+    return buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+};
+
+test("an element names the shape it draws, and an unknown shape draws as a Box", () => {
+    const graph = withShapes(["Cylinder", "Hexagon", "Blob", "WebBrowser"]);
+
+    assert.deepEqual(
+        graph.elements.map((e) => e.shape),
+        ["Person", "Box", "Cylinder", "Hexagon", "Box", "WebBrowser"],
+    );
+});
+
+test("Circle, Diamond, Person and Robot are as tall as they are wide, as in Structurizr", () => {
+    const cases = [
+        ["Circle", 450, 450],
+        ["Diamond", 450, 450],
+        ["Person", 450, 450],
+        ["Robot", 450, 450],
+        ["Hexagon", 450, Math.floor((450 * Math.sqrt(3)) / 2)],
+        ["Ellipse", 450, 300],
+        ["Box", 450, 300],
+    ];
+    const graph = withShapes(cases.map(([shape]) => shape));
+
+    for (const [index, [shape, width, height]] of cases.entries()) {
+        const element = graph.elements[2 + index];
+        assert.deepEqual(
+            [element.width, element.height],
+            [width, height],
+            `a ${shape} styled 450×300 should be drawn ${width}×${height}`,
+        );
+    }
+});
+
+test("an element's label fills its shape's content area and it draws the shape's parts", () => {
+    const graph = withShapes(["Cylinder", "Circle", "Blob"]);
+    const [cylinder, circle, blob] = graph.elements.slice(2);
+
+    assert.deepEqual(cylinder.content, {
+        x: 0,
+        y: 30,
+        width: 450,
+        height: 270,
+    });
+    assert.deepEqual(circle.content, shapeGeometry("Circle", 450, 450).content);
+    assert.deepEqual(circle.parts, shapeGeometry("Circle", 450, 450).parts);
+    assert.deepEqual(blob.parts, shapeGeometry("Box", 450, 300).parts);
+});
+
+test("an edge ends on the drawn outline of a shape, not on its box", () => {
+    const json = structuredClone(FIXTURE);
+    json.views.configuration.styles.elements.push({
+        tag: "Software System",
+        shape: "Circle",
+    });
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+    const [, circle] = graph.elements;
+    const [edge] = graph.edges;
+    const radius = Math.hypot(
+        edge.target.x - (circle.x + circle.width / 2),
+        edge.target.y - (circle.y + circle.height / 2),
+    );
+
+    assert.ok(
+        Math.abs(radius - circle.width / 2) < 1e-6,
+        `the arrowhead should touch the circle, not ${radius} from its center`,
+    );
+});
+
 test("labels hide descriptions and technologies", () => {
     const graph = buildGraph(model(), "FixtureContext", "light", {
         descriptions: false,
@@ -112,9 +243,22 @@ test("an unknown view key draws nothing", () => {
 });
 
 test("exitPoint stops at the box's edge, on the line to the other center", () => {
-    const box = { x: 0, y: 0, width: 100, height: 50 };
-    assert.deepEqual(exitPoint(box, { x: 50, y: 500 }), { x: 50, y: 50 });
-    assert.deepEqual(exitPoint(box, { x: 500, y: 25 }), { x: 100, y: 25 });
+    const at = { x: 0, y: 0 };
+    const box = shapeGeometry("Box", 100, 50);
+    assert.deepEqual(exitPoint(at, box, { x: 50, y: 500 }), { x: 50, y: 50 });
+    assert.deepEqual(exitPoint(at, box, { x: 500, y: 25 }), {
+        x: 100,
+        y: 25,
+    });
+});
+
+test("exitPoint stops at a Diamond's slanted side, inside its box", () => {
+    const diamond = shapeGeometry("Diamond", 100, 100);
+    const end = exitPoint({ x: 0, y: 0 }, diamond, { x: 500, y: 500 });
+    assert.ok(
+        Math.abs(end.x - 75) < 1e-6 && Math.abs(end.y - 75) < 1e-6,
+        `the end should be on the side, at (75, 75), not ${JSON.stringify(end)}`,
+    );
 });
 
 test("zooming steps by 1.2 and never past the scale that shows the whole view", () => {

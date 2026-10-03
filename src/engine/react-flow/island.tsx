@@ -28,15 +28,33 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
     createContext,
+    type RefObject,
     useCallback,
     useContext,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
     useSyncExternalStore,
 } from "react";
 import type { WorkspaceModel } from "../../model";
+import {
+    breakLines,
+    DESCRIPTION_GAP,
+    type FixedHeights,
+    fitLabel,
+    ICON_LAYOUTS,
+    ICON_SIZE,
+    LINE_HEIGHT,
+    labelText,
+    METADATA_SCALE,
+    NAME_GAP,
+    NAME_SCALE,
+    SIDE_PADDING,
+    textWidth,
+} from "../geometry/label";
+import { paintPart } from "../geometry/paint";
 import {
     buildGraph,
     type ColorScheme,
@@ -98,13 +116,273 @@ const FIT_PADDING = 0.05;
 type BoxNode = Node<ElementBox, "box">;
 type LineEdge = Edge<EdgeLine, "line">;
 
-/** Names and descriptions break on a real newline and on a literal `\n` (spec 9.3). */
-const unescapeNewlines = (text: string) => text.replace(/\\n/g, "\n");
+type ElementLabelProps = Pick<
+    ElementBox,
+    | "id"
+    | "content"
+    | "name"
+    | "metadata"
+    | "description"
+    | "icon"
+    | "iconPosition"
+    | "fontSize"
+    | "color"
+>;
 
+type FixedPartsProps = {
+    name: string;
+    metadata: string;
+    fontSize: number;
+    nameRef: RefObject<HTMLDivElement | null>;
+    metadataRef: RefObject<HTMLDivElement | null>;
+};
+
+/** The name and the metadata under it: the label's fixed text parts. */
+function FixedParts({
+    name,
+    metadata,
+    fontSize,
+    nameRef,
+    metadataRef,
+}: FixedPartsProps) {
+    return (
+        <>
+            <div
+                ref={nameRef}
+                style={{
+                    flexShrink: 0,
+                    fontWeight: "bold",
+                    fontSize: fontSize * NAME_SCALE,
+                    whiteSpace: "pre-line",
+                }}
+            >
+                {breakLines(name)}
+            </div>
+            {metadata && (
+                <div
+                    ref={metadataRef}
+                    style={{
+                        flexShrink: 0,
+                        marginTop: NAME_GAP,
+                        fontSize: fontSize * METADATA_SCALE,
+                    }}
+                >
+                    {metadata}
+                </div>
+            )}
+        </>
+    );
+}
+
+/** The rendered heights of a name block and an optional metadata block. */
+const heightsOf = (
+    name: HTMLElement,
+    metadata: HTMLElement | null,
+): FixedHeights => ({
+    name: name.offsetHeight,
+    metadata: metadata?.offsetHeight,
+});
+
+/**
+ * The label template (spec 9.2): icon, name, metadata and description in a
+ * vertically centered column, or a row beside a Left icon, laid over the
+ * content area. Content never resizes the element (spec 9.1): the fixed
+ * parts are measured and `fitLabel` says whether the icon stays and how many
+ * description lines fit. All text goes in as React text, never as HTML.
+ *
+ * The icon is judged by the fixed parts at the text width it leaves, whether
+ * it is drawn or not, so a dropped icon comes back once they shrink. Only a
+ * dropped Left icon changes that width, so only then is a hidden copy of the
+ * fixed parts kept at the narrower width to measure.
+ */
+function ElementLabel({
+    id,
+    content,
+    name,
+    metadata,
+    description,
+    icon,
+    iconPosition,
+    fontSize,
+    color,
+}: ElementLabelProps) {
+    const layout = ICON_LAYOUTS[iconPosition];
+    const nameRef = useRef<HTMLDivElement>(null);
+    const metadataRef = useRef<HTMLDivElement>(null);
+    const probeNameRef = useRef<HTMLDivElement>(null);
+    const probeMetadataRef = useRef<HTMLDivElement>(null);
+    const [showIcon, setShowIcon] = useState(Boolean(icon));
+    const [lines, setLines] = useState<number | undefined>(undefined);
+    const warned = useRef(false);
+    const probing = Boolean(icon) && !showIcon && layout.inset > 0;
+
+    // Measure again whenever the fixed parts change size, which is also how
+    // a late web font reflows the label (spec 9.5).
+    useLayoutEffect(() => {
+        const nameBlock = nameRef.current;
+        if (!nameBlock) return;
+        const measure = () => {
+            const drawn = heightsOf(nameBlock, metadataRef.current);
+            const probe = probeNameRef.current;
+            const fit = fitLabel({
+                height: content.height,
+                fontSize,
+                iconPosition,
+                ...drawn,
+                withIcon: !icon
+                    ? undefined
+                    : probe
+                      ? heightsOf(probe, probeMetadataRef.current)
+                      : drawn,
+                description: Boolean(description),
+            });
+            // A Left icon changes the text width, so the heights just read
+            // are stale: draw the icon as decided and measure again.
+            if (fit.icon !== showIcon) return setShowIcon(fit.icon);
+            setLines(fit.descriptionLines);
+            if (fit.overflows && !warned.current) {
+                warned.current = true;
+                // The one console call in shipped code: spec 9.1 asks for a
+                // warning when name and metadata overflow, and the page has
+                // nowhere else to report a workspace authoring problem.
+                console.warn(
+                    `Element ${id} ("${name}"): its name and metadata do not fit its ${content.width}×${content.height} content area.`,
+                );
+            }
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        const blocks = [
+            nameBlock,
+            metadataRef.current,
+            probeNameRef.current,
+            probeMetadataRef.current,
+        ];
+        for (const block of blocks) if (block) observer.observe(block);
+        return () => observer.disconnect();
+    }, [
+        content,
+        description,
+        fontSize,
+        icon,
+        iconPosition,
+        id,
+        name,
+        showIcon,
+    ]);
+
+    const beside = showIcon && layout.beside;
+    const image = showIcon && icon && (
+        <img
+            src={icon}
+            alt=""
+            style={{
+                flexShrink: 0,
+                width: beside ? ICON_SIZE : "100%",
+                height: ICON_SIZE,
+                objectFit: "contain",
+                marginTop: layout.margin.top,
+                marginBottom: layout.margin.bottom,
+                marginRight: layout.margin.right,
+            }}
+        />
+    );
+    const column = {
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        overflowWrap: "break-word",
+    } as const;
+
+    return (
+        <div
+            data-element-label=""
+            style={{
+                position: "absolute",
+                left: content.x,
+                top: content.y,
+                width: content.width,
+                height: content.height,
+                boxSizing: "border-box",
+                padding: `0 ${SIDE_PADDING}px`,
+                display: "flex",
+                flexDirection: beside ? "row" : "column",
+                justifyContent: "center",
+                alignItems: "center",
+                textAlign: "center",
+                color,
+                fontSize,
+                lineHeight: LINE_HEIGHT,
+            }}
+        >
+            {probing && (
+                <div
+                    aria-hidden="true"
+                    style={{
+                        ...column,
+                        position: "absolute",
+                        visibility: "hidden",
+                        width: textWidth(content.width, iconPosition, true),
+                    }}
+                >
+                    <FixedParts
+                        name={name}
+                        metadata={metadata}
+                        fontSize={fontSize}
+                        nameRef={probeNameRef}
+                        metadataRef={probeMetadataRef}
+                    />
+                </div>
+            )}
+            {!layout.after && image}
+            <div
+                style={{
+                    ...column,
+                    flexShrink: 0,
+                    width: textWidth(content.width, iconPosition, showIcon),
+                }}
+            >
+                <FixedParts
+                    name={name}
+                    metadata={metadata}
+                    fontSize={fontSize}
+                    nameRef={nameRef}
+                    metadataRef={metadataRef}
+                />
+                {description && lines !== 0 && (
+                    <div
+                        data-element-description=""
+                        style={{
+                            flexShrink: 0,
+                            marginTop: DESCRIPTION_GAP,
+                            whiteSpace: "pre-line",
+                            overflow: "hidden",
+                            // Unclamped only until the first measurement, which
+                            // runs before paint, so that state is never seen.
+                            ...(lines !== undefined && {
+                                display: "-webkit-box",
+                                WebkitBoxOrient: "vertical",
+                                WebkitLineClamp: lines,
+                            }),
+                        }}
+                    >
+                        {breakLines(description)}
+                    </div>
+                )}
+            </div>
+            {layout.after && image}
+        </div>
+    );
+}
+
+/**
+ * One element: its shape's parts in SVG behind the HTML label template, each
+ * painted by its role. Opacity is real alpha on the parts' fill and stroke,
+ * applied to them as one group so overlapping parts show no seams, and the
+ * label and icon stay opaque (spec 9.4).
+ */
 function BoxElement({ data }: NodeProps<BoxNode>) {
-    const fullText = [data.name, data.metadata, data.description]
-        .filter(Boolean)
-        .join("\n");
+    const fullText = labelText(data.name, data.metadata, data.description);
 
     return (
         <div
@@ -112,23 +390,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
             data-shape={data.shape}
             title={fullText}
             aria-label={fullText}
-            style={{
-                width: "100%",
-                height: "100%",
-                boxSizing: "border-box",
-                background: data.background,
-                border: `${data.strokeWidth}px ${data.border.toLowerCase()} ${data.stroke}`,
-                color: data.color,
-                fontSize: data.fontSize,
-                lineHeight: 1.2,
-                padding: "0 30px",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                textAlign: "center",
-                overflow: "hidden",
-            }}
+            style={{ position: "relative", width: "100%", height: "100%" }}
         >
             {/* React Flow drops every edge of a node without a handle (#23). */}
             <Handle
@@ -137,32 +399,35 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                 isConnectable={false}
                 style={{ opacity: 0, pointerEvents: "none" }}
             />
-            <div
+            <svg
+                aria-hidden="true"
+                width={data.width}
+                height={data.height}
                 style={{
-                    fontWeight: "bold",
-                    fontSize: data.fontSize * 1.4,
-                    whiteSpace: "pre-line",
-                    marginBottom: 8,
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    overflow: "visible",
                 }}
             >
-                {unescapeNewlines(data.name)}
-            </div>
-            {data.metadata && (
-                <div style={{ fontSize: data.fontSize * 0.7 }}>
-                    {data.metadata}
-                </div>
-            )}
-            {data.description && (
-                <div
-                    style={{
-                        marginTop: 15,
-                        whiteSpace: "pre-line",
-                        overflow: "hidden",
-                    }}
-                >
-                    {unescapeNewlines(data.description)}
-                </div>
-            )}
+                <g opacity={data.opacity}>
+                    {data.parts.map((part, index) => (
+                        <path
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a shape's parts are a fixed list, drawn back to front
+                            key={index}
+                            data-paint={part.paint}
+                            d={part.d}
+                            {...paintPart(part.paint, data)}
+                        />
+                    ))}
+                </g>
+            </svg>
+            {/* A new name, metadata or icon is a new label: its fitting
+                starts over from the icon drawn. */}
+            <ElementLabel
+                key={[data.name, data.metadata, data.icon].join("\n")}
+                {...data}
+            />
         </div>
     );
 }
@@ -216,7 +481,7 @@ function StraightEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
                             padding: 4,
                         }}
                     >
-                        {unescapeNewlines(data.label)}
+                        {breakLines(data.label)}
                     </div>
                 </EdgeLabelRenderer>
             )}
