@@ -5,7 +5,7 @@ paths:
 
 # ADR Guidelines
 
-ADRs are **immutable records**. Once an ADR has landed on `main`, never edit its content. **Three exceptions apply:** the `## Status` section, which is a live pointer rather than part of the record (see below); an ADR that has not yet landed on `main`; and a merged ADR that still reads `Draft`, which stays revisable until it is promoted to `Accepted`.
+ADRs are **immutable records**. Once an ADR has landed on `main`, never edit its content. **Three exceptions apply:** the `## Status` section, which is a live pointer rather than part of the record (see below); an ADR that has not yet landed on `main`; and a merged ADR that still reads `Draft`, which stays revisable until it is promoted to `Accepted`. Spelling and formatting fixes that leave every sentence meaning what it meant (American spelling under `writing.md`, Markdown syntax, link targets that moved) are format, not content, and may be made to any ADR; a change that alters, adds or removes a claim is never one of these.
 
 **Immutability begins when the PR merges to `main` — not when the ADR's `## Status` field is set to `Accepted`.** An ADR is not yet a record while its introducing PR is still open, whatever its status word says. So marking it `Accepted` inside an open PR does not freeze the content: it may still be revised in place — rewritten, cut, or reversed — for as long as that PR has not merged. Promoting a `Draft` to `Accepted` in the same change is the normal way an ADR lands, and neither that revision nor the status change needs a superseding or amending ADR. Once the PR merges, the rules below apply in full.
 

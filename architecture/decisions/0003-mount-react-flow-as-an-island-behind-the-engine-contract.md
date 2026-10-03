@@ -28,7 +28,7 @@ Mount the engine as a React island: one React root inside the diagram target, re
 ## Reference links
 
 - [React Flow](https://reactflow.dev/)
-- [MIT licence](https://opensource.org/license/mit)
+- [MIT license](https://opensource.org/license/mit)
 - [React](https://react.dev/)
 - [JointJS](https://github.com/clientIO/joint)
 - [jQuery](https://github.com/jquery/jquery)

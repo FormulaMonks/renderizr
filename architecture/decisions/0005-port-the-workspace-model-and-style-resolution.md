@@ -26,4 +26,4 @@ Port both to typed modules under `src/model/`. Add `resolveView` there, so every
 
 - [`structurizr-workspace.js`](https://github.com/structurizr/structurizr/blob/main/structurizr-application/src/main/resources/static/static/js/structurizr-workspace.js)
 - [`structurizr-ui.js`](https://github.com/structurizr/structurizr/blob/main/structurizr-application/src/main/resources/static/static/js/structurizr-ui.js)
-- [Apache-2.0 licence](https://www.apache.org/licenses/LICENSE-2.0)
+- [Apache-2.0 license](https://www.apache.org/licenses/LICENSE-2.0)

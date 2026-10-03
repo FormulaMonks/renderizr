@@ -24,7 +24,7 @@ Renderizr has drawn diagrams with Structurizr's own browser renderer, vendored f
 
 ## Decision
 
-Draw every diagram with Renderizr's own engine. Honour everything the workspace says: stored coordinates, tag styles, themes, shapes, routing and colour schemes. Choose the pixels ourselves. Where Structurizr's behaviour is an accident of its implementation (dynamic orders sorted by string subtraction, opacity faked by blending colours, small image views scaled up), follow what the workspace means.
+Draw every diagram with Renderizr's own engine. Honor everything the workspace says: stored coordinates, tag styles, themes, shapes, routing and color schemes. Choose the pixels ourselves. Where Structurizr's behavior is an accident of its implementation (dynamic orders sorted by string subtraction, opacity faked by blending colors, small image views scaled up), follow what the workspace means.
 
 ## Consequences
 

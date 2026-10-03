@@ -33,9 +33,9 @@ Use `@dagrejs/dagre` in compound mode, ported from the JointJS `DirectedGraph` a
 
 - [Big Bank plc workspace](https://github.com/structurizr/structurizr/blob/main/structurizr-export/src/test/resources/big-bank-plc.json)
 - [Dagre](https://github.com/dagrejs/dagre)
-- [MIT licence](https://opensource.org/license/mit)
+- [MIT license](https://opensource.org/license/mit)
 - [elkjs](https://github.com/kieler/elkjs)
-- [EPL-2.0 licence](https://www.eclipse.org/legal/epl-2.0/)
+- [EPL-2.0 license](https://www.eclipse.org/legal/epl-2.0/)
 - [hpcc-js-wasm, Graphviz in WebAssembly](https://github.com/hpcc-systems/hpcc-js-wasm)
 - [WebCola](https://github.com/tgdwyer/WebCola)
 - [d3-hierarchy](https://github.com/d3/d3-hierarchy)
