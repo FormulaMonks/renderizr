@@ -8,7 +8,8 @@
  * (shadeColor) and
  * structurizr-application/src/main/resources/static/static/js/structurizr-diagram.js
  * (findStyleForPerspective, applyElementStyleForPerspective,
- * applyRelationshipStyleForPerspective, getPerspectiveForElement).
+ * applyRelationshipStyleForPerspective, getPerspectiveForElement,
+ * createBoundary).
  *
  * Copyright Structurizr. Licensed under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance with the License.
@@ -25,7 +26,9 @@
  * Modified by Renderizr: ported to typed TypeScript, made a pure function of
  * the workspace, the color scheme, the themes and an optional perspective;
  * an unset stroke is the background darkened 10% in both color schemes;
- * dynamic (URL-polled) perspectives are ignored.
+ * dynamic (URL-polled) perspectives are ignored; a boundary's style resolved
+ * without its shape, which the engine reduces to a rectangle, and groups and
+ * the enterprise boundary styled from their own tags alone.
  */
 
 import { sortStyles, type WorkspaceModel } from "./workspace";
@@ -252,6 +255,33 @@ export function findElementStyle(
     themes: Theme[] = [],
     perspective?: string,
 ): ElementStyle {
+    const implied = ["Element"];
+    if (element.type === "DeploymentNode") implied.push("Deployment Node");
+    if (element.type === "Group") implied.push("Group");
+    if (element.type === "Boundary") implied.push("Boundary");
+    return resolveElementStyle(
+        model,
+        element,
+        implied,
+        scheme,
+        themes,
+        perspective,
+    );
+}
+
+/**
+ * `findElementStyle` with the tags listed before the element's own given by
+ * the caller: a group or the enterprise boundary lists none, so its style
+ * names only the tags it was resolved from.
+ */
+function resolveElementStyle(
+    model: WorkspaceModel,
+    element: Partial<ModelElement>,
+    implied: string[],
+    scheme: ColorScheme,
+    themes: Theme[],
+    perspective?: string,
+): ElementStyle {
     const defaults = SCHEME_DEFAULTS[scheme];
     const styles = definitions(model, "elements", themes);
     const byTag = stylesByTag(styles, scheme, ELEMENT_ATTRIBUTES);
@@ -264,13 +294,9 @@ export function findElementStyle(
         opacity: 100,
         metadata: true,
         description: true,
-        tags: ["Element"],
+        tags: [...implied],
     };
     let defaultSizeInUse = true;
-
-    if (element.type === "DeploymentNode") style.tags.push("Deployment Node");
-    if (element.type === "Group") style.tags.push("Group");
-    if (element.type === "Boundary") style.tags.push("Boundary");
 
     for (const raw of model.getAllTagsForElement(element)) {
         let tag = raw.trim();
@@ -391,28 +417,6 @@ export function findRelationshipStyle(
 
 /* -------------------------------------------------------------- boundaries */
 
-/**
- * The shapes whose boundary is drawn with rounded corners (upstream's
- * `shapeHasRoundedCorners`); every other boundary is a square-cornered box.
- */
-const ROUNDED_BOUNDARY_SHAPES = [
-    "RoundedBox",
-    "Folder",
-    "WebBrowser",
-    "Window",
-    "Terminal",
-    "Shell",
-    "MobileDevicePortrait",
-    "MobileDeviceLandscape",
-    "Component",
-];
-
-/** A boundary is a rectangle: RoundedBox for the rounded family, else Box (spec 8). */
-const boundaryShape = (shape: string | undefined) =>
-    shape !== undefined && ROUNDED_BOUNDARY_SHAPES.includes(shape)
-        ? "RoundedBox"
-        : "Box";
-
 /** Only the attributes `tags` set explicitly, merged in tag order. */
 function explicitAttributes(
     model: WorkspaceModel,
@@ -438,9 +442,10 @@ function explicitAttributes(
  * upstream's `createBoundary`). A software system or container starts from
  * its own resolved style, overridden field by field by `Boundary` and
  * `Boundary:<type>`: its fill is the canvas background unless a boundary
- * style sets one, its stroke stays the element's, and text the color of the
- * fill falls back to the stroke. A deployment node keeps its own style.
- * Either way the shape is a rectangle.
+ * style sets one, its stroke is the element's resolved stroke unless a
+ * boundary style sets one, and text the color of the fill falls back to the
+ * stroke. A deployment node keeps its own style. The engine draws whatever
+ * shape it names as a rectangle (spec 8).
  */
 export function findBoundaryStyle(
     model: WorkspaceModel,
@@ -450,9 +455,7 @@ export function findBoundaryStyle(
     perspective?: string,
 ): ElementStyle {
     const style = findElementStyle(model, element, scheme, themes, perspective);
-    if (element.type === "DeploymentNode") {
-        return { ...style, shape: boundaryShape(style.shape) };
-    }
+    if (element.type === "DeploymentNode") return style;
 
     const override = explicitAttributes(
         model,
@@ -462,11 +465,7 @@ export function findBoundaryStyle(
     );
     const background =
         override.background ?? SCHEME_DEFAULTS[scheme].background;
-    const stroke =
-        override.stroke ??
-        (override.background === undefined
-            ? style.stroke
-            : shadeColor(override.background, -10));
+    const stroke = override.stroke ?? style.stroke;
     const color =
         override.color ?? (style.color === background ? stroke : style.color);
 
@@ -480,13 +479,14 @@ export function findBoundaryStyle(
         border: override.border ?? style.border,
         fontSize: override.fontSize ?? style.fontSize,
         icon: override.icon ?? style.icon,
-        shape: boundaryShape(override.shape ?? style.shape),
+        shape: override.shape ?? style.shape,
     };
 }
 
 /**
  * How a group is styled: `Group` and `Group:<full path>` alone, so a nested
- * group inherits nothing from the groups around it (spec 8).
+ * group inherits nothing from the groups around it and nothing comes from
+ * `Element` (spec 8). Dotted unless a style says otherwise.
  */
 export function findGroupStyle(
     model: WorkspaceModel,
@@ -494,29 +494,30 @@ export function findGroupStyle(
     scheme: ColorScheme = "Light",
     themes: Theme[] = [],
 ): ElementStyle {
-    const style = findElementStyle(
+    return resolveElementStyle(
         model,
         { type: "Group", tags: `Group,Group:${path}` },
+        [],
         scheme,
         themes,
     );
-    return { ...style, shape: boundaryShape(style.shape) };
 }
 
 /**
  * How the enterprise boundary is styled: `Boundary` and
- * `Boundary:Enterprise`, resolved the way upstream resolves it, as a group.
+ * `Boundary:Enterprise` alone, nothing from `Element` or `Group` (spec 8).
+ * Dotted unless a style says otherwise, as upstream draws it.
  */
 export function findEnterpriseStyle(
     model: WorkspaceModel,
     scheme: ColorScheme = "Light",
     themes: Theme[] = [],
 ): ElementStyle {
-    const style = findElementStyle(
+    return resolveElementStyle(
         model,
         { type: "Group", tags: "Boundary,Boundary:Enterprise" },
+        [],
         scheme,
         themes,
     );
-    return { ...style, shape: "Box" };
 }

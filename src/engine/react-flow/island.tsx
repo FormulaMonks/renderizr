@@ -133,6 +133,7 @@ type ElementLabelProps = Pick<
     ElementBox,
     | "id"
     | "content"
+    | "labelHeight"
     | "name"
     | "metadata"
     | "description"
@@ -211,6 +212,7 @@ const heightsOf = (
 function ElementLabel({
     id,
     content,
+    labelHeight,
     name,
     metadata,
     description,
@@ -238,7 +240,7 @@ function ElementLabel({
             const drawn = heightsOf(nameBlock, metadataRef.current);
             const probe = probeNameRef.current;
             const fit = fitLabel({
-                height: content.height,
+                height: labelHeight,
                 fontSize,
                 iconPosition,
                 ...drawn,
@@ -275,6 +277,7 @@ function ElementLabel({
         return () => observer.disconnect();
     }, [
         content,
+        labelHeight,
         description,
         fontSize,
         icon,

@@ -14,9 +14,13 @@ import { estimateText, type MeasureText } from "../geometry/boundary";
 /** The stack the diagram is drawn in until, or without, a `--font` family. */
 export const FALLBACK_FONT = "Helvetica, Arial, sans-serif";
 
+/** `family` as a quoted CSS family name, any quotes in it dropped. */
+const quoted = (family: string) => `"${family.replace(/"/g, "")}"`;
+
 /** The CSS `font-family` the diagram is drawn and measured in. */
-export const diagramFontFamily = (family: string | null) =>
-    family ? `"${family.replace(/"/g, "")}", ${FALLBACK_FONT}` : FALLBACK_FONT;
+export function diagramFontFamily(family: string | null): string {
+    return family ? `${quoted(family)}, ${FALLBACK_FONT}` : FALLBACK_FONT;
+}
 
 /** The part of `document.fonts` the swap needs. */
 export type FontLoader = { load(font: string): Promise<unknown[]> };
@@ -34,11 +38,8 @@ export function whenFontLoads(
 ): () => void {
     if (!fonts || !family) return () => {};
     let listening = true;
-    const quoted = `"${family.replace(/"/g, "")}"`;
-    Promise.all([
-        fonts.load(`16px ${quoted}`),
-        fonts.load(`bold 16px ${quoted}`),
-    ])
+    const name = quoted(family);
+    Promise.all([fonts.load(`16px ${name}`), fonts.load(`bold 16px ${name}`)])
         .then((faces) => {
             if (listening && faces.some((found) => found.length > 0)) loaded();
         })

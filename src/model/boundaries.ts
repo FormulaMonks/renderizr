@@ -1,7 +1,7 @@
 /**
  * Which elements a view draws as boundaries, and how those boundaries nest
  * (spec 8, ADR 9). One rule for every view type: an element is a boundary
- * when at least one of its children is in the view, a group is a boundary
+ * when the view lists at least one of its children, a group is a boundary
  * while it has a member in the view, and the enterprise boundary goes around
  * every Internal element of a landscape or context view when it is switched
  * on. Only the nesting is decided here; the boxes are derived from the
@@ -11,28 +11,36 @@
 import type { ModelElement, ModelView, ViewType } from "./types";
 import type { WorkspaceModel } from "./workspace";
 
-export type BoundaryKind = "Element" | "Group" | "Enterprise";
-
 export type ResolvedBoundary = {
     /**
      * The element's id, `groupBoundaryId(scope, path)` for a group, or
      * `enterprise`. What `data-boundary-id` carries (spec 15.1).
      */
     id: string;
-    kind: BoundaryKind;
     /** The label's name: the element's, a group's last segment, the enterprise's. */
     name: string;
-    /** The element drawn as this boundary, which the view need not list. */
-    element?: ModelElement;
-    /** A group's full path, which its style is looked up by. */
-    group?: string;
     /** The boundary drawn directly around this one. */
     parent?: string;
     /** Ids of the elements and boundaries drawn directly inside it. */
     children: string[];
     /** 0 for an outermost boundary, one more for each boundary around it. */
     depth: number;
-};
+} & (
+    | {
+          kind: "Element";
+          /** The element drawn as this boundary, which the view need not list. */
+          element: ModelElement;
+      }
+    | {
+          kind: "Group";
+          /** The group's full path, which its style is looked up by. */
+          group: string;
+      }
+    | { kind: "Enterprise" }
+);
+
+/** What tells the kinds of boundary apart. */
+export type BoundaryKind = ResolvedBoundary["kind"];
 
 /** The id of the enterprise boundary. */
 export const ENTERPRISE_BOUNDARY_ID = "enterprise";
@@ -44,18 +52,25 @@ const ENTERPRISE_VIEWS: ViewType[] = ["SystemLandscape", "SystemContext"];
  * A group's identity: the scope it was declared in plus its full path, so
  * that two software systems can each have a group of the same name.
  */
-export const groupBoundaryId = (scope: string, path: string) =>
-    `group:${scope}:${path}`;
+export function groupBoundaryId(scope: string, path: string): string {
+    return `group:${scope}:${path}`;
+}
 
 /**
  * Where an element's group was declared: its parent element, the deployment
  * environment for a top-level deployment node, or nothing for a top-level
- * model element.
+ * model element. Under the enterprise boundary a top-level element's group
+ * is scoped by its location too, as upstream scopes it, so that a group
+ * mixing Internal and External members becomes one group inside the
+ * enterprise boundary and one outside it.
  */
-function scopeOf(element: ModelElement): string {
+function scopeOf(element: ModelElement, enterprise: boolean): string {
     if (element.parentId !== undefined) return element.parentId;
     if (element.type === "DeploymentNode") {
         return `deployment:${element.environment ?? ""}`;
+    }
+    if (enterprise) {
+        return `location:${element.location === "Internal" ? "Internal" : "External"}`;
     }
     return "";
 }
@@ -77,19 +92,27 @@ const lastSegment = (path: string, separator: string | undefined) =>
         ? path.slice(path.lastIndexOf(separator) + separator.length)
         : path;
 
-/** Whether the view draws the enterprise boundary, if it has an Internal element. */
+/**
+ * Whether the view draws the enterprise boundary, if it has an Internal
+ * element: `enterpriseBoundaryVisible` or `structurizr.enterpriseBoundary`
+ * (spec 8).
+ */
 function enterpriseSwitchedOn(view: ModelView): boolean {
-    if (!ENTERPRISE_VIEWS.includes(view.type)) return false;
-    const property = view.properties?.["structurizr.enterpriseBoundary"];
-    if (property !== undefined) return property === "true";
-    return view.enterpriseBoundaryVisible === true;
+    return (
+        ENTERPRISE_VIEWS.includes(view.type) &&
+        (view.enterpriseBoundaryVisible === true ||
+            view.properties?.["structurizr.enterpriseBoundary"] === "true")
+    );
 }
 
 /**
  * The boundaries a view draws around `elements` (the elements it lists, in
- * view order), outer before inner. Each element's ancestors are boundaries,
- * whether the view lists them or not: a container view does not list its
- * software system, and a component view draws its container too.
+ * view order), outer before inner. The parent of a listed element is a
+ * boundary whether the view lists it or not: a container view does not list
+ * its software system, and a component view does not list its container.
+ * Further up, the spec 8 table holds literally: a component view draws the
+ * software system around its container only when it lists one of that
+ * system's containers.
  */
 export function resolveBoundaries(
     model: WorkspaceModel,
@@ -99,12 +122,13 @@ export function resolveBoundaries(
     const boundaries = new Map<string, ResolvedBoundary>();
     const separator: string | undefined =
         model.model.properties["structurizr.groupSeparator"] || undefined;
-    const groups = view.properties?.["structurizr.groups"] !== "false";
+    const internal = elements.filter((e) => e.location === "Internal");
+    const enterprise = internal.length > 0 && enterpriseSwitchedOn(view);
 
-    // Every ancestor of a listed element has a child in the view.
+    // The parent of a listed element has a child in the view.
     for (const element of elements) {
-        let parent = model.findElementById(element.parentId);
-        while (parent && !boundaries.has(parent.id)) {
+        const parent = model.findElementById(element.parentId);
+        if (parent && !boundaries.has(parent.id)) {
             boundaries.set(parent.id, {
                 id: parent.id,
                 kind: "Element",
@@ -113,7 +137,6 @@ export function resolveBoundaries(
                 children: [],
                 depth: 0,
             });
-            parent = model.findElementById(parent.parentId);
         }
     }
 
@@ -160,21 +183,26 @@ export function resolveBoundaries(
      */
     const attach = (element: ModelElement) => {
         const parent = boundaries.get(element.parentId ?? "");
-        if (parent?.element && !parentOf.has(parent.id)) attach(parent.element);
-        const paths =
-            groups && element.group ? groupPaths(element.group, separator) : [];
+        if (parent?.kind === "Element" && !parentOf.has(parent.id)) {
+            attach(parent.element);
+        }
+        const paths = element.group ? groupPaths(element.group, separator) : [];
         place(
             element.id,
             paths.length
-                ? groupBoundary(scopeOf(element), paths, 0, parent?.id)
+                ? groupBoundary(
+                      scopeOf(element, enterprise),
+                      paths,
+                      0,
+                      parent?.id,
+                  )
                 : parent?.id,
         );
     };
 
     for (const element of elements) attach(element);
 
-    const internal = elements.filter((e) => e.location === "Internal");
-    if (internal.length && enterpriseSwitchedOn(view)) {
+    if (enterprise) {
         boundaries.set(ENTERPRISE_BOUNDARY_ID, {
             id: ENTERPRISE_BOUNDARY_ID,
             kind: "Enterprise",
@@ -182,11 +210,14 @@ export function resolveBoundaries(
             children: [],
             depth: 0,
         });
-        // Around the outermost boundary of each Internal element.
+        // Around the outermost boundary of each Internal element, which
+        // holds only Internal elements: top-level groups split by location.
         for (const element of internal) {
-            let top = element.id;
-            while (parentOf.has(top)) top = parentOf.get(top)!;
-            place(top, ENTERPRISE_BOUNDARY_ID);
+            let outermost = element.id;
+            while (parentOf.has(outermost)) {
+                outermost = parentOf.get(outermost)!;
+            }
+            place(outermost, ENTERPRISE_BOUNDARY_ID);
         }
     }
 

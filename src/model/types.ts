@@ -16,8 +16,10 @@ export type ElementType =
     | "SoftwareSystemInstance"
     | "ContainerInstance"
     | "Boundary"
-    | "Group"
-    | "Enterprise";
+    | "Group";
+
+/** Where an element sits relative to the enterprise. */
+export type ElementLocation = "Internal" | "External" | "Unspecified";
 
 export type ViewType =
     | "Custom"
@@ -66,8 +68,8 @@ export type ModelElement = {
     environment?: string;
     /** The group the element belongs to, a path when the model nests groups. */
     group?: string;
-    /** `Internal`, `External` or `Unspecified`; Internal is inside the enterprise. */
-    location?: string;
+    /** Internal is inside the enterprise. */
+    location?: ElementLocation;
     /** A deployment node's instance count as written: `"4"`, `"0..N"`. */
     instances?: string | number;
     softwareSystemId?: string;

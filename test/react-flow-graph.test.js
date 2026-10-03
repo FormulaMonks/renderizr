@@ -305,13 +305,15 @@ test("a boundary styled as a rounded shape has 20 radius corners", () => {
 
 test("the label band is measured with the text measure it is given", () => {
     const narrow = (text, fontSize) => text.length * fontSize * 0.1;
-    const wide = (text, fontSize) => text.length * fontSize * 1.5;
+    // Wide regular text only, so the bold name leaves the width alone.
+    const wide = (text, fontSize, bold) =>
+        text.length * fontSize * (bold ? 0.1 : 3);
     const band = (measure) =>
         buildGraph(containers(), "FixtureContainers", "light", LABELS, measure)
             .boundaries[0];
 
-    assert.deepEqual(band(narrow).name.lines, ["Fixture System"]);
-    assert.ok(band(wide).name.lines.length > 1, "wide text wraps");
+    assert.deepEqual(band(narrow).metadata.lines, ["[Software System]"]);
+    assert.ok(band(wide).metadata.lines.length > 1, "wide metadata wraps");
     assert.ok(band(wide).height > band(narrow).height, "and the band grows");
     assert.equal(band(wide).width, band(narrow).width);
 });
@@ -362,11 +364,44 @@ test("a deployment node with nothing inside is an element with its instance coun
         ["n", 10, 20, 450, 300, "Box"],
     );
     assert.deepEqual(node.instances.lines, ["x3"]);
-    assert.equal(
-        node.content.height,
-        node.instances.y,
-        "the label stops above the count",
+    assert.deepEqual(
+        node.content,
+        shapeGeometry("Box", 450, 300, 2).content,
+        "the label keeps the shape's whole content area",
     );
+    assert.ok(
+        node.labelHeight < node.content.height,
+        "but grows no taller than ends above the count",
+    );
+});
+
+test("the enterprise boundary is labelled with the enterprise's name alone", () => {
+    const json = structuredClone(FIXTURE);
+    json.model.enterprise = { name: "Acme" };
+    json.model.softwareSystems[0].location = "Internal";
+    json.views.systemContextViews[0].enterpriseBoundaryVisible = true;
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+    const [enterprise] = graph.boundaries;
+
+    assert.equal(enterprise.kind, "Enterprise");
+    assert.deepEqual(enterprise.name.lines, ["Acme"]);
+    assert.equal(enterprise.metadata, undefined, "no [Enterprise] metadata");
+    assert.deepEqual(enterprise.children, ["2"]);
+});
+
+test("an element that is not a deployment node gives its label its whole content area", () => {
+    const [element] = buildGraph(
+        model(),
+        "FixtureContext",
+        "light",
+        LABELS,
+    ).elements;
+    assert.equal(element.labelHeight, element.content.height);
 });
 
 test("an unknown view key draws nothing", () => {

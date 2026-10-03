@@ -1,15 +1,42 @@
+/*
+ * Portions derived from Structurizr
+ * (https://github.com/structurizr/structurizr), file
+ * structurizr-application/src/main/resources/static/static/js/structurizr-diagram.js
+ * (reposition, createBoundary and createDeploymentNode's minimumWidth and
+ * instance count, shapeHasRoundedCorners).
+ *
+ * Copyright Structurizr. Licensed under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations
+ * under the License.
+ *
+ * Modified by Renderizr: ported to pure functions over numbers and a text
+ * measure instead of JointJS cells; 50 padding with no padding view
+ * properties; the label band wraps to the box's width, reserving room for an
+ * icon on the left and the instance count on the right.
+ */
+
 /**
  * Boundary boxes, derived from their children before React renders (spec 8,
  * ADR 9): the bounding box of the children, 50 padding on every side and a
  * label band at the bottom, deepest first. Coordinates stored on a boundary
  * are never read, so the layout editor can rerun this when a child moves.
  *
- * The band's width comes from the children, never from the label: the name
- * and metadata wrap within it and the band grows downward. Text is measured
- * by the caller's `MeasureText` (canvas `measureText` in the island, in the
- * same font string the CSS uses), which keeps this module free of the DOM.
+ * The band's width comes from the children, widened only to `minimumWidth`:
+ * the name and metadata wrap within it and the band grows downward. Text is
+ * measured by the caller's `MeasureText` (canvas `measureText` in the island,
+ * in the same font string the CSS uses), which keeps this module free of the
+ * DOM.
  */
 
+import { type Bounds, boundsOf } from "./bounds";
 import {
     breakLines,
     LINE_HEIGHT,
@@ -17,8 +44,7 @@ import {
     NAME_GAP,
     NAME_SCALE,
 } from "./label";
-
-export type Bounds = { x: number; y: number; width: number; height: number };
+import type { Shape } from "./shapes/types";
 
 /** The width `text` takes at `fontSize`, bold or not, in model units. */
 export type MeasureText = (
@@ -46,6 +72,34 @@ export const BAND_GAP = 10;
 /** An instance count's font size, as a multiple of the name's. */
 export const INSTANCE_SCALE = 2;
 
+/** The corner radius of a boundary in the RoundedBox family (spec 8). */
+export const BOUNDARY_RADIUS = 20;
+
+/**
+ * The shapes whose boundary has rounded corners (upstream's
+ * `shapeHasRoundedCorners`); every other boundary is a square-cornered box.
+ */
+const ROUNDED_BOUNDARY_SHAPES: readonly Shape[] = [
+    "RoundedBox",
+    "Folder",
+    "WebBrowser",
+    "Window",
+    "Terminal",
+    "Shell",
+    "MobileDevicePortrait",
+    "MobileDeviceLandscape",
+    "Component",
+];
+
+/**
+ * A boundary is a rectangle whatever shape its style names (spec 8): 20
+ * radius corners for the RoundedBox family, square otherwise.
+ */
+export const boundaryRadius = (shape: string | undefined) =>
+    ROUNDED_BOUNDARY_SHAPES.some((rounded) => rounded === shape)
+        ? BOUNDARY_RADIUS
+        : 0;
+
 /** What a boundary's label band says. */
 export type BoundaryLabel = {
     name: string;
@@ -55,8 +109,13 @@ export type BoundaryLabel = {
     fontSize: number;
     /** Whether the style has an icon, drawn to the left of the text. */
     icon: boolean;
-    /** A deployment node's `x<instances>`, from `instanceCountText`. */
+    /** A deployment node's `x<instances>`, from `formatInstanceCount`. */
     instances?: string;
+    /**
+     * Whether the metadata, like the name, sets the minimum width: true for
+     * a deployment node, as upstream sizes one.
+     */
+    metadataSetsWidth?: boolean;
 };
 
 export type BoundaryInput = {
@@ -85,7 +144,7 @@ export type DerivedBoundary = Bounds & {
  * A deployment node's instance count as the band shows it: `x` and the
  * count exactly as written, ranges included, and nothing for a single one.
  */
-export function instanceCountText(
+export function formatInstanceCount(
     instances: string | number | undefined,
 ): string | undefined {
     const written = instances === undefined ? "" : String(instances).trim();
@@ -95,7 +154,7 @@ export function instanceCountText(
 /**
  * `text` broken into lines no wider than `width`: at every newline (real or
  * the literal `\n`, spec 9.3), then between words. A word wider than `width`
- * gets a line of its own; `minimumWidth` is what keeps that from happening.
+ * gets a line of its own.
  */
 export function wrapLines(
     text: string,
@@ -120,21 +179,6 @@ export function wrapLines(
     }
     return lines;
 }
-
-/** The widest single word of `text`, which no wrapping can break. */
-const widestWord = (
-    text: string,
-    fontSize: number,
-    bold: boolean,
-    measure: MeasureText,
-) =>
-    Math.max(
-        0,
-        ...breakLines(text)
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((word) => measure(word, fontSize, bold)),
-    );
 
 /** The label's sizes and what it reserves beside the text. */
 function bandParts(label: BoundaryLabel, measure: MeasureText) {
@@ -161,29 +205,47 @@ function bandParts(label: BoundaryLabel, measure: MeasureText) {
     };
 }
 
+/** The width of the widest line of `text`, broken only at newlines. */
+const widestLine = (
+    text: string,
+    fontSize: number,
+    bold: boolean,
+    measure: MeasureText,
+) =>
+    Math.max(
+        0,
+        ...breakLines(text)
+            .split("\n")
+            .map((line) => measure(line, fontSize, bold)),
+    );
+
 /**
- * The narrowest a boundary can be: room for the icon, the instance count and
- * the widest word of the label between them. Spec 8's `minimumWidth`.
+ * The narrowest a boundary can be, spec 8's `minimumWidth` (upstream's
+ * `_computedStyle.minimumWidth`): the name unwrapped beside the icon, between
+ * the band's margins, and a deployment node's metadata too. Only the
+ * instance count and the metadata of other boundaries are left to wrap.
  */
 export function minimumWidth(label: BoundaryLabel, measure: MeasureText) {
     const parts = bandParts(label, measure);
-    const word = Math.max(
-        widestWord(label.name, parts.nameSize, true, measure),
-        widestWord(label.metadata, parts.metadataSize, false, measure),
+    const text = Math.max(
+        widestLine(label.name, parts.nameSize, true, measure),
+        label.metadataSetsWidth
+            ? widestLine(label.metadata, parts.metadataSize, false, measure)
+            : 0,
     );
-    return 2 * BAND_MARGIN + parts.left + parts.right + word;
+    return 2 * BAND_MARGIN + parts.left + text;
 }
 
 /**
- * Lay out the label band of a boundary `width` wide whose children end at
- * `top` (relative to the box): the text wraps between the icon on the left
+ * Lay out the label band of a boundary `width` wide whose band starts at
+ * `bandTop` (relative to the box), where its padded children end: the text wraps between the icon on the left
  * and the instance count on the right, and everything sits on the band's
  * bottom margin.
  */
 function layoutBand(
     label: BoundaryLabel,
     width: number,
-    top: number,
+    bandTop: number,
     measure: MeasureText,
 ) {
     const parts = bandParts(label, measure);
@@ -219,7 +281,7 @@ function layoutBand(
         label.icon ? parts.iconSize : 0,
         countHeight,
     );
-    const bottom = top + content;
+    const bottom = bandTop + content;
     const textX = BAND_MARGIN + parts.left;
     const textY = bottom - textHeight;
 
@@ -261,22 +323,12 @@ function layoutBand(
         : undefined;
 
     return {
-        band: { x: 0, y: top, width, height: content + BAND_MARGIN },
+        band: { x: 0, y: bandTop, width, height: content + BAND_MARGIN },
         name,
         ...(metadata && { metadata }),
         ...(icon && { iconBox: icon }),
         ...(instances && { instances }),
     };
-}
-
-/** The box around `boxes`, or undefined when there are none. */
-function boundsOf(boxes: Bounds[]): Bounds | undefined {
-    if (!boxes.length) return undefined;
-    const left = Math.min(...boxes.map((b) => b.x));
-    const top = Math.min(...boxes.map((b) => b.y));
-    const right = Math.max(...boxes.map((b) => b.x + b.width));
-    const bottom = Math.max(...boxes.map((b) => b.y + b.height));
-    return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 /**
@@ -310,15 +362,15 @@ export function deriveBoundaries(
             around.width + 2 * BOUNDARY_PADDING,
             minimumWidth(input.label, measure),
         );
-        const top = around.height + 2 * BOUNDARY_PADDING;
-        const band = layoutBand(input.label, width, top, measure);
+        const bandTop = around.height + 2 * BOUNDARY_PADDING;
+        const band = layoutBand(input.label, width, bandTop, measure);
         const boundary: DerivedBoundary = {
             id: input.id,
             children: input.children,
             x: around.x - BOUNDARY_PADDING,
             y: around.y - BOUNDARY_PADDING,
             width,
-            height: top + band.band.height,
+            height: bandTop + band.band.height,
             ...band,
         };
         derived.set(input.id, boundary);
@@ -335,27 +387,35 @@ export function deriveBoundaries(
 
 /**
  * Where a deployment node drawn as an element shows its instance count:
- * bottom-right inside its `content` area, at twice the name size, with the
- * label's content area stopping above it so the label stays clear.
+ * bottom-right inside its `content` area, at twice the name size.
  */
-export function elementInstanceCount(
+export function placeInstanceCount(
     content: Bounds,
     fontSize: number,
     text: string,
     measure: MeasureText,
-): TextBlock & { content: Bounds } {
+): TextBlock {
     const size = fontSize * NAME_SCALE * INSTANCE_SCALE;
     const width = measure(text, size, true);
     const height = size * LINE_HEIGHT;
-    const x = content.x + content.width - BAND_MARGIN - width;
-    const y = content.y + content.height - BAND_MARGIN - height;
     return {
-        x,
-        y,
+        x: content.x + content.width - BAND_MARGIN - width,
+        y: content.y + content.height - BAND_MARGIN - height,
         width,
         height,
         lines: [text],
         fontSize: size,
-        content: { ...content, height: y - content.y },
     };
+}
+
+/**
+ * How tall the label may grow, centered in the whole `content` area, and
+ * still end above the instance `count` in its bottom-right corner. The area
+ * keeps its size, so a label short enough sits where it would without a
+ * count; only one tall enough to reach the count's rows loses description
+ * lines (spec 8: the count's area is reserved).
+ */
+export function labelHeightClearOf(content: Bounds, count: TextBlock) {
+    const reserved = content.y + content.height - count.y;
+    return Math.max(0, content.height - 2 * reserved);
 }

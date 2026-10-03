@@ -12,9 +12,11 @@ const {
     BAND_GAP,
     BAND_MARGIN,
     BOUNDARY_PADDING,
+    boundaryRadius,
     deriveBoundaries,
-    elementInstanceCount,
-    instanceCountText,
+    formatInstanceCount,
+    labelHeightClearOf,
+    placeInstanceCount,
     wrapLines,
 } = await importSrc("engine/geometry/boundary");
 const { LINE_HEIGHT, METADATA_SCALE, NAME_GAP, NAME_SCALE } = await importSrc(
@@ -100,31 +102,28 @@ test("a boundary with none of its children drawn is left out", () => {
 
 /* ------------------------------------------------------------- the band */
 
-test("the label wraps to the boundary's width and the band grows downward", () => {
+test("the metadata wraps to the boundary's width and the band grows downward", () => {
     const child = box(0, 0, 200, 100);
+    const metadata = "[Software System: Java, Spring Boot, PostgreSQL, Kafka]";
     const short = derive([{ id: "s", children: ["a"], label: label() }], {
         a: child,
     }).get("s");
     const long = derive(
-        [
-            {
-                id: "s",
-                children: ["a"],
-                label: label({ name: "Internet Banking System Of Record" }),
-            },
-        ],
+        [{ id: "s", children: ["a"], label: label({ metadata }) }],
         { a: child },
     ).get("s");
 
-    assert.equal(long.width, short.width, "the label never widens the box");
-    assert.ok(long.name.lines.length > 1, "the name wraps");
+    assert.equal(long.width, short.width, "metadata never widens the box");
+    assert.ok(long.metadata.lines.length > 1, "the metadata wraps");
     assert.equal(
         long.band.height - short.band.height,
-        (long.name.lines.length - 1) * NAME_LINE,
+        NAME_GAP + long.metadata.lines.length * METADATA_LINE,
     );
     assert.equal(long.y, short.y, "the band grows downward only");
-    for (const line of long.name.lines) {
-        assert.ok(measure(line, 24 * NAME_SCALE, true) <= long.name.width);
+    for (const line of long.metadata.lines) {
+        assert.ok(
+            measure(line, 24 * METADATA_SCALE, false) <= long.metadata.width,
+        );
     }
 });
 
@@ -192,7 +191,7 @@ test("a deployment node's instance count is written as is, bottom-right, at twic
         { instances: undefined, text: undefined },
     ];
     for (const { instances, text } of cases) {
-        assert.equal(instanceCountText(instances), text, String(instances));
+        assert.equal(formatInstanceCount(instances), text, String(instances));
     }
 
     const node = derive(
@@ -225,33 +224,79 @@ test("the label wraps short of the instance count", () => {
     );
 });
 
-test("a boundary is widened to the minimum its label needs", () => {
-    // One unbreakable word, wider than the 200 the child gives.
-    const name = "Supercalifragilistic";
+test("a boundary is widened to minimumWidth: its whole name beside its icon", () => {
+    const name = "Internet Banking System";
     const shop = derive(
         [{ id: "s", children: ["a"], label: label({ name, icon: true }) }],
         { a: box(0, 0, 100, 100) },
     ).get("s");
 
-    const word = measure(name, 24 * NAME_SCALE, true);
+    const width = measure(name, 24 * NAME_SCALE, true);
     assert.equal(
         shop.width,
-        BAND_MARGIN * 2 + shop.iconBox.width + BAND_GAP + word,
+        BAND_MARGIN * 2 + shop.iconBox.width + BAND_GAP + width,
     );
-    assert.deepEqual(shop.name.lines, [name]);
+    assert.deepEqual(shop.name.lines, [name], "the name stays on one line");
 });
 
-test("a deployment node drawn as an element keeps its count bottom-right inside its box, and its label clear of it", () => {
+test("a deployment node's minimumWidth also fits its metadata, as upstream sizes one", () => {
+    const metadata = "[Deployment Node: Ubuntu 22.04 LTS, Docker]";
+    const derived = (metadataSetsWidth) =>
+        derive(
+            [
+                {
+                    id: "n",
+                    children: ["a"],
+                    label: label({ name: "N", metadata, metadataSetsWidth }),
+                },
+            ],
+            { a: box(0, 0, 100, 100) },
+        ).get("n");
+
+    assert.equal(
+        derived(true).width,
+        BAND_MARGIN * 2 + measure(metadata, 24 * METADATA_SCALE, false),
+    );
+    assert.equal(derived(false).width, 200, "other metadata wraps instead");
+});
+
+test("a deployment node drawn as an element keeps its count bottom-right inside its box", () => {
     const content = box(0, 0, 450, 300);
-    const count = elementInstanceCount(content, 24, "x4", measure);
+    const count = placeInstanceCount(content, 24, "x4", measure);
     const size = 24 * NAME_SCALE * 2;
 
     assert.equal(count.fontSize, size);
+    assert.deepEqual(count.lines, ["x4"]);
     assert.equal(count.x + count.width, 450 - BAND_MARGIN);
     assert.equal(count.y + size * LINE_HEIGHT, 300 - BAND_MARGIN);
-    assert.deepEqual(
-        count.content,
-        box(0, 0, 450, count.y),
-        "the label's content area stops above the count",
+});
+
+test("the label of a deployment node drawn as an element keeps its whole area, centered clear of the count", () => {
+    const content = box(10, 20, 450, 300);
+    const count = placeInstanceCount(content, 24, "x4", measure);
+    const height = labelHeightClearOf(content, count);
+    const reserved = content.y + content.height - count.y;
+
+    assert.equal(height, 300 - 2 * reserved);
+    assert.ok(
+        content.y + (content.height + height) / 2 <= count.y,
+        "a label that tall, centered in the area, ends above the count",
     );
+});
+
+/* ------------------------------------------------------------------ shape */
+
+test("a boundary has 20 radius corners for the RoundedBox family and square ones otherwise", () => {
+    const cases = [
+        { shape: "RoundedBox", radius: 20 },
+        { shape: "Folder", radius: 20 },
+        { shape: "Component", radius: 20 },
+        { shape: "Box", radius: 0 },
+        { shape: "Hexagon", radius: 0 },
+        { shape: "Cylinder", radius: 0 },
+        { shape: undefined, radius: 0 },
+    ];
+    for (const { shape, radius } of cases) {
+        assert.equal(boundaryRadius(shape), radius, String(shape));
+    }
 });

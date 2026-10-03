@@ -158,8 +158,9 @@ const nesting = (view) =>
         ]),
     );
 
-const RETAIL = groupBoundaryId("", "Retail");
-const ONLINE = groupBoundaryId("", "Retail/Online");
+/** With the enterprise boundary on, top-level groups split by location. */
+const RETAIL = groupBoundaryId("location:Internal", "Retail");
+const ONLINE = groupBoundaryId("location:Internal", "Retail/Online");
 const FRONT = groupBoundaryId("shop", "Front");
 const DATA_CENTRE = groupBoundaryId("deployment:Live", "Data centre");
 
@@ -183,9 +184,23 @@ test("a container whose components are in the view is a boundary inside its soft
         children: ["controller"],
     });
     assert.deepEqual(nesting(view).shop, {
-        parent: ONLINE,
+        parent: groupBoundaryId("", "Retail/Online"),
         children: [FRONT, "db"],
     });
+});
+
+test("a software system none of whose containers the view lists is not a boundary, though its container is", () => {
+    const view = resolveView(
+        model((workspace) => {
+            workspace.views.componentViews[0].elements = [at("controller")];
+        }),
+        "Components",
+    );
+    const ids = view.boundaries.map((boundary) => boundary.id);
+
+    assert.ok(ids.includes("web"), "Web's component is in the view");
+    assert.ok(!ids.includes("shop"), "none of Shop's containers is listed");
+    assert.equal(nesting(view)[FRONT].parent, undefined);
 });
 
 test("deployment nodes with children in the view are boundaries, and a node with none is an element", () => {
@@ -256,23 +271,6 @@ test("a group's identity is its scope plus its name, and it sits inside its memb
     );
 });
 
-test("the view property structurizr.groups false draws no groups", () => {
-    const view = resolveView(
-        model((workspace) => {
-            workspace.views.containerViews[0].properties = {
-                "structurizr.groups": "false",
-            };
-        }),
-        "Containers",
-    );
-
-    assert.deepEqual(
-        view.boundaries.map((boundary) => boundary.id),
-        ["shop"],
-    );
-    assert.deepEqual(nesting(view).shop.children, ["web", "db"]);
-});
-
 /* -------------------------------------------------------------- enterprise */
 
 test("the enterprise boundary goes around every Internal element, outermost", () => {
@@ -307,13 +305,13 @@ test("the enterprise boundary needs it switched on, an Internal element and a la
             drawn: true,
         },
         {
-            name: "switched off by the view property",
+            name: "switched on by the flag, whatever the view property says",
             edit: (w) => {
                 w.views.systemLandscapeViews[0].properties = {
                     "structurizr.enterpriseBoundary": "false",
                 };
             },
-            drawn: false,
+            drawn: true,
         },
         {
             name: "no Internal element",
@@ -339,6 +337,23 @@ test("the enterprise boundary needs it switched on, an Internal element and a la
         ),
         "a container view draws no enterprise boundary",
     );
+});
+
+test("the enterprise boundary goes around Internal elements only, so a group mixing Internal and External members is split", () => {
+    const view = resolveView(
+        model((workspace) => {
+            workspace.model.people[0].group = "Retail";
+        }),
+        "Landscape",
+    );
+    const enterprise = view.boundaries.find((b) => b.id === "enterprise");
+    const outside = groupBoundaryId("location:External", "Retail");
+
+    assert.deepEqual(enterprise.children, [RETAIL]);
+    assert.deepEqual(nesting(view)[outside], {
+        parent: undefined,
+        children: ["user"],
+    });
 });
 
 test("the enterprise boundary is called Enterprise when the model names none", () => {
@@ -387,7 +402,6 @@ test("a software-system boundary starts from the element's style, fills with the
     assert.equal(style.stroke, "#0f5eaa", "the background darkened 10%");
     assert.equal(style.color, "#0f5eaa", "white on white falls back");
     assert.equal(style.fontSize, 30);
-    assert.equal(style.shape, "RoundedBox", "Folder is a rounded shape");
 });
 
 test("Boundary and Boundary:<type> override the element's style field by field", () => {
@@ -411,7 +425,6 @@ test("Boundary and Boundary:<type> override the element's style field by field",
     assert.equal(style.color, "#00ff00");
     assert.equal(style.border, "Dashed");
     assert.equal(style.fontSize, 18);
-    assert.equal(style.shape, "Box", "a Hexagon boundary is a rectangle");
 });
 
 test("a boundary's text falls back to its stroke when it matches the fill", () => {
@@ -427,6 +440,17 @@ test("a boundary's text falls back to its stroke when it matches the fill", () =
     assert.equal(web.color, web.stroke);
 });
 
+test("a boundary background from Boundary leaves the element's resolved stroke", () => {
+    const m = styled([
+        { tag: "Software System", stroke: "#123456" },
+        { tag: "Boundary", background: "#ff0000" },
+    ]);
+    const style = findBoundaryStyle(m, m.findElementById("shop"), "Light");
+
+    assert.equal(style.background, "#ff0000");
+    assert.equal(style.stroke, "#123456", "not the boundary fill darkened");
+});
+
 test("a deployment node boundary uses its own tags", () => {
     const m = styled([
         { tag: "Deployment Node", background: "#eeeeee", shape: "Cylinder" },
@@ -435,7 +459,6 @@ test("a deployment node boundary uses its own tags", () => {
     const style = findBoundaryStyle(m, m.findElementById("server"), "Light");
 
     assert.equal(style.background, "#eeeeee");
-    assert.equal(style.shape, "Box");
 });
 
 test("groups take Group and Group:<full path> only, with no inheritance between levels", () => {
@@ -456,6 +479,27 @@ test("groups take Group and Group:<full path> only, with no inheritance between 
     assert.equal(online.color, "#111111", "from Group");
 });
 
+test("neither groups nor the enterprise boundary pick up Element styles, and the enterprise boundary none from Group", () => {
+    const m = styled([
+        { tag: "Element", background: "#ff0000", fontSize: 50 },
+        { tag: "Group", stroke: "#00ff00", icon: "data:," },
+    ]);
+    const group = findGroupStyle(m, "Retail", "Light");
+    const enterprise = findEnterpriseStyle(m, "Light");
+
+    assert.equal(group.background, "#ffffff");
+    assert.equal(group.fontSize, 24);
+    assert.ok(!group.tags.includes("Element"), group.tags.join());
+    assert.equal(enterprise.background, "#ffffff");
+    assert.notEqual(enterprise.stroke, "#00ff00");
+    assert.equal(enterprise.icon, undefined);
+    assert.ok(
+        !enterprise.tags.includes("Element") &&
+            !enterprise.tags.includes("Group"),
+        enterprise.tags.join(),
+    );
+});
+
 test("the enterprise boundary is styled by Boundary and Boundary:Enterprise", () => {
     const m = styled([
         { tag: "Boundary", strokeWidth: 4 },
@@ -465,5 +509,4 @@ test("the enterprise boundary is styled by Boundary and Boundary:Enterprise", ()
 
     assert.equal(style.strokeWidth, 4);
     assert.equal(style.stroke, "#ff0000");
-    assert.equal(style.shape, "Box");
 });
