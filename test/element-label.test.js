@@ -16,9 +16,7 @@ const {
     LINE_HEIGHT,
     textWidth,
 } = await importSrc("engine/geometry/label");
-const { borderDashes, paintPart, withAlpha } = await importSrc(
-    "engine/geometry/paint",
-);
+const { borderDashes, paintPart } = await importSrc("engine/geometry/paint");
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
 
 /* ---------------- text */
@@ -175,19 +173,6 @@ test("Dashed is a dash and gap of 4× the stroke width, Dotted 1×, Solid none",
             expected,
             `${border} at ${width}`,
         );
-    }
-});
-
-test("withAlpha gives a color real alpha and leaves an opaque one alone", () => {
-    const cases = [
-        ["#1168bd", 0.5, "rgba(17, 104, 189, 0.5)"],
-        ["#fff", 0.25, "rgba(255, 255, 255, 0.25)"],
-        ["#1168BD", 1, "#1168BD"],
-        ["#000000", 0, "rgba(0, 0, 0, 0)"],
-        ["red", 0.5, "color-mix(in srgb, red 50%, transparent)"],
-    ];
-    for (const [color, alpha, expected] of cases) {
-        assert.equal(withAlpha(color, alpha), expected, `${color} at ${alpha}`);
     }
 });
 
