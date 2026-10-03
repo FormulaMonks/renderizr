@@ -69,15 +69,16 @@ import { pointAlong } from "../geometry/routing/path";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
     type BoundaryBox,
+    type Bounds,
     buildGraph,
     type ColorScheme,
     type EdgeLine,
     type ElementBox,
+    fitMaxZoom,
     type Graph,
     type GraphImage,
-    IMAGE_PLACEHOLDER,
-    imageBounds,
     type ImageState,
+    imageBox,
     type Labels,
     readyFor,
     stepZoom,
@@ -133,6 +134,17 @@ type IslandProps = {
 
 /** Fraction of the container left around a fitted view. */
 const FIT_PADDING = 0.05;
+
+/**
+ * Tell the workspace author about a problem in what they wrote: an element
+ * whose label overflows (spec 9.1), a relationship that cannot be routed
+ * (spec 10.6) or an image view that cannot be drawn (spec 13). The one console call in shipped code, a deliberate exception to
+ * CODING_STANDARDS.md: the page has nowhere else to report an authoring
+ * problem.
+ */
+function warnAuthor(message: string) {
+    console.warn(message);
+}
 
 type BoxNode = Node<ElementBox, "box">;
 type BoundaryNode = Node<BoundaryBox, "boundary">;
@@ -269,10 +281,8 @@ function ElementLabel({
             setLines(fit.descriptionLines);
             if (fit.overflows && !warned.current) {
                 warned.current = true;
-                // A console call in shipped code: spec 9.1 asks for a
-                // warning when name and metadata overflow, and the page has
-                // nowhere else to report a workspace authoring problem.
-                console.warn(
+                // Spec 9.1 asks for a warning when name and metadata overflow.
+                warnAuthor(
                     `Element ${id} ("${name}"): its name and metadata do not fit its ${content.width}×${content.height} content area.`,
                 );
             }
@@ -731,9 +741,8 @@ function useImage(key: string, picture: GraphImage | undefined): ImageState {
     useEffect(() => {
         if (subject === null) return;
         const fail = (reason: string) => {
-            // Spec 13 asks for a warning when an image cannot be drawn, and
-            // the page has nowhere else to report a workspace problem.
-            console.warn(`Image view "${key}": ${reason}`);
+            // Spec 13 asks for a warning when an image cannot be drawn.
+            warnAuthor(`Image view "${key}": ${reason}`);
             setState({ subject, image: { status: "failed", reason } });
         };
         if (src === undefined) {
@@ -747,6 +756,7 @@ function useImage(key: string, picture: GraphImage | undefined): ImageState {
                     subject,
                     image: {
                         status: "loaded",
+                        src,
                         width: image.naturalWidth,
                         height: image.naturalHeight,
                     },
@@ -773,43 +783,36 @@ function useImage(key: string, picture: GraphImage | undefined): ImageState {
         : LOADING;
 }
 
-/** Nothing but the picture, or the placeholder once it has failed. */
-function toImageNodes(
-    graph: Graph,
-    state: ImageState,
-): (ImageNode | PlaceholderNode)[] {
-    const fixed = {
-        position: { x: 0, y: 0 },
-        draggable: false,
-        selectable: false,
-        connectable: false,
-        focusable: false,
+/** What an image view's one node is in every state: at the origin, inert. */
+const STATIC_NODE_PROPS = {
+    position: { x: 0, y: 0 },
+    draggable: false,
+    selectable: false,
+    connectable: false,
+    focusable: false,
+};
+
+/** What the canvas draws for a view, and the bounds it fits. */
+type Drawing = { nodes: DiagramNode[]; bounds: Bounds | undefined };
+
+/** Nothing to draw and nothing to fit, as for a missing view. */
+const NOTHING: Drawing = { nodes: [], bounds: undefined };
+
+/**
+ * What the canvas draws for `graph`. An image view draws nothing but its
+ * picture, or the placeholder once it has failed, and fits that box; nothing
+ * while it loads (spec 12). Any other view draws its boundaries and elements
+ * and fits its bounds.
+ */
+function drawingOf(graph: Graph | undefined, image: ImageState): Drawing {
+    if (!graph) return NOTHING;
+    if (!graph.image) return { nodes: toNodes(graph), bounds: graph.bounds };
+    const box = imageBox(graph.image, graph.color, image);
+    if (!box) return NOTHING;
+    return {
+        nodes: [{ ...STATIC_NODE_PROPS, id: "image", ...box }],
+        bounds: { x: 0, y: 0, width: box.width, height: box.height },
     };
-    switch (state.status) {
-        case "loading":
-            return [];
-        case "loaded":
-            return [
-                {
-                    ...fixed,
-                    id: "image",
-                    type: "image",
-                    width: state.width,
-                    height: state.height,
-                    data: { src: graph.image!.src!, alt: graph.image!.alt },
-                },
-            ];
-        case "failed":
-            return [
-                {
-                    ...fixed,
-                    id: "image",
-                    type: "placeholder",
-                    ...IMAGE_PLACEHOLDER,
-                    data: { color: graph.color },
-                },
-            ];
-    }
 }
 
 /**
@@ -942,13 +945,9 @@ function Canvas({
         [model, state, measure],
     );
     const image = useImage(state.key, graph?.image);
-    const nodes = useMemo(
-        (): DiagramNode[] =>
-            !graph
-                ? []
-                : graph.image
-                  ? toImageNodes(graph, image)
-                  : toNodes(graph),
+    // An image view is fitted to its picture once its size is known.
+    const { nodes, bounds } = useMemo(
+        () => drawingOf(graph, image),
         [graph, image],
     );
     const edges = useMemo(() => (graph ? toEdges(graph) : []), [graph]);
@@ -960,9 +959,8 @@ function Canvas({
         for (const warning of graph?.warnings ?? []) {
             if (warned.current.has(warning)) continue;
             warned.current.add(warning);
-            // Spec 10.6 asks for a warning naming the relationship, and the
-            // page has nowhere else to report a workspace authoring problem.
-            console.warn(warning);
+            // Spec 10.6 asks for a warning naming the relationship.
+            warnAuthor(warning);
         }
     }, [graph]);
 
@@ -995,24 +993,23 @@ function Canvas({
         if (graph && painted.current === graph.key) onRedrawn(graph);
     }, [graph, onRedrawn]);
 
-    // An image view is fitted to its picture once its size is known.
-    const bounds = useMemo(
-        () => (graph?.image ? imageBounds(image) : graph?.bounds),
-        [graph, image],
-    );
     const fitted = useMemo(
         () =>
-            bounds && size.width > 0 && size.height > 0 && bounds.width > 0
+            graph &&
+            bounds &&
+            size.width > 0 &&
+            size.height > 0 &&
+            bounds.width > 0
                 ? getViewportForBounds(
                       bounds,
                       size.width,
                       size.height,
                       0,
-                      Number.POSITIVE_INFINITY,
+                      fitMaxZoom(graph),
                       FIT_PADDING,
                   )
                 : null,
-        [bounds, size],
+        [graph, bounds, size],
     );
     const zoom = useStore((flowState) => flowState.transform[2]);
     const { floor, ceiling } = zoomLimits(

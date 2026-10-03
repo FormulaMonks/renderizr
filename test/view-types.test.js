@@ -13,7 +13,7 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel, findViewError, resolveView } =
     await importSrc("model/index");
-const { buildGraph, imageBounds, imageVariant, IMAGE_PLACEHOLDER } =
+const { buildGraph, fitMaxZoom, imageBox, imageVariant, IMAGE_PLACEHOLDER } =
     await importSrc("engine/react-flow/graph");
 
 const BIG_BANK = JSON.parse(
@@ -511,16 +511,46 @@ describe("image views", () => {
     });
 
     test("an image is drawn at its natural size; a failed one as the placeholder; a loading one not yet", () => {
+        const picture = { src: PLAIN, alt: "A picture" };
         assert.deepEqual(
-            imageBounds({ status: "loaded", width: 640, height: 480 }),
-            { x: 0, y: 0, width: 640, height: 480 },
+            imageBox(picture, "#444444", {
+                status: "loaded",
+                src: PLAIN,
+                width: 640,
+                height: 480,
+            }),
+            {
+                type: "image",
+                width: 640,
+                height: 480,
+                data: { src: PLAIN, alt: "A picture" },
+            },
         );
-        assert.deepEqual(imageBounds({ status: "failed", reason: "nope" }), {
-            x: 0,
-            y: 0,
-            ...IMAGE_PLACEHOLDER,
-        });
-        assert.equal(imageBounds({ status: "loading" }), undefined);
+        assert.deepEqual(
+            imageBox(picture, "#444444", { status: "failed", reason: "nope" }),
+            {
+                type: "placeholder",
+                ...IMAGE_PLACEHOLDER,
+                data: { color: "#444444" },
+            },
+        );
+        assert.equal(
+            imageBox(picture, "#444444", { status: "loading" }),
+            undefined,
+        );
+    });
+
+    test("an image view is never fitted above its natural size; other views are", () => {
+        const image = buildGraph(
+            imageWorkspace({ content: PLAIN }),
+            "Picture",
+            "light",
+            LABELS,
+        );
+        const plain = buildGraph(bigBank(), "Containers", "light", LABELS);
+
+        assert.equal(fitMaxZoom(image), 1, "an image is never upscaled");
+        assert.equal(fitMaxZoom(plain), Number.POSITIVE_INFINITY);
     });
 
     test("a plain view's graph has no image", () => {

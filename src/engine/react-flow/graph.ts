@@ -201,30 +201,74 @@ export function imageVariant(
     return preferred.find((src) => typeof src === "string" && src !== "");
 }
 
-/** Where an image view's picture is, as the island learns it. */
+/**
+ * Where an image view's picture is, as the island learns it. A loaded one
+ * carries the `src` it loaded, so what draws it never has to re-check that
+ * the view had one.
+ */
 export type ImageState =
     | { status: "loading" }
-    | { status: "loaded"; width: number; height: number }
+    | { status: "loaded"; src: string; width: number; height: number }
     | { status: "failed"; reason: string };
 
 /** The size of the "Image not available" placeholder, a default element's. */
 export const IMAGE_PLACEHOLDER = { width: 450, height: 300 } as const;
 
 /**
- * What an image view's canvas fits: the picture at its natural size, never
- * upscaled, or the placeholder once it has failed. `undefined` while it
- * loads, so the view is neither fitted nor painted before its size is known.
+ * The one box an image view draws, typed as the island's node of that kind:
+ * the picture at its natural size, or the placeholder.
  */
-export function imageBounds(state: ImageState): Bounds | undefined {
+export type ImageBox =
+    | {
+          type: "image";
+          width: number;
+          height: number;
+          data: { src: string; alt: string };
+      }
+    | {
+          type: "placeholder";
+          width: number;
+          height: number;
+          data: { color: string };
+      };
+
+/**
+ * What an image view draws in each state (spec 12): the picture at its
+ * natural size once loaded, the placeholder in `color` once it has failed,
+ * and nothing while it loads, so the view is neither fitted nor painted
+ * before its size is known. The canvas fits the box it returns.
+ */
+export function imageBox(
+    picture: GraphImage,
+    color: string,
+    state: ImageState,
+): ImageBox | undefined {
     switch (state.status) {
         case "loading":
             return undefined;
         case "loaded":
-            return { x: 0, y: 0, width: state.width, height: state.height };
+            return {
+                type: "image",
+                width: state.width,
+                height: state.height,
+                data: { src: state.src, alt: picture.alt },
+            };
         case "failed":
-            return { x: 0, y: 0, ...IMAGE_PLACEHOLDER };
+            return {
+                type: "placeholder",
+                ...IMAGE_PLACEHOLDER,
+                data: { color },
+            };
     }
 }
+
+/**
+ * The most the canvas may zoom in to fit `graph`: an image view is shown at
+ * its natural size at most, never upscaled (spec 12); any other view is
+ * fitted however small it is.
+ */
+export const fitMaxZoom = (graph: Graph) =>
+    graph.image ? 1 : Number.POSITIVE_INFINITY;
 
 /** The style a boundary of any kind is drawn in. */
 function boundaryStyle(

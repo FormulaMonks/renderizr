@@ -851,6 +851,12 @@ test(
             assert.equal(image.getAttribute("width"), "120");
             assert.equal(image.getAttribute("height"), "40");
         }
+        // Fitted to a canvas far larger than the picture, yet not upscaled.
+        const transform = canvas
+            .querySelector(".react-flow__viewport")
+            .getAttribute("style");
+        const scale = Number(/scale\(([^)]+)\)/.exec(transform)?.[1]);
+        assert.ok(scale <= 1, `the image should not be upscaled: ${transform}`);
         assert.equal(canvas.querySelector("[data-element-id]"), null);
     },
 );
