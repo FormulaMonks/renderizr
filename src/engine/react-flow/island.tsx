@@ -257,9 +257,9 @@ function ElementLabel({
             setLines(fit.descriptionLines);
             if (fit.overflows && !warned.current) {
                 warned.current = true;
-                // The one console call in shipped code: spec 9.1 asks for a
-                // warning when name and metadata overflow, and the page has
-                // nowhere else to report a workspace authoring problem.
+                // Spec 9.1 asks for a warning when name and metadata
+                // overflow, and the page has nowhere else to report a
+                // workspace authoring problem.
                 console.warn(
                     `Element ${id} ("${name}"): its name and metadata do not fit its ${content.width}×${content.height} content area.`,
                 );
@@ -829,6 +829,21 @@ function Canvas({
         if (key === undefined) return;
         moved.current = false;
     }, [key]);
+
+    // Name every unplaced element placed around a stored layout, once each
+    // time its view is shown, not again on a scheme, labels or font redraw.
+    const placements = graph?.placements;
+    const logged = useRef<string | null>(null);
+    useEffect(() => {
+        if (key === undefined || logged.current === key) return;
+        logged.current = key;
+        // Spec 7.2 asks for this line; like the overflow warning, the
+        // page has nowhere else to report a workspace authoring gap.
+        for (const { id, name, x, y } of placements ?? [])
+            console.warn(
+                `Placed unplaced element ${id} ("${name}") at (${x}, ${y}) in view ${key}.`,
+            );
+    }, [key, placements]);
 
     // Fit on every view change and container resize until the reader moves.
     // A view with nothing drawable has nothing to fit, but is still painted.

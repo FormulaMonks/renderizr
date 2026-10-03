@@ -445,6 +445,32 @@ test("an edge end off its element's outline is named, end by end", () => {
     assert.match(problems[1], /10.*target/, "the target end is not named");
 });
 
+test("an edge end inside a shaped element's box passes; outside it, it is named", () => {
+    // A Person's head is narrower than its box, so an edge from the side
+    // meets it inside the box. The harness has no outline per shape yet.
+    const person = { ...box("1", 0, 0), shape: "Person" };
+    const inside = report({
+        elements: [person, box("2", 300, 0)],
+        edges: [
+            edge("10", "1", "2", [
+                { x: 70, y: 20 },
+                { x: 300, y: 50 },
+            ]),
+        ],
+    });
+    const outside = report({
+        elements: [person, box("2", 300, 0)],
+        edges: [
+            edge("10", "1", "2", [
+                { x: 120, y: 20 },
+                { x: 300, y: 50 },
+            ]),
+        ],
+    });
+    assert.deepEqual(edgeEndsOnOutlines(inside), []);
+    assert.equal(edgeEndsOnOutlines(outside).length, 1);
+});
+
 /* ---------------------------------------------------------------- avoidance */
 
 const THREE_IN_A_ROW = [box("1", 0, 0), box("2", 300, 0), box("3", 600, 0)];

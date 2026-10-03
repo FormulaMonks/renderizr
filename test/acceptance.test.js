@@ -34,7 +34,6 @@ import {
     edgeEndsOnOutlines,
     elementsInsideBoundaries,
     expectedDrawing,
-    isAutomatic,
     noOverlappingElements,
     readyInTime,
     sameBoundariesAsResolved,
@@ -111,8 +110,7 @@ const CHECKS = [
         name: "draws no overlapping elements",
         check: ({ report, expected }) =>
             noOverlappingElements(report, expected),
-        pending: (expected) =>
-            isAutomatic(expected) && waitingOn(45, "lays out automatic views"),
+        pending: () => false,
     },
     {
         name: "keeps every element inside its boundary",
@@ -123,17 +121,14 @@ const CHECKS = [
     {
         name: "starts and ends every edge on its elements' outlines",
         check: ({ report }) => edgeEndsOnOutlines(report),
-        // Laid out by nothing yet, an automatic view's elements share the
-        // origin, so an edge between two of them starts at their center.
-        pending: (expected) =>
-            isAutomatic(expected) && waitingOn(45, "lays out automatic views"),
+        pending: () => false,
     },
     {
         name: "routes every edge without vertices around other elements",
         check: ({ report }) => avoidsElements(report),
         pending: (expected) =>
             expected.layout !== "stored" &&
-            waitingOn(46, "routes edges around elements, once #45 lays out"),
+            waitingOn(46, "routes edges around elements"),
     },
     {
         name: "logs nothing beyond the known warnings",

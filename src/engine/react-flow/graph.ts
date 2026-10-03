@@ -3,10 +3,12 @@
  * elements a view puts where, at what size and in what colors, and which
  * edges join them. Nothing here knows about React.
  *
- * Boundaries are derived from their children here, before React renders
- * (spec 8, ADR 9). Automatic layout, unplaced elements and routing arrive in
- * later tickets; until then every edge is a straight line between centers,
- * cut short where it crosses each end's drawn outline.
+ * Elements are placed first: where the view stores them, by Dagre when it
+ * stores nowhere (spec 7.1, ADR 4), or around the stored ones when only some
+ * are unplaced (spec 7.2, ADR 10). Boundaries are then derived from their
+ * children, before React renders (spec 8, ADR 9). Routing arrives in a later
+ * ticket; until then every edge is a straight line between centers, cut
+ * short where it crosses each end's drawn outline.
  */
 
 import {
@@ -21,6 +23,8 @@ import {
     getMetadataForElement,
     getMetadataForRelationship,
     type ResolvedBoundary,
+    type ResolvedRelationship,
+    type ResolvedView,
     resolveView,
     SCHEME_DEFAULTS,
     type WorkspaceModel,
@@ -44,6 +48,8 @@ import { type IconPosition, iconPositionOf } from "../geometry/label";
 import { shapeGeometry, shapeSize } from "../geometry/shapes/index";
 import { intersect } from "../geometry/shapes/outline";
 import type { Shape, ShapeGeometry, ShapePart } from "../geometry/shapes/types";
+import { placeUnplaced } from "../geometry/unplaced";
+import { layOut } from "../layout/automatic";
 
 export type { Bounds, ColorScheme, Labels };
 
@@ -117,7 +123,10 @@ export type EdgeLine = {
     target: Point;
     /** The drawn route, as the points it passes through, source first. */
     route: Point[];
-    /** The relationship's stored vertices; the tracer does not route through them yet. */
+    /**
+     * The relationship's stored vertices, or Dagre's in an automatic layout
+     * that keeps them; the tracer does not route through them yet.
+     */
     vertices: Point[];
     /** In a dynamic view, the order the view gives this edge. */
     order?: string;
@@ -140,7 +149,15 @@ export type Graph = {
     boundaries: BoundaryBox[];
     edges: EdgeLine[];
     bounds: Bounds;
+    /**
+     * Where each unplaced element of a stored layout was put, in view order,
+     * for the console line that names it (spec 7.2).
+     */
+    placements: Placement[];
 };
+
+/** An unplaced element and where it was put. */
+export type Placement = { id: string; name: string; x: number; y: number };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
 
@@ -281,22 +298,40 @@ export function buildGraph(
         drawn.set(box.id, { box, geometry });
     }
 
+    const styles = new Map(
+        view.boundaries.map((b) => [
+            b.id,
+            boundaryStyle(model, b, colorScheme),
+        ]),
+    );
+    const inputs = boundaryInputs(model, view.boundaries, styles, labels);
+    const keys = edgeKeys(view.relationships, drawn);
+    const { vertices, placements } = positionElements(
+        view,
+        elements,
+        keys,
+        (placed) =>
+            new Map(
+                deriveBoundaries(inputs, placed, measure).map((b) => [b.id, b]),
+            ),
+    );
+
     const drawnBoundaries = boundaryBoxes(
-        model,
         view.boundaries,
+        inputs,
+        styles,
         elements,
         colorScheme,
-        labels,
         measure,
     );
 
     const edges: EdgeLine[] = [];
-    const seen = new Map<string, number>();
-    for (const placed of view.relationships) {
+    for (const [index, placed] of view.relationships.entries()) {
         const { relationship } = placed;
+        const key = keys[index];
         const from = drawn.get(relationship.sourceId);
         const to = drawn.get(relationship.destinationId);
-        if (!from || !to || from === to) continue;
+        if (key === undefined || !from || !to) continue;
         const style = findRelationshipStyle(model, relationship, colorScheme);
         const description =
             labels.descriptions && style.description
@@ -306,19 +341,17 @@ export function buildGraph(
             style.metadata && labels.technologies
                 ? getMetadataForRelationship(model, relationship)
                 : "";
-        const repeat = seen.get(placed.id) ?? 0;
-        seen.set(placed.id, repeat + 1);
         const start = exitPoint(from.box, from.geometry, center(to.box));
         const end = exitPoint(to.box, to.geometry, center(from.box));
         edges.push({
-            key: repeat === 0 ? placed.id : `${placed.id}#${repeat}`,
+            key,
             id: placed.id,
             sourceId: from.box.id,
             targetId: to.box.id,
             source: start,
             target: end,
             route: [start, end],
-            vertices: placed.vertices ?? [],
+            vertices: vertices.get(key) ?? placed.vertices ?? [],
             ...(placed.order !== undefined && { order: placed.order }),
             label: [description, technology].filter(Boolean).join("\n"),
             fontSize: style.fontSize,
@@ -338,25 +371,142 @@ export function buildGraph(
         boundaries: drawnBoundaries,
         edges,
         bounds: boundsOf([...elements, ...drawnBoundaries]) ?? NO_BOUNDS,
+        placements,
     };
 }
 
+/* --------------------------------------------------------------- layout */
+
 /**
- * Every boundary of the view derived around the drawn `elements` and
- * styled, outer before inner. Children never move (spec 8).
+ * The key each relationship of the view is drawn under, by index, or
+ * `undefined` for one that is not drawn: one that ends at a boundary or at
+ * something the view does not draw (spec 10.6), or at its own source. A
+ * dynamic view may draw one relationship more than once, so a repeat gets
+ * `#1`, `#2` and so on.
  */
-function boundaryBoxes(
+function edgeKeys(
+    relationships: ResolvedRelationship[],
+    drawn: ReadonlyMap<string, unknown>,
+): (string | undefined)[] {
+    const seen = new Map<string, number>();
+    return relationships.map(({ id, relationship }) => {
+        const { sourceId, destinationId } = relationship;
+        if (
+            !drawn.has(sourceId) ||
+            !drawn.has(destinationId) ||
+            sourceId === destinationId
+        )
+            return undefined;
+        const repeat = seen.get(id) ?? 0;
+        seen.set(id, repeat + 1);
+        return repeat === 0 ? id : `${id}#${repeat}`;
+    });
+}
+
+/**
+ * Move `elements` to where the view's layout puts them (spec 7): all of
+ * them by Dagre in an automatic layout, only the unplaced ones in a stored
+ * layout that has some, none otherwise. Returns the vertices Dagre kept, by
+ * edge key, and where each unplaced element went.
+ */
+function positionElements(
+    view: ResolvedView,
+    elements: ElementBox[],
+    keys: (string | undefined)[],
+    boundaries: (
+        placed: ReadonlyMap<string, Bounds>,
+    ) => ReadonlyMap<string, Bounds>,
+): { vertices: Map<string, Point[]>; placements: Placement[] } {
+    const vertices = new Map<string, Point[]>();
+    const placements: Placement[] = [];
+    if (view.layout === "stored") return { vertices, placements };
+
+    const parent = new Map<string, string>();
+    for (const boundary of view.boundaries)
+        for (const child of boundary.children) parent.set(child, boundary.id);
+    const edges = view.relationships.flatMap(({ relationship }, index) => {
+        const id = keys[index];
+        return id === undefined
+            ? []
+            : [
+                  {
+                      id,
+                      source: relationship.sourceId,
+                      target: relationship.destinationId,
+                  },
+              ];
+    });
+    const byId = new Map(elements.map((e) => [e.id, e]));
+
+    if (view.layout === "automatic") {
+        const layout = layOut(
+            {
+                nodes: elements.map(({ id, width, height }) => ({
+                    id,
+                    width,
+                    height,
+                    parent: parent.get(id),
+                })),
+                clusters: view.boundaries.map(({ id, parent }) => ({
+                    id,
+                    parent,
+                })),
+                edges,
+            },
+            view.automaticLayout,
+        );
+        for (const [id, box] of layout.boxes) {
+            const element = byId.get(id)!;
+            element.x = box.x;
+            element.y = box.y;
+        }
+        return { vertices: layout.edges, placements };
+    }
+
+    const unplaced = new Set(view.unplaced);
+    const ancestorsOf = (id: string) => {
+        const around: string[] = [];
+        for (let p = parent.get(id); p; p = parent.get(p)) around.push(p);
+        return around;
+    };
+    const { rankSeparation, nodeSeparation } = view.automaticLayout;
+    const placed = placeUnplaced({
+        placed: new Map(
+            elements.filter((e) => !unplaced.has(e.id)).map((e) => [e.id, e]),
+        ),
+        unplaced: elements
+            .filter((e) => unplaced.has(e.id))
+            .map(({ id, width, height }) => ({
+                id,
+                width,
+                height,
+                ancestors: ancestorsOf(id),
+            })),
+        relationships: edges.map((e) => [e.source, e.target] as const),
+        // One separation away: the wider of the view's two, so a slot is
+        // as far from its neighbor along either axis.
+        separation: Math.max(rankSeparation, nodeSeparation),
+        boundaries,
+    });
+    for (const { id, x, y } of placed) {
+        const element = byId.get(id)!;
+        element.x = x;
+        element.y = y;
+        placements.push({ id, name: element.name, x, y });
+    }
+    return { vertices, placements };
+}
+
+/* ----------------------------------------------------------- boundaries */
+
+/** What deriving each boundary of the view needs: its children and label. */
+function boundaryInputs(
     model: WorkspaceModel,
     resolved: ResolvedBoundary[],
-    elements: ElementBox[],
-    scheme: ModelColorScheme,
+    styles: ReadonlyMap<string, ElementStyle>,
     labels: Labels,
-    measure: MeasureText,
-): BoundaryBox[] {
-    const styles = new Map(
-        resolved.map((b) => [b.id, boundaryStyle(model, b, scheme)]),
-    );
-    const inputs: BoundaryInput[] = resolved.map((boundary) => {
+): BoundaryInput[] {
+    return resolved.map((boundary) => {
         const style = styles.get(boundary.id)!;
         const element = boundary.kind === "Element" ? boundary.element : null;
         return {
@@ -372,6 +522,20 @@ function boundaryBoxes(
             },
         };
     });
+}
+
+/**
+ * Every boundary of the view derived around the drawn `elements` and
+ * styled, outer before inner. Children never move (spec 8).
+ */
+function boundaryBoxes(
+    resolved: ResolvedBoundary[],
+    inputs: BoundaryInput[],
+    styles: ReadonlyMap<string, ElementStyle>,
+    elements: ElementBox[],
+    scheme: ModelColorScheme,
+    measure: MeasureText,
+): BoundaryBox[] {
     const derived = new Map(
         deriveBoundaries(
             inputs,
