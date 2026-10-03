@@ -71,6 +71,12 @@ export type EdgeLine = {
     targetId: string;
     source: Point;
     target: Point;
+    /** The drawn route, as the points it passes through, source first. */
+    path: Point[];
+    /** The relationship's stored vertices; the tracer does not route through them yet. */
+    vertices: Point[];
+    /** In a dynamic view, the order the view gives this edge. */
+    order?: string;
     label: string;
     fontSize: number;
     /** The label's wrap width. */
@@ -209,13 +215,18 @@ export function buildGraph(
                 : "";
         const repeat = seen.get(placed.id) ?? 0;
         seen.set(placed.id, repeat + 1);
+        const start = exitPoint(from.box, from.geometry, center(to.box));
+        const end = exitPoint(to.box, to.geometry, center(from.box));
         edges.push({
             key: repeat === 0 ? placed.id : `${placed.id}#${repeat}`,
             id: placed.id,
             sourceId: from.box.id,
             targetId: to.box.id,
-            source: exitPoint(from.box, from.geometry, center(to.box)),
-            target: exitPoint(to.box, to.geometry, center(from.box)),
+            source: start,
+            target: end,
+            path: [start, end],
+            vertices: placed.vertices ?? [],
+            ...(placed.order !== undefined && { order: placed.order }),
             label: [description, technology].filter(Boolean).join("\n"),
             fontSize: style.fontSize,
             labelWidth: style.width,

@@ -107,7 +107,7 @@ type IslandProps = {
     store: IslandStore;
     commands: IslandCommands;
     /** Called once per view, after it has been fitted and painted. */
-    onPainted(key: string): void;
+    onPainted(key: string, graph: Graph): void;
 };
 
 /** Fraction of the container left around a fitted view. */
@@ -446,11 +446,13 @@ function StraightEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
     const background = useContext(CanvasBackground);
     if (!data) return null;
     const { source, target, thickness } = data;
-    const path = `M ${source.x},${source.y} L ${target.x},${target.y}`;
+    const path = data.path
+        .map((point, at) => `${at ? "L" : "M"} ${point.x},${point.y}`)
+        .join(" ");
     const mid = { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 };
 
     return (
-        <g data-relationship-id={data.id}>
+        <g data-relationship-id={data.id} data-order={data.order}>
             <BaseEdge
                 id={id}
                 path={path}
@@ -627,7 +629,7 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
             clearTimeout(timer);
             painted.current = key;
             setReadyKey(key);
-            onPainted(key);
+            if (graph) onPainted(key, graph);
         };
         const frame = requestAnimationFrame(done);
         const timer = setTimeout(done, 100);
@@ -635,7 +637,7 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
         };
-    }, [fitted, empty, key, flow, onPainted]);
+    }, [fitted, empty, key, flow, onPainted, graph]);
 
     return (
         <div

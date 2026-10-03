@@ -40,6 +40,7 @@ export function createConfig({
     out = "structurizr-output",
     base = "",
     engine = "structurizr",
+    engineReport = false,
     mode = "build",
 }) {
     if (!Object.hasOwn(ENGINE_ENTRIES, engine)) {
@@ -89,6 +90,9 @@ export function createConfig({
             __RENDERIZR_LOGO__: JSON.stringify(logo),
             __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),
             __RENDERIZR_VERSION__: JSON.stringify(version),
+            // The engine's geometry report, for the acceptance harness only
+            // (spec 15.1); `false` compiles the writer out of the bundle.
+            __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),
         },
         ...(mode === "serve" ? { server: { open: false } } : {}),
     };
