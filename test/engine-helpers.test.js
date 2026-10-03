@@ -38,33 +38,30 @@ test("a workspace's own name, description and date are kept", () => {
     assert.equal(summary.lastModifiedDate, "2024-01-02T00:00:00Z");
 });
 
-test("a subscriber added after the first paint hears the current view at once", () => {
-    const shown = new ShownListeners(() => "A");
-    shown.start();
+test("a subscriber added after a paint hears the painted view at once", () => {
+    const shown = new ShownListeners();
+    shown.paint("A");
     const heard = [];
     shown.add((view) => heard.push(view));
     assert.deepEqual(heard, ["A"]);
 });
 
-test("a subscriber added before the first paint is not called early", () => {
-    let current = "A";
-    const shown = new ShownListeners(() => current);
+test("a subscriber added before any paint is not called early", () => {
+    const shown = new ShownListeners();
     const heard = [];
     shown.add((view) => heard.push(view));
-    shown.start();
     assert.deepEqual(heard, []);
-    current = "B";
-    shown.emit();
+    shown.paint("B");
     assert.deepEqual(heard, ["B"]);
 });
 
 test("an unsubscribed callback hears nothing more", () => {
-    const shown = new ShownListeners(() => "A");
-    shown.start();
+    const shown = new ShownListeners();
+    shown.paint("A");
     const heard = [];
     const unsubscribe = shown.add((view) => heard.push(view));
     unsubscribe();
-    shown.emit();
+    shown.paint("B");
     assert.deepEqual(heard, ["A"]);
 });
 

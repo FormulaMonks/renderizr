@@ -1,34 +1,24 @@
 /**
- * The `onViewShown` subscribers of one engine. Once the first view is painted,
- * a late subscriber hears about the view already shown at once rather than
- * waiting for the next one.
+ * The `onViewShown` subscribers of one engine. Each painted view is kept, so a
+ * late subscriber hears about the view already on screen at once, never one
+ * that has been asked for but not yet painted.
  */
 export class ShownListeners<T> {
     readonly #callbacks = new Set<(value: T) => void>();
-    readonly #current: () => T;
-    #painted = false;
+    #painted: { value: T } | null = null;
 
-    constructor(current: () => T) {
-        this.#current = current;
-    }
-
-    /** Subscribe, replaying the current view if one has been painted. */
+    /** Subscribe, replaying the last painted view if there is one. */
     add(callback: (value: T) => void): () => void {
         this.#callbacks.add(callback);
-        if (this.#painted) callback(this.#current());
+        if (this.#painted) callback(this.#painted.value);
         return () => {
             this.#callbacks.delete(callback);
         };
     }
 
-    /** The first view is painted; later subscribers replay it. */
-    start() {
-        this.#painted = true;
-    }
-
-    /** A later view is painted: tell every subscriber. */
-    emit() {
-        const value = this.#current();
+    /** A view is painted: keep it and tell every subscriber. */
+    paint(value: T) {
+        this.#painted = { value };
         for (const callback of this.#callbacks) callback(value);
     }
 

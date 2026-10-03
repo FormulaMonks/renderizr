@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { WorkspaceModel } from "../../model";
+import { type ModelView, WorkspaceModel } from "../../model";
 import {
     abortError,
     type AnimationState,
@@ -49,7 +49,7 @@ export function mountEngine(
             if (!view) throw new Error(`No view ${store.get().key}`);
             return view;
         };
-        const shown = new ShownListeners(getCurrentView);
+        const shown = new ShownListeners<ModelView>();
 
         const engine: Engine = {
             showView(key) {
@@ -86,14 +86,13 @@ export function mountEngine(
             },
         };
 
-        const onPainted = () => {
+        const onPainted = (key: string) => {
+            const view = model.findViewByKey(key);
+            if (view) shown.paint(view);
             if (!mounted) {
                 mounted = true;
-                shown.start();
                 resolve(engine);
-                return;
             }
-            shown.emit();
         };
 
         const stopWaiting = whenMeasurable(target, () => {
