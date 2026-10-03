@@ -5,6 +5,7 @@
  */
 
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -17,6 +18,10 @@ export const FIXTURES = fileURLToPath(new URL(".", import.meta.url));
 export const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 export const fixture = (name) => join(FIXTURES, name);
+
+/** A fixture parsed as JSON, fresh on every call so a test may change it. */
+export const readJsonFixture = (name) =>
+    JSON.parse(readFileSync(fixture(name), "utf-8"));
 export const BUILD_JS = resolve(REPO_ROOT, "scripts/build.js");
 
 /**

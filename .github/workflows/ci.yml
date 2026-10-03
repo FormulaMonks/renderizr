@@ -7,10 +7,14 @@
 #   test    the node:test suite, on every supported Node
 #   e2e     renders the Big Bank plc example end to end, on every developable
 #           Node, and guards the product's core promise: `--single-file` output
-#           that makes no network requests
+#           that makes no network requests. It also runs the React Flow
+#           engine's acceptance harness over every view of the acceptance set
 #   consumer  the >=20 floor, via npm and production dependencies only — what
 #             `npx github:FormulaMonks/renderizr` actually does
 #   ci      one required status check that stands for all of the above
+#
+# Outside `ci`, and so never required: `contact sheet`, which screenshots
+# every acceptance view under both engines for people to review.
 #
 # Node matrix: two different contracts, proved two different ways.
 #
@@ -29,13 +33,16 @@
 # .nvmrc/.mise.toml pin 24 for development; that is the toolchain, not the
 # supported range.
 #
-# Only the e2e job checks out the submodule. `submodules/structurizr` is an
-# upstream reference checkout used by `pnpm sync:vendor`; the renderer it
-# provides is already committed under `vendor/`, so lint, typecheck, test and
-# the build itself all pass without it. e2e wants it for one reason: it carries
-# a pinned, committed copy of the Big Bank plc workspace
-# (structurizr-export/src/test/resources/big-bank-plc.json), which lets the
-# end-to-end render run off disk instead of reaching for the network.
+# Only the e2e and contact sheet jobs check out the submodule.
+# `submodules/structurizr` is an upstream reference checkout used by
+# `pnpm sync:vendor`; the renderer it provides is already committed under
+# `vendor/`, so lint, typecheck, test and the build itself all pass without it.
+# e2e wants it because it carries pinned, committed copies of the Big Bank plc,
+# groups and Amazon Web Services workspaces
+# (structurizr-export/src/test/resources/), which lets the end-to-end render
+# and the acceptance set run off disk instead of reaching for the network.
+# Without it, the `test` job's run of test/acceptance.test.js skips those
+# three workspaces with a reason and checks Renderizr's own.
 #
 # `edited` is in the pull_request trigger list — which the default (opened,
 # synchronize, reopened) does not include — so that editing a pull request
@@ -305,6 +312,12 @@ jobs:
             dist-single/index.html \
             dist-single/artifact.html
 
+      # Spec 15: every view of the acceptance set drawn by the React Flow
+      # engine in headless Chrome (preinstalled on ubuntu-latest) and checked
+      # through its geometry report, including the 2 s time to data-ready.
+      - name: Acceptance harness (React Flow engine)
+        run: node --test test/acceptance.test.js
+
       - name: Upload the rendered example
         if: matrix.node == '24'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -312,6 +325,46 @@ jobs:
           name: big-bank-plc-single-file
           path: dist-single/index.html
           retention-days: 7
+          if-no-files-found: error
+
+  # Every acceptance view under the Structurizr renderer and the React Flow
+  # engine, side by side in one HTML page, for a person to accept or file an
+  # issue against (ADR 11). A review aid: `ci` does not need it, so it can
+  # never block a merge, and nothing in it compares pixels.
+  contact_sheet:
+    name: contact sheet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out, with the structurizr submodule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Screenshot every acceptance view under both engines
+        run: node test/contact-sheet.js contact-sheet
+
+      - name: Upload the contact sheet
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: contact-sheet
+          path: contact-sheet/index.html
+          retention-days: 14
           if-no-files-found: error
 
   # The `engines.node: ">=20"` floor, proved the way a user meets it.

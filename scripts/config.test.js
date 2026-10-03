@@ -164,3 +164,18 @@ test("an unknown engine is refused", () => {
         /Unknown engine 'joint'/,
     );
 });
+
+test("the engine report is compiled out unless asked for", () => {
+    assert.equal(
+        createConfig({ workspace: WORKSPACE }).define
+            .__RENDERIZR_ENGINE_REPORT__,
+        "false",
+        "the report writer is compiled in by default",
+    );
+    assert.equal(
+        createConfig({ workspace: WORKSPACE, engineReport: true }).define
+            .__RENDERIZR_ENGINE_REPORT__,
+        "true",
+        "asking for the report does not compile the writer in",
+    );
+});

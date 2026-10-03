@@ -6,11 +6,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
+import { build as viteBuild } from "vite";
 import { findUnspellable } from "./escapes.js";
 import {
     assetReferences,
     fixture,
     htmlSkeleton,
+    REPO_ROOT,
     runCli,
     writeBrokenWorkspace,
 } from "./__fixtures__/helpers.js";
@@ -528,4 +531,76 @@ test("--engine react-flow's artifact.html passes the escaping and fragment check
     assertSelfContained(artifact);
     assert.ok(skeleton.includes('<div id="app"></div>'));
     assert.ok(!/https?:\/\//i.test(skeleton), "the fragment names a URL");
+});
+
+/* ------------------------------------------------------ the engine report */
+
+test("--engine react-flow writes no engine report unless asked to", async () => {
+    // The report is for the acceptance harness only (spec 15.1); a reader's
+    // build carries neither the writer nor the element id.
+    const { out } = await reactFlowMulti();
+    assert.ok(
+        !(await entryChunk(out)).includes("engine-report"),
+        "a reader's build carries the report writer",
+    );
+});
+
+test("RENDERIZR_ENGINE_REPORT=1 builds the engine report into the page", async () => {
+    const out = join(SCRATCH, "react-flow-report");
+    const result = await runCli(
+        [WORKSPACE, "--out", out, "--engine", "react-flow"],
+        { env: { ...OFFLINE, RENDERIZR_ENGINE_REPORT: "1" } },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    assert.ok(
+        (await entryChunk(out)).includes("engine-report"),
+        "the report writer is missing from the bundle",
+    );
+});
+
+/* -------------------------------------------------------- the bundle budget */
+
+/**
+ * The React Flow island as #26 measured it: React, react-dom and
+ * `@xyflow/react` drawing a flow, minified and gzipped, without the rest of
+ * the page (spec 15.2).
+ */
+const ISLAND_GZIPPED_BYTES = 129_325;
+
+/** #26's figure plus 10%: past it, the engine has grown more than planned. */
+const ISLAND_BUDGET_BYTES = Math.floor(ISLAND_GZIPPED_BYTES * 1.1);
+
+test("the React Flow island's gzipped JS stays within #26's figure plus 10%", async () => {
+    // Bundled on its own, from the module the page mounts it through, so the
+    // markdown, highlighting and workspace the page also carries do not count
+    // against the engine.
+    const result = await viteBuild({
+        root: REPO_ROOT,
+        configFile: false,
+        logLevel: "silent",
+        esbuild: { jsx: "automatic" },
+        define: { __RENDERIZR_ENGINE_REPORT__: "false" },
+        build: {
+            write: false,
+            target: "esnext",
+            rollupOptions: {
+                input: join(REPO_ROOT, "src/engine/react-flow/index.ts"),
+                // Keep `mountEngine`, or the island is shaken away.
+                preserveEntrySignatures: "strict",
+            },
+        },
+    });
+    const js = [result]
+        .flat()
+        .flatMap((bundle) => bundle.output)
+        .filter((output) => output.type === "chunk")
+        .map((chunk) => chunk.code)
+        .join("\n");
+    const gzipped = gzipSync(js).length;
+
+    assert.ok(js.includes("react-flow__"), "React Flow is not in the island");
+    assert.ok(
+        gzipped <= ISLAND_BUDGET_BYTES,
+        `the island is ${gzipped} bytes gzipped, over the ${ISLAND_BUDGET_BYTES}-byte budget`,
+    );
 });

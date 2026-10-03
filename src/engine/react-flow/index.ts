@@ -8,8 +8,11 @@ import {
     type EngineOptions,
     whenMeasurable,
 } from "../contract";
-import { ShownListeners } from "./shown";
+import type { Graph } from "./graph";
 import { type IslandCommands, IslandStore, Island } from "./island";
+import { engineReport } from "./report";
+import { removeReport, writeReport } from "./report-script";
+import { ShownListeners } from "./shown";
 
 const NO_ANIMATION: AnimationState = { steps: 0, step: null, playing: false };
 
@@ -83,10 +86,15 @@ export function mountEngine(
                 shown.clear();
                 root?.unmount();
                 root = null;
+                if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
             },
         };
 
-        const onPainted = (key: string) => {
+        const onPainted = (key: string, graph: Graph) => {
+            // Compiled out of every build but the acceptance harness's (spec 15.1).
+            if (__RENDERIZR_ENGINE_REPORT__) {
+                writeReport(document, engineReport(graph));
+            }
             const view = model.findViewByKey(key);
             if (view) shown.paint(view);
             if (!mounted) {

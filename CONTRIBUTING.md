@@ -245,6 +245,9 @@ public/         static files copied into every build (currently the favicon)
 | `scripts/*.test.js` | Tests for the build pipeline, next to the module each one covers |
 | `test/*.test.js` | Tests for `src/` — router, menu, pages, theme, markdown, plus an end-to-end build |
 | `test/support/` | The harness those tests import: `dom.js`, `ts.js`, `vite-hooks.js`, `browser.js`, `history.js` |
+| `test/support/acceptance.js` | The acceptance set (spec 15.3) and how each of its workspaces is built offline, for the acceptance harness and the contact sheet |
+| `test/support/engine-checks.js` | The rules the acceptance harness holds every engine report to, as plain functions over numbers |
+| `test/contact-sheet.js` | Screenshots every acceptance view under both engines into one HTML page for people to review; run by hand or by CI, never by `pnpm test` |
 | `src/main.ts` | App entry point |
 | `src/components/` | Reusable UI: router, menu, navigation, theme, markdown renderer, scroll-spy |
 | `src/pages/` | The three top-level pages: `diagrams`, `docs`, `adrs` |
@@ -318,6 +321,14 @@ srcTest("renders one entry per view", () => {
 - **`installDOM()` returns the same window for the whole process.** Use `dom.reset()` in a `beforeEach`; `history/hash` captures `document.defaultView` at import time and a second window would strand it.
 
 `test/e2e.test.js` goes further and runs a real `--single-file` build in headless Chrome. It skips itself with a message when no Chrome-shaped binary is on the machine, so it never fails a clone that has none.
+
+`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. Workspaces from `submodules/structurizr` are skipped with a reason when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. Views are opened one Chrome at a time, so that the 2 s budget is measured in wall-clock time from outside the page: virtual time fakes every clock inside it.
+
+To review every acceptance view by eye, under the Structurizr renderer and the React Flow engine side by side:
+
+```sh
+node test/contact-sheet.js        # writes contact-sheet/index.html
+```
 
 ### Coverage
 

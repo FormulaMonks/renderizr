@@ -26,7 +26,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { fixture, runCli } from "../scripts/__fixtures__/helpers.js";
-import { dumpDOM, findChrome, serveDirectory } from "./support/browser.js";
+import { findChrome, renderPage, serveDirectory } from "./support/browser.js";
 import { parseDocument } from "./support/dom.js";
 
 const CHROME = findChrome();
@@ -101,7 +101,7 @@ const render = (url) => {
     if (!dumps.has(url)) {
         dumps.set(
             url,
-            dumpDOM(CHROME, url).then((html) => parseDocument(html)),
+            renderPage(CHROME, url).then(({ html }) => parseDocument(html)),
         );
     }
     return dumps.get(url);
@@ -423,10 +423,23 @@ const assertDrawnView = (document) => {
         "the relationship should be drawn as an edge",
     );
 
-    // One engine per output, and none of React Flow's own chrome.
-    assert.equal(canvas.querySelectorAll("g.joint-element").length, 0);
+    // One engine per output (ADR 12): the Structurizr renderer drew nothing.
+    // Whether it drew anything, not how much: the count went with #42.
+    assert.equal(
+        canvas.querySelector("g.joint-element"),
+        null,
+        "the Structurizr renderer drew into a React Flow build",
+    );
+    // None of React Flow's own chrome.
     assert.equal(canvas.querySelector(".react-flow__attribution"), null);
     assert.equal(canvas.querySelector(".react-flow__controls"), null);
+    // The geometry report is for the acceptance harness's builds only
+    // (`test/acceptance.test.js`); a reader's page never carries it.
+    assert.equal(
+        document.querySelector("#engine-report"),
+        null,
+        "a reader's build carries the engine report",
+    );
 };
 
 test(

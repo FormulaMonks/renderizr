@@ -11,6 +11,10 @@
  * is all that is needed and needs no protocol client, no WebSocket and no new
  * dependency. Chrome does not always exit once it has printed, so the process
  * is killed as soon as the document is complete.
+ *
+ * The same run logs every console message to stderr, which is how the
+ * acceptance harness hears about warnings, and `--screenshot` saves the window
+ * as a PNG for the contact sheet, all with the same one executable.
  */
 
 import { spawn } from "node:child_process";
@@ -80,20 +84,35 @@ const FLAGS = [
     // deferred first paint and the diagram's settle pass both happen at once
     // rather than in real seconds.
     "--virtual-time-budget=8000",
-    "--dump-dom",
+    // Every console message the page writes goes to stderr as a
+    // `:CONSOLE` line, which is how the acceptance harness hears about
+    // warnings and uncaught errors without a protocol client.
+    "--enable-logging=stderr",
+    "--v=0",
 ];
 
 /**
- * Load `url` and resolve with the serialized DOM once the document is
- * complete. Rejects if Chrome fails or takes longer than `timeout`.
+ * For a page built to need no network (`offline`): no host resolves but the
+ * loopback `serveDirectory` listens on, so a page that reaches for the network
+ * fails at once instead of loading something, or waiting on it. A pending
+ * request holds virtual time still, and the page would never finish.
  */
-export function dumpDOM(chrome, url, { timeout = 60_000 } = {}) {
+const OFFLINE_FLAGS = [
+    "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
+];
+
+/**
+ * Run Chrome on `url` with `FLAGS` plus `extra`, and resolve with its stdout
+ * and stderr once `isDone(stdout, stderr)` says the output is complete or
+ * Chrome exits. Rejects if Chrome fails or takes longer than `timeout`.
+ */
+function runChrome(chrome, url, extra, { timeout, isDone }) {
     const profile = mkdtempSync(join(tmpdir(), "renderizr-chrome-"));
 
     return new Promise((resolve, reject) => {
         const child = spawn(
             chrome,
-            [...FLAGS, `--user-data-dir=${profile}`, url],
+            [...FLAGS, ...extra, `--user-data-dir=${profile}`, url],
             { stdio: ["ignore", "pipe", "pipe"] },
         );
 
@@ -141,20 +160,109 @@ export function dumpDOM(chrome, url, { timeout = 60_000 } = {}) {
 
         child.stdout.on("data", (chunk) => {
             out += chunk;
-            // Chrome has printed the whole document; it does not reliably exit
-            // afterwards, so stop waiting for it to.
-            if (out.trimEnd().endsWith("</html>")) finish(null, out);
+            // Chrome has printed everything it was asked for; it does not
+            // reliably exit afterwards, so stop waiting for it to.
+            if (isDone(out, err)) finish(null, { out, err });
         });
 
         child.stderr.on("data", (chunk) => {
             err += chunk;
+            if (isDone(out, err)) finish(null, { out, err });
         });
 
         child.on("error", finish);
         child.on("exit", (code) => {
-            if (out.trimEnd().endsWith("</html>")) finish(null, out);
+            if (isDone(out, err)) finish(null, { out, err });
             else finish(new Error(`Chrome exited with ${code}\n${err}`));
         });
+    });
+}
+
+const documentComplete = (out) => out.trimEnd().endsWith("</html>");
+
+/**
+ * The console messages in Chrome's stderr log, in order. Chrome writes each
+ * as `[…:INFO:CONSOLE:12] "message", source: url (12)` (older builds put the
+ * line number in parentheses), whatever the level it was logged at.
+ */
+export function consoleMessages(stderr) {
+    const messages = [];
+    for (const match of stderr.matchAll(
+        /:CONSOLE[:(]?\d*\)?\] "([\s\S]*?)", source: /g,
+    )) {
+        messages.push(match[1]);
+    }
+    return messages;
+}
+
+/**
+ * Load `url` and resolve with the serialized DOM, every console message the
+ * page wrote while it loaded, and `elapsed`: the wall-clock milliseconds from
+ * launching Chrome to the document arriving. Rejects if Chrome fails or takes
+ * longer than `timeout`.
+ *
+ * The page cannot time itself here. `--virtual-time-budget` fakes every clock
+ * inside it, `performance.now()` and `Date.now()` alike, and skips the waits
+ * on timers, so a page that took seconds can report milliseconds. `elapsed`
+ * is read from Node's own clock instead, which virtual time does not touch.
+ * It includes Chrome's own start: take `launchCost` off it for the page's
+ * share. Chromes running beside it slow it down too, so time one page at a
+ * time.
+ */
+export async function renderPage(
+    chrome,
+    url,
+    { timeout = 60_000, offline = false } = {},
+) {
+    const launched = performance.now();
+    const { out, err } = await runChrome(
+        chrome,
+        url,
+        ["--dump-dom", ...(offline ? OFFLINE_FLAGS : [])],
+        { timeout, isDone: documentComplete },
+    );
+    return {
+        html: out,
+        console: consoleMessages(err),
+        elapsed: performance.now() - launched,
+    };
+}
+
+/** A page with nothing to load or run. */
+const BLANK_PAGE = "data:text/html,<!doctype html><title>blank</title>";
+
+/**
+ * What `renderPage` spends on Chrome rather than on the page: the wall-clock
+ * milliseconds to launch Chrome and dump a blank page. The least of `runs`,
+ * since the first launch also pays for a cold disk cache.
+ */
+export async function launchCost(chrome, { runs = 3 } = {}) {
+    let least = Number.POSITIVE_INFINITY;
+    for (let run = 0; run < runs; run++) {
+        const { elapsed } = await renderPage(chrome, BLANK_PAGE, {
+            offline: true,
+        });
+        least = Math.min(least, elapsed);
+    }
+    return least;
+}
+
+/**
+ * Load `url` and save a PNG of the window to `path`, once virtual time has
+ * run the page's timers out. `offline` is as for `renderPage`.
+ */
+export async function screenshot(
+    chrome,
+    url,
+    path,
+    { timeout = 60_000, offline = false } = {},
+) {
+    const extra = [`--screenshot=${path}`, ...(offline ? OFFLINE_FLAGS : [])];
+    await runChrome(chrome, url, extra, {
+        timeout,
+        // Chrome says so on stderr once the file is written, and may then
+        // linger like it does after `--dump-dom`.
+        isDone: (out, err) => /bytes written to file/.test(`${out}${err}`),
     });
 }
 
