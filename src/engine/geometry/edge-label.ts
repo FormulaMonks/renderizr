@@ -7,7 +7,7 @@
  * bands are, which keeps this module free of the DOM (ADR 8).
  */
 
-import { type MeasureText, wrapLines, wrapWords } from "./boundary";
+import { type MeasureText, wrapLines } from "./boundary";
 import type { Bounds } from "./bounds";
 import { LINE_HEIGHT, METADATA_SCALE } from "./label";
 import { pointAlong } from "./routing/path";
@@ -55,6 +55,30 @@ export function edgeLabelText(parts: {
 }
 
 /**
+ * Metadata wrapped between words only: any whitespace, a newline included,
+ * runs on as a space, and the literal `\n` stays as written (spec 9.3).
+ */
+function wrapMetadata(
+    text: string,
+    width: number,
+    fontSize: number,
+    measure: MeasureText,
+): string[] {
+    const lines: string[] = [];
+    let line = "";
+    for (const word of text.split(/\s+/).filter(Boolean)) {
+        const longer = line ? `${line} ${word}` : word;
+        if (line && measure(longer, fontSize, false) > width) {
+            lines.push(line);
+            line = word;
+        } else {
+            line = longer;
+        }
+    }
+    return line ? [...lines, line] : lines;
+}
+
+/**
  * The size of the label's backing: its lines wrapped at `width`, the
  * description at `fontSize` and the technology at the metadata size below
  * it, plus padding all round. `undefined` for a label that says nothing.
@@ -69,9 +93,12 @@ export function edgeLabelSize(
     const description = text.description
         ? wrapLines(text.description, width, fontSize, false, measure)
         : [];
-    const technology = text.technology
-        ? wrapWords(text.technology, width, metadataSize, false, measure)
-        : [];
+    const technology = wrapMetadata(
+        text.technology,
+        width,
+        metadataSize,
+        measure,
+    );
     if (description.length === 0 && technology.length === 0) return undefined;
     const widest = Math.max(
         ...description.map((line) => measure(line, fontSize, false)),

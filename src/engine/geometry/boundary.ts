@@ -163,37 +163,20 @@ export function wrapLines(
     bold: boolean,
     measure: MeasureText,
 ): string[] {
-    return breakLines(text)
-        .split("\n")
-        .flatMap((paragraph) =>
-            wrapWords(paragraph, width, fontSize, bold, measure),
-        );
-}
-
-/**
- * One paragraph broken between words into lines no wider than `width`; any
- * whitespace, newlines included, separates words. A word wider than `width`
- * gets a line of its own. Always at least one line, empty for no text.
- */
-export function wrapWords(
-    paragraph: string,
-    width: number,
-    fontSize: number,
-    bold: boolean,
-    measure: MeasureText,
-): string[] {
     const lines: string[] = [];
-    let line = "";
-    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
-        const longer = line ? `${line} ${word}` : word;
-        if (line && measure(longer, fontSize, bold) > width) {
-            lines.push(line);
-            line = word;
-        } else {
-            line = longer;
+    for (const paragraph of breakLines(text).split("\n")) {
+        let line = "";
+        for (const word of paragraph.split(" ").filter(Boolean)) {
+            const longer = line ? `${line} ${word}` : word;
+            if (line && measure(longer, fontSize, bold) > width) {
+                lines.push(line);
+                line = word;
+            } else {
+                line = longer;
+            }
         }
+        lines.push(line);
     }
-    lines.push(line);
     return lines;
 }
 
