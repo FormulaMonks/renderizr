@@ -526,6 +526,59 @@ test(
 );
 
 test(
+    "--engine react-flow: an element's label is clamped to its box and its outline is SVG",
+    { skip: SKIP },
+    async () => {
+        const workspace = JSON.parse(
+            await readFile(fixture("workspace.json"), "utf8"),
+        );
+        const [system] = workspace.model.softwareSystems;
+        system.name = "Fixture\\nSystem";
+        system.description = `<b>bold</b> ${"words ".repeat(200)}`;
+        workspace.views.configuration.styles.elements.push({
+            tag: "Software System",
+            opacity: 40,
+            border: "Dashed",
+        });
+        const source = join(SCRATCH, "label.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const out = join(SCRATCH, "react-flow-label");
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}${CONTEXT_VIEW}`,
+        );
+        const element = document.querySelector('[data-element-id="2"]');
+        assert.ok(element, "the system should be drawn");
+
+        // The literal \n breaks the name; the full text is the accessible name.
+        assert.match(element.getAttribute("aria-label"), /^Fixture\nSystem\n/);
+        assert.match(element.getAttribute("title"), /words words\s*$/);
+
+        // The description is clamped, and its markup stays text.
+        const description = element.querySelector("[data-element-description]");
+        assert.ok(description, "the description should be drawn");
+        assert.match(description.getAttribute("style"), /line-clamp:\s*\d+/);
+        assert.equal(description.querySelector("b"), null, "no HTML parsed");
+        assert.match(description.textContent, /^<b>bold<\/b>/);
+
+        // Opacity is on the outline group only; Dashed is 4× the stroke.
+        const rect = element.querySelector("svg rect");
+        assert.ok(rect, "the outline should be SVG");
+        assert.equal(rect.getAttribute("stroke-dasharray"), "8 8");
+        assert.equal(rect.parentNode.getAttribute("opacity"), "0.4");
+        assert.doesNotMatch(
+            element.querySelector("[data-element-label]").getAttribute("style"),
+            /opacity/,
+        );
+    },
+);
+
+test(
     "--engine react-flow: a workspace without a name or date has a clean header",
     { skip: SKIP },
     async () => {
