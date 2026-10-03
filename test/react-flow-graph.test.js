@@ -243,14 +243,18 @@ test("an unknown view key draws nothing", () => {
 });
 
 test("exitPoint stops at the box's edge, on the line to the other center", () => {
-    const box = { x: 0, y: 0, width: 100, height: 50, shape: "Box" };
-    assert.deepEqual(exitPoint(box, { x: 50, y: 500 }), { x: 50, y: 50 });
-    assert.deepEqual(exitPoint(box, { x: 500, y: 25 }), { x: 100, y: 25 });
+    const at = { x: 0, y: 0 };
+    const box = shapeGeometry("Box", 100, 50);
+    assert.deepEqual(exitPoint(at, box, { x: 50, y: 500 }), { x: 50, y: 50 });
+    assert.deepEqual(exitPoint(at, box, { x: 500, y: 25 }), {
+        x: 100,
+        y: 25,
+    });
 });
 
 test("exitPoint stops at a Diamond's slanted side, inside its box", () => {
-    const diamond = { x: 0, y: 0, width: 100, height: 100, shape: "Diamond" };
-    const end = exitPoint(diamond, { x: 500, y: 500 });
+    const diamond = shapeGeometry("Diamond", 100, 100);
+    const end = exitPoint({ x: 0, y: 0 }, diamond, { x: 500, y: 500 });
     assert.ok(
         Math.abs(end.x - 75) < 1e-6 && Math.abs(end.y - 75) < 1e-6,
         `the end should be on the side, at (75, 75), not ${JSON.stringify(end)}`,
