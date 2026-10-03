@@ -54,7 +54,11 @@ test("an unplaced element takes the slot one separation below its only neighbor"
         separation: SEPARATION,
         boundaries: NO_BOUNDARIES,
     });
-    assert.deepEqual(placement, { id: "b", x: 0, y: H + SEPARATION });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 0, y: H + SEPARATION },
+        "b is not one separation below a",
+    );
 });
 
 test("slots nearest the neighbors' centroid win", () => {
@@ -73,7 +77,11 @@ test("slots nearest the neighbors' centroid win", () => {
         separation: SEPARATION,
         boundaries: NO_BOUNDARIES,
     });
-    assert.deepEqual(placement, { id: "b", x: W + SEPARATION, y: 0 });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: W + SEPARATION, y: 0 },
+        "b is not between a and c",
+    );
 });
 
 test("a slot closer than 60 to a placed element is skipped", () => {
@@ -91,8 +99,13 @@ test("a slot closer than 60 to a placed element is skipped", () => {
     assert.notDeepEqual(
         { x: placement.x, y: placement.y },
         { x: 0, y: H + SEPARATION },
+        "b took the slot crowded by x",
     );
-    assert.deepEqual(placement, { id: "b", x: 0, y: -(H + SEPARATION) });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 0, y: -(H + SEPARATION) },
+        "b did not take the slot above a",
+    );
 });
 
 test("a slot inside a boundary the element does not belong to is skipped", () => {
@@ -104,7 +117,11 @@ test("a slot inside a boundary the element does not belong to is skipped", () =>
         boundaries: () =>
             new Map([["other", box(-50, H + 100, W + 100, H + 400)]]),
     });
-    assert.deepEqual(placement, { id: "b", x: 0, y: -(H + SEPARATION) });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 0, y: -(H + SEPARATION) },
+        "b went into a boundary it does not belong to",
+    );
 });
 
 test("slots inside the element's own boundary are preferred", () => {
@@ -117,7 +134,11 @@ test("slots inside the element's own boundary are preferred", () => {
         boundaries: () =>
             new Map([["s", box(-50, -50, 2 * W + SEPARATION + 100, H + 100)]]),
     });
-    assert.deepEqual(placement, { id: "b", x: W + SEPARATION, y: 0 });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: W + SEPARATION, y: 0 },
+        "b did not take the slot inside its own boundary",
+    );
 });
 
 test("with no free slot, an element goes right of the view's bounding box", () => {
@@ -128,7 +149,11 @@ test("with no free slot, an element goes right of the view's bounding box", () =
         separation: SEPARATION,
         boundaries: () => new Map([["s", box(-100, -100, 1000, 800)]]),
     });
-    assert.deepEqual(placement, { id: "b", x: 900 + SEPARATION, y: -100 });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 900 + SEPARATION, y: -100 },
+        "b is not one separation right of the view, level with its top",
+    );
 });
 
 test("each placement counts as placed for the next", () => {
@@ -143,10 +168,14 @@ test("each placement counts as placed for the next", () => {
         separation: SEPARATION,
         boundaries: NO_BOUNDARIES,
     });
-    assert.equal(placements.length, 2);
+    assert.equal(placements.length, 2, "not every element was placed");
     const [b, c] = placements.map((p) => box(p.x, p.y));
     assert.ok(!overlaps(b, c), "c was put on top of b");
-    assert.deepEqual(placements[0], { id: "b", x: 0, y: H + SEPARATION });
+    assert.deepEqual(
+        placements[0],
+        { id: "b", x: 0, y: H + SEPARATION },
+        "b is not one separation below a",
+    );
 });
 
 test("boundaries are derived again from what has been placed so far", () => {
@@ -164,7 +193,11 @@ test("boundaries are derived again from what has been placed so far", () => {
             return new Map();
         },
     });
-    assert.deepEqual(seen, [["a"], ["a", "b"]]);
+    assert.deepEqual(
+        seen,
+        [["a"], ["a", "b"]],
+        "boundaries were not derived again after b was placed",
+    );
 });
 
 /* ---------------------------------------------- Big Bank plc, leave one out */
@@ -205,7 +238,7 @@ test("Big Bank plc leave-one-out: 30 placements, zero overlaps", () => {
         const { boxes } = layOut(
             {
                 nodes: ids.map((id) => ({ id, width: W, height: H })),
-                clusters: [],
+                boundaries: [],
                 edges: relationships.map(([source, target], i) => ({
                     id: String(i),
                     source,
@@ -248,6 +281,6 @@ test("Big Bank plc leave-one-out: 30 placements, zero overlaps", () => {
                     overlapping.push(`${key}: ${id} on ${other}`);
         }
     }
-    assert.equal(placements, 30);
+    assert.equal(placements, 30, "#35 measured 30 placements");
     assert.deepEqual(overlapping, [], "placements overlap placed elements");
 });

@@ -466,6 +466,306 @@ test("a relationship a dynamic view draws twice gets two distinct edge keys", ()
     );
 });
 
+/* ------------------------------------------------------------------ layout */
+
+const BIG_BANK = JSON.parse(
+    readFileSync(
+        new URL("./__fixtures__/big-bank-plc.json", import.meta.url),
+        "utf-8",
+    ),
+);
+
+/** Every Big Bank view that draws elements: all of them automatic layouts. */
+const BIG_BANK_VIEWS = [
+    "SystemLandscape",
+    "SystemContext",
+    "Containers",
+    "Components",
+    "SignIn",
+    "LiveDeployment",
+    "DevelopmentDeployment",
+];
+
+/** Whether `a` and `b` share any area; touching is fine. */
+const overlaps = (a, b) =>
+    a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height;
+
+const contains = (outer, inner) =>
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height;
+
+/** Pairs of elements in `graph` that share area. */
+const overlapping = (graph) => {
+    const pairs = [];
+    for (const [i, a] of graph.elements.entries())
+        for (const b of graph.elements.slice(i + 1))
+            if (overlaps(a, b)) pairs.push(`${a.id} and ${b.id}`);
+    return pairs;
+};
+
+/** Each element id with the ids of every boundary drawn around it. */
+const ancestorsIn = (graph) => {
+    const parent = new Map();
+    for (const boundary of graph.boundaries)
+        for (const child of boundary.children) parent.set(child, boundary.id);
+    const ancestors = new Map();
+    for (const element of graph.elements) {
+        const around = [];
+        for (let p = parent.get(element.id); p; p = parent.get(p))
+            around.push(p);
+        ancestors.set(element.id, around);
+    }
+    return ancestors;
+};
+
+for (const key of BIG_BANK_VIEWS)
+    test(`Big Bank's ${key} view is laid out with no overlapping elements, each inside its boundaries`, () => {
+        const graph = buildGraph(
+            new WorkspaceModel(BIG_BANK),
+            key,
+            "light",
+            LABELS,
+        );
+        assert.ok(graph.elements.length > 1);
+        assert.deepEqual(overlapping(graph), [], "elements overlap");
+        const boxes = new Map(graph.boundaries.map((b) => [b.id, b]));
+        for (const [id, around] of ancestorsIn(graph)) {
+            const element = graph.elements.find((e) => e.id === id);
+            for (const boundary of around)
+                assert.ok(
+                    contains(boxes.get(boundary), element),
+                    `${id} is outside ${boundary}`,
+                );
+        }
+        assert.deepEqual(graph.placements, [], "nothing was unplaced");
+    });
+
+test("an automatic layout follows the view's rank direction", () => {
+    const rankedBy = (rankDirection) => {
+        const json = structuredClone(BIG_BANK);
+        json.views.systemContextViews[0].automaticLayout.rankDirection =
+            rankDirection;
+        const graph = buildGraph(
+            new WorkspaceModel(json),
+            "SystemContext",
+            "light",
+            LABELS,
+        );
+        const xs = graph.elements.map((e) => e.x);
+        const ys = graph.elements.map((e) => e.y);
+        return {
+            wide: Math.max(...xs) - Math.min(...xs),
+            tall: Math.max(...ys) - Math.min(...ys),
+        };
+    };
+    const topBottom = rankedBy("TopBottom");
+    const leftRight = rankedBy("LeftRight");
+    assert.ok(topBottom.tall > topBottom.wide, "TopBottom should run down");
+    assert.ok(leftRight.wide > leftRight.tall, "LeftRight should run across");
+});
+
+test("an automatic layout keeps Dagre's vertices only when the view asks for them", () => {
+    const withVertices = (vertices) => {
+        const json = structuredClone(BIG_BANK);
+        json.views.containerViews[0].automaticLayout.vertices = vertices;
+        return buildGraph(
+            new WorkspaceModel(json),
+            "Containers",
+            "light",
+            LABELS,
+        );
+    };
+    assert.ok(
+        withVertices(true).edges.some((e) => e.vertices.length > 0),
+        "no edge kept a vertex",
+    );
+    assert.ok(
+        withVertices(false).edges.every((e) => e.vertices.length === 0),
+        "an edge kept a vertex",
+    );
+});
+
+test("an automatic layout's kept vertices are what the router routes through", () => {
+    const json = structuredClone(BIG_BANK);
+    json.views.containerViews[0].automaticLayout.vertices = true;
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "Containers",
+        "light",
+        LABELS,
+    );
+    const bent = graph.edges.filter((e) => e.vertices.length > 0);
+    assert.ok(bent.length > 0, "no edge kept a vertex");
+    for (const edge of bent)
+        for (const vertex of edge.vertices)
+            assert.ok(
+                edge.route.some((p) => p.x === vertex.x && p.y === vertex.y),
+                `${edge.key} does not pass through ${JSON.stringify(vertex)}`,
+            );
+});
+
+test("a relationship ending at a boundary stays out of the layout", () => {
+    // Big Bank's Live deployment view has one, which is how today's renderer
+    // loses the whole layout: Dagre throws on it.
+    const model = new WorkspaceModel(BIG_BANK);
+    const graph = buildGraph(model, "LiveDeployment", "light", LABELS);
+    const boundaries = new Set(graph.boundaries.map((b) => b.id));
+    const view = BIG_BANK.views.deploymentViews.find(
+        (v) => v.key === "LiveDeployment",
+    );
+    const toBoundary = view.relationships.filter((r) => {
+        const relationship = model.findRelationshipById(r.id);
+        return (
+            boundaries.has(relationship.sourceId) ||
+            boundaries.has(relationship.destinationId)
+        );
+    });
+    assert.ok(toBoundary.length > 0, "the view should have one");
+    for (const { id } of toBoundary)
+        assert.ok(!graph.edges.some((e) => e.id === id), `${id} was drawn`);
+});
+
+test("a stored layout with automaticLayout.applied keeps its coordinates", () => {
+    const json = structuredClone(FIXTURE);
+    json.views.systemContextViews[0].automaticLayout.applied = true;
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+    assert.deepEqual(
+        graph.elements.map(({ id, x, y }) => ({ id, x, y })),
+        [
+            { id: "1", x: 200, y: 200 },
+            { id: "2", x: 200, y: 800 },
+        ],
+    );
+    assert.deepEqual(graph.placements, []);
+});
+
+/* ------------------------------------------------------- unplaced elements */
+
+test("an unplaced element goes next to its neighbor and the rest stay put", () => {
+    const json = structuredClone(FIXTURE);
+    json.views.systemContextViews[0].elements[0] = { id: "1", x: 0, y: 0 };
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+    const person = graph.elements.find((e) => e.id === "1");
+    const system = graph.elements.find((e) => e.id === "2");
+
+    assert.deepEqual([system.x, system.y], [200, 800], "the system moved");
+    // One separation (300) below the system, centered on it.
+    assert.deepEqual(
+        [person.x, person.y],
+        [200 + (450 - 400) / 2, 800 + 300 + 300],
+    );
+    assert.deepEqual(
+        graph.placements,
+        [{ id: "1", name: person.name, x: person.x, y: person.y }],
+        "the placement is not reported for the console line",
+    );
+});
+
+test("an unplaced element is one separation away: the wider of the view's two", () => {
+    const placedWith = (rankSeparation, nodeSeparation) => {
+        const json = structuredClone(FIXTURE);
+        const [view] = json.views.systemContextViews;
+        view.elements[0] = { id: "1", x: 0, y: 0 };
+        Object.assign(view.automaticLayout, { rankSeparation, nodeSeparation });
+        const graph = buildGraph(
+            new WorkspaceModel(json),
+            "FixtureContext",
+            "light",
+            LABELS,
+        );
+        return graph.elements.find((e) => e.id === "1").y;
+    };
+    // The system's bottom edge is at 800 + 300.
+    assert.equal(placedWith(100, 250), 1100 + 250, "nodeSeparation is wider");
+    assert.equal(placedWith(400, 120), 1100 + 400, "rankSeparation is wider");
+});
+
+/**
+ * Two separations that differ, so the leave-one-out below places by the
+ * wider one, not by a separation every Big Bank view happens to share.
+ */
+const LEAVE_ONE_OUT_SEPARATIONS = { rankSeparation: 300, nodeSeparation: 120 };
+
+/** Big Bank with `key`'s separations set to `LEAVE_ONE_OUT_SEPARATIONS`. */
+const bigBankWithSeparations = (key) => {
+    const json = structuredClone(BIG_BANK);
+    const view = Object.values(json.views)
+        .filter(Array.isArray)
+        .flat()
+        .find((v) => v.key === key);
+    Object.assign(view.automaticLayout, LEAVE_ONE_OUT_SEPARATIONS);
+    return { json, view };
+};
+
+/**
+ * #35's leave-one-out measurement through `buildGraph`: Big Bank's views,
+ * with separations that differ, laid out and saved as stored layouts, each
+ * element in turn sent back to (0,0) and placed again. With boundaries
+ * derived around the rest, it lands on no element and inside no boundary it
+ * does not belong to.
+ */
+test("Big Bank leave-one-out through buildGraph: no overlaps, no foreign boundaries", () => {
+    const problems = [];
+    let placements = 0;
+    for (const key of BIG_BANK_VIEWS) {
+        const laidOut = buildGraph(
+            new WorkspaceModel(bigBankWithSeparations(key).json),
+            key,
+            "light",
+            LABELS,
+        );
+        const saved = new Map(laidOut.elements.map((e) => [e.id, e]));
+        for (const { id } of laidOut.elements) {
+            const { json, view } = bigBankWithSeparations(key);
+            view.automaticLayout.applied = true;
+            for (const placement of view.elements) {
+                const box = saved.get(placement.id);
+                const at = placement.id === id ? { x: 0, y: 0 } : box;
+                if (!at) continue;
+                placement.x = at.x;
+                placement.y = at.y;
+            }
+            const graph = buildGraph(
+                new WorkspaceModel(json),
+                key,
+                "light",
+                LABELS,
+            );
+            placements += graph.placements.length;
+            assert.deepEqual(
+                graph.placements.map((p) => p.id),
+                [id],
+                `${key}: only ${id} should be placed`,
+            );
+            const element = graph.elements.find((e) => e.id === id);
+            for (const other of graph.elements)
+                if (other.id !== id && overlaps(element, other))
+                    problems.push(`${key}: ${id} on ${other.id}`);
+            const own = new Set(ancestorsIn(graph).get(id));
+            for (const boundary of graph.boundaries)
+                if (!own.has(boundary.id) && overlaps(element, boundary))
+                    problems.push(`${key}: ${id} in ${boundary.id}`);
+        }
+    }
+    assert.ok(placements >= 30, `only ${placements} placements`);
+    assert.deepEqual(problems, []);
+});
+
 /* ---------------- routing (spec 10) */
 
 /**
