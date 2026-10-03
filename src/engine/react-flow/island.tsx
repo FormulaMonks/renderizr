@@ -167,7 +167,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
     );
 }
 
-/** The scheme's canvas colour, which edge labels are backed with. */
+/** The scheme's canvas color, which edge labels are backed with. */
 const CanvasBackground = createContext("#ffffff");
 
 const dashes = (style: EdgeLine["style"], t: number) =>

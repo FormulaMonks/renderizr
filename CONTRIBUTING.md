@@ -360,7 +360,7 @@ What a good pull request looks like here:
 
 1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 20/22/24, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
-3. Review comments come in three flavours, and they are labeled so you are never guessing:
+3. Review comments come in three flavors, and they are labeled so you are never guessing:
    - **blocking** — must change before merge.
    - **suggestion** — take it or explain why not; either answer merges.
    - **nit** — cosmetic, never blocking.

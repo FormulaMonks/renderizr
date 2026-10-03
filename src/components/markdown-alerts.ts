@@ -6,7 +6,7 @@ import warningIcon from "../../vendor/structurizr/bootstrap-icons/exclamation-tr
 import cautionIcon from "../../vendor/structurizr/bootstrap-icons/exclamation-octagon-fill.svg?raw";
 
 /**
- * GitHub-flavoured alert blockquotes for markdown-it.
+ * GitHub-flavored alert blockquotes for markdown-it.
  *
  * ```markdown
  * > [!NOTE]

@@ -19,7 +19,7 @@ Screenshots or a before/after pair help a lot for visual changes. -->
 
 ## Additional notes
 
-<!-- Behaviour changes a reader might notice, follow-up work left out on purpose, decisions taken along the way. Write "None." rather than deleting the section. -->
+<!-- Behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way. Write "None." rather than deleting the section. -->
 
 ## Checklist
 

@@ -12,7 +12,7 @@ Referenced by [8. Write our own router in TypeScript](0008-write-our-own-router-
 
 ## Context
 
-Structurizr has three routing modes. Direct, the default and the mode every sample workspace uses, draws a straight line from centre to centre, across any element in the way. Authors fix crossings by dragging vertices in Structurizr's editor.
+Structurizr has three routing modes. Direct, the default and the mode every sample workspace uses, draws a straight line from center to center, across any element in the way. Authors fix crossings by dragging vertices in Structurizr's editor.
 
 ## Decision
 

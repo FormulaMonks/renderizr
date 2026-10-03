@@ -16,7 +16,7 @@ Structurizr writes a missing position as `x: 0, y: 0`. An element added to the D
 
 ## Decision
 
-Lay out a view automatically only when every element is at (0,0). When some are, keep the stored layout and place each unplaced element next to the elements it relates to: try slots one separation away from each connected element, nearest to their centre first, and take the first that clears other elements and foreign boundaries. Log each placement.
+Lay out a view automatically only when every element is at (0,0). When some are, keep the stored layout and place each unplaced element next to the elements it relates to: try slots one separation away from each connected element, nearest to their center first, and take the first that clears other elements and foreign boundaries. Log each placement.
 
 ## Consequences
 
@@ -26,7 +26,7 @@ Lay out a view automatically only when every element is at (0,0). When some are,
 
 ## Alternatives considered
 
-- Dagre-relative placement: more code, lands farther from the neighbours, and Dagre can't pin stored elements.
+- Dagre-relative placement: more code, lands farther from the neighbors, and Dagre can't pin stored elements.
 - ELK's interactive mode: it treats positions as hints and costs 432 KB gzipped.
 
 ## Reference links

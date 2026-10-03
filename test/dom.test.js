@@ -202,10 +202,10 @@ test("stopPropagation halts the walk and preventDefault is observable", () => {
     });
 
     const event = new DOMEvent("click", { bubbles: true });
-    const notCancelled = host.querySelector("span").dispatchEvent(event);
+    const notCanceled = host.querySelector("span").dispatchEvent(event);
 
     assert.deepEqual(seen, ["inner"]);
-    assert.equal(notCancelled, false);
+    assert.equal(notCanceled, false);
     assert.equal(event.defaultPrevented, true);
 });
 

@@ -5,7 +5,7 @@ paths:
 
 # ADR Guidelines
 
-ADRs are **immutable records**. Once an ADR has landed on `main`, never edit its content. **Three exceptions apply:** the `## Status` section, which is a live pointer rather than part of the record (see below); an ADR that has not yet landed on `main`; and a merged ADR that still reads `Draft`, which stays revisable until it is promoted to `Accepted`.
+ADRs are **immutable records**. Once an ADR has landed on `main`, never edit its content. **Three exceptions apply:** the `## Status` section, which is a live pointer rather than part of the record (see below); an ADR that has not yet landed on `main`; and a merged ADR that still reads `Draft`, which stays revisable until it is promoted to `Accepted`. Spelling and formatting fixes that leave every sentence meaning what it meant (American spelling under `writing.md`, Markdown syntax, link targets that moved) are format, not content, and may be made to any ADR; a change that alters, adds or removes a claim is never one of these.
 
 **Immutability begins when the PR merges to `main` — not when the ADR's `## Status` field is set to `Accepted`.** An ADR is not yet a record while its introducing PR is still open, whatever its status word says. So marking it `Accepted` inside an open PR does not freeze the content: it may still be revised in place — rewritten, cut, or reversed — for as long as that PR has not merged. Promoting a `Draft` to `Accepted` in the same change is the normal way an ADR lands, and neither that revision nor the status change needs a superseding or amending ADR. Once the PR merges, the rules below apply in full.
 
@@ -47,7 +47,7 @@ If a decision is superseded or amended, create a **new ADR**. **Both ADRs always
 | **Amend** | **Partial extension without full supersession** — the old decision stays in force | `Amends [<n>. <Title>](000X-title.md).` | `Amended by [<n>. <Title>](000Y-title.md).`, and the status word becomes `Amended` |
 | **Reference** | Neither — the new ADR depends on or is informed by the old one, and changes nothing about it | `References [<n>. <Title>](000X-title.md).` | `Referenced by [<n>. <Title>](000Y-title.md).` |
 
-**Amend** is the relationship for every partial change, whatever its flavour: adding to the old decision, narrowing it, or settling a point it left open or deferred. Optionally name what changed after a colon, so the reader knows which part moved: `Amends [<n>. <Title>](000X-title.md): the X it deferred.`
+**Amend** is the relationship for every partial change, whatever its flavor: adding to the old decision, narrowing it, or settling a point it left open or deferred. Optionally name what changed after a colon, so the reader knows which part moved: `Amends [<n>. <Title>](000X-title.md): the X it deferred.`
 
 **Supersede** only when the new ADR replaces the old decision wholesale — restate any part of the old decision that still holds, so nothing is lost when the old ADR stops reading as current.
 

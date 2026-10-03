@@ -75,7 +75,7 @@ export function getStoredDiagramTheme(): DiagramTheme | null {
     const stored = readSetting(DIAGRAM_THEME_STORAGE_KEY);
     if (stored === "light" || stored === "dark") return stored;
 
-    // Migrate readers coming from the previous Structurizr-flavoured key.
+    // Migrate readers coming from the previous Structurizr-flavored key.
     const legacy = readSetting(LEGACY_DIAGRAM_THEME_STORAGE_KEY);
     if (legacy === "light" || legacy === "dark") {
         writeSetting(DIAGRAM_THEME_STORAGE_KEY, legacy);

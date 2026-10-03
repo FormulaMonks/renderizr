@@ -36,7 +36,7 @@ type Json = Record<string, any>;
 
 export const DEFAULT_DEPLOYMENT_ENVIRONMENT_NAME = "Default";
 
-/** Styles sorted with unscoped first, then by colour scheme and tag. */
+/** Styles sorted with unscoped first, then by color scheme and tag. */
 export function sortStyles(a: StyleDefinition, b: StyleDefinition): number {
     if (a.colorScheme === undefined && b.colorScheme === undefined) {
         return a.tag.localeCompare(b.tag);

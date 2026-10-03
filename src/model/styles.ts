@@ -23,8 +23,8 @@
  * under the License.
  *
  * Modified by Renderizr: ported to typed TypeScript, made a pure function of
- * the workspace, the colour scheme, the themes and an optional perspective;
- * an unset stroke is the background darkened 10% in both colour schemes;
+ * the workspace, the color scheme, the themes and an optional perspective;
+ * an unset stroke is the background darkened 10% in both color schemes;
  * dynamic (URL-polled) perspectives are ignored.
  */
 
@@ -124,7 +124,7 @@ function copyIfSpecified(
 }
 
 /**
- * Lighten (positive) or darken (negative) a `#rrggbb` colour by a percentage,
+ * Lighten (positive) or darken (negative) a `#rrggbb` color by a percentage,
  * capped at 90%.
  */
 export function shadeColor(color: string, percentAsInteger: number): string {
@@ -165,7 +165,7 @@ function definitions(
     ];
 }
 
-/** One merged definition per tag, for the given colour scheme. */
+/** One merged definition per tag, for the given color scheme. */
 function stylesByTag(
     styles: StyleDefinition[],
     scheme: ColorScheme,
@@ -243,7 +243,7 @@ function findPerspective(
  * Resolve an element's style: scheme defaults, then each of its tags in
  * order, themes before the workspace, `colorScheme`-scoped styles only in
  * their scheme. With `perspective`, a matching `Perspective:<name>` style
- * overrides background, colour and stroke.
+ * overrides background, color and stroke.
  */
 export function findElementStyle(
     model: WorkspaceModel,
@@ -341,7 +341,7 @@ export function findElementStyle(
 /**
  * Resolve a relationship's style: scheme defaults, then each of its tags
  * (linked relationships' first), themes before the workspace. With
- * `perspective`, a matching `Perspective:<name>` style overrides the colour.
+ * `perspective`, a matching `Perspective:<name>` style overrides the color.
  */
 export function findRelationshipStyle(
     model: WorkspaceModel,
