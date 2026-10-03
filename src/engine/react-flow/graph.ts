@@ -72,7 +72,7 @@ export type EdgeLine = {
     source: Point;
     target: Point;
     /** The drawn route, as the points it passes through, source first. */
-    path: Point[];
+    route: Point[];
     /** The relationship's stored vertices; the tracer does not route through them yet. */
     vertices: Point[];
     /** In a dynamic view, the order the view gives this edge. */
@@ -224,7 +224,7 @@ export function buildGraph(
             targetId: to.box.id,
             source: start,
             target: end,
-            path: [start, end],
+            route: [start, end],
             vertices: placed.vertices ?? [],
             ...(placed.order !== undefined && { order: placed.order }),
             label: [description, technology].filter(Boolean).join("\n"),

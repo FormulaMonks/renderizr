@@ -446,7 +446,7 @@ function StraightEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
     const background = useContext(CanvasBackground);
     if (!data) return null;
     const { source, target, thickness } = data;
-    const path = data.path
+    const path = data.route
         .map((point, at) => `${at ? "L" : "M"} ${point.x},${point.y}`)
         .join(" ");
     const mid = { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 };

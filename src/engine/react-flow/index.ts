@@ -10,7 +10,8 @@ import {
 } from "../contract";
 import type { Graph } from "./graph";
 import { type IslandCommands, IslandStore, Island } from "./island";
-import { engineReport, removeReport, writeReport } from "./report";
+import { engineReport } from "./report";
+import { removeReport, writeReport } from "./report-script";
 import { ShownListeners } from "./shown";
 
 const NO_ANIMATION: AnimationState = { steps: 0, step: null, playing: false };
@@ -92,7 +93,7 @@ export function mountEngine(
         const onPainted = (key: string, graph: Graph) => {
             // Compiled out of every build but the acceptance harness's (spec 15.1).
             if (__RENDERIZR_ENGINE_REPORT__) {
-                writeReport(document, engineReport(graph, performance.now()));
+                writeReport(document, engineReport(graph));
             }
             const view = model.findViewByKey(key);
             if (view) shown.paint(view);
