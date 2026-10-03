@@ -166,15 +166,15 @@
             {
                 "id": "21",
                 "tags": "Element,Software System",
-                "name": "West",
-                "description": "Left of the crossing",
+                "name": "Upper west",
+                "description": "Left of the upper crossing",
                 "relationships": [
                     {
-                        "id": "25",
+                        "id": "27",
                         "tags": "Relationship",
                         "sourceId": "21",
                         "destinationId": "22",
-                        "description": "Crosses"
+                        "description": "Crosses above"
                     }
                 ],
                 "location": "Unspecified"
@@ -182,23 +182,23 @@
             {
                 "id": "22",
                 "tags": "Element,Software System",
-                "name": "East",
-                "description": "Right of the crossing",
+                "name": "Upper east",
+                "description": "Right of the upper crossing",
                 "relationships": [],
                 "location": "Unspecified"
             },
             {
                 "id": "23",
                 "tags": "Element,Software System",
-                "name": "North",
-                "description": "Above the crossing",
+                "name": "Lower west",
+                "description": "Left of the lower crossing",
                 "relationships": [
                     {
-                        "id": "26",
-                        "tags": "Relationship,Jump",
+                        "id": "28",
+                        "tags": "Relationship",
                         "sourceId": "23",
                         "destinationId": "24",
-                        "description": "Jumps"
+                        "description": "Crosses below"
                     }
                 ],
                 "location": "Unspecified"
@@ -206,29 +206,53 @@
             {
                 "id": "24",
                 "tags": "Element,Software System",
-                "name": "South",
-                "description": "Below the crossing",
+                "name": "Lower east",
+                "description": "Right of the lower crossing",
                 "relationships": [],
                 "location": "Unspecified"
             },
             {
-                "id": "27",
+                "id": "25",
+                "tags": "Element,Software System",
+                "name": "North",
+                "description": "Above both crossings",
+                "relationships": [
+                    {
+                        "id": "29",
+                        "tags": "Relationship,Jump",
+                        "sourceId": "25",
+                        "destinationId": "26",
+                        "description": "Jumps"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "26",
+                "tags": "Element,Software System",
+                "name": "South",
+                "description": "Below both crossings",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "30",
                 "tags": "Element,Software System",
                 "name": "Direct from",
                 "description": "Direct through a vertex",
                 "relationships": [
                     {
-                        "id": "33",
+                        "id": "36",
                         "tags": "Relationship,Direct",
-                        "sourceId": "27",
-                        "destinationId": "28",
+                        "sourceId": "30",
+                        "destinationId": "31",
                         "description": "Via a vertex (Direct)"
                     }
                 ],
                 "location": "Unspecified"
             },
             {
-                "id": "28",
+                "id": "31",
                 "tags": "Element,Software System",
                 "name": "Direct to",
                 "description": "Straight would be clear",
@@ -236,23 +260,23 @@
                 "location": "Unspecified"
             },
             {
-                "id": "29",
+                "id": "32",
                 "tags": "Element,Software System",
                 "name": "Orthogonal from",
                 "description": "Orthogonal through a vertex",
                 "relationships": [
                     {
-                        "id": "34",
+                        "id": "37",
                         "tags": "Relationship,Orthogonal",
-                        "sourceId": "29",
-                        "destinationId": "30",
+                        "sourceId": "32",
+                        "destinationId": "33",
                         "description": "Via a vertex (Orthogonal)"
                     }
                 ],
                 "location": "Unspecified"
             },
             {
-                "id": "30",
+                "id": "33",
                 "tags": "Element,Software System",
                 "name": "Orthogonal to",
                 "description": "Straight would be clear",
@@ -260,23 +284,23 @@
                 "location": "Unspecified"
             },
             {
-                "id": "31",
+                "id": "34",
                 "tags": "Element,Software System",
                 "name": "Curved from",
                 "description": "Curved through a vertex",
                 "relationships": [
                     {
-                        "id": "35",
+                        "id": "38",
                         "tags": "Relationship,Curved",
-                        "sourceId": "31",
-                        "destinationId": "32",
+                        "sourceId": "34",
+                        "destinationId": "35",
                         "description": "Via a vertex (Curved)"
                     }
                 ],
                 "location": "Unspecified"
             },
             {
-                "id": "32",
+                "id": "35",
                 "tags": "Element,Software System",
                 "name": "Curved to",
                 "description": "Straight would be clear",
@@ -413,36 +437,49 @@
             {
                 "key": "JumpOvers",
                 "order": 5,
-                "description": "The jump edge hops where it crosses; the other stays plain",
+                "description": "The jump edge jumps over both plain edges it crosses; they stay plain",
                 "enterpriseBoundaryVisible": true,
                 "elements": [
                     {
                         "id": "21",
                         "x": 100,
-                        "y": 800
+                        "y": 700
                     },
                     {
                         "id": "22",
-                        "x": 1700,
-                        "y": 800
+                        "x": 1900,
+                        "y": 700
                     },
                     {
                         "id": "23",
-                        "x": 900,
-                        "y": 100
+                        "x": 100,
+                        "y": 1500
                     },
                     {
                         "id": "24",
-                        "x": 900,
+                        "x": 1900,
                         "y": 1500
+                    },
+                    {
+                        "id": "25",
+                        "x": 575,
+                        "y": 0
+                    },
+                    {
+                        "id": "26",
+                        "x": 575,
+                        "y": 2200
                     }
                 ],
                 "relationships": [
                     {
-                        "id": "25"
+                        "id": "27"
                     },
                     {
-                        "id": "26"
+                        "id": "28"
+                    },
+                    {
+                        "id": "29"
                     }
                 ]
             },
@@ -453,39 +490,39 @@
                 "enterpriseBoundaryVisible": true,
                 "elements": [
                     {
-                        "id": "27",
-                        "x": 100,
-                        "y": 100
-                    },
-                    {
-                        "id": "28",
-                        "x": 1700,
-                        "y": 100
-                    },
-                    {
-                        "id": "29",
-                        "x": 100,
-                        "y": 1000
-                    },
-                    {
                         "id": "30",
-                        "x": 1700,
-                        "y": 1000
+                        "x": 100,
+                        "y": 100
                     },
                     {
                         "id": "31",
+                        "x": 1700,
+                        "y": 100
+                    },
+                    {
+                        "id": "32",
+                        "x": 100,
+                        "y": 1000
+                    },
+                    {
+                        "id": "33",
+                        "x": 1700,
+                        "y": 1000
+                    },
+                    {
+                        "id": "34",
                         "x": 100,
                         "y": 1900
                     },
                     {
-                        "id": "32",
+                        "id": "35",
                         "x": 1700,
                         "y": 1900
                     }
                 ],
                 "relationships": [
                     {
-                        "id": "33",
+                        "id": "36",
                         "vertices": [
                             {
                                 "x": 1125,
@@ -494,7 +531,7 @@
                         ]
                     },
                     {
-                        "id": "34",
+                        "id": "37",
                         "vertices": [
                             {
                                 "x": 1125,
@@ -503,7 +540,7 @@
                         ]
                     },
                     {
-                        "id": "35",
+                        "id": "38",
                         "vertices": [
                             {
                                 "x": 1125,
