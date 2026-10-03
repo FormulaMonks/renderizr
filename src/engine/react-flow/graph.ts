@@ -386,10 +386,12 @@ export function buildGraph(
             style.metadata && labels.technologies
                 ? getMetadataForRelationship(model, relationship)
                 : "";
+        // The descriptions toggle leaves a step's order showing; the style's
+        // `description: false` hides it with the description, as upstream.
         const text = edgeLabelText({
             description,
             technology,
-            order: dynamic ? placed.order : undefined,
+            order: dynamic && style.description ? placed.order : undefined,
         });
         const label = layoutEdgeLabel(
             text,

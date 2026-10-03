@@ -766,6 +766,23 @@ test("a dynamic view's label keeps its order with descriptions toggled off", () 
     );
 });
 
+test("description: false in a dynamic view hides the order too, as upstream does", () => {
+    const steps = [{ id: "10", order: "3", description: "Opens the site" }];
+    const styledOff = dynamicGraph(steps, (json) =>
+        relationshipStyle(json, { description: false }),
+    );
+    assert.equal(
+        styledOff.edges[0].description,
+        "",
+        "no description and no order",
+    );
+    assert.equal(
+        styledOff.edges[0].technology,
+        "[HTTPS]",
+        "the technology still shows",
+    );
+});
+
 test("a static view's label ignores a description stored in the view", () => {
     const graph = contextGraph((json) => {
         json.views.systemContextViews[0].relationships[0].description = "Other";
