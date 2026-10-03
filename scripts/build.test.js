@@ -569,8 +569,8 @@ const ISLAND_GZIPPED_BYTES = 129_325;
 
 /**
  * #26's figure plus 15%: past it, the engine has grown more than planned.
- * Temporarily raised from 10% while both renderers ship side by side; bring it
- * back down once 2.0 drops the vendored renderer.
+ * Raised from 10% while both renderers ship side by side; #64 lowers it again
+ * once 2.0 drops the vendored renderer.
  */
 const ISLAND_BUDGET_BYTES = Math.floor(ISLAND_GZIPPED_BYTES * 1.15);
 
