@@ -61,6 +61,7 @@ import {
     textWidth,
 } from "../geometry/label";
 import { borderDashes, paintPart } from "../geometry/paint";
+import { pointAlong } from "../geometry/routing/path";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
     type BoundaryBox,
@@ -257,7 +258,7 @@ function ElementLabel({
             setLines(fit.descriptionLines);
             if (fit.overflows && !warned.current) {
                 warned.current = true;
-                // The one console call in shipped code: spec 9.1 asks for a
+                // A console call in shipped code: spec 9.1 asks for a
                 // warning when name and metadata overflow, and the page has
                 // nowhere else to report a workspace authoring problem.
                 console.warn(
@@ -606,14 +607,15 @@ const dashes = (style: EdgeLine["style"], t: number) =>
           ? `${t} ${2 * t}`
           : undefined;
 
-function StraightEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
+/**
+ * One edge in any routing mode, drawn from the path the router worked out
+ * (spec 10.1): React Flow's own path helpers take no vertices.
+ */
+function RouteEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
     const background = useContext(CanvasBackground);
     if (!data) return null;
-    const { source, target, thickness } = data;
-    const path = data.route
-        .map((point, at) => `${at ? "L" : "M"} ${point.x},${point.y}`)
-        .join(" ");
-    const mid = { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 };
+    const { path, thickness } = data;
+    const mid = pointAlong(data.route, 0.5);
 
     return (
         <g data-relationship-id={data.id} data-order={data.order}>
@@ -656,7 +658,7 @@ function StraightEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
 }
 
 const nodeTypes = { box: BoxElement, boundary: BoundaryElement };
-const edgeTypes = { line: StraightEdge };
+const edgeTypes = { line: RouteEdge };
 const proOptions = { hideAttribution: true };
 const nodeOrigin: [number, number] = [0, 0];
 const zoomKeys = ["Meta", "Control"];
@@ -754,6 +756,19 @@ function Canvas({
     );
     const nodes = useMemo(() => (graph ? toNodes(graph) : []), [graph]);
     const edges = useMemo(() => (graph ? toEdges(graph) : []), [graph]);
+
+    // Each authoring problem once per visit, however often the view redraws
+    // (a scheme or label change rebuilds the graph).
+    const warned = useRef(new Set<string>());
+    useEffect(() => {
+        for (const warning of graph?.warnings ?? []) {
+            if (warned.current.has(warning)) continue;
+            warned.current.add(warning);
+            // Spec 10.6 asks for a warning naming the relationship, and the
+            // page has nowhere else to report a workspace authoring problem.
+            console.warn(warning);
+        }
+    }, [graph]);
 
     const flow = useReactFlow();
     const wrapper = useRef<HTMLDivElement>(null);

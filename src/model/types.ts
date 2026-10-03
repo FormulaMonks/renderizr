@@ -100,6 +100,8 @@ export type RelationshipView = {
     description?: string;
     vertices?: Vertex[];
     routing?: string;
+    /** Overrides the style's `jump` for this edge in this view. */
+    jump?: boolean;
     position?: number;
     [key: string]: unknown;
 };
