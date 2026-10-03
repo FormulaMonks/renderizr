@@ -10,6 +10,7 @@ Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT
 - [Get the code](#get-the-code)
 - [Install](#install)
 - [The commands](#the-commands)
+- [Branches](#branches)
 - [Commits](#commits)
 - [The git hooks](#the-git-hooks)
 - [Project layout](#project-layout)
@@ -101,21 +102,20 @@ Every command below is run from the repository root.
 pnpm dev                                  # this repo's workspace
 pnpm dev -- ../some-project/workspace.json
 pnpm dev -- https://example.com/workspace.json
+pnpm dev -- test/__fixtures__/edge-routing.json --engine react-flow
 RENDERIZR_WORKSPACE=./ws.json pnpm dev    # or set it in the environment
 ```
 
-The dev server also accepts `--logo <path|url>`, `--font <family>` and `--single-file` — but the order matters, and only one order works:
+The dev server also accepts `--engine <structurizr|react-flow>`, `--logo <path|url>`, `--font <family>` and `--single-file`, in any order before or after the workspace path:
 
 ```bash
-pnpm dev -- --font Inter --logo ./logo.svg architecture/workspace.json   # works
-pnpm dev -- architecture/workspace.json --font Inter                     # ENOENT: … open '…/Inter'
+pnpm dev -- --font Inter --logo ./logo.svg architecture/workspace.json
+pnpm dev -- architecture/workspace.json --font Inter --engine react-flow
 ```
 
-`vite.config.ts` takes the workspace to be the *last* argument that does not start with `-` (`args.filter(arg => !arg.startsWith("-")).at(-1)`), so a flag's value placed after the path wins and gets loaded as the workspace. Put every flag with a value **before** the workspace path. `--single-file` takes no value and is safe anywhere.
+Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know: `pnpm dev test/__fixtures__/edge-routing.json --engine react-flow` exits with ``Unknown option `--engine` ``.
 
-The same rule catches `RENDERIZR_WORKSPACE`: the environment variable is only consulted when *no* bare argument was passed at all, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` still ENOENTs on `Inter`. Use the environment variable on its own (`RENDERIZR_WORKSPACE=ws.json pnpm dev`), or pass the workspace on the command line, last.
-
-`scripts/build.js` does not share this quirk — it parses arguments properly, so `pnpm build` accepts flags in any position.
+`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of `--engine`, `--font` or `--logo`. `RENDERIZR_WORKSPACE` is consulted only when no such argument was passed, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
 
 ### Build
 
@@ -140,6 +140,14 @@ pnpm exec biome check --write .    # fix what can be fixed
 ```
 
 `biome ci` never writes. When the pre-commit hook rejects your change, run `check --write` on the offending file and `git add` it again — the recipe is spelled out below.
+
+## Branches
+
+Name every branch `<type>/<issue>/<short-description>`, for example `feat/42/resolve-view` or `fix/57/hash-routes-under-file`.
+
+- `<type>` is one of `feat`, `fix` or `chore`. Use `feat` for a new capability, `fix` for a bug and `chore` for everything else (docs, CI, refactors, dependencies, tooling).
+- `<issue>` is the number of the GitHub issue the branch works on, without the `#`. When the work has no issue, leave the segment out: `chore/bump-biome`.
+- `<short-description>` is a few lower-case words in kebab-case that say what the branch does.
 
 ## Commits
 
@@ -356,9 +364,17 @@ pnpm build architecture/workspace.json --single-file
 # then open structurizr-output/index.html in a browser — it needs no server
 ```
 
+To check a change in the dev server, point it at a versioned fixture under `test/__fixtures__/` rather than a copied or throwaway workspace. The fixture is tracked, so `git status` shows whether anything changed it while you looked. When no fixture shows your change, add one in the same PR:
+
+```bash
+pnpm dev -- test/__fixtures__/edge-routing.json --engine react-flow
+```
+
+Use the package scripts (`pnpm dev`, `pnpm build`, `pnpm test`) in anything you write down for someone else to run, never the `node scripts/…` they wrap.
+
 What a good pull request looks like here:
 
-- **One concern per PR.** Branch off `main`; name the branch after the change (`fix/setext-headings-hijack-page-structure`, `feat/reading-experience`).
+- **One concern per PR.** Branch off `main` and name the branch as [Branches](#branches) says (`fix/57/setext-headings-hijack-page-structure`, `feat/42/reading-experience`).
 - **Conventional commits throughout**, because the changelog and the version bump are generated from them. A `feat:` in a PR of `fix:` commits changes what the next release is called.
 - **A description that says what changed and why.** For anything visual, a before/after screenshot or a link to a rendered `--single-file` output is worth more than a paragraph.
 - **Tests for anything in `scripts/`.** New behavior gets a test; a fixed bug gets the test that would have caught it.
