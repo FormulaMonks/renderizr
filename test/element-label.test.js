@@ -19,6 +19,7 @@ const {
 const { borderDashes, paintPart, withAlpha } = await importSrc(
     "engine/geometry/paint",
 );
+const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
 
 /* ---------------- text */
 
@@ -199,7 +200,7 @@ test("each paint role takes its fill, stroke and dashes from the style", () => {
     };
     const cases = [
         ["body", "#1168bd", "#0b4884", 3, "12 12"],
-        ["frame", "#0b4884", "#0b4884", 3, undefined],
+        ["frame", "#0b4884", "#0b4884", 3, "12 12"],
         ["screen", "#1168bd", "none", 0, undefined],
         ["ink", "#0b4884", "none", 0, undefined],
         ["rule", "none", "#0b4884", 1, "12 12"],
@@ -211,5 +212,41 @@ test("each paint role takes its fill, stroke and dashes from the style", () => {
             { fill, stroke, strokeWidth, strokeDasharray: dashes },
             `a ${paint} part`,
         );
+    }
+});
+
+test("a Dashed or Dotted border dashes the frame of every framed shape", () => {
+    const framed = [
+        "WebBrowser",
+        "Window",
+        "Terminal",
+        "MobileDevicePortrait",
+        "MobileDeviceLandscape",
+    ];
+    const cases = [
+        ["Dashed", "8 8"],
+        ["Dotted", "2 2"],
+        ["Solid", undefined],
+    ];
+    for (const shape of framed) {
+        const frames = shapeGeometry(shape, 450, 300).parts.filter(
+            (part) => part.paint === "frame",
+        );
+        assert.ok(frames.length > 0, `${shape} should have a frame`);
+        for (const [border, dashes] of cases) {
+            const style = {
+                background: "#ffffff",
+                stroke: "#000000",
+                strokeWidth: 2,
+                border,
+            };
+            for (const frame of frames) {
+                assert.equal(
+                    paintPart(frame.paint, style).strokeDasharray,
+                    dashes,
+                    `a ${border} ${shape} frame`,
+                );
+            }
+        }
     }
 });

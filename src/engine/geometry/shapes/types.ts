@@ -59,7 +59,8 @@ export type Segment =
 /**
  * How a drawn part is painted, named after what it takes from the style:
  * - body: fill background, stroke stroke at strokeWidth, border dashes
- * - frame: fill stroke, stroke stroke (device and window bezels)
+ * - frame: fill stroke, stroke stroke, border dashes (device and window
+ *   bezels)
  * - screen: fill background, no stroke (panels, displays, buttons, URL bar)
  * - ink: fill stroke, no stroke (the `>_` prompt)
  * - rule: no fill, stroke stroke at width 1, border dashes (Person and Robot

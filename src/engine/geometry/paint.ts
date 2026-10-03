@@ -61,9 +61,9 @@ export type PartPaint = {
 
 /**
  * How a shape part with paint role `paint` is drawn in `style` (see `Paint`
- * in `shapes/types.ts`). Border dashes go on the outline (`body`) and on
- * Person and Robot arms (`rule`), as upstream dashes them; bezels, panels
- * and the prompt stay solid.
+ * in `shapes/types.ts`). Border dashes go on the outline (`body`), on device
+ * and window bezels (`frame`) and on Person and Robot arms (`rule`), as
+ * upstream dashes them; panels, displays and the prompt stay solid.
  */
 export function paintPart(paint: Paint, style: PartStyle): PartPaint {
     const { background, stroke, strokeWidth, border } = style;
@@ -80,7 +80,7 @@ export function paintPart(paint: Paint, style: PartStyle): PartPaint {
                 fill: stroke,
                 stroke,
                 strokeWidth,
-                strokeDasharray: undefined,
+                strokeDasharray: borderDashes(border, strokeWidth),
             };
         case "screen":
             return {
