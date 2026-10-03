@@ -6,16 +6,19 @@
  */
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readJsonFixture } from "../scripts/__fixtures__/helpers.js";
 import {
     avoidsElements,
     distanceToOutline,
     edgeEndsOnOutlines,
+    elementOutline,
     elementsInsideBoundaries,
     expectedDrawing,
+    isAutomatic,
     noOverlappingElements,
     readyInTime,
-    sameIdsAsResolved,
+    sameBoundariesAsResolved,
+    sameElementsAndEdgesAsResolved,
     storedElementsInPlace,
     unexpectedLogs,
 } from "./support/engine-checks.js";
@@ -23,13 +26,9 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
 
-const FIXTURE = JSON.parse(
-    readFileSync(
-        new URL("../scripts/__fixtures__/workspace.json", import.meta.url),
-        "utf-8",
-    ),
-);
+const FIXTURE = readJsonFixture("workspace.json");
 
+/** An element as the engine reports it: a shape and a box, nothing more. */
 const box = (id, x, y, width = 100, height = 100) => ({
     id,
     shape: "Box",
@@ -37,26 +36,19 @@ const box = (id, x, y, width = 100, height = 100) => ({
     y,
     width,
     height,
-    outline: [
-        { x, y },
-        { x: x + width, y },
-        { x: x + width, y: y + height },
-        { x, y: y + height },
-    ],
 });
 
-const edge = (id, sourceId, targetId, path, vertices = false) => ({
+const edge = (id, sourceId, targetId, route, routedByAuthor = false) => ({
     key: id,
     id,
     sourceId,
     targetId,
-    vertices,
-    path,
+    routedByAuthor,
+    route,
 });
 
 const report = (parts) => ({
     view: "V",
-    readyAt: 100,
     elements: [],
     boundaries: [],
     edges: [],
@@ -71,13 +63,21 @@ test("the expected drawing of a stored view lists its elements at their stored b
         "FixtureContext",
     );
 
-    assert.equal(expected.layout, "stored");
-    assert.deepEqual(expected.elements, [
-        { id: "1", x: 200, y: 200, width: 400, height: 400, placed: true },
-        { id: "2", x: 200, y: 800, width: 450, height: 300, placed: true },
-    ]);
-    assert.deepEqual(expected.boundaries, []);
-    assert.deepEqual(expected.edges, ["10"]);
+    assert.equal(expected.layout, "stored", "the view is not a stored layout");
+    assert.deepEqual(
+        expected.elements,
+        [
+            { id: "1", x: 200, y: 200, width: 400, height: 400, placed: true },
+            { id: "2", x: 200, y: 800, width: 450, height: 300, placed: true },
+        ],
+        "the expected elements are not the stored boxes",
+    );
+    assert.deepEqual(expected.boundaries, [], "a boundary was expected");
+    assert.deepEqual(
+        expected.edges,
+        ["10"],
+        "the expected edges are not the view's relationships",
+    );
 });
 
 test("a boundary is expected as a boundary, not an element", () => {
@@ -91,8 +91,13 @@ test("a boundary is expected as a boundary, not an element", () => {
     assert.deepEqual(
         expected.elements.map((element) => element.id),
         ["3"],
+        "the boundary is expected as an element",
     );
-    assert.deepEqual(expected.boundaries, ["2"]);
+    assert.deepEqual(
+        expected.boundaries,
+        ["2"],
+        "the boundary is not expected",
+    );
 });
 
 test("a relationship ending at a boundary is not expected as an edge", () => {
@@ -107,14 +112,34 @@ test("a relationship ending at a boundary is not expected as an edge", () => {
         "FixtureContainers",
     );
 
-    assert.deepEqual(expected.edges, []);
+    assert.deepEqual(
+        expected.edges,
+        [],
+        "a relationship ending at a boundary is expected as an edge",
+    );
 });
 
 test("a view the workspace does not have is an error, not an empty drawing", () => {
     assert.throws(
         () => expectedDrawing(new WorkspaceModel(FIXTURE), "Nope"),
         /Nope/,
+        "an unknown view key was expected as an empty drawing",
     );
+});
+
+test("only an automatic layout counts as automatic", () => {
+    const cases = [
+        ["automatic", true],
+        ["stored", false],
+        ["unplaced", false],
+    ];
+    for (const [layout, automatic] of cases) {
+        assert.equal(
+            isAutomatic({ layout }),
+            automatic,
+            `a layout of "${layout}" is misjudged`,
+        );
+    }
 });
 
 /* --------------------------------------------------------------- the same ids */
@@ -129,7 +154,7 @@ const RESOLVED = {
     edges: ["10"],
 };
 
-test("drawing exactly what resolveView says passes", () => {
+test("drawing exactly the elements and edges resolveView says passes", () => {
     const drawn = report({
         elements: [box("1", 0, 0), box("2", 300, 0)],
         edges: [
@@ -139,34 +164,66 @@ test("drawing exactly what resolveView says passes", () => {
             ]),
         ],
     });
-    assert.deepEqual(sameIdsAsResolved(drawn, RESOLVED), []);
+    const problems = sameElementsAndEdgesAsResolved(drawn, RESOLVED);
+    assert.deepEqual(problems, [], problems.join("\n"));
 });
 
-test("a missing element, an extra edge and a missing boundary are each named", () => {
+test("a missing element and an extra edge are each named", () => {
     const drawn = report({
         elements: [box("1", 0, 0)],
         edges: [edge("10", "1", "2", []), edge("11", "1", "2", [])],
     });
-    const problems = sameIdsAsResolved(drawn, {
-        ...RESOLVED,
-        boundaries: ["7"],
-    });
+    const problems = sameElementsAndEdgesAsResolved(drawn, RESOLVED);
 
-    assert.equal(problems.length, 3, problems.join("\n"));
-    assert.match(problems.join("\n"), /element.*2/);
-    assert.match(problems.join("\n"), /boundar.*7/);
-    assert.match(problems.join("\n"), /edge.*11/);
+    assert.equal(problems.length, 2, problems.join("\n"));
+    assert.match(
+        problems.join("\n"),
+        /element.*2/,
+        "the missing element is not named",
+    );
+    assert.match(
+        problems.join("\n"),
+        /edge.*11/,
+        "the extra edge is not named",
+    );
+});
+
+test("a missing boundary does not fail the element and edge check", () => {
+    // Boundary ids are checked on their own, so that the check waiting on #44
+    // leaves element and edge ids checked in views with boundaries.
+    const drawn = report({
+        elements: [box("1", 0, 0), box("2", 300, 0)],
+        edges: [edge("10", "1", "2", [])],
+    });
+    const withBoundary = { ...RESOLVED, boundaries: ["7"] };
+
+    const problems = sameElementsAndEdgesAsResolved(drawn, withBoundary);
+    assert.deepEqual(problems, [], problems.join("\n"));
+    const [missing, ...rest] = sameBoundariesAsResolved(drawn, withBoundary);
+    assert.match(missing, /boundary 7/, "the missing boundary is not named");
+    assert.deepEqual(rest, [], rest.join("\n"));
+});
+
+test("an extra boundary is named", () => {
+    const drawn = report({
+        boundaries: [
+            { id: "8", x: 0, y: 0, width: 10, height: 10, children: [] },
+        ],
+    });
+    const problems = sameBoundariesAsResolved(drawn, RESOLVED);
+    assert.equal(problems.length, 1, problems.join("\n"));
+    assert.match(problems[0], /boundary 8/, "the extra boundary is not named");
 });
 
 test("a dynamic view's repeated relationship has to be drawn as often as it is listed", () => {
-    const problems = sameIdsAsResolved(
+    const problems = sameElementsAndEdgesAsResolved(
         report({
             elements: [box("1", 0, 0), box("2", 300, 0)],
             edges: [edge("10", "1", "2", [])],
         }),
         { ...RESOLVED, edges: ["10", "10"] },
     );
-    assert.equal(problems.length, 1);
+    assert.equal(problems.length, 1, problems.join("\n"));
 });
 
 /* ------------------------------------------------------------ stored layout */
@@ -177,8 +234,8 @@ test("a stored element drawn elsewhere or at another size is named", () => {
         RESOLVED,
     );
     assert.equal(problems.length, 2, problems.join("\n"));
-    assert.match(problems[0], /1/);
-    assert.match(problems[1], /2/);
+    assert.match(problems[0], /1/, "the moved element is not named");
+    assert.match(problems[1], /2/, "the resized element is not named");
 });
 
 test("an unplaced element may go anywhere; the placed ones may not move", () => {
@@ -190,39 +247,45 @@ test("an unplaced element may go anywhere; the placed ones may not move", () => 
             { ...RESOLVED.elements[1], x: 0, y: 0, placed: false },
         ],
     };
-    assert.deepEqual(
-        storedElementsInPlace(
-            report({ elements: [box("1", 0, 0), box("2", 500, 500)] }),
-            resolved,
-        ),
-        [],
+    const problems = storedElementsInPlace(
+        report({ elements: [box("1", 0, 0), box("2", 500, 500)] }),
+        resolved,
     );
+    assert.deepEqual(problems, [], problems.join("\n"));
 });
 
 test("an automatic layout has no stored positions to keep", () => {
-    assert.deepEqual(
-        storedElementsInPlace(report({ elements: [box("1", 50, 50)] }), {
-            ...RESOLVED,
-            layout: "automatic",
-        }),
-        [],
+    const problems = storedElementsInPlace(
+        report({ elements: [box("1", 50, 50)] }),
+        { ...RESOLVED, layout: "automatic" },
     );
+    assert.deepEqual(problems, [], problems.join("\n"));
 });
 
 /* ---------------------------------------------------------------- overlaps */
 
-test("overlapping elements are named; touching ones are fine", () => {
-    assert.deepEqual(
-        noOverlappingElements(
-            report({ elements: [box("1", 0, 0), box("2", 100, 0)] }),
-        ),
-        [],
+const AUTOMATIC = { ...RESOLVED, layout: "automatic" };
+
+test("overlapping elements in an automatic layout are named; touching ones are fine", () => {
+    const touching = noOverlappingElements(
+        report({ elements: [box("1", 0, 0), box("2", 100, 0)] }),
+        AUTOMATIC,
     );
+    assert.deepEqual(touching, [], touching.join("\n"));
     const problems = noOverlappingElements(
         report({ elements: [box("1", 0, 0), box("2", 99, 0)] }),
+        AUTOMATIC,
     );
-    assert.equal(problems.length, 1);
-    assert.match(problems[0], /1.*2/);
+    assert.equal(problems.length, 1, problems.join("\n"));
+    assert.match(problems[0], /1.*2/, "the overlapping pair is not named");
+});
+
+test("a stored layout may overlap elements where its author put them", () => {
+    const problems = noOverlappingElements(
+        report({ elements: [box("1", 0, 0), box("2", 50, 0)] }),
+        RESOLVED,
+    );
+    assert.deepEqual(problems, [], problems.join("\n"));
 });
 
 /* --------------------------------------------------------------- boundaries */
@@ -236,33 +299,65 @@ test("an element poking out of its boundary is named", () => {
         height: 300,
         children,
     });
-    assert.deepEqual(
-        elementsInsideBoundaries(
-            report({
-                elements: [box("1", 50, 50)],
-                boundaries: [boundary(["1"])],
-            }),
-        ),
-        [],
+    const inside = elementsInsideBoundaries(
+        report({
+            elements: [box("1", 50, 50)],
+            boundaries: [boundary(["1"])],
+        }),
     );
+    assert.deepEqual(inside, [], inside.join("\n"));
     const problems = elementsInsideBoundaries(
         report({
             elements: [box("1", 250, 50)],
             boundaries: [boundary(["1"])],
         }),
     );
-    assert.equal(problems.length, 1);
-    assert.match(problems[0], /1.*9/);
+    assert.equal(problems.length, 1, problems.join("\n"));
+    assert.match(problems[0], /1.*9/, "the escaping element is not named");
 });
 
 /* --------------------------------------------------------------- edge ends */
 
+test("an element's outline is worked out from its shape and box", () => {
+    // Every shape is held to its box until #43 draws the shapes.
+    assert.deepEqual(
+        elementOutline({
+            shape: "Person",
+            x: 10,
+            y: 20,
+            width: 100,
+            height: 50,
+        }),
+        [
+            { x: 10, y: 20 },
+            { x: 110, y: 20 },
+            { x: 110, y: 70 },
+            { x: 10, y: 70 },
+        ],
+        "the outline is not the box's four corners, clockwise from the top-left",
+    );
+});
+
 test("distanceToOutline measures to the nearest side, inside or out", () => {
-    const outline = box("1", 0, 0).outline;
-    assert.equal(distanceToOutline({ x: 50, y: 0 }, outline), 0);
-    assert.equal(distanceToOutline({ x: 50, y: -3 }, outline), 3);
-    assert.equal(distanceToOutline({ x: 50, y: 10 }, outline), 10);
-    assert.equal(distanceToOutline({ x: 103, y: 104 }, outline), 5);
+    const square = [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+    ];
+    const cases = [
+        [{ x: 50, y: 0 }, 0],
+        [{ x: 50, y: -3 }, 3],
+        [{ x: 50, y: 10 }, 10],
+        [{ x: 103, y: 104 }, 5],
+    ];
+    for (const [point, distance] of cases) {
+        assert.equal(
+            distanceToOutline(point, square),
+            distance,
+            `(${point.x}, ${point.y}) is measured wrongly`,
+        );
+    }
 });
 
 test("edge ends within 1 unit of their elements' outlines pass", () => {
@@ -275,7 +370,8 @@ test("edge ends within 1 unit of their elements' outlines pass", () => {
             ]),
         ],
     });
-    assert.deepEqual(edgeEndsOnOutlines(drawn), []);
+    const problems = edgeEndsOnOutlines(drawn);
+    assert.deepEqual(problems, [], problems.join("\n"));
 });
 
 test("an edge end off its element's outline is named, end by end", () => {
@@ -290,8 +386,8 @@ test("an edge end off its element's outline is named, end by end", () => {
     });
     const problems = edgeEndsOnOutlines(drawn);
     assert.equal(problems.length, 2, problems.join("\n"));
-    assert.match(problems[0], /10.*source/);
-    assert.match(problems[1], /10.*target/);
+    assert.match(problems[0], /10.*source/, "the source end is not named");
+    assert.match(problems[1], /10.*target/, "the target end is not named");
 });
 
 /* ---------------------------------------------------------------- avoidance */
@@ -310,8 +406,8 @@ test("an edge without vertices crossing another element is named", () => {
             ],
         }),
     );
-    assert.equal(problems.length, 1);
-    assert.match(problems[0], /13.*2/);
+    assert.equal(problems.length, 1, problems.join("\n"));
+    assert.match(problems[0], /13.*2/, "the crossing is not named");
 });
 
 test("a route around the element, or along its side, avoids it", () => {
@@ -325,12 +421,10 @@ test("a route around the element, or along its side, avoids it", () => {
         { x: 100, y: 100 },
         { x: 600, y: 100 },
     ]);
-    assert.deepEqual(
-        avoidsElements(
-            report({ elements: THREE_IN_A_ROW, edges: [around, grazing] }),
-        ),
-        [],
+    const problems = avoidsElements(
+        report({ elements: THREE_IN_A_ROW, edges: [around, grazing] }),
     );
+    assert.deepEqual(problems, [], problems.join("\n"));
 });
 
 test("an edge the author routed through vertices is not held to avoidance", () => {
@@ -344,10 +438,10 @@ test("an edge the author routed through vertices is not held to avoidance", () =
         ],
         true,
     );
-    assert.deepEqual(
-        avoidsElements(report({ elements: THREE_IN_A_ROW, edges: [authored] })),
-        [],
+    const problems = avoidsElements(
+        report({ elements: THREE_IN_A_ROW, edges: [authored] }),
     );
+    assert.deepEqual(problems, [], problems.join("\n"));
 });
 
 /* -------------------------------------------------------------- the console */
@@ -360,17 +454,23 @@ test("console lines matching a known warning are allowed; anything else is named
             known,
         ),
         [],
+        "a known warning was reported",
     );
     assert.deepEqual(
         unexpectedLogs(["Uncaught TypeError: x is undefined"], known),
         ["Uncaught TypeError: x is undefined"],
+        "an uncaught error went unreported",
     );
 });
 
 /* ------------------------------------------------------------------- timing */
 
 test("a view ready within the limit passes; a slow one says how slow", () => {
-    assert.deepEqual(readyInTime(report({ readyAt: 1999 }), 2000), []);
-    const [problem] = readyInTime(report({ readyAt: 2400 }), 2000);
-    assert.match(problem, /2400.*2000/);
+    assert.deepEqual(
+        readyInTime(1999, 2000),
+        [],
+        "a view ready in time was reported",
+    );
+    const [problem] = readyInTime(2400, 2000);
+    assert.match(problem, /2400.*2000/, "the slow view is not reported");
 });

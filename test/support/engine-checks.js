@@ -8,6 +8,9 @@
  *
  * Plain functions over numbers: `test/engine-checks.test.js` feeds them
  * hand-made reports, `test/acceptance.test.js` the ones real builds write.
+ * Where geometry is needed (an element's outline), it is worked out here from
+ * what the report says was drawn, never read from the engine, so a check
+ * cannot pass only because the engine agrees with itself.
  */
 
 import { importSrc } from "./ts.js";
@@ -65,6 +68,12 @@ export function expectedDrawing(model, key) {
     };
 }
 
+/**
+ * Whether the view is laid out at render time, so that nothing about where
+ * its elements go comes from the workspace. The one place that decides.
+ */
+export const isAutomatic = (expected) => expected.layout === "automatic";
+
 /* ------------------------------------------------------------ the same ids */
 
 /** Each id in `left` that `right` has fewer of, as many times as it is short. */
@@ -79,32 +88,41 @@ const shortfall = (left, right) => {
     return missing;
 };
 
-/** The drawn element, boundary and edge ids are exactly the expected ones. */
-export function sameIdsAsResolved(report, expected) {
-    const kinds = [
-        [
-            "element",
-            expected.elements.map((element) => element.id),
-            report.elements.map((element) => element.id),
-        ],
-        [
-            "boundary",
-            expected.boundaries,
-            report.boundaries.map((boundary) => boundary.id),
-        ],
-        ["edge", expected.edges, report.edges.map((edge) => edge.id)],
-    ];
-    const problems = [];
-    for (const [kind, wanted, drawn] of kinds) {
-        for (const id of shortfall(wanted, drawn)) {
-            problems.push(`${kind} ${id} should be drawn and is not`);
-        }
-        for (const id of shortfall(drawn, wanted)) {
-            problems.push(`${kind} ${id} is drawn but should not be`);
-        }
-    }
-    return problems;
-}
+/** Each id short on either side, named as a `kind`. */
+const differences = (kind, wanted, drawn) => [
+    ...shortfall(wanted, drawn).map(
+        (id) => `${kind} ${id} should be drawn and is not`,
+    ),
+    ...shortfall(drawn, wanted).map(
+        (id) => `${kind} ${id} is drawn but should not be`,
+    ),
+];
+
+/** The drawn element and edge ids are exactly the expected ones. */
+export const sameElementsAndEdgesAsResolved = (report, expected) => [
+    ...differences(
+        "element",
+        expected.elements.map((element) => element.id),
+        report.elements.map((element) => element.id),
+    ),
+    ...differences(
+        "edge",
+        expected.edges,
+        report.edges.map((edge) => edge.id),
+    ),
+];
+
+/**
+ * The drawn boundary ids are exactly the expected ones. Apart from the
+ * elements and edges so that a view whose boundaries are not drawn yet still
+ * has its elements and edges checked.
+ */
+export const sameBoundariesAsResolved = (report, expected) =>
+    differences(
+        "boundary",
+        expected.boundaries,
+        report.boundaries.map((boundary) => boundary.id),
+    );
 
 /* ----------------------------------------------------------- stored layout */
 
@@ -114,7 +132,7 @@ export function sameIdsAsResolved(report, expected) {
  * layouts are free to go anywhere.
  */
 export function storedElementsInPlace(report, expected) {
-    if (expected.layout === "automatic") return [];
+    if (isAutomatic(expected)) return [];
     const drawn = new Map(
         report.elements.map((element) => [element.id, element]),
     );
@@ -145,8 +163,12 @@ const overlap = (a, b) =>
     a.y < b.y + b.height &&
     b.y < a.y + a.height;
 
-/** No two elements share any area; touching is fine. */
-export function noOverlappingElements(report) {
+/**
+ * In an automatic layout, no two elements share any area; touching is fine.
+ * A stored layout is drawn where its author put it, overlaps and all.
+ */
+export function noOverlappingElements(report, expected) {
+    if (!isAutomatic(expected)) return [];
     const problems = [];
     const { elements } = report;
     for (let i = 0; i < elements.length; i++) {
@@ -219,6 +241,19 @@ export function distanceToOutline(point, outline) {
     return nearest;
 }
 
+/**
+ * Where the outline of `element` runs, as a closed polygon, from the shape and
+ * box the report gives. The engine draws every shape as its box until #43
+ * draws the shapes; that ticket adds each shape's outline here, worked out
+ * independently of the engine's.
+ */
+export const elementOutline = ({ x, y, width, height }) => [
+    { x, y },
+    { x: x + width, y },
+    { x: x + width, y: y + height },
+    { x, y: y + height },
+];
+
 /** Every edge starts and ends on its elements' outlines, within 1 unit. */
 export function edgeEndsOnOutlines(report) {
     const elements = new Map(
@@ -227,13 +262,13 @@ export function edgeEndsOnOutlines(report) {
     const problems = [];
     for (const edge of report.edges) {
         const ends = [
-            ["source", edge.sourceId, edge.path[0]],
-            ["target", edge.targetId, edge.path.at(-1)],
+            ["source", edge.sourceId, edge.route[0]],
+            ["target", edge.targetId, edge.route.at(-1)],
         ];
         for (const [end, id, point] of ends) {
             const element = elements.get(id);
             if (!element || !point) continue;
-            const distance = distanceToOutline(point, element.outline);
+            const distance = distanceToOutline(point, elementOutline(element));
             if (distance > OUTLINE_TOLERANCE) {
                 problems.push(
                     `edge ${edge.key}'s ${end} end is ${round(distance)} units off element ${id}'s outline`,
@@ -287,14 +322,14 @@ const crossesBox = (a, b, box) => {
 export function avoidsElements(report) {
     const problems = [];
     for (const edge of report.edges) {
-        if (edge.vertices) continue;
+        if (edge.routedByAuthor) continue;
         for (const element of report.elements) {
             if (element.id === edge.sourceId || element.id === edge.targetId) {
                 continue;
             }
-            const crossed = edge.path.some(
+            const crossed = edge.route.some(
                 (point, at) =>
-                    at > 0 && crossesBox(edge.path[at - 1], point, element),
+                    at > 0 && crossesBox(edge.route[at - 1], point, element),
             );
             if (crossed) {
                 problems.push(`edge ${edge.key} crosses element ${element.id}`);
@@ -312,10 +347,12 @@ export const unexpectedLogs = (lines, known) =>
 
 /* ------------------------------------------------------------------ timing */
 
-/** The view was painted within `limit` milliseconds of navigation start. */
-export const readyInTime = (report, limit) =>
-    report.readyAt <= limit
+/**
+ * The view arrived within `limit` wall-clock milliseconds of being opened.
+ * How `elapsed` is measured, and why not inside the page, is said at
+ * `renderPage` (`test/support/browser.js`).
+ */
+export const readyInTime = (elapsed, limit) =>
+    elapsed <= limit
         ? []
-        : [
-              `ready after ${Math.round(report.readyAt)} ms, over the ${limit} ms limit`,
-          ];
+        : [`ready after ${Math.round(elapsed)} ms, over the ${limit} ms limit`];
