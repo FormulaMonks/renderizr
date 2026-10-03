@@ -14,7 +14,6 @@ import {
     type Edge,
     type EdgeProps,
     EdgeLabelRenderer,
-    getViewportForBounds,
     Handle,
     MarkerType,
     type Node,
@@ -60,6 +59,7 @@ import {
     type ColorScheme,
     type EdgeLine,
     type ElementBox,
+    fitViewport,
     type Graph,
     type Labels,
     readyFor,
@@ -109,9 +109,6 @@ type IslandProps = {
     /** Called once per view, after it has been fitted and painted. */
     onPainted(key: string, graph: Graph): void;
 };
-
-/** Fraction of the container left around a fitted view. */
-const FIT_PADDING = 0.05;
 
 type BoxNode = Node<ElementBox, "box">;
 type LineEdge = Edge<EdgeLine, "line">;
@@ -572,14 +569,7 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
     const fitted = useMemo(
         () =>
             bounds && size.width > 0 && size.height > 0 && bounds.width > 0
-                ? getViewportForBounds(
-                      bounds,
-                      size.width,
-                      size.height,
-                      0,
-                      Number.POSITIVE_INFINITY,
-                      FIT_PADDING,
-                  )
+                ? fitViewport(bounds, size)
                 : null,
         [bounds, size],
     );

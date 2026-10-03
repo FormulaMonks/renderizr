@@ -132,6 +132,39 @@ export function boundsOf(elements: ElementBox[]): Bounds {
     return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
+/** Fraction of the canvas left around a fitted view. */
+export const FIT_PADDING = 0.05;
+
+/**
+ * The largest scale a fit uses. A view smaller than the canvas is shown at
+ * its own size, as image views are (spec 9), never enlarged to fill it; the
+ * reader can still zoom in.
+ */
+export const FIT_CEILING = 1;
+
+/**
+ * The viewport that shows all of `bounds`, centered in a canvas of `size`
+ * with `FIT_PADDING` around it, at no more than `FIT_CEILING`.
+ */
+export function fitViewport(
+    bounds: Bounds,
+    size: { width: number; height: number },
+): { x: number; y: number; zoom: number } {
+    // The padding React Flow's own fit leaves: a share of each side, whole pixels.
+    const room = (side: number) =>
+        side - 2 * Math.floor((side - side / (1 + FIT_PADDING)) / 2);
+    const zoom = Math.min(
+        FIT_CEILING,
+        room(size.width) / bounds.width,
+        room(size.height) / bounds.height,
+    );
+    return {
+        x: size.width / 2 - (bounds.x + bounds.width / 2) * zoom,
+        y: size.height / 2 - (bounds.y + bounds.height / 2) * zoom,
+        zoom,
+    };
+}
+
 /**
  * Lay out one view for drawing. `undefined` when the workspace has no view
  * with that key.

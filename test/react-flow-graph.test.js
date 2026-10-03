@@ -9,8 +9,15 @@ import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
-const { buildGraph, exitPoint, stepZoom, ZOOM_STEP, zoomLimits } =
-    await importSrc("engine/react-flow/graph");
+const {
+    buildGraph,
+    exitPoint,
+    FIT_CEILING,
+    fitViewport,
+    stepZoom,
+    ZOOM_STEP,
+    zoomLimits,
+} = await importSrc("engine/react-flow/graph");
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
 
 const FIXTURE = JSON.parse(
@@ -273,6 +280,40 @@ test("zoom limits follow the fitted scale until the reader moves", () => {
     assert.deepEqual(zoomLimits(0.5, 0.5, false), { floor: 0.5, ceiling: 4 });
     assert.deepEqual(zoomLimits(2, 2, false), { floor: 2, ceiling: 8 });
     assert.deepEqual(zoomLimits(null, 1, false), { floor: 0.05, ceiling: 4 });
+});
+
+test("a view smaller than the canvas is fitted at its own size, centered, not enlarged", () => {
+    const fitted = fitViewport(
+        { x: 100, y: 50, width: 400, height: 200 },
+        { width: 1000, height: 800 },
+    );
+    assert.equal(
+        fitted.zoom,
+        FIT_CEILING,
+        `a small view was fitted at ${fitted.zoom}, not at its own size`,
+    );
+    assert.deepEqual(
+        { x: fitted.x, y: fitted.y },
+        { x: 1000 / 2 - 300, y: 800 / 2 - 150 },
+        "a small view fitted at its own size is not centered in the canvas",
+    );
+});
+
+test("a view larger than the canvas is shrunk until it fits, with room around it", () => {
+    const bounds = { x: 0, y: 0, width: 2000, height: 1000 };
+    const fitted = fitViewport(bounds, { width: 1000, height: 800 });
+    assert.ok(
+        fitted.zoom < 0.5,
+        `a 2000-wide view in a 1000-wide canvas was fitted at ${fitted.zoom}, leaving no room around it`,
+    );
+    assert.ok(
+        fitted.zoom > 0.45,
+        `a 2000-wide view in a 1000-wide canvas was shrunk further than it needs, to ${fitted.zoom}`,
+    );
+    assert.ok(
+        Math.abs(fitted.x + (bounds.width / 2) * fitted.zoom - 500) < 1e-9,
+        "a shrunk view is not centered across the canvas",
+    );
 });
 
 test("a resize never clamps the zoom of a reader who has moved", () => {
