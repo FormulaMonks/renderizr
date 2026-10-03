@@ -55,7 +55,7 @@ import {
     SIDE_PADDING,
     textWidth,
 } from "../geometry/label";
-import { borderDashes } from "../geometry/paint";
+import { paintPart } from "../geometry/paint";
 import {
     type Bounds,
     buildGraph,
@@ -288,9 +288,10 @@ function ElementLabel({
 }
 
 /**
- * One element: its outline in SVG behind the HTML label template. Opacity
- * is real alpha on the outline's fill and stroke, applied to them as one
- * group, so the label and icon stay opaque (spec 9.4).
+ * One element: its shape's parts in SVG behind the HTML label template, each
+ * painted by its role. Opacity is real alpha on the parts' fill and stroke,
+ * applied to them as one group so overlapping parts show no seams, and the
+ * label and icon stay opaque (spec 9.4).
  */
 function BoxElement({ data }: NodeProps<BoxNode>) {
     const fullText = labelText(data.name, data.metadata, data.description);
@@ -322,17 +323,15 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                 }}
             >
                 <g opacity={data.opacity}>
-                    <rect
-                        width={data.width}
-                        height={data.height}
-                        fill={data.background}
-                        stroke={data.stroke}
-                        strokeWidth={data.strokeWidth}
-                        strokeDasharray={borderDashes(
-                            data.border,
-                            data.strokeWidth,
-                        )}
-                    />
+                    {data.parts.map((part, index) => (
+                        <path
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a shape's parts are a fixed list, drawn back to front
+                            key={index}
+                            data-paint={part.paint}
+                            d={part.d}
+                            {...paintPart(part.paint, data)}
+                        />
+                    ))}
                 </g>
             </svg>
             {/* A new name, metadata or icon starts the fitting over, so a

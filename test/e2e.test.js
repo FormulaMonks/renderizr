@@ -567,14 +567,95 @@ test(
         assert.match(description.textContent, /^<b>bold<\/b>/);
 
         // Opacity is on the outline group only; Dashed is 4× the stroke.
-        const rect = element.querySelector("svg rect");
-        assert.ok(rect, "the outline should be SVG");
-        assert.equal(rect.getAttribute("stroke-dasharray"), "8 8");
-        assert.equal(rect.parentNode.getAttribute("opacity"), "0.4");
+        const outline = element.querySelector('svg path[data-paint="body"]');
+        assert.ok(outline, "the outline should be SVG");
+        assert.equal(outline.getAttribute("stroke-dasharray"), "8 8");
+        assert.equal(outline.parentNode.getAttribute("opacity"), "0.4");
         assert.doesNotMatch(
             element.querySelector("[data-element-label]").getAttribute("style"),
             /opacity/,
         );
+    },
+);
+
+test(
+    "--engine react-flow: every element draws its shape, sized as Structurizr sizes it",
+    { skip: SKIP },
+    async () => {
+        // The Person stays; the system becomes a Circle styled 450×300, and
+        // three more systems are a Cylinder, a WebBrowser and an unknown shape.
+        const workspace = JSON.parse(
+            await readFile(fixture("workspace.json"), "utf8"),
+        );
+        const { elements } = workspace.views.configuration.styles;
+        elements.push({
+            tag: "Software System",
+            shape: "Circle",
+            width: 450,
+            height: 300,
+        });
+        const extra = [
+            ["20", "Cylinder"],
+            ["21", "WebBrowser"],
+            ["22", "Blob"],
+        ];
+        const [context] = workspace.views.systemContextViews;
+        for (const [index, [id, shape]] of extra.entries()) {
+            workspace.model.softwareSystems.push({
+                id,
+                name: `${shape} System`,
+                tags: `Element,${shape}`,
+            });
+            elements.push({ tag: shape, shape, width: 450, height: 300 });
+            context.elements.push({ id, x: 900 + 600 * index, y: 200 });
+        }
+        const source = join(SCRATCH, "shapes.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const out = join(SCRATCH, "react-flow-shapes");
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}${CONTEXT_VIEW}`,
+        );
+        const shapeOf = (id) =>
+            document
+                .querySelector(`[data-element-id="${id}"]`)
+                ?.getAttribute("data-shape");
+        assert.deepEqual(
+            ["1", "2", "20", "21", "22"].map(shapeOf),
+            ["Person", "Circle", "Cylinder", "WebBrowser", "Box"],
+            "data-shape names the shape drawn, and an unknown one is a Box",
+        );
+
+        // The Circle is as tall as it is wide, outline and all.
+        const circle = document.querySelector('[data-element-id="2"]');
+        const svg = circle.querySelector("svg");
+        assert.equal(svg.getAttribute("width"), "450");
+        assert.equal(svg.getAttribute("height"), "450");
+        assert.equal(circle.querySelector("svg rect"), null, "no box drawn");
+        assert.ok(
+            circle.querySelector('svg path[data-paint="body"]'),
+            "the circle is a path",
+        );
+
+        // The label fills the shape's content area, not the whole box.
+        const style = (id) =>
+            document
+                .querySelector(`[data-element-id="${id}"] [data-element-label]`)
+                .getAttribute("style");
+        assert.match(style("2"), /left:\s*22\.5px/);
+        assert.match(style("2"), /width:\s*405px/);
+        assert.match(style("20"), /top:\s*30px/);
+        assert.match(style("20"), /height:\s*270px/);
+
+        // A WebBrowser's bezel is painted in the stroke color, its panel not.
+        const browser = document.querySelector('[data-element-id="21"]');
+        assert.ok(browser.querySelector('svg path[data-paint="frame"]'));
+        assert.ok(browser.querySelector('svg path[data-paint="screen"]'));
     },
 );
 

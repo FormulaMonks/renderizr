@@ -16,7 +16,9 @@ const {
     LINE_HEIGHT,
     textWidth,
 } = await importSrc("engine/geometry/label");
-const { borderDashes, withAlpha } = await importSrc("engine/geometry/paint");
+const { borderDashes, paintPart, withAlpha } = await importSrc(
+    "engine/geometry/paint",
+);
 
 /* ---------------- text */
 
@@ -185,5 +187,29 @@ test("withAlpha gives a color real alpha and leaves an opaque one alone", () => 
     ];
     for (const [color, alpha, expected] of cases) {
         assert.equal(withAlpha(color, alpha), expected, `${color} at ${alpha}`);
+    }
+});
+
+test("each paint role takes its fill, stroke and dashes from the style", () => {
+    const style = {
+        background: "#1168bd",
+        stroke: "#0b4884",
+        strokeWidth: 3,
+        border: "Dashed",
+    };
+    const cases = [
+        ["body", "#1168bd", "#0b4884", 3, "12 12"],
+        ["frame", "#0b4884", "#0b4884", 3, undefined],
+        ["screen", "#1168bd", "none", 0, undefined],
+        ["ink", "#0b4884", "none", 0, undefined],
+        ["rule", "none", "#0b4884", 1, "12 12"],
+        ["grille", "none", "#1168bd", 2, undefined],
+    ];
+    for (const [paint, fill, stroke, strokeWidth, dashes] of cases) {
+        assert.deepEqual(
+            paintPart(paint, style),
+            { fill, stroke, strokeWidth, strokeDasharray: dashes },
+            `a ${paint} part`,
+        );
     }
 });
