@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
     ACCEPTANCE_SET,
+    engineGap,
     BROWSERS,
     buildForAcceptance,
     mapLimit,
@@ -28,6 +29,10 @@ import {
     viewUrl,
 } from "./support/acceptance.js";
 import { findChrome, screenshot } from "./support/browser.js";
+import { expectedDrawing } from "./support/engine-checks.js";
+import { importSrc } from "./support/ts.js";
+
+const { WorkspaceModel } = await importSrc("model/index");
 
 /** The two engines a build can carry, in the order the sheet shows them. */
 const ENGINES = [
@@ -45,6 +50,10 @@ const escapeHtml = (text) =>
 async function shootWorkspace(chrome, entry, scratch) {
     const workspace = prepareWorkspace(entry);
     const keys = viewKeys(workspace);
+    const model = new WorkspaceModel(workspace);
+    const imageViews = new Set(
+        (workspace.views?.imageViews ?? []).map((view) => view.key),
+    );
     const sites = await Promise.all(
         ENGINES.map(({ engine }) =>
             buildForAcceptance(workspace, join(scratch, entry.name, engine), {
@@ -64,14 +73,23 @@ async function shootWorkspace(chrome, entry, scratch) {
     });
     return keys.map((key, row) => ({
         key,
+        waiting: engineGap({
+            layout: expectedDrawing(model, key).layout,
+            image: imageViews.has(key),
+        }),
         images: ENGINES.map((_, at) => images[row * ENGINES.length + at]),
     }));
 }
 
-const figure = (label, image) => `
+const figure = (label, image, note) => `
         <figure>
           <img src="data:image/png;base64,${image}" alt="${escapeHtml(label)}" loading="lazy">
-          <figcaption>${escapeHtml(label)}</figcaption>
+          <figcaption>${escapeHtml(label)}${
+              note
+                  ? `
+            <span class="waiting">${escapeHtml(note)}</span>`
+                  : ""
+          }</figcaption>
         </figure>`;
 
 const section = ({ entry, views, skipped }) => `
@@ -82,10 +100,10 @@ const section = ({ entry, views, skipped }) => `
     <p class="skipped">Skipped: ${escapeHtml(skipped)}</p>`
             : views
                   .map(
-                      ({ key, images }) => `
+                      ({ key, waiting, images }) => `
     <article>
       <h3>${escapeHtml(key)}</h3>
-      <div class="pair">${ENGINES.map(({ label }, at) => figure(label, images[at])).join("")}
+      <div class="pair">${ENGINES.map(({ engine, label }, at) => figure(label, images[at], engine === "react-flow" && waiting)).join("")}
       </div>
     </article>`,
                   )
@@ -107,6 +125,7 @@ const page = (sections, built) => `<!doctype html>
   img { width: 100%; border: 1px solid #ccc; }
   figcaption { font-size: 0.85rem; color: #555; }
   .skipped { color: #a00; }
+  .waiting { display: block; margin-top: 0.25rem; padding: 0.25rem 0.5rem; background: #fff4d6; border-left: 3px solid #d29b00; color: #5a4300; }
 </style>
 </head>
 <body>

@@ -205,6 +205,26 @@ export async function buildForAcceptance(
 export const viewUrl = (site, key) =>
     `${pathToFileURL(join(site, "index.html")).href}#/?page=diagrams&view=${encodeURIComponent(key)}`;
 
+/**
+ * What the contact sheet says under a React Flow screenshot of a view the
+ * engine cannot draw yet, so that a reviewer reads an empty canvas or
+ * elements piled at the origin as a known gap rather than a fault; `null`
+ * once it can. `layout` is the view's (spec 7) and `image` whether it is an
+ * image view. Delete each case with the ticket it names.
+ */
+export function engineGap({ layout, image }) {
+    if (image) {
+        return "Not drawn yet: image views come with #50.";
+    }
+    if (layout === "automatic") {
+        return "Not laid out yet: every element sits at the origin until #45 adds automatic layout.";
+    }
+    if (layout === "unplaced") {
+        return "Unplaced elements sit at the origin until #45 places them around the stored layout.";
+    }
+    return null;
+}
+
 /** How many Chromes run at once where nothing is being timed. */
 export const BROWSERS = 4;
 

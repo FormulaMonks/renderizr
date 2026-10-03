@@ -9,7 +9,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { prepareWorkspace } from "./support/acceptance.js";
+import { engineGap, prepareWorkspace } from "./support/acceptance.js";
 
 const SCRATCH = await mkdtemp(join(tmpdir(), "renderizr-acceptance-set-"));
 after(() => rm(SCRATCH, { recursive: true, force: true }));
@@ -69,5 +69,25 @@ test("a theme icon with no committed copy is left out rather than fetched", asyn
         styleFor(workspace, "Amazon Web Services - Alexa For Business")?.icon,
         undefined,
         "an icon with no copy kept its relative name",
+    );
+});
+
+test("a view the React Flow engine cannot draw yet is captioned with the ticket that will", () => {
+    for (const layout of ["automatic", "unplaced"]) {
+        assert.match(
+            engineGap({ layout, image: false }) ?? "",
+            /#45/,
+            `a view with ${layout} layout is not captioned as waiting on #45`,
+        );
+    }
+    assert.match(
+        engineGap({ layout: "automatic", image: true }) ?? "",
+        /#50/,
+        "an image view, which has no elements to lay out, is not captioned as waiting on #50",
+    );
+    assert.equal(
+        engineGap({ layout: "stored", image: false }),
+        null,
+        "a stored-layout view, which the engine already draws, is captioned as waiting",
     );
 });
