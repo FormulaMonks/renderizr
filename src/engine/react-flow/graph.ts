@@ -19,6 +19,7 @@ import {
 } from "../../model/index";
 
 import type { ColorScheme, Labels } from "../contract";
+import { type IconPosition, iconPositionOf } from "../geometry/label";
 
 export type { ColorScheme, Labels };
 
@@ -41,7 +42,16 @@ export type ElementBox = {
     color: string;
     fontSize: number;
     border: string;
+    /** Real alpha on fill and stroke, 0 to 1; text and icon stay opaque. */
     opacity: number;
+    /** A URL or, at runtime, a data URI. */
+    icon?: string;
+    iconPosition: IconPosition;
+    /**
+     * The rect inside the box the label template fills, relative to the
+     * box's top-left. The whole box until shapes narrow it (spec 9.4).
+     */
+    content: Bounds;
 };
 
 export type EdgeLine = {
@@ -154,6 +164,9 @@ export function buildGraph(
             fontSize: style.fontSize,
             border: style.border ?? "Solid",
             opacity: style.opacity / 100,
+            icon: style.icon,
+            iconPosition: iconPositionOf(style.iconPosition),
+            content: { x: 0, y: 0, width: style.width, height: style.height },
         });
     }
 

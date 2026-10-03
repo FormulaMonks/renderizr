@@ -64,6 +64,32 @@ test("an element carries its name, metadata and description, styled for the sche
     assert.equal(dark.background, "#111111");
 });
 
+test("an element's label fills its whole box and carries its style's icon", () => {
+    const json = structuredClone(FIXTURE);
+    json.views.configuration.styles.elements.push({
+        tag: "Software System",
+        icon: "data:image/png;base64,AAAA",
+        iconPosition: "Left",
+        opacity: 40,
+        border: "Dotted",
+    });
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+    const [person, system] = graph.elements;
+
+    assert.deepEqual(system.content, { x: 0, y: 0, width: 450, height: 300 });
+    assert.equal(system.icon, "data:image/png;base64,AAAA");
+    assert.equal(system.iconPosition, "Left");
+    assert.equal(system.opacity, 0.4);
+    assert.equal(system.border, "Dotted");
+    assert.equal(person.icon, undefined, "the Person has no icon");
+    assert.equal(person.iconPosition, "Bottom", "Bottom is the default");
+});
+
 test("labels hide descriptions and technologies", () => {
     const graph = buildGraph(model(), "FixtureContext", "light", {
         descriptions: false,
