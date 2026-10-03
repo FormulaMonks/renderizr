@@ -1,0 +1,269 @@
+{
+    "id": 0,
+    "name": "View types",
+    "description": "Filtered, image and custom views (spec 12)",
+    "lastModifiedDate": null,
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "tags": "Element,Person,Customer,External",
+                "name": "Customer",
+                "description": "Buys things",
+                "location": "External",
+                "relationships": [
+                    {
+                        "id": "10",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Orders from"
+                    }
+                ]
+            },
+            {
+                "id": "5",
+                "tags": "Element,Person,Staff",
+                "name": "Clerk",
+                "description": "Packs orders",
+                "location": "Internal",
+                "relationships": [
+                    {
+                        "id": "11",
+                        "tags": "Relationship",
+                        "sourceId": "5",
+                        "destinationId": "2",
+                        "description": "Works in"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "tags": "Element,Software System,Core",
+                "name": "Shop",
+                "description": "Takes orders",
+                "location": "Internal",
+                "relationships": [
+                    {
+                        "id": "12",
+                        "tags": "Relationship,Payments",
+                        "sourceId": "2",
+                        "destinationId": "3",
+                        "description": "Charges cards with"
+                    },
+                    {
+                        "id": "13",
+                        "tags": "Relationship",
+                        "sourceId": "2",
+                        "destinationId": "4",
+                        "description": "Ships with"
+                    }
+                ]
+            },
+            {
+                "id": "3",
+                "tags": "Element,Software System,External, Payments ",
+                "name": "Card gateway",
+                "description": "Charges cards",
+                "location": "External"
+            },
+            {
+                "id": "4",
+                "tags": "Element,Software System,External",
+                "name": "Courier",
+                "description": "Delivers parcels",
+                "location": "External"
+            }
+        ],
+        "customElements": [
+            {
+                "id": "20",
+                "tags": "Element,Hardware",
+                "name": "Barcode scanner",
+                "metadata": "Hardware",
+                "description": "Reads parcel labels",
+                "relationships": [
+                    {
+                        "id": "22",
+                        "tags": "Relationship",
+                        "sourceId": "20",
+                        "destinationId": "21",
+                        "description": "Sends scans to"
+                    }
+                ]
+            },
+            {
+                "id": "21",
+                "tags": "Element,Hardware",
+                "name": "Label printer",
+                "metadata": "Hardware",
+                "description": "Prints parcel labels",
+                "relationships": [
+                    {
+                        "id": "23",
+                        "tags": "Relationship",
+                        "sourceId": "21",
+                        "destinationId": "2",
+                        "description": "Reports to"
+                    }
+                ]
+            }
+        ]
+    },
+    "views": {
+        "systemLandscapeViews": [
+            {
+                "key": "Landscape",
+                "order": 1,
+                "title": "The shop and everyone it deals with",
+                "description": "The base view the filtered views start from",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "5",
+                        "x": 100,
+                        "y": 700
+                    },
+                    {
+                        "id": "2",
+                        "x": 800,
+                        "y": 700
+                    },
+                    {
+                        "id": "3",
+                        "x": 1500,
+                        "y": 100
+                    },
+                    {
+                        "id": "4",
+                        "x": 1500,
+                        "y": 700
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "10"
+                    },
+                    {
+                        "id": "11"
+                    },
+                    {
+                        "id": "12"
+                    },
+                    {
+                        "id": "13"
+                    }
+                ]
+            }
+        ],
+        "filteredViews": [
+            {
+                "key": "NoExternal",
+                "order": 2,
+                "baseViewKey": "Landscape",
+                "mode": "Exclude",
+                "tags": ["External"],
+                "title": "Exclude: no External elements",
+                "description": "The Customer, Card gateway and Courier are gone, and so are their relationships; the rest stays where Landscape puts it"
+            },
+            {
+                "key": "PaymentsOnly",
+                "order": 3,
+                "baseViewKey": "Landscape",
+                "mode": "Include",
+                "tags": ["Payments", "Core"],
+                "title": "Include: Payments or Core",
+                "description": "Card gateway carries the tag as \" Payments \", which matches once trimmed"
+            }
+        ],
+        "customViews": [
+            {
+                "key": "Warehouse",
+                "order": 4,
+                "title": "Warehouse hardware",
+                "description": "Custom elements beside a software system: no boundary, no enterprise boundary",
+                "elements": [
+                    {
+                        "id": "20",
+                        "x": 100,
+                        "y": 350
+                    },
+                    {
+                        "id": "21",
+                        "x": 800,
+                        "y": 350
+                    },
+                    {
+                        "id": "2",
+                        "x": 1500,
+                        "y": 350
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "22"
+                    },
+                    {
+                        "id": "23"
+                    }
+                ]
+            }
+        ],
+        "imageViews": [
+            {
+                "key": "Picture",
+                "order": 5,
+                "title": "Image: light and dark variants",
+                "description": "Toggle the diagram scheme: the picture swaps between the light and dark variant",
+                "contentLight": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjQwIj48cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjI0MCIgZmlsbD0iI2ZmZmZmZiIvPjxjaXJjbGUgY3g9IjI0MCIgY3k9IjEyMCIgcj0iODAiIGZpbGw9IiMxMTY4YmQiLz48L3N2Zz4=",
+                "contentDark": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0ODAiIGhlaWdodD0iMjQwIj48cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjI0MCIgZmlsbD0iIzFlMWUxZSIvPjxjaXJjbGUgY3g9IjI0MCIgY3k9IjEyMCIgcj0iODAiIGZpbGw9IiM5ZWNiZmYiLz48L3N2Zz4="
+            },
+            {
+                "key": "NoPicture",
+                "order": 6,
+                "title": "Image: nothing to show",
+                "description": "No content at all, so the view shows the placeholder"
+            }
+        ],
+        "configuration": {
+            "branding": {},
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Element",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Person",
+                        "shape": "Person"
+                    },
+                    {
+                        "tag": "External",
+                        "background": "#999999"
+                    },
+                    {
+                        "tag": "Hardware",
+                        "shape": "Box",
+                        "background": "#438dd5"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    }
+                ]
+            },
+            "metadataSymbols": "SquareBrackets"
+        }
+    },
+    "documentation": {}
+}

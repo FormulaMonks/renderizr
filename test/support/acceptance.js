@@ -59,6 +59,13 @@ export const ACCEPTANCE_SET = [
         source: join(REPO_ROOT, "test/__fixtures__/edge-routing.json"),
         submodule: false,
     },
+    {
+        // The filtered, custom and image views of spec 12, until #51's
+        // purpose-built fixture covers them.
+        name: "View types",
+        source: join(REPO_ROOT, "test/__fixtures__/view-types.json"),
+        submodule: false,
+    },
 ];
 
 /** The committed copies of remote themes, beside this repository's fixtures. */
@@ -149,14 +156,18 @@ export function prepareWorkspace(entry) {
     return workspace;
 }
 
-/** Every view key in `workspace`, in the order the workspace lists them. */
+/**
+ * Every view key in `workspace` the page can open, in the order the workspace
+ * lists them: all but filtered views' bases, which the page hides behind
+ * their filtered views, as Structurizr does.
+ */
 export function viewKeys(workspace) {
-    const keys = [];
-    for (const [kind, views] of Object.entries(workspace.views ?? {})) {
-        if (kind === "configuration" || !Array.isArray(views)) continue;
-        for (const view of views) keys.push(view.key);
-    }
-    return keys;
+    const all = Object.entries(workspace.views ?? {}).flatMap(
+        ([kind, views]) =>
+            kind === "configuration" || !Array.isArray(views) ? [] : views,
+    );
+    const bases = new Set(all.map((view) => view.baseViewKey).filter(Boolean));
+    return all.map((view) => view.key).filter((key) => !bases.has(key));
 }
 
 /**
