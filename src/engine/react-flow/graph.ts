@@ -45,6 +45,9 @@ export type ElementBox = {
 };
 
 export type EdgeLine = {
+    /** Unique within the graph: a dynamic view draws one relationship more than once. */
+    key: string;
+    /** The relationship's id, which a dynamic view may repeat. */
     id: string;
     sourceId: string;
     targetId: string;
@@ -156,6 +159,7 @@ export function buildGraph(
 
     const byId = new Map(elements.map((e) => [e.id, e]));
     const edges: EdgeLine[] = [];
+    const seen = new Map<string, number>();
     for (const placed of view.relationships) {
         const { relationship } = placed;
         const source = byId.get(relationship.sourceId);
@@ -170,7 +174,10 @@ export function buildGraph(
             style.metadata && labels.technologies
                 ? getMetadataForRelationship(model, relationship)
                 : "";
+        const repeat = seen.get(placed.id) ?? 0;
+        seen.set(placed.id, repeat + 1);
         edges.push({
+            key: repeat === 0 ? placed.id : `${placed.id}#${repeat}`,
             id: placed.id,
             sourceId: source.id,
             targetId: target.id,

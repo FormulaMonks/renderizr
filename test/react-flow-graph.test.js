@@ -140,3 +140,36 @@ test("a resize never clamps the zoom of a reader who has moved", () => {
     // Zooming out still stops at the fitted scale.
     assert.equal(zoomLimits(0.5, 1.2, true).floor, 0.5);
 });
+
+test("a relationship a dynamic view draws twice gets two distinct edge keys", () => {
+    const workspace = structuredClone(FIXTURE);
+    const [context] = workspace.views.systemContextViews;
+    workspace.views.dynamicViews = [
+        {
+            key: "FixtureDynamic",
+            elements: context.elements,
+            relationships: [
+                { id: "10", order: "1", description: "Request" },
+                {
+                    id: "10",
+                    order: "2",
+                    description: "Response",
+                    response: true,
+                },
+            ],
+        },
+    ];
+    const graph = buildGraph(
+        new WorkspaceModel(workspace),
+        "FixtureDynamic",
+        "light",
+        LABELS,
+    );
+    const keys = graph.edges.map((edge) => edge.key);
+    assert.equal(keys.length, 2);
+    assert.equal(new Set(keys).size, 2);
+    assert.deepEqual(
+        graph.edges.map((edge) => edge.id),
+        ["10", "10"],
+    );
+});

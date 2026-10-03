@@ -259,7 +259,7 @@ function toNodes(graph: Graph): BoxNode[] {
 
 function toEdges(graph: Graph): LineEdge[] {
     return graph.edges.map((edge) => ({
-        id: edge.id,
+        id: edge.key,
         type: "line",
         source: edge.sourceId,
         target: edge.targetId,
