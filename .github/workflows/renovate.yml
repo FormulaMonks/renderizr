@@ -77,7 +77,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
         env:
           # Only this repository. The App may be installed on others later;
-          # this workflow is not a licence to touch them.
+          # this workflow is not a license to touch them.
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_USERNAME: ${{ steps.app-token.outputs.app-slug }}[bot]
           RENOVATE_GIT_AUTHOR: >-

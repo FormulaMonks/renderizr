@@ -101,7 +101,7 @@ If you want this and it has not happened, say so — open an issue or email the 
 
 ### What you take on
 
-Write access comes with the obligations listed above, plus one that has no calendar entry: **responding**. A maintainer who is out of time is fine; a maintainer who goes silent on an open security report is not. If life gets busy, say so on the issue or move yourself to emeritus — both are entirely normal and neither is a judgement.
+Write access comes with the obligations listed above, plus one that has no calendar entry: **responding**. A maintainer who is out of time is fine; a maintainer who goes silent on an open security report is not. If life gets busy, say so on the issue or move yourself to emeritus — both are entirely normal and neither is a judgment.
 
 ## Stepping down
 

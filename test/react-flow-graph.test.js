@@ -78,7 +78,7 @@ test("labels hide descriptions and technologies", () => {
     );
 });
 
-test("an edge joins the two elements on the line between their centres", () => {
+test("an edge joins the two elements on the line between their centers", () => {
     const [edge] = buildGraph(model(), "FixtureContext", "light", LABELS).edges;
 
     assert.equal(edge.id, "10");
@@ -111,7 +111,7 @@ test("an unknown view key draws nothing", () => {
     assert.equal(buildGraph(model(), "Nope", "light", LABELS), undefined);
 });
 
-test("exitPoint stops at the box's edge, on the line to the other centre", () => {
+test("exitPoint stops at the box's edge, on the line to the other center", () => {
     const box = { x: 0, y: 0, width: 100, height: 50 };
     assert.deepEqual(exitPoint(box, { x: 50, y: 500 }), { x: 50, y: 50 });
     assert.deepEqual(exitPoint(box, { x: 500, y: 25 }), { x: 100, y: 25 });

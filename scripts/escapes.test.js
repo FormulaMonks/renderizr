@@ -128,7 +128,7 @@ for (const [position, source] of Object.entries(REFUSED)) {
  *
  * What matters is the guarantee, which is unchanged: the build stops rather
  * than emit an artifact the upload would reject. So this asserts the refusal
- * and the fail-closed behaviour, not which of the two produced it.
+ * and the fail-closed behavior, not which of the two produced it.
  */
 test("refuses to rewrite a directive prologue, whoever gives up first", () => {
     assert.throws(

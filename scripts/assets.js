@@ -24,7 +24,7 @@ const readSource = async (source) =>
 /* ------------------------------------------------------------------ images */
 
 /**
- * Sniff type and intrinsic size from the bytes, so a mislabelled extension
+ * Sniff type and intrinsic size from the bytes, so a mislabeled extension
  * cannot produce a broken <img> or a wrong aspect ratio.
  */
 function describeImage(buffer) {

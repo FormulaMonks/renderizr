@@ -35,7 +35,7 @@ const DiagramIcon = new Map([
  * the kind and the thing that tells two views apart.
  *
  * The limit is a budget for the two lines `.name` clamps to, not a taste
- * judgement: the label column is a fixed 226px inside the 17rem drawer, and at
+ * judgment: the label column is a fixed 226px inside the 17rem drawer, and at
  * the 13.12px semibold body face a realistic view name measures about 7px per
  * character, so two lines hold roughly 64 and word wrapping wastes some of
  * that. 60 fits every view in the Big Bank plc example untouched — the longest,

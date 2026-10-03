@@ -178,7 +178,7 @@ describe("style resolution", () => {
             byName(model, "Personal Banking Customer"),
             "Light",
         );
-        // Person sets shape, colour and font size; Customer the background.
+        // Person sets shape, color and font size; Customer the background.
         assert.equal(style.shape, "Person");
         assert.equal(style.color, "#ffffff");
         assert.equal(style.fontSize, 22);
@@ -474,7 +474,7 @@ describe("metadata strings", () => {
         );
     });
 
-    test("honour terminology overrides and metadataSymbols", () => {
+    test("honor terminology overrides and metadataSymbols", () => {
         const symbols = {
             RoundBrackets: ["(", ")"],
             CurlyBrackets: ["{", "}"],

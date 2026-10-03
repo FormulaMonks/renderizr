@@ -47,7 +47,7 @@ If a decision is superseded or amended, create a **new ADR**. **Both ADRs always
 | **Amend** | **Partial extension without full supersession** — the old decision stays in force | `Amends [<n>. <Title>](000X-title.md).` | `Amended by [<n>. <Title>](000Y-title.md).`, and the status word becomes `Amended` |
 | **Reference** | Neither — the new ADR depends on or is informed by the old one, and changes nothing about it | `References [<n>. <Title>](000X-title.md).` | `Referenced by [<n>. <Title>](000Y-title.md).` |
 
-**Amend** is the relationship for every partial change, whatever its flavour: adding to the old decision, narrowing it, or settling a point it left open or deferred. Optionally name what changed after a colon, so the reader knows which part moved: `Amends [<n>. <Title>](000X-title.md): the X it deferred.`
+**Amend** is the relationship for every partial change, whatever its flavor: adding to the old decision, narrowing it, or settling a point it left open or deferred. Optionally name what changed after a colon, so the reader knows which part moved: `Amends [<n>. <Title>](000X-title.md): the X it deferred.`
 
 **Supersede** only when the new ADR replaces the old decision wholesale — restate any part of the old decision that still holds, so nothing is lost when the old ADR stops reading as current.
 

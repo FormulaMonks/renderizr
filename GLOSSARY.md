@@ -41,7 +41,7 @@ A container drawn around elements that share a parent: a software system in a co
 _Avoid_: group (one kind of boundary), cluster, subflow
 
 **Workspace semantics**:
-Everything the workspace says about how a view should look: coordinates, tag styles, themes, shapes, routing and colour schemes. The engine honours these; how it draws them is its own.
+Everything the workspace says about how a view should look: coordinates, tag styles, themes, shapes, routing and color schemes. The engine honors these; how it draws them is its own.
 _Avoid_: pixel parity, Structurizr look
 
 **Drill-down**:

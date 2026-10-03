@@ -1,6 +1,6 @@
 /**
  * `src/components/markdown-alerts.ts` — the markdown-it plugin that turns
- * GitHub-flavoured `> [!NOTE]` blockquotes into alert panels.
+ * GitHub-flavored `> [!NOTE]` blockquotes into alert panels.
  *
  * Exercised against a bare `markdown-it` with single-letter class names, so
  * the expected markup is the whole rendered string rather than a substring

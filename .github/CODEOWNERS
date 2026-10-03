@@ -4,7 +4,7 @@
 #
 # One rule, because there is one maintainer; MAINTAINERS.md is the list and the place it
 # grows. Several other FormulaMonks accounts hold admin on this repository by inheriting it
-# from the organisation — MAINTAINERS.md enumerates them — but inherited access is not a
+# from the organization — MAINTAINERS.md enumerates them — but inherited access is not a
 # claim on reviewing anything, so none of them is named here.
 #
 # GitHub never requests review from a PR's own author, so PRs opened by the owner below

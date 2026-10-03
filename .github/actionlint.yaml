@@ -11,7 +11,7 @@
 # Run it before pushing a change to anything under .github/workflows.
 
 # Every job here runs on GitHub-hosted ubuntu-latest. There are no self-hosted
-# runners, so an unrecognised runner label is a typo and should be an error.
+# runners, so an unrecognized runner label is a typo and should be an error.
 self-hosted-runner:
   labels: []
 

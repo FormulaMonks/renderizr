@@ -1,11 +1,11 @@
 /**
  * The geometry the React Flow island draws, as plain numbers (ADR 3): which
- * elements a view puts where, at what size and in what colours, and which
+ * elements a view puts where, at what size and in what colors, and which
  * edges join them. Nothing here knows about React.
  *
  * The tracer covers stored layouts only. Boundaries, automatic layout,
  * unplaced elements, shapes and routing arrive in later tickets; until then
- * boundaries are left out and every edge is a straight line between centres.
+ * boundaries are left out and every edge is a straight line between centers.
  */
 
 import {
@@ -76,18 +76,18 @@ export type Graph = {
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
 
-const centre = (box: ElementBox): Point => ({
+const center = (box: ElementBox): Point => ({
     x: box.x + box.width / 2,
     y: box.y + box.height / 2,
 });
 
 /**
- * Where the line from `box`'s centre towards `toward` leaves the box. The
+ * Where the line from `box`'s center towards `toward` leaves the box. The
  * tracer's stand-in for edge ends on the drawn outline (spec 10.5), so that
  * an arrowhead is not hidden underneath the element it points at.
  */
 export function exitPoint(box: ElementBox, toward: Point): Point {
-    const from = centre(box);
+    const from = center(box);
     const dx = toward.x - from.x;
     const dy = toward.y - from.y;
     if (dx === 0 && dy === 0) return from;
@@ -181,8 +181,8 @@ export function buildGraph(
             id: placed.id,
             sourceId: source.id,
             targetId: target.id,
-            source: exitPoint(source, centre(target)),
-            target: exitPoint(target, centre(source)),
+            source: exitPoint(source, center(target)),
+            target: exitPoint(target, center(source)),
             label: [description, technology].filter(Boolean).join("\n"),
             fontSize: style.fontSize,
             labelWidth: style.width,
