@@ -568,13 +568,22 @@ test("RENDERIZR_ENGINE_REPORT=1 builds the engine report into the page", async (
 const ISLAND_GZIPPED_BYTES = 129_325;
 
 /**
- * #26's figure plus 15%: past it, the engine has grown more than planned.
- * Raised from 10% while both renderers ship side by side; #64 lowers it again
- * once 2.0 drops the vendored renderer.
+ * Dagre 1.1.8 and graphlib 2.2.4 as `src/engine/layout/automatic.ts` bundles
+ * them on its own, minified and gzipped: the automatic layout ADR 4 adds,
+ * which #26's figure predates.
  */
-const ISLAND_BUDGET_BYTES = Math.floor(ISLAND_GZIPPED_BYTES * 1.15);
+const DAGRE_GZIPPED_BYTES = 15_976;
 
-test("the React Flow island's gzipped JS stays within #26's figure plus 15%", async () => {
+/**
+ * #26's figure and Dagre's, plus 15%: past it, the engine has grown more
+ * than planned. Raised from 10% while both renderers ship side by side; #64
+ * lowers it again once 2.0 drops the vendored renderer.
+ */
+const ISLAND_BUDGET_BYTES = Math.floor(
+    (ISLAND_GZIPPED_BYTES + DAGRE_GZIPPED_BYTES) * 1.15,
+);
+
+test("the React Flow island's gzipped JS stays within #26's figure and Dagre's, plus 15%", async () => {
     // Bundled on its own, from the module the page mounts it through, so the
     // markdown, highlighting and workspace the page also carries do not count
     // against the engine.
