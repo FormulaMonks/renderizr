@@ -1,8 +1,8 @@
 /**
  * `src/engine/geometry/edge-label.ts` and `line.ts`: what an edge's label
- * says, how big it is, where along its route it sits, and how its line and
- * arrowhead are drawn (spec 10.8, 10.10). Pure geometry, so every check is
- * arithmetic; the island renders what these return.
+ * says, how it wraps and how big it is, where along its route it sits, and
+ * how its line and arrowhead are drawn (spec 10.8, 10.10). Pure geometry, so
+ * every check is arithmetic; the island renders what these return.
  */
 
 import assert from "node:assert/strict";
@@ -11,13 +11,13 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 
 const {
     EDGE_LABEL_PADDING,
-    edgeLabelSize,
     edgeLabelText,
     labelPositions,
+    layoutEdgeLabel,
     placeEdgeLabels,
     TECHNOLOGY_GAP,
 } = await importSrc("engine/geometry/edge-label");
-const { arrowheadPath, arrowheadSize, endShort, lineDashes } = await importSrc(
+const { arrowheadPath, arrowheadSize, lineDashes } = await importSrc(
     "engine/geometry/line",
 );
 const { LINE_HEIGHT, METADATA_SCALE } = await importSrc(
@@ -34,6 +34,7 @@ describe("edge labels (edge-label.ts)", () => {
         assert.deepEqual(
             edgeLabelText({ description: "Reads from", technology: "[JDBC]" }),
             { description: "Reads from", technology: "[JDBC]" },
+            "both parts pass through unchanged outside a dynamic view",
         );
     });
 
@@ -53,68 +54,109 @@ describe("edge labels (edge-label.ts)", () => {
         }
     });
 
-    /* ---------------- size */
+    /* ---------------- wrapping and size */
 
     test("a label is as wide as its widest line plus padding, and wraps at the style's width", () => {
         // 24 / 2 = 12 per glyph: "Reads from the database" is 23 glyphs, 276
         // wide, so it wraps at 200 into "Reads from the" and "database".
-        const size = edgeLabelSize(
+        const layout = layoutEdgeLabel(
             { description: "Reads from the database", technology: "" },
             24,
             200,
             measure,
         );
-        assert.deepEqual(size, {
-            width: 14 * 12 + 2 * EDGE_LABEL_PADDING,
-            height: 2 * 24 * LINE_HEIGHT + 2 * EDGE_LABEL_PADDING,
-        });
+        assert.deepEqual(
+            layout.description,
+            ["Reads from the", "database"],
+            "the description's lines",
+        );
+        assert.deepEqual(
+            layout.size,
+            {
+                width: 14 * 12 + 2 * EDGE_LABEL_PADDING,
+                height: 2 * 24 * LINE_HEIGHT + 2 * EDGE_LABEL_PADDING,
+            },
+            "the backing's size",
+        );
     });
 
     test("the technology sits below the description at the metadata size", () => {
-        const size = edgeLabelSize(
+        const layout = layoutEdgeLabel(
             { description: "Uses", technology: "[HTTPS]" },
             20,
             200,
             measure,
         );
+        assert.deepEqual(layout.technology, ["[HTTPS]"], "the technology line");
         assert.equal(
-            size.height,
+            layout.size.height,
             20 * LINE_HEIGHT +
                 TECHNOLOGY_GAP +
                 20 * METADATA_SCALE * LINE_HEIGHT +
                 2 * EDGE_LABEL_PADDING,
+            "a description line, the gap and a technology line, padded",
         );
         // "[HTTPS]" at 14 is 49 wide, wider than "Uses" at 20.
-        assert.equal(size.width, 7 * 7 + 2 * EDGE_LABEL_PADDING);
+        assert.equal(
+            layout.size.width,
+            7 * 7 + 2 * EDGE_LABEL_PADDING,
+            "as wide as the technology, padded",
+        );
     });
 
     test("descriptions break at a real newline and at the literal \\n, technology never does", () => {
-        const size = edgeLabelSize(
-            { description: "One\\nTwo\nThree", technology: "[A\\nB]" },
+        const layout = layoutEdgeLabel(
+            { description: "One\\nTwo\nThree", technology: "[A\\nB\nC]" },
             10,
             1000,
             measure,
         );
-        const technologyHeight = 10 * METADATA_SCALE * LINE_HEIGHT;
+        assert.deepEqual(
+            layout.description,
+            ["One", "Two", "Three"],
+            "the description breaks at both",
+        );
+        assert.deepEqual(
+            layout.technology,
+            ["[A\\nB C]"],
+            "the technology keeps the literal \\n and runs a newline on as a space",
+        );
         assert.equal(
-            size.height,
+            layout.size.height,
             3 * 10 * LINE_HEIGHT +
                 TECHNOLOGY_GAP +
-                technologyHeight +
+                10 * METADATA_SCALE * LINE_HEIGHT +
                 2 * EDGE_LABEL_PADDING,
             "three description lines and one technology line",
         );
     });
 
-    test("a label with nothing to say has no size", () => {
+    test("the technology wraps between words at the style's width", () => {
+        // 3.5 per glyph at the metadata size of 7: "[Very long" is 35 wide,
+        // "technology]" 38.5, both within 40.
+        const layout = layoutEdgeLabel(
+            { description: "", technology: "[Very long technology]" },
+            10,
+            40,
+            measure,
+        );
+        assert.deepEqual(
+            layout.technology,
+            ["[Very long", "technology]"],
+            "the technology's lines",
+        );
+    });
+
+    test("a label with nothing to say has no layout", () => {
         assert.equal(
-            edgeLabelSize(
+            layoutEdgeLabel(
                 { description: "", technology: "" },
                 24,
                 200,
                 measure,
             ),
             undefined,
+            "an empty label is not laid out",
         );
     });
 
@@ -124,6 +166,7 @@ describe("edge labels (edge-label.ts)", () => {
         assert.deepEqual(
             labelPositions(50).slice(0, 7),
             [50, 55, 45, 60, 40, 65, 35],
+            "from 50",
         );
         assert.deepEqual(
             labelPositions(80),
@@ -131,8 +174,9 @@ describe("edge labels (edge-label.ts)", () => {
                 80, 85, 75, 90, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15,
                 10,
             ],
+            "from 80, only earlier once past 90",
         );
-        assert.equal(labelPositions(50).length, 17);
+        assert.equal(labelPositions(50).length, 17, "every 5% from 10 to 90");
         assert.equal(labelPositions(5)[0], 10, "a start below 10 is clamped");
     });
 
@@ -148,8 +192,12 @@ describe("edge labels (edge-label.ts)", () => {
             [{ route: ROUTE, size: SIZE, position: 50, stored: false }],
             [],
         );
-        assert.equal(placed.position, 50);
-        assert.deepEqual(placed.box, { x: 470, y: -10, width: 60, height: 20 });
+        assert.equal(placed.position, 50, "nothing in the way");
+        assert.deepEqual(
+            placed.box,
+            { x: 470, y: -10, width: 60, height: 20 },
+            "centered on (500, 0)",
+        );
     });
 
     test("a label moves off an element in its way, trying later then earlier", () => {
@@ -160,7 +208,7 @@ describe("edge labels (edge-label.ts)", () => {
             [{ route: ROUTE, size: SIZE, position: 50, stored: false }],
             [element],
         );
-        assert.equal(placed.position, 60);
+        assert.equal(placed.position, 60, "the first clear position");
     });
 
     test("a stored position is never nudged", () => {
@@ -169,7 +217,11 @@ describe("edge labels (edge-label.ts)", () => {
             [{ route: ROUTE, size: SIZE, position: 50, stored: true }],
             [element],
         );
-        assert.equal(placed.position, 50);
+        assert.equal(
+            placed.position,
+            50,
+            "the stored position, covered or not",
+        );
     });
 
     test("labels are placed in view order, each avoiding those before it", () => {
@@ -180,7 +232,7 @@ describe("edge labels (edge-label.ts)", () => {
             ],
             [],
         );
-        assert.equal(first.position, 50);
+        assert.equal(first.position, 50, "the first takes its start");
         assert.equal(second.position, 60, "55 still overlaps the first label");
     });
 
@@ -192,7 +244,7 @@ describe("edge labels (edge-label.ts)", () => {
             ],
             [],
         );
-        assert.notEqual(second.position, 50);
+        assert.notEqual(second.position, 50, "the second moves off the first");
     });
 
     test("with no clear spot, a label stays at its starting position", () => {
@@ -201,7 +253,7 @@ describe("edge labels (edge-label.ts)", () => {
             [{ route: ROUTE, size: SIZE, position: 30, stored: false }],
             [everything],
         );
-        assert.equal(placed.position, 30);
+        assert.equal(placed.position, 30, "back at its start");
     });
 
     test("an edge with no label places nothing", () => {
@@ -218,6 +270,7 @@ describe("edge labels (edge-label.ts)", () => {
                 [],
             ),
             [undefined],
+            "no box for a label with no size",
         );
     });
 });
@@ -239,56 +292,23 @@ describe("line styling (line.ts)", () => {
     });
 
     test("the arrowhead is ten times the thickness, at most 50", () => {
-        assert.equal(arrowheadSize(2), 20);
-        assert.equal(arrowheadSize(10), 50);
+        assert.equal(arrowheadSize(2), 20, "thickness 2");
+        assert.equal(arrowheadSize(10), 50, "thickness 10 hits the cap");
     });
 
-    test("the arrowhead's tip is the route's last point, pointing along its last segment", () => {
-        const path = arrowheadPath(
-            [
-                { x: 0, y: 0 },
-                { x: 100, y: 0 },
-            ],
-            2,
-        );
-        // Tip at (100, 0), base 20 back at x = 80, 20 wide.
-        assert.equal(path, "M 100 0 L 80 10 L 80 -10 Z");
-    });
-
-    test("the arrowhead follows a vertical last segment", () => {
-        const path = arrowheadPath(
-            [
-                { x: 0, y: 0 },
-                { x: 0, y: 50 },
-                { x: 0, y: 100 },
-            ],
-            1,
-        );
-        assert.equal(path, "M 0 100 L -5 90 L 5 90 Z");
-    });
-
-    test("the line ends short of the tip so its width stays inside the arrowhead", () => {
+    test("the arrowhead's tip is the target end, pointing along the route's heading", () => {
         const cases = [
-            [
-                "M 0 0 L 100 0",
-                [
-                    { x: 0, y: 0 },
-                    { x: 100, y: 0 },
-                ],
-                "M 0 0 L 98 0",
-            ],
-            [
-                "M 0 0 C 0 50 100 50 100 100",
-                [
-                    { x: 0, y: 0 },
-                    { x: 100, y: 98 },
-                    { x: 100, y: 100 },
-                ],
-                "M 0 0 C 0 50 100 50 100 98",
-            ],
+            // Rightward: base 20 back at x = 80, 20 wide.
+            [{ x: 100, y: 0 }, { x: 1, y: 0 }, 2, "M 100 0 L 80 10 L 80 -10 Z"],
+            // Downward: base 10 back at y = 90, 10 wide.
+            [{ x: 0, y: 100 }, { x: 0, y: 1 }, 1, "M 0 100 L -5 90 L 5 90 Z"],
         ];
-        for (const [path, route, expected] of cases) {
-            assert.equal(endShort(path, route, 2), expected, path);
+        for (const [tip, heading, thickness, expected] of cases) {
+            assert.equal(
+                arrowheadPath(tip, heading, thickness),
+                expected,
+                `arrowheadPath heading ${JSON.stringify(heading)}`,
+            );
         }
     });
 });

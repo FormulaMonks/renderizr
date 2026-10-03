@@ -4,6 +4,9 @@
  * what "around" means.
  */
 
+/** How big something is, in model units. */
+export type Size = { width: number; height: number };
+
 /** A box in model units: top-left corner, width and height. */
 export type Bounds = { x: number; y: number; width: number; height: number };
 

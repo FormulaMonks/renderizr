@@ -1,6 +1,8 @@
 /**
- * An edge's label as plain numbers (spec 10.8): what it says, how big it is
- * once wrapped at the style's `width`, and where along the route it sits.
+ * An edge's label as plain numbers (spec 10.8): what it says, the lines it
+ * wraps into at the style's `width` and how big they make it, and where
+ * along the route it sits. The island draws exactly these lines, so the
+ * label drawn is the box placement kept clear.
  * Placement runs over the whole view in view order, so each label can keep
  * clear of the elements, the boundary label bands and the labels placed
  * before it. Text is measured by the caller's `MeasureText`, as boundary
@@ -8,7 +10,7 @@
  */
 
 import { type MeasureText, wrapLines } from "./boundary";
-import type { Bounds } from "./bounds";
+import type { Bounds, Size } from "./bounds";
 import { LINE_HEIGHT, METADATA_SCALE } from "./label";
 import { pointAlong } from "./routing/path";
 import type { Point } from "./shapes/types";
@@ -20,13 +22,13 @@ export const EDGE_LABEL_PADDING = 4;
 export const TECHNOLOGY_GAP = 10;
 
 /** How far a label moves along its route per try, in percent. */
-export const POSITION_STEP = 5;
+const POSITION_STEP = 5;
 
 /** The earliest a searching label goes along its route, in percent. */
-export const FIRST_POSITION = 10;
+const FIRST_POSITION = 10;
 
 /** The latest a searching label goes along its route, in percent. */
-export const LAST_POSITION = 90;
+const LAST_POSITION = 90;
 
 /** What an edge's label says, each part empty when hidden. */
 export type EdgeLabelText = {
@@ -54,6 +56,15 @@ export function edgeLabelText(parts: {
     };
 }
 
+/** A label wrapped into lines, and the size of its backing. */
+export type EdgeLabelLayout = {
+    /** At the style's `fontSize`. */
+    description: string[];
+    /** At the metadata size, below the description. */
+    technology: string[];
+    size: Size;
+};
+
 /**
  * Metadata wrapped between words only: any whitespace, a newline included,
  * runs on as a space, and the literal `\n` stays as written (spec 9.3).
@@ -79,16 +90,17 @@ function wrapMetadata(
 }
 
 /**
- * The size of the label's backing: its lines wrapped at `width`, the
- * description at `fontSize` and the technology at the metadata size below
- * it, plus padding all round. `undefined` for a label that says nothing.
+ * The label's lines wrapped at `width`, the description at `fontSize`
+ * (breaking at newlines like an element's) and the technology at the
+ * metadata size below it, and its backing: the widest line and every line's
+ * height, plus padding all round. `undefined` for a label that says nothing.
  */
-export function edgeLabelSize(
+export function layoutEdgeLabel(
     text: EdgeLabelText,
     fontSize: number,
     width: number,
     measure: MeasureText,
-): { width: number; height: number } | undefined {
+): EdgeLabelLayout | undefined {
     const metadataSize = fontSize * METADATA_SCALE;
     const description = text.description
         ? wrapLines(text.description, width, fontSize, false, measure)
@@ -100,6 +112,7 @@ export function edgeLabelSize(
         measure,
     );
     if (description.length === 0 && technology.length === 0) return undefined;
+    // Unclamped: a word wider than `width` is drawn whole on its own line.
     const widest = Math.max(
         ...description.map((line) => measure(line, fontSize, false)),
         ...technology.map((line) => measure(line, metadataSize, false)),
@@ -109,8 +122,12 @@ export function edgeLabelSize(
         (description.length && technology.length ? TECHNOLOGY_GAP : 0) +
         technology.length * metadataSize * LINE_HEIGHT;
     return {
-        width: Math.min(widest, width) + 2 * EDGE_LABEL_PADDING,
-        height: height + 2 * EDGE_LABEL_PADDING,
+        description,
+        technology,
+        size: {
+            width: widest + 2 * EDGE_LABEL_PADDING,
+            height: height + 2 * EDGE_LABEL_PADDING,
+        },
     };
 }
 
@@ -135,8 +152,8 @@ export function labelPositions(start: number): number[] {
 export type LabelPlacementInput = {
     /** The edge's final route, source first. */
     route: Point[];
-    /** From `edgeLabelSize`; `undefined` when the label says nothing. */
-    size: { width: number; height: number } | undefined;
+    /** From `layoutEdgeLabel`; `undefined` when the label says nothing. */
+    size: Size | undefined;
     /** Percent along the route: the view's, then the style's. */
     position: number;
     /** Whether the view stores the position, which is then never nudged. */
@@ -154,11 +171,7 @@ const overlaps = (a: Bounds, b: Bounds) =>
     b.y < a.y + a.height;
 
 /** The label's box centered on the route `position` percent along it. */
-function boxAt(
-    route: Point[],
-    size: { width: number; height: number },
-    position: number,
-): Bounds {
+function boxAt(route: Point[], size: Size, position: number): Bounds {
     const center = pointAlong(route, position / 100);
     return {
         x: center.x - size.width / 2,

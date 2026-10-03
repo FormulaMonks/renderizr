@@ -610,7 +610,7 @@ const CanvasBackground = createContext("#ffffff");
 function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
     const background = useContext(CanvasBackground);
     if (!data) return null;
-    const { thickness, labelBox } = data;
+    const { thickness, labelBox, labelLines } = data;
 
     return (
         <g data-relationship-id={data.id} data-order={data.order}>
@@ -633,45 +633,54 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     stroke="none"
                 />
             </g>
-            {labelBox && (
+            {labelBox && labelLines && (
                 <EdgeLabelRenderer>
+                    {/* Exactly the box placement kept clear, holding exactly
+                        the lines it was measured from: the browser never
+                        wraps them again (spec 10.8). */}
                     <div
                         data-relationship-label={data.id}
                         style={{
                             position: "absolute",
-                            // Centered on the line at its placed position.
-                            transform: `translate(-50%, -50%) translate(${labelBox.x + labelBox.width / 2}px, ${labelBox.y + labelBox.height / 2}px)`,
-                            boxSizing: "content-box",
-                            maxWidth: data.labelWidth,
+                            transform: `translate(${labelBox.x}px, ${labelBox.y}px)`,
+                            boxSizing: "border-box",
+                            width: labelBox.width,
+                            height: labelBox.height,
                             padding: EDGE_LABEL_PADDING,
                             lineHeight: LINE_HEIGHT,
                             color: data.color,
                             background,
                             textAlign: "center",
+                            whiteSpace: "pre",
                         }}
                     >
-                        {data.description && (
+                        {labelLines.description.length > 0 && (
                             <div
                                 style={{
                                     fontSize: data.fontSize,
-                                    whiteSpace: "pre-line",
                                     opacity: data.opacity,
                                 }}
                             >
-                                {breakLines(data.description)}
+                                {labelLines.description.map((line, i) => (
+                                    // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
+                                    <div key={i}>{line}</div>
+                                ))}
                             </div>
                         )}
-                        {data.technology && (
+                        {labelLines.technology.length > 0 && (
                             <div
                                 style={{
                                     fontSize: data.fontSize * METADATA_SCALE,
-                                    marginTop: data.description
+                                    marginTop: labelLines.description.length
                                         ? TECHNOLOGY_GAP
                                         : 0,
                                     opacity: data.opacity,
                                 }}
                             >
-                                {data.technology}
+                                {labelLines.technology.map((line, i) => (
+                                    // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
+                                    <div key={i}>{line}</div>
+                                ))}
                             </div>
                         )}
                     </div>

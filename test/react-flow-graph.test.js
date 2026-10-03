@@ -203,11 +203,11 @@ test("labels hide descriptions and technologies", () => {
     });
 
     assert.equal(graph.elements[1].description, "");
-    assert.equal(graph.edges[0].description, "");
-    assert.equal(graph.edges[0].technology, "");
+    assert.equal(graph.edges[0].description, "", "the edge's description");
+    assert.equal(graph.edges[0].technology, "", "the edge's technology");
     const shown = buildGraph(model(), "FixtureContext", "light", LABELS);
-    assert.equal(shown.edges[0].description, "Browses");
-    assert.equal(shown.edges[0].technology, "[HTTPS]");
+    assert.equal(shown.edges[0].description, "Browses", "shown description");
+    assert.equal(shown.edges[0].technology, "[HTTPS]", "shown technology");
 });
 
 test("an edge leaves the Person by its bottom and enters the system by its top", () => {
@@ -749,44 +749,61 @@ test("a dynamic view's label is its order, then the view's description, then the
             // No description in the view: the relationship's own.
             { description: "2: Browses", technology: "[HTTPS]" },
         ],
+        "each step's label parts",
     );
 });
 
-test("a dynamic view's label keeps its order with descriptions hidden", () => {
+test("a dynamic view's label keeps its order with descriptions toggled off", () => {
     const steps = [{ id: "10", order: "3", description: "Opens the site" }];
     const toggledOff = dynamicGraph(steps, undefined, {
         descriptions: false,
         technologies: true,
     });
-    assert.equal(toggledOff.edges[0].description, "3");
-    const styledOff = dynamicGraph(steps, (json) =>
-        relationshipStyle(json, { description: false }),
+    assert.equal(
+        toggledOff.edges[0].description,
+        "3",
+        "the order alone, with descriptions toggled off",
     );
-    assert.equal(styledOff.edges[0].description, "3");
 });
 
 test("a static view's label ignores a description stored in the view", () => {
     const graph = contextGraph((json) => {
         json.views.systemContextViews[0].relationships[0].description = "Other";
     });
-    assert.equal(graph.edges[0].description, "Browses");
+    assert.equal(
+        graph.edges[0].description,
+        "Browses",
+        "the relationship's own description",
+    );
 });
 
 test("the technology is in the workspace's metadata symbols, and metadata: false hides it", () => {
     const round = contextGraph((json) => {
         json.views.configuration.metadataSymbols = "RoundBrackets";
     });
-    assert.equal(round.edges[0].technology, "(HTTPS)");
+    assert.equal(round.edges[0].technology, "(HTTPS)", "round brackets");
     const hidden = contextGraph((json) =>
         relationshipStyle(json, { metadata: false }),
     );
-    assert.equal(hidden.edges[0].technology, "");
-    assert.equal(hidden.edges[0].description, "Browses");
+    assert.equal(hidden.edges[0].technology, "", "metadata: false hides it");
+    assert.equal(
+        hidden.edges[0].description,
+        "Browses",
+        "metadata: false keeps the description",
+    );
     const noDescription = contextGraph((json) =>
         relationshipStyle(json, { description: false }),
     );
-    assert.equal(noDescription.edges[0].description, "");
-    assert.equal(noDescription.edges[0].technology, "[HTTPS]");
+    assert.equal(
+        noDescription.edges[0].description,
+        "",
+        "description: false hides the description",
+    );
+    assert.equal(
+        noDescription.edges[0].technology,
+        "[HTTPS]",
+        "description: false keeps the technology",
+    );
 });
 
 test("a label is wrapped at the style's width, at the style's font size", () => {
@@ -794,11 +811,34 @@ test("a label is wrapped at the style's width, at the style's font size", () => 
         relationshipStyle(json, { width: 120, fontSize: 30 }),
     );
     const [edge] = graph.edges;
-    assert.equal(edge.labelWidth, 120);
-    assert.equal(edge.fontSize, 30);
+    assert.equal(edge.labelWidth, 120, "the style's width");
+    assert.equal(edge.fontSize, 30, "the style's font size");
     assert.ok(
         edge.labelBox.width <= 120 + 2 * 4,
         `the label is ${edge.labelBox.width} wide`,
+    );
+});
+
+test("an edge carries the exact lines its label box was measured from", () => {
+    const graph = contextGraph((json) => {
+        relationshipStyle(json, { width: 100 });
+        json.model.people[0].relationships[0].description =
+            "Browses the rendered site";
+    });
+    const [edge] = graph.edges;
+    assert.ok(
+        edge.labelLines.description.length > 1,
+        `the description wraps at 100: ${JSON.stringify(edge.labelLines)}`,
+    );
+    assert.equal(
+        edge.labelLines.description.join(" "),
+        "Browses the rendered site",
+        "the lines hold the whole description",
+    );
+    assert.deepEqual(
+        edge.labelLines.technology,
+        ["[HTTPS]"],
+        "the technology's lines",
     );
 });
 
@@ -835,7 +875,7 @@ function along(route, fraction) {
 
 test("a label sits at 50% of its route by default, centered on the line", () => {
     const [edge] = buildGraph(model(), "FixtureContext", "light", LABELS).edges;
-    assert.equal(edge.labelPosition, 50);
+    assert.equal(edge.labelPosition, 50, "the default position");
     near(centerOf(edge.labelBox), along(edge.route, 0.5), "the label's center");
 });
 
@@ -843,12 +883,12 @@ test("a label's position comes from the view, then the style", () => {
     const styled = contextGraph((json) =>
         relationshipStyle(json, { position: 40 }),
     );
-    assert.equal(styled.edges[0].labelPosition, 40);
+    assert.equal(styled.edges[0].labelPosition, 40, "the style's position");
     const viewed = contextGraph((json) => {
         relationshipStyle(json, { position: 40 });
         json.views.systemContextViews[0].relationships[0].position = 70;
     });
-    assert.equal(viewed.edges[0].labelPosition, 70);
+    assert.equal(viewed.edges[0].labelPosition, 70, "the view's position");
     near(
         centerOf(viewed.edges[0].labelBox),
         along(viewed.edges[0].route, 0.7),
@@ -862,11 +902,19 @@ test("a label without a stored position moves off the element it would cover; a 
     const searched = contextGraph((json) =>
         relationshipStyle(json, { position: 10 }),
     );
-    assert.equal(searched.edges[0].labelPosition, 20);
+    assert.equal(
+        searched.edges[0].labelPosition,
+        20,
+        "the first position clear of the Reader",
+    );
     const stored = contextGraph((json) => {
         json.views.systemContextViews[0].relationships[0].position = 10;
     });
-    assert.equal(stored.edges[0].labelPosition, 10);
+    assert.equal(
+        stored.edges[0].labelPosition,
+        10,
+        "the stored position, covered or not",
+    );
 });
 
 test("a label keeps clear of a boundary's label band", () => {
@@ -926,7 +974,8 @@ test("an edge with nothing to say has no label", () => {
         descriptions: false,
         technologies: false,
     }).edges;
-    assert.equal(edge.labelBox, undefined);
+    assert.equal(edge.labelBox, undefined, "no label box");
+    assert.equal(edge.labelLines, undefined, "no label lines");
 });
 
 test("thickness is clamped to 1 to 10, 2 by default", () => {
@@ -955,8 +1004,16 @@ test("an unstyled edge takes the scheme's color", () => {
     const unstyled = (json) => {
         json.views.configuration.styles.relationships = [];
     };
-    assert.equal(contextGraph(unstyled, "light").edges[0].color, "#444444");
-    assert.equal(contextGraph(unstyled, "dark").edges[0].color, "#cccccc");
+    assert.equal(
+        contextGraph(unstyled, "light").edges[0].color,
+        "#444444",
+        "light scheme",
+    );
+    assert.equal(
+        contextGraph(unstyled, "dark").edges[0].color,
+        "#cccccc",
+        "dark scheme",
+    );
 });
 
 test("the line style comes from style, then dashed, Dashed by default", () => {
@@ -976,7 +1033,7 @@ test("an edge's opacity is real alpha from its style", () => {
     const graph = contextGraph((json) =>
         relationshipStyle(json, { opacity: 40 }),
     );
-    assert.equal(graph.edges[0].opacity, 0.4);
+    assert.equal(graph.edges[0].opacity, 0.4, "opacity 40 is alpha 0.4");
 });
 
 test("an edge draws a filled arrowhead at its target only, and its line stops short of the tip", () => {
@@ -1009,10 +1066,12 @@ test("a response step is drawn from destination to source with the Relationship/
     assert.deepEqual(
         [request.sourceId, request.targetId, request.color],
         ["1", "2", "#707070"],
+        "the request runs source to destination in the plain style",
     );
     assert.deepEqual(
         [response.sourceId, response.targetId, response.color],
         ["2", "1", "#ff0000"],
+        "the response runs back in the Relationship/Response style",
     );
     assert.equal(response.target.y, 600, "the arrowhead is on the Reader");
 });
@@ -1024,5 +1083,6 @@ test("response: true outside a dynamic view changes nothing", () => {
     assert.deepEqual(
         [graph.edges[0].sourceId, graph.edges[0].targetId],
         ["1", "2"],
+        "source to destination, as in the model",
     );
 });
