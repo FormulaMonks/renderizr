@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
     ACCEPTANCE_SET,
+    BROWSERS,
     buildForAcceptance,
     mapLimit,
     missingReason,
@@ -34,17 +35,14 @@ const ENGINES = [
     { engine: "react-flow", label: "React Flow engine" },
 ];
 
-/** How many Chromes run at once. */
-const BROWSERS = 4;
-
 const escapeHtml = (text) =>
     String(text).replace(
         /[&<>"']/g,
         (character) => `&#${character.charCodeAt(0)};`,
     );
 
-/** Screenshot every view of `entry` under both engines. */
-async function shootWorkspace(entry, scratch) {
+/** Screenshot every view of `entry` under both engines with `chrome`. */
+async function shootWorkspace(chrome, entry, scratch) {
     const workspace = prepareWorkspace(entry);
     const keys = viewKeys(workspace);
     const sites = await Promise.all(
@@ -59,7 +57,9 @@ async function shootWorkspace(entry, scratch) {
     );
     const images = await mapLimit(shots, BROWSERS, async (shot, index) => {
         const path = join(scratch, `${index}-${entry.name}.png`);
-        await screenshot(chrome, viewUrl(shot.site, shot.key), path);
+        await screenshot(chrome, viewUrl(shot.site, shot.key), path, {
+            offline: true,
+        });
         return (await readFile(path)).toString("base64");
     });
     return keys.map((key, row) => ({
@@ -137,7 +137,10 @@ try {
             continue;
         }
         process.stdout.write(`Screenshotting ${entry.name}...\n`);
-        sections.push({ entry, views: await shootWorkspace(entry, scratch) });
+        sections.push({
+            entry,
+            views: await shootWorkspace(chrome, entry, scratch),
+        });
     }
 
     await rm(out, { recursive: true, force: true });

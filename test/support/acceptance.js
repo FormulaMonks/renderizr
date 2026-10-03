@@ -6,13 +6,14 @@
  *
  * Workspaces from the pinned `submodules/structurizr` checkout are skipped,
  * with a reason, where the submodule is absent. Builds run offline: remote
- * themes come from committed copies, or are dropped, before the CLI sees the
- * workspace, and `fetch` is poisoned in the CLI's process besides.
+ * themes and their icons come from committed copies, or are dropped, before
+ * the CLI sees the workspace, and `fetch` is poisoned in the CLI's process
+ * besides.
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
     fixture,
@@ -53,21 +54,42 @@ export const ACCEPTANCE_SET = [
     },
 ];
 
+/** The committed copies of remote themes, beside this repository's fixtures. */
+const THEMES = join(REPO_ROOT, "test/__fixtures__/themes");
+
 /**
  * Remote themes the acceptance set uses, each with a committed copy so the
- * build needs no network. The AWS theme is copied verbatim from
- * github.com/structurizr/themes at 3bfd26c, the repository that serves
- * static.structurizr.com.
+ * build needs no network: the theme itself, and a folder holding the icons
+ * its styles name, relative to the theme's URL. The AWS theme and its icons
+ * are copied verbatim from github.com/structurizr/themes at 3bfd26c, the
+ * repository that serves static.structurizr.com. Of its 364 icons, only those
+ * of the tags `amazon-web-services.json` uses are committed.
  */
 const THEME_COPIES = new Map([
     [
         "https://static.structurizr.com/themes/amazon-web-services-2020.04.30/theme.json",
-        join(
-            REPO_ROOT,
-            "test/__fixtures__/themes/amazon-web-services-2020.04.30.json",
-        ),
+        {
+            theme: join(THEMES, "amazon-web-services-2020.04.30.json"),
+            icons: join(THEMES, "amazon-web-services-2020.04.30"),
+        },
     ],
 ]);
+
+/** The media types of the icon files committed beside theme copies. */
+const ICON_TYPES = { ".png": "image/png", ".svg": "image/svg+xml" };
+
+/**
+ * `style` with its icon inlined from the theme copy's `icons` folder, the way
+ * the contact sheet has to show it (spec 15.2), or without an icon when the
+ * folder has no copy of it: no acceptance view uses such a style.
+ */
+function withCopiedIcon({ icon, ...style }, icons) {
+    const file = icon && join(icons, icon);
+    const type = file && ICON_TYPES[extname(file)];
+    if (!type || !existsSync(file)) return style;
+    const data = readFileSync(file).toString("base64");
+    return { ...style, icon: `data:${type};base64,${data}` };
+}
 
 /** Why `entry` cannot be built here, or null when it can. */
 export function missingReason(entry) {
@@ -80,10 +102,8 @@ export function missingReason(entry) {
 /**
  * `entry`'s workspace as the harness builds it: each remote theme folded into
  * the styles from its committed copy, the way `loadWorkspace` folds in one it
- * fetched, and dropped when there is no copy.
- *
- * A theme's icons are file names relative to the theme's URL. They would
- * have to be fetched to be inlined, so the copies' icons are left out.
+ * fetched, and dropped when there is no copy. A theme's icons are file names
+ * relative to the theme's URL; each is inlined from the copy's icons folder.
  */
 export function prepareWorkspace(entry) {
     const workspace = JSON.parse(readFileSync(entry.source, "utf-8"));
@@ -106,10 +126,11 @@ export function prepareWorkspace(entry) {
     for (const url of themes) {
         const copy = THEME_COPIES.get(url);
         if (!copy) continue;
-        const theme = JSON.parse(readFileSync(copy, "utf-8"));
-        const withoutIcons = ({ icon: _icon, ...style }) => style;
+        const theme = JSON.parse(readFileSync(copy.theme, "utf-8"));
         styles.elements = [
-            ...(theme.elements ?? []).map(withoutIcons),
+            ...(theme.elements ?? []).map((style) =>
+                withCopiedIcon(style, copy.icons),
+            ),
             ...(styles.elements ?? []),
         ];
         styles.relationships = [
@@ -183,6 +204,9 @@ export async function buildForAcceptance(
 /** The URL that opens view `key` of the single file built into `site`. */
 export const viewUrl = (site, key) =>
     `${pathToFileURL(join(site, "index.html")).href}#/?page=diagrams&view=${encodeURIComponent(key)}`;
+
+/** How many Chromes run at once where nothing is being timed. */
+export const BROWSERS = 4;
 
 /** Run `body` over `items`, at most `limit` at a time, keeping their order. */
 export async function mapLimit(items, limit, body) {
