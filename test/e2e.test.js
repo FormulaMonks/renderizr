@@ -704,3 +704,233 @@ test(
         assert.doesNotMatch(header, /Invalid Date/);
     },
 );
+
+/* ---------------------------------------- filtered, image and custom views */
+
+/**
+ * Build the fixture as a single React Flow file, after `edit` has changed
+ * its JSON, and hand back the output directory and the CLI's result.
+ */
+const buildReactFlowWorkspace = async (name, edit) => {
+    const workspace = JSON.parse(
+        await readFile(fixture("workspace.json"), "utf8"),
+    );
+    edit(workspace);
+    const source = join(SCRATCH, `${name}.json`);
+    await writeFile(source, JSON.stringify(workspace));
+    const out = join(SCRATCH, `react-flow-${name}`);
+    const result = await runCli(
+        [source, "--out", out, "--single-file", "--engine", "react-flow"],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return { out, result };
+};
+
+const viewUrlIn = (out, key) =>
+    `${fileUrl(join(out, "index.html"))}#/?page=diagrams&view=${key}`;
+
+test(
+    "--engine react-flow: a filtered view draws its base minus what the filter drops",
+    { skip: SKIP },
+    async () => {
+        const { out } = await buildReactFlowWorkspace("filtered", (json) => {
+            json.views.filteredViews = [
+                {
+                    key: "NoPeople",
+                    baseViewKey: "FixtureContext",
+                    mode: "Exclude",
+                    tags: ["Person"],
+                    title: "Without the reader",
+                },
+            ];
+        });
+
+        const document = await render(viewUrlIn(out, "NoPeople"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-view-key"), "NoPeople");
+        assert.equal(root.getAttribute("data-ready"), "true");
+        assert.deepEqual(
+            canvas
+                .querySelectorAll("[data-element-id]")
+                .map((element) => element.getAttribute("data-element-id")),
+            ["2"],
+            "the Person is filtered out",
+        );
+        assert.equal(
+            canvas.querySelector("[data-relationship-id]"),
+            null,
+            "the relationship from the Person goes with it",
+        );
+    },
+);
+
+test(
+    "--engine react-flow: a filtered view whose base is filtered shows an error panel naming both views",
+    { skip: SKIP },
+    async () => {
+        // The build refuses this workspace, so build one it accepts and
+        // point the second filtered view at the first in the output.
+        const { out } = await buildReactFlowWorkspace(
+            "filtered-twice",
+            (json) => {
+                json.views.filteredViews = [
+                    {
+                        key: "NoPeople",
+                        baseViewKey: "FixtureContext",
+                        mode: "Exclude",
+                        tags: ["Person"],
+                    },
+                    {
+                        key: "NoPeopleTwice",
+                        baseViewKey: "SwapForNoPeople",
+                        mode: "Exclude",
+                        tags: ["Person"],
+                    },
+                ];
+            },
+        );
+        const index = join(out, "index.html");
+        const html = await readFile(index, "utf8");
+        assert.match(html, /SwapForNoPeople/);
+        await writeFile(index, html.replaceAll("SwapForNoPeople", "NoPeople"));
+
+        const document = await render(viewUrlIn(out, "NoPeopleTwice"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-view-key"), "NoPeopleTwice");
+        assert.equal(root.getAttribute("data-ready"), "true");
+        const panel = canvas.querySelector("[data-view-error]");
+        assert.ok(panel, "the error panel should replace the canvas");
+        assert.match(panel.textContent, /"NoPeopleTwice".*"NoPeople"/);
+        assert.equal(canvas.querySelector("[data-element-id]"), null);
+        // The rest of the page keeps working.
+        assert.ok(document.querySelector("#workspace-navigation"));
+    },
+);
+
+test(
+    "--engine react-flow: an image view draws one image at its natural size, in the variant for the scheme",
+    { skip: SKIP },
+    async () => {
+        const png = await readFile(fixture("logo.png"));
+        const { out } = await buildReactFlowWorkspace("image", (json) => {
+            json.views.imageViews = [
+                {
+                    key: "Picture",
+                    title: "A picture",
+                    contentLight: `data:image/png;base64,${png.toString("base64")}`,
+                    contentDark:
+                        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+                },
+            ];
+        });
+
+        const document = await render(viewUrlIn(out, "Picture"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-view-key"), "Picture");
+        assert.equal(root.getAttribute("data-ready"), "true");
+
+        const images = canvas.querySelectorAll("img[data-image-view]");
+        assert.equal(images.length, 1, "one image and nothing else");
+        const [image] = images;
+        assert.equal(image.getAttribute("alt"), "A picture");
+        // Headless Chrome follows the machine's scheme, which the page
+        // mirrors onto <html> for the diagram (spec 9.6).
+        const scheme = document
+            .querySelector("html")
+            .getAttribute("data-diagram-theme");
+        if (scheme === "dark") {
+            assert.match(image.getAttribute("src"), /^data:image\/gif;/);
+            assert.equal(image.getAttribute("width"), "1");
+            assert.equal(image.getAttribute("height"), "1");
+        } else {
+            assert.match(image.getAttribute("src"), /^data:image\/png;/);
+            assert.equal(image.getAttribute("width"), "120");
+            assert.equal(image.getAttribute("height"), "40");
+        }
+        assert.equal(canvas.querySelector("[data-element-id]"), null);
+    },
+);
+
+test(
+    "--engine react-flow: an image that was not inlined shows the placeholder and logs why",
+    { skip: SKIP },
+    async () => {
+        const { out, result } = await buildReactFlowWorkspace(
+            "image-missing",
+            (json) => {
+                json.views.imageViews = [
+                    {
+                        key: "Picture",
+                        content: "https://example.test/picture.png",
+                    },
+                ];
+            },
+        );
+        assert.match(
+            result.stderr,
+            /could not inline https:\/\/example\.test\/picture\.png/,
+        );
+
+        const { html, console: logs } = await renderPage(
+            CHROME,
+            viewUrlIn(out, "Picture"),
+        );
+        const canvas = parseDocument(html).querySelector(
+            "#structurizr-diagram-target",
+        );
+        assert.equal(
+            canvas.querySelector("[data-view-key]").getAttribute("data-ready"),
+            "true",
+        );
+        const placeholder = canvas.querySelector("[data-image-unavailable]");
+        assert.ok(placeholder, "the placeholder should be drawn");
+        assert.match(placeholder.textContent, /Image not available/);
+        assert.equal(canvas.querySelector("img[data-image-view]"), null);
+        assert.ok(
+            logs.some((line) =>
+                /Image view "Picture": .*example\.test\/picture\.png/.test(
+                    line,
+                ),
+            ),
+            `the reason should be logged, got:\n${logs.join("\n")}`,
+        );
+    },
+);
+
+test(
+    "--engine react-flow: a custom view draws its custom elements with no boundary",
+    { skip: SKIP },
+    async () => {
+        const { out } = await buildReactFlowWorkspace("custom", (json) => {
+            json.model.customElements = [
+                { id: "30", name: "Sensor", metadata: "Hardware" },
+            ];
+            json.views.customViews = [
+                {
+                    key: "Plant",
+                    title: "Plant floor",
+                    elements: [
+                        { id: "30", x: 100, y: 100 },
+                        { id: "2", x: 700, y: 100 },
+                    ],
+                },
+            ];
+        });
+
+        const document = await render(viewUrlIn(out, "Plant"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        assert.equal(
+            canvas.querySelector("[data-view-key]").getAttribute("data-ready"),
+            "true",
+        );
+        const sensor = canvas.querySelector('[data-element-id="30"]');
+        assert.ok(sensor, "the custom element should be drawn");
+        assert.match(sensor.textContent, /Sensor/);
+        assert.match(sensor.textContent, /\[Hardware\]/);
+        assert.equal(canvas.querySelector("[data-boundary-id]"), null);
+    },
+);
