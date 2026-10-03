@@ -8,6 +8,7 @@ import {
     type EngineOptions,
     whenMeasurable,
 } from "../contract";
+import { ShownListeners } from "./shown";
 import { type IslandCommands, IslandStore, Island } from "./island";
 
 const NO_ANIMATION: AnimationState = { steps: 0, step: null, playing: false };
@@ -40,12 +41,6 @@ export function mountEngine(
             zoomIn: () => {},
             zoomOut: () => {},
         };
-        const shown = new Set<
-            (
-                view: ReturnType<Engine["getCurrentView"]>,
-                a: AnimationState,
-            ) => void
-        >();
         let root: Root | null = null;
         let mounted = false;
 
@@ -54,6 +49,7 @@ export function mountEngine(
             if (!view) throw new Error(`No view ${store.get().key}`);
             return view;
         };
+        const shown = new ShownListeners(getCurrentView);
 
         const engine: Engine = {
             showView(key) {
@@ -79,10 +75,8 @@ export function mountEngine(
             zoomIn: () => commands.zoomIn(),
             zoomOut: () => commands.zoomOut(),
             onViewShown(callback) {
-                shown.add(callback);
                 // A late subscriber still hears about the view already shown.
-                if (mounted) callback(getCurrentView(), NO_ANIMATION);
-                return () => shown.delete(callback);
+                return shown.add((view) => callback(view, NO_ANIMATION));
             },
             unmount() {
                 stopWaiting();
@@ -95,11 +89,11 @@ export function mountEngine(
         const onPainted = () => {
             if (!mounted) {
                 mounted = true;
+                shown.start();
                 resolve(engine);
                 return;
             }
-            const view = getCurrentView();
-            for (const callback of shown) callback(view, NO_ANIMATION);
+            shown.emit();
         };
 
         const stopWaiting = whenMeasurable(target, () => {

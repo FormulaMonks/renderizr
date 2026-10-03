@@ -44,6 +44,7 @@ import {
     type Graph,
     type Labels,
     stepZoom,
+    readyFor,
 } from "./graph";
 
 export type IslandState = {
@@ -370,9 +371,7 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
         <div
             ref={wrapper}
             data-view-key={key ?? ""}
-            data-ready={
-                key !== undefined && readyKey === key ? "true" : "false"
-            }
+            data-ready={readyFor(key, readyKey) ? "true" : "false"}
             style={{
                 width: "100%",
                 height: "100%",

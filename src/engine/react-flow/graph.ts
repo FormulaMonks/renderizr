@@ -209,3 +209,16 @@ export function stepZoom(
     const next = direction === "in" ? zoom * ZOOM_STEP : zoom / ZOOM_STEP;
     return Math.min(ceiling, Math.max(floor, next));
 }
+
+/**
+ * Whether the canvas showing `viewKey` is ready: only once that same view,
+ * and not an earlier one, has been painted.
+ */
+export function readyFor(
+    viewKey: string | undefined,
+    paintedKey: string | null | undefined,
+): boolean {
+    return (
+        viewKey !== undefined && paintedKey != null && viewKey === paintedKey
+    );
+}

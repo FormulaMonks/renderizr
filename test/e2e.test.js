@@ -524,3 +524,36 @@ test(
         assert.equal(root.getAttribute("data-ready"), "true");
     },
 );
+
+test(
+    "--engine react-flow: a workspace without a name or date has a clean header",
+    { skip: SKIP },
+    async () => {
+        // Structurizr's `Workspace` would default these; reading the JSON
+        // directly has to as well, or the header shows "undefined".
+        const workspace = JSON.parse(
+            await readFile(fixture("workspace.json"), "utf8"),
+        );
+        workspace.name = undefined;
+        workspace.lastModifiedDate = undefined;
+        const source = join(SCRATCH, "unnamed.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const out = join(SCRATCH, "react-flow-unnamed");
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}${CONTEXT_VIEW}`,
+        );
+
+        const header = document.querySelector(
+            "#workspace-navigation",
+        ).textContent;
+        assert.match(header, /Last modified:/);
+        assert.doesNotMatch(header, /undefined/);
+        assert.doesNotMatch(header, /Invalid Date/);
+    },
+);
