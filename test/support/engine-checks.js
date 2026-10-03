@@ -25,18 +25,18 @@ export const OUTLINE_TOLERANCE = 1;
 /**
  * What `resolveView` says the engine should draw for `key`: the elements
  * with their stored boxes (`placed` is false for an unplaced element), the
- * ids of the elements drawn as boundaries, and the relationship id of every
- * edge, once per time the view lists it.
+ * ids of the boundaries (elements with children in the view, groups and the
+ * enterprise), what each boundary has directly inside it (`nesting`), and
+ * the relationship id of every edge, once per time the view lists it.
  *
  * Relationships ending at a boundary are left out: the engine skips them
- * with a warning (spec 10.6). Boundaries are the elements `resolveView`
- * marks; groups and the enterprise boundary join them with #44.
+ * with a warning (spec 10.6).
  */
 export function expectedDrawing(model, key) {
     const view = resolveView(model, key);
     if (!view) throw new Error(`The workspace has no view "${key}"`);
 
-    const boundaries = new Set(view.boundaries);
+    const boundaries = new Set(view.boundaries.map((boundary) => boundary.id));
     const unplaced = new Set(view.unplaced);
     const elements = view.elements
         .filter((placed) => !boundaries.has(placed.id))
@@ -64,6 +64,9 @@ export function expectedDrawing(model, key) {
         layout: view.layout,
         elements,
         boundaries: [...boundaries],
+        nesting: Object.fromEntries(
+            view.boundaries.map((boundary) => [boundary.id, boundary.children]),
+        ),
         edges,
     };
 }
@@ -185,23 +188,48 @@ export function noOverlappingElements(report, expected) {
 
 /* -------------------------------------------------------------- boundaries */
 
-const inside = (inner, outer) =>
-    inner.x >= outer.x &&
-    inner.y >= outer.y &&
-    inner.x + inner.width <= outer.x + outer.width &&
-    inner.y + inner.height <= outer.y + outer.height;
+/** Slack for floating-point noise in derived boxes, in model units. */
+const INSIDE_TOLERANCE = 1e-6;
 
-/** Every element and boundary sits inside the boundary drawn around it. */
-export function elementsInsideBoundaries(report) {
+const inside = (inner, outer) =>
+    inner.x >= outer.x - INSIDE_TOLERANCE &&
+    inner.y >= outer.y - INSIDE_TOLERANCE &&
+    inner.x + inner.width <= outer.x + outer.width + INSIDE_TOLERANCE &&
+    inner.y + inner.height <= outer.y + outer.height + INSIDE_TOLERANCE;
+
+/**
+ * Every element and boundary sits inside every boundary drawn around it, the
+ * nearest and all those around that. Which boundaries those are comes from
+ * `expected.nesting` (what `resolveView` says), so the engine cannot pass by
+ * leaving an element out of the children it reports; without it, from the
+ * report's own `children`.
+ */
+export function elementsInsideBoundaries(report, expected) {
     const boxes = new Map(
         [...report.elements, ...report.boundaries].map((item) => [
             item.id,
             item,
         ]),
     );
+    const nesting =
+        expected?.nesting ??
+        Object.fromEntries(
+            report.boundaries.map((boundary) => [
+                boundary.id,
+                boundary.children,
+            ]),
+        );
+    const within = (id, found = new Set()) => {
+        for (const child of nesting[id] ?? []) {
+            if (found.has(child)) continue;
+            found.add(child);
+            within(child, found);
+        }
+        return found;
+    };
     const problems = [];
     for (const boundary of report.boundaries) {
-        for (const id of boundary.children) {
+        for (const id of within(boundary.id)) {
             const child = boxes.get(id);
             if (child && !inside(child, boundary)) {
                 problems.push(`${id} pokes out of boundary ${boundary.id}`);

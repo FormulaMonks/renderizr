@@ -112,11 +112,37 @@ test("an edge with stored vertices is reported as routed by its author", () => {
     );
 });
 
-test("boundaries are reported empty until the engine draws them (#44)", () => {
+test("the report lists every drawn boundary with its box and what is directly inside it", () => {
+    const workspace = structuredClone(FIXTURE);
+    workspace.views.systemContextViews[1].elements.push({
+        id: "3",
+        x: 300,
+        y: 300,
+    });
+    const graph = graphOf(workspace, "FixtureContainers");
+    const [boundary] = graph.boundaries;
+
+    assert.deepEqual(
+        engineReport(graph).boundaries,
+        [
+            {
+                id: "2",
+                x: 250,
+                y: 250,
+                width: 550,
+                height: boundary.height,
+                children: ["3"],
+            },
+        ],
+        "the reported boundaries differ from the drawn ones",
+    );
+});
+
+test("a view without boundaries reports none", () => {
     assert.deepEqual(
         engineReport(graphOf(FIXTURE)).boundaries,
         [],
-        "the tracer reported boundaries it does not draw",
+        "a context view reported a boundary",
     );
 });
 

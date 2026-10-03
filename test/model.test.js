@@ -669,7 +669,7 @@ describe("resolveView", () => {
         const view = resolveView(model, "Containers");
         assert.equal(view.layout, "stored");
         assert.deepEqual(view.unplaced, []);
-        assert.ok(view.boundaries.includes(system));
+        assert.ok(view.boundaries.some((b) => b.id === system));
     });
 
     test("deployment nodes with children in the view are boundaries", () => {
@@ -679,7 +679,8 @@ describe("resolveView", () => {
             (e) => e.element.type === "DeploymentNode",
         );
         assert.ok(nodes.length > 0);
-        assert.ok(nodes.every((n) => view.boundaries.includes(n.id)));
+        const ids = view.boundaries.map((b) => b.id);
+        assert.ok(nodes.every((n) => ids.includes(n.id)));
     });
 
     test("sorts dynamic relationships by order", () => {

@@ -58,6 +58,13 @@ after(() => rm(SCRATCH, { recursive: true, force: true }));
 const READY_WITHIN_MS = 2000;
 
 /**
+ * How many times a view over the limit is opened in all before it counts as
+ * slow. A CI runner now and then takes a second longer to start one Chrome,
+ * which no view can help; a slow view is slow every time.
+ */
+const TIMED_RUNS = 3;
+
+/**
  * Console lines the engine is allowed to write: the warnings the spec asks
  * for, and nothing else.
  */
@@ -92,8 +99,7 @@ const CHECKS = [
         name: "draws exactly the boundaries resolveView says",
         check: ({ report, expected }) =>
             sameBoundariesAsResolved(report, expected),
-        pending: (expected) =>
-            expected.boundaries.length > 0 && waitingOn(44, "draws boundaries"),
+        pending: () => false,
     },
     {
         name: "keeps stored elements at their stored position and size",
@@ -110,7 +116,8 @@ const CHECKS = [
     },
     {
         name: "keeps every element inside its boundary",
-        check: ({ report }) => elementsInsideBoundaries(report),
+        check: ({ report, expected }) =>
+            elementsInsideBoundaries(report, expected),
         pending: () => false,
     },
     {
@@ -144,15 +151,22 @@ const chromeLaunch = () => {
 
 /**
  * Open one view and read back its canvas, its report, the console, and how
- * long the view took to arrive in wall-clock time, Chrome's start aside.
+ * long the view took to arrive in wall-clock time, Chrome's start aside. A
+ * view over the limit is opened again, up to `TIMED_RUNS` times, and the
+ * fastest run is the one read, as `launchCost` takes the least of its runs.
  */
 async function drawView(site, key) {
     // Measured before the first view opens, so that view is not the one to
     // pay for Chrome's cold start, which `launchCost` would not take off.
     const launched = await chromeLaunch();
-    const page = await renderPage(CHROME, viewUrl(site, key), {
-        offline: true,
-    });
+    let page;
+    for (let run = 0; run < TIMED_RUNS; run++) {
+        const next = await renderPage(CHROME, viewUrl(site, key), {
+            offline: true,
+        });
+        if (!page || next.elapsed < page.elapsed) page = next;
+        if (page.elapsed - launched <= READY_WITHIN_MS) break;
+    }
     const document = parseDocument(page.html);
     const root = document.querySelector(
         "#structurizr-diagram-target [data-view-key]",

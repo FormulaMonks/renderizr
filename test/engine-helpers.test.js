@@ -10,6 +10,9 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 const { summarizeWorkspace } = await importSrc("engine/workspace-summary");
 const { ShownListeners } = await importSrc("engine/react-flow/shown");
 const { readyFor } = await importSrc("engine/react-flow/graph");
+const { FALLBACK_FONT, canvasMeasure, diagramFontFamily, whenFontLoads } =
+    await importSrc("engine/react-flow/fonts");
+const { estimateText } = await importSrc("engine/geometry/boundary");
 
 test("a workspace without a name or description summarizes to empty text", () => {
     const summary = summarizeWorkspace({});
@@ -71,4 +74,98 @@ test("the canvas is ready only for the view it painted", () => {
     assert.equal(readyFor("A", null), false);
     assert.equal(readyFor(undefined, null), false);
     assert.equal(readyFor(undefined, undefined), false);
+});
+
+/* ------------------------------------------------------------------- fonts */
+
+/** A stand-in for `document.fonts` whose loads resolve with `faces`. */
+const fontSet = (faces) => {
+    const loads = [];
+    return {
+        loads,
+        load(font) {
+            loads.push(font);
+            return Promise.resolve(faces);
+        },
+    };
+};
+
+/** Let every pending promise callback run. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test("the diagram is first drawn in the fallback stack, after the --font family", () => {
+    assert.equal(FALLBACK_FONT, "Helvetica, Arial, sans-serif");
+    assert.equal(diagramFontFamily(null), FALLBACK_FONT);
+    assert.equal(
+        diagramFontFamily("Source Sans 3"),
+        `"Source Sans 3", ${FALLBACK_FONT}`,
+    );
+});
+
+test("boundaries re-derive once when the diagram family loads with faces", async () => {
+    const fonts = fontSet([{ family: "Inter" }]);
+    let derived = 0;
+    whenFontLoads(fonts, "Inter", () => derived++);
+    await settle();
+
+    assert.equal(derived, 1, "re-derived other than once");
+    assert.deepEqual(fonts.loads, ['16px "Inter"', 'bold 16px "Inter"']);
+});
+
+test("a family that loads no faces, or no --font at all, re-derives nothing", async () => {
+    let derived = 0;
+    whenFontLoads(fontSet([]), "Inter", () => derived++);
+    const none = fontSet([{}]);
+    whenFontLoads(none, null, () => derived++);
+    whenFontLoads(undefined, "Inter", () => derived++);
+    await settle();
+
+    assert.equal(derived, 0);
+    assert.deepEqual(none.loads, [], "nothing to load without a family");
+});
+
+test("a font that loads after the canvas is gone re-derives nothing", async () => {
+    let derived = 0;
+    const stop = whenFontLoads(fontSet([{}]), "Inter", () => derived++);
+    stop();
+    await settle();
+    assert.equal(derived, 0);
+});
+
+test("a font that fails to load leaves the fallback in place", async () => {
+    let derived = 0;
+    whenFontLoads(
+        { load: () => Promise.reject(new Error("blocked")) },
+        "Inter",
+        () => derived++,
+    );
+    await settle();
+    assert.equal(derived, 0);
+});
+
+test("text is measured with canvas measureText in the CSS font string", () => {
+    const fonts = [];
+    const context = {
+        font: "",
+        measureText(text) {
+            fonts.push(this.font);
+            return { width: text.length * 7 };
+        },
+    };
+    const document = {
+        createElement: () => ({ getContext: () => context }),
+    };
+    const measure = canvasMeasure(document, diagramFontFamily("Inter"));
+
+    assert.equal(measure("abc", 20, true), 21);
+    assert.equal(measure("abcd", 10, false), 28);
+    assert.deepEqual(fonts, [
+        `bold 20px "Inter", ${FALLBACK_FONT}`,
+        `10px "Inter", ${FALLBACK_FONT}`,
+    ]);
+});
+
+test("without a canvas, text is estimated rather than not measured", () => {
+    const document = { createElement: () => ({ getContext: () => null }) };
+    assert.equal(canvasMeasure(document, FALLBACK_FONT), estimateText);
 });

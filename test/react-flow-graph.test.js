@@ -222,20 +222,186 @@ test("an edge joins the two elements on the line between their centers", () => {
     assert.equal(edge.style, "Dashed");
 });
 
-test("boundaries are left out until they are derived from their children", () => {
+/* -------------------------------------------------------------- boundaries */
+
+/** The fixture's container view with its container placed at (300, 300). */
+const containers = (edit = () => {}) => {
     const json = structuredClone(FIXTURE);
     json.views.systemContextViews[1].elements.push({ id: "3", x: 300, y: 300 });
+    edit(json);
+    return new WorkspaceModel(json);
+};
+
+test("a software system with its containers in the view is a boundary derived around them, whatever coordinates it stores", () => {
     const graph = buildGraph(
-        new WorkspaceModel(json),
+        containers(),
         "FixtureContainers",
         "light",
         LABELS,
     );
+    const [boundary] = graph.boundaries;
 
     assert.deepEqual(
         graph.elements.map((e) => e.id),
         ["3"],
     );
+    assert.equal(boundary.id, "2");
+    assert.equal(boundary.kind, "Element");
+    assert.deepEqual(boundary.children, ["3"]);
+    // The system stores (200, 200); the box comes from the container.
+    assert.equal(boundary.x, 250);
+    assert.equal(boundary.y, 250);
+    assert.equal(boundary.width, 550);
+    assert.equal(boundary.height, 400 + boundary.band.height);
+    assert.deepEqual(boundary.name.lines, ["Fixture System"]);
+    assert.deepEqual(boundary.metadata.lines, ["[Software System]"]);
+    assert.deepEqual(graph.bounds, {
+        x: 250,
+        y: 250,
+        width: 550,
+        height: boundary.height,
+    });
+});
+
+test("a boundary is filled with the canvas and keeps the element's stroke, in either scheme", () => {
+    const light = buildGraph(
+        containers(),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+    const dark = buildGraph(containers(), "FixtureContainers", "dark", LABELS);
+    const [onLight] = light.boundaries;
+    const [onDark] = dark.boundaries;
+
+    assert.equal(onLight.background, "#ffffff");
+    assert.equal(onLight.stroke, "#0f5eaa");
+    assert.equal(onLight.color, "#0f5eaa", "white text on white falls back");
+    assert.equal(onLight.radius, 0);
+    assert.equal(onDark.background, "#111111");
+    assert.equal(onDark.color, "#ffffff");
+});
+
+test("a boundary styled as a rounded shape has 20 radius corners", () => {
+    const model = containers((json) => {
+        json.views.configuration.styles.elements.push({
+            tag: "Software System",
+            shape: "WebBrowser",
+            border: "Dashed",
+            opacity: 50,
+        });
+    });
+    const [boundary] = buildGraph(
+        model,
+        "FixtureContainers",
+        "light",
+        LABELS,
+    ).boundaries;
+
+    assert.equal(boundary.radius, 20);
+    assert.equal(boundary.border, "Dashed");
+    assert.equal(boundary.opacity, 0.5);
+});
+
+test("the label band is measured with the text measure it is given", () => {
+    const narrow = (text, fontSize) => text.length * fontSize * 0.1;
+    // Wide regular text only, so the bold name leaves the width alone.
+    const wide = (text, fontSize, bold) =>
+        text.length * fontSize * (bold ? 0.1 : 3);
+    const band = (measure) =>
+        buildGraph(containers(), "FixtureContainers", "light", LABELS, measure)
+            .boundaries[0];
+
+    assert.deepEqual(band(narrow).metadata.lines, ["[Software System]"]);
+    assert.ok(band(wide).metadata.lines.length > 1, "wide metadata wraps");
+    assert.ok(band(wide).height > band(narrow).height, "and the band grows");
+    assert.equal(band(wide).width, band(narrow).width);
+});
+
+test("boundaries are drawn outer before inner, each a level deeper", () => {
+    const model = containers((json) => {
+        json.model.softwareSystems[0].containers[0].group = "Web";
+    });
+    const graph = buildGraph(model, "FixtureContainers", "light", LABELS);
+
+    assert.deepEqual(
+        graph.boundaries.map((b) => [b.id, b.depth]),
+        [
+            ["2", 0],
+            ["group:2:Web", 1],
+        ],
+    );
+    const [system, group] = graph.boundaries;
+    assert.equal(group.name.lines[0], "Web");
+    assert.equal(group.border, "Dotted", "groups are dotted by default");
+    assert.ok(group.x > system.x && group.y > system.y);
+});
+
+test("a deployment node with nothing inside is an element with its instance count", () => {
+    const json = structuredClone(FIXTURE);
+    json.model.deploymentNodes = [
+        {
+            id: "n",
+            name: "Node",
+            environment: "Live",
+            instances: "3",
+            tags: "Element,Deployment Node",
+        },
+    ];
+    json.views.deploymentViews = [
+        {
+            key: "Live",
+            environment: "Live",
+            elements: [{ id: "n", x: 10, y: 20 }],
+        },
+    ];
+    const graph = buildGraph(new WorkspaceModel(json), "Live", "light", LABELS);
+    const [node] = graph.elements;
+
+    assert.deepEqual(graph.boundaries, []);
+    assert.deepEqual(
+        [node.id, node.x, node.y, node.width, node.height, node.shape],
+        ["n", 10, 20, 450, 300, "Box"],
+    );
+    assert.deepEqual(node.instances.lines, ["x3"]);
+    assert.deepEqual(
+        node.content,
+        shapeGeometry("Box", 450, 300, 2).content,
+        "the label keeps the shape's whole content area",
+    );
+    assert.ok(
+        node.labelHeight < node.content.height,
+        "but grows no taller than ends above the count",
+    );
+});
+
+test("the enterprise boundary is labelled with the enterprise's name alone", () => {
+    const json = structuredClone(FIXTURE);
+    json.model.enterprise = { name: "Acme" };
+    json.model.softwareSystems[0].location = "Internal";
+    json.views.systemContextViews[0].enterpriseBoundaryVisible = true;
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+    const [enterprise] = graph.boundaries;
+
+    assert.equal(enterprise.kind, "Enterprise");
+    assert.deepEqual(enterprise.name.lines, ["Acme"]);
+    assert.equal(enterprise.metadata, undefined, "no [Enterprise] metadata");
+    assert.deepEqual(enterprise.children, ["2"]);
+});
+
+test("an element that is not a deployment node gives its label its whole content area", () => {
+    const [element] = buildGraph(
+        model(),
+        "FixtureContext",
+        "light",
+        LABELS,
+    ).elements;
+    assert.equal(element.labelHeight, element.content.height);
 });
 
 test("an unknown view key draws nothing", () => {
