@@ -4,9 +4,8 @@
  * edges join them. Nothing here knows about React.
  *
  * Boundaries are derived from their children here, before React renders
- * (spec 8, ADR 9). Automatic layout, unplaced elements and routing arrive in
- * later tickets; until then every edge is a straight line between centers,
- * cut short where it crosses each end's drawn outline.
+ * (spec 8, ADR 9). Automatic layout and unplaced elements arrive in later
+ * tickets. Every edge is routed by `routeView` (spec 10).
  */
 
 import {
@@ -41,8 +40,13 @@ import {
 } from "../geometry/boundary";
 import { type Bounds, boundsOf } from "../geometry/bounds";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
+import {
+    type RoutingElement,
+    type RoutingMode,
+    routeView,
+    routingModeOf,
+} from "../geometry/routing/route-view";
 import { shapeGeometry, shapeSize } from "../geometry/shapes/index";
-import { intersect } from "../geometry/shapes/outline";
 import type { Shape, ShapeGeometry, ShapePart } from "../geometry/shapes/types";
 
 export type { Bounds, ColorScheme, Labels };
@@ -113,11 +117,18 @@ export type EdgeLine = {
     id: string;
     sourceId: string;
     targetId: string;
+    /** The source end, on the source's drawn outline: `route`'s first point. */
     source: Point;
+    /** The target end, where the arrowhead's tip lands: `route`'s last point. */
     target: Point;
     /** The drawn route, as the points it passes through, source first. */
     route: Point[];
-    /** The relationship's stored vertices; the tracer does not route through them yet. */
+    /** SVG path data for the edge as drawn, curves and jump-overs included. */
+    path: string;
+    routing: RoutingMode;
+    /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
+    jump: boolean;
+    /** The relationship's stored vertices, which the route passes through. */
     vertices: Point[];
     /** In a dynamic view, the order the view gives this edge. */
     order?: string;
@@ -139,35 +150,22 @@ export type Graph = {
     /** Outer before inner, the order they are drawn in. */
     boundaries: BoundaryBox[];
     edges: EdgeLine[];
+    /** The box around every element and every route. */
     bounds: Bounds;
+    /** Authoring problems found while drawing, for the island to log once. */
+    warnings: string[];
 };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
 
-const center = (box: ElementBox): Point => ({
-    x: box.x + box.width / 2,
-    y: box.y + box.height / 2,
-});
-
-/**
- * Where the line from the center of `geometry`, drawn with its top-left at
- * `box`, towards `toward` leaves the shape, so that an arrowhead touches the
- * outline it points at rather than the box around it (spec 10.5).
- */
-export function exitPoint(
-    box: Point,
-    geometry: ShapeGeometry,
-    toward: Point,
-): Point {
-    const end = intersect(geometry, {
-        x: toward.x - box.x,
-        y: toward.y - box.y,
-    });
-    return { x: box.x + end.x, y: box.y + end.y };
-}
-
 /** The bounds of an empty view: nothing, at the origin. */
 const NO_BOUNDS: Bounds = { x: 0, y: 0, width: 0, height: 0 };
+
+/**
+ * A route point as an empty box, so the view's bounds take in every route:
+ * a self-relationship's loop reaches outside its element.
+ */
+const pointBox = ({ x, y }: Point): Bounds => ({ x, y, width: 0, height: 0 });
 
 /** The style a boundary of any kind is drawn in. */
 function boundaryStyle(
@@ -219,7 +217,7 @@ export function buildGraph(
     const boundaries = new Set(view.boundaries.map((b) => b.id));
 
     const elements: ElementBox[] = [];
-    /** Each element by id, with the geometry its edge ends are clipped to. */
+    /** Each element by id, with the geometry its edge ends touch. */
     const drawn = new Map<
         string,
         { box: ElementBox; geometry: ShapeGeometry }
@@ -290,13 +288,26 @@ export function buildGraph(
         measure,
     );
 
-    const edges: EdgeLine[] = [];
+    const edges: Omit<EdgeLine, "source" | "target" | "route" | "path">[] = [];
+    const warnings: string[] = [];
     const seen = new Map<string, number>();
     for (const placed of view.relationships) {
         const { relationship } = placed;
+        if (
+            boundaries.has(relationship.sourceId) ||
+            boundaries.has(relationship.destinationId)
+        ) {
+            // Spec 10.6: an edge to a box drawn round other elements has no
+            // outline of its own to end on.
+            const name = (id: string) => model.findElementById(id)?.name ?? id;
+            warnings.push(
+                `Relationship ${placed.id} from "${name(relationship.sourceId)}" to "${name(relationship.destinationId)}" ends at a boundary, so it is not drawn.`,
+            );
+            continue;
+        }
         const from = drawn.get(relationship.sourceId);
         const to = drawn.get(relationship.destinationId);
-        if (!from || !to || from === to) continue;
+        if (!from || !to) continue;
         const style = findRelationshipStyle(model, relationship, colorScheme);
         const description =
             labels.descriptions && style.description
@@ -308,16 +319,13 @@ export function buildGraph(
                 : "";
         const repeat = seen.get(placed.id) ?? 0;
         seen.set(placed.id, repeat + 1);
-        const start = exitPoint(from.box, from.geometry, center(to.box));
-        const end = exitPoint(to.box, to.geometry, center(from.box));
         edges.push({
             key: repeat === 0 ? placed.id : `${placed.id}#${repeat}`,
             id: placed.id,
             sourceId: from.box.id,
             targetId: to.box.id,
-            source: start,
-            target: end,
-            route: [start, end],
+            routing: routingModeOf(placed.routing ?? style.routing),
+            jump: placed.jump ?? style.jump ?? false,
             vertices: placed.vertices ?? [],
             ...(placed.order !== undefined && { order: placed.order }),
             label: [description, technology].filter(Boolean).join("\n"),
@@ -330,14 +338,43 @@ export function buildGraph(
         });
     }
 
+    // Each edge already carries every field a `RoutingEdge` names.
+    const routes = routeView(
+        [...drawn.values()].map(
+            ({ box, geometry }): RoutingElement => ({
+                id: box.id,
+                x: box.x,
+                y: box.y,
+                geometry,
+            }),
+        ),
+        edges,
+    );
+    const routed: EdgeLine[] = edges.map((edge, index) => {
+        const { route, path } = routes[index];
+        return {
+            ...edge,
+            source: route[0],
+            target: route[route.length - 1],
+            route,
+            path,
+        };
+    });
+
     return {
         key: view.key,
         title: view.title,
         background: defaults.background,
         elements,
         boundaries: drawnBoundaries,
-        edges,
-        bounds: boundsOf([...elements, ...drawnBoundaries]) ?? NO_BOUNDS,
+        edges: routed,
+        bounds:
+            boundsOf([
+                ...elements,
+                ...drawnBoundaries,
+                ...routed.flatMap((edge) => edge.route.map(pointBox)),
+            ]) ?? NO_BOUNDS,
+        warnings,
     };
 }
 

@@ -131,9 +131,11 @@ const CHECKS = [
     {
         name: "routes every edge without vertices around other elements",
         check: ({ report }) => avoidsElements(report),
+        // Edges are routed round elements, but until the elements of an
+        // automatic or unplaced layout are placed they share the origin.
         pending: (expected) =>
             expected.layout !== "stored" &&
-            waitingOn(46, "routes edges around elements, once #45 lays out"),
+            waitingOn(45, "lays out automatic views and unplaced elements"),
     },
     {
         name: "logs nothing beyond the known warnings",

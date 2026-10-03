@@ -9,8 +9,9 @@ import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
-const { buildGraph, exitPoint, stepZoom, ZOOM_STEP, zoomLimits } =
-    await importSrc("engine/react-flow/graph");
+const { buildGraph, stepZoom, ZOOM_STEP, zoomLimits } = await importSrc(
+    "engine/react-flow/graph",
+);
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
 
 const FIXTURE = JSON.parse(
@@ -209,7 +210,7 @@ test("labels hide descriptions and technologies", () => {
     );
 });
 
-test("an edge joins the two elements on the line between their centers", () => {
+test("an edge leaves the Person by its bottom and enters the system by its top", () => {
     const [edge] = buildGraph(model(), "FixtureContext", "light", LABELS).edges;
 
     assert.equal(edge.id, "10");
@@ -408,25 +409,6 @@ test("an unknown view key draws nothing", () => {
     assert.equal(buildGraph(model(), "Nope", "light", LABELS), undefined);
 });
 
-test("exitPoint stops at the box's edge, on the line to the other center", () => {
-    const at = { x: 0, y: 0 };
-    const box = shapeGeometry("Box", 100, 50);
-    assert.deepEqual(exitPoint(at, box, { x: 50, y: 500 }), { x: 50, y: 50 });
-    assert.deepEqual(exitPoint(at, box, { x: 500, y: 25 }), {
-        x: 100,
-        y: 25,
-    });
-});
-
-test("exitPoint stops at a Diamond's slanted side, inside its box", () => {
-    const diamond = shapeGeometry("Diamond", 100, 100);
-    const end = exitPoint({ x: 0, y: 0 }, diamond, { x: 500, y: 500 });
-    assert.ok(
-        Math.abs(end.x - 75) < 1e-6 && Math.abs(end.y - 75) < 1e-6,
-        `the end should be on the side, at (75, 75), not ${JSON.stringify(end)}`,
-    );
-});
-
 test("zooming steps by 1.2 and never past the scale that shows the whole view", () => {
     assert.equal(ZOOM_STEP, 1.2);
     assert.equal(stepZoom(1, "in", 0.5), 1.2);
@@ -482,4 +464,230 @@ test("a relationship a dynamic view draws twice gets two distinct edge keys", ()
         graph.edges.map((edge) => edge.id),
         ["10", "10"],
     );
+});
+
+/* ---------------- routing (spec 10) */
+
+/**
+ * The FixtureContext view with a Writer placed right of the Reader, changed
+ * further by `change`, drawn.
+ */
+function routedGraph(change) {
+    const json = structuredClone(FIXTURE);
+    json.model.people.push({
+        id: "4",
+        name: "Writer",
+        tags: "Element,Person",
+        relationships: [],
+    });
+    json.views.systemContextViews[0].elements.push({
+        id: "4",
+        x: 1200,
+        y: 200,
+    });
+    change(json);
+    return buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        "light",
+        LABELS,
+    );
+}
+
+/** Add a relationship to the model and to the FixtureContext view. */
+const relate = (json, id, sourceId, destinationId) => {
+    const all = [...json.model.people, ...json.model.softwareSystems];
+    const source = all.find((element) => element.id === sourceId);
+    source.relationships = [
+        ...(source.relationships ?? []),
+        { id, sourceId, destinationId, tags: "Relationship" },
+    ];
+    json.views.systemContextViews[0].relationships.push({ id });
+};
+
+const inside = (point, box) =>
+    point.x > box.x &&
+    point.x < box.x + box.width &&
+    point.y > box.y &&
+    point.y < box.y + box.height;
+
+test("an edge's route starts and ends at its edge ends, and its path draws it", () => {
+    const [edge] = buildGraph(model(), "FixtureContext", "light", LABELS).edges;
+
+    assert.deepEqual(edge.route[0], edge.source);
+    assert.deepEqual(edge.route.at(-1), edge.target);
+    assert.match(edge.path, /^M 400 600 /, "the path starts at the source end");
+    assert.equal(edge.routing, "Direct");
+});
+
+test("the routing mode comes from the view, then the style", () => {
+    const orthogonal = (json) =>
+        json.views.configuration.styles.relationships.push({
+            tag: "Relationship",
+            routing: "Orthogonal",
+        });
+    const styled = routedGraph(orthogonal);
+    assert.equal(styled.edges[0].routing, "Orthogonal");
+
+    const viewed = routedGraph((json) => {
+        orthogonal(json);
+        json.views.systemContextViews[0].relationships[0].routing = "Curved";
+    });
+    assert.equal(viewed.edges[0].routing, "Curved");
+    assert.match(viewed.edges[0].path, / C /, "a Curved edge is drawn curved");
+});
+
+test("an edge routes round the elements in its way", () => {
+    // The system moves between the Reader and the Writer.
+    const graph = routedGraph((json) => {
+        json.views.systemContextViews[0].elements[1].x = 700;
+        json.views.systemContextViews[0].elements[1].y = 250;
+        relate(json, "11", "1", "4");
+    });
+    const edge = graph.edges.find((e) => e.id === "11");
+    const system = graph.elements.find((e) => e.id === "2");
+    assert.ok(edge.route.length > 2, "the edge bends");
+    for (const point of edge.route) {
+        assert.ok(
+            !inside(point, system),
+            `the route passes through the system at ${JSON.stringify(point)}`,
+        );
+    }
+});
+
+test("a relationship with vertices is routed through them", () => {
+    const vertices = [
+        { x: 900, y: 700 },
+        { x: 900, y: 950 },
+    ];
+    const graph = routedGraph((json) => {
+        json.views.systemContextViews[0].relationships[0].vertices = vertices;
+    });
+    assert.deepEqual(graph.edges[0].route.slice(1, -1), vertices);
+});
+
+test("jump comes from the view, then the style, and the later edge draws the jump-over", () => {
+    // Reader → system runs down the middle; Reviewer → Writer runs across it.
+    const crossing = (json) => {
+        json.model.people.push({
+            id: "5",
+            name: "Reviewer",
+            tags: "Element,Person",
+            relationships: [],
+        });
+        const { elements } = json.views.systemContextViews[0];
+        elements.push({ id: "5", x: -700, y: 500 });
+        elements[2].x = 1300;
+        elements[2].y = 500;
+        relate(json, "12", "5", "4");
+    };
+    const jumping = (json) => {
+        crossing(json);
+        json.views.configuration.styles.relationships.push({
+            tag: "Relationship",
+            jump: true,
+        });
+    };
+
+    const plain = routedGraph(crossing);
+    assert.equal(plain.edges[1].jump, false);
+    assert.doesNotMatch(
+        plain.edges[1].path,
+        / A /,
+        "no jump-over without jump",
+    );
+
+    const styled = routedGraph(jumping);
+    assert.equal(styled.edges[1].jump, true);
+    assert.match(
+        styled.edges[1].path,
+        / A /,
+        "the later edge draws the jump-over",
+    );
+    assert.doesNotMatch(styled.edges[0].path, / A /, "the earlier does not");
+
+    const viewed = routedGraph((json) => {
+        jumping(json);
+        json.views.systemContextViews[0].relationships[1].jump = false;
+    });
+    assert.equal(viewed.edges[1].jump, false);
+    assert.match(
+        viewed.edges[0].path,
+        / A /,
+        "now the first edge draws the jump-over",
+    );
+});
+
+test("a relationship ending at a boundary is skipped with a warning naming it", () => {
+    const json = structuredClone(FIXTURE);
+    const [, containers] = json.views.systemContextViews;
+    containers.elements.push(
+        { id: "1", x: 200, y: 900 },
+        { id: "3", x: 300, y: 300 },
+    );
+    containers.relationships = [{ id: "10" }];
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+
+    assert.deepEqual(graph.edges, []);
+    assert.equal(graph.warnings.length, 1);
+    assert.match(graph.warnings[0], /^Relationship 10 .* ends at a boundary/);
+    assert.match(graph.warnings[0], /Reader/);
+    assert.match(graph.warnings[0], /Fixture System/);
+});
+
+test("boundaries are not obstacles", () => {
+    const json = structuredClone(FIXTURE);
+    const [, containers] = json.views.systemContextViews;
+    json.model.people[0].relationships.push({
+        id: "11",
+        sourceId: "1",
+        destinationId: "3",
+        tags: "Relationship",
+    });
+    // The system is a boundary round the container, so the edge from the
+    // Reader to the container crosses the system's box on its way in.
+    containers.elements.push(
+        { id: "1", x: -600, y: 300 },
+        { id: "3", x: 300, y: 300 },
+    );
+    containers.relationships = [{ id: "11" }];
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+
+    assert.equal(graph.edges.length, 1);
+    assert.equal(graph.edges[0].route.length, 2, "straight, round nothing");
+    assert.deepEqual(graph.warnings, []);
+});
+
+test("a self-relationship is drawn as a loop, inside the view's bounds", () => {
+    const graph = routedGraph((json) => relate(json, "13", "4", "4"));
+    const loop = graph.edges.find((e) => e.id === "13");
+    const writer = graph.elements.find((e) => e.id === "4");
+    assert.ok(loop, "the loop is drawn");
+    assert.equal(loop.sourceId, "4");
+    assert.equal(loop.targetId, "4");
+    // Out of the top, back in by the right: the top-right corner.
+    assert.ok(Math.min(...loop.route.map((p) => p.y)) < writer.y);
+    assert.ok(
+        Math.max(...loop.route.map((p) => p.x)) > writer.x + writer.width,
+    );
+    const { bounds } = graph;
+    for (const point of loop.route) {
+        assert.ok(
+            point.x >= bounds.x &&
+                point.x <= bounds.x + bounds.width &&
+                point.y >= bounds.y &&
+                point.y <= bounds.y + bounds.height,
+            `the view's bounds leave out ${JSON.stringify(point)}`,
+        );
+    }
 });
