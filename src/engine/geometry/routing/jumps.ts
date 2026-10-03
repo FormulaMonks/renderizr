@@ -1,19 +1,19 @@
 /**
- * Jump-overs (spec 10.11): a semicircular hop an edge draws where it crosses
- * another edge, so the crossing does not read as a junction. Which edges hop
- * over which is decided in `route-view.ts`; this module finds the crossings
- * on one route and writes its path with the hops in.
+ * Jump-overs (spec 10.11): a semicircle an edge draws where it crosses
+ * another edge, so the crossing does not read as a junction. Which edge of
+ * two draws the jump-over is decided in `route-view.ts`; this module finds
+ * the crossings on one route and writes its path data with the jump-overs in.
  */
 
 import type { Point } from "../shapes/types";
 import { num } from "../shapes/outline";
-import { at, distance, polylinePath } from "./path";
+import { distance, pathPoint, polylinePath } from "./path";
 
-/** The hop's radius for a line of `thickness`: about 3t + 3. */
+/** A jump-over's radius for an edge of `thickness`: about 3t + 3. */
 export const jumpRadius = (thickness: number): number => 3 * thickness + 3;
 
-/** One hop: on which segment of the route, and where it crosses. */
-export type Hop = { segment: number; at: Point };
+/** One jump-over: on which segment of the route, and where it crosses. */
+export type JumpOver = { segment: number; at: Point };
 
 const cross = (a: Point, b: Point) => a.x * b.y - a.y * b.x;
 
@@ -33,16 +33,16 @@ function crossing(a: Point, b: Point, c: Point, d: Point): number | null {
 }
 
 /**
- * The hops `route` makes over `others`, in order along it. A crossing
- * closer than two radii to a bend or an end, or to the hop before it, is
- * drawn plainly: there is no room for the whole semicircle.
+ * The jump-overs `route` makes over `others`, in order along it. A crossing
+ * closer than two radii to a bend or an end, or to the jump-over before it,
+ * is drawn plainly: there is no room for the whole semicircle.
  */
-export function hopsOf(
+export function jumpOversOf(
     route: Point[],
     others: Point[][],
     radius: number,
-): Hop[] {
-    const hops: Hop[] = [];
+): JumpOver[] {
+    const jumpOvers: JumpOver[] = [];
     for (let segment = 0; segment + 1 < route.length; segment++) {
         const a = route[segment];
         const b = route[segment + 1];
@@ -60,23 +60,27 @@ export function hopsOf(
             if (along < 2 * radius || length - along < 2 * radius) continue;
             if (along - last < 2 * radius) continue;
             last = along;
-            hops.push({
+            jumpOvers.push({
                 segment,
                 at: { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) },
             });
         }
     }
-    return hops;
+    return jumpOvers;
 }
 
 /**
  * SVG path data for the polyline `route` with a semicircle of `radius` at
- * each of `hops`. Every hop bulges the same way for the same heading: up on
- * a rightward segment, right on a downward one.
+ * each of `jumpOvers`. Every one bulges the same way for the same heading:
+ * up on a rightward segment, right on a downward one.
  */
-export function jumpPath(route: Point[], hops: Hop[], radius: number): string {
-    if (!hops.length) return polylinePath(route);
-    const commands = [`M ${at(route[0])}`];
+export function jumpPath(
+    route: Point[],
+    jumpOvers: JumpOver[],
+    radius: number,
+): string {
+    if (!jumpOvers.length) return polylinePath(route);
+    const commands = [`M ${pathPoint(route[0])}`];
     for (let segment = 0; segment + 1 < route.length; segment++) {
         const a = route[segment];
         const b = route[segment + 1];
@@ -84,21 +88,15 @@ export function jumpPath(route: Point[], hops: Hop[], radius: number): string {
         const ux = (b.x - a.x) / length;
         const uy = (b.y - a.y) / length;
         const sweep = ux > 0 || (ux === 0 && uy > 0) ? 1 : 0;
-        for (const hop of hops.filter((h) => h.segment === segment)) {
-            const before = {
-                x: hop.at.x - ux * radius,
-                y: hop.at.y - uy * radius,
-            };
-            const after = {
-                x: hop.at.x + ux * radius,
-                y: hop.at.y + uy * radius,
-            };
+        for (const { at } of jumpOvers.filter((j) => j.segment === segment)) {
+            const before = { x: at.x - ux * radius, y: at.y - uy * radius };
+            const after = { x: at.x + ux * radius, y: at.y + uy * radius };
             commands.push(
-                `L ${at(before)}`,
-                `A ${num(radius)} ${num(radius)} 0 0 ${sweep} ${at(after)}`,
+                `L ${pathPoint(before)}`,
+                `A ${num(radius)} ${num(radius)} 0 0 ${sweep} ${pathPoint(after)}`,
             );
         }
-        commands.push(`L ${at(b)}`);
+        commands.push(`L ${pathPoint(b)}`);
     }
     return commands.join(" ");
 }

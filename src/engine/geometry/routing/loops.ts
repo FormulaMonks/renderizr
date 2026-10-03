@@ -2,12 +2,19 @@
  * Self-relationships (spec 10.7): an edge from an element to itself is a
  * loop out of one side and back in by the next side clockwise, around the
  * corner between them that has the fewest other edge ends. Several loops on
- * one element share that corner and nest outward.
+ * one element share that corner and nest outward. Where a loop's two edge
+ * ends sit is spread with the other ends on those sides (spec 10.4), nearest
+ * the corner; this module draws the loop between them.
  */
 
-import { touch } from "../shapes/outline";
-import type { Point, Rect, ShapeGeometry, Side, Span } from "../shapes/types";
-import { outward, type RoutingMode, sidePoint } from "./path";
+import type { Point, Rect, ShapeGeometry, Side } from "../shapes/types";
+import {
+    isHorizontal,
+    onOutline,
+    outward,
+    type RoutingMode,
+    sidePoint,
+} from "./path";
 
 /** A corner, as the side a loop leaves by and the next side clockwise. */
 export type Corner = readonly [Side, Side];
@@ -20,86 +27,86 @@ export const CORNERS: readonly Corner[] = [
     ["left", "top"],
 ];
 
-/** How far from the corner the innermost loop leaves and enters. */
-const LOOP_ANCHOR = 20;
-
-/** How far out from the element the innermost loop reaches. */
+/**
+ * How far out the innermost loop reaches beyond what it needs to clear the
+ * corner between its two edge ends.
+ */
 const LOOP_REACH = 40;
 
-/** How much farther each nested loop sits from the corner and reaches out. */
+/** How much farther each nested loop reaches out. */
 const LOOP_STEP = 20;
 
 /**
  * The corner a loop goes round: the one whose two sides hold the fewest
  * edge ends, top-right first on a tie.
  */
-export function loopCorner(ends: Record<Side, number>): Corner {
+export function loopCorner(endCounts: Record<Side, number>): Corner {
     let best = CORNERS[0];
     for (const corner of CORNERS) {
-        const count = ends[corner[0]] + ends[corner[1]];
-        if (count < ends[best[0]] + ends[best[1]]) best = corner;
+        const count = endCounts[corner[0]] + endCounts[corner[1]];
+        if (count < endCounts[best[0]] + endCounts[best[1]]) best = corner;
     }
     return best;
 }
 
-/** Whether the corner-ward end of a side's span is its `to`, walking clockwise. */
-const clockwiseIsTo = (side: Side) => side === "top" || side === "right";
-
 /**
- * A point on `span` `by` in from one of its ends, never past its middle, so
- * a large nest still leaves and enters on the side it belongs to.
+ * Which end of `side`'s span lies at `corner`: the clockwise end of the side
+ * a loop leaves by, the other end of the side it enters by. Spans run left
+ * to right and top to bottom, so clockwise is their `to` on the top and the
+ * right.
  */
-const inFrom = (span: Span, fromTo: boolean, by: number) => {
-    const middle = (span.from + span.to) / 2;
-    return fromTo
-        ? Math.max(middle, span.to - by)
-        : Math.min(middle, span.from + by);
-};
+export function cornerEnd(side: Side, corner: Corner): "from" | "to" {
+    const clockwise = side === "top" || side === "right" ? "to" : "from";
+    if (side === corner[0]) return clockwise;
+    return clockwise === "to" ? "from" : "to";
+}
+
+/** How far an edge end at `along` on `side` sits from `corner`. */
+function fromCorner(box: Rect, side: Side, along: number, corner: Corner) {
+    const length = isHorizontal(side) ? box.width : box.height;
+    return cornerEnd(side, corner) === "to" ? length - along : along;
+}
 
 /**
  * The points of loop number `nest` (0 innermost) round `corner` of an
- * element at `box`, drawn as `geometry`, in the shape of `mode`: Direct cuts
- * across outside the corner, Orthogonal goes round it square, and Curved
- * gives the end points and the two control points of one cubic Bézier that
- * reaches about as far. Both ends sit on the drawn outline.
+ * element at `box`, drawn as `geometry`, leaving at `leaveAlong` on the
+ * corner's first side and entering at `enterAlong` on the second, in the
+ * shape of `mode`: Direct cuts across outside the corner, Orthogonal goes
+ * round it square, and Curved gives the end points and the two control
+ * points of one cubic Bézier that reaches about as far. Both ends sit on the
+ * drawn outline.
  */
 export function selfLoop(
     box: Rect,
     geometry: ShapeGeometry,
     corner: Corner,
+    leaveAlong: number,
+    enterAlong: number,
     nest: number,
     mode: RoutingMode,
 ): Point[] {
     const [leave, enter] = corner;
-    const anchor = LOOP_ANCHOR + LOOP_STEP * nest;
-    const reach = LOOP_REACH + LOOP_STEP * nest;
-    const leaveAlong = inFrom(
-        geometry.spans[leave],
-        clockwiseIsTo(leave),
-        anchor,
+    // A loop whose edge ends sit far from the corner has to reach farther
+    // out, or Direct's cut across, and Curved's bow, would clip the corner:
+    // the geometric mean of the two distances clears it.
+    const clear = Math.sqrt(
+        fromCorner(box, leave, leaveAlong, corner) *
+            fromCorner(box, enter, enterAlong, corner),
     );
-    const enterAlong = inFrom(
-        geometry.spans[enter],
-        !clockwiseIsTo(enter),
-        anchor,
-    );
-    const onOutline = (side: Side, along: number) => {
-        const local = touch(geometry, side, along);
-        return { x: box.x + local.x, y: box.y + local.y };
-    };
+    const reach = LOOP_REACH + LOOP_STEP * nest + clear;
     // A cubic's control points sit a third farther out than the curve
     // reaches, so a Curved loop is as big as the others.
     const distance = mode === "Curved" ? (reach * 4) / 3 : reach;
     const out = (side: Side, along: number) => {
-        const port = sidePoint(box, side, along);
+        const edgeEnd = sidePoint(box, side, along);
         const direction = outward(side);
         return {
-            x: port.x + direction.x * distance,
-            y: port.y + direction.y * distance,
+            x: edgeEnd.x + direction.x * distance,
+            y: edgeEnd.y + direction.y * distance,
         };
     };
-    const start = onOutline(leave, leaveAlong);
-    const end = onOutline(enter, enterAlong);
+    const start = onOutline(box, geometry, leave, leaveAlong);
+    const end = onOutline(box, geometry, enter, enterAlong);
     const first = out(leave, leaveAlong);
     const last = out(enter, enterAlong);
     if (mode !== "Orthogonal") return [start, first, last, end];

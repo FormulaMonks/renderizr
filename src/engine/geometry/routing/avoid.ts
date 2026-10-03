@@ -1,8 +1,8 @@
 /**
  * Avoidance (spec 10.2, ADR 7): routing an edge without vertices around
  * every element other than its own source and target, in plain TypeScript
- * (ADR 8). Direct is the shortest path through the corners of the padded
- * elements, Orthogonal the shortest axis-aligned path along their padded
+ * (ADR 8). Direct is the shortest route through the corners of the padded
+ * elements, Orthogonal the shortest axis-aligned route along their padded
  * sides, each with a penalty per bend so fewer bends win a near tie.
  *
  * Boundaries are never passed in, so they are never avoided. The edge's own
@@ -22,37 +22,35 @@ import {
     isInside,
     outward,
     overlaps,
-    type RoutingMode,
     routeCrosses,
     simplify,
 } from "./path";
 import { BEND_PENALTY } from "./sides";
 
-export type { RoutingMode };
-
 /**
  * How far a route keeps from an element it goes around: about 20 at the
- * default thickness of 2, scaled to the line's thickness (spec 10.2).
+ * default thickness of 2, scaled to the edge's thickness (spec 10.2).
  */
 export const obstaclePadding = (thickness: number): number =>
     16 + 2 * thickness;
 
 /**
  * Each element grown by `padding`, except where that would swallow one of
- * the route's own ends: an element that close is kept at its own size, and
- * one the end sits inside is left out, so the route can always start.
+ * the route's `endPoints`: an element that close is kept at its own size,
+ * and one an end point sits inside is left out, so the route can always
+ * start.
  */
 export function obstaclesFor(
     elements: Rect[],
-    ends: Point[],
+    endPoints: Point[],
     padding: number,
 ): Rect[] {
     const obstacles: Rect[] = [];
     for (const element of elements) {
         const padded = grow(element, padding);
-        if (!ends.some((end) => isInside(end, padded))) {
+        if (!endPoints.some((point) => isInside(point, padded))) {
             obstacles.push(padded);
-        } else if (!ends.some((end) => isInside(end, element))) {
+        } else if (!endPoints.some((point) => isInside(point, element))) {
             obstacles.push(element);
         }
     }
@@ -92,27 +90,30 @@ function withinReach(
 
 /**
  * The Direct route from `from` to `to` (spec 10.2): straight when nothing is
- * in the way, otherwise the shortest path through the corners of the
- * `elements` grown by `padding`, with `BEND_PENALTY` per bend. `ends` are the
- * edge's own source and target, which it may touch but not pass through.
+ * in the way, otherwise the shortest route through the corners of the
+ * `elements` grown by `padding`, with `BEND_PENALTY` per bend.
+ * `sourceAndTarget` are the edge's own source and target boxes, which it may
+ * touch but not pass through.
  * Falls back to the straight line when no route exists.
  */
 export function directRoute(
     from: Point,
     to: Point,
     elements: Rect[],
-    ends: Rect[],
+    sourceAndTarget: Rect[],
     padding: number,
 ): Point[] {
     const obstacles = obstaclesFor(elements, [from, to], padding);
-    if (isClear(from, to, [...obstacles, ...ends])) return [from, to];
-    const around = ends.map((end) => grow(end, padding));
+    if (isClear(from, to, [...obstacles, ...sourceAndTarget])) {
+        return [from, to];
+    }
+    const around = sourceAndTarget.map((box) => grow(box, padding));
     return (
         withinReach(from, to, obstacles, padding, (active) =>
-            visibilityPath(
+            visibilityRoute(
                 from,
                 to,
-                [...active, ...ends],
+                [...active, ...sourceAndTarget],
                 [...active, ...around],
             ),
         ) ?? [from, to]
@@ -120,10 +121,10 @@ export function directRoute(
 }
 
 /**
- * The cheapest path from `from` to `to` through the corners of `around`
+ * The cheapest route from `from` to `to` through the corners of `around`
  * that crosses none of `blockers`, by A* over the visibility graph.
  */
-function visibilityPath(
+function visibilityRoute(
     from: Point,
     to: Point,
     blockers: Rect[],
@@ -169,9 +170,11 @@ function visibilityPath(
             }
         }
     }
-    const path: Point[] = [];
-    for (let at = 1; at >= 0; at = previous[at]) path.unshift(nodes[at]);
-    return simplify(path);
+    const route: Point[] = [];
+    for (let node = 1; node >= 0; node = previous[node]) {
+        route.unshift(nodes[node]);
+    }
+    return simplify(route);
 }
 
 /* ---------------- Orthogonal */
@@ -190,9 +193,9 @@ const headingOf = (direction: Point) =>
 /**
  * The Orthogonal route from `from`, leaving perpendicular to `fromSide`, to
  * `to`, arriving perpendicular to `toSide` (spec 10.2): the shortest
- * axis-aligned path that clears the `elements` grown by `padding`, with
- * `BEND_PENALTY` per bend. Falls back to `orthogonalThrough` when there is
- * no such path.
+ * axis-aligned route that clears the `elements` grown by `padding`, with
+ * `BEND_PENALTY` per bend, touching but never crossing `sourceAndTarget`.
+ * Falls back to `orthogonalThrough` when there is no such route.
  */
 export function orthogonalRoute(
     from: Point,
@@ -200,19 +203,19 @@ export function orthogonalRoute(
     to: Point,
     toSide: Side,
     elements: Rect[],
-    ends: Rect[],
+    sourceAndTarget: Rect[],
     padding: number,
 ): Point[] {
     const obstacles = obstaclesFor(elements, [from, to], padding);
-    const around = ends.map((end) => grow(end, padding));
+    const around = sourceAndTarget.map((box) => grow(box, padding));
     return (
         withinReach(from, to, obstacles, padding, (active) =>
-            gridPath(
+            gridRoute(
                 from,
                 fromSide,
                 to,
                 toSide,
-                [...active, ...ends],
+                [...active, ...sourceAndTarget],
                 [...active, ...around],
                 padding,
             ),
@@ -226,7 +229,7 @@ export function orthogonalRoute(
  * alongside a padded element. A state is a grid point and a heading;
  * turning costs `BEND_PENALTY` and turning back is not allowed.
  */
-function gridPath(
+function gridRoute(
     from: Point,
     fromSide: Side,
     to: Point,
@@ -237,7 +240,7 @@ function gridPath(
 ): Point[] | null {
     const out = outward(fromSide);
     const into = outward(toSide);
-    const lines = (pick: (p: Point) => number, sides: (r: Rect) => number[]) =>
+    const gridOf = (pick: (p: Point) => number, sides: (r: Rect) => number[]) =>
         [
             ...new Set([
                 pick(from),
@@ -253,11 +256,11 @@ function gridPath(
                 ...around.flatMap(sides),
             ]),
         ].sort((a, b) => a - b);
-    const xs = lines(
+    const xs = gridOf(
         (p) => p.x,
         (r) => [r.x, r.x + r.width],
     );
-    const ys = lines(
+    const ys = gridOf(
         (p) => p.y,
         (r) => [r.y, r.y + r.height],
     );
@@ -295,11 +298,11 @@ function gridPath(
         const node = state >> 2;
         const heading = state & 3;
         if (node === goal && heading === goalHeading) {
-            const path: Point[] = [];
-            for (let at = state; at >= 0; at = previous[at]) {
-                path.unshift(pointOf(at >> 2));
+            const route: Point[] = [];
+            for (let back = state; back >= 0; back = previous[back]) {
+                route.unshift(pointOf(back >> 2));
             }
-            return simplify(path);
+            return simplify(route);
         }
         const column = node % columns;
         const row = Math.floor(node / columns);
@@ -380,8 +383,8 @@ export function orthogonalThrough(
 
 /** A binary min-heap of states by priority, for the A* open set. */
 class Queue {
-    #states: number[] = [];
-    #priorities: number[] = [];
+    readonly #states: number[] = [];
+    readonly #priorities: number[] = [];
 
     get size() {
         return this.#states.length;

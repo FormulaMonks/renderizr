@@ -57,6 +57,9 @@ const midpointOf = (box: Rect, side: Side): Point => {
     };
 };
 
+/** The sides an edge leaves its source by and enters its target by. */
+export type EdgeSides = { source: Side; target: Side };
+
 /**
  * The sides an edge without vertices leaves `from` and enters `to` by: the
  * pair with the lowest cost, its length (axis-aligned for Orthogonal, straight
@@ -67,8 +70,8 @@ export function chooseSides(
     from: Rect,
     to: Rect,
     mode: RoutingMode,
-): { source: Side; target: Side } {
-    let best = { source: SIDES[0], target: SIDES[0] };
+): EdgeSides {
+    let best: EdgeSides = { source: SIDES[0], target: SIDES[0] };
     let lowest = Number.POSITIVE_INFINITY;
     for (const source of SIDES) {
         const a = midpointOf(from, source);
@@ -112,14 +115,42 @@ export type EdgeEnd = {
     far: Point;
     /** The edge's place in the view, which breaks ties. */
     order: number;
+    /**
+     * Set on a self-relationship's loop ends: the end of the side's span the
+     * loop's corner is at. Loop ends sit nearest their corner, past every
+     * other end on the side, the innermost loop nearest (spec 10.7).
+     */
+    toward?: "from" | "to";
 };
+
+/** Where an end sorts on its side: loop ends at either extreme. */
+const rankOf = ({ toward }: EdgeEnd) =>
+    toward === "from" ? -1 : toward === "to" ? 1 : 0;
+
+/**
+ * The order of two ends on one side: loop ends at their corner's end of it,
+ * earlier loops nearer the corner; every other end by its far end, then by
+ * view order.
+ */
+function compareEnds(
+    a: EdgeEnd,
+    b: EdgeEnd,
+    coordinate: (end: EdgeEnd) => number,
+) {
+    const rank = rankOf(a) - rankOf(b);
+    if (rank) return rank;
+    if (rankOf(a) > 0) return b.order - a.order;
+    if (rankOf(a) < 0) return a.order - b.order;
+    return coordinate(a) - coordinate(b) || a.order - b.order;
+}
 
 /**
  * Where each of one element's edge ends sits along its side, keyed by end
  * id: the ends sharing a side sorted by their far end's coordinate along it,
  * then by view order, and placed at `(i + 1) / (n + 1)` of the side's usable
  * span. Ties keep view order on both elements, which is what makes A→B and
- * B→A two parallel lanes.
+ * B→A two parallel lanes. A self-relationship's loop ends take part too,
+ * at their corner's end of the side (`compareEnds`).
  */
 export function spreadEnds(
     ends: EdgeEnd[],
@@ -133,7 +164,7 @@ export function spreadEnds(
             isHorizontal(side) ? end.far.x : end.far.y;
         const sorted = ends
             .filter((end) => end.side === side)
-            .sort((a, b) => coordinate(a) - coordinate(b) || a.order - b.order);
+            .sort((a, b) => compareEnds(a, b, coordinate));
         for (const [i, end] of sorted.entries()) {
             along.set(
                 end.id,

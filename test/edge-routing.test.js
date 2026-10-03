@@ -21,7 +21,9 @@ const { directRoute, obstaclePadding, orthogonalRoute, orthogonalThrough } =
     await importSrc("engine/geometry/routing/avoid");
 const { curvedRoute } = await importSrc("engine/geometry/routing/curve");
 const { loopCorner } = await importSrc("engine/geometry/routing/loops");
-const { hopsOf, jumpRadius } = await importSrc("engine/geometry/routing/jumps");
+const { jumpOversOf, jumpRadius } = await importSrc(
+    "engine/geometry/routing/jumps",
+);
 const { routeView, routingModeOf } = await importSrc(
     "engine/geometry/routing/route-view",
 );
@@ -732,6 +734,42 @@ test("a loop takes the corner away from the element's other edge ends", () => {
     assert.equal(loop.route.at(-1).x, 0, fmt(loop.route));
 });
 
+test("a loop's edge ends are spread with the other edge ends on their sides, nearest the corner", () => {
+    // One edge out of every side of A: every corner holds two edge ends, so
+    // the loop takes the top-right fallback and shares both of its sides.
+    const a = element("a", 400, 400);
+    const elements = [
+        a,
+        element("n", 400, 0),
+        element("e", 1000, 400),
+        element("s", 400, 800),
+        element("w", -200, 400),
+    ];
+    const { top, right } = a.geometry.spans;
+    const third = (span, i) => span.from + (i / 3) * (span.to - span.from);
+    for (const routing of ["Direct", "Orthogonal", "Curved"]) {
+        const routes = routeView(elements, [
+            edge("an", "a", "n", { routing }),
+            edge("ae", "a", "e", { routing }),
+            edge("as", "a", "s", { routing }),
+            edge("aw", "a", "w", { routing }),
+            edge("aa", "a", "a", { routing }),
+        ]);
+        const [an, ae, , , loop] = routes.map((r) => r.route);
+        const message = `${routing}: ${fmt(loop)}`;
+        // Top: the edge to N at 1/3, the loop at 2/3, nearer the corner.
+        assert.ok(near(an[0], { x: 400 + third(top, 1), y: 400 }), message);
+        assert.ok(near(loop[0], { x: 400 + third(top, 2), y: 400 }), message);
+        // Right: the loop at 1/3, nearer the corner, the edge to E at 2/3.
+        assert.ok(near(loop.at(-1), { x: 600, y: 400 + third(right, 1) }));
+        assert.ok(near(ae[0], { x: 600, y: 400 + third(right, 2) }), message);
+        assert.ok(
+            loop.slice(1, -1).every((p) => p.y < 400 || p.x > 600),
+            `${message} stays outside the element`,
+        );
+    }
+});
+
 test("several loops on one element nest outward", () => {
     const [inner, outer] = routeView(
         [element("a", 0, 0)],
@@ -772,13 +810,13 @@ test("jumpRadius is 3t + 3", () => {
     assert.equal(jumpRadius(5), 18);
 });
 
-test("a jump edge hops where it crosses another edge", () => {
+test("a jump edge draws a jump-over where it crosses another edge", () => {
     const [horizontal, vertical] = crossingView({ jump: true }, {});
     assert.match(horizontal.path, / A 9 9 0 0 [01] /, horizontal.path);
     assert.doesNotMatch(vertical.path, / A /);
 });
 
-test("when both edges jump, the later in view order hops", () => {
+test("when both edges jump, the later in view order draws the jump-over", () => {
     const [horizontal, vertical] = crossingView({ jump: true }, { jump: true });
     assert.doesNotMatch(horizontal.path, / A /);
     assert.match(vertical.path, / A 9 9 /);
@@ -793,7 +831,7 @@ test("jump-overs are drawn in Direct and Orthogonal, and Curved ignores jump", (
     assert.doesNotMatch(curved.path, / A /);
 });
 
-test("hopsOf skips crossings too close to a bend or an end", () => {
+test("jumpOversOf skips crossings too close to a bend or an end", () => {
     const route = [
         { x: 0, y: 0 },
         { x: 100, y: 0 },
@@ -816,6 +854,6 @@ test("hopsOf skips crossings too close to a bend or an end", () => {
             { x: 150, y: 3 },
         ],
     ];
-    const hops = hopsOf(route, others, 9);
-    assert.deepEqual(hops, [{ segment: 0, at: { x: 50, y: 0 } }]);
+    const jumpOvers = jumpOversOf(route, others, 9);
+    assert.deepEqual(jumpOvers, [{ segment: 0, at: { x: 50, y: 0 } }]);
 });

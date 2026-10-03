@@ -1,18 +1,17 @@
 /**
  * The router (ADR 8): every edge of a view routed in one synchronous pass,
  * in full, with no time budget (spec 10.12). First each edge's sides are
- * chosen and the edge ends sharing a side are spread (spec 10.4); then each
- * edge is routed in its routing mode, around elements when it has no
- * vertices (spec 10.2, ADR 7) and through them when it has (spec 10.3);
- * each end is moved onto the drawn outline (spec 10.5); self-relationships
- * become loops (spec 10.7); and jump-overs go in last, once every route is
- * known (spec 10.11).
+ * chosen, each self-relationship's corner too, and the edge ends sharing a
+ * side are spread (spec 10.4, 10.7); then each edge is routed in its routing
+ * mode, around elements when it has no vertices (spec 10.2, ADR 7) and
+ * through them when it has (spec 10.3); each end is moved onto the drawn
+ * outline (spec 10.5); self-relationships become loops (spec 10.7); and
+ * jump-overs go in last, once every route is known (spec 10.11).
  *
  * Pure: elements and edges in, routes out, so the layout editor can rerun it
  * when something moves.
  */
 
-import { touch } from "../shapes/outline";
 import type { Point, Rect, ShapeGeometry, Side } from "../shapes/types";
 import {
     directRoute,
@@ -22,16 +21,24 @@ import {
     orthogonalThrough,
 } from "./avoid";
 import { cubicRoute, curvedRoute } from "./curve";
-import { hopsOf, jumpPath, jumpRadius } from "./jumps";
-import { loopCorner, selfLoop } from "./loops";
+import { jumpOversOf, jumpPath, jumpRadius } from "./jumps";
+import { type Corner, cornerEnd, loopCorner, selfLoop } from "./loops";
 import {
     centerOf,
+    type DrawnRoute,
+    onOutline,
     polylinePath,
     type RoutingMode,
     SIDES,
     sidePoint,
 } from "./path";
-import { chooseSides, type EdgeEnd, facingSide, spreadEnds } from "./sides";
+import {
+    chooseSides,
+    type EdgeEnd,
+    type EdgeSides,
+    facingSide,
+    spreadEnds,
+} from "./sides";
 
 export type { RoutingMode };
 
@@ -57,17 +64,20 @@ export type RoutingEdge = {
     thickness: number;
 };
 
-export type RoutedEdge = {
-    key: string;
-    /**
-     * The points the edge passes through, source end first and target end
-     * last, both on the drawn outline. A Curved route is sampled along the
-     * curve.
-     */
-    route: Point[];
-    /** SVG path data for the edge as drawn, hops included. */
-    path: string;
-};
+/**
+ * One edge routed: its points, both ends on the drawn outline, and its path
+ * data as drawn, jump-overs included.
+ */
+export type RoutedEdge = DrawnRoute & { key: string };
+
+/**
+ * A route before the jump-overs go in. Its path data is there already when
+ * it is final: a Curved edge never draws jump-overs.
+ */
+type RouteDraft = { route: Point[]; path?: string };
+
+/** A self-relationship's place on its element: its corner and its nest. */
+type Loop = { corner: Corner; nest: number };
 
 /** The routing mode a workspace names, Direct for anything unrecognized. */
 export function routingModeOf(name: string | undefined): RoutingMode {
@@ -81,12 +91,6 @@ const boxOf = ({ x, y, geometry }: RoutingElement): Rect => ({
     height: geometry.height,
 });
 
-/** Where an edge end at `along` on `side` meets the drawn outline. */
-const onOutline = (element: RoutingElement, side: Side, along: number) => {
-    const local = touch(element.geometry, side, along);
-    return { x: element.x + local.x, y: element.y + local.y };
-};
-
 /** The ids an edge's two ends go by in `spreadEnds`. */
 const sourceEnd = (index: number) => `${index}:source`;
 const targetEnd = (index: number) => `${index}:target`;
@@ -97,7 +101,7 @@ export function routeView(
     edges: RoutingEdge[],
 ): RoutedEdge[] {
     const byId = new Map(elements.map((element) => [element.id, element]));
-    const ends = (edge: RoutingEdge) => {
+    const elementsOf = (edge: RoutingEdge) => {
         const source = byId.get(edge.sourceId);
         const target = byId.get(edge.targetId);
         if (!source || !target) {
@@ -110,12 +114,12 @@ export function routeView(
 
     /* ---------------- sides */
 
-    const sides = new Map<number, { source: Side; target: Side }>();
-    const endsOn = new Map<string, EdgeEnd[]>();
+    const sides = new Map<number, EdgeSides>();
+    const edgeEndsOn = new Map<string, EdgeEnd[]>();
     const addEnd = (elementId: string, end: EdgeEnd) =>
-        endsOn.set(elementId, [...(endsOn.get(elementId) ?? []), end]);
+        edgeEndsOn.set(elementId, [...(edgeEndsOn.get(elementId) ?? []), end]);
     for (const [index, edge] of edges.entries()) {
-        const { source, target } = ends(edge);
+        const { source, target } = elementsOf(edge);
         if (source === target) continue;
         const from = boxOf(source);
         const to = boxOf(target);
@@ -141,56 +145,103 @@ export function routeView(
         });
     }
 
+    /* ---------------- loop corners */
+
+    // Every loop on an element takes the corner with the fewest of its other
+    // edge ends, counted before any loop's own ends join them, so that the
+    // loops share it and nest (spec 10.7).
+    const loops = new Map<number, Loop>();
+    const corners = new Map<string, Corner>();
+    const nests = new Map<string, number>();
+    for (const [index, edge] of edges.entries()) {
+        const { source, target } = elementsOf(edge);
+        if (source !== target) continue;
+        let corner = corners.get(source.id);
+        if (!corner) {
+            const endCounts = Object.fromEntries(
+                SIDES.map((side) => [side, 0]),
+            ) as Record<Side, number>;
+            for (const end of edgeEndsOn.get(source.id) ?? []) {
+                endCounts[end.side]++;
+            }
+            corner = loopCorner(endCounts);
+            corners.set(source.id, corner);
+        }
+        const nest = nests.get(source.id) ?? 0;
+        nests.set(source.id, nest + 1);
+        loops.set(index, { corner, nest });
+        // A loop's far end is its own element; `toward` places it instead.
+        const far = centerOf(boxOf(source));
+        const [leave, enter] = corner;
+        addEnd(source.id, {
+            id: sourceEnd(index),
+            side: leave,
+            far,
+            order: index,
+            toward: cornerEnd(leave, corner),
+        });
+        addEnd(source.id, {
+            id: targetEnd(index),
+            side: enter,
+            far,
+            order: index,
+            toward: cornerEnd(enter, corner),
+        });
+    }
+
     /* ---------------- spreading */
 
     const along = new Map<string, number>();
     for (const element of elements) {
         const spread = spreadEnds(
-            endsOn.get(element.id) ?? [],
+            edgeEndsOn.get(element.id) ?? [],
             element.geometry.spans,
         );
-        for (const [id, at] of spread) along.set(id, at);
+        for (const [id, position] of spread) along.set(id, position);
     }
+    const sourceAlong = (index: number) => along.get(sourceEnd(index)) ?? 0;
+    const targetAlong = (index: number) => along.get(targetEnd(index)) ?? 0;
 
     /* ---------------- routes */
 
-    const routed: { route: Point[]; path?: string }[] = [];
-    const loops = new Map<string, number>();
-    for (const [index, edge] of edges.entries()) {
-        const { source, target } = ends(edge);
-        const chosen = sides.get(index);
-        if (!chosen) {
-            const nest = loops.get(source.id) ?? 0;
-            loops.set(source.id, nest + 1);
-            routed.push(loopOf(source, edge.routing, nest, endsOn));
-            continue;
-        }
-        routed.push(
-            routeOf(
-                edge,
+    const drafts = edges.map((edge, index): RouteDraft => {
+        const { source, target } = elementsOf(edge);
+        const loop = loops.get(index);
+        if (loop) {
+            return loopOf(
                 source,
-                target,
-                chosen,
-                along.get(sourceEnd(index)) ?? 0,
-                along.get(targetEnd(index)) ?? 0,
-                elements,
-            ),
+                edge.routing,
+                loop,
+                sourceAlong(index),
+                targetAlong(index),
+            );
+        }
+        return routeOf(
+            edge,
+            source,
+            target,
+            // Every edge that is not a loop had its sides chosen above.
+            sides.get(index)!,
+            sourceAlong(index),
+            targetAlong(index),
+            elements,
         );
-    }
+    });
 
     /* ---------------- jump-overs */
 
-    const hops = (edge: RoutingEdge) => edge.jump && edge.routing !== "Curved";
+    const jumps = (edge: RoutingEdge) => edge.jump && edge.routing !== "Curved";
     return edges.map((edge, index) => {
-        const { route, path } = routed[index];
+        const { route, path } = drafts[index];
         if (path !== undefined) return { key: edge.key, route, path };
-        if (!hops(edge))
+        if (!jumps(edge)) {
             return { key: edge.key, route, path: polylinePath(route) };
-        // The later of two jumping edges hops; an edge that does not jump,
-        // Curved ones included, is always hopped over.
+        }
+        // Of two edges that both jump, the later draws the jump-over; an
+        // edge that does not jump, Curved ones included, is always jumped.
         const others: Point[][] = [];
-        for (const [other, { route: theirs }] of routed.entries()) {
-            if (other === index || (hops(edges[other]) && other > index)) {
+        for (const [other, { route: theirs }] of drafts.entries()) {
+            if (other === index || (jumps(edges[other]) && other > index)) {
                 continue;
             }
             others.push(theirs);
@@ -199,7 +250,7 @@ export function routeView(
         return {
             key: edge.key,
             route,
-            path: jumpPath(route, hopsOf(route, others, radius), radius),
+            path: jumpPath(route, jumpOversOf(route, others, radius), radius),
         };
     });
 }
@@ -212,11 +263,11 @@ function routeOf(
     edge: RoutingEdge,
     source: RoutingElement,
     target: RoutingElement,
-    sides: { source: Side; target: Side },
+    sides: EdgeSides,
     sourceAlong: number,
     targetAlong: number,
     elements: RoutingElement[],
-): { route: Point[]; path?: string } {
+): RouteDraft {
     const from = boxOf(source);
     const to = boxOf(target);
     const start = sidePoint(from, sides.source, sourceAlong);
@@ -251,8 +302,13 @@ function routeOf(
     }
     // Each end moves inward from the box, perpendicular to its side, onto
     // the drawn shape: the arrowhead's tip lands on what is drawn (spec 10.5).
-    points[0] = onOutline(source, sides.source, sourceAlong);
-    points[points.length - 1] = onOutline(target, sides.target, targetAlong);
+    points[0] = onOutline(source, source.geometry, sides.source, sourceAlong);
+    points[points.length - 1] = onOutline(
+        target,
+        target.geometry,
+        sides.target,
+        targetAlong,
+    );
 
     if (edge.routing !== "Curved") return { route: points };
     // The curve has to clear what the Direct route under it cleared: the
@@ -264,24 +320,22 @@ function routeOf(
 }
 
 /**
- * Loop number `nest` on `element`, round the corner with the fewest of its
- * other edge ends.
+ * A self-relationship's loop on `element`, round its corner at its nest,
+ * between the two edge ends spreading placed on the corner's sides.
  */
 function loopOf(
     element: RoutingElement,
     mode: RoutingMode,
-    nest: number,
-    endsOn: Map<string, EdgeEnd[]>,
-): { route: Point[]; path?: string } {
-    const counts = Object.fromEntries(SIDES.map((side) => [side, 0])) as Record<
-        Side,
-        number
-    >;
-    for (const end of endsOn.get(element.id) ?? []) counts[end.side]++;
+    { corner, nest }: Loop,
+    leaveAlong: number,
+    enterAlong: number,
+): RouteDraft {
     const points = selfLoop(
         boxOf(element),
         element.geometry,
-        loopCorner(counts),
+        corner,
+        leaveAlong,
+        enterAlong,
         nest,
         mode,
     );

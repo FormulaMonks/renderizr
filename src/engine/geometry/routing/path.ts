@@ -4,11 +4,17 @@
  * writing it as SVG path data. Coordinates are absolute model units, y down.
  */
 
-import { num } from "../shapes/outline";
-import type { Point, Rect, Side } from "../shapes/types";
+import { num, touch } from "../shapes/outline";
+import type { Point, Rect, ShapeGeometry, Side } from "../shapes/types";
 
 /** The character of a route as the workspace names it (spec 10.2). */
 export type RoutingMode = "Direct" | "Orthogonal" | "Curved";
+
+/**
+ * A route as drawn: the points it passes through, source end first, and its
+ * SVG path data. A curve's route is sampled along it.
+ */
+export type DrawnRoute = { route: Point[]; path: string };
 
 /** How far inside a box a segment has to reach before it counts as crossing it. */
 export const CLEARANCE = 1e-6;
@@ -47,40 +53,63 @@ export function sidePoint(box: Rect, side: Side, along: number): Point {
     }
 }
 
-export const centerOf = (box: Rect): Point => ({
-    x: box.x + box.width / 2,
-    y: box.y + box.height / 2,
-});
+/**
+ * Where an edge end at `along` on `side` of a shape drawn as `geometry`,
+ * with its top-left at `origin`, meets the drawn outline (spec 10.5).
+ */
+export function onOutline(
+    origin: Point,
+    geometry: ShapeGeometry,
+    side: Side,
+    along: number,
+): Point {
+    const local = touch(geometry, side, along);
+    return { x: origin.x + local.x, y: origin.y + local.y };
+}
+
+export function centerOf(box: Rect): Point {
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
 
 /** `box` grown by `by` on every side. */
-export const grow = (box: Rect, by: number): Rect => ({
-    x: box.x - by,
-    y: box.y - by,
-    width: box.width + 2 * by,
-    height: box.height + 2 * by,
-});
+export function grow(box: Rect, by: number): Rect {
+    return {
+        x: box.x - by,
+        y: box.y - by,
+        width: box.width + 2 * by,
+        height: box.height + 2 * by,
+    };
+}
 
 /** The corners of `box`, clockwise from the top-left. */
-export const cornersOf = ({ x, y, width, height }: Rect): Point[] => [
-    { x, y },
-    { x: x + width, y },
-    { x: x + width, y: y + height },
-    { x, y: y + height },
-];
+export function cornersOf({ x, y, width, height }: Rect): Point[] {
+    return [
+        { x, y },
+        { x: x + width, y },
+        { x: x + width, y: y + height },
+        { x, y: y + height },
+    ];
+}
 
 /** Whether `point` lies strictly inside `box`. */
-export const isInside = (point: Point, box: Rect): boolean =>
-    point.x > box.x + CLEARANCE &&
-    point.x < box.x + box.width - CLEARANCE &&
-    point.y > box.y + CLEARANCE &&
-    point.y < box.y + box.height - CLEARANCE;
+export function isInside(point: Point, box: Rect): boolean {
+    return (
+        point.x > box.x + CLEARANCE &&
+        point.x < box.x + box.width - CLEARANCE &&
+        point.y > box.y + CLEARANCE &&
+        point.y < box.y + box.height - CLEARANCE
+    );
+}
 
 /** Whether two boxes share any area. */
-export const overlaps = (a: Rect, b: Rect): boolean =>
-    a.x < b.x + b.width &&
-    b.x < a.x + a.width &&
-    a.y < b.y + b.height &&
-    b.y < a.y + a.height;
+export function overlaps(a: Rect, b: Rect): boolean {
+    return (
+        a.x < b.x + b.width &&
+        b.x < a.x + a.width &&
+        a.y < b.y + b.height &&
+        b.y < a.y + a.height
+    );
+}
 
 /** The box around every point. */
 export function boxAround(points: Point[]): Rect {
@@ -128,8 +157,11 @@ export function crossesBox(a: Point, b: Point, box: Rect): boolean {
 }
 
 /** Whether any segment of `route` passes through the inside of `box`. */
-export const routeCrosses = (route: Point[], box: Rect): boolean =>
-    route.some((point, at) => at > 0 && crossesBox(route[at - 1], point, box));
+export function routeCrosses(route: Point[], box: Rect): boolean {
+    return route.some(
+        (point, i) => i > 0 && crossesBox(route[i - 1], point, box),
+    );
+}
 
 const same = (a: Point, b: Point) =>
     Math.abs(a.x - b.x) < CLEARANCE && Math.abs(a.y - b.y) < CLEARANCE;
@@ -162,22 +194,23 @@ export const distance = (a: Point, b: Point): number =>
     Math.hypot(b.x - a.x, b.y - a.y);
 
 /** The length of a polyline. */
-export const lengthOf = (route: Point[]): number =>
-    route.reduce(
-        (sum, point, at) => (at ? sum + distance(route[at - 1], point) : 0),
+export function lengthOf(route: Point[]): number {
+    return route.reduce(
+        (sum, point, i) => (i ? sum + distance(route[i - 1], point) : 0),
         0,
     );
+}
 
 /** The point `fraction` of the way along a polyline, by length. */
 export function pointAlong(route: Point[], fraction: number): Point {
     let remaining = lengthOf(route) * fraction;
-    for (let at = 1; at < route.length; at++) {
-        const step = distance(route[at - 1], route[at]);
+    for (let i = 1; i < route.length; i++) {
+        const step = distance(route[i - 1], route[i]);
         if (step > 0 && remaining <= step) {
             const t = remaining / step;
             return {
-                x: route[at - 1].x + t * (route[at].x - route[at - 1].x),
-                y: route[at - 1].y + t * (route[at].y - route[at - 1].y),
+                x: route[i - 1].x + t * (route[i].x - route[i - 1].x),
+                y: route[i - 1].y + t * (route[i].y - route[i - 1].y),
             };
         }
         remaining -= step;
@@ -185,9 +218,9 @@ export function pointAlong(route: Point[], fraction: number): Point {
     return route[route.length - 1];
 }
 
-/** A point for path data, through the shapes' `num`. */
-export const at = ({ x, y }: Point): string => `${num(x)} ${num(y)}`;
+/** A point written for path data, through the shapes' `num`. */
+export const pathPoint = ({ x, y }: Point): string => `${num(x)} ${num(y)}`;
 
 /** SVG path data for a polyline: one `M`, then an `L` per point. */
 export const polylinePath = (route: Point[]): string =>
-    route.map((point, i) => `${i ? "L" : "M"} ${at(point)}`).join(" ");
+    route.map((point, i) => `${i ? "L" : "M"} ${pathPoint(point)}`).join(" ");

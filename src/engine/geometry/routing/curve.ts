@@ -7,14 +7,14 @@
  */
 
 import type { Point, Rect } from "../shapes/types";
-import { at, routeCrosses } from "./path";
+import { type DrawnRoute, pathPoint, routeCrosses } from "./path";
 
 /** One cubic Bézier piece: its end point and two control points. */
 type Cubic = { from: Point; c1: Point; c2: Point; to: Point };
 
 /**
  * How smooth the curve is, from full Catmull–Rom down; past the last, the
- * curve is the straight lines between the points.
+ * curve is the straight segments between the points.
  */
 const TENSIONS = [1, 0.5, 0.25];
 
@@ -73,8 +73,11 @@ function sample(cubics: Cubic[]): Point[] {
 
 const pathOf = (cubics: Cubic[]): string =>
     [
-        `M ${at(cubics[0].from)}`,
-        ...cubics.map(({ c1, c2, to }) => `C ${at(c1)} ${at(c2)} ${at(to)}`),
+        `M ${pathPoint(cubics[0].from)}`,
+        ...cubics.map(
+            ({ c1, c2, to }) =>
+                `C ${pathPoint(c1)} ${pathPoint(c2)} ${pathPoint(to)}`,
+        ),
     ].join(" ");
 
 /**
@@ -83,10 +86,7 @@ const pathOf = (cubics: Cubic[]): string =>
  * `obstacles` (the padded elements, spec 10.2) wins; with none, the curve is
  * as smooth as it gets.
  */
-export function curvedRoute(
-    points: Point[],
-    obstacles: Rect[],
-): { route: Point[]; path: string } {
+export function curvedRoute(points: Point[], obstacles: Rect[]): DrawnRoute {
     let cubics = smooth(points, 0);
     for (const tension of TENSIONS) {
         const candidate = smooth(points, tension);
@@ -108,7 +108,7 @@ export function cubicRoute(
     c1: Point,
     c2: Point,
     to: Point,
-): { route: Point[]; path: string } {
+): DrawnRoute {
     const cubics = [{ from, c1, c2, to }];
     return { route: sample(cubics), path: pathOf(cubics) };
 }
