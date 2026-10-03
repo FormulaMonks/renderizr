@@ -539,7 +539,10 @@ test("--engine react-flow writes no engine report unless asked to", async () => 
     // The report is for the acceptance harness only (spec 15.1); a reader's
     // build carries neither the writer nor the element id.
     const { out } = await reactFlowMulti();
-    assert.ok(!(await entryChunk(out)).includes("engine-report"));
+    assert.ok(
+        !(await entryChunk(out)).includes("engine-report"),
+        "a reader's build carries the report writer",
+    );
 });
 
 test("RENDERIZR_ENGINE_REPORT=1 builds the engine report into the page", async () => {
