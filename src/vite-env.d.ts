@@ -7,6 +7,12 @@ declare module "virtual:structurizr-renderer" {
     export default source;
 }
 
+declare module "virtual:renderizr-engine" {
+    export const loadEngine: () => Promise<
+        import("./engine/entry").EngineEntry
+    >;
+}
+
 declare const workspaceData: Record<string, unknown>;
 
 /** Logo supplied via `--logo`, already embedded as a data URI. */

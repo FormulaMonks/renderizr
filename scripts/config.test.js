@@ -88,6 +88,7 @@ test("the multi-file build serves the public directory and splits assets", () =>
         undefined,
     );
     assert.deepEqual(pluginNames(config), [
+        "renderizr:engine",
         "renderizr:structurizr-renderer",
         "renderizr:branding",
     ]);
@@ -143,4 +144,23 @@ test("build mode refuses to re-read vite.config.ts; serve mode loads it", () => 
 
 test("build mode adds no dev server settings", () => {
     assert.ok(!("server" in createConfig({ workspace: WORKSPACE })));
+});
+
+test("the Structurizr engine is the default, and the only one bundling the vendored renderer", () => {
+    const config = createConfig({ workspace: WORKSPACE });
+    assert.ok(pluginNames(config).includes("renderizr:structurizr-renderer"));
+    assert.ok(pluginNames(config).includes("renderizr:engine"));
+});
+
+test("--engine react-flow bundles the React Flow engine instead", () => {
+    const config = createConfig({ workspace: WORKSPACE, engine: "react-flow" });
+    assert.ok(!pluginNames(config).includes("renderizr:structurizr-renderer"));
+    assert.equal(config.esbuild.jsx, "automatic");
+});
+
+test("an unknown engine is refused", () => {
+    assert.throws(
+        () => createConfig({ workspace: WORKSPACE, engine: "joint" }),
+        /Unknown engine 'joint'/,
+    );
 });

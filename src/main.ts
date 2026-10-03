@@ -1,6 +1,5 @@
 import { initTheme } from "./components/theme.ts";
-import getStructurizr from "./structurizr-runtime.ts";
-import DiagramsPage from "./pages/diagrams.ts";
+import { loadEngine } from "virtual:renderizr-engine";
 import "./main.css";
 import Router from "./components/router.ts";
 import Navigation from "./components/navigation.ts";
@@ -36,10 +35,8 @@ async function init() {
     // it in step with the OS while the reader is on "system".
     initTheme();
 
-    const structurizr = await getStructurizr();
-
-    // Load workspace from global variable
-    structurizr.workspace = new structurizr.Workspace(workspaceData);
+    // Exactly one engine is bundled, chosen at build time by `--engine`.
+    const { workspace, DiagramsPage, credit } = await loadEngine();
 
     // Which Renderizr produced this page. A site outlives the version that
     // built it, and the first question about a stale-looking render is which
@@ -53,13 +50,13 @@ async function init() {
                 <hr />
             </section>
             <section id="page-content"></section>
-            <footer id="disclaimer">Diagrams rendered using <a href="https://structurizr.com/" target="_blank">Structurizr</a> and <a href="https://c4model.com/" target="_blank">C4 notation.</a> Created with <a href="https://github.com/FormulaMonks/renderizr" target="_blank">Renderizr</a>${version}.</footer>
+            <footer id="disclaimer">Diagrams rendered using ${credit} and <a href="https://c4model.com/" target="_blank">C4 notation.</a> Created with <a href="https://github.com/FormulaMonks/renderizr" target="_blank">Renderizr</a>${version}.</footer>
         </main>
     `;
 
     const nav = new Navigation(
         document.getElementById("workspace-navigation")!,
-        structurizr.workspace,
+        workspace,
     );
 
     nav.render();
@@ -69,7 +66,7 @@ async function init() {
 
     // Links between sections and decisions are written as relative file
     // paths; this maps them onto the routes below.
-    const { sections, decisions } = structurizr.workspace.documentation;
+    const { sections, decisions } = workspace.documentation;
     const resolveLink = createLinkResolver({
         docs: nav.hasDocs ? { page: "docs", sections } : null,
         decisions: nav.hasDecisions ? { page: "adrs", decisions } : null,

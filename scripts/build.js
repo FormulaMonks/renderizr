@@ -39,6 +39,7 @@ await build(
         singleFile: options.singleFile,
         out: options.out,
         base: options.base,
+        engine: options.engine,
     }),
 );
 

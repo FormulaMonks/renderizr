@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
+import { findUnspellable } from "./escapes.js";
 import {
     assetReferences,
     fixture,
@@ -290,10 +291,8 @@ test("a single-file build writes index.html and artifact.html and nothing else",
     ]);
 });
 
-test("the single file is genuinely self-contained", async () => {
-    const { out } = await singleFile();
-    const html = await readFile(join(out, "index.html"), "utf-8");
-
+/** Nothing in `html` can start a request: the self-containment property. */
+const assertSelfContained = (html) => {
     // Bundled JavaScript is full of strings that look like markup, so the
     // question is only answerable of the document with its code emptied out.
     const skeleton = htmlSkeleton(html);
@@ -329,6 +328,11 @@ test("the single file is genuinely self-contained", async () => {
             `${attribute}="${value}" would start a request`,
         );
     }
+};
+
+test("the single file is genuinely self-contained", async () => {
+    const { out } = await singleFile();
+    assertSelfContained(await readFile(join(out, "index.html"), "utf-8"));
 });
 
 test("the self-containment check can actually fail", () => {
@@ -467,4 +471,61 @@ test("the binary refuses to run without a workspace", async () => {
 
     assert.equal(code, 1);
     assert.match(stderr, /Missing the workspace to render\./);
+});
+
+/* ------------------------------------------------------ the React Flow engine */
+
+const reactFlowMulti = once(() =>
+    build("react-flow-multi", ["--engine", "react-flow"]),
+);
+const reactFlowSingle = once(() =>
+    build("react-flow-single", ["--single-file", "--engine", "react-flow"]),
+);
+
+test("--engine react-flow builds a multi-file site carrying React Flow and not the vendored renderer", async () => {
+    const { out } = await reactFlowMulti();
+    const code = await entryChunk(out);
+
+    assert.ok(code.includes("react-flow__"), "React Flow is not in the bundle");
+    assert.ok(code.includes("FixtureContext"), "the workspace is missing");
+    assert.ok(
+        !code.includes("DEFAULT_AUTOLAYOUT_RANK_SEPARATION"),
+        "the vendored renderer was bundled as well",
+    );
+    assert.ok(!code.includes("joint-element"), "JointJS was bundled as well");
+});
+
+test("--engine react-flow builds a single file that is self-contained", async () => {
+    const { out } = await reactFlowSingle();
+    const html = await readFile(join(out, "index.html"), "utf-8");
+
+    assert.deepEqual((await readdir(out)).sort(), [
+        "artifact.html",
+        "index.html",
+    ]);
+    assertSelfContained(html);
+    assert.ok(!html.includes("DEFAULT_AUTOLAYOUT_RANK_SEPARATION"));
+    assert.ok(
+        !html.includes("__VITE_PRELOAD__"),
+        "an unresolved preload marker survived",
+    );
+
+    const module = html.match(
+        /<script type="module"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    const path = join(SCRATCH, "react-flow-inline.mjs");
+    await writeFile(path, module[1]);
+    const { code, stderr } = await runNode(["--check", path]);
+    assert.equal(code, 0, `the inlined module does not parse:\n${stderr}`);
+});
+
+test("--engine react-flow's artifact.html passes the escaping and fragment checks", async () => {
+    const { out } = await reactFlowSingle();
+    const artifact = await readFile(join(out, "artifact.html"), "utf-8");
+    const skeleton = htmlSkeleton(artifact);
+
+    assert.deepEqual(findUnspellable(artifact), []);
+    assertSelfContained(artifact);
+    assert.ok(skeleton.includes('<div id="app"></div>'));
+    assert.ok(!/https?:\/\//i.test(skeleton), "the fragment names a URL");
 });

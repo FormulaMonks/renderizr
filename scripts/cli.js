@@ -1,5 +1,8 @@
 import { parseArgs } from "node:util";
 
+/** The diagram engines a build can carry, the default first (ADR 12). */
+export const ENGINES = ["structurizr", "react-flow"];
+
 export const OPTIONS = {
     logo: { type: "string" },
     "logo-alt": { type: "string", default: "" },
@@ -9,6 +12,7 @@ export const OPTIONS = {
     "font-subsets": { type: "string", default: "latin" },
     "font-italic": { type: "boolean", default: false },
     "single-file": { type: "boolean", default: false },
+    engine: { type: "string", default: ENGINES[0] },
     out: { type: "string", short: "o", default: "structurizr-output" },
     base: { type: "string", default: "" },
     help: { type: "boolean", short: "h", default: false },
@@ -24,6 +28,8 @@ Options
       --single-file        Emit one self-contained .html with every asset inlined,
                            plus an artifact.html fragment for Claude artifacts
       --base <path>        Base public path for the multi-file build (default: "")
+      --engine <name>      Diagram engine: structurizr (default) or react-flow,
+                           the in-development React Flow engine
 
   --logo <path|url>        Image shown top-left in the header. Embedded as a data URI
   --logo-alt <text>        Alt text for the logo
@@ -87,11 +93,20 @@ export function parseCliArgs(args = process.argv.slice(2)) {
         process.exit(1);
     }
 
+    if (!ENGINES.includes(values.engine)) {
+        process.stderr.write(
+            `Unknown engine '${values.engine}'; expected one of: ${ENGINES.join(", ")}\n\n`,
+        );
+        usage(process.stderr);
+        process.exit(1);
+    }
+
     return {
         workspace: positionals[0],
         out: values.out,
         base: values.base,
         singleFile: values["single-file"],
+        engine: values.engine,
         logo: values.logo
             ? {
                   source: values.logo,

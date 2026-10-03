@@ -1,5 +1,4 @@
 import { readSetting, writeSetting } from "../storage";
-import type { Diagram } from "../types/structurizr-diagram";
 import type { ModelView, WorkspaceModel } from "../model";
 import collapseIcon from "../../vendor/structurizr/bootstrap-icons/arrow-bar-left.svg?raw";
 import expandIcon from "../../vendor/structurizr/bootstrap-icons/arrow-bar-right.svg?raw";
@@ -71,8 +70,18 @@ const abbreviate = (key: string) => {
 const COLLAPSED_KEY = "renderizr:diagramDrawerCollapsed";
 const SCROLL_KEY = "renderizr:diagramDrawerScroll";
 
+/**
+ * What the drawer needs from whatever draws the view: which one is on screen,
+ * and a way to show another. The Structurizr `Diagram` already has this
+ * shape; the React Flow page adapts its `Engine` to it.
+ */
+export type ViewSwitcher = {
+    getCurrentView(): { key: string } | null | undefined;
+    changeView(key: string): void;
+};
+
 export default class DiagramNavigation extends Component {
-    #diagram: Diagram;
+    #diagram: ViewSwitcher;
     #model: WorkspaceModel;
     #navElements: ModelView[] = [];
     #eventListeners: Map<string, (event: Event) => void> = new Map();
@@ -80,7 +89,11 @@ export default class DiagramNavigation extends Component {
     #collapsed = readSetting(COLLAPSED_KEY) === "true";
     #list: HTMLElement | null = null;
 
-    constructor(element: HTMLElement, diagram: Diagram, model: WorkspaceModel) {
+    constructor(
+        element: HTMLElement,
+        diagram: ViewSwitcher,
+        model: WorkspaceModel,
+    ) {
         super(element);
         this.#diagram = diagram;
         this.#model = model;

@@ -1,4 +1,5 @@
 import { readSetting, writeSetting } from "../storage";
+import type { Labels } from "../engine/contract";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { WorkspaceModel } from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
@@ -15,6 +16,25 @@ import stopIcon from "../../vendor/structurizr/bootstrap-icons/stop-fill.svg?raw
 import prevStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-start-fill.svg?raw";
 import nextStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-end-fill.svg?raw";
 import Component from "./_component";
+
+/** The part of the Structurizr `Diagram` the toolbar drives. */
+export type ToolbarDiagram = Pick<
+    Diagram,
+    | "animationStarted"
+    | "currentViewHasAnimation"
+    | "currentViewIsDynamic"
+    | "getCurrentView"
+    | "isDarkMode"
+    | "onAnimationStarted"
+    | "onAnimationStopped"
+    | "setDarkMode"
+    | "startAnimation"
+    | "stepBackwardInAnimation"
+    | "stepForwardInAnimation"
+    | "stopAnimation"
+    | "toggleDescription"
+    | "toggleMetadata"
+>;
 
 export type DiagramControls = {
     /** Return the diagram to the size the page chose for it. */
@@ -86,27 +106,21 @@ export function applyDiagramTheme(theme: DiagramTheme): void {
     document.documentElement.dataset.diagramTheme = theme;
 }
 
-/** Visibility of the optional labels Structurizr draws inside elements. */
-type LabelState = {
-    descriptions: boolean;
-    technologies: boolean;
-};
-
 /**
  * `structurizr-diagram.js` initializes `descriptionEnabled` and
  * `metadataEnabled` to `true`, so a freshly constructed diagram shows both.
  */
-const STRUCTURIZR_LABEL_DEFAULTS: LabelState = {
+export const STRUCTURIZR_LABEL_DEFAULTS: Labels = {
     descriptions: true,
     technologies: true,
 };
 
-function readLabelState(): LabelState {
+export function readLabelState(): Labels {
     const raw = readSetting(DIAGRAM_LABELS_STORAGE_KEY);
     if (!raw) return { ...STRUCTURIZR_LABEL_DEFAULTS };
 
     try {
-        const parsed = JSON.parse(raw) as Partial<LabelState>;
+        const parsed = JSON.parse(raw) as Partial<Labels>;
         return {
             descriptions:
                 typeof parsed.descriptions === "boolean"
@@ -122,12 +136,12 @@ function readLabelState(): LabelState {
     }
 }
 
-function writeLabelState(state: LabelState): void {
+function writeLabelState(state: Labels): void {
     writeSetting(DIAGRAM_LABELS_STORAGE_KEY, JSON.stringify(state));
 }
 
 export default class CurrentView extends Component {
-    #diagram: Diagram;
+    #diagram: ToolbarDiagram;
     #controls: DiagramControls;
     #model: WorkspaceModel;
 
@@ -136,7 +150,7 @@ export default class CurrentView extends Component {
      * the view changes that rebuild the toolbar — *and* in localStorage, which
      * survives a reload.
      */
-    #labels: LabelState = readLabelState();
+    #labels: Labels = readLabelState();
 
     /**
      * What the diagram is actually showing. `structurizr-diagram.js` exposes
@@ -146,7 +160,7 @@ export default class CurrentView extends Component {
      * idempotent setters and stops the state from ever drifting or
      * double-flipping.
      */
-    #appliedLabels: LabelState = { ...STRUCTURIZR_LABEL_DEFAULTS };
+    #appliedLabels: Labels = { ...STRUCTURIZR_LABEL_DEFAULTS };
 
     #unsubscribeTheme: (() => void) | null = null;
 
@@ -200,7 +214,7 @@ export default class CurrentView extends Component {
 
     constructor(
         element: HTMLElement,
-        diagram: Diagram,
+        diagram: ToolbarDiagram,
         controls: DiagramControls,
         model: WorkspaceModel,
     ) {
@@ -289,7 +303,7 @@ export default class CurrentView extends Component {
         }
     }
 
-    #setLabels(next: Partial<LabelState>) {
+    #setLabels(next: Partial<Labels>) {
         this.#labels = { ...this.#labels, ...next };
         writeLabelState(this.#labels);
 

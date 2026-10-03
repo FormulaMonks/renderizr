@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { branding, singleFile, structurizrRenderer } from "./plugins.js";
+import {
+    branding,
+    engineEntry,
+    ENGINE_ENTRIES,
+    singleFile,
+    structurizrRenderer,
+} from "./plugins.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -33,8 +39,14 @@ export function createConfig({
     singleFile: asSingleFile = false,
     out = "structurizr-output",
     base = "",
+    engine = "structurizr",
     mode = "build",
 }) {
+    if (!Object.hasOwn(ENGINE_ENTRIES, engine)) {
+        throw new Error(
+            `Unknown engine '${engine}'; expected one of: ${Object.keys(ENGINE_ENTRIES).join(", ")}`,
+        );
+    }
     const outDir = resolve(process.cwd(), out);
 
     return {
@@ -45,7 +57,8 @@ export function createConfig({
         ...(mode === "build" ? { configFile: false } : {}),
         publicDir: asSingleFile ? false : resolve(root, "public"),
         plugins: [
-            structurizrRenderer(),
+            engineEntry(engine),
+            ...(engine === "structurizr" ? [structurizrRenderer()] : []),
             branding({ font }),
             ...(asSingleFile ? [singleFile()] : []),
         ],
@@ -69,6 +82,8 @@ export function createConfig({
                 },
             },
         },
+        // The React Flow island is the one place JSX is written.
+        esbuild: { jsx: "automatic" },
         define: {
             workspaceData: JSON.stringify(workspace),
             __RENDERIZR_LOGO__: JSON.stringify(logo),

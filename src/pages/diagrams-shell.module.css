@@ -1,0 +1,79 @@
+/*
+ * The diagrams page with the React Flow engine: a full-viewport shell that
+ * never scrolls (ADR 6). Header, view drawer, toolbar and footer stay on
+ * screen; the canvas takes what remains, sized by CSS alone. Diagrams pan and
+ * zoom inside the canvas.
+ *
+ * `<html data-diagram-shell>` is set by the page while it is on screen, so
+ * every other page keeps the ordinary scrolling document.
+ */
+
+:global(html[data-diagram-shell]),
+:global(html[data-diagram-shell] body) {
+    height: 100dvh;
+    overflow: hidden;
+}
+
+:global(html[data-diagram-shell] #app main) {
+    height: 100dvh;
+    min-height: 0;
+}
+
+.pageContent {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-bottom: 0.75rem;
+}
+
+.layout {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 1.25rem;
+    padding-top: 1rem;
+}
+
+/* The view drawer scrolls on its own, within the shell. */
+.layout > :global(#structurizr-diagram-navigation) {
+    position: static;
+    align-self: stretch;
+    max-height: none;
+    min-height: 0;
+}
+
+.main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.diagramTarget {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    border-radius: 6px;
+    overflow: hidden;
+    /* The island owns every gesture on the canvas. */
+    touch-action: none;
+    background: #ffffff;
+}
+
+:root[data-diagram-theme="dark"] .diagramTarget {
+    background: #111111;
+}
+
+@media (max-width: 767px) {
+    .layout {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .layout > :global(#structurizr-diagram-navigation) {
+        flex: none;
+        max-height: 30dvh;
+    }
+}

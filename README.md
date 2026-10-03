@@ -85,6 +85,7 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 | `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. It is emptied before the build |
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
 | `--base <path>` | Base public path for the multi-file build. Default is empty, which emits relative URLs (`./assets/…`) that work from any subdirectory. Set it to something like `/renderizr/` when the assets must be referenced absolutely |
+| `--engine <name>` | Diagram engine. Default `structurizr`, the vendored Structurizr renderer. `react-flow` builds with the React Flow engine instead, which is in development and draws stored-layout views only |
 | `--logo <path\|url>` | Image shown at the top left of the header. Fetched at build time, minified if it is SVG, and embedded as a data URI. PNG, JPEG, GIF, WebP and SVG are recognized from their bytes rather than their extension; an SVG containing script is rejected |
 | `--logo-alt <text>` | Alt text for the logo. Default empty |
 | `--logo-href <url>` | Wraps the logo in a link |

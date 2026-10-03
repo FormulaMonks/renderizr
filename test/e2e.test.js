@@ -379,3 +379,181 @@ test(
         await rm(alone, { recursive: true, force: true });
     },
 );
+
+/* ---------------------------------------------- the React Flow engine (#41) */
+
+const reactFlowSingle = once(() =>
+    build("react-flow-single", ["--single-file", "--engine", "react-flow"]),
+);
+const reactFlowMulti = once(async () => {
+    const out = await build("react-flow-multi", ["--engine", "react-flow"]);
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+
+const CONTEXT_VIEW = "#/?page=diagrams&view=FixtureContext";
+
+/** The assertions every React Flow output has to pass, whatever it was built as. */
+const assertDrawnView = (document) => {
+    const canvas = document.querySelector("#structurizr-diagram-target");
+    assert.ok(canvas, "the diagram canvas should be on the page");
+
+    const root = canvas.querySelector("[data-view-key]");
+    assert.ok(root, "the canvas root should name its view");
+    assert.equal(root.getAttribute("data-view-key"), "FixtureContext");
+    assert.equal(root.getAttribute("data-ready"), "true");
+
+    const elements = canvas.querySelectorAll("[data-element-id]");
+    assert.deepEqual(
+        elements.map((element) => [
+            element.getAttribute("data-element-id"),
+            element.getAttribute("data-shape"),
+        ]),
+        [
+            ["1", "Person"],
+            ["2", "Box"],
+        ],
+    );
+    assert.match(elements[1].textContent, /Fixture\sSystem/);
+    assert.ok(
+        canvas
+            .querySelector('[data-relationship-id="10"]')
+            ?.querySelector("path"),
+        "the relationship should be drawn as an edge",
+    );
+
+    // One engine per output, and none of React Flow's own chrome.
+    assert.equal(canvas.querySelectorAll("g.joint-element").length, 0);
+    assert.equal(canvas.querySelector(".react-flow__attribution"), null);
+    assert.equal(canvas.querySelector(".react-flow__controls"), null);
+};
+
+test(
+    "--engine react-flow: the single file draws a stored-layout view",
+    { skip: SKIP },
+    async () => {
+        const out = await reactFlowSingle();
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}${CONTEXT_VIEW}`,
+        );
+
+        assertDrawnView(document);
+        assert.match(
+            document.querySelector("#structurizr-current-view h2").textContent,
+            /System Context View: Fixture System/,
+            "the toolbar names the view the engine drew",
+        );
+        assert.equal(
+            document
+                .querySelector(
+                    '#structurizr-diagram-navigation [aria-current="true"]',
+                )
+                .closest("li")
+                .getAttribute("data-viewkey"),
+            "FixtureContext",
+        );
+        assert.ok(
+            document.documentElement.hasAttribute("data-diagram-shell"),
+            "the diagrams page is the full-viewport shell",
+        );
+        assert.match(
+            document.querySelector("#disclaimer").textContent,
+            /React Flow/,
+        );
+    },
+);
+
+test(
+    "--engine react-flow: the multi-file site draws the view when served",
+    { skip: SKIP },
+    async () => {
+        const { origin } = await reactFlowMulti();
+        assertDrawnView(await render(`${origin}/index.html${CONTEXT_VIEW}`));
+    },
+);
+
+test(
+    "--engine react-flow: artifact.html draws the view with nothing beside it",
+    { skip: SKIP },
+    async () => {
+        const out = await reactFlowSingle();
+        const alone = await mkdtemp(join(tmpdir(), "renderizr-alone-"));
+        const copy = join(alone, "artifact.html");
+        await writeFile(copy, await readFile(join(out, "artifact.html")));
+
+        assertDrawnView(await render(`${fileUrl(copy)}${CONTEXT_VIEW}`));
+
+        await rm(alone, { recursive: true, force: true });
+    },
+);
+
+test(
+    "--engine react-flow: a view with nothing to draw still counts as painted",
+    { skip: SKIP },
+    async () => {
+        // A view with no elements has nothing to fit, but it is still shown,
+        // so mounting has to resolve and the canvas has to say it is ready.
+        const workspace = JSON.parse(
+            await readFile(fixture("workspace.json"), "utf8"),
+        );
+        workspace.views.systemContextViews.push({
+            key: "FixtureEmpty",
+            order: 3,
+            softwareSystemId: "2",
+            elements: [],
+            relationships: [],
+        });
+        const source = join(SCRATCH, "empty-view.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const out = join(SCRATCH, "react-flow-empty");
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}#/?page=diagrams&view=FixtureEmpty`,
+        );
+
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-view-key"), "FixtureEmpty");
+        assert.equal(canvas.querySelectorAll("[data-element-id]").length, 0);
+        assert.equal(root.getAttribute("data-ready"), "true");
+    },
+);
+
+test(
+    "--engine react-flow: a workspace without a name or date has a clean header",
+    { skip: SKIP },
+    async () => {
+        // Structurizr's `Workspace` would default these; reading the JSON
+        // directly has to as well, or the header shows "undefined".
+        const workspace = JSON.parse(
+            await readFile(fixture("workspace.json"), "utf8"),
+        );
+        workspace.name = undefined;
+        workspace.lastModifiedDate = undefined;
+        const source = join(SCRATCH, "unnamed.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const out = join(SCRATCH, "react-flow-unnamed");
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}${CONTEXT_VIEW}`,
+        );
+
+        const header = document.querySelector(
+            "#workspace-navigation",
+        ).textContent;
+        assert.match(header, /Last modified:/);
+        assert.doesNotMatch(header, /undefined/);
+        assert.doesNotMatch(header, /Invalid Date/);
+    },
+);
