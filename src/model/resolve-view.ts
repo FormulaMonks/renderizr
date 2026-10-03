@@ -1,4 +1,10 @@
 import { type ResolvedBoundary, resolveBoundaries } from "./boundaries";
+import {
+    elementPasses,
+    filterOf,
+    relationshipPasses,
+    type ViewFilter,
+} from "./filter";
 import type {
     AutomaticLayoutSettings,
     ModelElement,
@@ -42,6 +48,12 @@ export type ResolvedRelationship = RelationshipView & {
     relationship: ModelRelationship;
 };
 
+/** An image view's variants; the engine picks one by the diagram's scheme. */
+export type ImageContent = Pick<
+    ModelView,
+    "content" | "contentLight" | "contentDark"
+>;
+
 export type ResolvedView = {
     key: string;
     type: ViewType;
@@ -59,23 +71,25 @@ export type ResolvedView = {
     /** Ids of the unplaced elements, in view order. Empty unless `layout` is `unplaced`. */
     unplaced: string[];
     automaticLayout: AutomaticLayoutSettings;
-    /** Set on a filtered view: its base view and the tag filter to apply to it. */
+    /** Set on a filtered view: its base view and the tag filter applied to it. */
     filter?: ViewFilter;
+    /** Set on an image view: its picture in each variant it has. */
+    image?: ImageContent;
     view: ModelView;
-};
-
-export type ViewFilter = {
-    baseViewKey: string;
-    mode: "Include" | "Exclude";
-    tags: string[];
 };
 
 /**
  * Turn a view key into a concrete view: its type, elements with coordinates,
- * relationships, layout settings, title and description. A filtered view
- * resolves to its base view's contents under its own key, with `filter` set;
- * the tags are not applied here. `undefined` when the workspace has no view
- * with that key, or a filtered view's base is missing.
+ * relationships, layout settings, title and description.
+ *
+ * A filtered view resolves to its base view minus what its tag filter drops,
+ * under its own key, title and description (spec 12). A relationship survives
+ * only when it passes the filter and both its ends survive. Boundaries and
+ * the layout mode are worked out from the survivors, so a stored base keeps
+ * their coordinates and an automatic one lays out what is left.
+ *
+ * `undefined` when the workspace has no view with that key, or a filtered
+ * view's base is missing or itself filtered (`findViewError` says why).
  */
 export function resolveView(
     model: WorkspaceModel,
@@ -83,16 +97,16 @@ export function resolveView(
 ): ResolvedView | undefined {
     const requested = model.findViewByKey(key);
     if (!requested) return undefined;
-    const filtered = requested.type === "Filtered";
-    const view = filtered
-        ? model.findViewByKey(requested.baseViewKey)
-        : requested;
+    const filter =
+        requested.type === "Filtered" ? filterOf(requested) : undefined;
+    const view = filter ? model.findViewByKey(filter.baseViewKey) : requested;
     if (!view || view.type === "Filtered") return undefined;
 
     const elements: ResolvedElement[] = [];
     for (const placement of view.elements ?? []) {
         const element = model.findElementById(placement.id);
         if (!element) continue;
+        if (filter && !elementPasses(model, filter, element)) continue;
         elements.push({
             id: placement.id,
             x: placement.x ?? 0,
@@ -101,10 +115,19 @@ export function resolveView(
         });
     }
 
+    const survivors = new Set(elements.map((e) => e.id));
     const relationships: ResolvedRelationship[] = [];
     for (const placement of view.relationships ?? []) {
         const relationship = model.findRelationshipById(placement.id);
         if (!relationship) continue;
+        if (
+            filter &&
+            (!relationshipPasses(model, filter, relationship) ||
+                !survivors.has(relationship.sourceId) ||
+                !survivors.has(relationship.destinationId))
+        ) {
+            continue;
+        }
         relationships.push({ ...placement, relationship });
     }
 
@@ -137,11 +160,12 @@ export function resolveView(
         layout,
         unplaced: layout === "unplaced" ? atOrigin.map((e) => e.id) : [],
         automaticLayout: { ...DEFAULT_AUTOMATIC_LAYOUT, ...settings },
-        ...(filtered && {
-            filter: {
-                baseViewKey: view.key,
-                mode: requested.mode === "Include" ? "Include" : "Exclude",
-                tags: (requested.tags as string[] | undefined) ?? [],
+        ...(filter && { filter }),
+        ...(view.type === "Image" && {
+            image: {
+                content: view.content,
+                contentLight: view.contentLight,
+                contentDark: view.contentDark,
             },
         }),
         view: requested,
