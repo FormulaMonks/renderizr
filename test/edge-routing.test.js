@@ -486,6 +486,31 @@ test("Curved backs off its smoothing when the curve would cut a corner", () => {
     assert.deepEqual(crossings(route, [corner]), [], fmt(route));
 });
 
+test("Curved keeps out of every element's padding, not just the element", () => {
+    // The Direct route bends over the blocker; a fully smoothed curve swings
+    // out of the first bend toward the element above, short of the element
+    // itself but well into its padding.
+    const elements = [
+        element("a", 0, 0),
+        element("blocker", 400, -20, 100, 140),
+        element("b", 800, 0),
+        element("above", 200, -70, 100, 40),
+    ];
+    const [routed] = routeView(elements, [
+        edge("ab", "a", "b", { routing: "Curved" }),
+    ]);
+    // A hair less than the padding, so hugging a padded corner still passes.
+    assert.deepEqual(
+        crossings(
+            routed.route,
+            [elements[1], elements[3]],
+            obstaclePadding(2) - 0.01,
+        ),
+        [],
+        fmt(routed.route),
+    );
+});
+
 /* ---------------- whole views */
 
 test("routeView runs synchronously and routes every edge, in view order", () => {

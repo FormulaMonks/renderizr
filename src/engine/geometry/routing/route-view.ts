@@ -17,6 +17,7 @@ import type { Point, Rect, ShapeGeometry, Side } from "../shapes/types";
 import {
     directRoute,
     obstaclePadding,
+    obstaclesFor,
     orthogonalRoute,
     orthogonalThrough,
 } from "./avoid";
@@ -254,7 +255,12 @@ function routeOf(
     points[points.length - 1] = onOutline(target, sides.target, targetAlong);
 
     if (edge.routing !== "Curved") return { route: points };
-    return curvedRoute(points, vertices.length ? [] : others);
+    // The curve has to clear what the Direct route under it cleared: the
+    // padded elements, not just the elements (spec 10.2).
+    return curvedRoute(
+        points,
+        vertices.length ? [] : obstaclesFor(others, [start, end], padding),
+    );
 }
 
 /**

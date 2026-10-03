@@ -2,7 +2,7 @@
  * Curved routes (spec 10.2, 10.3): a smooth curve through the points of a
  * Direct route or a relationship's vertices, as a Catmull–Rom spline written
  * as cubic Béziers. Avoidance only checks the curve: where it would swing
- * into an element, the smoothing is eased off until it does not, down to the
+ * into a padded element, the smoothing is eased off until it does not, down to the
  * Direct route itself.
  */
 
@@ -80,17 +80,18 @@ const pathOf = (cubics: Cubic[]): string =>
 /**
  * The smooth curve through `points`: its path data, and its route as
  * sampled points. The first tension whose curve stays out of every one of
- * `elements` wins; with no elements, the curve is as smooth as it gets.
+ * `obstacles` (the padded elements, spec 10.2) wins; with none, the curve is
+ * as smooth as it gets.
  */
 export function curvedRoute(
     points: Point[],
-    elements: Rect[],
+    obstacles: Rect[],
 ): { route: Point[]; path: string } {
     let cubics = smooth(points, 0);
     for (const tension of TENSIONS) {
         const candidate = smooth(points, tension);
         const route = sample(candidate);
-        if (!elements.some((element) => routeCrosses(route, element))) {
+        if (!obstacles.some((box) => routeCrosses(route, box))) {
             cubics = candidate;
             break;
         }

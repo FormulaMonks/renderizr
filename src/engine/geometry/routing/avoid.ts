@@ -42,7 +42,11 @@ export const obstaclePadding = (thickness: number): number =>
  * the route's own ends: an element that close is kept at its own size, and
  * one the end sits inside is left out, so the route can always start.
  */
-function obstaclesFor(elements: Rect[], ends: Point[], padding: number) {
+export function obstaclesFor(
+    elements: Rect[],
+    ends: Point[],
+    padding: number,
+): Rect[] {
     const obstacles: Rect[] = [];
     for (const element of elements) {
         const padded = grow(element, padding);
