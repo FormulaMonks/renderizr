@@ -388,3 +388,135 @@ export function findRelationshipStyle(
 
     return style as RelationshipStyle;
 }
+
+/* -------------------------------------------------------------- boundaries */
+
+/**
+ * The shapes whose boundary is drawn with rounded corners (upstream's
+ * `shapeHasRoundedCorners`); every other boundary is a square-cornered box.
+ */
+const ROUNDED_BOUNDARY_SHAPES = [
+    "RoundedBox",
+    "Folder",
+    "WebBrowser",
+    "Window",
+    "Terminal",
+    "Shell",
+    "MobileDevicePortrait",
+    "MobileDeviceLandscape",
+    "Component",
+];
+
+/** A boundary is a rectangle: RoundedBox for the rounded family, else Box (spec 8). */
+const boundaryShape = (shape: string | undefined) =>
+    shape !== undefined && ROUNDED_BOUNDARY_SHAPES.includes(shape)
+        ? "RoundedBox"
+        : "Box";
+
+/** Only the attributes `tags` set explicitly, merged in tag order. */
+function explicitAttributes(
+    model: WorkspaceModel,
+    tags: string[],
+    scheme: ColorScheme,
+    themes: Theme[],
+): Partial<ElementStyle> {
+    const byTag = stylesByTag(
+        definitions(model, "elements", themes),
+        scheme,
+        ELEMENT_ATTRIBUTES,
+    );
+    const merged: Record<string, unknown> = {};
+    for (const tag of tags) {
+        const definition = byTag.get(tag);
+        if (definition) copyIfSpecified(definition, merged, ELEMENT_ATTRIBUTES);
+    }
+    return merged as Partial<ElementStyle>;
+}
+
+/**
+ * How an element drawn as a boundary is styled (spec 8, ported from
+ * upstream's `createBoundary`). A software system or container starts from
+ * its own resolved style, overridden field by field by `Boundary` and
+ * `Boundary:<type>`: its fill is the canvas background unless a boundary
+ * style sets one, its stroke stays the element's, and text the color of the
+ * fill falls back to the stroke. A deployment node keeps its own style.
+ * Either way the shape is a rectangle.
+ */
+export function findBoundaryStyle(
+    model: WorkspaceModel,
+    element: ModelElement,
+    scheme: ColorScheme = "Light",
+    themes: Theme[] = [],
+    perspective?: string,
+): ElementStyle {
+    const style = findElementStyle(model, element, scheme, themes, perspective);
+    if (element.type === "DeploymentNode") {
+        return { ...style, shape: boundaryShape(style.shape) };
+    }
+
+    const override = explicitAttributes(
+        model,
+        ["Boundary", `Boundary:${element.type}`],
+        scheme,
+        themes,
+    );
+    const background =
+        override.background ?? SCHEME_DEFAULTS[scheme].background;
+    const stroke =
+        override.stroke ??
+        (override.background === undefined
+            ? style.stroke
+            : shadeColor(override.background, -10));
+    const color =
+        override.color ?? (style.color === background ? stroke : style.color);
+
+    return {
+        ...style,
+        tags: ["Boundary", ...style.tags],
+        background,
+        stroke,
+        color,
+        strokeWidth: override.strokeWidth ?? style.strokeWidth,
+        border: override.border ?? style.border,
+        fontSize: override.fontSize ?? style.fontSize,
+        icon: override.icon ?? style.icon,
+        shape: boundaryShape(override.shape ?? style.shape),
+    };
+}
+
+/**
+ * How a group is styled: `Group` and `Group:<full path>` alone, so a nested
+ * group inherits nothing from the groups around it (spec 8).
+ */
+export function findGroupStyle(
+    model: WorkspaceModel,
+    path: string,
+    scheme: ColorScheme = "Light",
+    themes: Theme[] = [],
+): ElementStyle {
+    const style = findElementStyle(
+        model,
+        { type: "Group", tags: `Group,Group:${path}` },
+        scheme,
+        themes,
+    );
+    return { ...style, shape: boundaryShape(style.shape) };
+}
+
+/**
+ * How the enterprise boundary is styled: `Boundary` and
+ * `Boundary:Enterprise`, resolved the way upstream resolves it, as a group.
+ */
+export function findEnterpriseStyle(
+    model: WorkspaceModel,
+    scheme: ColorScheme = "Light",
+    themes: Theme[] = [],
+): ElementStyle {
+    const style = findElementStyle(
+        model,
+        { type: "Group", tags: "Boundary,Boundary:Enterprise" },
+        scheme,
+        themes,
+    );
+    return { ...style, shape: "Box" };
+}

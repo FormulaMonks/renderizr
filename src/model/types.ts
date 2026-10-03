@@ -16,7 +16,8 @@ export type ElementType =
     | "SoftwareSystemInstance"
     | "ContainerInstance"
     | "Boundary"
-    | "Group";
+    | "Group"
+    | "Enterprise";
 
 export type ViewType =
     | "Custom"
@@ -63,6 +64,12 @@ export type ModelElement = {
     metadata?: string;
     canonicalName?: string;
     environment?: string;
+    /** The group the element belongs to, a path when the model nests groups. */
+    group?: string;
+    /** `Internal`, `External` or `Unspecified`; Internal is inside the enterprise. */
+    location?: string;
+    /** A deployment node's instance count as written: `"4"`, `"0..N"`. */
+    instances?: string | number;
     softwareSystemId?: string;
     containerId?: string;
     relationships?: ModelRelationship[];
@@ -107,6 +114,8 @@ export type ModelView = {
     elementId?: string;
     environment?: string;
     baseViewKey?: string;
+    enterpriseBoundaryVisible?: boolean;
+    properties?: Record<string, string>;
     automaticLayout?: Partial<AutomaticLayoutSettings>;
     elements: ElementView[];
     relationships: RelationshipView[];

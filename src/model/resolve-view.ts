@@ -1,3 +1,4 @@
+import { type ResolvedBoundary, resolveBoundaries } from "./boundaries";
 import type {
     AutomaticLayoutSettings,
     ModelElement,
@@ -48,8 +49,12 @@ export type ResolvedView = {
     description: string;
     elements: ResolvedElement[];
     relationships: ResolvedRelationship[];
-    /** Ids of the elements drawn as boundaries: at least one child is in the view. */
-    boundaries: string[];
+    /**
+     * Everything drawn as a boundary (spec 8), outer before inner: elements
+     * with at least one child in the view, whether the view lists them or
+     * not, groups and the enterprise boundary.
+     */
+    boundaries: ResolvedBoundary[];
     layout: LayoutMode;
     /** Ids of the unplaced elements, in view order. Empty unless `layout` is `unplaced`. */
     unplaced: string[];
@@ -103,16 +108,13 @@ export function resolveView(
         relationships.push({ ...placement, relationship });
     }
 
-    const ids = new Set(elements.map((e) => e.id));
-    const parents = new Set(
-        elements
-            .map((e) => e.element.parentId)
-            .filter((id): id is string => id !== undefined && ids.has(id)),
+    const boundaries = resolveBoundaries(
+        model,
+        view,
+        elements.map((e) => e.element),
     );
-    const boundaries = elements
-        .filter((e) => e.element.type === "Group" || parents.has(e.id))
-        .map((e) => e.id);
-    const drawn = elements.filter((e) => !boundaries.includes(e.id));
+    const boundaryIds = new Set(boundaries.map((b) => b.id));
+    const drawn = elements.filter((e) => !boundaryIds.has(e.id));
     const atOrigin = drawn.filter((e) => e.x === 0 && e.y === 0);
 
     const layout: LayoutMode =
