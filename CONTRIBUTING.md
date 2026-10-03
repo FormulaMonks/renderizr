@@ -319,6 +319,14 @@ srcTest("renders one entry per view", () => {
 
 `test/e2e.test.js` goes further and runs a real `--single-file` build in headless Chrome. It skips itself with a message when no Chrome-shaped binary is on the machine, so it never fails a clone that has none.
 
+`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. Workspaces from `submodules/structurizr` are skipped with a reason when the submodule is absent. A rule the engine cannot meet yet is listed in `PENDING` with the ticket that closes it, and runs as a todo until then.
+
+To review every acceptance view by eye, under the Structurizr renderer and the React Flow engine side by side:
+
+```sh
+node test/contact-sheet.js        # writes contact-sheet/index.html
+```
+
 ### Coverage
 
 ```bash

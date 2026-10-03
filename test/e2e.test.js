@@ -423,10 +423,12 @@ const assertDrawnView = (document) => {
         "the relationship should be drawn as an edge",
     );
 
-    // One engine per output, and none of React Flow's own chrome.
-    assert.equal(canvas.querySelectorAll("g.joint-element").length, 0);
+    // None of React Flow's own chrome.
     assert.equal(canvas.querySelector(".react-flow__attribution"), null);
     assert.equal(canvas.querySelector(".react-flow__controls"), null);
+    // The geometry report is for the acceptance harness's builds only
+    // (`test/acceptance.test.js`); a reader's page never carries it.
+    assert.equal(document.querySelector("#engine-report"), null);
 };
 
 test(

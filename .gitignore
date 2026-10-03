@@ -19,6 +19,8 @@ dist-ssr
 # "output" anywhere in the tree.
 /structurizr-output/
 /output/
+# `node test/contact-sheet.js` writes here by default.
+/contact-sheet/
 
 # Wrong-package-manager lockfiles. pnpm-lock.yaml is the lockfile; npm and yarn
 # will happily produce a second one and drift it (see CONTRIBUTING.md).
