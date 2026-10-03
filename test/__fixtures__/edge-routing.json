@@ -1,0 +1,590 @@
+{
+    "id": 0,
+    "name": "Edge routing",
+    "description": "Stored-layout views for the edge-routing rules of spec 10: avoidance in every routing mode, edge ends, self-relationships, jump-overs and stored vertices.",
+    "model": {
+        "softwareSystems": [
+            {
+                "id": "1",
+                "tags": "Element,Software System",
+                "name": "Direct A",
+                "description": "Talks to B",
+                "relationships": [
+                    {
+                        "id": "4",
+                        "tags": "Relationship,Direct",
+                        "sourceId": "1",
+                        "destinationId": "3",
+                        "description": "Asks"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "2",
+                "tags": "Element,Software System",
+                "name": "Direct obstacle",
+                "description": "Sits in the way",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "3",
+                "tags": "Element,Software System",
+                "name": "Direct B",
+                "description": "Talks back to A",
+                "relationships": [
+                    {
+                        "id": "5",
+                        "tags": "Relationship,Direct",
+                        "sourceId": "3",
+                        "destinationId": "1",
+                        "description": "Answers"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "6",
+                "tags": "Element,Software System",
+                "name": "Orthogonal A",
+                "description": "Talks to B",
+                "relationships": [
+                    {
+                        "id": "9",
+                        "tags": "Relationship,Orthogonal",
+                        "sourceId": "6",
+                        "destinationId": "8",
+                        "description": "Asks"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "7",
+                "tags": "Element,Software System",
+                "name": "Orthogonal obstacle",
+                "description": "Sits in the way",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "8",
+                "tags": "Element,Software System",
+                "name": "Orthogonal B",
+                "description": "Talks back to A",
+                "relationships": [
+                    {
+                        "id": "10",
+                        "tags": "Relationship,Orthogonal",
+                        "sourceId": "8",
+                        "destinationId": "6",
+                        "description": "Answers"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "11",
+                "tags": "Element,Software System",
+                "name": "Curved A",
+                "description": "Talks to B",
+                "relationships": [
+                    {
+                        "id": "14",
+                        "tags": "Relationship,Curved",
+                        "sourceId": "11",
+                        "destinationId": "13",
+                        "description": "Asks"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "12",
+                "tags": "Element,Software System",
+                "name": "Curved obstacle",
+                "description": "Sits in the way",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "13",
+                "tags": "Element,Software System",
+                "name": "Curved B",
+                "description": "Talks back to A",
+                "relationships": [
+                    {
+                        "id": "15",
+                        "tags": "Relationship,Curved",
+                        "sourceId": "13",
+                        "destinationId": "11",
+                        "description": "Answers"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "16",
+                "tags": "Element,Software System",
+                "name": "Caller",
+                "description": "Calls the worker",
+                "relationships": [
+                    {
+                        "id": "18",
+                        "tags": "Relationship",
+                        "sourceId": "16",
+                        "destinationId": "17",
+                        "description": "Calls"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "17",
+                "tags": "Element,Software System",
+                "name": "Worker",
+                "description": "Calls itself twice",
+                "relationships": [
+                    {
+                        "id": "19",
+                        "tags": "Relationship",
+                        "sourceId": "17",
+                        "destinationId": "17",
+                        "description": "Retries"
+                    },
+                    {
+                        "id": "20",
+                        "tags": "Relationship",
+                        "sourceId": "17",
+                        "destinationId": "17",
+                        "description": "Polls"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "21",
+                "tags": "Element,Software System",
+                "name": "Upper west",
+                "description": "Left of the upper crossing",
+                "relationships": [
+                    {
+                        "id": "27",
+                        "tags": "Relationship",
+                        "sourceId": "21",
+                        "destinationId": "22",
+                        "description": "Crosses above"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "22",
+                "tags": "Element,Software System",
+                "name": "Upper east",
+                "description": "Right of the upper crossing",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "23",
+                "tags": "Element,Software System",
+                "name": "Lower west",
+                "description": "Left of the lower crossing",
+                "relationships": [
+                    {
+                        "id": "28",
+                        "tags": "Relationship",
+                        "sourceId": "23",
+                        "destinationId": "24",
+                        "description": "Crosses below"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "24",
+                "tags": "Element,Software System",
+                "name": "Lower east",
+                "description": "Right of the lower crossing",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "25",
+                "tags": "Element,Software System",
+                "name": "North",
+                "description": "Above both crossings",
+                "relationships": [
+                    {
+                        "id": "29",
+                        "tags": "Relationship,Jump",
+                        "sourceId": "25",
+                        "destinationId": "26",
+                        "description": "Jumps"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "26",
+                "tags": "Element,Software System",
+                "name": "South",
+                "description": "Below both crossings",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "30",
+                "tags": "Element,Software System",
+                "name": "Direct from",
+                "description": "Direct through a vertex",
+                "relationships": [
+                    {
+                        "id": "36",
+                        "tags": "Relationship,Direct",
+                        "sourceId": "30",
+                        "destinationId": "31",
+                        "description": "Via a vertex (Direct)"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "31",
+                "tags": "Element,Software System",
+                "name": "Direct to",
+                "description": "Straight would be clear",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "32",
+                "tags": "Element,Software System",
+                "name": "Orthogonal from",
+                "description": "Orthogonal through a vertex",
+                "relationships": [
+                    {
+                        "id": "37",
+                        "tags": "Relationship,Orthogonal",
+                        "sourceId": "32",
+                        "destinationId": "33",
+                        "description": "Via a vertex (Orthogonal)"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "33",
+                "tags": "Element,Software System",
+                "name": "Orthogonal to",
+                "description": "Straight would be clear",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "34",
+                "tags": "Element,Software System",
+                "name": "Curved from",
+                "description": "Curved through a vertex",
+                "relationships": [
+                    {
+                        "id": "38",
+                        "tags": "Relationship,Curved",
+                        "sourceId": "34",
+                        "destinationId": "35",
+                        "description": "Via a vertex (Curved)"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "35",
+                "tags": "Element,Software System",
+                "name": "Curved to",
+                "description": "Straight would be clear",
+                "relationships": [],
+                "location": "Unspecified"
+            }
+        ]
+    },
+    "documentation": {},
+    "views": {
+        "systemLandscapeViews": [
+            {
+                "key": "Direct",
+                "order": 1,
+                "description": "Direct routing goes round the obstacle; A to B and B to A take two lanes",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 300
+                    },
+                    {
+                        "id": "2",
+                        "x": 900,
+                        "y": 360
+                    },
+                    {
+                        "id": "3",
+                        "x": 1700,
+                        "y": 300
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "4"
+                    },
+                    {
+                        "id": "5"
+                    }
+                ]
+            },
+            {
+                "key": "Orthogonal",
+                "order": 2,
+                "description": "Orthogonal routing goes round the obstacle; A to B and B to A take two lanes",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "6",
+                        "x": 100,
+                        "y": 300
+                    },
+                    {
+                        "id": "7",
+                        "x": 900,
+                        "y": 360
+                    },
+                    {
+                        "id": "8",
+                        "x": 1700,
+                        "y": 300
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "9"
+                    },
+                    {
+                        "id": "10"
+                    }
+                ]
+            },
+            {
+                "key": "Curved",
+                "order": 3,
+                "description": "Curved routing goes round the obstacle; A to B and B to A take two lanes",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "11",
+                        "x": 100,
+                        "y": 300
+                    },
+                    {
+                        "id": "12",
+                        "x": 900,
+                        "y": 360
+                    },
+                    {
+                        "id": "13",
+                        "x": 1700,
+                        "y": 300
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "14"
+                    },
+                    {
+                        "id": "15"
+                    }
+                ]
+            },
+            {
+                "key": "SelfLoops",
+                "order": 4,
+                "description": "Two self-relationships nest at the emptiest corner",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "16",
+                        "x": 100,
+                        "y": 400
+                    },
+                    {
+                        "id": "17",
+                        "x": 900,
+                        "y": 400
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "18"
+                    },
+                    {
+                        "id": "19"
+                    },
+                    {
+                        "id": "20"
+                    }
+                ]
+            },
+            {
+                "key": "JumpOvers",
+                "order": 5,
+                "description": "The jump edge jumps over both plain edges it crosses; they stay plain",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "21",
+                        "x": 100,
+                        "y": 700
+                    },
+                    {
+                        "id": "22",
+                        "x": 1900,
+                        "y": 700
+                    },
+                    {
+                        "id": "23",
+                        "x": 100,
+                        "y": 1500
+                    },
+                    {
+                        "id": "24",
+                        "x": 1900,
+                        "y": 1500
+                    },
+                    {
+                        "id": "25",
+                        "x": 575,
+                        "y": 0
+                    },
+                    {
+                        "id": "26",
+                        "x": 575,
+                        "y": 2200
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "27"
+                    },
+                    {
+                        "id": "28"
+                    },
+                    {
+                        "id": "29"
+                    }
+                ]
+            },
+            {
+                "key": "Vertices",
+                "order": 6,
+                "description": "Each mode passes through its stored vertex even though a straight route is clear",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "30",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "31",
+                        "x": 1700,
+                        "y": 100
+                    },
+                    {
+                        "id": "32",
+                        "x": 100,
+                        "y": 1000
+                    },
+                    {
+                        "id": "33",
+                        "x": 1700,
+                        "y": 1000
+                    },
+                    {
+                        "id": "34",
+                        "x": 100,
+                        "y": 1900
+                    },
+                    {
+                        "id": "35",
+                        "x": 1700,
+                        "y": 1900
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "36",
+                        "vertices": [
+                            {
+                                "x": 1125,
+                                "y": 700
+                            }
+                        ]
+                    },
+                    {
+                        "id": "37",
+                        "vertices": [
+                            {
+                                "x": 1125,
+                                "y": 1600
+                            }
+                        ]
+                    },
+                    {
+                        "id": "38",
+                        "vertices": [
+                            {
+                                "x": 1125,
+                                "y": 2500
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "configuration": {
+            "branding": {},
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Software System",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    },
+                    {
+                        "tag": "Direct",
+                        "routing": "Direct"
+                    },
+                    {
+                        "tag": "Orthogonal",
+                        "routing": "Orthogonal"
+                    },
+                    {
+                        "tag": "Curved",
+                        "routing": "Curved"
+                    },
+                    {
+                        "tag": "Jump",
+                        "jump": true
+                    }
+                ]
+            },
+            "metadataSymbols": "SquareBrackets"
+        }
+    }
+}

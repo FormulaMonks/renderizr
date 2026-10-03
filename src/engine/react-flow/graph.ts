@@ -6,9 +6,9 @@
  * Elements are placed first: where the view stores them, by Dagre when it
  * stores nowhere (spec 7.1, ADR 4), or around the stored ones when only some
  * are unplaced (spec 7.2, ADR 10). Boundaries are then derived from their
- * children, before React renders (spec 8, ADR 9). Routing arrives in a later
- * ticket; until then every edge is a straight line between centers, cut
- * short where it crosses each end's drawn outline.
+ * children, before React renders (spec 8, ADR 9). Every edge is then routed
+ * by `routeView` (spec 10), through Dagre's vertices where the automatic
+ * layout keeps them.
  */
 
 import {
@@ -45,8 +45,13 @@ import {
 } from "../geometry/boundary";
 import { type Bounds, boundsOf } from "../geometry/bounds";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
+import {
+    type RoutingElement,
+    type RoutingMode,
+    routeView,
+    routingModeOf,
+} from "../geometry/routing/route-view";
 import { shapeGeometry, shapeSize } from "../geometry/shapes/index";
-import { intersect } from "../geometry/shapes/outline";
 import type {
     Point,
     Shape,
@@ -128,13 +133,20 @@ export type EdgeLine = {
     id: string;
     sourceId: string;
     targetId: string;
+    /** The source end, on the source's drawn outline: `route`'s first point. */
     source: Point;
+    /** The target end, where the arrowhead's tip lands: `route`'s last point. */
     target: Point;
     /** The drawn route, as the points it passes through, source first. */
     route: Point[];
+    /** SVG path data for the edge as drawn, curves and jump-overs included. */
+    path: string;
+    routing: RoutingMode;
+    /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
+    jump: boolean;
     /**
      * The relationship's stored vertices, or Dagre's in an automatic layout
-     * that keeps them; the tracer does not route through them yet.
+     * that keeps them, which the route passes through.
      */
     vertices: Point[];
     /** In a dynamic view, the order the view gives this edge. */
@@ -157,40 +169,27 @@ export type Graph = {
     /** Outer before inner, the order they are drawn in. */
     boundaries: BoundaryBox[];
     edges: EdgeLine[];
+    /** The box around every element and every route. */
     bounds: Bounds;
     /**
      * Where each unplaced element of a stored layout was put, in view order,
      * for the console line that names it (spec 7.2).
      */
     placements: (Placement & { name: string })[];
+    /** Authoring problems found while drawing, for the island to log once. */
+    warnings: string[];
 };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
 
-const center = (box: ElementBox): Point => ({
-    x: box.x + box.width / 2,
-    y: box.y + box.height / 2,
-});
-
-/**
- * Where the line from the center of `geometry`, drawn with its top-left at
- * `box`, towards `toward` leaves the shape, so that an arrowhead touches the
- * outline it points at rather than the box around it (spec 10.5).
- */
-export function exitPoint(
-    box: Point,
-    geometry: ShapeGeometry,
-    toward: Point,
-): Point {
-    const end = intersect(geometry, {
-        x: toward.x - box.x,
-        y: toward.y - box.y,
-    });
-    return { x: box.x + end.x, y: box.y + end.y };
-}
-
 /** The bounds of an empty view: nothing, at the origin. */
 const NO_BOUNDS: Bounds = { x: 0, y: 0, width: 0, height: 0 };
+
+/**
+ * A route point as an empty box, so the view's bounds take in every route:
+ * a self-relationship's loop reaches outside its element.
+ */
+const pointBox = ({ x, y }: Point): Bounds => ({ x, y, width: 0, height: 0 });
 
 /** The style a boundary of any kind is drawn in. */
 function boundaryStyle(
@@ -242,7 +241,7 @@ export function buildGraph(
     const boundaries = new Set(view.boundaries.map((b) => b.id));
 
     const elements: ElementBox[] = [];
-    /** Each element by id, with the geometry its edge ends are clipped to. */
+    /** Each element by id, with the geometry its edge ends touch. */
     const drawn = new Map<
         string,
         { box: ElementBox; geometry: ShapeGeometry }
@@ -339,9 +338,22 @@ export function buildGraph(
         measure,
     );
 
-    const edges: EdgeLine[] = [];
+    const edges: Omit<EdgeLine, "source" | "target" | "route" | "path">[] = [];
+    const warnings: string[] = [];
     for (const [index, placed] of view.relationships.entries()) {
         const { relationship } = placed;
+        if (
+            boundaries.has(relationship.sourceId) ||
+            boundaries.has(relationship.destinationId)
+        ) {
+            // Spec 10.6: an edge to a box drawn round other elements has no
+            // outline of its own to end on.
+            const name = (id: string) => model.findElementById(id)?.name ?? id;
+            warnings.push(
+                `Relationship ${placed.id} from "${name(relationship.sourceId)}" to "${name(relationship.destinationId)}" ends at a boundary, so it is not drawn.`,
+            );
+            continue;
+        }
         const key = keys[index];
         const from = drawn.get(relationship.sourceId);
         const to = drawn.get(relationship.destinationId);
@@ -355,16 +367,13 @@ export function buildGraph(
             style.metadata && labels.technologies
                 ? getMetadataForRelationship(model, relationship)
                 : "";
-        const start = exitPoint(from.box, from.geometry, center(to.box));
-        const end = exitPoint(to.box, to.geometry, center(from.box));
         edges.push({
             key,
             id: placed.id,
             sourceId: from.box.id,
             targetId: to.box.id,
-            source: start,
-            target: end,
-            route: [start, end],
+            routing: routingModeOf(placed.routing ?? style.routing),
+            jump: placed.jump ?? style.jump ?? false,
             vertices: vertices.get(key) ?? placed.vertices ?? [],
             ...(placed.order !== undefined && { order: placed.order }),
             label: [description, technology].filter(Boolean).join("\n"),
@@ -377,14 +386,43 @@ export function buildGraph(
         });
     }
 
+    // Each edge already carries every field a `RoutingEdge` names.
+    const routes = routeView(
+        [...drawn.values()].map(
+            ({ box, geometry }): RoutingElement => ({
+                id: box.id,
+                x: box.x,
+                y: box.y,
+                geometry,
+            }),
+        ),
+        edges,
+    );
+    const routed: EdgeLine[] = edges.map((edge, index) => {
+        const { route, path } = routes[index];
+        return {
+            ...edge,
+            source: route[0],
+            target: route[route.length - 1],
+            route,
+            path,
+        };
+    });
+
     return {
         key: view.key,
         title: view.title,
         background: defaults.background,
         elements,
         boundaries: drawnBoundaries,
-        edges,
-        bounds: boundsOf([...elements, ...drawnBoundaries]) ?? NO_BOUNDS,
+        edges: routed,
+        bounds:
+            boundsOf([
+                ...elements,
+                ...drawnBoundaries,
+                ...routed.flatMap((edge) => edge.route.map(pointBox)),
+            ]) ?? NO_BOUNDS,
+        warnings,
         placements: placements.map((p) => ({
             ...p,
             name: names.get(p.id) ?? "",
@@ -397,9 +435,8 @@ export function buildGraph(
 /**
  * The key each relationship of the view is drawn under, by index, or
  * `undefined` for one that is not drawn: one that ends at a boundary or at
- * something the view does not draw (spec 10.6), or at its own source. A
- * dynamic view may draw one relationship more than once, so a repeat gets
- * `#1`, `#2` and so on.
+ * something the view does not draw (spec 10.6). A dynamic view may draw one
+ * relationship more than once, so a repeat gets `#1`, `#2` and so on.
  */
 function edgeKeys(
     relationships: ResolvedRelationship[],
@@ -408,12 +445,7 @@ function edgeKeys(
     const seen = new Map<string, number>();
     return relationships.map(({ id, relationship }) => {
         const { sourceId, destinationId } = relationship;
-        if (
-            !drawn.has(sourceId) ||
-            !drawn.has(destinationId) ||
-            sourceId === destinationId
-        )
-            return undefined;
+        if (!drawn.has(sourceId) || !drawn.has(destinationId)) return undefined;
         const repeat = seen.get(id) ?? 0;
         seen.set(id, repeat + 1);
         return repeat === 0 ? id : `${id}#${repeat}`;
@@ -448,9 +480,12 @@ function positionElements(
     const parent = new Map<string, string>();
     for (const boundary of view.boundaries)
         for (const child of boundary.children) parent.set(child, boundary.id);
+    // A self-relationship is a loop at its element's corner (spec 10.7): it
+    // neither ranks Dagre's layout nor makes an element its own neighbor.
     const edges = view.relationships.flatMap(({ relationship }, index) => {
         const id = keys[index];
-        return id === undefined
+        return id === undefined ||
+            relationship.sourceId === relationship.destinationId
             ? []
             : [
                   {

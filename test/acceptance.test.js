@@ -75,17 +75,11 @@ const KNOWN_WARNINGS = [
 ];
 
 /**
- * The todo reason of a check the tracer cannot meet yet, naming the ticket
- * that closes the gap so whoever works on it finds the check waiting.
- */
-const waitingOn = (ticket, builds) =>
-    `waiting on #${ticket}, which ${builds}; delete this gap from CHECKS in test/acceptance.test.js with that ticket`;
-
-/**
  * Every check a view's report is held to. `pending(expected)` gives a todo
- * reason for the views the tracer cannot meet it in yet, or false: the check
- * still runs and reports, as a todo, so a gap that closes early shows up as a
- * passing todo rather than going unnoticed.
+ * reason, naming the ticket that closes the gap, for the views the engine
+ * cannot meet it in yet, or false: the check still runs and reports, as a
+ * todo, so a gap that closes early shows up as a passing todo rather than
+ * going unnoticed. Every gap is closed today.
  */
 const CHECKS = [
     {
@@ -126,9 +120,7 @@ const CHECKS = [
     {
         name: "routes every edge without vertices around other elements",
         check: ({ report }) => avoidsElements(report),
-        pending: (expected) =>
-            expected.layout !== "stored" &&
-            waitingOn(46, "routes edges around elements"),
+        pending: () => false,
     },
     {
         name: "logs nothing beyond the known warnings",
