@@ -38,11 +38,52 @@ export const ICON_BOTTOM_GAP = 15;
 /** How much a Left icon narrows the text column: the icon and its gap. */
 export const ICON_LEFT_INSET = 75;
 
-const ICON_POSITIONS: readonly IconPosition[] = ["Top", "Bottom", "Left"];
+/** How an icon at one position sits in the label template (spec 9.2). */
+export type IconLayout = {
+    /** In a row beside the text, rather than in the column above or below it. */
+    beside: boolean;
+    /** Drawn after the text rather than before it. */
+    after: boolean;
+    /** Height the icon and its gap add to the column; 0 beside the text. */
+    height: number;
+    /** How much the icon narrows the text column. */
+    inset: number;
+    /** The icon's margins, which make the gap between it and the text. */
+    margin: { top: number; bottom: number; right: number };
+};
+
+/** Every icon position's layout: the one place the three are told apart. */
+export const ICON_LAYOUTS: Record<IconPosition, IconLayout> = {
+    Top: {
+        beside: false,
+        after: false,
+        height: ICON_SIZE + ICON_TOP_GAP,
+        inset: 0,
+        margin: { top: 0, bottom: ICON_TOP_GAP, right: 0 },
+    },
+    Bottom: {
+        beside: false,
+        after: true,
+        height: ICON_SIZE + ICON_BOTTOM_GAP,
+        inset: 0,
+        margin: { top: ICON_BOTTOM_GAP, bottom: 0, right: 0 },
+    },
+    Left: {
+        beside: true,
+        after: false,
+        height: 0,
+        inset: ICON_LEFT_INSET,
+        margin: { top: 0, bottom: 0, right: ICON_LEFT_INSET - ICON_SIZE },
+    },
+};
+
+const isIconPosition = (value: string): value is IconPosition =>
+    Object.hasOwn(ICON_LAYOUTS, value);
 
 /** A style's `iconPosition`, with anything unrecognized drawn as `Bottom`. */
-export const iconPositionOf = (value: string): IconPosition =>
-    ICON_POSITIONS.find((position) => position === value) ?? "Bottom";
+export function iconPositionOf(value: string): IconPosition {
+    return isIconPosition(value) ? value : "Bottom";
+}
 
 /**
  * Names and descriptions break on a real newline and on the literal two
@@ -71,21 +112,30 @@ export function textWidth(
     iconPosition: IconPosition,
     icon: boolean,
 ): number {
-    const inset = icon && iconPosition === "Left" ? ICON_LEFT_INSET : 0;
+    const inset = icon ? ICON_LAYOUTS[iconPosition].inset : 0;
     return Math.max(0, width - 2 * SIDE_PADDING - inset);
 }
 
-export type LabelMeasure = {
-    /** The content area's height. */
-    height: number;
-    fontSize: number;
-    iconPosition: IconPosition;
-    /** Whether the icon is drawn in the layout the heights were measured in. */
-    icon: boolean;
+/** The rendered heights of the fixed text parts at one text width. */
+export type FixedHeights = {
     /** The name's rendered height. */
     name: number;
     /** The metadata's rendered height; `undefined` when there is none. */
     metadata?: number;
+};
+
+export type LabelMeasure = FixedHeights & {
+    /** The content area's height. */
+    height: number;
+    fontSize: number;
+    iconPosition: IconPosition;
+    /**
+     * The fixed parts measured at the text width the icon leaves, whether or
+     * not the icon is drawn now; `undefined` when the element has no icon.
+     * Judging the icon by these alone is what lets a dropped icon come back
+     * once the fixed parts shrink, after a late web font (spec 9.5).
+     */
+    withIcon?: FixedHeights;
     /** Whether there is a description to place. */
     description: boolean;
 };
@@ -99,13 +149,9 @@ export type LabelFit = {
     overflows: boolean;
 };
 
-/** Height the icon adds to the column when it sits at `position`. */
-const iconHeight = (position: IconPosition) =>
-    position === "Top"
-        ? ICON_SIZE + ICON_TOP_GAP
-        : position === "Bottom"
-          ? ICON_SIZE + ICON_BOTTOM_GAP
-          : 0;
+/** Height of the name and the metadata under it. */
+const textHeight = ({ name, metadata }: FixedHeights) =>
+    name + (metadata === undefined ? 0 : NAME_GAP + metadata);
 
 /**
  * What of the label fits its content area (spec 9.1). Icon, name and
@@ -113,20 +159,20 @@ const iconHeight = (position: IconPosition) =>
  * name and metadata still overflow they are reported. The description gets
  * the whole lines left after them, and is clamped there with an ellipsis.
  *
- * A Left icon narrows the text column, so a caller that is told to drop it
- * measures again without it before trusting `overflows`.
+ * Lines and overflow are worked out from the heights as drawn now. A Left
+ * icon narrows the text column, so when the icon kept differs from the one
+ * drawn, the caller draws it that way and measures again.
  */
 export function fitLabel(measure: LabelMeasure): LabelFit {
-    const { height, fontSize, iconPosition } = measure;
-    const text =
-        measure.name +
-        (measure.metadata === undefined ? 0 : NAME_GAP + measure.metadata);
-    const withIcon =
-        iconPosition === "Left"
-            ? Math.max(ICON_SIZE, text)
-            : text + iconHeight(iconPosition);
-    const icon = measure.icon && withIcon <= height;
-    const fixed = icon && iconPosition !== "Left" ? withIcon : text;
+    const { height, fontSize, iconPosition, withIcon } = measure;
+    const layout = ICON_LAYOUTS[iconPosition];
+    const icon =
+        withIcon !== undefined &&
+        (layout.beside
+            ? Math.max(ICON_SIZE, textHeight(withIcon))
+            : textHeight(withIcon) + layout.height) <= height;
+    const text = textHeight(measure);
+    const fixed = text + (icon ? layout.height : 0);
     const room = height - fixed - DESCRIPTION_GAP;
     // A hair of slack so a description that fits exactly is not cut by
     // floating-point noise in the measured heights.

@@ -34,6 +34,7 @@ import {
     rect,
     type ShapeBuilder,
     type ShapeDrawing,
+    type SizeRule,
     span,
 } from "./outline";
 import type { Point } from "./types";
@@ -71,6 +72,12 @@ export const hexagon: ShapeBuilder = (width, height) =>
         point(width / 4, height),
         point(0, height / 2),
     ]);
+
+/** The box a regular flat-topped hexagon fills: `floor(w·√3/2)` tall. */
+export const regularHexagon: SizeRule = (width) => ({
+    width,
+    height: Math.floor((width * Math.sqrt(3)) / 2),
+});
 
 /** A rhombus through the middle of each side. */
 export const diamond: ShapeBuilder = (width, height) =>

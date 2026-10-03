@@ -1,7 +1,8 @@
 /**
- * How an element's outline is painted (spec 9.4): border dashes in model
- * units and real alpha. Shared by every shape, so the SVG that draws one
- * stays a matter of geometry.
+ * How an element's outline is painted (spec 9.4): which style colors each
+ * part takes and its border dashes in model units. Shared by every shape, so
+ * the SVG that draws one stays a matter of geometry. Opacity is not here: the
+ * island applies it to all of an element's parts at once with `<g opacity>`.
  */
 
 import type { Paint } from "./shapes/types";
@@ -18,29 +19,6 @@ export function borderDashes(
     if (border === "Dashed") return `${4 * strokeWidth} ${4 * strokeWidth}`;
     if (border === "Dotted") return `${strokeWidth} ${strokeWidth}`;
     return undefined;
-}
-
-const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
-
-/**
- * `color` with real alpha `alpha` (0 to 1), rather than blended towards the
- * canvas as today's renderer does with `shadeColor`. An opaque color comes
- * back unchanged.
- */
-export function withAlpha(color: string, alpha: number): string {
-    if (alpha >= 1) return color;
-    const match = HEX.exec(color);
-    if (!match) {
-        return `color-mix(in srgb, ${color} ${alpha * 100}%, transparent)`;
-    }
-    const hex =
-        match[1].length === 3
-            ? [...match[1]].map((digit) => digit + digit).join("")
-            : match[1];
-    const [r, g, b] = [0, 2, 4].map((at) =>
-        Number.parseInt(hex.slice(at, at + 2), 16),
-    );
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 /** What `paintPart` reads from an element's style. */
@@ -61,9 +39,9 @@ export type PartPaint = {
 
 /**
  * How a shape part with paint role `paint` is drawn in `style` (see `Paint`
- * in `shapes/types.ts`). Border dashes go on the outline (`body`) and on
- * Person and Robot arms (`rule`), as upstream dashes them; bezels, panels
- * and the prompt stay solid.
+ * in `shapes/types.ts`). Border dashes go on the outline (`body`), on device
+ * and window bezels (`frame`) and on Person and Robot arms (`rule`), as
+ * upstream dashes them; panels, displays and the prompt stay solid.
  */
 export function paintPart(paint: Paint, style: PartStyle): PartPaint {
     const { background, stroke, strokeWidth, border } = style;
@@ -80,7 +58,7 @@ export function paintPart(paint: Paint, style: PartStyle): PartPaint {
                 fill: stroke,
                 stroke,
                 strokeWidth,
-                strokeDasharray: undefined,
+                strokeDasharray: borderDashes(border, strokeWidth),
             };
         case "screen":
             return {
