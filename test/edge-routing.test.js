@@ -430,7 +430,7 @@ test("Orthogonal leaves and enters perpendicular to the chosen sides", () => {
 
 /* ---------------- Curved */
 
-test("Curved without bends is the straight Direct line", () => {
+test("Curved without bends is the straight Direct route", () => {
     const { route, path } = curvedRoute(
         [
             { x: 200, y: 50 },
@@ -564,7 +564,7 @@ test("an edge between neighbors goes round the element between them in every mod
 });
 
 test("the edge's own source and target are not obstacles", () => {
-    // Elements overlapping their padding: still a straight line.
+    // Elements overlapping their padding: still a straight route.
     const [routed] = routeView(
         [element("a", 0, 0), element("b", 210, 0)],
         [edge("ab", "a", "b")],

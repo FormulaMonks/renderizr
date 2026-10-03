@@ -94,7 +94,7 @@ function withinReach(
  * `elements` grown by `padding`, with `BEND_PENALTY` per bend.
  * `sourceAndTarget` are the edge's own source and target boxes, which it may
  * touch but not pass through.
- * Falls back to the straight line when no route exists.
+ * Falls back to the straight segment between them when no route exists.
  */
 export function directRoute(
     from: Point,
