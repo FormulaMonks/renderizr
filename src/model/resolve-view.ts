@@ -48,11 +48,19 @@ export type ResolvedRelationship = RelationshipView & {
     relationship: ModelRelationship;
 };
 
-/** An image view's variants; the engine picks one by the diagram's scheme. */
-export type ImageContent = Pick<
-    ModelView,
-    "content" | "contentLight" | "contentDark"
->;
+/**
+ * The fields of an image view that hold its picture, one per variant; the
+ * engine picks one by the diagram's scheme. `IMAGE_FIELDS` in
+ * `scripts/assets.js` names the same three, for the build to inline.
+ */
+const IMAGE_FIELDS = ["content", "contentLight", "contentDark"] as const;
+
+/** An image view's variants. */
+export type ImageContent = Pick<ModelView, (typeof IMAGE_FIELDS)[number]>;
+
+/** The picture fields `view` sets, and no others. */
+const imageContentOf = (view: ModelView): ImageContent =>
+    Object.fromEntries(IMAGE_FIELDS.map((field) => [field, view[field]]));
 
 export type ResolvedView = {
     key: string;
@@ -83,7 +91,8 @@ export type ResolvedView = {
  * relationships, layout settings, title and description.
  *
  * A filtered view resolves to its base view minus what its tag filter drops,
- * under its own key, title and description (spec 12). A relationship survives
+ * under its own key, title and description (spec 12): a filtered view with
+ * no description has none, rather than its base's. A relationship survives
  * only when it passes the filter and both its ends survive. Boundaries and
  * the layout mode are worked out from the survivors, so a stored base keeps
  * their coordinates and an automatic one lays out what is left.
@@ -153,7 +162,7 @@ export function resolveView(
         key: requested.key,
         type: view.type,
         title: model.getTitleForView(requested),
-        description: requested.description || view.description || "",
+        description: requested.description ?? "",
         elements,
         relationships,
         boundaries,
@@ -161,13 +170,7 @@ export function resolveView(
         unplaced: layout === "unplaced" ? atOrigin.map((e) => e.id) : [],
         automaticLayout: { ...DEFAULT_AUTOMATIC_LAYOUT, ...settings },
         ...(filter && { filter }),
-        ...(view.type === "Image" && {
-            image: {
-                content: view.content,
-                contentLight: view.contentLight,
-                contentDark: view.contentDark,
-            },
-        }),
+        ...(view.type === "Image" && { image: imageContentOf(view) }),
         view: requested,
     };
 }

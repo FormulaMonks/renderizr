@@ -36,7 +36,7 @@ export function filterOf(view: ModelView): ViewFilter {
     return {
         baseViewKey: view.baseViewKey ?? "",
         mode: view.mode === "Include" ? "Include" : "Exclude",
-        tags: Array.isArray(view.tags) ? (view.tags as string[]) : [],
+        tags: Array.isArray(view.tags) ? view.tags : [],
     };
 }
 
@@ -58,7 +58,10 @@ export const elementPasses = (
     element: ModelElement,
 ) => passes(filter, model.getAllTagsForElement(element));
 
-/** Whether a relationship passes, matched on its tags and its linked ones'. */
+/**
+ * Whether a relationship passes, matched on all its tags: its own and those
+ * of each relationship its `linkedRelationshipId` chain leads to.
+ */
 export const relationshipPasses = (
     model: WorkspaceModel,
     filter: ViewFilter,
@@ -67,7 +70,8 @@ export const relationshipPasses = (
 
 /**
  * Why the view under `key` cannot be drawn, or `undefined` when it can.
- * Checked by the build too, in `scripts/assets.js`, with the same message
+ * Checked by the build too, in `scripts/assets.js` (`validateWorkspace`),
+ * with the same message; `test/view-types.test.js` holds the two to it
  * (spec 13).
  */
 export function findViewError(

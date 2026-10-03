@@ -270,7 +270,10 @@ export async function loadFont(font) {
 
 /* --------------------------------------------------------------- workspace */
 
-/** The fields of an image view that hold its picture (spec 14). */
+/**
+ * The fields of an image view that hold its picture (spec 14). `IMAGE_FIELDS`
+ * in `src/model/resolve-view.ts` names the same three for the engine.
+ */
 const IMAGE_FIELDS = ["content", "contentLight", "contentDark"];
 
 /**
@@ -362,7 +365,8 @@ async function inlineWorkspaceAssets(workspace) {
 /**
  * Refuse a workspace the engine could not draw (spec 13): a filtered view
  * whose base view is itself a filtered view. The engine checks it again
- * (`findViewError` in `src/model/filter.ts`) with the same message.
+ * (`findViewError` in `src/model/filter.ts`) with the same message, and
+ * `test/view-types.test.js` fails if the two drift apart.
  */
 export function validateWorkspace(workspace) {
     const filtered = workspace.views?.filteredViews ?? [];

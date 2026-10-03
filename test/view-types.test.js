@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe } from "node:test";
+import { validateWorkspace } from "../scripts/assets.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel, findViewError, resolveView } =
@@ -235,22 +236,27 @@ describe("filtered views", () => {
     });
 
     test("the key, title and description are the filtered view's; type and layout settings the base's", () => {
-        const model = bigBank([
-            {
-                key: "NoDatabase",
-                baseViewKey: "Containers",
-                mode: "Exclude",
-                tags: ["Database"],
-                title: "Without the database",
-                description: "Everything but storage",
+        const model = bigBank(
+            [
+                {
+                    key: "NoDatabase",
+                    baseViewKey: "Containers",
+                    mode: "Exclude",
+                    tags: ["Database"],
+                    title: "Without the database",
+                    description: "Everything but storage",
+                },
+                {
+                    key: "Untitled",
+                    baseViewKey: "Containers",
+                    mode: "Exclude",
+                    tags: ["Database"],
+                },
+            ],
+            (json) => {
+                json.views.containerViews[0].description = "The base's own";
             },
-            {
-                key: "Untitled",
-                baseViewKey: "Containers",
-                mode: "Exclude",
-                tags: ["Database"],
-            },
-        ]);
+        );
         const base = resolveView(model, "Containers");
         const view = resolveView(model, "NoDatabase");
 
@@ -269,6 +275,11 @@ describe("filtered views", () => {
             resolveView(model, "Untitled").title,
             base.title,
             "without a title of its own it takes the base's",
+        );
+        assert.equal(
+            resolveView(model, "Untitled").description,
+            "",
+            "without a description of its own it has none, not the base's",
         );
     });
 
@@ -360,6 +371,10 @@ describe("filtered views", () => {
                 .map((r) => [r.id, r.order]),
         );
         assert.ok(view.relationships.length < base.relationships.length);
+        assert.ok(
+            view.relationships.every((r) => r.order),
+            "every surviving relationship keeps an order",
+        );
     });
 
     test("a filtered view whose base is filtered is an error naming both views", () => {
@@ -385,6 +400,33 @@ describe("filtered views", () => {
         assert.equal(findViewError(model, "NoDatabase"), undefined);
         assert.equal(findViewError(model, "Containers"), undefined);
         assert.equal(resolveView(model, "NoDatabaseNoMobile"), undefined);
+    });
+
+    test("the build refuses a filtered view of a filtered view with the engine's message", () => {
+        const filters = [
+            {
+                key: "NoDatabase",
+                baseViewKey: "Containers",
+                mode: "Exclude",
+                tags: ["Database"],
+            },
+            {
+                key: "NoDatabaseNoMobile",
+                baseViewKey: "NoDatabase",
+                mode: "Exclude",
+                tags: ["Mobile App"],
+            },
+        ];
+        const json = structuredClone(BIG_BANK);
+        json.views.filteredViews = filters;
+
+        assert.throws(
+            () => validateWorkspace(json),
+            {
+                message: findViewError(bigBank(filters), "NoDatabaseNoMobile"),
+            },
+            "scripts/assets.js and src/model/filter.ts should say the same",
+        );
     });
 });
 
