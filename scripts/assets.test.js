@@ -888,7 +888,7 @@ test("a filtered view of a plain view, or of a missing one, is accepted", async 
                     containerViews: [{ key: "Containers" }],
                     filteredViews: [
                         { key: "First", baseViewKey: "Containers" },
-                        { key: "Orphan", baseViewKey: "Nowhere" },
+                        { key: "BaseMissing", baseViewKey: "Nowhere" },
                     ],
                 },
             }),
