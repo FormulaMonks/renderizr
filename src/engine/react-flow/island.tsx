@@ -3,6 +3,11 @@
  * computed. Everything React stays in this file and `index.ts`; the page
  * talks to it through the `Engine` handle only (ADR 3).
  *
+ * Boundaries are nodes too, drawn below every element, outer below inner,
+ * and below the edges (spec 8). Their boxes are derived before React renders
+ * with text measured on a canvas in the diagram font, and derived once more
+ * when that font's faces load (spec 9.5).
+ *
  * Only React `style` props and class names are used, never a runtime
  * `<style>` or `setAttribute("style")`, so the CSP stays what the output
  * already needs (spec 9.7).
@@ -39,6 +44,7 @@ import {
     useSyncExternalStore,
 } from "react";
 import type { WorkspaceModel } from "../../model";
+import type { TextBlock } from "../geometry/boundary";
 import {
     breakLines,
     DESCRIPTION_GAP,
@@ -54,8 +60,10 @@ import {
     SIDE_PADDING,
     textWidth,
 } from "../geometry/label";
-import { paintPart } from "../geometry/paint";
+import { borderDashes, paintPart } from "../geometry/paint";
+import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
+    type BoundaryBox,
     buildGraph,
     type ColorScheme,
     type EdgeLine,
@@ -106,14 +114,19 @@ type IslandProps = {
     model: WorkspaceModel;
     store: IslandStore;
     commands: IslandCommands;
+    /** The `--font` family, or null for the fallback stack alone. */
+    font: string | null;
     /** Called once per view, after it has been fitted and painted. */
     onPainted(key: string, graph: Graph): void;
+    /** Called when a painted view is drawn again, as after the font swap. */
+    onRedrawn(graph: Graph): void;
 };
 
 /** Fraction of the container left around a fitted view. */
 const FIT_PADDING = 0.05;
 
 type BoxNode = Node<ElementBox, "box">;
+type BoundaryNode = Node<BoundaryBox, "boundary">;
 type LineEdge = Edge<EdgeLine, "line">;
 
 type ElementLabelProps = Pick<
@@ -428,6 +441,154 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                 key={[data.name, data.metadata, data.icon].join("\n")}
                 {...data}
             />
+            {data.instances && (
+                <TextLines
+                    block={data.instances}
+                    bold
+                    color={data.color}
+                    instanceCount
+                />
+            )}
+        </div>
+    );
+}
+
+type TextLinesProps = {
+    block: TextBlock;
+    bold?: boolean;
+    color: string;
+    /** How far down the box the container the block is drawn in starts. */
+    top?: number;
+    /** Marks a deployment node's `x<instances>`. */
+    instanceCount?: boolean;
+};
+
+/**
+ * Lines already broken by the geometry (spec 8), one per row, so what is
+ * drawn is exactly what was measured: nothing may wrap them again.
+ */
+function TextLines({
+    block,
+    bold,
+    color,
+    top = 0,
+    instanceCount,
+}: TextLinesProps) {
+    return (
+        <div
+            data-instance-count={instanceCount ? "" : undefined}
+            style={{
+                position: "absolute",
+                left: block.x,
+                top: block.y - top,
+                width: block.width,
+                fontSize: block.fontSize,
+                fontWeight: bold ? "bold" : undefined,
+                lineHeight: LINE_HEIGHT,
+                whiteSpace: "pre",
+                color,
+            }}
+        >
+            {block.lines.map((line, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: wrapped lines are a fixed list, top to bottom
+                <div key={index}>{line}</div>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * A boundary: a rectangle around its children with the label band along its
+ * bottom (spec 8). Only the band takes pointer events; empty boundary area
+ * lets a drag through to pan. Opacity is real alpha on fill and stroke; the
+ * label and icon stay opaque, as on elements.
+ */
+function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
+    const { band } = data;
+    const label = [data.name.lines.join(" "), data.metadata?.lines.join(" ")]
+        .filter(Boolean)
+        .join("\n");
+    return (
+        <div
+            data-boundary-id={data.id}
+            style={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                pointerEvents: "none",
+            }}
+        >
+            {/* No handle: no edge ends at a boundary (spec 10.6). */}
+            <svg
+                aria-hidden="true"
+                width={data.width}
+                height={data.height}
+                style={{ position: "absolute", overflow: "visible" }}
+            >
+                <rect
+                    width={data.width}
+                    height={data.height}
+                    rx={data.radius}
+                    ry={data.radius}
+                    fill={data.background}
+                    stroke={data.stroke}
+                    strokeWidth={data.strokeWidth}
+                    strokeDasharray={borderDashes(
+                        data.border,
+                        data.strokeWidth,
+                    )}
+                    opacity={data.opacity}
+                />
+            </svg>
+            <div
+                data-boundary-label=""
+                title={label}
+                style={{
+                    position: "absolute",
+                    left: band.x,
+                    top: band.y,
+                    width: band.width,
+                    height: band.height,
+                    pointerEvents: "auto",
+                }}
+            >
+                {data.icon && data.iconBox && (
+                    <img
+                        src={data.icon}
+                        alt=""
+                        style={{
+                            position: "absolute",
+                            left: data.iconBox.x,
+                            top: data.iconBox.y - band.y,
+                            width: data.iconBox.width,
+                            height: data.iconBox.height,
+                            objectFit: "contain",
+                        }}
+                    />
+                )}
+                <TextLines
+                    block={data.name}
+                    bold
+                    color={data.color}
+                    top={band.y}
+                />
+                {data.metadata && (
+                    <TextLines
+                        block={data.metadata}
+                        color={data.color}
+                        top={band.y}
+                    />
+                )}
+                {data.instances && (
+                    <TextLines
+                        block={data.instances}
+                        bold
+                        color={data.color}
+                        top={band.y}
+                        instanceCount
+                    />
+                )}
+            </div>
         </div>
     );
 }
@@ -491,13 +652,39 @@ function StraightEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
     );
 }
 
-const nodeTypes = { box: BoxElement };
+const nodeTypes = { box: BoxElement, boundary: BoundaryElement };
 const edgeTypes = { line: StraightEdge };
 const proOptions = { hideAttribution: true };
 const nodeOrigin: [number, number] = [0, 0];
 const zoomKeys = ["Meta", "Control"];
 
-function toNodes(graph: Graph): BoxNode[] {
+/**
+ * Below the edges, which sit at 0, so an edge crossing a boundary is never
+ * hidden by its fill; each level of nesting one higher.
+ */
+const BOUNDARY_Z = -1000;
+
+function toBoundaryNodes(graph: Graph): BoundaryNode[] {
+    return graph.boundaries.map((boundary) => ({
+        id: `boundary:${boundary.id}`,
+        type: "boundary",
+        position: { x: boundary.x, y: boundary.y },
+        width: boundary.width,
+        height: boundary.height,
+        zIndex: BOUNDARY_Z + boundary.depth,
+        data: boundary,
+        draggable: false,
+        selectable: false,
+        connectable: false,
+    }));
+}
+
+/** Boundaries first, so that at equal depth they are drawn underneath. */
+function toNodes(graph: Graph): (BoxNode | BoundaryNode)[] {
+    return [...toBoundaryNodes(graph), ...toElementNodes(graph)];
+}
+
+function toElementNodes(graph: Graph): BoxNode[] {
     return graph.elements.map((element) => ({
         id: element.id,
         type: "box",
@@ -536,11 +723,31 @@ function toEdges(graph: Graph): LineEdge[] {
     }));
 }
 
-function Canvas({ model, store, commands, onPainted }: IslandProps) {
+function Canvas({
+    model,
+    store,
+    commands,
+    font,
+    onPainted,
+    onRedrawn,
+}: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
+    const family = diagramFontFamily(font);
+    // Set once the --font faces load; a new measure re-derives the
+    // boundaries with them (spec 9.5).
+    const [fontsLoaded, setFontsLoaded] = useState(false);
+    useEffect(
+        () => whenFontLoads(document.fonts, font, () => setFontsLoaded(true)),
+        [font],
+    );
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a new measure once the faces load is what re-derives the boundaries
+    const measure = useMemo(
+        () => canvasMeasure(document, family),
+        [family, fontsLoaded],
+    );
     const graph = useMemo(
-        () => buildGraph(model, state.key, state.scheme, state.labels),
-        [model, state],
+        () => buildGraph(model, state.key, state.scheme, state.labels, measure),
+        [model, state, measure],
     );
     const nodes = useMemo(() => (graph ? toNodes(graph) : []), [graph]);
     const edges = useMemo(() => (graph ? toEdges(graph) : []), [graph]);
@@ -567,6 +774,12 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
         observer.observe(element);
         return () => observer.disconnect();
     }, []);
+
+    // A view already painted and drawn again (a scheme, labels or the font
+    // swap) keeps its report in step with what is on screen.
+    useEffect(() => {
+        if (graph && painted.current === graph.key) onRedrawn(graph);
+    }, [graph, onRedrawn]);
 
     const bounds = graph?.bounds;
     const fitted = useMemo(
@@ -648,6 +861,7 @@ function Canvas({ model, store, commands, onPainted }: IslandProps) {
                 width: "100%",
                 height: "100%",
                 background: graph?.background,
+                fontFamily: family,
             }}
         >
             <CanvasBackground.Provider value={graph?.background ?? "#ffffff"}>

@@ -92,8 +92,7 @@ const CHECKS = [
         name: "draws exactly the boundaries resolveView says",
         check: ({ report, expected }) =>
             sameBoundariesAsResolved(report, expected),
-        pending: (expected) =>
-            expected.boundaries.length > 0 && waitingOn(44, "draws boundaries"),
+        pending: () => false,
     },
     {
         name: "keeps stored elements at their stored position and size",
@@ -110,7 +109,8 @@ const CHECKS = [
     },
     {
         name: "keeps every element inside its boundary",
-        check: ({ report }) => elementsInsideBoundaries(report),
+        check: ({ report, expected }) =>
+            elementsInsideBoundaries(report, expected),
         pending: () => false,
     },
     {

@@ -3,23 +3,39 @@
  * elements a view puts where, at what size and in what colors, and which
  * edges join them. Nothing here knows about React.
  *
- * The tracer covers stored layouts only. Boundaries, automatic layout,
- * unplaced elements and routing arrive in later tickets; until then
- * boundaries are left out and every edge is a straight line between centers,
+ * Boundaries are derived from their children here, before React renders
+ * (spec 8, ADR 9). Automatic layout, unplaced elements and routing arrive in
+ * later tickets; until then every edge is a straight line between centers,
  * cut short where it crosses each end's drawn outline.
  */
 
 import {
+    type BoundaryKind,
+    type ElementStyle,
+    findBoundaryStyle,
     findElementStyle,
+    findEnterpriseStyle,
+    findGroupStyle,
     findRelationshipStyle,
     getMetadataForElement,
     getMetadataForRelationship,
+    type ResolvedBoundary,
     resolveView,
     SCHEME_DEFAULTS,
     type WorkspaceModel,
 } from "../../model/index";
 
 import type { ColorScheme, Labels } from "../contract";
+import {
+    type BoundaryInput,
+    type DerivedBoundary,
+    deriveBoundaries,
+    elementInstanceCount,
+    estimateText,
+    instanceCountText,
+    type MeasureText,
+    type TextBlock,
+} from "../geometry/boundary";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
 import { shapeGeometry, shapeSize } from "../geometry/shapes/index";
 import { intersect } from "../geometry/shapes/outline";
@@ -57,9 +73,29 @@ export type ElementBox = {
     iconPosition: IconPosition;
     /**
      * The rect inside the box the label template fills, relative to the
-     * box's top-left: the shape's content area (spec 9.4).
+     * box's top-left: the shape's content area (spec 9.4), less the
+     * instance count's corner on a deployment node.
      */
     content: Bounds;
+    /** A deployment node's `x<instances>`, bottom-right inside its box. */
+    instances?: TextBlock;
+};
+
+/** A boundary drawn around its children, with its label band (spec 8). */
+export type BoundaryBox = DerivedBoundary & {
+    kind: BoundaryKind;
+    /** 0 for an outermost boundary; inner ones are drawn above outer ones. */
+    depth: number;
+    /** 20 for the RoundedBox family, square otherwise. */
+    radius: number;
+    background: string;
+    stroke: string;
+    strokeWidth: number;
+    color: string;
+    border: string;
+    /** Real alpha on fill and stroke, 0 to 1; text and icon stay opaque. */
+    opacity: number;
+    icon?: string;
 };
 
 export type EdgeLine = {
@@ -94,6 +130,8 @@ export type Graph = {
     title: string;
     background: string;
     elements: ElementBox[];
+    /** Outer before inner, the order they are drawn in. */
+    boundaries: BoundaryBox[];
     edges: EdgeLine[];
     bounds: Bounds;
 };
@@ -123,7 +161,7 @@ export function exitPoint(
 }
 
 /** The box around every element, or an empty box at the origin. */
-export function boundsOf(elements: ElementBox[]): Bounds {
+export function boundsOf(elements: Bounds[]): Bounds {
     if (!elements.length) return { x: 0, y: 0, width: 0, height: 0 };
     const left = Math.min(...elements.map((e) => e.x));
     const top = Math.min(...elements.map((e) => e.y));
@@ -132,21 +170,47 @@ export function boundsOf(elements: ElementBox[]): Bounds {
     return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
+/** A deployment node's count, and the content area it leaves the label. */
+const elementInstances = ({
+    content,
+    ...instances
+}: ReturnType<typeof elementInstanceCount>) => ({ content, instances });
+
+/** The style a boundary of any kind is drawn in. */
+function boundaryStyle(
+    model: WorkspaceModel,
+    boundary: ResolvedBoundary,
+    scheme: "Light" | "Dark",
+): ElementStyle {
+    if (boundary.element) {
+        return findBoundaryStyle(model, boundary.element, scheme);
+    }
+    if (boundary.group !== undefined) {
+        return findGroupStyle(model, boundary.group, scheme);
+    }
+    return findEnterpriseStyle(model, scheme);
+}
+
+/** The radius of a boundary's corners: 20 for the RoundedBox family. */
+const BOUNDARY_RADIUS = 20;
+
 /**
- * Lay out one view for drawing. `undefined` when the workspace has no view
- * with that key.
+ * Lay out one view for drawing, measuring boundary labels with `measure`
+ * (canvas `measureText` in the island). `undefined` when the workspace has
+ * no view with that key.
  */
 export function buildGraph(
     model: WorkspaceModel,
     key: string,
     scheme: ColorScheme,
     labels: Labels,
+    measure: MeasureText = estimateText,
 ): Graph | undefined {
     const view = resolveView(model, key);
     if (!view) return undefined;
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
-    const boundaries = new Set(view.boundaries);
+    const boundaries = new Set(view.boundaries.map((b) => b.id));
 
     const elements: ElementBox[] = [];
     /** Each element by id, with the geometry its edge ends are clipped to. */
@@ -162,6 +226,16 @@ export function buildGraph(
         const { width, height } = shapeSize(shape, style.width, style.height);
         const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
         const geometry = shapeGeometry(shape, width, height, strokeWidth);
+        const count = instanceCountText(placed.element.instances);
+        const instances =
+            count === undefined
+                ? undefined
+                : elementInstanceCount(
+                      geometry.content,
+                      style.fontSize,
+                      count,
+                      measure,
+                  );
         const box: ElementBox = {
             id: placed.id,
             x: placed.x,
@@ -192,10 +266,20 @@ export function buildGraph(
             icon: style.icon,
             iconPosition: iconPositionOf(style.iconPosition),
             content: geometry.content,
+            ...(instances && elementInstances(instances)),
         };
         elements.push(box);
         drawn.set(box.id, { box, geometry });
     }
+
+    const drawnBoundaries = boundaryBoxes(
+        model,
+        view.boundaries,
+        elements,
+        colorScheme,
+        labels,
+        measure,
+    );
 
     const edges: EdgeLine[] = [];
     const seen = new Map<string, number>();
@@ -242,9 +326,78 @@ export function buildGraph(
         title: view.title,
         background: defaults.background,
         elements,
+        boundaries: drawnBoundaries,
         edges,
-        bounds: boundsOf(elements),
+        bounds: boundsOf([...elements, ...drawnBoundaries]),
     };
+}
+
+/**
+ * Every boundary of the view derived around the drawn `elements` and
+ * styled, outer before inner. Children never move (spec 8).
+ */
+function boundaryBoxes(
+    model: WorkspaceModel,
+    resolved: ResolvedBoundary[],
+    elements: ElementBox[],
+    scheme: "Light" | "Dark",
+    labels: Labels,
+    measure: MeasureText,
+): BoundaryBox[] {
+    const styles = new Map(
+        resolved.map((b) => [b.id, boundaryStyle(model, b, scheme)]),
+    );
+    const inputs: BoundaryInput[] = resolved.map((boundary) => {
+        const style = styles.get(boundary.id)!;
+        const metadata =
+            style.metadata && boundary.kind !== "Group"
+                ? getMetadataForElement(
+                      model,
+                      boundary.element ?? { type: "Enterprise" },
+                      labels.technologies,
+                  )
+                : "";
+        return {
+            id: boundary.id,
+            children: boundary.children,
+            label: {
+                name: boundary.name,
+                metadata,
+                fontSize: style.fontSize,
+                icon: Boolean(style.icon),
+                instances: instanceCountText(boundary.element?.instances),
+            },
+        };
+    });
+    const derived = new Map(
+        deriveBoundaries(
+            inputs,
+            new Map(elements.map((e) => [e.id, e])),
+            measure,
+        ).map((b) => [b.id, b]),
+    );
+
+    const boxes: BoundaryBox[] = [];
+    for (const boundary of resolved) {
+        const box = derived.get(boundary.id);
+        if (!box) continue;
+        const style = styles.get(boundary.id)!;
+        const defaults = SCHEME_DEFAULTS[scheme];
+        boxes.push({
+            ...box,
+            kind: boundary.kind,
+            depth: boundary.depth,
+            radius: style.shape === "RoundedBox" ? BOUNDARY_RADIUS : 0,
+            background: style.background,
+            stroke: style.stroke ?? defaults.color,
+            strokeWidth: style.strokeWidth ?? defaults.strokeWidth,
+            color: style.color ?? defaults.color,
+            border: style.border ?? "Solid",
+            opacity: style.opacity / 100,
+            icon: style.icon,
+        });
+    }
+    return boxes;
 }
 
 /** One notch of `zoomIn` and `zoomOut`. */

@@ -103,11 +103,24 @@ export function mountEngine(
             }
         };
 
+        const onRedrawn = (graph: Graph) => {
+            if (__RENDERIZR_ENGINE_REPORT__) {
+                writeReport(document, engineReport(graph));
+            }
+        };
+
         const stopWaiting = whenMeasurable(target, () => {
             target.replaceChildren();
             root = createRoot(target);
             root.render(
-                createElement(Island, { model, store, commands, onPainted }),
+                createElement(Island, {
+                    model,
+                    store,
+                    commands,
+                    font: __RENDERIZR_FONT__,
+                    onPainted,
+                    onRedrawn,
+                }),
             );
         });
 

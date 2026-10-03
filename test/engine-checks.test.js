@@ -98,6 +98,27 @@ test("a boundary is expected as a boundary, not an element", () => {
         ["2"],
         "the boundary is not expected",
     );
+    assert.deepEqual(
+        expected.nesting,
+        { 2: ["3"] },
+        "the container is not expected inside the system",
+    );
+});
+
+test("groups and the boundaries a view does not list are expected too", () => {
+    const json = structuredClone(FIXTURE);
+    json.model.softwareSystems[0].containers[0].group = "Web";
+    json.views.systemContextViews[1].elements = [{ id: "3", x: 300, y: 300 }];
+    const expected = expectedDrawing(
+        new WorkspaceModel(json),
+        "FixtureContainers",
+    );
+
+    assert.deepEqual(expected.boundaries, ["2", "group:2:Web"]);
+    assert.deepEqual(expected.nesting, {
+        2: ["group:2:Web"],
+        "group:2:Web": ["3"],
+    });
 });
 
 test("a relationship ending at a boundary is not expected as an edge", () => {
@@ -189,8 +210,8 @@ test("a missing element and an extra edge are each named", () => {
 });
 
 test("a missing boundary does not fail the element and edge check", () => {
-    // Boundary ids are checked on their own, so that the check waiting on #44
-    // leaves element and edge ids checked in views with boundaries.
+    // Boundary ids are checked on their own, so a view's elements and edges
+    // are judged apart from its boundaries.
     const drawn = report({
         elements: [box("1", 0, 0), box("2", 300, 0)],
         edges: [edge("10", "1", "2", [])],
@@ -314,6 +335,40 @@ test("an element poking out of its boundary is named", () => {
     );
     assert.equal(problems.length, 1, problems.join("\n"));
     assert.match(problems[0], /1.*9/, "the escaping element is not named");
+});
+
+test("where elements belong comes from resolveView, not from what the engine says it put inside", () => {
+    const drawn = report({
+        elements: [box("1", 250, 50)],
+        boundaries: [
+            { id: "9", x: 0, y: 0, width: 300, height: 300, children: [] },
+        ],
+    });
+    const problems = elementsInsideBoundaries(drawn, {
+        ...RESOLVED,
+        nesting: { 9: ["1"] },
+    });
+    assert.equal(problems.length, 1, problems.join("\n"));
+    assert.match(problems[0], /1.*9/, "the escaping element is not named");
+});
+
+test("an element has to sit inside every boundary around it, not only the nearest", () => {
+    const drawn = report({
+        elements: [box("1", 450, 50)],
+        boundaries: [
+            { id: "9", x: 0, y: 0, width: 300, height: 300, children: ["8"] },
+            { id: "8", x: 400, y: 0, width: 300, height: 300, children: ["1"] },
+        ],
+    });
+    const problems = elementsInsideBoundaries(drawn, {
+        ...RESOLVED,
+        nesting: { 9: ["8"], 8: ["1"] },
+    });
+    assert.deepEqual(
+        problems,
+        ["8 pokes out of boundary 9", "1 pokes out of boundary 9"],
+        problems.join("\n"),
+    );
 });
 
 /* --------------------------------------------------------------- edge ends */

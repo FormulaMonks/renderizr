@@ -62,8 +62,14 @@ export function engineReport(graph: Graph): EngineReport {
             width: element.width,
             height: element.height,
         })),
-        // The tracer draws no boundaries; #44 derives and reports them.
-        boundaries: [],
+        boundaries: graph.boundaries.map((boundary) => ({
+            id: boundary.id,
+            x: boundary.x,
+            y: boundary.y,
+            width: boundary.width,
+            height: boundary.height,
+            children: boundary.children,
+        })),
         edges: graph.edges.map((edge) => ({
             key: edge.key,
             id: edge.id,
