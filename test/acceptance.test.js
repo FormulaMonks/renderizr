@@ -6,8 +6,9 @@
  * person can judge.
  *
  * Each workspace is built once as a single file with the report flag on;
- * each view is opened at its own URL, so `readyAt` is the time from
- * navigation to that view being painted.
+ * each view is opened at its own URL, one Chrome at a time, so the wall-clock
+ * time to the document, less what Chrome takes to start, is that view's alone
+ * (`renderPage`, `launchCost`).
  *
  * Skips with a reason when Chrome is missing, and per workspace when the
  * Structurizr submodule is.
@@ -17,30 +18,31 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { after } from "node:test";
 import {
     ACCEPTANCE_SET,
     buildForAcceptance,
-    mapLimit,
     missingReason,
     prepareWorkspace,
     viewKeys,
     viewUrl,
 } from "./support/acceptance.js";
-import { findChrome, renderPage } from "./support/browser.js";
+import { findChrome, launchCost, renderPage } from "./support/browser.js";
 import { parseDocument } from "./support/dom.js";
 import {
     avoidsElements,
     edgeEndsOnOutlines,
     elementsInsideBoundaries,
     expectedDrawing,
+    isAutomatic,
     noOverlappingElements,
     readyInTime,
-    sameIdsAsResolved,
+    sameBoundariesAsResolved,
+    sameElementsAndEdgesAsResolved,
     storedElementsInPlace,
     unexpectedLogs,
 } from "./support/engine-checks.js";
-import { importSrc } from "./support/ts.js";
+import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
 
@@ -55,9 +57,6 @@ after(() => rm(SCRATCH, { recursive: true, force: true }));
 /** Spec 15.2: an ordinary acceptance view is painted within 2 s. */
 const READY_WITHIN_MS = 2000;
 
-/** How many Chromes run at once while a workspace's views are rendered. */
-const BROWSERS = 4;
-
 /**
  * Console lines the engine is allowed to write: the warnings the spec asks
  * for, and nothing else.
@@ -70,76 +69,87 @@ const KNOWN_WARNINGS = [
 ];
 
 /**
- * Rules the tracer cannot meet yet, each until the ticket that builds what
- * they check. The check still runs and reports, as a todo, so a gap that
- * closes early shows up as a passing todo rather than going unnoticed. Delete
- * an entry with the ticket that closes it.
+ * The todo reason of a check the tracer cannot meet yet, naming the ticket
+ * that closes the gap so whoever works on it finds the check waiting.
  */
-const PENDING = [
-    {
-        check: "draws exactly what resolveView says",
-        when: (expected) => expected.boundaries.length > 0,
-        until: "#44 draws boundaries",
-    },
-    {
-        check: "draws no overlapping elements",
-        when: (expected) => expected.layout === "automatic",
-        until: "#45 lays out automatic views",
-    },
-    {
-        check: "starts and ends every edge on its elements' outlines",
-        when: (expected) => expected.layout === "automatic",
-        until: "#45 lays out automatic views",
-    },
-    {
-        check: "routes every edge without vertices around other elements",
-        when: (expected) => expected.layout !== "stored",
-        until: "#45 and #46 lay out and route the view",
-    },
-];
+const waitingOn = (ticket, builds) =>
+    `waiting on #${ticket}, which ${builds}; delete this gap from CHECKS in test/acceptance.test.js with that ticket`;
 
-const pending = (check, expected) =>
-    PENDING.find((gap) => gap.check === check && gap.when(expected))?.until ??
-    false;
-
-/** Every check a view's report is held to, as `[name, problems]` pairs. */
+/**
+ * Every check a view's report is held to. `pending(expected)` gives a todo
+ * reason for the views the tracer cannot meet it in yet, or false: the check
+ * still runs and reports, as a todo, so a gap that closes early shows up as a
+ * passing todo rather than going unnoticed.
+ */
 const CHECKS = [
-    [
-        "draws exactly what resolveView says",
-        ({ report, expected }) => sameIdsAsResolved(report, expected),
-    ],
-    [
-        "keeps stored elements at their stored position and size",
-        ({ report, expected }) => storedElementsInPlace(report, expected),
-    ],
-    [
-        "draws no overlapping elements",
-        ({ report, expected }) =>
-            expected.layout === "automatic"
-                ? noOverlappingElements(report)
-                : [],
-    ],
-    [
-        "keeps every element inside its boundary",
-        ({ report }) => elementsInsideBoundaries(report),
-    ],
-    [
-        "starts and ends every edge on its elements' outlines",
-        ({ report }) => edgeEndsOnOutlines(report),
-    ],
-    [
-        "routes every edge without vertices around other elements",
-        ({ report }) => avoidsElements(report),
-    ],
-    [
-        "logs nothing beyond the known warnings",
-        ({ console }) => unexpectedLogs(console, KNOWN_WARNINGS),
-    ],
+    {
+        name: "draws exactly the elements and edges resolveView says",
+        check: ({ report, expected }) =>
+            sameElementsAndEdgesAsResolved(report, expected),
+        pending: () => false,
+    },
+    {
+        name: "draws exactly the boundaries resolveView says",
+        check: ({ report, expected }) =>
+            sameBoundariesAsResolved(report, expected),
+        pending: (expected) =>
+            expected.boundaries.length > 0 && waitingOn(44, "draws boundaries"),
+    },
+    {
+        name: "keeps stored elements at their stored position and size",
+        check: ({ report, expected }) =>
+            storedElementsInPlace(report, expected),
+        pending: () => false,
+    },
+    {
+        name: "draws no overlapping elements",
+        check: ({ report, expected }) =>
+            noOverlappingElements(report, expected),
+        pending: (expected) =>
+            isAutomatic(expected) && waitingOn(45, "lays out automatic views"),
+    },
+    {
+        name: "keeps every element inside its boundary",
+        check: ({ report }) => elementsInsideBoundaries(report),
+        pending: () => false,
+    },
+    {
+        name: "starts and ends every edge on its elements' outlines",
+        check: ({ report }) => edgeEndsOnOutlines(report),
+        // Laid out by nothing yet, an automatic view's elements share the
+        // origin, so an edge between two of them starts at their center.
+        pending: (expected) =>
+            isAutomatic(expected) && waitingOn(45, "lays out automatic views"),
+    },
+    {
+        name: "routes every edge without vertices around other elements",
+        check: ({ report }) => avoidsElements(report),
+        pending: (expected) =>
+            expected.layout !== "stored" &&
+            waitingOn(46, "routes edges around elements, once #45 lays out"),
+    },
+    {
+        name: "logs nothing beyond the known warnings",
+        check: ({ console }) => unexpectedLogs(console, KNOWN_WARNINGS),
+        pending: () => false,
+    },
 ];
 
-/** Open one view and read back its canvas, its report and the console. */
+/** Chrome's own share of every `renderPage`, measured once, when first asked. */
+let launch;
+const chromeLaunch = () => {
+    launch ??= launchCost(CHROME);
+    return launch;
+};
+
+/**
+ * Open one view and read back its canvas, its report, the console, and how
+ * long the view took to arrive in wall-clock time, Chrome's start aside.
+ */
 async function drawView(site, key) {
-    const page = await renderPage(CHROME, viewUrl(site, key));
+    const page = await renderPage(CHROME, viewUrl(site, key), {
+        offline: true,
+    });
     const document = parseDocument(page.html);
     const root = document.querySelector(
         "#structurizr-diagram-target [data-view-key]",
@@ -148,6 +158,7 @@ async function drawView(site, key) {
     return {
         viewKey: root?.getAttribute("data-view-key") ?? null,
         ready: root?.getAttribute("data-ready") === "true",
+        readyIn: page.elapsed - (await chromeLaunch()),
         report: script ? JSON.parse(script.textContent) : null,
         console: page.console,
     };
@@ -166,16 +177,17 @@ for (const entry of ACCEPTANCE_SET) {
             engine: "react-flow",
             report: true,
         }).then(async (site) => {
-            const views = await mapLimit(keys, BROWSERS, (key) =>
-                drawView(site, key),
-            );
-            return new Map(keys.map((key, at) => [key, views[at]]));
+            // One at a time: Chromes beside each other slow each other down,
+            // and the wall-clock time to the document is the 2 s budget.
+            const views = new Map();
+            for (const key of keys) views.set(key, await drawView(site, key));
+            return views;
         });
         return drawn;
     };
 
     if (skip) {
-        test(`${entry.name}: every view is drawn as the workspace says`, {
+        test(`every view of ${entry.name} is drawn as the workspace says`, {
             skip,
         });
         continue;
@@ -184,7 +196,7 @@ for (const entry of ACCEPTANCE_SET) {
     for (const key of keys) {
         const expected = expectedDrawing(model, key);
 
-        test(`${entry.name}, view ${key}`, async (t) => {
+        test(`view ${key} of ${entry.name} is drawn as the workspace says`, async (t) => {
             const view = (await draw()).get(key);
 
             await t.test(`is painted within ${READY_WITHIN_MS} ms`, () => {
@@ -195,12 +207,13 @@ for (const entry of ACCEPTANCE_SET) {
                 );
                 assert.ok(view.ready, "data-ready never turned true");
                 assert.ok(view.report, "no #engine-report in the document");
-                assert.deepEqual(readyInTime(view.report, READY_WITHIN_MS), []);
+                const slow = readyInTime(view.readyIn, READY_WITHIN_MS);
+                assert.deepEqual(slow, [], slow.join("\n"));
             });
             if (!view.report) return;
 
-            for (const [name, check] of CHECKS) {
-                await t.test(name, { todo: pending(name, expected) }, () => {
+            for (const { name, check, pending } of CHECKS) {
+                await t.test(name, { todo: pending(expected) }, () => {
                     const problems = check({ ...view, expected });
                     assert.deepEqual(
                         problems,
