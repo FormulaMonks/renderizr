@@ -52,6 +52,13 @@ export const ACCEPTANCE_SET = [
         source: join(REPO_ROOT, "architecture/workspace.json"),
         submodule: false,
     },
+    {
+        // One stored-layout view per edge-routing case of spec 10, until #51's
+        // purpose-built fixture covers them.
+        name: "Edge routing",
+        source: join(REPO_ROOT, "test/__fixtures__/edge-routing.json"),
+        submodule: false,
+    },
 ];
 
 /** The committed copies of remote themes, beside this repository's fixtures. */
