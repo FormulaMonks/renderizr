@@ -40,6 +40,7 @@ import {
 } from "./outline";
 import type { Segment } from "./types";
 
+/** A quarter turn in radians: the sweep of every rounded corner. */
 const QUARTER = Math.PI / 2;
 
 /**

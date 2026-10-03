@@ -19,6 +19,7 @@ import type {
 /** How far a hit may miss an endpoint or a range and still count. */
 const TOLERANCE = 1e-9;
 
+/** A full turn in radians, for bringing an arc's angles into one range. */
 const TURN = 2 * Math.PI;
 
 /* ---------------- building silhouettes */
@@ -289,6 +290,18 @@ export type ShapeBuilder = (
     height: number,
     strokeWidth: number,
 ) => ShapeDrawing;
+
+/**
+ * The box a shape is drawn in, from its style's `width` and `height`, for a
+ * shape whose box upstream derives rather than takes from the style.
+ */
+export type SizeRule = (
+    width: number,
+    height: number,
+) => { width: number; height: number };
+
+/** A square box as wide as the style: Circle, Diamond, Person and Robot. */
+export const squareFromWidth: SizeRule = (width) => ({ width, height: width });
 
 /** The same inset from both ends of every side: the straight sides of a rounded rectangle. */
 export const insetSpans = (
