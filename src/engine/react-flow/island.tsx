@@ -21,7 +21,6 @@ import {
     EdgeLabelRenderer,
     getViewportForBounds,
     Handle,
-    MarkerType,
     type Node,
     type NodeProps,
     Position,
@@ -60,8 +59,9 @@ import {
     SIDE_PADDING,
     textWidth,
 } from "../geometry/label";
+import { EDGE_LABEL_PADDING, TECHNOLOGY_GAP } from "../geometry/edge-label";
 import { borderDashes, paintPart } from "../geometry/paint";
-import { pointAlong } from "../geometry/routing/path";
+import { lineDashes } from "../geometry/line";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
     type BoundaryBox,
@@ -600,56 +600,80 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
 /** The scheme's canvas color, which edge labels are backed with. */
 const CanvasBackground = createContext("#ffffff");
 
-const dashes = (style: EdgeLine["style"], t: number) =>
-    style === "Dashed"
-        ? `${4 * t} ${4 * t}`
-        : style === "Dotted"
-          ? `${t} ${2 * t}`
-          : undefined;
-
 /**
  * One edge in any routing mode, drawn from the path data the router wrote
- * (spec 10.1): React Flow's own path helpers take no vertices.
+ * (spec 10.1): React Flow's own path helpers take no vertices. The line and
+ * its arrowhead share one `<g opacity>`, so the alpha is real and not doubled
+ * where they overlap; the label's text takes the same alpha over an opaque
+ * backing in the canvas color (spec 10.10).
  */
-function RouteEdge({ id, data, markerEnd }: EdgeProps<LineEdge>) {
+function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
     const background = useContext(CanvasBackground);
     if (!data) return null;
-    const { path, thickness } = data;
-    const mid = pointAlong(data.route, 0.5);
+    const { thickness, labelBox } = data;
 
     return (
         <g data-relationship-id={data.id} data-order={data.order}>
-            <BaseEdge
-                id={id}
-                path={path}
-                markerEnd={markerEnd}
-                style={{
-                    stroke: data.color,
-                    strokeWidth: thickness,
-                    strokeDasharray: dashes(data.style, thickness),
-                    strokeLinecap:
-                        data.style === "Dotted" ? "round" : undefined,
-                    opacity: data.opacity,
-                }}
-            />
-            {data.label && (
+            <g opacity={data.opacity}>
+                <BaseEdge
+                    id={id}
+                    path={data.path}
+                    style={{
+                        stroke: data.color,
+                        strokeWidth: thickness,
+                        strokeDasharray: lineDashes(data.style, thickness),
+                        strokeLinecap:
+                            data.style === "Dotted" ? "round" : undefined,
+                    }}
+                />
+                <path
+                    data-arrowhead=""
+                    d={data.arrowhead}
+                    fill={data.color}
+                    stroke="none"
+                />
+            </g>
+            {labelBox && (
                 <EdgeLabelRenderer>
                     <div
                         data-relationship-label={data.id}
                         style={{
                             position: "absolute",
-                            transform: `translate(-50%, -50%) translate(${mid.x}px, ${mid.y}px)`,
+                            // Centered on the line at its placed position.
+                            transform: `translate(-50%, -50%) translate(${labelBox.x + labelBox.width / 2}px, ${labelBox.y + labelBox.height / 2}px)`,
+                            boxSizing: "content-box",
                             maxWidth: data.labelWidth,
-                            fontSize: data.fontSize,
-                            lineHeight: 1.2,
+                            padding: EDGE_LABEL_PADDING,
+                            lineHeight: LINE_HEIGHT,
                             color: data.color,
                             background,
-                            whiteSpace: "pre-line",
                             textAlign: "center",
-                            padding: 4,
                         }}
                     >
-                        {breakLines(data.label)}
+                        {data.description && (
+                            <div
+                                style={{
+                                    fontSize: data.fontSize,
+                                    whiteSpace: "pre-line",
+                                    opacity: data.opacity,
+                                }}
+                            >
+                                {breakLines(data.description)}
+                            </div>
+                        )}
+                        {data.technology && (
+                            <div
+                                style={{
+                                    fontSize: data.fontSize * METADATA_SCALE,
+                                    marginTop: data.description
+                                        ? TECHNOLOGY_GAP
+                                        : 0,
+                                    opacity: data.opacity,
+                                }}
+                            >
+                                {data.technology}
+                            </div>
+                        )}
                     </div>
                 </EdgeLabelRenderer>
             )}
@@ -724,7 +748,6 @@ function toEdges(graph: Graph): LineEdge[] {
         target: edge.targetId,
         data: edge,
         selectable: false,
-        markerEnd: { type: MarkerType.ArrowClosed, color: edge.color },
     }));
 }
 

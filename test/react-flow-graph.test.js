@@ -203,11 +203,11 @@ test("labels hide descriptions and technologies", () => {
     });
 
     assert.equal(graph.elements[1].description, "");
-    assert.equal(graph.edges[0].label, "");
-    assert.equal(
-        buildGraph(model(), "FixtureContext", "light", LABELS).edges[0].label,
-        "Browses\n[HTTPS]",
-    );
+    assert.equal(graph.edges[0].description, "");
+    assert.equal(graph.edges[0].technology, "");
+    const shown = buildGraph(model(), "FixtureContext", "light", LABELS);
+    assert.equal(shown.edges[0].description, "Browses");
+    assert.equal(shown.edges[0].technology, "[HTTPS]");
 });
 
 test("an edge leaves the Person by its bottom and enters the system by its top", () => {
@@ -690,4 +690,339 @@ test("a self-relationship is drawn as a loop, inside the view's bounds", () => {
             `the view's bounds leave out ${JSON.stringify(point)}`,
         );
     }
+});
+
+/* ---------------- edge labels and line styling (spec 10.8, 10.10) */
+
+/** FixtureContext as a dynamic view whose relationships are `relationships`. */
+function dynamicGraph(relationships, change = () => {}, labels = LABELS) {
+    const json = structuredClone(FIXTURE);
+    const [context] = json.views.systemContextViews;
+    json.views.dynamicViews = [
+        { key: "FixtureDynamic", elements: context.elements, relationships },
+    ];
+    change(json);
+    return buildGraph(
+        new WorkspaceModel(json),
+        "FixtureDynamic",
+        "light",
+        labels,
+    );
+}
+
+/** The FixtureContext view drawn after `change`. */
+function contextGraph(change, scheme = "light", labels = LABELS) {
+    const json = structuredClone(FIXTURE);
+    change(json);
+    return buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContext",
+        scheme,
+        labels,
+    );
+}
+
+const relationshipStyle = (json, style) =>
+    json.views.configuration.styles.relationships.push({
+        tag: "Relationship",
+        ...style,
+    });
+
+const overlap = (a, b) =>
+    a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height;
+
+test("a dynamic view's label is its order, then the view's description, then the technology", () => {
+    const graph = dynamicGraph([
+        { id: "10", order: "1", description: "Opens the site" },
+        { id: "10", order: "2" },
+    ]);
+    assert.deepEqual(
+        graph.edges.map(({ description, technology }) => ({
+            description,
+            technology,
+        })),
+        [
+            { description: "1: Opens the site", technology: "[HTTPS]" },
+            // No description in the view: the relationship's own.
+            { description: "2: Browses", technology: "[HTTPS]" },
+        ],
+    );
+});
+
+test("a dynamic view's label keeps its order with descriptions hidden", () => {
+    const steps = [{ id: "10", order: "3", description: "Opens the site" }];
+    const toggledOff = dynamicGraph(steps, undefined, {
+        descriptions: false,
+        technologies: true,
+    });
+    assert.equal(toggledOff.edges[0].description, "3");
+    const styledOff = dynamicGraph(steps, (json) =>
+        relationshipStyle(json, { description: false }),
+    );
+    assert.equal(styledOff.edges[0].description, "3");
+});
+
+test("a static view's label ignores a description stored in the view", () => {
+    const graph = contextGraph((json) => {
+        json.views.systemContextViews[0].relationships[0].description = "Other";
+    });
+    assert.equal(graph.edges[0].description, "Browses");
+});
+
+test("the technology is in the workspace's metadata symbols, and metadata: false hides it", () => {
+    const round = contextGraph((json) => {
+        json.views.configuration.metadataSymbols = "RoundBrackets";
+    });
+    assert.equal(round.edges[0].technology, "(HTTPS)");
+    const hidden = contextGraph((json) =>
+        relationshipStyle(json, { metadata: false }),
+    );
+    assert.equal(hidden.edges[0].technology, "");
+    assert.equal(hidden.edges[0].description, "Browses");
+    const noDescription = contextGraph((json) =>
+        relationshipStyle(json, { description: false }),
+    );
+    assert.equal(noDescription.edges[0].description, "");
+    assert.equal(noDescription.edges[0].technology, "[HTTPS]");
+});
+
+test("a label is wrapped at the style's width, at the style's font size", () => {
+    const graph = contextGraph((json) =>
+        relationshipStyle(json, { width: 120, fontSize: 30 }),
+    );
+    const [edge] = graph.edges;
+    assert.equal(edge.labelWidth, 120);
+    assert.equal(edge.fontSize, 30);
+    assert.ok(
+        edge.labelBox.width <= 120 + 2 * 4,
+        `the label is ${edge.labelBox.width} wide`,
+    );
+});
+
+const centerOf = (box) => ({
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+});
+
+const near = (actual, expected, message) =>
+    assert.ok(
+        Math.abs(actual.x - expected.x) < 1e-6 &&
+            Math.abs(actual.y - expected.y) < 1e-6,
+        `${message}: ${JSON.stringify(actual)} is not ${JSON.stringify(expected)}`,
+    );
+
+/** The point `fraction` of the way along a route, by length. */
+function along(route, fraction) {
+    const lengths = route
+        .slice(1)
+        .map((p, i) => Math.hypot(p.x - route[i].x, p.y - route[i].y));
+    let left = lengths.reduce((a, b) => a + b, 0) * fraction;
+    for (const [i, length] of lengths.entries()) {
+        if (left <= length) {
+            const t = left / length;
+            return {
+                x: route[i].x + t * (route[i + 1].x - route[i].x),
+                y: route[i].y + t * (route[i + 1].y - route[i].y),
+            };
+        }
+        left -= length;
+    }
+    return route.at(-1);
+}
+
+test("a label sits at 50% of its route by default, centered on the line", () => {
+    const [edge] = buildGraph(model(), "FixtureContext", "light", LABELS).edges;
+    assert.equal(edge.labelPosition, 50);
+    near(centerOf(edge.labelBox), along(edge.route, 0.5), "the label's center");
+});
+
+test("a label's position comes from the view, then the style", () => {
+    const styled = contextGraph((json) =>
+        relationshipStyle(json, { position: 40 }),
+    );
+    assert.equal(styled.edges[0].labelPosition, 40);
+    const viewed = contextGraph((json) => {
+        relationshipStyle(json, { position: 40 });
+        json.views.systemContextViews[0].relationships[0].position = 70;
+    });
+    assert.equal(viewed.edges[0].labelPosition, 70);
+    near(
+        centerOf(viewed.edges[0].labelBox),
+        along(viewed.edges[0].route, 0.7),
+        "the label's center",
+    );
+});
+
+test("a label without a stored position moves off the element it would cover; a stored one stays", () => {
+    // The route runs 200 down from the Reader to the system and the label is
+    // about 67 tall, so at 10% and 15% it reaches into the Reader.
+    const searched = contextGraph((json) =>
+        relationshipStyle(json, { position: 10 }),
+    );
+    assert.equal(searched.edges[0].labelPosition, 20);
+    const stored = contextGraph((json) => {
+        json.views.systemContextViews[0].relationships[0].position = 10;
+    });
+    assert.equal(stored.edges[0].labelPosition, 10);
+});
+
+test("a label keeps clear of a boundary's label band", () => {
+    const json = structuredClone(FIXTURE);
+    const [, containers] = json.views.systemContextViews;
+    json.model.people[0].relationships.push({
+        id: "11",
+        sourceId: "1",
+        destinationId: "3",
+        description: "Uses",
+        tags: "Relationship",
+    });
+    // The Reader below the container: the edge runs up through the system
+    // boundary's band, and starts its label search near it.
+    containers.elements.push(
+        { id: "1", x: 300, y: 1100 },
+        { id: "3", x: 300, y: 300 },
+    );
+    containers.relationships = [{ id: "11" }];
+    relationshipStyle(json, { position: 85 });
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+    const [edge] = graph.edges;
+    const [boundary] = graph.boundaries;
+    const band = {
+        x: boundary.x + boundary.band.x,
+        y: boundary.y + boundary.band.y,
+        width: boundary.band.width,
+        height: boundary.band.height,
+    };
+    const unplaced = {
+        ...edge.labelBox,
+        ...(({ x, y }) => ({
+            x: x - edge.labelBox.width / 2,
+            y: y - edge.labelBox.height / 2,
+        }))(along(edge.route, 0.85)),
+    };
+    assert.ok(
+        overlap(unplaced, band),
+        "at 85% the label would cover the band, so the test means something",
+    );
+    assert.ok(
+        !overlap(edge.labelBox, band),
+        `the label ${JSON.stringify(edge.labelBox)} covers the band ${JSON.stringify(band)}`,
+    );
+    for (const element of graph.elements) {
+        assert.ok(!overlap(edge.labelBox, element), `covers ${element.id}`);
+    }
+});
+
+test("an edge with nothing to say has no label", () => {
+    const [edge] = buildGraph(model(), "FixtureContext", "light", {
+        descriptions: false,
+        technologies: false,
+    }).edges;
+    assert.equal(edge.labelBox, undefined);
+});
+
+test("thickness is clamped to 1 to 10, 2 by default", () => {
+    const cases = [
+        [undefined, 2],
+        [0, 1],
+        [4, 4],
+        [25, 10],
+    ];
+    for (const [thickness, expected] of cases) {
+        const graph = contextGraph((json) =>
+            relationshipStyle(
+                json,
+                thickness === undefined ? {} : { thickness },
+            ),
+        );
+        assert.equal(
+            graph.edges[0].thickness,
+            expected,
+            `thickness ${thickness}`,
+        );
+    }
+});
+
+test("an unstyled edge takes the scheme's color", () => {
+    const unstyled = (json) => {
+        json.views.configuration.styles.relationships = [];
+    };
+    assert.equal(contextGraph(unstyled, "light").edges[0].color, "#444444");
+    assert.equal(contextGraph(unstyled, "dark").edges[0].color, "#cccccc");
+});
+
+test("the line style comes from style, then dashed, Dashed by default", () => {
+    const cases = [
+        [{}, "Dashed"],
+        [{ dashed: false }, "Solid"],
+        [{ dashed: true }, "Dashed"],
+        [{ dashed: false, style: "Dotted" }, "Dotted"],
+    ];
+    for (const [style, expected] of cases) {
+        const graph = contextGraph((json) => relationshipStyle(json, style));
+        assert.equal(graph.edges[0].style, expected, JSON.stringify(style));
+    }
+});
+
+test("an edge's opacity is real alpha from its style", () => {
+    const graph = contextGraph((json) =>
+        relationshipStyle(json, { opacity: 40 }),
+    );
+    assert.equal(graph.edges[0].opacity, 0.4);
+});
+
+test("an edge draws a filled arrowhead at its target only, and its line stops short of the tip", () => {
+    const [edge] = buildGraph(model(), "FixtureContext", "light", LABELS).edges;
+    const tip = edge.target;
+    assert.ok(
+        edge.arrowhead.startsWith(`M ${tip.x} ${tip.y} L `) &&
+            edge.arrowhead.endsWith(" Z"),
+        `the arrowhead ${edge.arrowhead} has its tip at the target end`,
+    );
+    assert.ok(
+        !edge.path.endsWith(`${tip.x} ${tip.y}`),
+        "the line ends before the tip",
+    );
+});
+
+test("a response step is drawn from destination to source with the Relationship/Response style", () => {
+    const graph = dynamicGraph(
+        [
+            { id: "10", order: "1", description: "Request" },
+            { id: "10", order: "2", description: "Reply", response: true },
+        ],
+        (json) =>
+            json.views.configuration.styles.relationships.push({
+                tag: "Relationship/Response",
+                color: "#ff0000",
+            }),
+    );
+    const [request, response] = graph.edges;
+    assert.deepEqual(
+        [request.sourceId, request.targetId, request.color],
+        ["1", "2", "#707070"],
+    );
+    assert.deepEqual(
+        [response.sourceId, response.targetId, response.color],
+        ["2", "1", "#ff0000"],
+    );
+    assert.equal(response.target.y, 600, "the arrowhead is on the Reader");
+});
+
+test("response: true outside a dynamic view changes nothing", () => {
+    const graph = contextGraph((json) => {
+        json.views.systemContextViews[0].relationships[0].response = true;
+    });
+    assert.deepEqual(
+        [graph.edges[0].sourceId, graph.edges[0].targetId],
+        ["1", "2"],
+    );
 });
