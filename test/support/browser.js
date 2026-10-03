@@ -80,11 +80,6 @@ const FLAGS = [
     "--metrics-recording-only",
     "--mute-audio",
     "--disable-features=Translate,MediaRouter,OptimizationHints",
-    // No host resolves but the loopback `serveDirectory` listens on, so a
-    // page that reaches for the network fails at once instead of loading
-    // something, or waiting on it: a pending request holds virtual time
-    // still, and the page would never finish.
-    "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
     // Virtual time runs the page's timers as fast as they can be run, so the
     // deferred first paint and the diagram's settle pass both happen at once
     // rather than in real seconds.
@@ -94,6 +89,16 @@ const FLAGS = [
     // warnings and uncaught errors without a protocol client.
     "--enable-logging=stderr",
     "--v=0",
+];
+
+/**
+ * For a page built to need no network (`offline`): no host resolves but the
+ * loopback `serveDirectory` listens on, so a page that reaches for the network
+ * fails at once instead of loading something, or waiting on it. A pending
+ * request holds virtual time still, and the page would never finish.
+ */
+const OFFLINE_FLAGS = [
+    "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
 ];
 
 /**
@@ -191,31 +196,69 @@ export function consoleMessages(stderr) {
 }
 
 /**
- * Load `url` and resolve with the serialized DOM once the document is
- * complete. Rejects if Chrome fails or takes longer than `timeout`.
+ * Load `url` and resolve with the serialized DOM, every console message the
+ * page wrote while it loaded, and `elapsed`: the wall-clock milliseconds from
+ * launching Chrome to the document arriving. Rejects if Chrome fails or takes
+ * longer than `timeout`.
+ *
+ * The page cannot time itself here. `--virtual-time-budget` fakes every clock
+ * inside it, `performance.now()` and `Date.now()` alike, and skips the waits
+ * on timers, so a page that took seconds can report milliseconds. `elapsed`
+ * is read from Node's own clock instead, which virtual time does not touch.
+ * It includes Chrome's own start: take `launchCost` off it for the page's
+ * share. Chromes running beside it slow it down too, so time one page at a
+ * time.
  */
-export async function dumpDOM(chrome, url, options = {}) {
-    return (await renderPage(chrome, url, options)).html;
+export async function renderPage(
+    chrome,
+    url,
+    { timeout = 60_000, offline = false } = {},
+) {
+    const launched = performance.now();
+    const { out, err } = await runChrome(
+        chrome,
+        url,
+        ["--dump-dom", ...(offline ? OFFLINE_FLAGS : [])],
+        { timeout, isDone: documentComplete },
+    );
+    return {
+        html: out,
+        console: consoleMessages(err),
+        elapsed: performance.now() - launched,
+    };
 }
 
+/** A page with nothing to load or run. */
+const BLANK_PAGE = "data:text/html,<!doctype html><title>blank</title>";
+
 /**
- * Load `url` and resolve with the serialized DOM and every console message
- * the page wrote while it loaded.
+ * What `renderPage` spends on Chrome rather than on the page: the wall-clock
+ * milliseconds to launch Chrome and dump a blank page. The least of `runs`,
+ * since the first launch also pays for a cold disk cache.
  */
-export async function renderPage(chrome, url, { timeout = 60_000 } = {}) {
-    const { out, err } = await runChrome(chrome, url, ["--dump-dom"], {
-        timeout,
-        isDone: documentComplete,
-    });
-    return { html: out, console: consoleMessages(err) };
+export async function launchCost(chrome, { runs = 3 } = {}) {
+    let least = Number.POSITIVE_INFINITY;
+    for (let run = 0; run < runs; run++) {
+        const { elapsed } = await renderPage(chrome, BLANK_PAGE, {
+            offline: true,
+        });
+        least = Math.min(least, elapsed);
+    }
+    return least;
 }
 
 /**
  * Load `url` and save a PNG of the window to `path`, once virtual time has
- * run the page's timers out.
+ * run the page's timers out. `offline` is as for `renderPage`.
  */
-export async function screenshot(chrome, url, path, { timeout = 60_000 } = {}) {
-    await runChrome(chrome, url, [`--screenshot=${path}`], {
+export async function screenshot(
+    chrome,
+    url,
+    path,
+    { timeout = 60_000, offline = false } = {},
+) {
+    const extra = [`--screenshot=${path}`, ...(offline ? OFFLINE_FLAGS : [])];
+    await runChrome(chrome, url, extra, {
         timeout,
         // Chrome says so on stderr once the file is written, and may then
         // linger like it does after `--dump-dom`.
