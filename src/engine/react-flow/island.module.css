@@ -1,0 +1,42 @@
+/*
+ * What the island draws with class names rather than `style` props: states
+ * a style prop cannot reach. `--focus-ring` is the scheme's text color, set
+ * on the canvas as a style prop (spec 6.2).
+ */
+
+/* The canvas is one focusable region; its ring sits inside its rounded box. */
+.canvas:focus {
+    outline: none;
+}
+
+.canvas:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+}
+
+/*
+ * An element, boundary band or edge label with targets. React Flow turns
+ * pointer events off on a node that is neither selectable nor draggable, so
+ * an item with targets turns them back on; one without lets a drag through
+ * to pan. The ring is drawn in the zoomed diagram, so it is 2 model units
+ * wide, as spec 6.2 asks.
+ */
+.target {
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.target:focus {
+    outline: none;
+}
+
+.target:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+}
+
+/* The invisible stroke around an edge that takes its clicks. */
+.hitStroke {
+    cursor: pointer;
+    pointer-events: stroke;
+}

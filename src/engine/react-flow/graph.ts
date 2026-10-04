@@ -1075,6 +1075,41 @@ export function zoomLimits(
     return { floor, ceiling };
 }
 
+/** A React Flow viewport: a model point `p` is on screen at `p * zoom + x`. */
+export type Viewport = { x: number; y: number; zoom: number };
+
+/** How far inside the canvas an item focused off screen comes to rest. */
+const FOCUS_MARGIN = 16;
+
+/** The shift along one axis that brings `[start, end]` inside `[0, length]`. */
+function shiftInto(start: number, end: number, length: number): number {
+    const low = FOCUS_MARGIN;
+    const high = length - FOCUS_MARGIN;
+    // Too big to fit: show its start.
+    if (end - start > high - low || start < low) return low - start;
+    if (end > high) return high - end;
+    return 0;
+}
+
+/**
+ * The viewport that brings `box` (model units) on screen in a canvas of
+ * `size`, moved as little as possible and at the same zoom; `null` when it
+ * is already in view (spec 6.2).
+ */
+export function panIntoView(
+    viewport: Viewport,
+    box: Bounds,
+    size: { width: number; height: number },
+): Viewport | null {
+    const { zoom } = viewport;
+    const left = box.x * zoom + viewport.x;
+    const top = box.y * zoom + viewport.y;
+    const dx = shiftInto(left, left + box.width * zoom, size.width);
+    const dy = shiftInto(top, top + box.height * zoom, size.height);
+    if (dx === 0 && dy === 0) return null;
+    return { x: viewport.x + dx, y: viewport.y + dy, zoom };
+}
+
 /**
  * Whether the canvas showing `viewKey` is ready: only once that same view,
  * and not an earlier one, has been painted.

@@ -3,13 +3,19 @@ import { createRoot, type Root } from "react-dom/client";
 import { type ModelView, WorkspaceModel } from "../../model";
 import {
     abortError,
+    type Anchor,
     type AnimationState,
     type Engine,
     type EngineOptions,
     whenMeasurable,
 } from "../contract";
 import type { Graph } from "./graph";
-import { type IslandCommands, IslandStore, Island } from "./island";
+import {
+    type IslandCommands,
+    type IslandProps,
+    IslandStore,
+    Island,
+} from "./island";
 import { engineReport } from "./report";
 import { removeReport, writeReport } from "./report-script";
 import { ShownListeners } from "./shown";
@@ -53,6 +59,22 @@ export function mountEngine(
             return view;
         };
         const shown = new ShownListeners<ModelView>();
+        const activated = {
+            element: new Set<(id: string, anchor: Anchor) => void>(),
+            relationship: new Set<(id: string, anchor: Anchor) => void>(),
+        };
+        const listen = (
+            listeners: Set<(id: string, anchor: Anchor) => void>,
+            callback: (id: string, anchor: Anchor) => void,
+        ) => {
+            listeners.add(callback);
+            return () => {
+                listeners.delete(callback);
+            };
+        };
+        const onActivate: IslandProps["onActivate"] = (type, id, anchor) => {
+            for (const callback of activated[type]) callback(id, anchor);
+        };
 
         const engine: Engine = {
             showView(key) {
@@ -81,9 +103,15 @@ export function mountEngine(
                 // A late subscriber still hears about the view already shown.
                 return shown.add((view) => callback(view, NO_ANIMATION));
             },
+            onElementActivated: (callback) =>
+                listen(activated.element, callback),
+            onRelationshipActivated: (callback) =>
+                listen(activated.relationship, callback),
             unmount() {
                 stopWaiting();
                 shown.clear();
+                activated.element.clear();
+                activated.relationship.clear();
                 root?.unmount();
                 root = null;
                 if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
@@ -120,6 +148,7 @@ export function mountEngine(
                     font: __RENDERIZR_FONT__,
                     onPainted,
                     onRedrawn,
+                    onActivate,
                 }),
             );
         });

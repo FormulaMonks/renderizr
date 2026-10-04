@@ -9,9 +9,8 @@ import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
-const { buildGraph, stepZoom, ZOOM_STEP, zoomLimits } = await importSrc(
-    "engine/react-flow/graph",
-);
+const { buildGraph, panIntoView, stepZoom, ZOOM_STEP, zoomLimits } =
+    await importSrc("engine/react-flow/graph");
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
 
 const FIXTURE = JSON.parse(
@@ -1800,4 +1799,29 @@ test("only items with targets are in the focus order, top to bottom then left to
         }).focusOrder,
         [],
     );
+});
+
+test("focusing an item already on screen leaves the viewport alone", () => {
+    const viewport = { x: 0, y: 0, zoom: 1 };
+    const size = { width: 800, height: 600 };
+
+    assert.equal(
+        panIntoView(viewport, { x: 100, y: 100, width: 50, height: 50 }, size),
+        null,
+    );
+});
+
+test("focusing an off-screen item pans it into view without changing zoom", () => {
+    const size = { width: 800, height: 600 };
+    // At zoom 2 the box spans 2000..2100 by -200..-100 on screen.
+    const panned = panIntoView(
+        { x: 0, y: -400, zoom: 2 },
+        { x: 1000, y: 100, width: 50, height: 50 },
+        size,
+    );
+
+    assert.equal(panned.zoom, 2);
+    // Its right edge lands 16 inside the right side, its top 16 below the top.
+    assert.equal(1000 * 2 + panned.x + 100, 800 - 16);
+    assert.equal(100 * 2 + panned.y, 16);
 });
