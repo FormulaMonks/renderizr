@@ -8,6 +8,10 @@
  * with text measured on a canvas in the diagram font, and derived once more
  * when that font's faces load (spec 9.5).
  *
+ * An image view is one node holding its picture at its natural size, or the
+ * "Image not available" placeholder (spec 12). A view that cannot be drawn
+ * shows an error panel in place of the canvas (spec 13).
+ *
  * Only React `style` props and class names are used, never a runtime
  * `<style>` or `setAttribute("style")`, so the CSP stays what the output
  * already needs (spec 9.7).
@@ -65,11 +69,16 @@ import { lineDashes } from "../geometry/line";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
     type BoundaryBox,
+    type Bounds,
     buildGraph,
     type ColorScheme,
     type EdgeLine,
     type ElementBox,
+    fitMaxZoom,
     type Graph,
+    type GraphImage,
+    type ImageState,
+    imageBox,
     type Labels,
     readyFor,
     stepZoom,
@@ -126,8 +135,23 @@ type IslandProps = {
 /** Fraction of the container left around a fitted view. */
 const FIT_PADDING = 0.05;
 
+/**
+ * Tell the workspace author about a problem in what they wrote: an element
+ * whose label overflows (spec 9.1), a relationship that cannot be routed
+ * (spec 10.6), an element placed around a stored layout (spec 7.2) or an
+ * image view that cannot be drawn (spec 13). The one console call in shipped
+ * code, a deliberate exception to CODING_STANDARDS.md: the page has nowhere
+ * else to report an authoring problem.
+ */
+function warnAuthor(message: string) {
+    console.warn(message);
+}
+
 type BoxNode = Node<ElementBox, "box">;
 type BoundaryNode = Node<BoundaryBox, "boundary">;
+type ImageNode = Node<{ src: string; alt: string }, "image">;
+type PlaceholderNode = Node<{ color: string }, "placeholder">;
+type DiagramNode = BoxNode | BoundaryNode | ImageNode | PlaceholderNode;
 type LineEdge = Edge<EdgeLine, "line">;
 
 type ElementLabelProps = Pick<
@@ -258,13 +282,8 @@ function ElementLabel({
             setLines(fit.descriptionLines);
             if (fit.overflows && !warned.current) {
                 warned.current = true;
-                // A console call in shipped code, one of the three warnings
-                // the spec asks for (the others name each placed unplaced
-                // element, spec 7.2, and each relationship ending at a
-                // boundary, spec 10.6): spec 9.1 asks for one when name and
-                // metadata overflow, and the page has nowhere else to report
-                // a workspace authoring problem.
-                console.warn(
+                // Spec 9.1 asks for a warning when name and metadata overflow.
+                warnAuthor(
                     `Element ${id} ("${name}"): its name and metadata do not fit its ${content.width}×${content.height} content area.`,
                 );
             }
@@ -693,7 +712,176 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
     );
 }
 
-const nodeTypes = { box: BoxElement, boundary: BoundaryElement };
+/**
+ * An image view's picture at its natural size, never upscaled and with no
+ * chrome (spec 12). The node takes no input and a drag on it pans.
+ */
+function ImagePicture({ data, width, height }: NodeProps<ImageNode>) {
+    return (
+        <img
+            data-image-view=""
+            src={data.src}
+            alt={data.alt}
+            width={width}
+            height={height}
+            draggable={false}
+            style={{ display: "block", pointerEvents: "none" }}
+        />
+    );
+}
+
+/** What an image view draws when its picture cannot be shown (spec 12). */
+function ImagePlaceholder({ data }: NodeProps<PlaceholderNode>) {
+    return (
+        <div
+            data-image-unavailable=""
+            style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: data.color,
+                fontSize: 24,
+                pointerEvents: "none",
+            }}
+        >
+            Image not available
+        </div>
+    );
+}
+
+/**
+ * One loading state for every render, so the nodes and bounds memoized on
+ * it stay put; a fresh object each time rebuilt every view's nodes on every
+ * render, which is how a ResizeObserver loop reached the console.
+ */
+const LOADING: ImageState = { status: "loading" };
+
+/**
+ * Where an image view's picture is: loading, loaded with its natural size,
+ * or failed with the reason, which is logged once (spec 12). A new `src`, as
+ * after `setColorScheme`, starts loading again. Loading for every other view.
+ */
+function useImage(key: string, picture: GraphImage | undefined): ImageState {
+    const src = picture?.src;
+    /** Which view and variant a state belongs to; any other is stale. */
+    const subject = picture ? `${key}\n${src ?? ""}` : null;
+    const [state, setState] = useState<{
+        subject: string | null;
+        image: ImageState;
+    }>({ subject: null, image: LOADING });
+
+    useEffect(() => {
+        if (subject === null) return;
+        const fail = (reason: string) => {
+            // Spec 13 asks for a warning when an image cannot be drawn.
+            warnAuthor(`Image view "${key}": ${reason}`);
+            setState({ subject, image: { status: "failed", reason } });
+        };
+        if (src === undefined) {
+            fail("it has no content, contentLight or contentDark.");
+            return;
+        }
+        const image = new Image();
+        image.onload = () => {
+            if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                setState({
+                    subject,
+                    image: {
+                        status: "loaded",
+                        src,
+                        width: image.naturalWidth,
+                        height: image.naturalHeight,
+                    },
+                });
+            } else {
+                fail("its image has no size.");
+            }
+        };
+        image.onerror = () =>
+            fail(
+                /^https?:/i.test(src)
+                    ? `${src} could not be loaded; the build did not inline it.`
+                    : "its image could not be decoded.",
+            );
+        image.src = src;
+        return () => {
+            image.onload = null;
+            image.onerror = null;
+        };
+    }, [subject, key, src]);
+
+    return subject !== null && state.subject === subject
+        ? state.image
+        : LOADING;
+}
+
+/** What an image view's one node is in every state: at the origin, inert. */
+const STATIC_NODE_PROPS = {
+    position: { x: 0, y: 0 },
+    draggable: false,
+    selectable: false,
+    connectable: false,
+    focusable: false,
+};
+
+/** What the canvas draws for a view, and the bounds it fits. */
+type Drawing = { nodes: DiagramNode[]; bounds: Bounds | undefined };
+
+/** Nothing to draw and nothing to fit, as for a missing view. */
+const NOTHING: Drawing = { nodes: [], bounds: undefined };
+
+/**
+ * What the canvas draws for `graph`. An image view draws nothing but its
+ * picture, or the placeholder once it has failed, and fits that box; nothing
+ * while it loads (spec 12). Any other view draws its boundaries and elements
+ * and fits its bounds.
+ */
+function drawingOf(graph: Graph | undefined, image: ImageState): Drawing {
+    if (!graph) return NOTHING;
+    if (!graph.image) return { nodes: toNodes(graph), bounds: graph.bounds };
+    const box = imageBox(graph.image, graph.color, image);
+    if (!box) return NOTHING;
+    return {
+        nodes: [{ ...STATIC_NODE_PROPS, id: "image", ...box }],
+        bounds: { x: 0, y: 0, width: box.width, height: box.height },
+    };
+}
+
+/**
+ * The error panel (spec 13): replaces the canvas for this view only, naming
+ * what is wrong, in the scheme's colors. Nothing is thrown out of the island.
+ */
+function ViewError({ graph }: { graph: Graph }) {
+    return (
+        <div
+            data-view-error=""
+            role="alert"
+            style={{
+                width: "100%",
+                height: "100%",
+                boxSizing: "border-box",
+                padding: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                color: graph.color,
+                fontSize: 16,
+            }}
+        >
+            {graph.error}
+        </div>
+    );
+}
+
+const nodeTypes = {
+    box: BoxElement,
+    boundary: BoundaryElement,
+    image: ImagePicture,
+    placeholder: ImagePlaceholder,
+};
 const edgeTypes = { line: RouteEdge };
 const proOptions = { hideAttribution: true };
 const nodeOrigin: [number, number] = [0, 0];
@@ -789,7 +977,12 @@ function Canvas({
         () => buildGraph(model, state.key, state.scheme, state.labels, measure),
         [model, state, measure],
     );
-    const nodes = useMemo(() => (graph ? toNodes(graph) : []), [graph]);
+    const image = useImage(state.key, graph?.image);
+    // An image view is fitted to its picture once its size is known.
+    const { nodes, bounds } = useMemo(
+        () => drawingOf(graph, image),
+        [graph, image],
+    );
     const edges = useMemo(() => (graph ? toEdges(graph) : []), [graph]);
 
     // Each authoring problem once per visit, however often the view redraws
@@ -799,9 +992,8 @@ function Canvas({
         for (const warning of graph?.warnings ?? []) {
             if (warned.current.has(warning)) continue;
             warned.current.add(warning);
-            // Spec 10.6 asks for a warning naming the relationship, and the
-            // page has nowhere else to report a workspace authoring problem.
-            console.warn(warning);
+            // Spec 10.6 asks for a warning naming the relationship.
+            warnAuthor(warning);
         }
     }, [graph]);
 
@@ -834,20 +1026,23 @@ function Canvas({
         if (graph && painted.current === graph.key) onRedrawn(graph);
     }, [graph, onRedrawn]);
 
-    const bounds = graph?.bounds;
     const fitted = useMemo(
         () =>
-            bounds && size.width > 0 && size.height > 0 && bounds.width > 0
+            graph &&
+            bounds &&
+            size.width > 0 &&
+            size.height > 0 &&
+            bounds.width > 0
                 ? getViewportForBounds(
                       bounds,
                       size.width,
                       size.height,
                       0,
-                      Number.POSITIVE_INFINITY,
+                      fitMaxZoom(graph),
                       FIT_PADDING,
                   )
                 : null,
-        [bounds, size],
+        [graph, bounds, size],
     );
     const zoom = useStore((flowState) => flowState.transform[2]);
     const { floor, ceiling } = zoomLimits(
@@ -887,12 +1082,9 @@ function Canvas({
     useEffect(() => {
         if (key === undefined || logged.current === key) return;
         logged.current = key;
-        // A console call in shipped code, beside the overflow warning in
-        // ElementLabel and the boundary-relationship warning above: spec 7.2
-        // asks for this line, and the page has nowhere else to report a
-        // workspace authoring gap.
+        // Spec 7.2 asks for a line naming each placed element.
         for (const { id, name, x, y } of placements ?? [])
-            console.warn(
+            warnAuthor(
                 `Placed unplaced element ${id} ("${name}") at (${x}, ${y}) in view ${key}.`,
             );
     }, [key, placements]);
@@ -935,33 +1127,37 @@ function Canvas({
             }}
         >
             <CanvasBackground.Provider value={graph?.background ?? "#ffffff"}>
-                <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    nodeTypes={nodeTypes}
-                    edgeTypes={edgeTypes}
-                    nodeOrigin={nodeOrigin}
-                    connectionMode={ConnectionMode.Loose}
-                    nodesDraggable={false}
-                    nodesConnectable={false}
-                    nodesFocusable={false}
-                    edgesFocusable={false}
-                    elementsSelectable={false}
-                    panOnDrag
-                    panOnScroll
-                    zoomOnScroll={false}
-                    zoomOnPinch
-                    zoomOnDoubleClick={false}
-                    zoomActivationKeyCode={zoomKeys}
-                    minZoom={floor}
-                    maxZoom={ceiling}
-                    colorMode={state.scheme}
-                    proOptions={proOptions}
-                    onMoveStart={(event) => {
-                        // Programmatic moves carry no event; only the reader's do.
-                        if (event) moved.current = true;
-                    }}
-                />
+                {graph?.error ? (
+                    <ViewError graph={graph} />
+                ) : (
+                    <ReactFlow
+                        nodes={nodes}
+                        edges={edges}
+                        nodeTypes={nodeTypes}
+                        edgeTypes={edgeTypes}
+                        nodeOrigin={nodeOrigin}
+                        connectionMode={ConnectionMode.Loose}
+                        nodesDraggable={false}
+                        nodesConnectable={false}
+                        nodesFocusable={false}
+                        edgesFocusable={false}
+                        elementsSelectable={false}
+                        panOnDrag
+                        panOnScroll
+                        zoomOnScroll={false}
+                        zoomOnPinch
+                        zoomOnDoubleClick={false}
+                        zoomActivationKeyCode={zoomKeys}
+                        minZoom={floor}
+                        maxZoom={ceiling}
+                        colorMode={state.scheme}
+                        proOptions={proOptions}
+                        onMoveStart={(event) => {
+                            // Programmatic moves carry no event; only the reader's do.
+                            if (event) moved.current = true;
+                        }}
+                    />
+                )}
             </CanvasBackground.Provider>
         </div>
     );

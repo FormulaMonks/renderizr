@@ -14,6 +14,7 @@ import {
     fixture,
     htmlSkeleton,
     REPO_ROOT,
+    readJsonFixture,
     runCli,
     writeBrokenWorkspace,
 } from "./__fixtures__/helpers.js";
@@ -455,6 +456,42 @@ test("a workspace that is not JSON names the file", async () => {
 
     assert.notEqual(code, 0);
     assert.match(stderr, /broken\.json is not valid JSON/);
+});
+
+test("a filtered view whose base is filtered fails the build naming both views", async () => {
+    const workspace = readJsonFixture("workspace.json");
+    workspace.views.filteredViews = [
+        {
+            key: "NoPeople",
+            baseViewKey: "FixtureContext",
+            mode: "Exclude",
+            tags: ["Person"],
+        },
+        {
+            key: "NoPeopleTwice",
+            baseViewKey: "NoPeople",
+            mode: "Exclude",
+            tags: ["Person"],
+        },
+    ];
+    const source = join(SCRATCH, "filtered-twice.json");
+    await writeFile(source, JSON.stringify(workspace));
+
+    const { code, stderr } = await runCli([
+        source,
+        "--out",
+        join(SCRATCH, "never-filtered"),
+    ]);
+
+    assert.notEqual(code, 0);
+    assert.match(
+        stderr,
+        /Filtered view "NoPeopleTwice" has filtered view "NoPeople" as its base/,
+    );
+    assert.ok(
+        !existsSync(join(SCRATCH, "never-filtered")),
+        "an output directory was created anyway",
+    );
 });
 
 test("the binary prints its usage and exits 0 for --help", async () => {
