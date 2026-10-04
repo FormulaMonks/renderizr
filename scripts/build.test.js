@@ -494,6 +494,24 @@ test("a filtered view whose base is filtered fails the build naming both views",
     );
 });
 
+test("a dynamic-view order that isn't an integer fails the build with the spec's message", async () => {
+    const { code, stderr } = await runCli([
+        join(REPO_ROOT, "test/__fixtures__/fractional-order.json"),
+        "--out",
+        join(SCRATCH, "never-fractional"),
+    ]);
+
+    assert.notEqual(code, 0);
+    assert.match(
+        stderr,
+        /Dynamic view "SignIn": relationship "API → Database" has order "1\.1"; orders must be integers\./,
+    );
+    assert.ok(
+        !existsSync(join(SCRATCH, "never-fractional")),
+        "an output directory was created anyway",
+    );
+});
+
 test("the binary prints its usage and exits 0 for --help", async () => {
     const { code, stdout } = await runCli(["--help"]);
 

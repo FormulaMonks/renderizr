@@ -11,6 +11,7 @@
  */
 
 import {
+    animationOf,
     type BoundaryKind,
     type ElementStyle,
     type ColorScheme as ModelColorScheme,
@@ -26,6 +27,7 @@ import {
     type ResolvedBoundary,
     resolveView,
     SCHEME_DEFAULTS,
+    type ViewAnimation,
     type WorkspaceModel,
 } from "../../model/index";
 
@@ -224,6 +226,8 @@ export type Graph = {
     bounds: Bounds;
     /** Authoring problems found while drawing, for the island to log once. */
     warnings: string[];
+    /** The steps the view plays, when it animates (spec 11). */
+    animation?: ViewAnimation;
 };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
@@ -387,6 +391,7 @@ export function buildGraph(
 
     const view = resolveView(model, key);
     if (!view) return undefined;
+    const animation = animationOf(model, view);
     if (view.image) {
         return {
             ...empty(view),
@@ -624,6 +629,7 @@ export function buildGraph(
                 ...routed.flatMap((edge) => edge.labelBox ?? []),
             ]) ?? NO_BOUNDS,
         warnings,
+        ...(animation && { animation }),
     };
 }
 

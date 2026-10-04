@@ -93,9 +93,11 @@ export type ResolvedView = {
  * A filtered view resolves to its base view minus what its tag filter drops,
  * under its own key, title and description (spec 12): a filtered view with
  * no description has none, rather than its base's. A relationship survives
- * only when it passes the filter and both its ends survive. Boundaries and
- * the layout mode are worked out from the survivors, so a stored base keeps
- * their coordinates and an automatic one lays out what is left.
+ * only when it passes the filter and both its ends survive. A dynamic view
+ * listing one relationship twice at one order draws it once (spec 11).
+ * Boundaries and the layout mode are worked out from the survivors, so a
+ * stored base keeps their coordinates and an automatic one lays out what is
+ * left.
  *
  * `undefined` when the workspace has no view with that key, or a filtered
  * view's base is missing or itself filtered (`findViewError` says why).
@@ -126,9 +128,16 @@ export function resolveView(
 
     const survivors = new Set(elements.map((e) => e.id));
     const relationships: ResolvedRelationship[] = [];
+    /** A dynamic view draws one edge per relationship per order (spec 11). */
+    const listed = new Set<string>();
     for (const placement of view.relationships ?? []) {
         const relationship = model.findRelationshipById(placement.id);
         if (!relationship) continue;
+        if (view.type === "Dynamic") {
+            const at = `${placement.id}\n${String(placement.order ?? "").trim()}`;
+            if (listed.has(at)) continue;
+            listed.add(at);
+        }
         if (
             filter &&
             (!relationshipPasses(model, filter, relationship) ||
