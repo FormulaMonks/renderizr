@@ -48,6 +48,14 @@ export const ACCEPTANCE_SET = [
         submodule: true,
     },
     {
+        // Big Bank with every view's separations at 100 instead of 300:
+        // Dagre never sizes a boundary, so at these separations they crowd
+        // each other unless the engine makes room for them (spec 7.1, 8).
+        name: "Big Bank plc (tight)",
+        source: join(REPO_ROOT, "test/__fixtures__/big-bank-plc-tight.json"),
+        submodule: false,
+    },
+    {
         name: "Renderizr",
         source: join(REPO_ROOT, "architecture/workspace.json"),
         submodule: false,
@@ -57,6 +65,14 @@ export const ACCEPTANCE_SET = [
         // purpose-built fixture covers them.
         name: "Edge routing",
         source: join(REPO_ROOT, "test/__fixtures__/edge-routing.json"),
+        submodule: false,
+    },
+    {
+        // Stored-layout views with unplaced elements (spec 7.2), each placed
+        // beside its neighbors, clear of a foreign boundary, or to the right
+        // of the view when every slot is taken.
+        name: "Unplaced elements",
+        source: join(REPO_ROOT, "test/__fixtures__/unplaced-elements.json"),
         submodule: false,
     },
     {

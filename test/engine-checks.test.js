@@ -15,6 +15,7 @@ import {
     elementsInsideBoundaries,
     expectedDrawing,
     isAutomatic,
+    noOverlappingBoundaries,
     noOverlappingElements,
     readyInTime,
     sameBoundariesAsResolved,
@@ -109,6 +110,8 @@ test("groups and the boundaries a view does not list are expected too", () => {
     const json = structuredClone(FIXTURE);
     json.model.softwareSystems[0].containers[0].group = "Web";
     json.views.systemContextViews[1].elements = [{ id: "3", x: 300, y: 300 }];
+    // A container's group is drawn in a container view, not a context view.
+    json.views.containerViews = json.views.systemContextViews.splice(1, 1);
     const expected = expectedDrawing(
         new WorkspaceModel(json),
         "FixtureContainers",
@@ -371,6 +374,82 @@ test("an element has to sit inside every boundary around it, not only the neares
     );
 });
 
+/** A boundary `id` with `children`, at a 300 × 300 box. */
+const boundaryAt = (id, x, y, children) => ({
+    id,
+    x,
+    y,
+    width: 300,
+    height: 300,
+    children,
+});
+
+test("overlapping sibling boundaries are named; touching ones are fine", () => {
+    const touching = noOverlappingBoundaries(
+        report({
+            elements: [box("1", 50, 50), box("2", 350, 50)],
+            boundaries: [
+                boundaryAt("8", 0, 0, ["1"]),
+                boundaryAt("9", 300, 0, ["2"]),
+            ],
+        }),
+    );
+    assert.deepEqual(touching, [], touching.join("\n"));
+    const problems = noOverlappingBoundaries(
+        report({
+            elements: [box("1", 50, 50), box("2", 280, 50)],
+            boundaries: [
+                boundaryAt("8", 0, 0, ["1"]),
+                boundaryAt("9", 250, 0, ["2"]),
+            ],
+        }),
+    );
+    assert.deepEqual(
+        problems,
+        [
+            "boundaries 8 and 9 overlap",
+            "boundary 8 overlaps element 2, which it is not drawn around",
+        ],
+        problems.join("\n"),
+    );
+});
+
+test("a boundary may overlap what it is drawn round, at any depth, but no other element", () => {
+    const drawn = report({
+        elements: [box("1", 50, 50), box("2", 200, 200)],
+        boundaries: [
+            boundaryAt("9", 0, 0, ["8"]),
+            { id: "8", x: 25, y: 25, width: 150, height: 150, children: [] },
+        ],
+    });
+    const problems = noOverlappingBoundaries(drawn, {
+        ...RESOLVED,
+        layout: "automatic",
+        nesting: { 9: ["8"], 8: ["1"] },
+    });
+    assert.deepEqual(
+        problems,
+        ["boundary 9 overlaps element 2, which it is not drawn around"],
+        problems.join("\n"),
+    );
+});
+
+test("a stored layout's boundaries are drawn where the author's coordinates put them, overlaps and all", () => {
+    const drawn = report({
+        elements: [box("1", 50, 50), box("2", 280, 50)],
+        boundaries: [
+            boundaryAt("8", 0, 0, ["1"]),
+            boundaryAt("9", 250, 0, ["2"]),
+        ],
+    });
+    const problems = noOverlappingBoundaries(drawn, RESOLVED);
+    assert.deepEqual(
+        problems,
+        [],
+        "a stored layout is drawn as the author placed it",
+    );
+});
+
 /* --------------------------------------------------------------- edge ends */
 
 test("an element's outline is worked out from its shape and box", () => {
@@ -443,6 +522,32 @@ test("an edge end off its element's outline is named, end by end", () => {
     assert.equal(problems.length, 2, problems.join("\n"));
     assert.match(problems[0], /10.*source/, "the source end is not named");
     assert.match(problems[1], /10.*target/, "the target end is not named");
+});
+
+test("an edge end inside a shaped element's box passes; outside it, it is named", () => {
+    // A Person's head is narrower than its box, so an edge from the side
+    // meets it inside the box. The harness has no outline per shape yet.
+    const person = { ...box("1", 0, 0), shape: "Person" };
+    const inside = report({
+        elements: [person, box("2", 300, 0)],
+        edges: [
+            edge("10", "1", "2", [
+                { x: 70, y: 20 },
+                { x: 300, y: 50 },
+            ]),
+        ],
+    });
+    const outside = report({
+        elements: [person, box("2", 300, 0)],
+        edges: [
+            edge("10", "1", "2", [
+                { x: 120, y: 20 },
+                { x: 300, y: 50 },
+            ]),
+        ],
+    });
+    assert.deepEqual(edgeEndsOnOutlines(inside), []);
+    assert.equal(edgeEndsOnOutlines(outside).length, 1);
 });
 
 /* ---------------------------------------------------------------- avoidance */

@@ -2,13 +2,13 @@
  * Which elements a view draws as boundaries, and how those boundaries nest
  * (spec 8, ADR 9). One rule for every view type: an element is a boundary
  * when the view lists at least one of its children, a group is a boundary
- * while it has a member in the view, and the enterprise boundary goes around
- * every Internal element of a landscape or context view when it is switched
- * on. Only the nesting is decided here; the boxes are derived from the
+ * while it has a member in the view that the view draws groups for, and the
+ * enterprise boundary goes around every Internal element of a landscape or
+ * context view when it is switched on. Only the nesting is decided here; the boxes are derived from the
  * children in `src/engine/geometry/boundary.ts`.
  */
 
-import type { ModelElement, ModelView, ViewType } from "./types";
+import type { ElementType, ModelElement, ModelView, ViewType } from "./types";
 import type { WorkspaceModel } from "./workspace";
 
 export type ResolvedBoundary = {
@@ -47,6 +47,49 @@ export const ENTERPRISE_BOUNDARY_ID = "enterprise";
 
 /** The view types that can draw the enterprise boundary. */
 const ENTERPRISE_VIEWS: ViewType[] = ["SystemLandscape", "SystemContext"];
+
+/**
+ * The element types each view type draws groups for, as upstream's
+ * `includeGroup` does: a container view groups its containers but not the
+ * people and software systems beside them. Big Bank's Containers view drew
+ * a "Big Bank plc" group around the Internet Banking System without it,
+ * which nested the layout one level deeper than upstream's and stretched
+ * every rank (spec 7.1).
+ */
+const GROUPED: Partial<Record<ViewType, ElementType[]>> = {
+    SystemLandscape: ["Person", "SoftwareSystem", "Custom"],
+    SystemContext: ["Person", "SoftwareSystem", "Custom"],
+    Container: ["Container"],
+    Component: ["Component"],
+    Deployment: [
+        "DeploymentNode",
+        "InfrastructureNode",
+        "SoftwareSystemInstance",
+        "ContainerInstance",
+    ],
+};
+
+/**
+ * The element types `view` draws groups for: none when the view, or the
+ * filtered view showing it, sets `structurizr.groups` to `false`. A dynamic
+ * view groups what sits one level inside its scope, or what a landscape
+ * view groups when it has none.
+ */
+function groupedTypes(
+    model: WorkspaceModel,
+    view: ModelView,
+    filter: ModelView | undefined,
+): ElementType[] {
+    const off = (v: ModelView | undefined) =>
+        v?.properties?.["structurizr.groups"] === "false";
+    if (off(view) || off(filter)) return [];
+    if (view.type !== "Dynamic") return GROUPED[view.type] ?? [];
+    const scope = model.findElementById(view.elementId);
+    if (!scope) return GROUPED.SystemLandscape!;
+    if (scope.type === "SoftwareSystem") return ["Container"];
+    if (scope.type === "Container") return ["Component"];
+    return [];
+}
 
 /**
  * A group's identity: the scope it was declared in plus its full path, so
@@ -112,18 +155,21 @@ function enterpriseSwitchedOn(view: ModelView): boolean {
  * its software system, and a component view does not list its container.
  * Further up, the spec 8 table holds literally: a component view draws the
  * software system around its container only when it lists one of that
- * system's containers.
+ * system's containers. `filter` is the filtered view showing `view`, if
+ * any, whose own properties can switch groups off.
  */
 export function resolveBoundaries(
     model: WorkspaceModel,
     view: ModelView,
     elements: ModelElement[],
+    filter?: ModelView,
 ): ResolvedBoundary[] {
     const boundaries = new Map<string, ResolvedBoundary>();
     const separator: string | undefined =
         model.model.properties["structurizr.groupSeparator"] || undefined;
     const internal = elements.filter((e) => e.location === "Internal");
     const enterprise = internal.length > 0 && enterpriseSwitchedOn(view);
+    const grouped = new Set(groupedTypes(model, view, filter));
 
     // The parent of a listed element has a child in the view.
     for (const element of elements) {
@@ -178,7 +224,7 @@ export function resolveBoundaries(
 
     /**
      * Put `element` inside the boundary drawn directly around it: its
-     * innermost group, else its parent. The parent is placed first, so
+     * innermost group the view draws, else its parent. The parent is placed first, so
      * every boundary lists its children in the order they are reached.
      */
     const attach = (element: ModelElement) => {
@@ -186,7 +232,10 @@ export function resolveBoundaries(
         if (parent?.kind === "Element" && !parentOf.has(parent.id)) {
             attach(parent.element);
         }
-        const paths = element.group ? groupPaths(element.group, separator) : [];
+        const paths =
+            element.group && grouped.has(element.type)
+                ? groupPaths(element.group, separator)
+                : [];
         place(
             element.id,
             paths.length
