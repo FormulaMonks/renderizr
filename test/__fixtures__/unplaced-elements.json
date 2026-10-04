@@ -1,0 +1,399 @@
+{
+    "id": 0,
+    "name": "Unplaced elements",
+    "description": "Stored-layout views where some elements are left at (0,0), for spec 7.2: each unplaced element takes a slot beside the elements it relates to, keeps 60 clear of boundaries it does not belong to, and falls back to the right of the view when every slot is taken.",
+    "model": {
+        "softwareSystems": [
+            {
+                "id": "1",
+                "tags": "Element,Software System",
+                "name": "Shop",
+                "description": "Sells things",
+                "relationships": [
+                    {
+                        "id": "101",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "4",
+                        "description": "Charges through"
+                    },
+                    {
+                        "id": "102",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "5",
+                        "description": "Sends receipts through"
+                    }
+                ],
+                "location": "Unspecified",
+                "containers": [
+                    {
+                        "id": "2",
+                        "tags": "Element,Container",
+                        "name": "Web App",
+                        "description": "Serves the storefront",
+                        "technology": "TypeScript",
+                        "relationships": [
+                            {
+                                "id": "105",
+                                "tags": "Relationship",
+                                "sourceId": "2",
+                                "destinationId": "3",
+                                "description": "Calls"
+                            },
+                            {
+                                "id": "108",
+                                "tags": "Relationship",
+                                "sourceId": "2",
+                                "destinationId": "5",
+                                "description": "Sends sign-up emails through"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "3",
+                        "tags": "Element,Container",
+                        "name": "API",
+                        "description": "Takes orders",
+                        "technology": "Go",
+                        "relationships": [
+                            {
+                                "id": "106",
+                                "tags": "Relationship",
+                                "sourceId": "3",
+                                "destinationId": "4",
+                                "description": "Charges through"
+                            },
+                            {
+                                "id": "107",
+                                "tags": "Relationship",
+                                "sourceId": "3",
+                                "destinationId": "5",
+                                "description": "Sends receipts through"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "4",
+                "tags": "Element,Software System",
+                "name": "Payments",
+                "description": "Charges cards",
+                "relationships": [
+                    {
+                        "id": "109",
+                        "tags": "Relationship",
+                        "sourceId": "4",
+                        "destinationId": "5",
+                        "description": "Sends payment notices through"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "5",
+                "tags": "Element,Software System",
+                "name": "Mail",
+                "description": "Sends receipts",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "6",
+                "tags": "Element,Software System",
+                "name": "Ledger",
+                "description": "Keeps the books",
+                "relationships": [
+                    {
+                        "id": "103",
+                        "tags": "Relationship",
+                        "sourceId": "6",
+                        "destinationId": "5",
+                        "description": "Sends statements through"
+                    },
+                    {
+                        "id": "104",
+                        "tags": "Relationship",
+                        "sourceId": "6",
+                        "destinationId": "4",
+                        "description": "Reconciles with"
+                    }
+                ],
+                "location": "Unspecified"
+            },
+            {
+                "id": "7",
+                "tags": "Element,Software System",
+                "name": "Hub",
+                "description": "Everything around it is taken",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "8",
+                "tags": "Element,Software System,Tall wall",
+                "name": "Wall below",
+                "description": "Covers every slot below the hub",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "9",
+                "tags": "Element,Software System,Wide wall",
+                "name": "Wall right",
+                "description": "Covers every slot right of the hub",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "10",
+                "tags": "Element,Software System,Wide wall",
+                "name": "Wall left",
+                "description": "Covers every slot left of the hub",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "11",
+                "tags": "Element,Software System,Tall wall",
+                "name": "Wall above",
+                "description": "Covers every slot above the hub",
+                "relationships": [],
+                "location": "Unspecified"
+            },
+            {
+                "id": "12",
+                "tags": "Element,Software System",
+                "name": "Stray",
+                "description": "Related only to the hub",
+                "relationships": [
+                    {
+                        "id": "110",
+                        "tags": "Relationship",
+                        "sourceId": "12",
+                        "destinationId": "7",
+                        "description": "Reports to"
+                    }
+                ],
+                "location": "Unspecified"
+            }
+        ]
+    },
+    "documentation": {},
+    "views": {
+        "systemLandscapeViews": [
+            {
+                "key": "StoredLayout",
+                "order": 1,
+                "description": "Every element stored where it is drawn: nothing is placed",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "4",
+                        "x": 900,
+                        "y": 100
+                    },
+                    {
+                        "id": "5",
+                        "x": 100,
+                        "y": 700
+                    },
+                    {
+                        "id": "6",
+                        "x": 900,
+                        "y": 700
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "101"
+                    },
+                    {
+                        "id": "102"
+                    },
+                    {
+                        "id": "103"
+                    },
+                    {
+                        "id": "104"
+                    }
+                ]
+            },
+            {
+                "key": "PartlyUnplaced",
+                "order": 2,
+                "description": "Mail and Ledger are left at (0,0): Mail goes below Shop, then Ledger goes right of Mail, between Mail and Payments",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "4",
+                        "x": 900,
+                        "y": 100
+                    },
+                    {
+                        "id": "5",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "6",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "101"
+                    },
+                    {
+                        "id": "102"
+                    },
+                    {
+                        "id": "103"
+                    },
+                    {
+                        "id": "104"
+                    }
+                ]
+            },
+            {
+                "key": "AllSlotsTaken",
+                "order": 4,
+                "description": "Every slot around the Hub is covered by a wall, so the Stray falls back to the right of the view",
+                "enterpriseBoundaryVisible": true,
+                "elements": [
+                    {
+                        "id": "7",
+                        "x": 700,
+                        "y": 500
+                    },
+                    {
+                        "id": "8",
+                        "x": 700,
+                        "y": 900
+                    },
+                    {
+                        "id": "9",
+                        "x": 1250,
+                        "y": 500
+                    },
+                    {
+                        "id": "10",
+                        "x": -950,
+                        "y": 500
+                    },
+                    {
+                        "id": "11",
+                        "x": 700,
+                        "y": -700
+                    },
+                    {
+                        "id": "12",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "110"
+                    }
+                ]
+            }
+        ],
+        "containerViews": [
+            {
+                "key": "ForeignBoundary",
+                "order": 3,
+                "softwareSystemId": "1",
+                "description": "Mail is left at (0,0); the slot nearest its neighbors, right of the API, comes within 60 of the Shop boundary it does not belong to, so it takes the slot left of Payments",
+                "externalSoftwareSystemBoundariesVisible": true,
+                "elements": [
+                    {
+                        "id": "2",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "3",
+                        "x": 100,
+                        "y": 700
+                    },
+                    {
+                        "id": "4",
+                        "x": 1350,
+                        "y": 700
+                    },
+                    {
+                        "id": "5",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "105"
+                    },
+                    {
+                        "id": "106"
+                    },
+                    {
+                        "id": "107"
+                    },
+                    {
+                        "id": "108"
+                    },
+                    {
+                        "id": "109"
+                    }
+                ]
+            }
+        ],
+        "configuration": {
+            "branding": {},
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Software System",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Container",
+                        "background": "#438dd5",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Tall wall",
+                        "width": 450,
+                        "height": 1100,
+                        "background": "#999999"
+                    },
+                    {
+                        "tag": "Wide wall",
+                        "width": 1550,
+                        "height": 300,
+                        "background": "#999999"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    }
+                ]
+            },
+            "metadataSymbols": "SquareBrackets"
+        }
+    }
+}

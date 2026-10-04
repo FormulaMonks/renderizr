@@ -6,8 +6,9 @@
             "vendor",
             "architecture",
             "test/__fixtures__/big-bank-plc.json",
-            "test/__fixtures__/themes",
-            "test/__fixtures__/big-bank-plc-stored.json"
+            "test/__fixtures__/big-bank-plc-tight.json",
+            "test/__fixtures__/big-bank-plc-stored.json",
+            "test/__fixtures__/themes"
         ]
     },
     "organizeImports": {

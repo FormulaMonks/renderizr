@@ -132,6 +132,43 @@ export function layoutEdgeLabel(
 }
 
 /**
+ * How much wider than the style's wrap width upstream reserves an edge's
+ * label in an automatic layout.
+ */
+const LAYOUT_WIDTH_SCALE = 1.2;
+
+/**
+ * How tall upstream counts `lines` lines of text at `fontSize` when it sizes
+ * a label for Dagre: the first line at the font size, each further one at
+ * the line height.
+ */
+const upstreamHeight = (lines: number, fontSize: number) =>
+    lines ? fontSize + (lines - 1) * fontSize * LINE_HEIGHT : 0;
+
+/**
+ * The room an automatic layout keeps for an edge's label (spec 7.1), sized
+ * the way upstream sizes it for Dagre: 1.2 times the style's wrap `width`
+ * whatever the label says, and the height of its lines as upstream counts
+ * them, without the backing's padding, or none when it says nothing.
+ */
+export function layoutLabelRoom(
+    label: EdgeLabelLayout | undefined,
+    fontSize: number,
+    width: number,
+): Size {
+    const technology = label?.technology.length ?? 0;
+    return {
+        width: width * LAYOUT_WIDTH_SCALE,
+        height:
+            upstreamHeight(label?.description.length ?? 0, fontSize) +
+            (technology
+                ? TECHNOLOGY_GAP +
+                  upstreamHeight(technology, fontSize * METADATA_SCALE)
+                : 0),
+    };
+}
+
+/**
  * The positions a label tries, in order: `start` (clamped to 10–90), then
  * 5% steps alternately later and earlier, each within 10–90.
  */

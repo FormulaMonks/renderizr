@@ -239,6 +239,59 @@ export function elementsInsideBoundaries(report, expected) {
     return problems;
 }
 
+/**
+ * In an automatic layout, no boundary overlaps a boundary neither inside nor
+ * round it, or an element it is not drawn around; touching is fine. Dagre
+ * never sizes a boundary (spec 7.1), so this is what holds the engine to
+ * making room for them. A stored layout is drawn where its author put it,
+ * overlaps and all. Which boundaries are round what comes from
+ * `expected.nesting`, as in `elementsInsideBoundaries`; without it, from the
+ * report's own `children`.
+ */
+export function noOverlappingBoundaries(report, expected) {
+    if (expected && !isAutomatic(expected)) return [];
+    const nesting =
+        expected?.nesting ??
+        Object.fromEntries(
+            report.boundaries.map((boundary) => [
+                boundary.id,
+                boundary.children,
+            ]),
+        );
+    const parent = new Map();
+    for (const [id, children] of Object.entries(nesting))
+        for (const child of children) parent.set(child, id);
+    /** Whether boundary `outer` is drawn round `id`, at any depth. */
+    const round = (outer, id) => {
+        const seen = new Set();
+        for (let p = parent.get(id); p && !seen.has(p); p = parent.get(p)) {
+            if (p === outer) return true;
+            seen.add(p);
+        }
+        return false;
+    };
+    const problems = [];
+    const { boundaries, elements } = report;
+    for (let i = 0; i < boundaries.length; i++) {
+        const a = boundaries[i];
+        for (const b of boundaries.slice(i + 1)) {
+            if (round(a.id, b.id) || round(b.id, a.id)) continue;
+            if (overlap(a, b)) {
+                problems.push(`boundaries ${a.id} and ${b.id} overlap`);
+            }
+        }
+        for (const element of elements) {
+            if (round(a.id, element.id)) continue;
+            if (overlap(a, element)) {
+                problems.push(
+                    `boundary ${a.id} overlaps element ${element.id}, which it is not drawn around`,
+                );
+            }
+        }
+    }
+    return problems;
+}
+
 /* --------------------------------------------------------------- edge ends */
 
 const distanceToSegment = (point, a, b) => {
@@ -282,7 +335,19 @@ export const elementOutline = ({ x, y, width, height }) => [
     { x, y: y + height },
 ];
 
-/** Every edge starts and ends on its elements' outlines, within 1 unit. */
+/** Whether `point` is inside `box` or within the tolerance of it. */
+const withinBox = (point, { x, y, width, height }) =>
+    point.x >= x - OUTLINE_TOLERANCE &&
+    point.x <= x + width + OUTLINE_TOLERANCE &&
+    point.y >= y - OUTLINE_TOLERANCE &&
+    point.y <= y + height + OUTLINE_TOLERANCE;
+
+/**
+ * Every edge starts and ends on its elements' outlines, within 1 unit. The
+ * harness outlines every element as its box, so for any shape but a Box an
+ * end anywhere inside the box passes: a Person's head, say, is met inside
+ * it once automatic layout brings edges in from the side.
+ */
 export function edgeEndsOnOutlines(report) {
     const elements = new Map(
         report.elements.map((element) => [element.id, element]),
@@ -297,7 +362,8 @@ export function edgeEndsOnOutlines(report) {
             const element = elements.get(id);
             if (!element || !point) continue;
             const distance = distanceToOutline(point, elementOutline(element));
-            if (distance > OUTLINE_TOLERANCE) {
+            const shaped = element.shape !== "Box" && withinBox(point, element);
+            if (distance > OUTLINE_TOLERANCE && !shaped) {
                 problems.push(
                     `edge ${edge.key}'s ${end} end is ${round(distance)} units off element ${id}'s outline`,
                 );

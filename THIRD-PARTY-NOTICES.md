@@ -127,7 +127,7 @@ The same renderer is developed in [structurizr/ui](https://github.com/structuriz
 
 **JointJS** — the diagram geometry and rendering engine underneath Structurizr's renderer, again reached through `window.joint`. See finding 1.
 
-**dagre / graphlib** — pulled in by `@joint/layout-directed-graph` for automatic layout. Nothing in `src/` imports them directly. The bundled versions (`1.0.4`, `2.1.13`) are the ones JointJS pins, not the ones `package.json` lists.
+**dagre / graphlib** — pulled in by `@joint/layout-directed-graph` for automatic layout. The bundled versions (`1.0.4`, `2.1.13`) are the ones JointJS pins, not the ones `package.json` lists. Only a build with `--engine react-flow` imports them from `src/` (`src/engine/layout/automatic.ts`), and it bundles the versions `package.json` lists (`1.1.8`, `2.2.4`) instead; that build's notices are settled at cutover (spec 16.2).
 
 **highlight.js** — imported as `highlight.js/lib/core` plus eleven language grammars (bash, css, java, javascript, json, markdown, python, sql, typescript, xml, yaml). No highlight.js stylesheet ships: the syntax colors in `src/components/markdown-renderer.module.css` are written for this project and only reuse highlight.js's public `hljs-*` class names, which is interface, not copied theme code.
 

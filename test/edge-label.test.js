@@ -14,6 +14,7 @@ const {
     edgeLabelText,
     labelPositions,
     layoutEdgeLabel,
+    layoutLabelRoom,
     placeEdgeLabels,
     TECHNOLOGY_GAP,
 } = await importSrc("engine/geometry/edge-label");
@@ -157,6 +158,41 @@ describe("edge labels (edge-label.ts)", () => {
             ),
             undefined,
             "an empty label is not laid out",
+        );
+    });
+
+    /* ---------------- room in an automatic layout */
+
+    test("an automatic layout keeps 1.2 times the wrap width and the lines' height for a label, as upstream counts it", () => {
+        // 20 / 2 = 10 per glyph: two description lines at 150, then one
+        // technology line. Upstream counts a part's first line at its font
+        // size and each further one at the line height, unpadded.
+        const label = layoutEdgeLabel(
+            { description: "Reads from the database", technology: "[JDBC]" },
+            20,
+            150,
+            measure,
+        );
+        assert.equal(label.description.length, 2, "the description wraps");
+        assert.deepEqual(
+            layoutLabelRoom(label, 20, 150),
+            {
+                width: 180,
+                height:
+                    20 +
+                    20 * LINE_HEIGHT +
+                    TECHNOLOGY_GAP +
+                    20 * METADATA_SCALE,
+            },
+            "the room should be the wrap width scaled and the lines as upstream counts them",
+        );
+    });
+
+    test("an automatic layout keeps the width for a label that says nothing, with no height", () => {
+        assert.deepEqual(
+            layoutLabelRoom(undefined, 20, 200),
+            { width: 240, height: 0 },
+            "upstream sizes every edge's label, empty or not",
         );
     });
 
