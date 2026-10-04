@@ -82,5 +82,5 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 ## Dependencies
 
 - Pin `jquery`, `@joint/*` and `@dagrejs/*` to exact versions: the vendored renderer reads them off `window` and is sensitive to which build it gets. Everything else uses a caret range.
-- Updates arrive through Renovate. Packages inlined into rendered output get one pull request each and never auto-merge; Renovate groups dev tooling, which auto-merges on patch and minor; no bot ever bumps the `engines` range.
+- Updates arrive through Renovate. Every patch and minor update auto-merges once `ci` passes, and majors wait for a person; packages inlined into rendered output get one pull request each, and Renovate groups dev tooling; no bot ever bumps the `engines` range.
 - `pnpm-workspace.yaml` allows build scripts for `@biomejs/biome` and `esbuild` only. Add a package that needs a postinstall step to that list deliberately.

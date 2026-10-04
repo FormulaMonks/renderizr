@@ -50,12 +50,6 @@
             "pinDigests": true
         },
         {
-            "description": "Auto-merge the action pins. A digest or pin refresh moves a SHA to a newer commit of the same action, and patch and minor bumps of an action are the kind of change a human reads by scrolling past it. CI is the review: nothing merges without the `ci` check, which runs the whole suite and both render modes. Major action bumps are excluded on purpose \u2014 those change inputs and behavior.",
-            "matchManagers": ["github-actions"],
-            "matchUpdateTypes": ["digest", "pin", "patch", "minor"],
-            "automerge": true
-        },
-        {
             "description": "Development tooling: lint, types, commit plumbing. None of it reaches a rendered workspace, so one grouped PR per week is enough review surface.",
             "matchManagers": ["npm"],
             "matchDepTypes": ["devDependencies"],
@@ -71,23 +65,7 @@
             "groupName": "dev tooling"
         },
         {
-            "description": "Auto-merge dev tooling on patch and minor. None of this reaches a rendered workspace: if Biome or TypeScript breaks something, `lint + typecheck` fails and the merge does not happen. Majors stay manual \u2014 a Biome 1.x to 2.x is a config migration and a re-format of every file, not a dependency bump.",
-            "matchManagers": ["npm"],
-            "matchDepTypes": ["devDependencies"],
-            "matchPackageNames": [
-                "@biomejs/biome",
-                "typescript",
-                "@types/**",
-                "@commitlint/**",
-                "husky",
-                "lint-staged",
-                "czg"
-            ],
-            "matchUpdateTypes": ["patch", "minor", "pin", "digest"],
-            "automerge": true
-        },
-        {
-            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own reviewable PR \u2014 never grouped, never rolled up with anything else.",
+            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own PR, which keeps a bad update easy to find and revert \u2014 never grouped, never rolled up with anything else.",
             "matchManagers": ["npm"],
             "matchPackageNames": [
                 "jquery",
@@ -118,19 +96,9 @@
             "enabled": false
         },
         {
-            "description": "Never auto-merge anything whose code is inlined into the page a user publishes. This repeats what the grouping rule above already implies, and it is deliberate belt and braces: it is the last rule that mentions these packages, so it wins whatever a broader rule earlier in this list says, now or later. A green CI proves Renderizr still builds and renders \u2014 it cannot prove a jQuery or JointJS change did not alter how somebody's diagram looks.",
-            "matchManagers": ["npm"],
-            "matchPackageNames": [
-                "jquery",
-                "@joint/**",
-                "@dagrejs/**",
-                "markdown-it",
-                "markdown-it-**",
-                "highlight.js",
-                "history",
-                "vite"
-            ],
-            "automerge": false
+            "description": "Auto-merge every patch, minor, pin and digest update, for npm and GitHub Actions alike, runtime packages included. CI is the review: nothing merges without the `ci` check, which runs the whole suite and both render modes, and `minimumReleaseAge` keeps anything from merging the day it is published (14 days for jquery, @joint/* and @dagrejs/*). Majors and lock file maintenance stay manual: a major changes APIs and behavior, and those pull requests still need a person.",
+            "matchUpdateTypes": ["patch", "minor", "pin", "digest"],
+            "automerge": true
         }
     ]
 }
