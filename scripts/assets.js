@@ -271,9 +271,16 @@ export async function loadFont(font) {
 /* --------------------------------------------------------------- workspace */
 
 /**
- * Themes, element icons and the branding logo are all fetched by the
- * Structurizr UI at runtime. A self-contained page cannot do that, so every
- * one of them is resolved here and folded into the workspace.
+ * The fields of an image view that hold its picture (spec 14). `IMAGE_FIELDS`
+ * in `src/model/resolve-view.ts` names the same three for the engine.
+ */
+const IMAGE_FIELDS = ["content", "contentLight", "contentDark"];
+
+/**
+ * Themes, element icons, image views and the branding logo are all fetched
+ * by the Structurizr UI at runtime. A self-contained page cannot do that, so
+ * every one of them is resolved here and folded into the workspace. An image
+ * that cannot be inlined keeps its URL, and the engine draws its placeholder.
  */
 async function inlineWorkspaceAssets(workspace) {
     const views = workspace.views ?? {};
@@ -315,6 +322,10 @@ async function inlineWorkspaceAssets(workspace) {
 
     for (const style of styles.elements ?? []) collect(style.icon);
     collect(configuration.branding?.logo);
+    const imageViews = views.imageViews ?? [];
+    for (const view of imageViews) {
+        for (const field of IMAGE_FIELDS) collect(view[field]);
+    }
 
     await Promise.all(
         [...remote.keys()].map(async (url) => {
@@ -340,8 +351,33 @@ async function inlineWorkspaceAssets(workspace) {
     ) {
         configuration.branding.logo = remote.get(configuration.branding.logo);
     }
+    for (const view of imageViews) {
+        for (const field of IMAGE_FIELDS) {
+            if (view[field] && remote.get(view[field])) {
+                view[field] = remote.get(view[field]);
+            }
+        }
+    }
 
     return workspace;
+}
+
+/**
+ * Refuse a workspace the engine could not draw (spec 13): a filtered view
+ * whose base view is itself a filtered view. The engine checks it again
+ * (`findViewError` in `src/model/filter.ts`) with the same message, and
+ * `test/view-types.test.js` fails if the two drift apart.
+ */
+export function validateWorkspace(workspace) {
+    const filtered = workspace.views?.filteredViews ?? [];
+    const keys = new Set(filtered.map((view) => view.key));
+    for (const view of filtered) {
+        if (keys.has(view.baseViewKey)) {
+            throw new Error(
+                `Filtered view "${view.key}" has filtered view "${view.baseViewKey}" as its base; the base of a filtered view must not be filtered.`,
+            );
+        }
+    }
 }
 
 export async function loadWorkspace(source, { font } = {}) {
@@ -363,6 +399,7 @@ export async function loadWorkspace(source, { font } = {}) {
         throw new Error(`${source} is not valid JSON — ${error.message}`);
     }
 
+    validateWorkspace(workspace);
     await inlineWorkspaceAssets(workspace);
 
     if (font) {

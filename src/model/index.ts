@@ -1,4 +1,5 @@
 export * from "./boundaries";
+export * from "./filter";
 export * from "./metadata";
 export * from "./resolve-view";
 export * from "./styles";

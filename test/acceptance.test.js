@@ -73,6 +73,8 @@ const KNOWN_WARNINGS = [
     /^Relationship .* ends at a boundary/,
     // Spec 7.2: every unplaced element placed around a stored layout is named.
     /^Placed unplaced element /,
+    // Spec 12, 13: an image view drawn as its placeholder logs why.
+    /^Image view ".*": /,
 ];
 
 /**

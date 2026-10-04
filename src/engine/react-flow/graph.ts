@@ -19,8 +19,10 @@ import {
     findEnterpriseStyle,
     findGroupStyle,
     findRelationshipStyle,
+    findViewError,
     getMetadataForElement,
     getMetadataForRelationship,
+    type ImageContent,
     type ResolvedBoundary,
     resolveView,
     SCHEME_DEFAULTS,
@@ -170,6 +172,14 @@ export type EdgeLine = {
     opacity: number;
 };
 
+/** What an image view draws: the variant for the scheme, if it has one. */
+export type GraphImage = {
+    /** A data URI once the build has inlined it; undefined with no content. */
+    src?: string;
+    /** The view's title, the picture's accessible name. */
+    alt: string;
+};
+
 /** The extra tag a dynamic view's response step is styled with (spec 10.10). */
 const RESPONSE_TAG = "Relationship/Response";
 
@@ -197,6 +207,15 @@ export type Graph = {
     key: string;
     title: string;
     background: string;
+    /** The scheme's default text color, for what the canvas itself says. */
+    color: string;
+    /** Set on an image view, which draws this and nothing else (spec 12). */
+    image?: GraphImage;
+    /**
+     * Why the view cannot be drawn (spec 13); the canvas shows it in place
+     * of the diagram, and the graph is otherwise empty.
+     */
+    error?: string;
     elements: ElementBox[];
     /** Outer before inner, the order they are drawn in. */
     boundaries: BoundaryBox[];
@@ -217,6 +236,90 @@ const NO_BOUNDS: Bounds = { x: 0, y: 0, width: 0, height: 0 };
  * a self-relationship's loop reaches outside its element.
  */
 const pointBox = ({ x, y }: Point): Bounds => ({ x, y, width: 0, height: 0 });
+
+/**
+ * The image variant an image view shows in `scheme` (spec 12): dark prefers
+ * `contentDark`, then `content`, then `contentLight`; light mirrors it.
+ */
+export function imageVariant(
+    image: ImageContent,
+    scheme: ColorScheme,
+): string | undefined {
+    const preferred =
+        scheme === "dark"
+            ? [image.contentDark, image.content, image.contentLight]
+            : [image.contentLight, image.content, image.contentDark];
+    return preferred.find((src) => typeof src === "string" && src !== "");
+}
+
+/**
+ * Where an image view's picture is, as the island learns it. A loaded one
+ * carries the `src` it loaded, so what draws it never has to re-check that
+ * the view had one.
+ */
+export type ImageState =
+    | { status: "loading" }
+    | { status: "loaded"; src: string; width: number; height: number }
+    | { status: "failed"; reason: string };
+
+/** The size of the "Image not available" placeholder, a default element's. */
+export const IMAGE_PLACEHOLDER = { width: 450, height: 300 } as const;
+
+/**
+ * The one box an image view draws, typed as the island's node of that kind:
+ * the picture at its natural size, or the placeholder.
+ */
+export type ImageBox =
+    | {
+          type: "image";
+          width: number;
+          height: number;
+          data: { src: string; alt: string };
+      }
+    | {
+          type: "placeholder";
+          width: number;
+          height: number;
+          data: { color: string };
+      };
+
+/**
+ * What an image view draws in each state (spec 12): the picture at its
+ * natural size once loaded, the placeholder in `color` once it has failed,
+ * and nothing while it loads, so the view is neither fitted nor painted
+ * before its size is known. The canvas fits the box it returns.
+ */
+export function imageBox(
+    picture: GraphImage,
+    color: string,
+    state: ImageState,
+): ImageBox | undefined {
+    switch (state.status) {
+        case "loading":
+            return undefined;
+        case "loaded":
+            return {
+                type: "image",
+                width: state.width,
+                height: state.height,
+                data: { src: state.src, alt: picture.alt },
+            };
+        case "failed":
+            return {
+                type: "placeholder",
+                ...IMAGE_PLACEHOLDER,
+                data: { color },
+            };
+    }
+}
+
+/**
+ * The most the canvas may zoom in to fit `graph`: an image view is shown at
+ * its natural size at most, never upscaled (spec 12); any other view is
+ * fitted however small it is.
+ */
+export const fitMaxZoom = (graph: Graph) =>
+    graph.image ? 1 : Number.POSITIVE_INFINITY;
 
 /** The style a boundary of any kind is drawn in. */
 function boundaryStyle(
@@ -252,7 +355,8 @@ function boundaryMetadata(
 /**
  * Lay out one view for drawing, measuring boundary labels with `measure`
  * (canvas `measureText` in the island). `undefined` when the workspace has
- * no view with that key.
+ * no view with that key. A view that cannot be drawn is an empty graph with
+ * its `error`; an image view an empty graph with its `image`.
  */
 export function buildGraph(
     model: WorkspaceModel,
@@ -261,10 +365,37 @@ export function buildGraph(
     labels: Labels,
     measure: MeasureText = estimateText,
 ): Graph | undefined {
-    const view = resolveView(model, key);
-    if (!view) return undefined;
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
+    const empty = (view: { key: string; title: string }): Graph => ({
+        key: view.key,
+        title: view.title,
+        background: defaults.background,
+        color: defaults.color,
+        elements: [],
+        boundaries: [],
+        edges: [],
+        bounds: NO_BOUNDS,
+        warnings: [],
+    });
+
+    const error = findViewError(model, key);
+    if (error) {
+        const view = model.findViewByKey(key)!;
+        return { ...empty({ key, title: model.getTitleForView(view) }), error };
+    }
+
+    const view = resolveView(model, key);
+    if (!view) return undefined;
+    if (view.image) {
+        return {
+            ...empty(view),
+            image: {
+                src: imageVariant(view.image, scheme),
+                alt: view.title,
+            },
+        };
+    }
     const boundaries = new Set(view.boundaries.map((b) => b.id));
 
     const elements: ElementBox[] = [];
@@ -481,6 +612,7 @@ export function buildGraph(
         key: view.key,
         title: view.title,
         background: defaults.background,
+        color: defaults.color,
         elements,
         boundaries: drawnBoundaries,
         edges: routed,

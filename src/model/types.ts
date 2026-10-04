@@ -119,7 +119,14 @@ export type ModelView = {
     containerId?: string;
     elementId?: string;
     environment?: string;
+    /** A filtered view's base view, and the tag filter it applies to it. */
     baseViewKey?: string;
+    mode?: string;
+    tags?: string[];
+    /** An image view's picture: a URL, or a data URI once the build inlines it. */
+    content?: string;
+    contentLight?: string;
+    contentDark?: string;
     enterpriseBoundaryVisible?: boolean;
     properties?: Record<string, string>;
     automaticLayout?: Partial<AutomaticLayoutSettings>;
