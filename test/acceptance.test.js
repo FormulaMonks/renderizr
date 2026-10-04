@@ -34,6 +34,7 @@ import {
     edgeEndsOnOutlines,
     elementsInsideBoundaries,
     expectedDrawing,
+    noOverlappingBoundaries,
     noOverlappingElements,
     readyInTime,
     sameBoundariesAsResolved,
@@ -112,6 +113,12 @@ const CHECKS = [
         name: "keeps every element inside its boundary",
         check: ({ report, expected }) =>
             elementsInsideBoundaries(report, expected),
+        pending: () => false,
+    },
+    {
+        name: "draws no boundary over a sibling or an element outside it",
+        check: ({ report, expected }) =>
+            noOverlappingBoundaries(report, expected),
         pending: () => false,
     },
     {

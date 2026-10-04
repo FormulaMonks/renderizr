@@ -239,6 +239,56 @@ export function elementsInsideBoundaries(report, expected) {
     return problems;
 }
 
+/**
+ * No boundary overlaps a boundary neither inside nor round it, or an element
+ * it is not drawn around; touching is fine. Dagre never sizes a boundary
+ * (spec 7.1), so this is what holds the engine to making room for them.
+ * Which boundaries are round what comes from `expected.nesting`, as in
+ * `elementsInsideBoundaries`; without it, from the report's own `children`.
+ */
+export function noOverlappingBoundaries(report, expected) {
+    const nesting =
+        expected?.nesting ??
+        Object.fromEntries(
+            report.boundaries.map((boundary) => [
+                boundary.id,
+                boundary.children,
+            ]),
+        );
+    const parent = new Map();
+    for (const [id, children] of Object.entries(nesting))
+        for (const child of children) parent.set(child, id);
+    /** Whether boundary `outer` is drawn round `id`, at any depth. */
+    const round = (outer, id) => {
+        const seen = new Set();
+        for (let p = parent.get(id); p && !seen.has(p); p = parent.get(p)) {
+            if (p === outer) return true;
+            seen.add(p);
+        }
+        return false;
+    };
+    const problems = [];
+    const { boundaries, elements } = report;
+    for (let i = 0; i < boundaries.length; i++) {
+        const a = boundaries[i];
+        for (const b of boundaries.slice(i + 1)) {
+            if (round(a.id, b.id) || round(b.id, a.id)) continue;
+            if (overlap(a, b)) {
+                problems.push(`boundaries ${a.id} and ${b.id} overlap`);
+            }
+        }
+        for (const element of elements) {
+            if (round(a.id, element.id)) continue;
+            if (overlap(a, element)) {
+                problems.push(
+                    `boundary ${a.id} overlaps element ${element.id}, which it is not drawn around`,
+                );
+            }
+        }
+    }
+    return problems;
+}
+
 /* --------------------------------------------------------------- edge ends */
 
 const distanceToSegment = (point, a, b) => {

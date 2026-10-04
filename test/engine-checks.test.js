@@ -15,6 +15,7 @@ import {
     elementsInsideBoundaries,
     expectedDrawing,
     isAutomatic,
+    noOverlappingBoundaries,
     noOverlappingElements,
     readyInTime,
     sameBoundariesAsResolved,
@@ -369,6 +370,65 @@ test("an element has to sit inside every boundary around it, not only the neares
     assert.deepEqual(
         problems,
         ["8 pokes out of boundary 9", "1 pokes out of boundary 9"],
+        problems.join("\n"),
+    );
+});
+
+/** A boundary `id` with `children`, at a 300 × 300 box. */
+const boundaryAt = (id, x, y, children) => ({
+    id,
+    x,
+    y,
+    width: 300,
+    height: 300,
+    children,
+});
+
+test("overlapping sibling boundaries are named; touching ones are fine", () => {
+    const touching = noOverlappingBoundaries(
+        report({
+            elements: [box("1", 50, 50), box("2", 350, 50)],
+            boundaries: [
+                boundaryAt("8", 0, 0, ["1"]),
+                boundaryAt("9", 300, 0, ["2"]),
+            ],
+        }),
+    );
+    assert.deepEqual(touching, [], touching.join("\n"));
+    const problems = noOverlappingBoundaries(
+        report({
+            elements: [box("1", 50, 50), box("2", 280, 50)],
+            boundaries: [
+                boundaryAt("8", 0, 0, ["1"]),
+                boundaryAt("9", 250, 0, ["2"]),
+            ],
+        }),
+    );
+    assert.deepEqual(
+        problems,
+        [
+            "boundaries 8 and 9 overlap",
+            "boundary 8 overlaps element 2, which it is not drawn around",
+        ],
+        problems.join("\n"),
+    );
+});
+
+test("a boundary may overlap what it is drawn round, at any depth, but no other element", () => {
+    const drawn = report({
+        elements: [box("1", 50, 50), box("2", 200, 200)],
+        boundaries: [
+            boundaryAt("9", 0, 0, ["8"]),
+            { id: "8", x: 25, y: 25, width: 150, height: 150, children: [] },
+        ],
+    });
+    const problems = noOverlappingBoundaries(drawn, {
+        ...RESOLVED,
+        nesting: { 9: ["8"], 8: ["1"] },
+    });
+    assert.deepEqual(
+        problems,
+        ["boundary 9 overlaps element 2, which it is not drawn around"],
         problems.join("\n"),
     );
 });
