@@ -547,6 +547,71 @@ for (const key of BIG_BANK_VIEWS)
         assert.deepEqual(graph.placements, [], "nothing was unplaced");
     });
 
+/**
+ * The gaps between Big Bank's Containers ranks under upstream's renderer,
+ * top to bottom, read off its Dagre call in Chrome: three rank separations
+ * (one boundary level, which Dagre's nesting triples) plus the room it
+ * keeps for the tallest label between them.
+ */
+const UPSTREAM_CONTAINERS_GAPS = [980, 951, 1010, 982];
+
+/** One label line at Big Bank's relationship font size, 24 × 1.2. */
+const LABEL_LINE = 28.8;
+
+test("Big Bank's Containers ranks are spaced as upstream spaces them, one boundary level deep", () => {
+    const graph = buildGraph(
+        new WorkspaceModel(BIG_BANK),
+        "Containers",
+        "light",
+        LABELS,
+    );
+    assert.deepEqual(
+        graph.boundaries.map((b) => b.id),
+        ["7"],
+        "only the Internet Banking System should be drawn around the containers",
+    );
+    const ranks = [...new Set(graph.elements.map((e) => e.y + e.height / 2))]
+        .sort((a, b) => a - b)
+        .map((middle) =>
+            graph.elements.filter((e) => e.y + e.height / 2 === middle),
+        );
+    const gaps = ranks.slice(1).map((rank, i) => {
+        const top = Math.min(...rank.map((e) => e.y));
+        const bottom = Math.max(...ranks[i].map((e) => e.y + e.height));
+        return top - bottom;
+    });
+    assert.equal(gaps.length, UPSTREAM_CONTAINERS_GAPS.length, "rank count");
+    for (const [i, gap] of gaps.entries()) {
+        const upstream = UPSTREAM_CONTAINERS_GAPS[i];
+        // Text is estimated here and measured in Chrome, so a label may
+        // wrap onto one more line or one fewer.
+        assert.ok(
+            Math.abs(gap - upstream) <= LABEL_LINE + 0.01,
+            `gap ${i + 1} is ${gap}, upstream's is ${upstream}`,
+        );
+    }
+});
+
+test("a dynamic view's response steps rank the way upstream ranks them", () => {
+    // SignIn runs SPA → Sign In Controller → Security Component → Database
+    // and back. Upstream hands Dagre each response drawn back to the
+    // source, which puts the Database on the top rank.
+    const graph = buildGraph(
+        new WorkspaceModel(BIG_BANK),
+        "SignIn",
+        "light",
+        LABELS,
+    );
+    const order = [...graph.elements]
+        .sort((a, b) => a.y - b.y)
+        .map((e) => e.id);
+    assert.deepEqual(
+        order,
+        ["18", "15", "12", "8"],
+        "the ranks should run Database, Security Component, Sign In Controller, SPA",
+    );
+});
+
 test("an automatic layout follows the view's rank direction", () => {
     const rankedBy = (rankDirection) => {
         const json = structuredClone(BIG_BANK);
@@ -782,20 +847,24 @@ const UNPLACED = JSON.parse(
 const UNPLACED_CASES = [
     // Nothing at (0,0): the stored layout is drawn as it is.
     { key: "StoredLayout", placements: [] },
-    // Mail goes one separation (100) below Shop, its only neighbor here.
-    // Ledger, placed next, relates to Mail and Payments: the slot right of
-    // Mail is the one nearest their centroid.
+    // Mail goes below Shop, its only neighbor here, far enough for the
+    // 65.6-high label between them plus 20 either side (105.6), which is
+    // more than one separation (100). Ledger, placed next, relates to Mail
+    // and Payments: the slot right of Mail is the one nearest their
+    // centroid, as far as its 140-wide label to Mail plus 40.
     {
         key: "PartlyUnplaced",
         placements: [
-            { id: "5", x: 100, y: 500 },
-            { id: "6", x: 650, y: 500 },
+            { id: "5", x: 100, y: 505.6 },
+            { id: "6", x: 730, y: 505.6 },
         ],
     },
     // The slot right of the API is nearest Mail's neighbors, but it comes
-    // within 60 of the Shop boundary Mail is not inside, so Mail takes the
-    // next nearest, left of Payments.
-    { key: "ForeignBoundary", placements: [{ id: "5", x: 800, y: 700 }] },
+    // within 60 of the Shop boundary Mail is not inside; so does the slot
+    // left of Payments, pushed out by the label between them. Mail takes
+    // the next nearest, right of the Web App, as far as their 192.8-wide
+    // label plus 40.
+    { key: "ForeignBoundary", placements: [{ id: "5", x: 782.8, y: 100 }] },
     // Walls cover every slot around the Hub, so the Stray goes one
     // separation right of the view, level with the Hub's center.
     { key: "AllSlotsTaken", placements: [{ id: "12", x: 2900, y: 500 }] },
@@ -813,6 +882,41 @@ test("each unplaced element of the unplaced-elements fixture lands where its vie
             graph.placements.map(({ id, x, y }) => ({ id, x, y })),
             placements,
             `${key}: the unplaced elements moved`,
+        );
+    }
+});
+
+/** Every label in `graph` that covers an element, by edge and element. */
+const labelsOnElements = (graph) => {
+    const covered = [];
+    for (const edge of graph.edges)
+        for (const element of graph.elements)
+            if (edge.labelBox && overlaps(edge.labelBox, element))
+                covered.push(`${edge.key} on ${element.id}`);
+    return covered;
+};
+
+test("no edge label covers an element in any Big Bank or unplaced-elements view", () => {
+    const views = [
+        ...BIG_BANK_VIEWS.map((key) => [BIG_BANK, key]),
+        ...[
+            "StoredLayout",
+            "PartlyUnplaced",
+            "ForeignBoundary",
+            "AllSlotsTaken",
+        ].map((key) => [UNPLACED, key]),
+    ];
+    for (const [json, key] of views) {
+        const graph = buildGraph(
+            new WorkspaceModel(json),
+            key,
+            "light",
+            LABELS,
+        );
+        assert.deepEqual(
+            labelsOnElements(graph),
+            [],
+            `${key}: labels cover elements`,
         );
     }
 });

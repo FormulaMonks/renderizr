@@ -7,7 +7,9 @@
 import assert from "node:assert/strict";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { layOut, simplify } = await importSrc("engine/layout/automatic");
+const { layOut, layoutOrder, simplify } = await importSrc(
+    "engine/layout/automatic",
+);
 
 const SETTINGS = {
     rankDirection: "TopBottom",
@@ -135,6 +137,128 @@ test("edgeSeparation reaches Dagre as edgesep", () => {
     assert.ok(
         spread(400) > spread(0),
         "a wider edgeSeparation should spread the layout",
+    );
+});
+
+test("an edge's label height adds to the gap between the ranks it joins", () => {
+    for (const height of [0, 120]) {
+        const { boxes } = layOut(
+            {
+                nodes: [node("a"), node("b")],
+                boundaries: [],
+                edges: [
+                    {
+                        id: "ab",
+                        source: "a",
+                        target: "b",
+                        label: { width: 240, height },
+                    },
+                ],
+            },
+            SETTINGS,
+        );
+        const a = boxes.get("a");
+        const b = boxes.get("b");
+        assert.equal(
+            b.y - (a.y + a.height),
+            SETTINGS.rankSeparation + height,
+            `a ${height}-high label should open the gap by its height`,
+        );
+    }
+});
+
+test("one boundary level triples the gap between ranks, as Dagre nests it", () => {
+    const { boxes } = layOut(
+        {
+            nodes: [node("a", "s"), node("b", "s")],
+            boundaries: [{ id: "s" }],
+            edges: [{ id: "ab", source: "a", target: "b" }],
+        },
+        SETTINGS,
+    );
+    const a = boxes.get("a");
+    const b = boxes.get("b");
+    assert.equal(
+        b.y - (a.y + a.height),
+        3 * SETTINGS.rankSeparation,
+        "a boundary should nest the ranks one level deep, no more",
+    );
+});
+
+/* ------------------------------------------------------------------- order */
+
+test("elements reach Dagre in the order given, even with numeric ids", () => {
+    // Unrelated elements of one rank sit left to right in the order Dagre
+    // sees them. Keyed by "10" and "9", a plain object would list 9 first.
+    const { boxes } = layOut(
+        { nodes: [node("10"), node("9")], boundaries: [], edges: [] },
+        SETTINGS,
+    );
+    assert.ok(
+        boxes.get("10").x < boxes.get("9").x,
+        "10 came first, so it should sit left of 9",
+    );
+});
+
+test("a boundary reaches Dagre where its first element does, its elements right after it", () => {
+    // Upstream hands Dagre each outermost cell in the order it first
+    // appears, followed by everything inside it.
+    const order = layoutOrder({
+        nodes: [
+            { id: "c", width: 1, height: 1, parent: "s" },
+            { id: "x", width: 1, height: 1 },
+            { id: "d", width: 1, height: 1, parent: "t" },
+            { id: "e", width: 1, height: 1, parent: "s" },
+        ],
+        boundaries: [{ id: "s" }, { id: "t", parent: "s" }],
+        edges: [],
+    });
+    assert.deepEqual(
+        order,
+        ["s", "c", "t", "e", "d", "x"],
+        "the boundary and its contents should come first, breadth first",
+    );
+});
+
+test("outermost boundaries drawn behind reach Dagre first, the last given first", () => {
+    // Upstream sends each deployment node to the back as it makes it, so
+    // the last one made is the first of its cells.
+    const order = layoutOrder({
+        nodes: [
+            { id: "x", width: 1, height: 1 },
+            { id: "c", width: 1, height: 1, parent: "s" },
+            { id: "d", width: 1, height: 1, parent: "t" },
+        ],
+        boundaries: [
+            { id: "s", behind: true },
+            { id: "t", behind: true },
+        ],
+        edges: [],
+    });
+    assert.deepEqual(
+        order,
+        ["t", "d", "s", "c", "x"],
+        "t was given last, so it and its contents should come first",
+    );
+    // Inside a boundary, those drawn behind come after the rest, in the
+    // order given, though an element of the last one appears first.
+    const nested = layoutOrder({
+        nodes: [
+            { id: "e", width: 1, height: 1, parent: "v" },
+            { id: "c", width: 1, height: 1, parent: "s" },
+            { id: "d", width: 1, height: 1, parent: "u" },
+        ],
+        boundaries: [
+            { id: "s", behind: true },
+            { id: "u", parent: "s", behind: true },
+            { id: "v", parent: "s", behind: true },
+        ],
+        edges: [],
+    });
+    assert.deepEqual(
+        nested,
+        ["s", "c", "u", "v", "d", "e"],
+        "u and v should follow c, in the order given",
     );
 });
 
