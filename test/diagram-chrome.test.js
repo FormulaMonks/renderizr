@@ -15,9 +15,12 @@ const { WorkspaceModel } = await importSrc("model/index");
 const { default: DiagramNavigation } = await importSrc(
     "components/diagram-navigation",
 );
-const { default: CurrentView } = await importSrc("components/current-view");
+const { default: CurrentView, DIAGRAM_THEME_STORAGE_KEY } = await importSrc(
+    "components/current-view",
+);
+const theme = await importSrc("components/theme");
 
-const { document } = dom;
+const { document, window } = dom;
 
 const model = new WorkspaceModel(
     JSON.parse(
@@ -40,14 +43,39 @@ function stubDiagram() {
         setDarkMode: () => {},
         toggleDescription: () => {},
         toggleMetadata: () => {},
-        currentViewHasAnimation: () => false,
-        currentViewIsDynamic: () => false,
-        animationStarted: () => false,
-        onAnimationStarted: () => {},
-        onAnimationStopped: () => {},
-        stopAnimation: () => {},
     };
 }
+
+/**
+ * The engine's animation members as the toolbar sees them, recording every
+ * call; `emit` plays the engine announcing a new state.
+ */
+function stubAnimation(initial = { steps: 0, step: null, playing: false }) {
+    const listeners = new Set();
+    const calls = [];
+    let state = initial;
+    const record = (name) => () => calls.push(name);
+    return {
+        calls,
+        emit(patch) {
+            state = { ...state, ...patch };
+            for (const listener of listeners) listener(state);
+        },
+        play: record("play"),
+        pause: record("pause"),
+        stepForward: record("stepForward"),
+        stepBack: record("stepBack"),
+        stop: record("stop"),
+        onAnimationChanged(callback) {
+            listeners.add(callback);
+            callback(state);
+            return () => listeners.delete(callback);
+        },
+        listeners,
+    };
+}
+
+const CONTROLS = { fit() {}, zoomIn() {}, zoomOut() {} };
 
 test("the drawer lists the model's views with their titles", () => {
     const element = document.createElement("nav");
@@ -80,7 +108,8 @@ test("the toolbar titles the current view from the model", () => {
     const toolbar = new CurrentView(
         element,
         stubDiagram(),
-        { fit() {}, zoomIn() {}, zoomOut() {} },
+        CONTROLS,
+        stubAnimation(),
         model,
     );
 
@@ -118,4 +147,136 @@ test("a filtered view is shown once, though the diagram reports its base as curr
 
     assert.deepEqual(calls, ["Filtered"]);
     drawer.clear();
+});
+
+/* ------------------------------------------------------------- animation */
+
+/** A toolbar over `animation`, rendered for the dynamic Big Bank view. */
+function animatedToolbar(animation) {
+    const element = document.createElement("section");
+    const toolbar = new CurrentView(
+        element,
+        stubDiagram(),
+        CONTROLS,
+        animation,
+        model,
+    );
+    toolbar.render(model.findViewByKey("SignIn"));
+    const group = element.querySelector(".animation-buttons");
+    const button = (name) => element.querySelector(`.${name}`);
+    return { toolbar, group, button };
+}
+
+const click = (button) => button.click();
+
+/** A view with six steps, showing all of them. */
+const SIX_STEPS = { steps: 6, step: null, playing: false };
+
+test("the toolbar hides the animation buttons when the view has no steps", () => {
+    const animation = stubAnimation();
+    const { toolbar, group } = animatedToolbar(animation);
+    assert.equal(group.hidden, true, "no steps, no buttons");
+
+    animation.emit({ steps: 6 });
+    assert.equal(group.hidden, false, "the buttons show once there are steps");
+    toolbar.clear();
+});
+
+test("prev and next are enabled whenever the view has steps", () => {
+    const { toolbar, button } = animatedToolbar(stubAnimation(SIX_STEPS));
+    assert.equal(button("prev-step").disabled, false);
+    assert.equal(button("next-step").disabled, false);
+    toolbar.clear();
+});
+
+test("play toggles pause, from the engine's state", () => {
+    const animation = stubAnimation(SIX_STEPS);
+    const { toolbar, button } = animatedToolbar(animation);
+    const play = button("play-animation");
+    assert.equal(play.getAttribute("aria-label"), "Play animation");
+
+    click(play);
+    assert.deepEqual(animation.calls, ["play"]);
+    animation.emit({ step: 1, playing: true });
+    assert.equal(play.getAttribute("aria-label"), "Pause animation");
+    assert.equal(play.dataset.playing, "true");
+
+    click(play);
+    assert.deepEqual(animation.calls, ["play", "pause"]);
+    animation.emit({ playing: false });
+    assert.equal(play.getAttribute("aria-label"), "Play animation");
+    toolbar.clear();
+});
+
+test("prev and next step the engine's animation", () => {
+    const animation = stubAnimation(SIX_STEPS);
+    const { toolbar, button } = animatedToolbar(animation);
+    click(button("next-step"));
+    click(button("prev-step"));
+    assert.deepEqual(animation.calls, ["stepForward", "stepBack"]);
+    toolbar.clear();
+});
+
+test("changing the scheme or the labels never stops the animation", () => {
+    const animation = stubAnimation({ steps: 6, step: 2, playing: true });
+    const { toolbar, button } = animatedToolbar(animation);
+    click(button("dark-mode"));
+    click(button("toggle-description"));
+    click(button("toggle-technologies"));
+    assert.deepEqual(animation.calls, [], "no animation member was called");
+    toolbar.clear();
+});
+
+test("clearing the toolbar stops listening to the engine", () => {
+    const animation = stubAnimation();
+    const { toolbar } = animatedToolbar(animation);
+    toolbar.clear();
+    assert.equal(animation.listeners.size, 0);
+});
+
+test("a toolbar rendered again after clear repaints the animation buttons", () => {
+    const animation = stubAnimation();
+    const { toolbar } = animatedToolbar(animation);
+    toolbar.clear();
+    toolbar.render(model.findViewByKey("SignIn"));
+
+    animation.emit({ steps: 6 });
+    const group = toolbar.element.querySelector(".animation-buttons");
+    assert.equal(group.hidden, false, "the engine's new state reaches it");
+    toolbar.clear();
+    assert.equal(animation.listeners.size, 0, "and clear lets go again");
+});
+
+/* ----------------------------------------------------------- color scheme */
+
+test("a toolbar rendered again after clear still follows the page theme", () => {
+    // No diagram-specific choice, so the diagram follows the page.
+    window.localStorage.removeItem(DIAGRAM_THEME_STORAGE_KEY);
+    window.localStorage.removeItem("structurizr_cooper:darkModeDiagrams");
+    theme.setMode("light");
+    let dark = false;
+    const diagram = {
+        ...stubDiagram(),
+        isDarkMode: () => dark,
+        setDarkMode: (value) => {
+            dark = value;
+        },
+    };
+    const element = document.createElement("section");
+    const toolbar = new CurrentView(
+        element,
+        diagram,
+        CONTROLS,
+        stubAnimation(),
+        model,
+    );
+    toolbar.render(model.findViewByKey("SignIn"));
+    toolbar.clear();
+    toolbar.render(model.findViewByKey("SignIn"));
+
+    theme.setMode("dark");
+    assert.equal(dark, true, "the diagram turns dark with the page");
+    toolbar.clear();
+    theme.setMode("light");
+    assert.equal(dark, true, "a cleared toolbar no longer follows the page");
 });

@@ -1,5 +1,10 @@
 import { readSetting, writeSetting } from "../storage";
-import type { Labels } from "../engine/contract";
+import {
+    type AnimationControls,
+    type AnimationState,
+    type Labels,
+    NOT_ANIMATING,
+} from "../engine/contract";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { WorkspaceModel } from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
@@ -12,26 +17,24 @@ import resetZoomIcon from "../../vendor/structurizr/bootstrap-icons/aspect-ratio
 import zoomInIcon from "../../vendor/structurizr/bootstrap-icons/zoom-in.svg?raw";
 import zoomOutIcon from "../../vendor/structurizr/bootstrap-icons/zoom-out.svg?raw";
 import playIcon from "../../vendor/structurizr/bootstrap-icons/play-fill.svg?raw";
-import stopIcon from "../../vendor/structurizr/bootstrap-icons/stop-fill.svg?raw";
 import prevStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-start-fill.svg?raw";
 import nextStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-end-fill.svg?raw";
 import Component from "./_component";
 
+/**
+ * Bootstrap Icons' `pause-fill` (MIT, like the vendored icons beside it).
+ * Upstream Structurizr ships no pause icon for `pnpm sync:vendor` to copy;
+ * the toolbar takes every icon from the `bootstrap-icons` package at cutover
+ * (spec 16).
+ */
+const PAUSE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pause-fill" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"/></svg>`;
+
 /** The part of the Structurizr `Diagram` the toolbar drives. */
 export type ToolbarDiagram = Pick<
     Diagram,
-    | "animationStarted"
-    | "currentViewHasAnimation"
-    | "currentViewIsDynamic"
     | "getCurrentView"
     | "isDarkMode"
-    | "onAnimationStarted"
-    | "onAnimationStopped"
     | "setDarkMode"
-    | "startAnimation"
-    | "stepBackwardInAnimation"
-    | "stepForwardInAnimation"
-    | "stopAnimation"
     | "toggleDescription"
     | "toggleMetadata"
 >;
@@ -143,7 +146,15 @@ function writeLabelState(state: Labels): void {
 export default class CurrentView extends Component {
     #diagram: ToolbarDiagram;
     #controls: DiagramControls;
+    #animation: AnimationControls;
     #model: WorkspaceModel;
+
+    /**
+     * The engine's animation state, which the animation buttons render from;
+     * not animating until the engine says otherwise.
+     */
+    #animationState: AnimationState = NOT_ANIMATING;
+    #unsubscribeAnimation: (() => void) | null = null;
 
     /**
      * What the reader wants to see. Lives on the component — which survives
@@ -184,43 +195,29 @@ export default class CurrentView extends Component {
             "toggle-technologies",
             () => this.#setLabels({ technologies: !this.#labels.technologies }),
         ],
+        // Play toggles pause, keeping the step (spec 11).
         [
             "play-animation",
-            () => {
-                const button = this.#button("play-animation");
-                if (button?.dataset.playing === "true") {
-                    this.#stopAnimation();
-                } else {
-                    this.#diagram.startAnimation(true);
-                }
-                this.#toggleBackButton();
-            },
+            () =>
+                this.#animationState.playing
+                    ? this.#animation.pause()
+                    : this.#animation.play(),
         ],
-        [
-            "prev-step",
-            () => {
-                this.#diagram.stepBackwardInAnimation();
-                this.#toggleBackButton();
-            },
-        ],
-        [
-            "next-step",
-            () => {
-                this.#diagram.stepForwardInAnimation();
-                this.#toggleBackButton();
-            },
-        ],
+        ["prev-step", () => this.#animation.stepBack()],
+        ["next-step", () => this.#animation.stepForward()],
     ]);
 
     constructor(
         element: HTMLElement,
         diagram: ToolbarDiagram,
         controls: DiagramControls,
+        animation: AnimationControls,
         model: WorkspaceModel,
     ) {
         super(element);
         this.#diagram = diagram;
         this.#controls = controls;
+        this.#animation = animation;
         this.#model = model;
 
         // Seed the engine from the persisted preferences before anything is
@@ -229,13 +226,32 @@ export default class CurrentView extends Component {
         // are re-read every time a view is drawn.
         this.applyColorScheme(getDiagramTheme());
         this.#syncLabels();
+    }
+
+    /**
+     * Listen to the engine and the page theme. Called by every `render()`,
+     * after the `clear()` that stops listening, so a toolbar rendered again
+     * after a clear still hears both.
+     */
+    #subscribe() {
+        // The animation buttons render from the engine's state alone, so
+        // nothing the toolbar does has to stop an animation behind its back.
+        this.#unsubscribeAnimation = this.#animation.onAnimationChanged(
+            (state) => {
+                this.#animationState = state;
+                this.#paintAnimationButtons();
+            },
+        );
 
         // Until the reader makes a diagram-specific choice, diagrams follow
         // the page (and, through it, the OS). After that they never do again.
-        this.#unsubscribeTheme = onThemeChange((resolved) => {
+        // A change made while the toolbar was cleared is caught up here.
+        const follow = (resolved: ResolvedTheme) => {
             if (getStoredDiagramTheme()) return;
             this.applyColorScheme(resolved);
-        });
+        };
+        follow(getResolvedTheme());
+        this.#unsubscribeTheme = onThemeChange(follow);
     }
 
     #button(name: string): HTMLButtonElement | null {
@@ -244,21 +260,30 @@ export default class CurrentView extends Component {
         );
     }
 
-    #toggleBackButton() {
-        const button = this.#button("prev-step");
-        if (!button) return;
-
-        button.disabled = !this.#diagram.animationStarted();
-    }
-
     /**
-     * `Diagram.stopAnimation()` reaches `currentView.type` through
-     * `currentViewIsDynamic()`, so it throws outright when no view has been
-     * rendered yet — which is exactly the state the constructor seeds in.
+     * Paints the animation buttons from the engine's state (spec 11): hidden
+     * when the view has no steps, prev and next enabled whenever it has, and
+     * play showing pause while it plays.
      */
-    #stopAnimation() {
-        if (!this.#diagram.getCurrentView()) return;
-        this.#diagram.stopAnimation();
+    #paintAnimationButtons() {
+        const { steps, playing } = this.#animationState;
+        const group =
+            this.element?.querySelector<HTMLElement>(".animation-buttons");
+        if (!group) return;
+        group.hidden = steps === 0;
+
+        for (const name of ["prev-step", "next-step"]) {
+            const button = this.#button(name);
+            if (button) button.disabled = steps === 0;
+        }
+
+        const play = this.#button("play-animation");
+        if (!play) return;
+        const label = playing ? "Pause animation" : "Play animation";
+        play.innerHTML = playing ? PAUSE_ICON : playIcon;
+        play.dataset.playing = playing ? "true" : "";
+        play.title = label;
+        play.setAttribute("aria-label", label);
     }
 
     /**
@@ -272,14 +297,10 @@ export default class CurrentView extends Component {
 
         const darkMode = theme === "dark";
         if (this.#diagram.isDarkMode() !== darkMode) {
-            // `setDarkMode()` re-renders the view, which invalidates any
-            // animation in flight.
             this.#diagram.setDarkMode(darkMode);
-            this.#stopAnimation();
         }
 
         this.#paintControlButtons();
-        this.#toggleBackButton();
     }
 
     /**
@@ -309,9 +330,6 @@ export default class CurrentView extends Component {
 
         this.#syncLabels();
         this.#paintControlButtons();
-
-        this.#stopAnimation();
-        this.#toggleBackButton();
     }
 
     #paintToggleButton(name: string, active: boolean, label: string) {
@@ -364,10 +382,6 @@ export default class CurrentView extends Component {
     }
 
     #addControlButtons(container: HTMLElement) {
-        const hasAnimations =
-            this.#diagram.currentViewHasAnimation() ||
-            this.#diagram.currentViewIsDynamic();
-
         container.innerHTML = `
             <div class="actions ${styles.btnGroup}">
                 <button class="zoom-out" title="Zoom out" aria-label="Zoom out">${zoomOutIcon}</button>
@@ -377,51 +391,27 @@ export default class CurrentView extends Component {
                 <button class="toggle-description">${toggleDescriptionsIcon}</button>
                 <button class="toggle-technologies">${toggleTechnologiesIcon}</button>
             </div>
-            ${
-                hasAnimations
-                    ? `
-            <div class="animation-buttons ${styles.btnGroup}">
-                <button class="prev-step" disabled="true" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
-                <button class="play-animation" title="Play animation" aria-label="Play animation">${playIcon}</button>
+            <div class="animation-buttons ${styles.btnGroup}" hidden>
+                <button class="prev-step" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
+                <button class="play-animation"></button>
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
-            </div>`
-                    : ""
-            }
+            </div>
         `;
 
         this.#paintControlButtons();
-        this.#toggleBackButton();
+        this.#paintAnimationButtons();
 
         for (const [id, action] of this.#actions) {
             const button = container.querySelector(`.${id}`);
             button?.addEventListener("click", action);
         }
-
-        this.#diagram.onAnimationStarted(() => {
-            const button = container.querySelector(
-                ".play-animation",
-            ) as HTMLButtonElement;
-
-            if (!button) return;
-
-            button.innerHTML = stopIcon;
-            button.dataset.playing = "true";
-        });
-        this.#diagram.onAnimationStopped(() => {
-            const button = container.querySelector(
-                ".play-animation",
-            ) as HTMLButtonElement;
-
-            if (!button) return;
-
-            button.innerHTML = playIcon;
-            button.dataset.playing = "";
-        });
     }
 
     clear() {
         this.#unsubscribeTheme?.();
         this.#unsubscribeTheme = null;
+        this.#unsubscribeAnimation?.();
+        this.#unsubscribeAnimation = null;
 
         const container = this.element?.querySelector(
             `.${styles.controlButtons}`,
@@ -446,6 +436,8 @@ export default class CurrentView extends Component {
         if (!this.element || !currentView) return;
         const view = this.#model.findViewByKey(currentView.key);
         if (!view) return;
+        this.clear();
+        this.#subscribe();
         const [description, author] = view.description.split("Author: ");
         // Structurizr's own naming: an explicit title when the view has one,
         // otherwise "Container View: Internet Banking System" and the like.

@@ -1,8 +1,14 @@
 import CurrentView, {
     applyDiagramTheme,
     getDiagramTheme,
+    type ToolbarDiagram,
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
+import {
+    type AnimationControls,
+    type AnimationState,
+    NOT_ANIMATING,
+} from "../engine/contract";
 import { WorkspaceModel } from "../model";
 import type { Diagram } from "../types/structurizr-diagram";
 import type {
@@ -74,6 +80,80 @@ function whenMeasurable(element: HTMLElement, start: () => void) {
 
     observer.observe(element);
     return () => observer.disconnect();
+}
+
+/**
+ * The toolbar's animation members over the Structurizr `Diagram`, until the
+ * vendored engine goes at cutover (ADR 12). It knows no step count or pause:
+ * a view with an animation reports one step, pause stops, and a step is
+ * shown only while the diagram says its animation runs. The diagram's own
+ * re-renders (a scheme or label change) invalidate an animation in flight,
+ * so the toggles the toolbar calls stop it here, not in the toolbar.
+ */
+function structurizrToolbar(diagram: Diagram) {
+    const listeners = new Set<(state: AnimationState) => void>();
+    let state: AnimationState = NOT_ANIMATING;
+    const emit = (patch: Partial<AnimationState>) => {
+        state = { ...state, ...patch };
+        for (const listener of listeners) listener(state);
+    };
+    // `stopAnimation()` reaches `currentView.type`, so it throws before the
+    // first view has been rendered.
+    const stop = () => {
+        if (diagram.getCurrentView()) diagram.stopAnimation();
+    };
+    diagram.onAnimationStarted(() => emit({ step: 1, playing: true }));
+    diagram.onAnimationStopped(() =>
+        emit({
+            step: diagram.animationStarted() ? state.step : null,
+            playing: false,
+        }),
+    );
+
+    const animation: AnimationControls & { refresh(): void } = {
+        play: () => diagram.startAnimation(true),
+        pause: stop,
+        stop,
+        stepForward: () => diagram.stepForwardInAnimation(),
+        stepBack: () => diagram.stepBackwardInAnimation(),
+        onAnimationChanged(callback) {
+            listeners.add(callback);
+            callback(state);
+            return () => {
+                listeners.delete(callback);
+            };
+        },
+        /** A new view is on screen: say whether it animates. */
+        refresh: () =>
+            emit({
+                steps:
+                    diagram.currentViewHasAnimation() ||
+                    diagram.currentViewIsDynamic()
+                        ? 1
+                        : 0,
+                step: null,
+                playing: false,
+            }),
+    };
+
+    const toolbarDiagram: ToolbarDiagram = {
+        getCurrentView: () => diagram.getCurrentView(),
+        isDarkMode: () => diagram.isDarkMode(),
+        setDarkMode: (dark) => {
+            diagram.setDarkMode(dark);
+            stop();
+        },
+        toggleDescription: () => {
+            diagram.toggleDescription();
+            stop();
+        },
+        toggleMetadata: () => {
+            diagram.toggleMetadata();
+            stop();
+        },
+    };
+
+    return { diagram: toolbarDiagram, animation };
 }
 
 /** Whether a view already carries coordinates worth rendering. */
@@ -479,17 +559,21 @@ export default class Diagrams extends Page {
                                     ),
                                 );
 
+                                const toolbar = structurizrToolbar(
+                                    this.#diagram,
+                                );
                                 const currentView = this.addComponent(
                                     new CurrentView(
                                         document.querySelector<HTMLDivElement>(
                                             "#structurizr-current-view",
                                         ) as HTMLElement,
-                                        this.#diagram,
+                                        toolbar.diagram,
                                         {
                                             fit: this.#fitDiagram,
                                             zoomIn: this.zoomIn,
                                             zoomOut: this.zoomOut,
                                         },
+                                        toolbar.animation,
                                         model,
                                     ),
                                 );
@@ -508,6 +592,7 @@ export default class Diagrams extends Page {
                                     // itself while rendering, exactly as the Structurizr
                                     // server does — there is nothing to re-run here.
                                     this.#fitDiagram();
+                                    toolbar.animation.refresh();
                                     nav.changeView(viewKey);
                                     currentView.render(
                                         view,

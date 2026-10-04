@@ -83,6 +83,13 @@ export const ACCEPTANCE_SET = [
         submodule: false,
     },
     {
+        // The dynamic and static animations of spec 11, until #51's
+        // purpose-built fixture covers them.
+        name: "Animation",
+        source: join(REPO_ROOT, "test/__fixtures__/animation.json"),
+        submodule: false,
+    },
+    {
         // structurizr/ui's Big Bank, every view with its stored layout: the
         // other Big Bank lays every view out automatically, so the layouts
         // Structurizr's editor saves were never drawn here (#72).

@@ -4,7 +4,7 @@ Everything about Renderizr happens in this repository. There is no forum, no cha
 
 ## Start here
 
-Most questions are answered by something already written down:
+Something already written down answers most questions:
 
 | If you are wondering | Read |
 | --- | --- |
@@ -26,7 +26,7 @@ GitHub Issues is the only channel. Pick the one that fits:
 | A question — "how do I…", "is it supposed to…", "why does it…" | [an issue](https://github.com/FormulaMonks/renderizr/issues/new/choose), and we will label it `question` |
 | Something broken — a crash, a wrong render, output that does not match what you expected | [a bug report](https://github.com/FormulaMonks/renderizr/issues/new/choose) |
 | An idea — a flag, a rendering behavior, a format Renderizr should understand | [a feature request](https://github.com/FormulaMonks/renderizr/issues/new/choose) |
-| A change you have already written | [a pull request](https://github.com/FormulaMonks/renderizr/pulls), after reading [CONTRIBUTING.md](CONTRIBUTING.md) |
+| A change you already wrote | [a pull request](https://github.com/FormulaMonks/renderizr/pulls), after reading [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 The issue templates ask for what we need. GitHub Discussions is deliberately not enabled: two places to ask means half the answers end up in the place you did not look.
 
@@ -53,13 +53,13 @@ If that also reproduces it, say so — it tells us the problem is in Renderizr a
 
 ## What to expect
 
-This is a small project maintained by people with other jobs. Realistically:
+People with other jobs maintain this small project. Realistically:
 
 - **Questions and bug reports**: a first response within about a week.
 - **Feature requests**: read within about a week, but they may sit open while we decide. An open request is not a rejected one.
 - **Pull requests**: see [How a review goes](CONTRIBUTING.md#how-a-review-goes).
 
-If something has gone quiet for two weeks, a comment on the thread is welcome and will not annoy anyone.
+If something goes quiet for two weeks, a comment on the thread is welcome and will not annoy anyone.
 
 ## What is out of scope
 

@@ -1,3 +1,4 @@
+export * from "./animation";
 export * from "./boundaries";
 export * from "./filter";
 export * from "./metadata";

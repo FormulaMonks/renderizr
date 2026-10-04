@@ -2,7 +2,7 @@
 
 ## Issue tracker
 
-Issues are tracked in GitHub Issues on FormulaMonks/renderizr (via `gh`). See `.claude/rules/issue-tracker.md`.
+The repo tracks issues in GitHub Issues on FormulaMonks/renderizr (via `gh`). See `.claude/rules/issue-tracker.md`.
 
 ## Domain docs
 

@@ -5,7 +5,7 @@ CONTRIBUTING.md is the long version of everything below: https://github.com/Form
 
 ## What this changes
 
-<!-- What the change is about and why it was needed, in one short paragraph. Link the issue it closes: "Closes #123". -->
+<!-- What the change is about and why we needed it, in one short paragraph. Link the issue it closes: "Closes #123". -->
 
 ## How to verify it
 

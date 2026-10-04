@@ -23,6 +23,11 @@ export type EngineOptions = {
     labels: Labels;
 };
 
+/**
+ * Where the current view's animation is (spec 11): how many steps it has (0
+ * when it does not animate), the step shown (null for the full view) and
+ * whether play is advancing it.
+ */
 export type AnimationState = {
     steps: number;
     step: number | null;
@@ -36,10 +41,34 @@ export type AnimationState = {
 export type Anchor = { x: number; y: number };
 
 /**
- * Only part of spec section 5 so far: the animation members arrive with
- * their own ticket.
+ * The state of a view that does not animate, and of every animation before
+ * an engine has said anything: no steps, the full view, not playing. Shared
+ * by the player, the toolbar and the Structurizr adapter.
  */
-export type Engine = {
+export const NOT_ANIMATING: Readonly<AnimationState> = {
+    steps: 0,
+    step: null,
+    playing: false,
+};
+
+/** The animation members of the engine, which the toolbar drives. */
+export type AnimationControls = {
+    /** Advance every 2 s from the step shown, or from step 1. */
+    play(): void;
+    /** Stop advancing, keeping the step. */
+    pause(): void;
+    /** The next step: step 1 from the full view, the full view past the last. */
+    stepForward(): void;
+    /** The previous step: the full view from step 1, nothing from the full view. */
+    stepBack(): void;
+    /** End the animation and show the full view. */
+    stop(): void;
+    /** Every change of `AnimationState`, starting with the current one. */
+    onAnimationChanged(callback: (state: AnimationState) => void): () => void;
+};
+
+/** The engine contract of spec section 5. */
+export type Engine = AnimationControls & {
     showView(key: string): void;
     setColorScheme(scheme: ColorScheme): void;
     setLabels(labels: Labels): void;

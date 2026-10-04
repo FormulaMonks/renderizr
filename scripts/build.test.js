@@ -494,6 +494,24 @@ test("a filtered view whose base is filtered fails the build naming both views",
     );
 });
 
+test("a dynamic-view order that isn't an integer fails the build with the spec's message", async () => {
+    const { code, stderr } = await runCli([
+        join(REPO_ROOT, "test/__fixtures__/fractional-order.json"),
+        "--out",
+        join(SCRATCH, "never-fractional"),
+    ]);
+
+    assert.notEqual(code, 0);
+    assert.match(
+        stderr,
+        /Dynamic view "SignIn": relationship "API → Database" has order "1\.1"; orders must be integers\./,
+    );
+    assert.ok(
+        !existsSync(join(SCRATCH, "never-fractional")),
+        "an output directory was created anyway",
+    );
+});
+
 test("the binary prints its usage and exits 0 for --help", async () => {
     const { code, stdout } = await runCli(["--help"]);
 
@@ -627,20 +645,28 @@ const ROUTER_GZIPPED_BYTES = 5_000;
 const ACTIVATION_GZIPPED_BYTES = 3_500;
 
 /**
- * #26's figure and Dagre's, plus 15%, plus the router's and activation's
- * allowances: past it, the engine has grown more than planned. Dagre is a
- * measured library the spec added after #26, so it joins the measured figure
- * and takes the same margin; the router and activation are overruns of that
- * margin, so their allowances sit on top, unscaled. The margin was raised
- * from 10% while both renderers ship side by side; #64 lowers it again once
- * 2.0 drops the vendored renderer.
+ * Animation (spec 11), about 2.3 KB gzipped when it landed: the steps, the
+ * player and how a step fades and fits the view. Named for the same reason
+ * as the router's: the margin was already spent.
+ */
+const ANIMATION_GZIPPED_BYTES = 2_500;
+
+/**
+ * #26's figure and Dagre's, plus 15%, plus the router's, activation's and
+ * animation's allowances: past it, the engine has grown more than planned.
+ * Dagre is a measured library the spec added after #26, so it joins the
+ * measured figure and takes the same margin; the router, activation and
+ * animation are overruns of that margin, so their allowances sit on top,
+ * unscaled. The margin was raised from 10% while both renderers ship side by
+ * side; #64 lowers it again once 2.0 drops the vendored renderer.
  */
 const ISLAND_BUDGET_BYTES =
     Math.floor((ISLAND_GZIPPED_BYTES + DAGRE_GZIPPED_BYTES) * 1.15) +
     ROUTER_GZIPPED_BYTES +
-    ACTIVATION_GZIPPED_BYTES;
+    ACTIVATION_GZIPPED_BYTES +
+    ANIMATION_GZIPPED_BYTES;
 
-test("the React Flow island's gzipped JS stays within #26's figure and Dagre's, plus 15% and the router's and activation's allowances", async () => {
+test("the React Flow island's gzipped JS stays within #26's figure and Dagre's, plus 15% and the router's, activation's and animation's allowances", async () => {
     // Bundled on its own, from the module the page mounts it through, so the
     // markdown, highlighting and workspace the page also carries do not count
     // against the engine.

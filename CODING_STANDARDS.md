@@ -1,12 +1,12 @@
 # Coding standards
 
-How the code in this repository is written. [CONTRIBUTING.md](CONTRIBUTING.md) covers the workflow: toolchain, commands, hooks, project layout, where a test goes, commits and pull requests. This file covers what a linter cannot check. Prose follows [`.claude/rules/writing.md`](.claude/rules/writing.md); decisions follow [`.claude/rules/adr-guidelines.md`](.claude/rules/adr-guidelines.md). Use the terms in [`GLOSSARY.md`](GLOSSARY.md) in identifiers, comments and test names, and none of the words it lists under _Avoid_.
+How to write the code in this repository. [CONTRIBUTING.md](CONTRIBUTING.md) covers the workflow: toolchain, commands, hooks, project layout, where a test goes, commits and pull requests. This file covers what a linter cannot check. Prose follows [`.claude/rules/writing.md`](.claude/rules/writing.md); decisions follow [`.claude/rules/adr-guidelines.md`](.claude/rules/adr-guidelines.md). Use the terms in [`GLOSSARY.md`](GLOSSARY.md) in identifiers, comments and test names, and none of the words it lists under _Avoid_.
 
 ## Lint and formatting
 
-- Biome 1.x defaults apart from the 4-space indent: 80 columns, LF, double quotes, trailing commas, semicolons. Biome 1.8 as configured processes no `.css` files, so `.editorconfig` holds the stylesheet rules. `src/main.css` is indented with 2 spaces; match the file you are in.
+- Biome 1.x defaults apart from the 4-space indent: 80 columns, LF, double quotes, trailing commas, semicolons. Biome 1.8 as configured processes no `.css` files, so `.editorconfig` holds the stylesheet rules. `src/main.css` uses a 2-space indent; match the file you are in.
 - Order imports by hand (`organizeImports` is off): `node:` builtins, packages, local modules, then stylesheets and `?raw` assets last.
-- Suppress a rule inline and with a reason: `// biome-ignore lint/<group>/<rule>: <why this line is fine>`. Nothing is ignored at file or config level for a one-off. `noNonNullAssertion` is the one rule off repo-wide.
+- Suppress a rule inline and with a reason: `// biome-ignore lint/<group>/<rule>: <why this line is fine>`. Never ignore a rule at file or config level for a one-off. `noNonNullAssertion` is the one rule off repo-wide.
 - Prefer `// @ts-expect-error <reason>` over `@ts-ignore`, so the directive fails once the problem goes away.
 
 ## TypeScript in `src/`
@@ -26,7 +26,7 @@ How the code in this repository is written. [CONTRIBUTING.md](CONTRIBUTING.md) c
 
 Every piece of UI extends `Component` (`src/components/_component.ts`) or `Page` (`src/pages/_page.ts`); the underscore marks the abstract bases.
 
-- `render()` builds markup and attaches listeners. `clear()` undoes all of it: every listener removed, every observer disconnected, every React root unmounted. Keep a list of bound listeners the way `Menu` does. Make `render()` call `clear()` first so it is safe to call twice.
+- `render()` builds markup and attaches listeners. `clear()` undoes all of it: it removes every listener, disconnects every observer and unmounts every React root. Keep a list of bound listeners the way `Menu` does. Make `render()` call `clear()` first so it is safe to call twice.
 - Hold child components in fields. The minifier renames classes, so a lookup by `constructor.name` returns `undefined` in a built page.
 - A component's own shell is a template literal assigned to `innerHTML`. Content the workspace author wrote goes through `MarkdownRenderer`.
 - State and identity travel as `data-*` attributes (`data-item-id`, `data-view-key`, `data-theme`, `data-page`). CSS selects on them and so do the tests.
@@ -43,24 +43,24 @@ Every piece of UI extends `Component` (`src/components/_component.ts`) or `Page`
 
 A rendered page opens from `file://`, as one self-contained file, offline, under a strict Content Security Policy. In code:
 
-- No network request at runtime; everything is embedded by `scripts/assets.js`.
+- No network request at runtime; `scripts/assets.js` embeds everything.
 - No `eval` in any form: no `new Function`, no WebAssembly, no workers ([8. Write our own router in TypeScript](architecture/decisions/0008-write-our-own-router-in-typescript.md)).
 - No runtime `<style>` element and no `setAttribute("style")`. Use class names and, inside the island, React `style` props.
-- Hash routing and relative paths only. A `href="#id"` the router does not own is canceled.
+- Hash routing and relative paths only. The page cancels any `href="#id"` the router does not own.
 - A container can be 0×0 when the page mounts. Defer work that needs a size with `whenMeasurable`.
 
 ### The engine boundary
 
-- React lives in `src/engine/react-flow/island.tsx` and `index.ts` only; `.tsx` is written nowhere else. The page reaches the island through `mountEngine` and the `Engine` handle, and `contract.ts` names nothing from React ([3. Mount React Flow as an island behind the engine contract](architecture/decisions/0003-mount-react-flow-as-an-island-behind-the-engine-contract.md)).
+- React lives in `src/engine/react-flow/island.tsx` and `index.ts` only; write `.tsx` nowhere else. The page reaches the island through `mountEngine` and the `Engine` handle, and `contract.ts` names nothing from React ([3. Mount React Flow as an island behind the engine contract](architecture/decisions/0003-mount-react-flow-as-an-island-behind-the-engine-contract.md)).
 - Geometry and the model are pure functions over numbers and JSON, with no DOM and no React, so they run under `node --test`.
 - A build carries exactly one engine, resolved through `virtual:renderizr-engine` ([12. Ship behind a flag, then cut over in one release](architecture/decisions/0012-ship-behind-a-flag-then-cut-over-in-one-release.md)). Shared code imports neither engine's entry directly.
-- Ported upstream code carries the Apache-2.0 header naming the upstream files and what was modified, as `src/model/` does, and the package is listed in `THIRD-PARTY-NOTICES.md`.
+- Ported upstream code carries the Apache-2.0 header naming the upstream files and what changed, as `src/model/` does, and `THIRD-PARTY-NOTICES.md` lists the package.
 
 ## Node code in `scripts/`
 
 - Use only what Node 20 ships. Import builtins with the `node:` prefix. A bin starts with `#! /usr/bin/env node`.
 - Write to `process.stdout` and `process.stderr` with `.write()` and a trailing `\n`: progress to stdout, warnings and errors to stderr. `console.*` appears in no shipped code.
-- `process.exit` is called in `cli.js` (usage errors, `--help`) and in the Node-floor guard at the top of `build.js`. Everything else throws an `Error` whose message names the input and what was expected: `Unknown engine '${engine}'; expected one of: …`.
+- Only `cli.js` (usage errors, `--help`) and the Node-floor guard at the top of `build.js` call `process.exit`. Everything else throws an `Error` whose message names the input and what it expected: `Unknown engine '${engine}'; expected one of: …`.
 - Degrade when the output can still be right (a theme that fails to load warns and the build carries on). Fail when it would be wrong (an unrecognized image, invalid JSON, an escape sequence that survived rewriting).
 - Export the parts as named functions; `build.js` is the one module with top-level side effects. A flag lives in `OPTIONS` in `cli.js` and its `USAGE` text.
 
@@ -76,11 +76,11 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 - Flat `test(...)` calls grouped under section dividers; `describe` only where one file covers several modules. Import `srcTest as test` so a file skips itself, with a reason on stderr, on a Node too old for the module hooks.
 - Name a test as a lowercase sentence stating behavior a reader could observe: "the footer's version comes from package.json", "--help wins even when the workspace is missing". Flags and identifiers appear verbatim.
 - Drive cases through a `const` table and a `for` loop, as `scripts/escapes.test.js` does.
-- Assert through the real surface: dispatch events on the DOM, read what was rendered, run the CLI in a child process with `runCli` when the path calls `process.exit`. Give an assertion a message that says what went wrong.
+- Assert through the real surface: dispatch events on the DOM, read what the code rendered, run the CLI in a child process with `runCli` when the path calls `process.exit`. Give an assertion a message that says what went wrong.
 - Tests are offline by construction: `no-network.js` poisons `fetch` in child builds and `helpers.js` throws on an unstubbed URL.
 
 ## Dependencies
 
-- `jquery`, `@joint/*` and `@dagrejs/*` are pinned to exact versions: the vendored renderer reads them off `window` and is sensitive to which build it gets. Everything else uses a caret range.
-- Updates arrive through Renovate. Packages inlined into rendered output get one pull request each and never auto-merge; dev tooling is grouped and auto-merges on patch and minor; the `engines` range is never bumped by a bot.
-- `pnpm-workspace.yaml` allows build scripts for `@biomejs/biome` and `esbuild` only. A package needing a postinstall step is added to that list deliberately.
+- Pin `jquery`, `@joint/*` and `@dagrejs/*` to exact versions: the vendored renderer reads them off `window` and is sensitive to which build it gets. Everything else uses a caret range.
+- Updates arrive through Renovate. Packages inlined into rendered output get one pull request each and never auto-merge; Renovate groups dev tooling, which auto-merges on patch and minor; no bot ever bumps the `engines` range.
+- `pnpm-workspace.yaml` allows build scripts for `@biomejs/biome` and `esbuild` only. Add a package that needs a postinstall step to that list deliberately.
