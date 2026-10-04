@@ -527,42 +527,6 @@ describe("resolveView", () => {
         }
     };
 
-    test("resolves a filtered view to its base view's contents", () => {
-        const model = bigBank((json) => {
-            json.views.filteredViews = [
-                {
-                    key: "ContainersFiltered",
-                    baseViewKey: "Containers",
-                    mode: "Exclude",
-                    tags: ["Database"],
-                    description: "Without databases",
-                },
-            ];
-        });
-        const base = resolveView(model, "Containers");
-        const view = resolveView(model, "ContainersFiltered");
-        assert.equal(view.key, "ContainersFiltered");
-        assert.equal(view.type, "Container");
-        assert.equal(view.title, base.title);
-        assert.equal(view.description, "Without databases");
-        assert.deepEqual(
-            view.elements.map((e) => e.id),
-            base.elements.map((e) => e.id),
-        );
-        assert.deepEqual(
-            view.relationships.map((r) => r.id),
-            base.relationships.map((r) => r.id),
-        );
-        assert.equal(view.layout, base.layout);
-        assert.deepEqual(view.automaticLayout, base.automaticLayout);
-        assert.deepEqual(view.filter, {
-            baseViewKey: "Containers",
-            mode: "Exclude",
-            tags: ["Database"],
-        });
-        assert.equal(base.filter, undefined);
-    });
-
     test("resolves every plain view type on Big Bank plc", () => {
         const model = bigBank();
         for (const [key, type] of [

@@ -785,6 +785,120 @@ test("an icon that cannot be inlined warns and is left as a URL", async () => {
     );
 });
 
+/** A workspace file with one image view holding `content`, in `dir`. */
+async function writeImageWorkspace(dir, content) {
+    const path = join(dir, "image.json");
+    await writeFile(
+        path,
+        JSON.stringify({
+            name: "Pictures",
+            views: { imageViews: [{ key: "Picture", ...content }] },
+        }),
+    );
+    return path;
+}
+
+test("an image view's content, contentLight and contentDark URLs are inlined", async () => {
+    await withTempDir(async (dir) => {
+        const source = await writeImageWorkspace(dir, {
+            content: "https://example.test/images/plain.png",
+            contentLight: "https://example.test/images/light.gif",
+            contentDark: "data:image/png;base64,AAAA",
+        });
+        await withFetch(
+            {
+                "https://example.test/images/plain.png": { body: PNG },
+                "https://example.test/images/light.gif": { body: GIF_1X1 },
+            },
+            async (calls) => {
+                const workspace = await loadWorkspace(source);
+                const [view] = workspace.views.imageViews;
+
+                assert.ok(view.content.startsWith("data:image/png;base64,"));
+                assert.ok(
+                    view.contentLight.startsWith("data:image/gif;base64,"),
+                );
+                // Already inline: left exactly as it was, never fetched.
+                assert.equal(view.contentDark, "data:image/png;base64,AAAA");
+                assert.equal(calls.length, 2);
+            },
+        );
+    });
+});
+
+test("an image view that cannot be inlined warns and keeps its URL for the engine's placeholder", async () => {
+    await withTempDir(async (dir) => {
+        const source = await writeImageWorkspace(dir, {
+            content: "https://example.test/images/gone.png",
+        });
+        const { value: workspace, text } = await captured(process.stderr, () =>
+            withFetch(
+                {
+                    "https://example.test/images/gone.png": {
+                        ok: false,
+                        status: 404,
+                        statusText: "Not Found",
+                    },
+                },
+                () => loadWorkspace(source),
+            ),
+        );
+
+        assert.match(
+            text,
+            /warning: could not inline https:\/\/example\.test\/images\/gone\.png — .*404/,
+        );
+        assert.equal(
+            workspace.views.imageViews[0].content,
+            "https://example.test/images/gone.png",
+        );
+    });
+});
+
+test("a filtered view whose base is filtered is refused, naming both views", async () => {
+    await withTempDir(async (dir) => {
+        const path = join(dir, "filtered.json");
+        await writeFile(
+            path,
+            JSON.stringify({
+                views: {
+                    containerViews: [{ key: "Containers" }],
+                    filteredViews: [
+                        { key: "First", baseViewKey: "Containers" },
+                        { key: "Second", baseViewKey: "First" },
+                    ],
+                },
+            }),
+        );
+
+        await assert.rejects(loadWorkspace(path), {
+            message:
+                'Filtered view "Second" has filtered view "First" as its base; the base of a filtered view must not be filtered.',
+        });
+    });
+});
+
+test("a filtered view of a plain view, or of a missing one, is accepted", async () => {
+    await withTempDir(async (dir) => {
+        const path = join(dir, "filtered.json");
+        await writeFile(
+            path,
+            JSON.stringify({
+                views: {
+                    containerViews: [{ key: "Containers" }],
+                    filteredViews: [
+                        { key: "First", baseViewKey: "Containers" },
+                        { key: "BaseMissing", baseViewKey: "Nowhere" },
+                    ],
+                },
+            }),
+        );
+
+        const workspace = await loadWorkspace(path);
+        assert.equal(workspace.views.filteredViews.length, 2);
+    });
+});
+
 test("a chosen font is handed to the diagram engine too", async () => {
     const workspace = await loadWorkspace(fixture("workspace.json"), {
         font: { family: "Inter", css: "@font-face{}" },
