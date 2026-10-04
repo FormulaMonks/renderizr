@@ -1310,6 +1310,18 @@ const shoot = (name) => {
 `;
 
 /**
+ * Keeps the canvas one size for the whole scenario. The view's title and
+ * description fill the header above the canvas once the view is shown,
+ * shrinking the canvas after the island has measured it, and the island
+ * hears that through a ResizeObserver, which virtual time feeds only on the
+ * rare frame: the refit would land at a different point of each run. Out of
+ * the flow, the header no longer moves the canvas.
+ */
+const PROBE_STYLE = `<style>
+[class*="currentView"] { position: absolute; z-index: 1; }
+</style>`;
+
+/**
  * Open `view` of the animation fixture with `scenario` run once the canvas
  * is ready, and hand back what it shot, by name. `flags` go to Chrome.
  */
@@ -1336,7 +1348,9 @@ const probeAnimation = async (name, view, scenario, { flags = [] } = {}) => {
     const html = await readFile(join(built, "index.html"), "utf8");
     await writeFile(
         join(out, "index.html"),
-        html.replace("</body>", `${script}</body>`),
+        html
+            .replace("</head>", `${PROBE_STYLE}</head>`)
+            .replace("</body>", `${script}</body>`),
     );
     const { html: dumped } = await renderPage(CHROME, viewUrlIn(out, view), {
         flags,
