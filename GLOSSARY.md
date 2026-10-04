@@ -52,6 +52,22 @@ _Avoid_: zoom in (that is the viewport), navigation (the view drawer)
 The `url` an element or relationship carries in the workspace. It points to a view, a documentation section or a decision in the same workspace, or outside it altogether. When an element offers several destinations (its link, drill-down views, its documentation), the reader chooses among them, with the link listed first.
 _Avoid_: hyperlink, href
 
+**Activation target**:
+One destination that activating an element or relationship offers the reader, by pointer or by keyboard. An element offers its element link, its drill-down views, its image views and then its properties whose value is an `http(s)` URL, each destination once and never the view on screen; a relationship offers its element link and its `http(s)` properties. An item with no activation targets is inert.
+_Avoid_: hotspot, link (one target kind)
+
+**Target kind**:
+What an activation target leads to: a view, the documentation, the decisions or a link. A link is either an element link that leads outside the workspace or an `http(s)` property, and opens in a new tab.
+_Avoid_: target type, link type
+
+**Target menu**:
+The menu that lists an item's activation targets at the point of activation when the item offers more than one, each labeled by view title, "Documentation", "Decisions" or the link's host. An item with one activation target follows it straight away.
+_Avoid_: context menu, dropdown
+
+**Indicator**:
+A glyph drawn on an element, a boundary's label band or an edge's label for each target kind the item offers, so a sighted reader sees where activating it leads.
+_Avoid_: badge, affordance, icon (that is the element's own image)
+
 **Relationship**:
 A connection from one element to another in the workspace, with a description, technology and tags. It is drawn in a view as an edge.
 _Avoid_: link, connector, arrow

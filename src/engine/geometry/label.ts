@@ -5,6 +5,12 @@
  * parts and asks `fitLabel` what to keep; nothing here touches the DOM.
  */
 
+import {
+    INDICATOR_INSET,
+    INDICATOR_MARGIN,
+    INDICATOR_SIZE,
+} from "./indicators";
+
 /** Where an element's icon sits relative to its text. */
 export type IconPosition = "Top" | "Bottom" | "Left";
 
@@ -138,6 +144,11 @@ export type LabelMeasure = FixedHeights & {
     withIcon?: FixedHeights;
     /** Whether there is a description to place. */
     description: boolean;
+    /**
+     * Whether the element draws an indicator row, a fixed part at the bottom
+     * of the content area, above a Bottom icon (spec 9.2).
+     */
+    indicators?: boolean;
 };
 
 export type LabelFit = {
@@ -153,18 +164,26 @@ export type LabelFit = {
 const textHeight = ({ name, metadata }: FixedHeights) =>
     name + (metadata === undefined ? 0 : NAME_GAP + metadata);
 
+/** The height an indicator row, its margin and its inset take from a label. */
+export const INDICATOR_ROW_HEIGHT =
+    INDICATOR_SIZE + INDICATOR_MARGIN + INDICATOR_INSET;
+
 /**
- * What of the label fits its content area (spec 9.1). Icon, name and
- * metadata are fixed parts; when they overflow, the icon goes first, and if
- * name and metadata still overflow they are reported. The description gets
- * the whole lines left after them, and is clamped there with an ellipsis.
+ * What of the label fits its content area (spec 9.1). Icon, name, metadata
+ * and the indicator row are fixed parts; when they overflow, the icon goes
+ * first, and if name and metadata still overflow they are reported. The
+ * description gets the whole lines left after them, and is clamped there
+ * with an ellipsis.
  *
  * Lines and overflow are worked out from the heights as drawn now. A Left
  * icon narrows the text column, so when the icon kept differs from the one
  * drawn, the caller draws it that way and measures again.
  */
 export function fitLabel(measure: LabelMeasure): LabelFit {
-    const { height, fontSize, iconPosition, withIcon } = measure;
+    const { fontSize, iconPosition, withIcon } = measure;
+    const row = measure.indicators ? INDICATOR_ROW_HEIGHT : 0;
+    // The row sits below everything else, so the rest fits what is left.
+    const height = measure.height - row;
     const layout = ICON_LAYOUTS[iconPosition];
     const icon =
         withIcon !== undefined &&

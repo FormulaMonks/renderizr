@@ -1,0 +1,342 @@
+{
+    "id": 0,
+    "name": "Activation targets",
+    "description": "Elements, boundaries and relationships with none, one or several targets (spec 6.1, 6.2)",
+    "lastModifiedDate": null,
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "tags": "Element,Person",
+                "name": "Customer",
+                "description": "Links to the documentation and has a profile",
+                "location": "External",
+                "url": "{workspace}/documentation",
+                "properties": {
+                    "Profile": "https://people.example.com/customer"
+                },
+                "relationships": [
+                    {
+                        "id": "10",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Buys from",
+                        "technology": "HTTPS",
+                        "url": "https://runbooks.example.com/buying",
+                        "properties": {
+                            "Trace": "https://traces.example.com/buying"
+                        }
+                    },
+                    {
+                        "id": "11",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "6",
+                        "description": "Reads the decisions about"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "tags": "Element,Software System",
+                "name": "Shop",
+                "description": "Drills down to its context and container views, has a picture, a link and a wiki",
+                "location": "Internal",
+                "url": "https://github.com/example/shop",
+                "properties": {
+                    "Wiki": "https://wiki.example.com/shop",
+                    "Owner": "Team Shop"
+                },
+                "relationships": [
+                    {
+                        "id": "12",
+                        "tags": "Relationship",
+                        "sourceId": "2",
+                        "destinationId": "3",
+                        "url": "https://status.example.com/payments"
+                    }
+                ],
+                "containers": [
+                    {
+                        "id": "4",
+                        "tags": "Element,Container",
+                        "name": "Web",
+                        "description": "Drills down to its components",
+                        "technology": "TypeScript",
+                        "relationships": [
+                            {
+                                "id": "13",
+                                "tags": "Relationship",
+                                "sourceId": "4",
+                                "destinationId": "5",
+                                "description": "Stores orders in",
+                                "technology": "SQL"
+                            }
+                        ],
+                        "components": [
+                            {
+                                "id": "7",
+                                "tags": "Element,Component",
+                                "name": "Checkout",
+                                "description": "Has nowhere to go",
+                                "technology": "React"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "5",
+                        "tags": "Element,Container,Database",
+                        "name": "Database",
+                        "description": "Has nowhere to go",
+                        "technology": "PostgreSQL"
+                    }
+                ]
+            },
+            {
+                "id": "3",
+                "tags": "Element,Software System,External",
+                "name": "Payments",
+                "description": "Has nowhere to go",
+                "location": "External"
+            },
+            {
+                "id": "6",
+                "tags": "Element,Software System,External",
+                "name": "Architecture",
+                "description": "Links to the decisions",
+                "location": "External",
+                "url": "{workspace}/decisions#1"
+            }
+        ],
+        "deploymentNodes": [
+            {
+                "id": "20",
+                "tags": "Element,Deployment Node",
+                "name": "Cloud",
+                "description": "A deployment node: its link, never a drill-down",
+                "environment": "Live",
+                "technology": "Kubernetes",
+                "instances": "3",
+                "url": "https://console.example.com/cloud",
+                "containerInstances": [
+                    {
+                        "id": "21",
+                        "tags": "Container Instance",
+                        "containerId": "4",
+                        "environment": "Live",
+                        "instanceId": 1
+                    }
+                ]
+            }
+        ]
+    },
+    "documentation": {
+        "sections": [
+            {
+                "title": "Overview",
+                "filename": "01-overview.md",
+                "format": "Markdown",
+                "order": 1,
+                "content": "# Overview\n\nWhere the customer's link leads.\n"
+            }
+        ],
+        "decisions": [
+            {
+                "id": "1",
+                "title": "Offer every destination an element has",
+                "date": "2026-10-04T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 1. Offer every destination an element has\n\nWhere the architecture's link leads.\n"
+            }
+        ]
+    },
+    "views": {
+        "systemLandscapeViews": [
+            {
+                "key": "Landscape",
+                "title": "Landscape",
+                "description": "Click or Tab to Customer (two targets), Shop (five) and the edges",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "6",
+                        "x": 1100,
+                        "y": 100
+                    },
+                    {
+                        "id": "2",
+                        "x": 100,
+                        "y": 700
+                    },
+                    {
+                        "id": "3",
+                        "x": 1100,
+                        "y": 700
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "10"
+                    },
+                    {
+                        "id": "11"
+                    },
+                    {
+                        "id": "12"
+                    }
+                ]
+            }
+        ],
+        "systemContextViews": [
+            {
+                "key": "ShopContext",
+                "title": "Shop in context",
+                "softwareSystemId": "2",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "2",
+                        "x": 100,
+                        "y": 700
+                    },
+                    {
+                        "id": "3",
+                        "x": 1100,
+                        "y": 700
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "10"
+                    },
+                    {
+                        "id": "12"
+                    }
+                ]
+            }
+        ],
+        "containerViews": [
+            {
+                "key": "ShopContainers",
+                "title": "Shop containers",
+                "description": "The Shop boundary's band carries its indicators",
+                "softwareSystemId": "2",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "4",
+                        "x": 100,
+                        "y": 700
+                    },
+                    {
+                        "id": "5",
+                        "x": 900,
+                        "y": 700
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "13"
+                    }
+                ]
+            }
+        ],
+        "componentViews": [
+            {
+                "key": "WebComponents",
+                "title": "Web components",
+                "containerId": "4",
+                "elements": [
+                    {
+                        "id": "7",
+                        "x": 100,
+                        "y": 100
+                    }
+                ],
+                "relationships": []
+            }
+        ],
+        "deploymentViews": [
+            {
+                "key": "Live",
+                "title": "Live",
+                "environment": "Live",
+                "description": "The Cloud boundary has its link and an instance count",
+                "elements": [
+                    {
+                        "id": "20",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "21",
+                        "x": 100,
+                        "y": 100
+                    }
+                ],
+                "relationships": []
+            }
+        ],
+        "imageViews": [
+            {
+                "key": "ShopPicture",
+                "title": "Shop picture",
+                "elementId": "2",
+                "content": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+            }
+        ],
+        "configuration": {
+            "branding": {},
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Element",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Person",
+                        "shape": "Person",
+                        "background": "#08427b"
+                    },
+                    {
+                        "tag": "External",
+                        "background": "#999999"
+                    },
+                    {
+                        "tag": "Database",
+                        "shape": "Cylinder"
+                    },
+                    {
+                        "tag": "Deployment Node",
+                        "background": "#ffffff",
+                        "color": "#000000"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    }
+                ]
+            },
+            "metadataSymbols": "SquareBrackets"
+        }
+    }
+}

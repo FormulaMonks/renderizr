@@ -3,5 +3,6 @@ export * from "./filter";
 export * from "./metadata";
 export * from "./resolve-view";
 export * from "./styles";
+export * from "./targets";
 export type * from "./types";
 export * from "./workspace";

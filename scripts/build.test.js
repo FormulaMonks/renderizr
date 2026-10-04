@@ -620,18 +620,27 @@ const DAGRE_GZIPPED_BYTES = 15_976;
 const ROUTER_GZIPPED_BYTES = 5_000;
 
 /**
- * #26's figure and Dagre's, plus 15%, plus the router's allowance: past it,
- * the engine has grown more than planned. Dagre is a measured library the
- * spec added after #26, so it joins the measured figure and takes the same
- * margin; the router is an overrun of that margin, so its allowance sits on
- * top, unscaled. The margin was raised from 10% while both renderers ship
- * side by side; #64 lowers it again once 2.0 drops the vendored renderer.
+ * Activation (spec 6.1, 6.2): target resolution, indicators and keyboard
+ * access, about 3.3 KB gzipped when it landed (#48). Named for the same
+ * reason as the router's: the margin was already spent.
+ */
+const ACTIVATION_GZIPPED_BYTES = 3_500;
+
+/**
+ * #26's figure and Dagre's, plus 15%, plus the router's and activation's
+ * allowances: past it, the engine has grown more than planned. Dagre is a
+ * measured library the spec added after #26, so it joins the measured figure
+ * and takes the same margin; the router and activation are overruns of that
+ * margin, so their allowances sit on top, unscaled. The margin was raised
+ * from 10% while both renderers ship side by side; #64 lowers it again once
+ * 2.0 drops the vendored renderer.
  */
 const ISLAND_BUDGET_BYTES =
     Math.floor((ISLAND_GZIPPED_BYTES + DAGRE_GZIPPED_BYTES) * 1.15) +
-    ROUTER_GZIPPED_BYTES;
+    ROUTER_GZIPPED_BYTES +
+    ACTIVATION_GZIPPED_BYTES;
 
-test("the React Flow island's gzipped JS stays within #26's figure and Dagre's, plus 15% and the router's allowance", async () => {
+test("the React Flow island's gzipped JS stays within #26's figure and Dagre's, plus 15% and the router's and activation's allowances", async () => {
     // Bundled on its own, from the module the page mounts it through, so the
     // markdown, highlighting and workspace the page also carries do not count
     // against the engine.

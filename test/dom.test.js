@@ -189,6 +189,46 @@ test("click events bubble to an ancestor listener", () => {
     assert.deepEqual(seen, ["SPAN"]);
 });
 
+test("a bubbling event reaches the document and then the window", () => {
+    const host = parse("<span>go</span>");
+    document.body.appendChild(host);
+    const seen = [];
+    const onDocument = () => seen.push("document");
+    const onWindow = () => seen.push("window");
+    document.addEventListener("pointerdown", onDocument);
+    window.addEventListener("pointerdown", onWindow);
+
+    host.children[0].dispatchEvent(
+        new DOMEvent("pointerdown", { bubbles: true }),
+    );
+    document.removeEventListener("pointerdown", onDocument);
+    window.removeEventListener("pointerdown", onWindow);
+
+    assert.deepEqual(seen, ["document", "window"]);
+});
+
+test("contains is true for the node itself and its descendants only", () => {
+    const host = parse('<div id="menu"><a href="#1"><span>go</span></a></div>');
+    const menu = host.children[0];
+
+    assert.equal(menu.contains(host.querySelector("span")), true);
+    assert.equal(menu.contains(menu), true);
+    assert.equal(menu.contains(host), false);
+    assert.equal(menu.contains(null), false);
+});
+
+test("focus() moves document.activeElement, which reset() puts back on the body", () => {
+    const host = parse('<a href="#1">one</a><a href="#2">two</a>');
+    document.body.appendChild(host);
+
+    assert.equal(document.activeElement, document.body);
+    host.children[1].focus();
+    assert.equal(document.activeElement, host.children[1]);
+
+    dom.reset();
+    assert.equal(document.activeElement, document.body);
+});
+
 test("stopPropagation halts the walk and preventDefault is observable", () => {
     const host = parse("<div><a><span>go</span></a></div>");
     document.body.appendChild(host);

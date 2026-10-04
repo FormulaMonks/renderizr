@@ -30,8 +30,14 @@ export type AnimationState = {
 };
 
 /**
- * Only part of spec section 5 so far: the animation and activation members
- * arrive with their own tickets.
+ * Where an activation happened, in viewport (client) coordinates: under the
+ * pointer, or below the focused item for a key. The target menu opens there.
+ */
+export type Anchor = { x: number; y: number };
+
+/**
+ * Only part of spec section 5 so far: the animation members arrive with
+ * their own ticket.
  */
 export type Engine = {
     showView(key: string): void;
@@ -45,6 +51,16 @@ export type Engine = {
 
     onViewShown(
         callback: (view: ModelView, animation: AnimationState) => void,
+    ): () => void;
+    /**
+     * An element, or a boundary drawn for one, was activated. The engine
+     * never navigates: the page resolves its targets (spec 6.1).
+     */
+    onElementActivated(
+        callback: (elementId: string, anchor: Anchor) => void,
+    ): () => void;
+    onRelationshipActivated(
+        callback: (relationshipId: string, anchor: Anchor) => void,
     ): () => void;
 
     unmount(): void;

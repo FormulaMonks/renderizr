@@ -1,3 +1,4 @@
+import { sectionId } from "../model/documentation";
 import type {
     Decision,
     DocumentationSection,
@@ -27,13 +28,6 @@ const DECISION_FILE = /^(\d+)[-_. ]/;
 const DECISIONS_DIRECTORY = /^(decisions?|adrs?)$/i;
 // `https:`, `mailto:`, `data:`… — anything with a scheme is somewhere else.
 const HAS_SCHEME = /^[a-z][a-z\d+.-]*:/i;
-
-/**
- * The id a documentation section is addressed by in the URL. Shared with the
- * docs page so a link and the menu can never disagree about it.
- */
-export const sectionId = (section: DocumentationSection): string =>
-    section.id ?? section.filename.replace(/\.md$/, "");
 
 const decode = (value: string) => {
     try {
