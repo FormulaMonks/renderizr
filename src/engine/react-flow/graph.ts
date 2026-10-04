@@ -26,11 +26,16 @@ import {
     getMetadataForElement,
     getMetadataForRelationship,
     type ImageContent,
+    elementTargets,
+    type ModelElement,
+    type ModelRelationship,
+    relationshipTargets,
     type ResolvedBoundary,
     type ResolvedRelationship,
     type ResolvedView,
     resolveView,
     SCHEME_DEFAULTS,
+    type TargetKind,
     type WorkspaceModel,
 } from "../../model/index";
 
@@ -56,6 +61,7 @@ import {
     layoutLabelRoom,
     placeEdgeLabels,
 } from "../geometry/edge-label";
+import { indicatorKinds } from "../geometry/indicators";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
@@ -79,9 +85,16 @@ import {
 } from "../geometry/unplaced";
 import { type LayoutBoundary, layOut } from "../layout/automatic";
 
-export type { Bounds, ColorScheme, Labels };
+export type { Bounds, ColorScheme, Labels, TargetKind };
 
 export type { Point };
+
+/**
+ * What the reader can activate, by keyboard as by pointer (spec 6.2): an
+ * element, a boundary's label band or an edge's label, by its node id or
+ * edge key.
+ */
+export type FocusItem = { type: "element" | "boundary" | "edge"; id: string };
 
 export type ElementBox = {
     id: string;
@@ -121,11 +134,20 @@ export type ElementBox = {
     labelHeight: number;
     /** A deployment node's `x<instances>`, bottom-right inside its box. */
     instances?: TextBlock;
+    /**
+     * The kind of each target activating it offers, in order (spec 6.1).
+     * Empty: no indicators, no pointer cursor, not focusable.
+     */
+    targets: TargetKind[];
 };
 
 /** A boundary drawn around its children, with its label band (spec 8). */
 export type BoundaryBox = DerivedBoundary & {
     kind: BoundaryKind;
+    /** The element a boundary of an element is drawn for, which it activates. */
+    elementId?: string;
+    /** As an element's: what activating its label band offers. */
+    targets: TargetKind[];
     /** 0 for an outermost boundary; inner ones are drawn above outer ones. */
     depth: number;
     /** 20 for the RoundedBox family, square otherwise. */
@@ -183,6 +205,12 @@ export type EdgeLine = {
      * they are; absent when the label says nothing.
      */
     labelLines?: Pick<EdgeLabelLayout, "description" | "technology">;
+    /** The indicator row inside `labelBox`, relative to its top-left. */
+    labelIndicators?: Bounds;
+    /** What activating it offers: its link and `http(s)` properties. */
+    targets: TargetKind[];
+    /** Its accessible name: "source → target: description" (spec 6.2). */
+    name: string;
     fontSize: number;
     /** The label's wrap width: the style's `width`. */
     labelWidth: number;
@@ -216,6 +244,7 @@ type EdgeDraft = Omit<
     | "labelPosition"
     | "labelBox"
     | "labelLines"
+    | "labelIndicators"
 > & {
     /** The view's stored position, which placement never nudges. */
     storedPosition?: number;
@@ -251,6 +280,8 @@ export type Graph = {
     placements: (Placement & { name: string })[];
     /** Authoring problems found while drawing, for the island to log once. */
     warnings: string[];
+    /** Every item with targets, in reading order: the Tab order (spec 6.2). */
+    focusOrder: FocusItem[];
 };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
@@ -405,7 +436,14 @@ export function buildGraph(
         bounds: NO_BOUNDS,
         placements: [],
         warnings: [],
+        focusOrder: [],
     });
+    const kindsFor = (element: ModelElement) =>
+        elementTargets(model, element, key).map((target) => target.kind);
+    const relationshipKinds = (relationship: ModelRelationship) =>
+        relationshipTargets(model, relationship, key).map(
+            (target) => target.kind,
+        );
 
     const error = findViewError(model, key);
     if (error) {
@@ -484,6 +522,7 @@ export function buildGraph(
                 ? labelHeightClearOf(geometry.content, instances)
                 : geometry.content.height,
             ...(instances && { instances }),
+            targets: kindsFor(placed.element),
         };
         elements.push(box);
         drawn.set(box.id, { box, geometry });
@@ -495,7 +534,20 @@ export function buildGraph(
             boundaryStyle(model, b, colorScheme),
         ]),
     );
-    const inputs = boundaryInputs(model, view.boundaries, styles, labels);
+    // Groups and the enterprise boundary lead nowhere.
+    const boundaryTargets = new Map(
+        view.boundaries.map((b) => [
+            b.id,
+            b.kind === "Element" ? kindsFor(b.element) : [],
+        ]),
+    );
+    const inputs = boundaryInputs(
+        model,
+        view.boundaries,
+        styles,
+        labels,
+        boundaryTargets,
+    );
     const keys = edgeKeys(view.relationships, drawn);
     const edges: EdgeDraft[] = [];
     const warnings: string[] = [];
@@ -552,12 +604,17 @@ export function buildGraph(
             technology,
             order: dynamic && style.description ? placed.order : undefined,
         });
+        const targets = relationshipKinds(relationship);
         const label = layoutEdgeLabel(
             text,
             style.fontSize,
             style.width,
             measure,
+            indicatorKinds(targets).length,
         );
+        // The full description, whatever the toggles and styles hide.
+        const said =
+            (dynamic && placed.description) || relationship.description;
         edges.push({
             key,
             id: placed.id,
@@ -569,6 +626,8 @@ export function buildGraph(
             ...(placed.order !== undefined && { order: placed.order }),
             ...text,
             ...(label && { label }),
+            targets,
+            name: `${from.box.name} → ${to.box.name}${said ? `: ${said}` : ""}`,
             storedPosition: placed.position,
             startPosition: placed.position ?? style.position,
             fontSize: style.fontSize,
@@ -617,6 +676,7 @@ export function buildGraph(
         view.boundaries,
         inputs,
         styles,
+        boundaryTargets,
         elements,
         colorScheme,
         measure,
@@ -672,6 +732,9 @@ export function buildGraph(
                         technology: label.technology,
                     },
                 }),
+                ...(label?.indicators && {
+                    labelIndicators: label.indicators,
+                }),
             };
         },
     );
@@ -696,7 +759,43 @@ export function buildGraph(
             ...p,
             name: names.get(p.id) ?? "",
         })),
+        focusOrder: readingOrder(elements, drawnBoundaries, routed),
     };
+}
+
+/**
+ * Every item with targets in reading order (spec 6.2): by the top, then the
+ * left, of an element's box, a boundary's label band or an edge's label.
+ */
+function readingOrder(
+    elements: ElementBox[],
+    boundaries: BoundaryBox[],
+    edges: EdgeLine[],
+): FocusItem[] {
+    const items: (FocusItem & { at: Point })[] = [
+        ...elements
+            .filter((e) => e.targets.length > 0)
+            .map((e) => ({
+                type: "element" as const,
+                id: e.id,
+                at: { x: e.x, y: e.y },
+            })),
+        ...boundaries
+            .filter((b) => b.targets.length > 0)
+            .map((b) => ({
+                type: "boundary" as const,
+                id: b.id,
+                at: { x: b.x + b.band.x, y: b.y + b.band.y },
+            })),
+        ...edges.flatMap((e) =>
+            e.targets.length > 0 && e.labelBox
+                ? [{ type: "edge" as const, id: e.key, at: e.labelBox }]
+                : [],
+        ),
+    ];
+    return items
+        .sort((a, b) => a.at.y - b.at.y || a.at.x - b.at.x)
+        .map(({ type, id }) => ({ type, id }));
 }
 
 /* --------------------------------------------------------------- layout */
@@ -875,6 +974,7 @@ function boundaryInputs(
     resolved: ResolvedBoundary[],
     styles: ReadonlyMap<string, ElementStyle>,
     labels: Labels,
+    targets: ReadonlyMap<string, TargetKind[]>,
 ): BoundaryInput[] {
     return resolved.map((boundary) => {
         const style = styles.get(boundary.id)!;
@@ -889,6 +989,8 @@ function boundaryInputs(
                 icon: Boolean(style.icon),
                 instances: formatInstanceCount(element?.instances),
                 metadataSetsWidth: element?.type === "DeploymentNode",
+                indicators: indicatorKinds(targets.get(boundary.id) ?? [])
+                    .length,
             },
         };
     });
@@ -902,6 +1004,7 @@ function boundaryBoxes(
     resolved: ResolvedBoundary[],
     inputs: BoundaryInput[],
     styles: ReadonlyMap<string, ElementStyle>,
+    targets: ReadonlyMap<string, TargetKind[]>,
     elements: ElementBox[],
     scheme: ModelColorScheme,
     measure: MeasureText,
@@ -923,6 +1026,10 @@ function boundaryBoxes(
         boxes.push({
             ...box,
             kind: boundary.kind,
+            ...(boundary.kind === "Element" && {
+                elementId: boundary.element.id,
+            }),
+            targets: targets.get(boundary.id) ?? [],
             depth: boundary.depth,
             radius: boundaryRadius(style.shape),
             background: style.background,

@@ -1707,3 +1707,97 @@ test("response: true outside a dynamic view changes nothing", () => {
         "source to destination, as in the model",
     );
 });
+
+/* ---------------- targets, indicators and reading order (spec 6.1, 6.2) */
+
+test("an element carries the kind of each target it offers, and one with none carries none", () => {
+    const graph = contextGraph((json) => {
+        json.model.people[0].url = "https://example.com/reader";
+        json.model.people[0].properties = {
+            Profile: "https://people.example.com/reader",
+        };
+    });
+    const targets = (id) => graph.elements.find((e) => e.id === id).targets;
+
+    assert.deepEqual(targets("1"), ["link", "link"]);
+    // The system drills down to FixtureContainers; FixtureContext is on screen.
+    assert.deepEqual(targets("2"), ["view"]);
+    assert.deepEqual(
+        contextGraph((json) => {
+            json.views.systemContextViews.pop();
+        }).elements.find((e) => e.id === "2").targets,
+        [],
+    );
+});
+
+test("a boundary of an element offers that element's targets and keeps room for its indicators", () => {
+    const plain = buildGraph(
+        containers(),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+    const linked = buildGraph(
+        containers((json) => {
+            json.model.softwareSystems[0].url = "https://example.com/system";
+        }),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+
+    assert.deepEqual(plain.boundaries[0].targets, ["view"]);
+    assert.equal(plain.boundaries[0].elementId, "2");
+    assert.deepEqual(linked.boundaries[0].targets, ["link", "view"]);
+    assert.equal(linked.boundaries[0].indicators.width, 2 * 20 + 5);
+});
+
+test("a relationship offers its link and http(s) properties, and a glyph-only label when it says nothing", () => {
+    const graph = contextGraph((json) => {
+        const [relationship] = json.model.people[0].relationships;
+        relationship.url = "https://example.com/browses";
+        relationship.description = "";
+        relationship.technology = "";
+    });
+    const [edge] = graph.edges;
+
+    assert.deepEqual(edge.targets, ["link"]);
+    assert.ok(edge.labelBox, "the glyph needs a label to sit in");
+    assert.deepEqual(edge.labelLines, { description: [], technology: [] });
+    assert.deepEqual(edge.labelIndicators, {
+        x: 4,
+        y: 4,
+        width: 20,
+        height: 20,
+    });
+});
+
+test("an edge's accessible name reads source → target: description", () => {
+    const graph = contextGraph(() => {});
+    const bare = contextGraph((json) => {
+        json.model.people[0].relationships[0].description = "";
+    });
+
+    assert.equal(graph.edges[0].name, "Reader → Fixture System: Browses");
+    assert.equal(bare.edges[0].name, "Reader → Fixture System");
+});
+
+test("only items with targets are in the focus order, top to bottom then left to right", () => {
+    const graph = contextGraph((json) => {
+        json.model.people[0].url = "https://example.com/reader";
+        json.model.people[0].relationships[0].url = "https://example.com/r";
+    });
+
+    // The reader is at y 200, the edge's label between it and the system at
+    // y 800, which drills down.
+    assert.deepEqual(
+        graph.focusOrder.map(({ type, id }) => `${type}:${id}`),
+        ["element:1", "edge:10", "element:2"],
+    );
+    assert.deepEqual(
+        contextGraph((json) => {
+            json.views.systemContextViews.pop();
+        }).focusOrder,
+        [],
+    );
+});
