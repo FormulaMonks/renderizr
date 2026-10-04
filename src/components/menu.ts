@@ -31,9 +31,17 @@ export default class Menu<Item extends MenuItem> extends Component {
     #highlightedId: string | null = null;
     #listeners: BoundListener[] = [];
 
-    constructor(element: HTMLElement, menuItems: Item[]) {
+    /** Set when the menu keeps one shape whatever the viewport's width. */
+    readonly #fixedOrientation: Orientation | null;
+
+    constructor(
+        element: HTMLElement,
+        menuItems: Item[],
+        orientation: Orientation | null = null,
+    ) {
         super(element);
         this.#items = menuItems;
+        this.#fixedOrientation = orientation;
     }
 
     #textContentFn = (item: Item) => `${item.title}`;
@@ -189,6 +197,7 @@ export default class Menu<Item extends MenuItem> extends Component {
     }
 
     #matchOrientation(): Orientation {
+        if (this.#fixedOrientation) return this.#fixedOrientation;
         // Width, not orientation: a phone held sideways is still a phone, and
         // a tall desktop window still has room for a sidebar.
         return window?.matchMedia("(min-width: 900px)").matches
