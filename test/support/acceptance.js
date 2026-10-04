@@ -105,6 +105,23 @@ export const ACCEPTANCE_SET = [
         source: join(REPO_ROOT, "test/__fixtures__/activation-targets.json"),
         submodule: false,
     },
+    {
+        // The large fixture of spec 15.3: 300 elements, 600 relationships and
+        // 20 groups in one landscape, laid out automatically and stored,
+        // written by `test/support/large-landscape.js`. Spec 15.2 gives it
+        // 5 s where an ordinary view has 2 s.
+        name: "Large landscape",
+        source: join(REPO_ROOT, "test/__fixtures__/large-landscape.json"),
+        submodule: false,
+        readyWithinMs: 5000,
+        slowViews: {
+            // Measured at 10.6 s in headless Chrome, all but 1.3 s of it in
+            // Dagre's network-simplex ranker over the 20 compound groups, so
+            // no lever of spec 15.3 on routing or rendering brings it under.
+            LargeLandscapeAutomatic:
+                "Dagre ranks this view in about 9 s; the 5 s budget needs a decision on the ranker (#51)",
+        },
+    },
 ];
 
 /** The committed copies of remote themes, beside this repository's fixtures. */
