@@ -12,7 +12,9 @@
  * vertices once the collinear ones and the two ends are dropped. The code
  * is written here, not copied from the adapter. Dagre places elements only;
  * the boxes it computes for boundaries are discarded and every boundary is
- * derived from its children afterwards (spec 8, ADR 9).
+ * derived from its children afterwards (spec 8, ADR 9). A view of more than
+ * `LARGE_VIEW_ELEMENTS` elements is ranked by tight-tree rather than
+ * network simplex, which stops scaling there (ADR 14).
  */
 
 import dagre from "@dagrejs/dagre";
@@ -92,6 +94,27 @@ const RANK_DIRECTION = {
 const COLLINEAR_THRESHOLD = 0.001;
 
 /**
+ * The most elements a view can have and still be ranked by network simplex,
+ * Dagre's default and upstream's ranker (ADR 14). Up to here it ranks a
+ * grouped view in a fraction of a second; past about 125 elements its time
+ * grows without bound, so a larger view is ranked by tight-tree instead.
+ */
+export const LARGE_VIEW_ELEMENTS = 100;
+
+/**
+ * The Dagre ranker for `graph`: network simplex, as upstream ranks every
+ * view, unless the view has more than `LARGE_VIEW_ELEMENTS` elements.
+ * Boundaries do not count.
+ */
+export function rankerFor(
+    graph: CompoundGraph,
+): "network-simplex" | "tight-tree" {
+    return graph.nodes.length > LARGE_VIEW_ELEMENTS
+        ? "tight-tree"
+        : "network-simplex";
+}
+
+/**
  * Every boundary and element id of `graph` in the order upstream's cells
  * reach Dagre: each outermost one where its first element appears, then
  * everything inside it, breadth first, each level in order of appearance.
@@ -168,6 +191,7 @@ export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
         ranksep: settings.rankSeparation,
         nodesep: settings.nodeSeparation,
         edgesep: settings.edgeSeparation,
+        ranker: rankerFor(graph),
         marginx: 0,
         marginy: 0,
     });

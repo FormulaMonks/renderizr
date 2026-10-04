@@ -106,6 +106,16 @@ export const ACCEPTANCE_SET = [
         submodule: false,
     },
     {
+        // The large fixture of spec 15.3: 300 elements, 600 relationships and
+        // 20 groups in one landscape, laid out automatically and stored,
+        // written by `test/support/large-landscape.js`. Spec 15.2 gives it
+        // 5 s where an ordinary view has 2 s.
+        name: "Large landscape",
+        source: join(REPO_ROOT, "test/__fixtures__/large-landscape.json"),
+        submodule: false,
+        readyWithinMs: 5000,
+    },
+    {
         // The purpose-built workspace of spec 15.3: every shape, icon
         // position, Dark style, opacity, border and routing mode, a filtered
         // and a custom view, the enterprise boundary, a childless deployment

@@ -7,9 +7,8 @@
 import assert from "node:assert/strict";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { layOut, layoutOrder, simplify } = await importSrc(
-    "engine/layout/automatic",
-);
+const { LARGE_VIEW_ELEMENTS, layOut, layoutOrder, rankerFor, simplify } =
+    await importSrc("engine/layout/automatic");
 
 const SETTINGS = {
     rankDirection: "TopBottom",
@@ -482,3 +481,47 @@ for (const { name, points, expected } of SIMPLIFY)
             "the wrong points were kept",
         );
     });
+
+/* ------------------------------------------------------------------ ranker */
+
+/** A graph of `count` elements in a chain, with no boundaries. */
+const chain = (count) => ({
+    nodes: Array.from({ length: count }, (_, i) => node(String(i + 1))),
+    boundaries: [],
+    edges: Array.from({ length: count - 1 }, (_, i) => ({
+        id: `r${i}`,
+        source: String(i + 1),
+        target: String(i + 2),
+    })),
+});
+
+test("a view of up to 100 elements is ranked by network simplex, as upstream ranks it", () => {
+    assert.equal(LARGE_VIEW_ELEMENTS, 100);
+    assert.equal(rankerFor(chain(2)), "network-simplex");
+    assert.equal(rankerFor(chain(LARGE_VIEW_ELEMENTS)), "network-simplex");
+});
+
+test("a view of more than 100 elements is ranked by tight-tree", () => {
+    assert.equal(rankerFor(chain(LARGE_VIEW_ELEMENTS + 1)), "tight-tree");
+});
+
+test("boundaries do not count toward the size of a view", () => {
+    const graph = chain(LARGE_VIEW_ELEMENTS);
+    graph.boundaries = [{ id: "b1" }, { id: "b2" }];
+
+    assert.equal(rankerFor(graph), "network-simplex");
+});
+
+test("a large view still keeps its elements apart and ranked along its edges", () => {
+    const graph = chain(LARGE_VIEW_ELEMENTS + 1);
+    const { boxes } = layOut(graph, SETTINGS);
+
+    const sorted = graph.nodes.map(({ id }) => boxes.get(id));
+    for (let i = 1; i < sorted.length; i++) {
+        assert.ok(
+            !overlaps(sorted[i - 1], sorted[i]),
+            `${i} overlaps ${i + 1}`,
+        );
+        assert.ok(sorted[i].y > sorted[i - 1].y, `${i + 1} is not below ${i}`);
+    }
+});
