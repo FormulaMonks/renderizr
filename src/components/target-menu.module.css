@@ -2,8 +2,11 @@
  * The target menu: a small card at the activation's anchor, above the
  * canvas, holding the vanilla menu's list (spec 6.1).
  */
+/* `--menu-x` and `--menu-y` are the anchor, set by `target-menu.ts`. */
 .popup {
     position: fixed;
+    left: var(--menu-x, 0);
+    top: var(--menu-y, 0);
     z-index: 20;
     min-width: 12rem;
     max-width: min(24rem, calc(100vw - 1rem));
@@ -14,7 +17,7 @@
     box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
 }
 
-/* Entries read as choices here, not as a sidebar's quiet links. */
+/* Entries take the full text color, so they read as choices. */
 .popup a {
     color: var(--color-foreground);
 }

@@ -68,12 +68,12 @@ test("no targets does nothing", () => {
 
 /* ------------------------------------------------------------- the menu */
 
-test("several targets open a menu at the anchor, one entry per target, labelled", () => {
+test("several targets open a menu at the anchor, one entry per target, labeled", () => {
     menu.activate(TARGETS, { x: 120, y: 80 });
 
     assert.ok(popup(), "the menu opened");
-    assert.equal(popup().style.left, "120px");
-    assert.equal(popup().style.top, "80px");
+    assert.equal(popup().style.getPropertyValue("--menu-x"), "120px");
+    assert.equal(popup().style.getPropertyValue("--menu-y"), "80px");
     assert.equal(
         popup().querySelector("ul").getAttribute("role"),
         "menu",

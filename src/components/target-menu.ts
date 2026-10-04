@@ -1,3 +1,16 @@
+/**
+ * The target menu: what the diagrams page does with an activation (spec
+ * 6.1). The engine never navigates; it reports an element or relationship
+ * and where, and this follows its one target or offers several in a small
+ * menu at that anchor, built from the vanilla `menu` component outside the
+ * island.
+ *
+ * The menu is a list of entries labeled by view title, "Documentation",
+ * "Decisions" or the link's host and property name. Arrows walk it, Enter
+ * chooses, and Escape or a click outside closes it. Escape gives focus back
+ * to what opened it, so a keyboard reader carries on from the same item.
+ */
+
 import type { Anchor } from "../engine/contract";
 import type { Target } from "../model";
 import Component from "./_component";
@@ -10,16 +23,15 @@ type Entry = { id: string; title: string; selectable: false };
 const EDGE = 8;
 
 /**
- * What the diagrams page does with an activation (spec 6.1). The engine
- * never navigates; it reports an element or relationship and where, and
- * this follows its one target or offers several in a small menu at that
- * anchor, built from the vanilla `menu` component outside the island.
- *
- * The menu is a list of entries labelled by view title, "Documentation",
- * "Decisions" or the link's host and property name. Arrows walk it, Enter
- * chooses, and Escape or a click outside closes it. Escape gives focus back
- * to what opened it, so a keyboard reader carries on from the same item.
+ * Put the menu at `x`, `y` on screen. The stylesheet positions it from two
+ * custom properties, set through the CSSOM as `main.ts` sets
+ * `--header-height`, which a strict CSP allows.
  */
+function place(popup: HTMLElement, x: number, y: number) {
+    popup.style.setProperty("--menu-x", `${x}px`);
+    popup.style.setProperty("--menu-y", `${y}px`);
+}
+
 export default class TargetMenu extends Component {
     readonly #follow: (target: Target) => void;
     #menu: Menu<Entry> | null = null;
@@ -54,14 +66,13 @@ export default class TargetMenu extends Component {
         const popup = document.createElement("div");
         popup.dataset.targetMenu = "";
         popup.className = styles.popup;
-        popup.style.left = `${anchor.x}px`;
-        popup.style.top = `${anchor.y}px`;
+        place(popup, anchor.x, anchor.y);
         this.element.appendChild(popup);
         this.#popup = popup;
 
-        // Actions rather than destinations: the menu reports the choice and
-        // never paints one as selected. A list on every screen, never the
-        // narrow layout's <select>.
+        // Each entry is an action: the menu reports the choice and paints
+        // none as selected. It stays a list on every screen width, where the
+        // narrow layout would turn a menu into a <select>.
         const entries: Entry[] = targets.map((target, index) => ({
             id: `target-${index}`,
             title: target.label,
@@ -102,12 +113,15 @@ export default class TargetMenu extends Component {
         const box = popup.getBoundingClientRect();
         const right = window.innerWidth - EDGE;
         const bottom = window.innerHeight - EDGE;
-        if (box.width > 0 && anchor.x + box.width > right) {
-            popup.style.left = `${Math.max(EDGE, right - box.width)}px`;
-        }
-        if (box.height > 0 && anchor.y + box.height > bottom) {
-            popup.style.top = `${Math.max(EDGE, bottom - box.height)}px`;
-        }
+        const x =
+            box.width > 0 && anchor.x + box.width > right
+                ? Math.max(EDGE, right - box.width)
+                : anchor.x;
+        const y =
+            box.height > 0 && anchor.y + box.height > bottom
+                ? Math.max(EDGE, bottom - box.height)
+                : anchor.y;
+        place(popup, x, y);
     }
 
     #onKeyDown = (event: KeyboardEvent) => {
