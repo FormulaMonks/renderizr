@@ -1,0 +1,195 @@
+{
+    "id": 0,
+    "name": "Fractional dynamic-view order",
+    "description": "Invalid on purpose (spec 13): the build must refuse a dynamic-view order that is not an integer",
+    "lastModifiedDate": null,
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "tags": "Element,Person",
+                "name": "Customer",
+                "description": "Buys things online",
+                "location": "External",
+                "relationships": [
+                    {
+                        "id": "10",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "3",
+                        "description": "Browses and checks out using",
+                        "technology": "HTTPS"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "tags": "Element,Software System",
+                "name": "Shop",
+                "description": "Takes orders",
+                "location": "Internal",
+                "containers": [
+                    {
+                        "id": "3",
+                        "tags": "Element,Container",
+                        "name": "Web App",
+                        "description": "Serves the storefront",
+                        "technology": "React",
+                        "parentId": "2",
+                        "relationships": [
+                            {
+                                "id": "11",
+                                "tags": "Relationship",
+                                "sourceId": "3",
+                                "destinationId": "4",
+                                "description": "Places orders using",
+                                "technology": "JSON/HTTPS"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "4",
+                        "tags": "Element,Container",
+                        "name": "API",
+                        "description": "Handles orders and payments",
+                        "technology": "Node.js",
+                        "parentId": "2",
+                        "relationships": [
+                            {
+                                "id": "12",
+                                "tags": "Relationship",
+                                "sourceId": "4",
+                                "destinationId": "5",
+                                "description": "Reads from and writes to",
+                                "technology": "SQL"
+                            },
+                            {
+                                "id": "13",
+                                "tags": "Relationship",
+                                "sourceId": "4",
+                                "destinationId": "6",
+                                "description": "Charges cards using",
+                                "technology": "HTTPS"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "5",
+                        "tags": "Element,Container,Database",
+                        "name": "Database",
+                        "description": "Stores orders",
+                        "technology": "PostgreSQL",
+                        "parentId": "2",
+                        "relationships": []
+                    }
+                ],
+                "relationships": []
+            },
+            {
+                "id": "6",
+                "tags": "Element,Software System,External",
+                "name": "Payments",
+                "description": "Charges cards",
+                "location": "External",
+                "relationships": [
+                    {
+                        "id": "14",
+                        "tags": "Relationship",
+                        "sourceId": "6",
+                        "destinationId": "1",
+                        "description": "Emails a receipt to",
+                        "technology": "SMTP"
+                    }
+                ]
+            }
+        ]
+    },
+    "views": {
+        "containerViews": [],
+        "dynamicViews": [
+            {
+                "key": "SignIn",
+                "order": 2,
+                "elementId": "2",
+                "title": "Signing in",
+                "description": "An order Structurizr would never write",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 1000,
+                        "y": 0
+                    },
+                    {
+                        "id": "3",
+                        "x": 200,
+                        "y": 700
+                    },
+                    {
+                        "id": "4",
+                        "x": 975,
+                        "y": 700
+                    },
+                    {
+                        "id": "5",
+                        "x": 975,
+                        "y": 1300
+                    },
+                    {
+                        "id": "6",
+                        "x": 1900,
+                        "y": 700
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "11",
+                        "order": "1"
+                    },
+                    {
+                        "id": "12",
+                        "order": "1.1"
+                    }
+                ]
+            }
+        ],
+        "configuration": {
+            "branding": {},
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Element",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Person",
+                        "shape": "Person",
+                        "background": "#08427b"
+                    },
+                    {
+                        "tag": "Container",
+                        "background": "#438dd5"
+                    },
+                    {
+                        "tag": "Database",
+                        "shape": "Cylinder"
+                    },
+                    {
+                        "tag": "External",
+                        "background": "#999999"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    }
+                ]
+            },
+            "metadataSymbols": "SquareBrackets"
+        }
+    },
+    "documentation": {}
+}

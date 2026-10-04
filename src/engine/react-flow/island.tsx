@@ -12,6 +12,11 @@
  * "Image not available" placeholder (spec 12). A view that cannot be drawn
  * shows an error panel in place of the canvas (spec 13).
  *
+ * A step is drawn as opacity on whole nodes and edges, text and
+ * icon included, eased over 200 ms or instant under reduced motion; hidden
+ * items are inert. With `structurizr.zoomOnAnimation` each step is fitted,
+ * and the view again on stop (spec 11).
+ *
  * Only React `style` props and class names are used, never a runtime
  * `<style>` or `setAttribute("style")`, so the CSP stays what the output
  * already needs (spec 9.7).
@@ -78,6 +83,13 @@ import {
 import { EDGE_LABEL_PADDING, TECHNOLOGY_GAP } from "../geometry/edge-label";
 import { borderDashes, paintPart } from "../geometry/paint";
 import { lineDashes } from "../geometry/line";
+import {
+    type Presence,
+    PRESENCE_OPACITY,
+    type StepState,
+    stepStateOf,
+    TRANSITION_MS,
+} from "./animation";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
     type Activation,
@@ -107,6 +119,8 @@ export type IslandState = {
     key: string;
     scheme: ColorScheme;
     labels: Labels;
+    /** The step of the animation shown, or null for the full view (spec 11). */
+    step: number | null;
 };
 
 /** A tiny external store: the handle writes, the island reads. */
@@ -150,6 +164,8 @@ export type IslandProps = {
     onPainted(key: string, graph: Graph): void;
     /** Called when a painted view is drawn again, as after the font swap. */
     onRedrawn(graph: Graph): void;
+    /** Escape on the canvas: stops the animation (spec 6.2, 11). */
+    onEscape(): void;
     /** An item with targets was clicked, or Enter or Space pressed on it. */
     onActivate(type: ActivationType, id: string, anchor: Anchor): void;
 };
@@ -315,7 +331,10 @@ type BoundaryNode = Node<BoundaryBox, "boundary">;
 type ImageNode = Node<{ src: string; alt: string }, "image">;
 type PlaceholderNode = Node<{ color: string }, "placeholder">;
 type DiagramNode = BoxNode | BoundaryNode | ImageNode | PlaceholderNode;
-type LineEdge = Edge<EdgeLine, "line">;
+type LineEdge = Edge<
+    EdgeLine & { presence: Presence; transition: string | undefined },
+    "line"
+>;
 
 type ElementLabelProps = Pick<
     ElementBox,
@@ -843,6 +862,69 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
     );
 }
 
+/**
+ * How a node or edge is drawn at a step (spec 11): real opacity
+ * over the whole of it, text and icon included, and no pointer events once
+ * it is hidden. `transition` eases the change, or is undefined under reduced
+ * motion.
+ */
+const presenceStyle = (presence: Presence, transition: string | undefined) => ({
+    opacity: PRESENCE_OPACITY[presence],
+    transition,
+    pointerEvents: presence === "hidden" ? ("none" as const) : undefined,
+});
+
+/** The CSS transition for opacity, or none under reduced motion. */
+const opacityTransition = (reduced: boolean) =>
+    reduced ? undefined : `opacity ${TRANSITION_MS}ms ease`;
+
+/**
+ * The media query for a reader who asks for reduced motion: opacity and
+ * viewport changes are then instant rather than eased (spec 11).
+ */
+const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+
+const subscribeReducedMotion = (callback: () => void) => {
+    const query = window.matchMedia(REDUCED_MOTION);
+    query.addEventListener("change", callback);
+    return () => query.removeEventListener("change", callback);
+};
+
+/** Whether the reader asks for reduced motion, kept up to date. */
+const useReducedMotion = () =>
+    useSyncExternalStore(
+        subscribeReducedMotion,
+        () => window.matchMedia(REDUCED_MOTION).matches,
+    );
+
+/**
+ * `nodes` as `stepState` shows them: a faded or hidden element or boundary
+ * takes its opacity on React Flow's own wrapper, so its label and icon fade
+ * with it, and a hidden one is inert, out of the tab order and the
+ * accessibility tree (spec 11). Image nodes never animate.
+ */
+function withPresence(
+    nodes: DiagramNode[],
+    stepState: StepState | undefined,
+    transition: string | undefined,
+): DiagramNode[] {
+    if (!stepState) return nodes;
+    return nodes.map((node) => {
+        const presence =
+            node.type === "box"
+                ? stepState.elements[node.id]
+                : node.type === "boundary"
+                  ? stepState.boundaries[node.data.id]
+                  : undefined;
+        if (!presence) return node;
+        return {
+            ...node,
+            style: presenceStyle(presence, transition),
+            ...(presence === "hidden" && { domAttributes: { inert: true } }),
+        };
+    });
+}
+
 /** The scheme's canvas color, which edge labels are backed with. */
 const CanvasBackground = createContext("#ffffff");
 
@@ -864,12 +946,25 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
         data && { type: "relationship", id: data.id },
     );
     if (!data) return null;
-    const { thickness, labelBox, labelLines, labelIndicators } = data;
+    const {
+        thickness,
+        labelBox,
+        labelLines,
+        labelIndicators,
+        presence,
+        transition,
+    } = data;
+    const hidden = presence === "hidden";
     const active = data.targets.length > 0;
 
     return (
-        <g data-relationship-id={data.id} data-order={data.order}>
-            {active && (
+        <g
+            data-relationship-id={data.id}
+            data-order={data.order}
+            aria-hidden={hidden || undefined}
+            style={presenceStyle(presence, transition)}
+        >
+            {active && !hidden && (
                 // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard reaches the relationship through its label
                 <path
                     data-hit-stroke=""
@@ -909,7 +1004,9 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     <div
                         data-relationship-label={data.id}
                         {...target}
+                        inert={hidden || undefined}
                         style={{
+                            ...presenceStyle(presence, transition),
                             position: "absolute",
                             transform: `translate(${labelBox.x}px, ${labelBox.y}px)`,
                             boxSizing: "border-box",
@@ -921,7 +1018,11 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                             background,
                             textAlign: "center",
                             whiteSpace: "pre",
-                            pointerEvents: active ? "all" : undefined,
+                            pointerEvents: hidden
+                                ? "none"
+                                : active
+                                  ? "all"
+                                  : undefined,
                         }}
                     >
                         {labelIndicators && (
@@ -1207,13 +1308,21 @@ function toElementNodes(graph: Graph): BoxNode[] {
     }));
 }
 
-function toEdges(graph: Graph): LineEdge[] {
+function toEdges(
+    graph: Graph,
+    stepState: StepState | undefined,
+    transition: string | undefined,
+): LineEdge[] {
     return graph.edges.map((edge) => ({
         id: edge.key,
         type: "line",
         source: edge.sourceId,
         target: edge.targetId,
-        data: edge,
+        data: {
+            ...edge,
+            presence: stepState?.edges[edge.key] ?? "shown",
+            transition,
+        },
         selectable: false,
     }));
 }
@@ -1225,6 +1334,7 @@ function Canvas({
     font,
     onPainted,
     onRedrawn,
+    onEscape,
     onActivate,
 }: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
@@ -1241,17 +1351,30 @@ function Canvas({
         () => canvasMeasure(document, family),
         [family, fontsLoaded],
     );
+    const { key: viewKey, scheme, labels, step } = state;
+    // A new step is not a new graph: nothing is laid out again (spec 11).
     const graph = useMemo(
-        () => buildGraph(model, state.key, state.scheme, state.labels, measure),
-        [model, state, measure],
+        () => buildGraph(model, viewKey, scheme, labels, measure),
+        [model, viewKey, scheme, labels, measure],
     );
-    const image = useImage(state.key, graph?.image);
+    const image = useImage(viewKey, graph?.image);
+    const reducedMotion = useReducedMotion();
+    const transition = opacityTransition(reducedMotion);
+    const stepState = useMemo(
+        () => (graph ? stepStateOf(graph, step) : undefined),
+        [graph, step],
+    );
     // An image view is fitted to its picture once its size is known.
-    const { nodes, bounds } = useMemo(
-        () => drawingOf(graph, image),
-        [graph, image],
+    const drawing = useMemo(() => drawingOf(graph, image), [graph, image]);
+    const { bounds } = drawing;
+    const nodes = useMemo(
+        () => withPresence(drawing.nodes, stepState, transition),
+        [drawing, stepState, transition],
     );
-    const edges = useMemo(() => (graph ? toEdges(graph) : []), [graph]);
+    const edges = useMemo(
+        () => (graph ? toEdges(graph, stepState, transition) : []),
+        [graph, stepState, transition],
+    );
 
     // Each authoring problem once per visit, however often the view redraws
     // (a scheme or label change rebuilds the graph).
@@ -1319,10 +1442,54 @@ function Canvas({
         moved.current,
     );
 
+    // With structurizr.zoomOnAnimation, a step is fitted to its elements
+    // (spec 11), however far in that takes the canvas.
+    const zoomOnAnimation = graph?.animation?.zoom === true;
+    const focus =
+        zoomOnAnimation && step !== null ? stepState?.focus : undefined;
+    const stepFitted = useMemo(
+        () =>
+            graph && focus && size.width > 0 && size.height > 0
+                ? getViewportForBounds(
+                      focus,
+                      size.width,
+                      size.height,
+                      0,
+                      Math.min(fitMaxZoom(graph), ceiling),
+                      FIT_PADDING,
+                  )
+                : null,
+        [graph, focus, size, ceiling],
+    );
+    /**
+     * Where a resize or a redraw refits to: the current step with
+     * zoomOnAnimation, else the whole view. Read through a ref, so a step
+     * change alone never runs the refit below; the step effect eases it.
+     */
+    const refitTo = useRef(fitted);
+    refitTo.current = stepFitted ?? fitted;
+
     const fit = useCallback(() => {
         moved.current = false;
         if (fitted) flow.setViewport(fitted);
     }, [flow, fitted]);
+
+    // zoomOnAnimation fits each step and the whole view on stop, overriding
+    // the reader's viewport; otherwise a step never moves it (spec 11). The
+    // step only ever clears together with a new view's key (`showView`), so
+    // this never refits the outgoing view on its way out.
+    const shownStep = useRef(step);
+    useEffect(() => {
+        if (shownStep.current === step) return;
+        shownStep.current = step;
+        if (!zoomOnAnimation) return;
+        const viewport = step === null ? fitted : stepFitted;
+        if (!viewport) return;
+        moved.current = false;
+        flow.setViewport(viewport, {
+            duration: reducedMotion ? 0 : TRANSITION_MS,
+        });
+    }, [step, zoomOnAnimation, fitted, stepFitted, flow, reducedMotion]);
 
     useEffect(() => {
         commands.fit = fit;
@@ -1362,7 +1529,8 @@ function Canvas({
     const empty = bounds !== undefined && !(bounds.width > 0);
     useEffect(() => {
         if (key === undefined || (!fitted && !empty)) return;
-        if (fitted && !moved.current) flow.setViewport(fitted);
+        const viewport = refitTo.current;
+        if (viewport && !moved.current) flow.setViewport(viewport);
         if (painted.current === key) return;
         // The next frame is when the view is on screen. A hidden tab, or a
         // headless browser on virtual time, may never produce one; the
@@ -1410,7 +1578,10 @@ function Canvas({
      * order, so the canvas is one stop on the way through the page.
      */
     const onTab = (event: KeyboardEvent<HTMLDivElement>) => {
-        const order = graph?.focusOrder ?? [];
+        // A step's hidden items are inert, so they leave the walk (spec 11).
+        const order = (graph?.focusOrder ?? []).filter(
+            (item) => !itemElement(item)?.closest("[inert]"),
+        );
         const current = (document.activeElement as HTMLElement | null)?.dataset
             ?.focusItem;
         const index = order.findIndex((item) => focusKey(item) === current);
@@ -1433,6 +1604,11 @@ function Canvas({
         pointing.current = false;
         if (event.altKey || event.ctrlKey || event.metaKey) return;
         if (event.key === "Tab") return onTab(event);
+        if (event.key === "Escape") {
+            // Escape on the canvas stops the animation (spec 11).
+            onEscape();
+            return;
+        }
 
         const item = (event.target as HTMLElement).dataset?.focusItem;
         const activation = item ? focusable.get(item)?.activation : undefined;

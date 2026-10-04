@@ -20,12 +20,12 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
-import { fixture, runCli } from "../scripts/__fixtures__/helpers.js";
+import { fixture, REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
 import { findChrome, renderPage, serveDirectory } from "./support/browser.js";
 import { parseDocument } from "./support/dom.js";
 
@@ -1063,5 +1063,629 @@ test(
 
         assert.equal(band.getAttribute("role"), "button");
         assert.deepEqual(indicatorsOf(band), ["link", "view"]);
+    },
+);
+
+/* ------------------------------------------------------------- animation */
+
+/** The committed animation fixture, built once as a single React Flow file. */
+const animationBuild = once(async () => {
+    const out = join(SCRATCH, "react-flow-animation");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/animation.json"),
+            "--out",
+            out,
+            "--single-file",
+            "--engine",
+            "react-flow",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return out;
+});
+
+/** The toolbar's animation buttons in `document`, by name. */
+const animationButtons = (document) => {
+    const group = document.querySelector(".animation-buttons");
+    const button = (name) => group?.querySelector(`.${name}`);
+    return { group, button };
+};
+
+test(
+    "--engine react-flow: a dynamic view draws one edge per order and offers its animation",
+    { skip: SKIP },
+    async () => {
+        const out = await animationBuild();
+        const document = await render(viewUrlIn(out, "Checkout"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-ready"), "true");
+        assert.equal(root.getAttribute("role"), "group");
+        assert.equal(root.getAttribute("aria-label"), "Checking out");
+        assert.deepEqual(
+            canvas
+                .querySelectorAll("[data-relationship-id]")
+                .map((edge) => [
+                    edge.getAttribute("data-relationship-id"),
+                    edge.getAttribute("data-order"),
+                ]),
+            [
+                ["10", "1"],
+                ["11", "2"],
+                ["12", "3"],
+                ["13", "3"],
+                ["11", "4"],
+                ["14", null],
+            ],
+            "relationship 11 twice, at two orders; 14 without an order",
+        );
+
+        // The toolbar renders from the engine's AnimationState.
+        const { group, button } = animationButtons(document);
+        assert.ok(group, "the toolbar has its animation buttons");
+        assert.equal(group.getAttribute("hidden"), null, "and shows them");
+        assert.equal(button("prev-step").getAttribute("disabled"), null);
+        assert.equal(button("next-step").getAttribute("disabled"), null);
+        assert.equal(
+            button("play-animation").getAttribute("aria-label"),
+            "Play animation",
+        );
+
+        // Before any step, the full view: nothing faded, nothing inert.
+        assert.equal(canvas.querySelector("[inert]"), null);
+        for (const node of canvas.querySelectorAll(".react-flow__node")) {
+            assert.doesNotMatch(
+                node.getAttribute("style") ?? "",
+                /opacity:\s*0[.;]/,
+                "no node is faded before the animation starts",
+            );
+        }
+    },
+);
+
+test(
+    "--engine react-flow: a static view with steps offers its animation",
+    { skip: SKIP },
+    async () => {
+        const out = await animationBuild();
+        const document = await render(viewUrlIn(out, "Containers"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        assert.equal(
+            canvas.querySelector("[data-view-key]").getAttribute("data-ready"),
+            "true",
+        );
+        assert.equal(
+            canvas.querySelectorAll("[data-element-id]").length,
+            5,
+            "every element shows before the first step",
+        );
+        const { group } = animationButtons(document);
+        assert.equal(group.getAttribute("hidden"), null);
+    },
+);
+
+test(
+    "--engine react-flow: a view without steps hides the animation buttons",
+    { skip: SKIP },
+    async () => {
+        const { out } = await buildReactFlowWorkspace("no-steps", () => {});
+        const document = await render(viewUrlIn(out, "FixtureContext"));
+        const { group } = animationButtons(document);
+        assert.ok(group, "the toolbar keeps the group");
+        assert.notEqual(group.getAttribute("hidden"), null, "hidden");
+    },
+);
+
+test(
+    "--engine react-flow: a dynamic-view order that isn't an integer shows an error panel for that view only",
+    { skip: SKIP },
+    async () => {
+        // The build refuses this workspace, so build an integer order and
+        // make it fractional in the output.
+        const out = join(SCRATCH, "react-flow-fractional");
+        const workspace = JSON.parse(
+            await readFile(
+                join(REPO_ROOT, "test/__fixtures__/animation.json"),
+                "utf8",
+            ),
+        );
+        workspace.views.dynamicViews[0].relationships[2].order = "424242";
+        const source = join(SCRATCH, "fractional.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+        const index = join(out, "index.html");
+        const html = await readFile(index, "utf8");
+        assert.match(html, /424242/);
+        await writeFile(index, html.replaceAll("424242", "1.1"));
+
+        const document = await render(viewUrlIn(out, "Checkout"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-ready"), "true");
+        const panel = canvas.querySelector("[data-view-error]");
+        assert.ok(panel, "the error panel should replace the canvas");
+        assert.equal(
+            panel.textContent,
+            'Dynamic view "Checkout": relationship "API → Database" has order "1.1"; orders must be integers.',
+        );
+        assert.equal(canvas.querySelector("[data-element-id]"), null);
+        // The rest of the page keeps working.
+        assert.ok(document.querySelector("#workspace-navigation"));
+        assert.ok(
+            document.querySelector(
+                '#structurizr-diagram-navigation [data-viewkey="Containers"]',
+            ),
+            "the drawer still lists the other views",
+        );
+    },
+);
+
+/* ------------------------------------------------- animation, interactively */
+
+/**
+ * The helpers a scenario script runs with, in the page. `--dump-dom` has no
+ * way to click, so a scenario drives the toolbar and the canvas from a
+ * script added to the built page, and `shoot(name)` records what the canvas
+ * shows into `<pre id="probe">` for the test to read back.
+ *
+ * Virtual time never advances the page's animation clock, so an eased
+ * opacity would stay where it started: `shoot` finishes every running
+ * transition first and reads the opacity the reader ends up seeing,
+ * multiplied up through the element's ancestors.
+ */
+const PROBE_HELPERS = `
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const canvas = () =>
+    document.querySelector("#structurizr-diagram-target [data-view-key]");
+const until = async (check) => {
+    for (let tries = 0; tries < 400; tries++) {
+        if (check()) return;
+        await sleep(25);
+    }
+    throw new Error("the canvas never became ready");
+};
+const click = (selector) => document.querySelector(selector).click();
+const opacity = (element) => {
+    let value = 1;
+    for (let node = element; node; node = node.parentElement) {
+        value *= Number(getComputedStyle(node).opacity);
+    }
+    return Math.round(value * 1000) / 1000;
+};
+const viewport = () =>
+    canvas().querySelector(".react-flow__viewport").style.transform;
+// The font swap re-derives the boundaries and refits the view, later on a
+// busy machine; wait for it so the full view's viewport is the final one.
+const settled = async () => {
+    await document.fonts.ready;
+    let last = viewport();
+    for (let tries = 0; tries < 40; tries++) {
+        await sleep(100);
+        if (viewport() === last) return;
+        last = viewport();
+    }
+};
+const shots = [];
+const shoot = (name) => {
+    for (const animation of document.getAnimations()) animation.finish();
+    const elements = {};
+    for (const element of canvas().querySelectorAll("[data-element-id]")) {
+        const node = element.closest(".react-flow__node");
+        const icon = element.querySelector("img");
+        elements[element.dataset.elementId] = {
+            opacity: opacity(element),
+            text: opacity(element.querySelector("[data-element-label] div div")),
+            icon: icon ? opacity(icon) : null,
+            inert: node.inert,
+            transition: node.style.transition,
+        };
+    }
+    const edges = {};
+    for (const edge of canvas().querySelectorAll("[data-relationship-id]")) {
+        const key = edge.dataset.relationshipId + "@" + (edge.dataset.order ?? "");
+        edges[key] = { opacity: opacity(edge), transition: edge.style.transition };
+    }
+    const boundaries = {};
+    for (const boundary of canvas().querySelectorAll("[data-boundary-id]")) {
+        boundaries[boundary.dataset.boundaryId] = opacity(boundary);
+    }
+    shots.push({
+        name,
+        view: canvas().dataset.viewKey,
+        elements,
+        edges,
+        boundaries,
+        viewport: viewport(),
+        play: document.querySelector(".play-animation").getAttribute("aria-label"),
+        scheme: document.documentElement.dataset.diagramTheme,
+        descriptions: canvas().querySelectorAll("[data-element-description]").length,
+    });
+};
+`;
+
+/**
+ * Keeps the canvas one size for the whole scenario. The view's title and
+ * description fill the header above the canvas once the view is shown,
+ * shrinking the canvas after the island has measured it, and the island
+ * hears that through a ResizeObserver, which virtual time feeds only on the
+ * rare frame: the refit would land at a different point of each run. Out of
+ * the flow, the header no longer moves the canvas.
+ */
+const PROBE_STYLE = `<style>
+[class*="currentView"] { position: absolute; z-index: 1; }
+</style>`;
+
+/**
+ * Open `view` of the animation fixture with `scenario` run once the canvas
+ * is ready, and hand back what it shot, by name. `flags` go to Chrome.
+ */
+const probeAnimation = async (name, view, scenario, { flags = [] } = {}) => {
+    const built = await animationBuild();
+    const out = join(SCRATCH, `probe-${name}`);
+    await mkdir(out, { recursive: true });
+    const script = `<script>
+(async () => {
+    ${PROBE_HELPERS}
+    try {
+        await until(() => canvas()?.dataset.ready === "true");
+        await settled();
+        ${scenario}
+    } catch (error) {
+        shots.push({ name: "error", error: String(error) });
+    }
+    const probe = document.createElement("pre");
+    probe.id = "probe";
+    probe.textContent = JSON.stringify(shots);
+    document.body.append(probe);
+})();
+</script>`;
+    const html = await readFile(join(built, "index.html"), "utf8");
+    await writeFile(
+        join(out, "index.html"),
+        html
+            .replace("</head>", `${PROBE_STYLE}</head>`)
+            .replace("</body>", `${script}</body>`),
+    );
+    const { html: dumped } = await renderPage(CHROME, viewUrlIn(out, view), {
+        flags,
+    });
+    const probe = parseDocument(dumped).querySelector("#probe");
+    assert.ok(probe, "the scenario should have finished");
+    const shots = JSON.parse(probe.textContent);
+    const error = shots.find((shot) => shot.name === "error");
+    assert.equal(error, undefined, `the scenario failed: ${error?.error}`);
+    return Object.fromEntries(shots.map((shot) => [shot.name, shot]));
+};
+
+/** Chrome's switch for `prefers-reduced-motion: reduce`. */
+const REDUCED_MOTION = ["--force-prefers-reduced-motion"];
+
+/** Each edge's opacity in `shot`, by `id@order`. */
+const edgeOpacities = (shot) =>
+    Object.fromEntries(
+        Object.entries(shot.edges).map(([key, edge]) => [key, edge.opacity]),
+    );
+
+test(
+    "--engine react-flow: a dynamic step shows its edges and fades everything else to a real 0.2, text and icon included",
+    { skip: SKIP },
+    async () => {
+        const { full, second } = await probeAnimation(
+            "dynamic-step",
+            "Checkout",
+            `shoot("full");
+            click(".next-step");
+            click(".next-step");
+            await sleep(50);
+            shoot("second");`,
+        );
+        assert.ok(
+            Object.values(full.elements).every((e) => e.opacity === 1),
+            "nothing is faded before the first step",
+        );
+
+        assert.deepEqual(
+            edgeOpacities(second),
+            {
+                "10@1": 0.2,
+                "11@2": 1,
+                "12@3": 0.2,
+                "13@3": 0.2,
+                "11@4": 0.2,
+                // No order: never part of a step, never faded.
+                "14@": 1,
+            },
+            "step 2 is relationship 11 at order 2",
+        );
+        for (const [id, expected] of [
+            ["1", 0.2],
+            ["3", 1],
+            ["4", 1],
+            ["5", 0.2],
+            ["6", 0.2],
+        ]) {
+            const element = second.elements[id];
+            assert.equal(element.opacity, expected, `element ${id}`);
+            assert.equal(element.text, expected, `element ${id}'s text`);
+            assert.equal(element.inert, false, `element ${id} is not inert`);
+            assert.equal(
+                element.transition,
+                "opacity 200ms",
+                `element ${id} eases`,
+            );
+        }
+        assert.equal(second.elements["1"].icon, 0.2, "the Customer's icon");
+        assert.deepEqual(second.boundaries, { 2: 1 }, "boundaries never fade");
+    },
+);
+
+test(
+    "--engine react-flow: a static step hides what it has not revealed, at opacity 0 and inert",
+    { skip: SKIP },
+    async () => {
+        const { first, second } = await probeAnimation(
+            "static-step",
+            "Containers",
+            `click(".next-step");
+            await sleep(50);
+            shoot("first");
+            click(".next-step");
+            await sleep(50);
+            shoot("second");`,
+        );
+        assert.deepEqual(
+            first.boundaries,
+            { 2: 0 },
+            "the shop appears with its first child",
+        );
+        for (const [id, shown] of [
+            ["1", true],
+            ["3", true],
+            ["4", false],
+            ["5", false],
+            ["6", false],
+        ]) {
+            const element = second.elements[id];
+            assert.equal(element.opacity, shown ? 1 : 0, `element ${id}`);
+            assert.equal(element.text, shown ? 1 : 0, `element ${id}'s text`);
+            assert.equal(element.inert, !shown, `element ${id} inert`);
+        }
+        assert.deepEqual(edgeOpacities(second), {
+            "10@": 1,
+            "11@": 0,
+            "12@": 0,
+            "13@": 0,
+            "14@": 0,
+        });
+        assert.deepEqual(second.boundaries, { 2: 1 });
+    },
+);
+
+test(
+    "--engine react-flow: Escape on the canvas stops the animation",
+    { skip: SKIP },
+    async () => {
+        const { playing, stopped } = await probeAnimation(
+            "escape",
+            "CheckoutInPlace",
+            `click(".play-animation");
+            await sleep(50);
+            shoot("playing");
+            canvas().focus();
+            canvas().dispatchEvent(
+                new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+            );
+            await sleep(50);
+            shoot("stopped");`,
+        );
+        assert.equal(playing.play, "Pause animation");
+        assert.equal(playing.edges["11@2"].opacity, 0.2, "step 1 is showing");
+        assert.equal(stopped.play, "Play animation", "play has stopped");
+        assert.ok(
+            Object.values(edgeOpacities(stopped)).every((o) => o === 1),
+            "the full view is back",
+        );
+    },
+);
+
+// Under reduced motion each viewport change is instant; an eased one runs
+// on animation frames, which virtual time never produces.
+test(
+    "--engine react-flow: zoomOnAnimation fits each step and the whole view on stop",
+    { skip: SKIP },
+    async () => {
+        const { full, first, second, stopped } = await probeAnimation(
+            "zoom",
+            "Checkout",
+            `shoot("full");
+            click(".next-step");
+            await sleep(50);
+            shoot("first");
+            click(".next-step");
+            await sleep(50);
+            shoot("second");
+            canvas().dispatchEvent(
+                new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+            );
+            await sleep(50);
+            shoot("stopped");`,
+            { flags: REDUCED_MOTION },
+        );
+        assert.notEqual(first.viewport, full.viewport, "step 1 is fitted");
+        assert.notEqual(second.viewport, first.viewport, "and so is step 2");
+        assert.equal(stopped.viewport, full.viewport, "stop fits the view");
+    },
+);
+
+test(
+    "--engine react-flow: without zoomOnAnimation a step never moves the viewport",
+    { skip: SKIP },
+    async () => {
+        const { full, first, second, stopped } = await probeAnimation(
+            "no-zoom",
+            "CheckoutInPlace",
+            `shoot("full");
+            click(".next-step");
+            await sleep(50);
+            shoot("first");
+            click(".next-step");
+            await sleep(50);
+            shoot("second");
+            canvas().dispatchEvent(
+                new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+            );
+            await sleep(50);
+            shoot("stopped");`,
+            { flags: REDUCED_MOTION },
+        );
+        for (const shot of [first, second, stopped]) {
+            assert.equal(shot.viewport, full.viewport, shot.name);
+        }
+    },
+);
+
+test(
+    "--engine react-flow: switching views mid-step never refits the outgoing view",
+    { skip: SKIP },
+    async () => {
+        // What changes once the drawer is clicked, in order: the canvas's
+        // view key and its viewport. The outgoing view's refit would move
+        // the viewport while the canvas still shows Checkout.
+        const { full, stepped, switched } = await probeAnimation(
+            "switch",
+            "Checkout",
+            `shoot("full");
+            click(".next-step");
+            await sleep(50);
+            shoot("stepped");
+            const seen = [];
+            new MutationObserver((records) => {
+                for (const record of records) {
+                    const { target } = record;
+                    if (record.attributeName === "data-view-key") {
+                        seen.push("view " + target.dataset.viewKey);
+                    } else if (target.classList.contains("react-flow__viewport")) {
+                        seen.push("viewport");
+                    }
+                }
+            }).observe(canvas(), {
+                attributes: true,
+                attributeFilter: ["style", "data-view-key"],
+                subtree: true,
+            });
+            click('#structurizr-diagram-navigation [data-viewkey="Containers"] button');
+            await until(
+                () =>
+                    canvas().dataset.viewKey === "Containers" &&
+                    canvas().dataset.ready === "true",
+            );
+            await sleep(50);
+            shoot("switched");
+            shots.at(-1).seen = seen;`,
+            { flags: REDUCED_MOTION },
+        );
+        assert.notEqual(stepped.viewport, full.viewport);
+        assert.equal(switched.view, "Containers");
+        assert.equal(
+            switched.seen[0],
+            "view Containers",
+            `the outgoing view was refitted: ${switched.seen.join(", ")}`,
+        );
+        assert.ok(
+            switched.seen.includes("viewport"),
+            "and the new view was fitted",
+        );
+    },
+);
+
+test(
+    "--engine react-flow: back on the painted view before the next one paints, its steps return",
+    { skip: SKIP },
+    async () => {
+        // Both clicks land before Containers paints, so the canvas never
+        // leaves Checkout and has nothing new to paint.
+        const { back, stepped } = await probeAnimation(
+            "back",
+            "Checkout",
+            `click('#structurizr-diagram-navigation [data-viewkey="Containers"] button');
+            click('#structurizr-diagram-navigation [data-viewkey="Checkout"] button');
+            await sleep(300);
+            shoot("back");
+            shots.at(-1).hidden = document.querySelector(".animation-buttons").hidden;
+            click(".next-step");
+            await sleep(50);
+            shoot("stepped");`,
+        );
+        assert.equal(back.view, "Checkout");
+        assert.equal(back.hidden, false, "the animation buttons still show");
+        assert.equal(
+            edgeOpacities(stepped)["11@2"],
+            0.2,
+            "and the next step still fades the edges outside it",
+        );
+    },
+);
+
+test(
+    "--engine react-flow: under reduced motion a step changes at once",
+    { skip: SKIP },
+    async () => {
+        const { full, first } = await probeAnimation(
+            "reduced-motion",
+            "Checkout",
+            `shoot("full");
+            click(".next-step");
+            await sleep(0);
+            shoot("first");`,
+            { flags: REDUCED_MOTION },
+        );
+        assert.equal(first.elements["5"].opacity, 0.2);
+        for (const [id, element] of Object.entries(first.elements)) {
+            assert.equal(element.transition, "", `element ${id} does not ease`);
+        }
+        for (const [key, edge] of Object.entries(first.edges)) {
+            assert.equal(edge.transition, "", `edge ${key} does not ease`);
+        }
+        assert.notEqual(
+            first.viewport,
+            full.viewport,
+            "the step is fitted without waiting for a transition",
+        );
+    },
+);
+
+test(
+    "--engine react-flow: changing the scheme or the labels keeps the step and play",
+    { skip: SKIP },
+    async () => {
+        const { playing, scheme, labels } = await probeAnimation(
+            "scheme-and-labels",
+            "CheckoutInPlace",
+            `click(".play-animation");
+            await sleep(50);
+            shoot("playing");
+            click(".dark-mode");
+            await sleep(50);
+            shoot("scheme");
+            click(".toggle-description");
+            await sleep(50);
+            shoot("labels");`,
+        );
+        assert.notEqual(scheme.scheme, playing.scheme, "the scheme changed");
+        assert.equal(labels.descriptions, 0, "descriptions are hidden");
+        for (const shot of [scheme, labels]) {
+            assert.equal(shot.play, "Pause animation", `${shot.name}: playing`);
+            assert.deepEqual(
+                edgeOpacities(shot),
+                edgeOpacities(playing),
+                `${shot.name}: still step 1`,
+            );
+        }
     },
 );

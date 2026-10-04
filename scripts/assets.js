@@ -363,10 +363,37 @@ async function inlineWorkspaceAssets(workspace) {
 }
 
 /**
+ * Every element's name and every relationship in `model`, by id, wherever the
+ * workspace JSON nests them: relationships live on their source element, at
+ * any depth of containers, components and deployment nodes.
+ */
+function modelIndex(model) {
+    const names = new Map();
+    const relationships = new Map();
+    const pending = [model];
+    while (pending.length) {
+        const item = pending.pop();
+        if (Array.isArray(item)) {
+            pending.push(...item);
+        } else if (item && typeof item === "object") {
+            if (typeof item.sourceId === "string") {
+                relationships.set(item.id, item);
+            } else if (typeof item.id === "string" && item.name) {
+                names.set(item.id, item.name);
+            }
+            pending.push(...Object.values(item));
+        }
+    }
+    return { names, relationships };
+}
+
+/**
  * Refuse a workspace the engine could not draw (spec 13): a filtered view
- * whose base view is itself a filtered view. The engine checks it again
- * (`findViewError` in `src/model/filter.ts`) with the same message, and
- * `test/view-types.test.js` fails if the two drift apart.
+ * whose base view is itself a filtered view, or a dynamic-view relationship
+ * whose order isn't an integer (digits only, after trimming; spec 11). The
+ * engine checks both again (`findViewError` in `src/model/filter.ts`) with
+ * the same messages, and `test/view-types.test.js` and
+ * `test/animation.test.js` fail if the two drift apart.
  */
 export function validateWorkspace(workspace) {
     const filtered = workspace.views?.filteredViews ?? [];
@@ -377,6 +404,26 @@ export function validateWorkspace(workspace) {
                 `Filtered view "${view.key}" has filtered view "${view.baseViewKey}" as its base; the base of a filtered view must not be filtered.`,
             );
         }
+    }
+
+    const dynamic = workspace.views?.dynamicViews ?? [];
+    const invalid = (placement) =>
+        placement.order !== undefined &&
+        placement.order !== null &&
+        !/^\d+$/.test(String(placement.order).trim());
+    if (!dynamic.some((view) => view.relationships?.some(invalid))) return;
+    const { names, relationships } = modelIndex(workspace.model);
+    for (const view of dynamic) {
+        const placement = view.relationships?.find(invalid);
+        if (!placement) continue;
+        const relationship = relationships.get(placement.id);
+        const name = (id) => names.get(id) ?? id;
+        const label = relationship
+            ? `${name(relationship.sourceId)} → ${name(relationship.destinationId)}`
+            : placement.id;
+        throw new Error(
+            `Dynamic view "${view.key}": relationship "${label}" has order "${placement.order}"; orders must be integers.`,
+        );
     }
 }
 

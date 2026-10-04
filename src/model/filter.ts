@@ -21,6 +21,7 @@
  * check for a filtered view whose base is filtered added (spec 12, 13).
  */
 
+import { findOrderError } from "./animation";
 import type { ModelElement, ModelRelationship, ModelView } from "./types";
 import type { WorkspaceModel } from "./workspace";
 
@@ -69,18 +70,24 @@ export const relationshipPasses = (
 ) => passes(filter, model.getAllTagsForRelationship(relationship));
 
 /**
- * Why the view under `key` cannot be drawn, or `undefined` when it can.
+ * Why the view under `key` cannot be drawn, or `undefined` when it can: a
+ * filtered view whose base is itself filtered, or a dynamic view (or the
+ * dynamic base of a filtered view) with an order that isn't an integer.
  * Checked by the build too, in `scripts/assets.js` (`validateWorkspace`),
- * with the same message; `test/view-types.test.js` holds the two to it
- * (spec 13).
+ * with the same messages; `test/view-types.test.js` and
+ * `test/animation.test.js` hold the two to them (spec 13).
  */
 export function findViewError(
     model: WorkspaceModel,
     key: string,
 ): string | undefined {
     const view = model.findViewByKey(key);
-    if (view?.type !== "Filtered") return undefined;
+    if (!view) return undefined;
+    if (view.type !== "Filtered") return findOrderError(model, view);
     const base = model.findViewByKey(view.baseViewKey);
-    if (base?.type !== "Filtered") return undefined;
-    return `Filtered view "${view.key}" has filtered view "${base.key}" as its base; the base of a filtered view must not be filtered.`;
+    if (!base) return undefined;
+    if (base.type === "Filtered") {
+        return `Filtered view "${view.key}" has filtered view "${base.key}" as its base; the base of a filtered view must not be filtered.`;
+    }
+    return findOrderError(model, base);
 }

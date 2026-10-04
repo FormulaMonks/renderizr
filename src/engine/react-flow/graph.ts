@@ -14,6 +14,7 @@
  */
 
 import {
+    animationOf,
     type BoundaryKind,
     type ElementStyle,
     type ColorScheme as ModelColorScheme,
@@ -36,6 +37,7 @@ import {
     resolveView,
     SCHEME_DEFAULTS,
     type TargetKind,
+    type ViewAnimation,
     type WorkspaceModel,
 } from "../../model/index";
 
@@ -303,6 +305,8 @@ export type Graph = {
     warnings: string[];
     /** Every item with targets, in reading order: the Tab order (spec 6.2). */
     focusOrder: FocusItem[];
+    /** The steps the view plays, when it animates (spec 11). */
+    animation?: ViewAnimation;
 };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
@@ -475,6 +479,7 @@ export function buildGraph(
 
     const view = resolveView(model, key);
     if (!view) return undefined;
+    const animation = animationOf(model, view);
     if (view.image) {
         return {
             ...empty(view),
@@ -779,6 +784,7 @@ export function buildGraph(
             name: names.get(p.id) ?? "",
         })),
         focusOrder: readingOrder(elements, drawnBoundaries, routed),
+        ...(animation && { animation }),
     };
 }
 

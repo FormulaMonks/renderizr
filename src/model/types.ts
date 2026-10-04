@@ -108,6 +108,13 @@ export type RelationshipView = {
     [key: string]: unknown;
 };
 
+/** An entry of a static view's `animations` list: one step (spec 11). */
+export type AnimationEntry = {
+    order?: number;
+    elements?: string[];
+    relationships?: string[];
+};
+
 export type ModelView = {
     key: string;
     type: ViewType;
@@ -128,6 +135,8 @@ export type ModelView = {
     contentLight?: string;
     contentDark?: string;
     enterpriseBoundaryVisible?: boolean;
+    /** A static view's steps, one entry each, in any order (spec 11). */
+    animations?: AnimationEntry[];
     properties?: Record<string, string>;
     automaticLayout?: Partial<AutomaticLayoutSettings>;
     elements: ElementView[];

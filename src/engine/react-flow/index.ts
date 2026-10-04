@@ -4,11 +4,11 @@ import { type ModelView, WorkspaceModel } from "../../model";
 import {
     abortError,
     type Anchor,
-    type AnimationState,
     type Engine,
     type EngineOptions,
     whenMeasurable,
 } from "../contract";
+import { AnimationPlayer } from "./animation";
 import type { Graph } from "./graph";
 import {
     type IslandCommands,
@@ -20,8 +20,6 @@ import { engineReport } from "./report";
 import { removeReport, writeReport } from "./report-script";
 import { ShownListeners } from "./shown";
 
-const NO_ANIMATION: AnimationState = { steps: 0, step: null, playing: false };
-
 /** Hears that an element or a relationship was activated, and where. */
 type ActivationListener = (id: string, anchor: Anchor) => void;
 
@@ -30,6 +28,11 @@ type ActivationListener = (id: string, anchor: Anchor) => void;
  * is painted (spec section 5). The island mounts only once `target` has a
  * size. Aborting `signal` before then drops the wait, or unmounts the
  * unpainted root, and the promise rejects with an `AbortError`.
+ *
+ * The engine owns one animation player (spec 11). Only `showView`, which
+ * stops it first, and `stop` end an animation: scheme, label, font and size
+ * changes never reach the player, so they keep the step, the play state and
+ * the time left on the step. Play holds while the page is hidden.
  */
 export function mountEngine(
     target: HTMLElement,
@@ -47,6 +50,7 @@ export function mountEngine(
             key: options.view,
             scheme: options.colorScheme,
             labels: { ...options.labels },
+            step: null,
         });
         const commands: IslandCommands = {
             fit: () => {},
@@ -55,6 +59,20 @@ export function mountEngine(
         };
         let root: Root | null = null;
         let mounted = false;
+
+        const player = new AnimationPlayer();
+        /**
+         * The view last painted and how many steps it plays. The island
+         * paints only a view it has not painted last, so a view shown again
+         * before another one paints takes its steps back from here.
+         */
+        let painted: { key: string; steps: number } | null = null;
+        player.onChanged(({ step }) => {
+            if (step !== store.get().step) store.set({ step });
+        });
+        const onVisibility = () => player.setHidden(document.hidden);
+        onVisibility();
+        document.addEventListener("visibilitychange", onVisibility);
 
         const getCurrentView = () => {
             const view = model.findViewByKey(store.get().key);
@@ -83,7 +101,14 @@ export function mountEngine(
             showView(key) {
                 if (key === store.get().key) return;
                 if (!model.findViewByKey(key)) return;
-                store.set({ key });
+                // The animation ends with the view it belongs to; the new
+                // view's steps load once it is painted, or at once for the
+                // view painted last, which paints nothing new. The key and
+                // the full view arrive together: a step cleared on the
+                // outgoing view first would refit it under zoomOnAnimation
+                // just before the new view paints.
+                store.set({ key, step: null });
+                player.load(painted?.key === key ? painted.steps : 0);
             },
             setColorScheme(scheme) {
                 if (scheme !== store.get().scheme) store.set({ scheme });
@@ -102,9 +127,15 @@ export function mountEngine(
             fit: () => commands.fit(),
             zoomIn: () => commands.zoomIn(),
             zoomOut: () => commands.zoomOut(),
+            play: () => player.play(),
+            pause: () => player.pause(),
+            stepForward: () => player.stepForward(),
+            stepBack: () => player.stepBack(),
+            stop: () => player.stop(),
+            onAnimationChanged: (callback) => player.onChanged(callback),
             onViewShown(callback) {
                 // A late subscriber still hears about the view already shown.
-                return shown.add((view) => callback(view, NO_ANIMATION));
+                return shown.add((view) => callback(view, player.state));
             },
             onElementActivated: (callback) =>
                 listen(activated.element, callback),
@@ -113,6 +144,8 @@ export function mountEngine(
             unmount() {
                 stopWaiting();
                 shown.clear();
+                player.dispose();
+                document.removeEventListener("visibilitychange", onVisibility);
                 activated.element.clear();
                 activated.relationship.clear();
                 root?.unmount();
@@ -126,6 +159,8 @@ export function mountEngine(
             if (__RENDERIZR_ENGINE_REPORT__) {
                 writeReport(document, engineReport(graph));
             }
+            painted = { key, steps: graph.animation?.steps.length ?? 0 };
+            player.load(painted.steps);
             const view = model.findViewByKey(key);
             if (view) shown.paint(view);
             if (!mounted) {
@@ -151,6 +186,7 @@ export function mountEngine(
                     font: __RENDERIZR_FONT__,
                     onPainted,
                     onRedrawn,
+                    onEscape: () => player.stop(),
                     onActivate,
                 }),
             );
