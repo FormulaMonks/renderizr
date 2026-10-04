@@ -218,6 +218,24 @@ export function pointAlong(route: Point[], fraction: number): Point {
     return route[route.length - 1];
 }
 
+/**
+ * The unit vector along a route's last segment, toward its end, skipping
+ * points that repeat the end; rightward for a route with no length.
+ */
+export function endHeading(route: Point[]): Point {
+    const end = route[route.length - 1];
+    for (let i = route.length - 2; i >= 0; i--) {
+        const length = distance(route[i], end);
+        if (length > 0) {
+            return {
+                x: (end.x - route[i].x) / length,
+                y: (end.y - route[i].y) / length,
+            };
+        }
+    }
+    return { x: 1, y: 0 };
+}
+
 /** A point written for path data, through the shapes' `num`. */
 export const pathPoint = ({ x, y }: Point): string => `${num(x)} ${num(y)}`;
 

@@ -19,7 +19,9 @@ const { BEND_PENALTY, bendsBetween, chooseSides, facingSide, spreadEnds } =
     await importSrc("engine/geometry/routing/sides");
 const { directRoute, obstaclePadding, orthogonalRoute, orthogonalThrough } =
     await importSrc("engine/geometry/routing/avoid");
-const { curvedRoute } = await importSrc("engine/geometry/routing/curve");
+const { curvedRoute, curvePath } = await importSrc(
+    "engine/geometry/routing/curve",
+);
 const { loopCorner } = await importSrc("engine/geometry/routing/loops");
 const { jumpOversOf, jumpRadius } = await importSrc(
     "engine/geometry/routing/jumps",
@@ -431,13 +433,14 @@ test("Orthogonal leaves and enters perpendicular to the chosen sides", () => {
 /* ---------------- Curved */
 
 test("Curved without bends is the straight Direct route", () => {
-    const { route, path } = curvedRoute(
+    const { route, cubics } = curvedRoute(
         [
             { x: 200, y: 50 },
             { x: 600, y: 50 },
         ],
         [],
     );
+    const path = curvePath(cubics);
     assert.ok(
         route.every((point) => point.y === 50),
         fmt(route),
@@ -454,7 +457,8 @@ test("Curved smooths the Direct route without swinging into an element", () => {
         [],
         20,
     );
-    const { route, path } = curvedRoute(direct, [boxOf(blocker)]);
+    const { route, cubics } = curvedRoute(direct, [boxOf(blocker)]);
+    const path = curvePath(cubics);
     assert.match(path, / C /, "drawn as cubic curves");
     assert.deepEqual(crossings(route, [blocker]), [], fmt(route));
     assert.ok(near(route[0], direct[0]) && near(route.at(-1), direct.at(-1)));
@@ -647,6 +651,66 @@ test("Curved with vertices is smooth through each one", () => {
     );
     // The curve's segments meet at the vertex.
     assert.match(routed.path, / 500 400 C /);
+});
+
+/* ---------------- line end and heading */
+
+test("the line's path ends its thickness short of the target end, along the route's heading", () => {
+    const elements = [
+        element("a", 0, 0),
+        element("blocker", 400, 0),
+        element("b", 800, 0),
+    ];
+    const cases = [
+        ["Direct", {}],
+        ["Orthogonal", {}],
+        ["Curved", {}],
+        ["Direct", { jump: true }],
+        ["Direct", { vertices: [{ x: 500, y: 400 }] }],
+        ["Curved", { vertices: [{ x: 500, y: 400 }] }],
+    ];
+    for (const [routing, overrides] of cases) {
+        const name = `${routing} ${JSON.stringify(overrides)}`;
+        const [routed] = routeView(elements, [
+            edge("ab", "a", "b", { routing, thickness: 3, ...overrides }),
+        ]);
+        const end = routed.route.at(-1);
+        const before = routed.route.at(-2);
+        const length = Math.hypot(end.x - before.x, end.y - before.y);
+        assert.ok(
+            near(routed.heading, {
+                x: (end.x - before.x) / length,
+                y: (end.y - before.y) / length,
+            }),
+            `${name}: the heading follows the last segment, not ${fmt([routed.heading])}`,
+        );
+        const lineEnd = routed.path.match(/(-?[\d.]+) (-?[\d.]+)$/);
+        assert.ok(
+            near(
+                { x: Number(lineEnd[1]), y: Number(lineEnd[2]) },
+                {
+                    x: end.x - 3 * routed.heading.x,
+                    y: end.y - 3 * routed.heading.y,
+                },
+                1e-3,
+            ),
+            `${name}: the path ends at ${lineEnd[0]}, not 3 short of ${fmt([end])}`,
+        );
+    }
+});
+
+test("a self-relationship's line also ends short of its target end", () => {
+    for (const routing of ["Direct", "Orthogonal", "Curved"]) {
+        const [loop] = routeView(
+            [element("a", 0, 0)],
+            [edge("aa", "a", "a", { routing })],
+        );
+        const end = loop.route.at(-1);
+        assert.ok(
+            !loop.path.endsWith(`${end.x} ${end.y}`),
+            `${routing}: the loop's line runs to its tip`,
+        );
+    }
 });
 
 /* ---------------- edge ends on the outline */

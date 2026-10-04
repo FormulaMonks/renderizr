@@ -103,6 +103,8 @@ export type RelationshipView = {
     /** Overrides the style's `jump` for this edge in this view. */
     jump?: boolean;
     position?: number;
+    /** In a dynamic view, a step drawn from the destination back to the source. */
+    response?: boolean;
     [key: string]: unknown;
 };
 
