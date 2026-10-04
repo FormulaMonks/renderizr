@@ -15,7 +15,9 @@ const {
     indicatorKinds,
     indicatorRowWidth,
 } = await importSrc("engine/geometry/indicators");
-const { fitLabel } = await importSrc("engine/geometry/label");
+const { fitLabel, INDICATOR_ROW_HEIGHT } = await importSrc(
+    "engine/geometry/label",
+);
 const { BAND_GAP, BAND_MARGIN, deriveBoundaries } = await importSrc(
     "engine/geometry/boundary",
 );
@@ -55,6 +57,27 @@ test("an element's indicators are a fixed part of its label: the description giv
     // margin take 30 of it, and 187 holds 6.
     assert.equal(fitLabel(base).descriptionLines, 7);
     assert.equal(fitLabel({ ...base, indicators: true }).descriptionLines, 6);
+});
+
+test("an element's indicator row keeps an inset from the bottom of its content area", () => {
+    // 40 + 8 + 20 + 15 above the description, and below it the row's 20,
+    // its margin's 10 and the inset's 10: one line of 28.8 fits exactly.
+    const label = {
+        height: 40 + 8 + 20 + 15 + 28.8 + 20 + 10 + 10,
+        fontSize: 24,
+        iconPosition: "Bottom",
+        name: 40,
+        metadata: 20,
+        description: true,
+    };
+
+    assert.equal(INDICATOR_ROW_HEIGHT, INDICATOR_SIZE + INDICATOR_MARGIN + 10);
+    assert.equal(fitLabel({ ...label, indicators: true }).descriptionLines, 1);
+    assert.equal(
+        fitLabel({ ...label, height: label.height - 1, indicators: true })
+            .descriptionLines,
+        0,
+    );
 });
 
 test("an icon that only fits without the indicators is dropped", () => {

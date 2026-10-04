@@ -17,6 +17,12 @@ export const INDICATOR_GAP = 5;
 /** Space between an element's text and the indicator row below it. */
 export const INDICATOR_MARGIN = 10;
 
+/**
+ * Space between an element's indicator row, or a Bottom icon under it, and
+ * the bottom of its content area, so the glyphs don't crowd the outline.
+ */
+export const INDICATOR_INSET = 10;
+
 /** Each kind once, in the order the targets first offer it. */
 export const indicatorKinds = (
     targets: readonly TargetKind[],

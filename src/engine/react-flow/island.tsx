@@ -55,6 +55,7 @@ import type { Anchor } from "../contract";
 import type { TextBlock } from "../geometry/boundary";
 import {
     INDICATOR_GAP,
+    INDICATOR_INSET,
     INDICATOR_MARGIN,
     INDICATOR_SIZE,
     indicatorKinds,
@@ -501,7 +502,8 @@ function ElementLabel({
     } as const;
 
     // The indicator row sits at the bottom of the content area, above a
-    // Bottom icon, and the rest is centered in what is left (spec 9.2).
+    // Bottom icon and inset from the bottom edge, and the rest is centered
+    // in what is left (spec 9.2).
     const iconLast = layout.after && image;
     return (
         <div
@@ -593,14 +595,21 @@ function ElementLabel({
                 {!indicators && iconLast}
             </div>
             {indicators && (
-                <>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        paddingBottom: INDICATOR_INSET,
+                    }}
+                >
                     <Indicators
                         targets={targets}
                         color={color}
                         style={{ marginTop: INDICATOR_MARGIN }}
                     />
                     {iconLast}
-                </>
+                </div>
             )}
         </div>
     );

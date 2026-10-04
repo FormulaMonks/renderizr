@@ -5,7 +5,11 @@
  * parts and asks `fitLabel` what to keep; nothing here touches the DOM.
  */
 
-import { INDICATOR_MARGIN, INDICATOR_SIZE } from "./indicators";
+import {
+    INDICATOR_INSET,
+    INDICATOR_MARGIN,
+    INDICATOR_SIZE,
+} from "./indicators";
 
 /** Where an element's icon sits relative to its text. */
 export type IconPosition = "Top" | "Bottom" | "Left";
@@ -160,8 +164,9 @@ export type LabelFit = {
 const textHeight = ({ name, metadata }: FixedHeights) =>
     name + (metadata === undefined ? 0 : NAME_GAP + metadata);
 
-/** The height an indicator row and its margin take from the label. */
-export const INDICATOR_ROW_HEIGHT = INDICATOR_SIZE + INDICATOR_MARGIN;
+/** The height an indicator row, its margin and its inset take from a label. */
+export const INDICATOR_ROW_HEIGHT =
+    INDICATOR_SIZE + INDICATOR_MARGIN + INDICATOR_INSET;
 
 /**
  * What of the label fits its content area (spec 9.1). Icon, name, metadata
