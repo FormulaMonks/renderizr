@@ -17,6 +17,8 @@ import {
     isAutomatic,
     noOverlappingBoundaries,
     noOverlappingElements,
+    OUTLINE_TOLERANCE,
+    OUTLINED_SHAPES,
     readyInTime,
     sameBoundariesAsResolved,
     sameElementsAndEdgesAsResolved,
@@ -452,32 +454,352 @@ test("a stored layout's boundaries are drawn where the author's coordinates put 
 
 /* --------------------------------------------------------------- edge ends */
 
-test("an element's outline is worked out from its shape and box", () => {
-    // Every shape is held to its box until #43 draws the shapes.
-    assert.deepEqual(
-        elementOutline({
-            shape: "Person",
-            x: 10,
-            y: 20,
-            width: 100,
-            height: 50,
-        }),
-        [
-            { x: 10, y: 20 },
-            { x: 110, y: 20 },
-            { x: 110, y: 70 },
-            { x: 10, y: 70 },
+/**
+ * Points on and off each shape's outline, in the box upstream draws it in at
+ * the default style width of 450, worked out by hand from upstream's
+ * proportions. `on` lie on the silhouette; `off` lie inside the shape away
+ * from it (its middle, a part's side hidden under another part) or outside
+ * it within the box (a corner the shape rounds or cuts off).
+ */
+const SHAPE_POINTS = {
+    Box: {
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [450, 150],
+            [225, 300],
+            [0, 150],
         ],
-        "the outline is not the box's four corners, clockwise from the top-left",
+        off: [
+            [225, 150],
+            [225, 10],
+        ],
+    },
+    RoundedBox: {
+        size: [450, 300],
+        // The top-left corner's arc, radius 20, halfway round.
+        on: [
+            [225, 0],
+            [0, 150],
+            [20 - 20 * Math.SQRT1_2, 20 - 20 * Math.SQRT1_2],
+        ],
+        off: [
+            [225, 150],
+            [0, 0],
+        ],
+    },
+    Circle: {
+        size: [450, 450],
+        on: [
+            [225, 0],
+            [450, 225],
+            [225 + 225 * Math.SQRT1_2, 225 + 225 * Math.SQRT1_2],
+        ],
+        off: [
+            [225, 225],
+            [0, 0],
+            [40, 40],
+        ],
+    },
+    Ellipse: {
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [450, 150],
+            [225, 300],
+            [0, 150],
+            [225 + 225 * Math.SQRT1_2, 150 + 150 * Math.SQRT1_2],
+        ],
+        off: [
+            [225, 150],
+            [0, 0],
+        ],
+    },
+    Hexagon: {
+        size: [450, 389],
+        on: [
+            [112.5, 0],
+            [337.5, 0],
+            [450, 194.5],
+            [225, 389],
+            [56.25, 97.25],
+        ],
+        off: [
+            [225, 194.5],
+            [0, 0],
+            [10, 194.5],
+        ],
+    },
+    Diamond: {
+        size: [450, 450],
+        on: [
+            [225, 0],
+            [450, 225],
+            [337.5, 112.5],
+            [0, 225],
+        ],
+        off: [
+            [225, 225],
+            [0, 0],
+        ],
+    },
+    Cylinder: {
+        // A lid of depth 60: the top half is the outline, the bottom half
+        // (the inner rim, at its lowest 60 down) is inside the body.
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 150],
+            [450, 150],
+            [225, 300],
+        ],
+        off: [
+            [225, 150],
+            [225, 60],
+            [0, 0],
+        ],
+    },
+    Bucket: {
+        // Walls slope in to a tenth of the width; the bottom arc stops 6
+        // short of the box.
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 30],
+            [22.5, 150],
+            [45, 270],
+            [225, 294],
+        ],
+        off: [
+            [225, 150],
+            [225, 60],
+            [225, 300],
+            [0, 270],
+        ],
+    },
+    Pipe: {
+        // End caps 60 deep: the left cap's inner rim is inside the body.
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [225, 300],
+            [0, 150],
+            [450, 150],
+        ],
+        off: [
+            [225, 150],
+            [60, 150],
+            [0, 0],
+        ],
+    },
+    Person: {
+        // A head of radius 100 centered (225, 100), on a body from 180 down
+        // with corners of radius 70.
+        size: [450, 450],
+        on: [
+            [225, 0],
+            [125, 100],
+            [0, 300],
+            [225, 450],
+            [300, 180],
+        ],
+        off: [
+            [225, 300],
+            [225, 180],
+            [0, 180],
+            [0, 0],
+        ],
+    },
+    Robot: {
+        // A head 200 square at (125, 0), ears from 100 to 350 between 77.5
+        // and 122.5, a body from 180 down; corners of radius 30 and 10.
+        size: [450, 450],
+        on: [
+            [225, 0],
+            [100, 100],
+            [125, 50],
+            [450, 315],
+            [225, 450],
+        ],
+        off: [
+            [225, 315],
+            [225, 180],
+            [125, 100],
+            [0, 0],
+        ],
+    },
+    Folder: {
+        // A tab from 10 to 160 over a body from 37.5 down.
+        size: [450, 300],
+        on: [
+            [85, 0],
+            [300, 37.5],
+            [0, 150],
+            [225, 300],
+        ],
+        off: [
+            [225, 150],
+            [85, 37.5],
+            [300, 0],
+        ],
+    },
+    WebBrowser: {
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 150],
+            [450, 150],
+            [225, 300],
+        ],
+        off: [
+            [225, 150],
+            [225, 40],
+            [0, 0],
+        ],
+    },
+    Window: {
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 150],
+            [450, 150],
+            [225, 300],
+        ],
+        off: [
+            [225, 150],
+            [225, 40],
+            [0, 0],
+        ],
+    },
+    MobileDevicePortrait: {
+        size: [300, 450],
+        on: [
+            [150, 0],
+            [0, 225],
+            [300, 225],
+            [150, 450],
+        ],
+        off: [
+            [150, 225],
+            [150, 40],
+            [0, 0],
+        ],
+    },
+    MobileDeviceLandscape: {
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 150],
+            [450, 150],
+            [225, 300],
+        ],
+        off: [
+            [225, 150],
+            [40, 150],
+            [0, 0],
+        ],
+    },
+    Component: {
+        // A main rectangle from 37.5, and blocks 75 wide straddling its
+        // left side from 22.5 to 60 and from 75 to 112.5.
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 41.25],
+            [0, 93.75],
+            [37.5, 67.5],
+            [37.5, 200],
+        ],
+        off: [
+            [225, 150],
+            [37.5, 41.25],
+            [0, 200],
+        ],
+    },
+    Shell: {
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 150],
+            [450, 150],
+            [225, 300],
+        ],
+        off: [
+            [225, 150],
+            [0, 0],
+        ],
+    },
+    Terminal: {
+        size: [450, 300],
+        on: [
+            [225, 0],
+            [0, 150],
+            [450, 150],
+            [225, 300],
+        ],
+        off: [
+            [225, 150],
+            [225, 40],
+            [0, 0],
+        ],
+    },
+};
+
+/** An element of `shape` in its box, moved off the origin. */
+const shaped = (shape, [width, height]) => ({
+    id: "1",
+    shape,
+    x: 1000,
+    y: 2000,
+    width,
+    height,
+});
+
+const moved = ([x, y]) => ({ x: x + 1000, y: y + 2000 });
+
+test("the harness has an outline for each of the 19 shapes", () => {
+    assert.equal(OUTLINED_SHAPES.length, 19, "the harness outlines too few");
+    assert.deepEqual(
+        Object.keys(SHAPE_POINTS),
+        OUTLINED_SHAPES,
+        "a shape the harness outlines has no points to check it against",
     );
+});
+
+for (const [shape, { size, on, off }] of Object.entries(SHAPE_POINTS)) {
+    test(`a ${shape}'s outline runs through its own points and not the others`, () => {
+        const outline = elementOutline(shaped(shape, size));
+        for (const point of on) {
+            const distance = distanceToOutline(moved(point), outline);
+            assert.ok(
+                distance <= 0.1,
+                `(${point.join(", ")}) is ${distance} off a ${shape}'s outline`,
+            );
+        }
+        for (const point of off) {
+            const distance = distanceToOutline(moved(point), outline);
+            assert.ok(
+                distance > OUTLINE_TOLERANCE,
+                `(${point.join(", ")}) is within ${distance} of a ${shape}'s outline`,
+            );
+        }
+    });
+}
+
+test("an unknown shape is outlined as a Box, as upstream draws it", () => {
+    const outline = elementOutline(shaped("Cloud", [450, 300]));
+    assert.ok(distanceToOutline(moved([225, 0]), outline) <= 0.1);
+    assert.ok(distanceToOutline(moved([225, 150]), outline) > 100);
 });
 
 test("distanceToOutline measures to the nearest side, inside or out", () => {
     const square = [
-        { x: 0, y: 0 },
-        { x: 100, y: 0 },
-        { x: 100, y: 100 },
-        { x: 0, y: 100 },
+        [
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+            { x: 100, y: 100 },
+            { x: 0, y: 100 },
+        ],
     ];
     const cases = [
         [{ x: 50, y: 0 }, 0],
@@ -492,6 +814,21 @@ test("distanceToOutline measures to the nearest side, inside or out", () => {
             `(${point.x}, ${point.y}) is measured wrongly`,
         );
     }
+});
+
+test("distanceToOutline measures to the silhouette of overlapping regions", () => {
+    // Two squares overlapping by half: the side of each inside the other is
+    // not on the silhouette.
+    const square = (x) => [
+        { x, y: 0 },
+        { x: x + 100, y: 0 },
+        { x: x + 100, y: 100 },
+        { x, y: 100 },
+    ];
+    const pair = [square(0), square(50)];
+    assert.equal(distanceToOutline({ x: 125, y: 0 }, pair), 0);
+    assert.equal(distanceToOutline({ x: 100, y: 50 }, pair), 50);
+    assert.equal(distanceToOutline({ x: 160, y: 50 }, pair), 10);
 });
 
 test("edge ends within 1 unit of their elements' outlines pass", () => {
@@ -524,30 +861,28 @@ test("an edge end off its element's outline is named, end by end", () => {
     assert.match(problems[1], /10.*target/, "the target end is not named");
 });
 
-test("an edge end inside a shaped element's box passes; outside it, it is named", () => {
-    // A Person's head is narrower than its box, so an edge from the side
-    // meets it inside the box. The harness has no outline per shape yet.
+test("an edge end inside a shaped element's box is held to the shape's outline", () => {
+    // A Person 100 wide: a head of radius 22.2 centered (50, 22.2) on a body
+    // from 40 down. An edge from the side meets the head inside the box.
     const person = { ...box("1", 0, 0), shape: "Person" };
-    const inside = report({
-        elements: [person, box("2", 300, 0)],
-        edges: [
-            edge("10", "1", "2", [
-                { x: 70, y: 20 },
-                { x: 300, y: 50 },
-            ]),
-        ],
-    });
-    const outside = report({
-        elements: [person, box("2", 300, 0)],
-        edges: [
-            edge("10", "1", "2", [
-                { x: 120, y: 20 },
-                { x: 300, y: 50 },
-            ]),
-        ],
-    });
-    assert.deepEqual(edgeEndsOnOutlines(inside), []);
-    assert.equal(edgeEndsOnOutlines(outside).length, 1);
+    const ending = (point) =>
+        report({
+            elements: [person, box("2", 300, 0)],
+            edges: [edge("10", "1", "2", [point, { x: 300, y: 50 }])],
+        });
+    const onHead = { x: 50 + 100 / 4.5, y: 100 / 4.5 };
+    assert.deepEqual(edgeEndsOnOutlines(ending(onHead)), []);
+    for (const point of [
+        { x: 70, y: 20 },
+        { x: 50, y: 70 },
+        { x: 100, y: 22 },
+    ]) {
+        assert.equal(
+            edgeEndsOnOutlines(ending(point)).length,
+            1,
+            `(${point.x}, ${point.y}) is not on a Person's outline`,
+        );
+    }
 });
 
 /* ---------------------------------------------------------------- avoidance */

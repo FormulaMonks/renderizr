@@ -294,6 +294,197 @@ export function noOverlappingBoundaries(report, expected) {
 
 /* --------------------------------------------------------------- edge ends */
 
+/*
+ * Each shape is outlined here as the filled regions upstream's renderer
+ * (`createPerson`, `createCylinder` and the rest in the vendored
+ * `structurizr-diagram.js`) draws it with, at the proportions it draws them,
+ * stretched to the box the report gives. The silhouette is the edge of their
+ * union. Nothing comes from the engine's shape modules, which work the same
+ * silhouettes out another way (segments walked round the shape), so an edge
+ * end the engine misplaces fails here even when its own geometry agrees.
+ *
+ * Every region is a closed polygon; curves are sampled finely enough that the
+ * polygon is within 0.05 of the curve at any size the acceptance set draws.
+ * Coordinates are local to the element until `elementOutline` moves them.
+ */
+
+/** How many points a whole ellipse is sampled at; a quarter corner gets a quarter. */
+const ELLIPSE_POINTS = 360;
+
+/** Points along the ellipse arc from angle `start` to `end` (radians, y down). */
+const arcPoints = (cx, cy, rx, ry, start, end) => {
+    const steps = Math.max(
+        2,
+        Math.ceil((Math.abs(end - start) / (2 * Math.PI)) * ELLIPSE_POINTS),
+    );
+    return Array.from({ length: steps + 1 }, (_, i) => {
+        const angle = start + ((end - start) * i) / steps;
+        return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
+    });
+};
+
+const ellipseRegion = (cx, cy, rx, ry) =>
+    arcPoints(cx, cy, rx, ry, 0, 2 * Math.PI).slice(0, -1);
+
+/**
+ * An SVG `<rect>` with corners of radius `r`, which SVG clamps to half the
+ * shorter side.
+ */
+const rectRegion = (x, y, width, height, r = 0) => {
+    const radius = Math.max(0, Math.min(r, width / 2, height / 2));
+    if (radius === 0) {
+        return [
+            { x, y },
+            { x: x + width, y },
+            { x: x + width, y: y + height },
+            { x, y: y + height },
+        ];
+    }
+    const quarter = Math.PI / 2;
+    const left = x + radius;
+    const right = x + width - radius;
+    const top = y + radius;
+    const bottom = y + height - radius;
+    return [
+        ...arcPoints(right, top, radius, radius, -quarter, 0),
+        ...arcPoints(right, bottom, radius, radius, 0, quarter),
+        ...arcPoints(left, bottom, radius, radius, quarter, 2 * quarter),
+        ...arcPoints(left, top, radius, radius, 2 * quarter, 3 * quarter),
+    ];
+};
+
+const polygonRegion = (...points) => points.map(([x, y]) => ({ x, y }));
+
+/** Upstream's lid and end caps are ellipses 60 deep. */
+const CAP = 30;
+
+/**
+ * Person and Robot are drawn in a square box (upstream derives the height
+ * from the width); the body is the lower 60% of it.
+ */
+const bodyTop = (height) => 0.4 * height;
+
+/**
+ * The filled regions each shape is drawn with, in a `width` × `height` box at
+ * the origin, from upstream's proportions. The windowed shapes and the mobile
+ * devices are one frame each: their panels, buttons and displays lie inside
+ * it. Their frame is the element's height (upstream overhangs it by the
+ * stroke width), so no shape needs anything the box does not give.
+ */
+const SHAPE_REGIONS = {
+    Box: (w, h) => [rectRegion(0, 0, w, h, 1)],
+    RoundedBox: (w, h) => [rectRegion(0, 0, w, h, 20)],
+    Circle: (w, h) => {
+        const r = Math.min(w, h) / 2;
+        return [ellipseRegion(w / 2, h / 2, r, r)];
+    },
+    Ellipse: (w, h) => [ellipseRegion(w / 2, h / 2, w / 2, h / 2)],
+    Hexagon: (w, h) => [
+        polygonRegion(
+            [w / 4, 0],
+            [(3 * w) / 4, 0],
+            [w, h / 2],
+            [(3 * w) / 4, h],
+            [w / 4, h],
+            [0, h / 2],
+        ),
+    ],
+    Diamond: (w, h) => [
+        polygonRegion([w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]),
+    ],
+    Cylinder: (w, h) => [
+        ellipseRegion(w / 2, CAP, w / 2, CAP),
+        rectRegion(0, CAP, w, h - 2 * CAP),
+        ellipseRegion(w / 2, h - CAP, w / 2, CAP),
+    ],
+    Bucket: (w, h) => {
+        // The bottom is an arc of an ellipse 2·CAP tall whose chord, 0.8 of
+        // the width, joins the walls CAP above the box's bottom.
+        const chord = h - CAP;
+        const cy = chord - 0.6 * 2 * CAP;
+        return [
+            ellipseRegion(w / 2, CAP, w / 2, CAP),
+            polygonRegion(
+                [0, CAP],
+                [w, CAP],
+                [0.9 * w, chord],
+                [0.1 * w, chord],
+            ),
+            arcPoints(
+                w / 2,
+                cy,
+                w / 2,
+                2 * CAP,
+                Math.atan2(0.6, 0.8),
+                Math.atan2(0.6, -0.8),
+            ),
+        ];
+    },
+    Pipe: (w, h) => [
+        ellipseRegion(CAP, h / 2, CAP, h / 2),
+        rectRegion(CAP, 0, w - 2 * CAP, h),
+        ellipseRegion(w - CAP, h / 2, CAP, h / 2),
+    ],
+    Person: (w, h) => {
+        const r = Math.min(w, h) / 4.5;
+        const top = bodyTop(h);
+        return [
+            ellipseRegion(w / 2, top - 0.8 * r, r, r),
+            rectRegion(0, top, w, h - top, 70),
+        ];
+    },
+    Robot: (w, h) => {
+        const side = Math.min(w, h) / 2.25;
+        const top = bodyTop(h);
+        const headY = top - 0.9 * side;
+        return [
+            rectRegion((w - side) / 2, headY, side, side, 30),
+            rectRegion(
+                (w - 1.25 * side) / 2,
+                headY + (side - 0.225 * side) / 2,
+                1.25 * side,
+                0.225 * side,
+                10,
+            ),
+            rectRegion(0, top, w, h - top, 30),
+        ];
+    },
+    Folder: (w, h) => [
+        rectRegion(10, 0, w / 3, h / 4, 10),
+        rectRegion(0, h / 8, w, h - h / 8, 5),
+    ],
+    WebBrowser: (w, h) => [rectRegion(0, 0, w, h, 10)],
+    Window: (w, h) => [rectRegion(0, 0, w, h, 10)],
+    MobileDevicePortrait: (w, h) => [rectRegion(0, 0, w, h, 20)],
+    MobileDeviceLandscape: (w, h) => [rectRegion(0, 0, w, h, 20)],
+    Component: (w, h) => {
+        const blockWidth = w / 6;
+        const blockHeight = h / 8;
+        return [
+            rectRegion(blockWidth / 2, 0, w - blockWidth / 2, h, 10),
+            rectRegion(0, 0.6 * blockHeight, blockWidth, blockHeight, 5),
+            rectRegion(0, 2 * blockHeight, blockWidth, blockHeight, 5),
+        ];
+    },
+    Shell: (w, h) => [rectRegion(0, 0, w, h, 10)],
+    Terminal: (w, h) => [rectRegion(0, 0, w, h, 10)],
+};
+
+/** The shapes the harness outlines; anything else is drawn as a Box. */
+export const OUTLINED_SHAPES = Object.keys(SHAPE_REGIONS);
+
+/**
+ * The outline of `element`, from the shape and box the report gives: the
+ * filled regions the shape is drawn with, each a closed polygon, whose union
+ * is the shape. An unknown shape is a Box, as upstream draws it.
+ */
+export function elementOutline({ shape, x, y, width, height }) {
+    const regions = (SHAPE_REGIONS[shape] ?? SHAPE_REGIONS.Box)(width, height);
+    return regions.map((region) =>
+        region.map((point) => ({ x: x + point.x, y: y + point.y })),
+    );
+}
+
 const distanceToSegment = (point, a, b) => {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
@@ -311,43 +502,48 @@ const distanceToSegment = (point, a, b) => {
     return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
 };
 
-/** How far `point` is from the nearest side of the closed polygon `outline`. */
-export function distanceToOutline(point, outline) {
+/** Whether `point` is inside the closed polygon `region` (even-odd rule). */
+const insideRegion = (point, region) => {
+    let inside = false;
+    for (let i = 0, j = region.length - 1; i < region.length; j = i++) {
+        const a = region[i];
+        const b = region[j];
+        if (
+            a.y > point.y !== b.y > point.y &&
+            point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
+        ) {
+            inside = !inside;
+        }
+    }
+    return inside;
+};
+
+/** How far `point` is outside `region`, negative when inside it. */
+const signedDistance = (point, region) => {
     let nearest = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < outline.length; i++) {
-        const a = outline[i];
-        const b = outline[(i + 1) % outline.length];
+    for (let i = 0; i < region.length; i++) {
+        const a = region[i];
+        const b = region[(i + 1) % region.length];
         nearest = Math.min(nearest, distanceToSegment(point, a, b));
     }
-    return nearest;
+    return insideRegion(point, region) ? -nearest : nearest;
+};
+
+/**
+ * How far `point` is from the edge of the union of `regions`, inside or out.
+ * Outside every region it is the distance to the nearest; inside, the depth
+ * into the region it is deepest in, so a side of one region hidden inside
+ * another (the body's top under a Person's head) is not on the outline. That
+ * depth can fall short of the true one only within a unit or so of where two
+ * regions' sides cross, which is on the outline anyway.
+ */
+export function distanceToOutline(point, regions) {
+    return Math.abs(
+        Math.min(...regions.map((region) => signedDistance(point, region))),
+    );
 }
 
-/**
- * Where the outline of `element` runs, as a closed polygon, from the shape and
- * box the report gives. The engine draws every shape as its box until #43
- * draws the shapes; that ticket adds each shape's outline here, worked out
- * independently of the engine's.
- */
-export const elementOutline = ({ x, y, width, height }) => [
-    { x, y },
-    { x: x + width, y },
-    { x: x + width, y: y + height },
-    { x, y: y + height },
-];
-
-/** Whether `point` is inside `box` or within the tolerance of it. */
-const withinBox = (point, { x, y, width, height }) =>
-    point.x >= x - OUTLINE_TOLERANCE &&
-    point.x <= x + width + OUTLINE_TOLERANCE &&
-    point.y >= y - OUTLINE_TOLERANCE &&
-    point.y <= y + height + OUTLINE_TOLERANCE;
-
-/**
- * Every edge starts and ends on its elements' outlines, within 1 unit. The
- * harness outlines every element as its box, so for any shape but a Box an
- * end anywhere inside the box passes: a Person's head, say, is met inside
- * it once automatic layout brings edges in from the side.
- */
+/** Every edge starts and ends on its elements' outlines, within 1 unit. */
 export function edgeEndsOnOutlines(report) {
     const elements = new Map(
         report.elements.map((element) => [element.id, element]),
@@ -362,10 +558,9 @@ export function edgeEndsOnOutlines(report) {
             const element = elements.get(id);
             if (!element || !point) continue;
             const distance = distanceToOutline(point, elementOutline(element));
-            const shaped = element.shape !== "Box" && withinBox(point, element);
-            if (distance > OUTLINE_TOLERANCE && !shaped) {
+            if (distance > OUTLINE_TOLERANCE) {
                 problems.push(
-                    `edge ${edge.key}'s ${end} end is ${round(distance)} units off element ${id}'s outline`,
+                    `edge ${edge.key}'s ${end} end is ${round(distance)} units off element ${id}'s ${element.shape} outline`,
                 );
             }
         }
