@@ -312,7 +312,7 @@ export function noOverlappingBoundaries(report, expected) {
 const ELLIPSE_POINTS = 360;
 
 /** Points along the ellipse arc from angle `start` to `end` (radians, y down). */
-const arcPoints = (cx, cy, rx, ry, start, end) => {
+function arcPoints(cx, cy, rx, ry, start, end) {
     const steps = Math.max(
         2,
         Math.ceil((Math.abs(end - start) / (2 * Math.PI)) * ELLIPSE_POINTS),
@@ -321,7 +321,7 @@ const arcPoints = (cx, cy, rx, ry, start, end) => {
         const angle = start + ((end - start) * i) / steps;
         return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
     });
-};
+}
 
 const ellipseRegion = (cx, cy, rx, ry) =>
     arcPoints(cx, cy, rx, ry, 0, 2 * Math.PI).slice(0, -1);
@@ -330,7 +330,7 @@ const ellipseRegion = (cx, cy, rx, ry) =>
  * An SVG `<rect>` with corners of radius `r`, which SVG clamps to half the
  * shorter side.
  */
-const rectRegion = (x, y, width, height, r = 0) => {
+function rectRegion(x, y, width, height, r = 0) {
     const radius = Math.max(0, Math.min(r, width / 2, height / 2));
     if (radius === 0) {
         return [
@@ -351,7 +351,7 @@ const rectRegion = (x, y, width, height, r = 0) => {
         ...arcPoints(left, bottom, radius, radius, quarter, 2 * quarter),
         ...arcPoints(left, top, radius, radius, 2 * quarter, 3 * quarter),
     ];
-};
+}
 
 const polygonRegion = (...points) => points.map(([x, y]) => ({ x, y }));
 
@@ -503,7 +503,7 @@ const distanceToSegment = (point, a, b) => {
 };
 
 /** Whether `point` is inside the closed polygon `region` (even-odd rule). */
-const insideRegion = (point, region) => {
+function insideRegion(point, region) {
     let inside = false;
     for (let i = 0, j = region.length - 1; i < region.length; j = i++) {
         const a = region[i];
@@ -516,10 +516,10 @@ const insideRegion = (point, region) => {
         }
     }
     return inside;
-};
+}
 
 /** How far `point` is outside `region`, negative when inside it. */
-const signedDistance = (point, region) => {
+function signedDistance(point, region) {
     let nearest = Number.POSITIVE_INFINITY;
     for (let i = 0; i < region.length; i++) {
         const a = region[i];
@@ -527,7 +527,7 @@ const signedDistance = (point, region) => {
         nearest = Math.min(nearest, distanceToSegment(point, a, b));
     }
     return insideRegion(point, region) ? -nearest : nearest;
-};
+}
 
 /**
  * How far `point` is from the edge of the union of `regions`, inside or out.

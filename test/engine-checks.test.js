@@ -745,20 +745,33 @@ const SHAPE_POINTS = {
     },
 };
 
-/** An element of `shape` in its box, moved off the origin. */
+/**
+ * How close a point has to be to count as on an outline: the harness samples
+ * curves to within 0.05 of the curve, with room for rounding.
+ */
+const ON_OUTLINE = 0.1;
+
+/** Where the shapes are drawn, off the origin so no offset is forgotten. */
+const OFFSET = { x: 1000, y: 2000 };
+
+/** An element of `shape` in its box, at `OFFSET`. */
 const shaped = (shape, [width, height]) => ({
     id: "1",
     shape,
-    x: 1000,
-    y: 2000,
+    ...OFFSET,
     width,
     height,
 });
 
-const moved = ([x, y]) => ({ x: x + 1000, y: y + 2000 });
+/** A point local to a shape, moved to where `shaped` draws it. */
+const moved = ([x, y]) => ({ x: x + OFFSET.x, y: y + OFFSET.y });
 
 test("the harness has an outline for each of the 19 shapes", () => {
-    assert.equal(OUTLINED_SHAPES.length, 19, "the harness outlines too few");
+    assert.equal(
+        OUTLINED_SHAPES.length,
+        19,
+        "the harness does not outline exactly the 19 shapes",
+    );
     assert.deepEqual(
         Object.keys(SHAPE_POINTS),
         OUTLINED_SHAPES,
@@ -767,17 +780,17 @@ test("the harness has an outline for each of the 19 shapes", () => {
 });
 
 for (const [shape, { size, on, off }] of Object.entries(SHAPE_POINTS)) {
-    test(`a ${shape}'s outline runs through its own points and not the others`, () => {
-        const outline = elementOutline(shaped(shape, size));
+    test(`a ${shape}'s outline runs through its own points, not the ones inside it or in a corner it cuts off`, () => {
+        const regions = elementOutline(shaped(shape, size));
         for (const point of on) {
-            const distance = distanceToOutline(moved(point), outline);
+            const distance = distanceToOutline(moved(point), regions);
             assert.ok(
-                distance <= 0.1,
+                distance <= ON_OUTLINE,
                 `(${point.join(", ")}) is ${distance} off a ${shape}'s outline`,
             );
         }
         for (const point of off) {
-            const distance = distanceToOutline(moved(point), outline);
+            const distance = distanceToOutline(moved(point), regions);
             assert.ok(
                 distance > OUTLINE_TOLERANCE,
                 `(${point.join(", ")}) is within ${distance} of a ${shape}'s outline`,
@@ -787,13 +800,19 @@ for (const [shape, { size, on, off }] of Object.entries(SHAPE_POINTS)) {
 }
 
 test("an unknown shape is outlined as a Box, as upstream draws it", () => {
-    const outline = elementOutline(shaped("Cloud", [450, 300]));
-    assert.ok(distanceToOutline(moved([225, 0]), outline) <= 0.1);
-    assert.ok(distanceToOutline(moved([225, 150]), outline) > 100);
+    const regions = elementOutline(shaped("Cloud", [450, 300]));
+    assert.ok(
+        distanceToOutline(moved([225, 0]), regions) <= ON_OUTLINE,
+        "the middle of a Cloud's top side is not on its outline",
+    );
+    assert.ok(
+        distanceToOutline(moved([225, 150]), regions) > 100,
+        "a Cloud's middle is not as deep inside it as a Box's",
+    );
 });
 
 test("distanceToOutline measures to the nearest side, inside or out", () => {
-    const square = [
+    const regions = [
         [
             { x: 0, y: 0 },
             { x: 100, y: 0 },
@@ -809,7 +828,7 @@ test("distanceToOutline measures to the nearest side, inside or out", () => {
     ];
     for (const [point, distance] of cases) {
         assert.equal(
-            distanceToOutline(point, square),
+            distanceToOutline(point, regions),
             distance,
             `(${point.x}, ${point.y}) is measured wrongly`,
         );
@@ -826,9 +845,21 @@ test("distanceToOutline measures to the silhouette of overlapping regions", () =
         { x, y: 100 },
     ];
     const pair = [square(0), square(50)];
-    assert.equal(distanceToOutline({ x: 125, y: 0 }, pair), 0);
-    assert.equal(distanceToOutline({ x: 100, y: 50 }, pair), 50);
-    assert.equal(distanceToOutline({ x: 160, y: 50 }, pair), 10);
+    assert.equal(
+        distanceToOutline({ x: 125, y: 0 }, pair),
+        0,
+        "a point on the pair's shared top side is off their outline",
+    );
+    assert.equal(
+        distanceToOutline({ x: 100, y: 50 }, pair),
+        50,
+        "a side hidden inside the other square counts as outline",
+    );
+    assert.equal(
+        distanceToOutline({ x: 160, y: 50 }, pair),
+        10,
+        "a point outside both squares is not measured to the nearer one",
+    );
 });
 
 test("edge ends within 1 unit of their elements' outlines pass", () => {
@@ -871,7 +902,12 @@ test("an edge end inside a shaped element's box is held to the shape's outline",
             edges: [edge("10", "1", "2", [point, { x: 300, y: 50 }])],
         });
     const onHead = { x: 50 + 100 / 4.5, y: 100 / 4.5 };
-    assert.deepEqual(edgeEndsOnOutlines(ending(onHead)), []);
+    const problems = edgeEndsOnOutlines(ending(onHead));
+    assert.deepEqual(
+        problems,
+        [],
+        `an end on a Person's head is not on its outline: ${problems.join("\n")}`,
+    );
     for (const point of [
         { x: 70, y: 20 },
         { x: 50, y: 70 },
