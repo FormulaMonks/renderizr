@@ -273,10 +273,38 @@ const LINKS = [
         "mailto:team@example.com",
         { kind: "link", url: "mailto:team@example.com" },
     ],
-    // Nowhere to go: no such view, a script, or a bare relative path.
+    ["docs/readme.md", { kind: "link", url: "docs/readme.md" }],
+    // Only Structurizr's own pages are this workspace's, wherever the path.
+    [
+        "https://github.com/org/repo/tree/main/decisions",
+        {
+            kind: "link",
+            url: "https://github.com/org/repo/tree/main/decisions",
+        },
+    ],
+    [
+        "https://example.com/documentation#01-overview",
+        { kind: "link", url: "https://example.com/documentation#01-overview" },
+    ],
+    [
+        "https://example.com/team/diagrams#Containers",
+        { kind: "link", url: "https://example.com/team/diagrams#Containers" },
+    ],
+    [
+        "https://acme.structurizr.com/workspace/1/diagrams#Containers",
+        { kind: "view", key: "Containers" },
+    ],
+    [
+        "https://structurizr.com.example.com/share/1/diagrams#Containers",
+        {
+            kind: "link",
+            url: "https://structurizr.com.example.com/share/1/diagrams#Containers",
+        },
+    ],
+    // Nowhere to go: no such view, or a script.
     ["#NoSuchView", undefined],
     ["javascript:alert(1)", undefined],
-    ["docs/readme.md", undefined],
+    ["data:text/html,hi", undefined],
     ["", undefined],
 ];
 
