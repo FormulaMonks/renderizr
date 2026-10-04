@@ -18,6 +18,8 @@ Referenced by [11. Accept the engine by human sign-off](0011-accept-the-engine-b
 
 Referenced by [12. Ship behind a flag, then cut over in one release](0012-ship-behind-a-flag-then-cut-over-in-one-release.md).
 
+Referenced by [13. Scope the label toggles to element text](0013-scope-the-label-toggles-to-element-text.md).
+
 ## Context
 
 Renderizr has drawn diagrams with Structurizr's own browser renderer, vendored from a submodule, and the README promises they look exactly as they do in Structurizr. That renderer is about 8,000 lines of sloppy-mode JavaScript on JointJS and jQuery, injected as a classic script. Owning the rendering gives typed, testable code, ends the vendor sync, and allows better diagrams: HTML labels, real text wrapping, embedded fonts and accessibility.
