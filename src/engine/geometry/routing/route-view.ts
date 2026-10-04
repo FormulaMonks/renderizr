@@ -6,7 +6,9 @@
  * mode, around elements when it has no vertices (spec 10.2, ADR 7) and
  * through them when it has (spec 10.3); each end is moved onto the drawn
  * outline (spec 10.5); self-relationships become loops (spec 10.7); and
- * jump-overs go in last, once every route is known (spec 10.11).
+ * jump-overs go in last, once every route is known (spec 10.11). The line
+ * is written ending short of its target end, where the arrowhead takes over
+ * (spec 10.10).
  *
  * Pure: elements and edges in, routes out, so the layout editor can rerun it
  * when something moves.
@@ -20,12 +22,13 @@ import {
     orthogonalRoute,
     orthogonalThrough,
 } from "./avoid";
-import { cubicRoute, curvedRoute } from "./curve";
+import { type Cubic, cubicRoute, curvedRoute, curvePath } from "./curve";
 import { jumpOversOf, jumpPath, jumpRadius } from "./jumps";
 import { type Corner, cornerEnd, loopCorner, selfLoop } from "./loops";
 import {
     centerOf,
     type DrawnRoute,
+    endHeading,
     onOutline,
     polylinePath,
     type RoutingMode,
@@ -61,20 +64,30 @@ export type RoutingEdge = {
     /** The relationship's stored vertices; any at all turn avoidance off. */
     vertices: Point[];
     jump: boolean;
+    /**
+     * The line's thickness: obstacles are padded by it, jump-overs sized by
+     * it, and the line ends this far short of its target end.
+     */
     thickness: number;
 };
 
 /**
- * One edge routed: its points, both ends on the drawn outline, and its path
- * data as drawn, jump-overs included.
+ * One edge routed: its points, both ends on the drawn outline; its path data
+ * as drawn, jump-overs included, ending `thickness` short of the target end
+ * so that an arrowhead as wide as it is long covers the line's butt end; and
+ * its heading there.
  */
-export type RoutedEdge = DrawnRoute & { key: string };
+export type RoutedEdge = DrawnRoute & {
+    key: string;
+    /** The unit vector along the route's last segment, toward the target. */
+    heading: Point;
+};
 
 /**
- * A route before the jump-overs go in. Its path data is there already when
- * it is final: a Curved edge never draws jump-overs.
+ * A route before its path data is written. A curve carries its cubic
+ * pieces; a polyline is written from its points, with any jump-overs.
  */
-type RouteDraft = { route: Point[]; path?: string };
+type RouteDraft = { route: Point[]; cubics?: Cubic[] };
 
 /** A self-relationship's place on its element: its corner and its nest. */
 type Loop = { corner: Corner; nest: number };
@@ -232,10 +245,25 @@ export function routeView(
 
     const jumps = (edge: RoutingEdge) => edge.jump && edge.routing !== "Curved";
     return edges.map((edge, index) => {
-        const { route, path } = drafts[index];
-        if (path !== undefined) return { key: edge.key, route, path };
+        const { route, cubics } = drafts[index];
+        const { key, thickness } = edge;
+        const heading = endHeading(route);
+        const end = route[route.length - 1];
+        const lineEnd = {
+            x: end.x - heading.x * thickness,
+            y: end.y - heading.y * thickness,
+        };
+        if (cubics) {
+            const last = cubics[cubics.length - 1];
+            const path = curvePath([
+                ...cubics.slice(0, -1),
+                { ...last, to: lineEnd },
+            ]);
+            return { key, route, heading, path };
+        }
+        const line = [...route.slice(0, -1), lineEnd];
         if (!jumps(edge)) {
-            return { key: edge.key, route, path: polylinePath(route) };
+            return { key, route, heading, path: polylinePath(line) };
         }
         // Of two edges that both jump, the later draws the jump-over; an
         // edge that does not jump, Curved ones included, is always jumped.
@@ -246,18 +274,19 @@ export function routeView(
             }
             others.push(theirs);
         }
-        const radius = jumpRadius(edge.thickness);
+        const radius = jumpRadius(thickness);
         return {
-            key: edge.key,
+            key,
             route,
-            path: jumpPath(route, jumpOversOf(route, others, radius), radius),
+            heading,
+            path: jumpPath(line, jumpOversOf(route, others, radius), radius),
         };
     });
 }
 
 /**
- * One edge between two different elements, ends on their outlines. Its
- * `path` is left for the jump-overs unless it is Curved.
+ * One edge between two different elements, ends on their outlines. A
+ * Curved one carries its cubic pieces; any other is a polyline.
  */
 function routeOf(
     edge: RoutingEdge,

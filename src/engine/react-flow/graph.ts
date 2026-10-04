@@ -5,7 +5,9 @@
  *
  * Boundaries are derived from their children here, before React renders
  * (spec 8, ADR 9). Automatic layout and unplaced elements arrive in later
- * tickets. Every edge is routed by `routeView` (spec 10).
+ * tickets. Every edge is routed by `routeView` (spec 10), then its label is
+ * placed along the route and its arrowhead drawn at its target (spec 10.8,
+ * 10.10).
  */
 
 import {
@@ -41,7 +43,14 @@ import {
     type TextBlock,
 } from "../geometry/boundary";
 import { type Bounds, boundsOf } from "../geometry/bounds";
+import {
+    type EdgeLabelLayout,
+    edgeLabelText,
+    layoutEdgeLabel,
+    placeEdgeLabels,
+} from "../geometry/edge-label";
 import { type IconPosition, iconPositionOf } from "../geometry/label";
+import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
     type RoutingElement,
     type RoutingMode,
@@ -125,8 +134,13 @@ export type EdgeLine = {
     target: Point;
     /** The drawn route, as the points it passes through, source first. */
     route: Point[];
-    /** SVG path data for the edge as drawn, curves and jump-overs included. */
+    /**
+     * SVG path data for the line as drawn, curves and jump-overs included,
+     * ending short of the arrowhead's tip by the thickness (`routeView`).
+     */
     path: string;
+    /** SVG path data for the filled arrowhead, its tip on `target`. */
+    arrowhead: string;
     routing: RoutingMode;
     /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
     jump: boolean;
@@ -134,13 +148,27 @@ export type EdgeLine = {
     vertices: Point[];
     /** In a dynamic view, the order the view gives this edge. */
     order?: string;
-    label: string;
+    /** The label's first part, prefixed with its order in a dynamic view. */
+    description: string;
+    /** The label's second part, at the metadata size; never breaks. */
+    technology: string;
+    /** Where the label sits, in percent along `route`. */
+    labelPosition: number;
+    /** The label's opaque backing; absent when the label says nothing. */
+    labelBox?: Bounds;
+    /**
+     * The lines `labelBox` was measured from, which the island draws as
+     * they are; absent when the label says nothing.
+     */
+    labelLines?: Pick<EdgeLabelLayout, "description" | "technology">;
     fontSize: number;
-    /** The label's wrap width. */
+    /** The label's wrap width: the style's `width`. */
     labelWidth: number;
     color: string;
+    /** In model units, 1 to 10. */
     thickness: number;
-    style: "Solid" | "Dashed" | "Dotted";
+    style: LineStyle;
+    /** Real alpha on line, arrowhead and label text, 0 to 1. */
     opacity: number;
 };
 
@@ -150,6 +178,29 @@ export type GraphImage = {
     src?: string;
     /** The view's title, the picture's accessible name. */
     alt: string;
+};
+
+/** The extra tag a dynamic view's response step is styled with (spec 10.10). */
+const RESPONSE_TAG = "Relationship/Response";
+
+/** An edge before it is routed and its label placed. */
+type EdgeDraft = Omit<
+    EdgeLine,
+    | "source"
+    | "target"
+    | "route"
+    | "path"
+    | "arrowhead"
+    | "labelPosition"
+    | "labelBox"
+    | "labelLines"
+> & {
+    /** The view's stored position, which placement never nudges. */
+    storedPosition?: number;
+    /** Where the label search starts: the view's position, then the style's. */
+    startPosition: number;
+    /** The label's lines and size; absent when it says nothing. */
+    label?: EdgeLabelLayout;
 };
 
 export type Graph = {
@@ -169,7 +220,7 @@ export type Graph = {
     /** Outer before inner, the order they are drawn in. */
     boundaries: BoundaryBox[];
     edges: EdgeLine[];
-    /** The box around every element and every route. */
+    /** The box around every element, every route and every edge label. */
     bounds: Bounds;
     /** Authoring problems found while drawing, for the island to log once. */
     warnings: string[];
@@ -419,8 +470,9 @@ export function buildGraph(
         measure,
     );
 
-    const edges: Omit<EdgeLine, "source" | "target" | "route" | "path">[] = [];
+    const edges: EdgeDraft[] = [];
     const warnings: string[] = [];
+    const dynamic = view.type === "Dynamic";
     const seen = new Map<string, number>();
     for (const placed of view.relationships) {
         const { relationship } = placed;
@@ -436,18 +488,48 @@ export function buildGraph(
             );
             continue;
         }
-        const from = drawn.get(relationship.sourceId);
-        const to = drawn.get(relationship.destinationId);
+        // A response step runs back from the destination to the source and
+        // takes the extra Relationship/Response tag, as upstream draws it.
+        const response = dynamic && placed.response === true;
+        const ends = [relationship.sourceId, relationship.destinationId];
+        const [fromId, toId] = response ? ends.reverse() : ends;
+        const from = drawn.get(fromId);
+        const to = drawn.get(toId);
         if (!from || !to) continue;
-        const style = findRelationshipStyle(model, relationship, colorScheme);
+        const style = findRelationshipStyle(
+            model,
+            response
+                ? {
+                      ...relationship,
+                      tags: `${relationship.tags ?? ""},${RESPONSE_TAG}`,
+                  }
+                : relationship,
+            colorScheme,
+        );
+        // Only a dynamic view tells its own story about a relationship.
         const description =
             labels.descriptions && style.description
-                ? placed.description ?? relationship.description ?? ""
+                ? (dynamic && placed.description) ||
+                  relationship.description ||
+                  ""
                 : "";
         const technology =
             style.metadata && labels.technologies
                 ? getMetadataForRelationship(model, relationship)
                 : "";
+        // The descriptions toggle leaves a step's order showing; the style's
+        // `description: false` hides it with the description, as upstream.
+        const text = edgeLabelText({
+            description,
+            technology,
+            order: dynamic && style.description ? placed.order : undefined,
+        });
+        const label = layoutEdgeLabel(
+            text,
+            style.fontSize,
+            style.width,
+            measure,
+        );
         const repeat = seen.get(placed.id) ?? 0;
         seen.set(placed.id, repeat + 1);
         edges.push({
@@ -459,7 +541,10 @@ export function buildGraph(
             jump: placed.jump ?? style.jump ?? false,
             vertices: placed.vertices ?? [],
             ...(placed.order !== undefined && { order: placed.order }),
-            label: [description, technology].filter(Boolean).join("\n"),
+            ...text,
+            ...(label && { label }),
+            storedPosition: placed.position,
+            startPosition: placed.position ?? style.position,
             fontSize: style.fontSize,
             labelWidth: style.width,
             color: style.color,
@@ -481,16 +566,47 @@ export function buildGraph(
         ),
         edges,
     );
-    const routed: EdgeLine[] = edges.map((edge, index) => {
-        const { route, path } = routes[index];
-        return {
-            ...edge,
-            source: route[0],
-            target: route[route.length - 1],
-            route,
-            path,
-        };
-    });
+    // Labels are placed in view order, clear of the elements, the boundary
+    // label bands and the labels before them (spec 10.8).
+    const placedLabels = placeEdgeLabels(
+        edges.map((edge, index) => ({
+            route: routes[index].route,
+            size: edge.label?.size,
+            position: edge.startPosition,
+            stored: edge.storedPosition !== undefined,
+        })),
+        [
+            ...elements,
+            ...drawnBoundaries.map((b) => ({
+                ...b.band,
+                x: b.x + b.band.x,
+                y: b.y + b.band.y,
+            })),
+        ],
+    );
+    const routed: EdgeLine[] = edges.map(
+        ({ storedPosition: _stored, startPosition, label, ...edge }, index) => {
+            const { route, path, heading } = routes[index];
+            const target = route[route.length - 1];
+            const placedLabel = placedLabels[index];
+            return {
+                ...edge,
+                source: route[0],
+                target,
+                route,
+                path,
+                arrowhead: arrowheadPath(target, heading, edge.thickness),
+                labelPosition: placedLabel?.position ?? startPosition,
+                ...(placedLabel && { labelBox: placedLabel.box }),
+                ...(label && {
+                    labelLines: {
+                        description: label.description,
+                        technology: label.technology,
+                    },
+                }),
+            };
+        },
+    );
 
     return {
         key: view.key,
@@ -505,6 +621,7 @@ export function buildGraph(
                 ...elements,
                 ...drawnBoundaries,
                 ...routed.flatMap((edge) => edge.route.map(pointBox)),
+                ...routed.flatMap((edge) => edge.labelBox ?? []),
             ]) ?? NO_BOUNDS,
         warnings,
     };

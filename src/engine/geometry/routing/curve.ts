@@ -7,10 +7,16 @@
  */
 
 import type { Point, Rect } from "../shapes/types";
-import { type DrawnRoute, pathPoint, routeCrosses } from "./path";
+import { pathPoint, routeCrosses } from "./path";
 
 /** One cubic Bézier piece: its end point and two control points. */
-type Cubic = { from: Point; c1: Point; c2: Point; to: Point };
+export type Cubic = { from: Point; c1: Point; c2: Point; to: Point };
+
+/**
+ * A curve as routed: its route as sampled points, and the cubic pieces its
+ * path data is written from once the line's end is known.
+ */
+export type CurvedRoute = { route: Point[]; cubics: Cubic[] };
 
 /**
  * How smooth the curve is, from full Catmull–Rom down; past the last, the
@@ -71,7 +77,8 @@ function sample(cubics: Cubic[]): Point[] {
     return points;
 }
 
-const pathOf = (cubics: Cubic[]): string =>
+/** SVG path data for a curve's cubic pieces. */
+export const curvePath = (cubics: Cubic[]): string =>
     [
         `M ${pathPoint(cubics[0].from)}`,
         ...cubics.map(
@@ -81,12 +88,12 @@ const pathOf = (cubics: Cubic[]): string =>
     ].join(" ");
 
 /**
- * The smooth curve through `points`: its path data, and its route as
+ * The smooth curve through `points`: its cubic pieces, and its route as
  * sampled points. The first tension whose curve stays out of every one of
  * `obstacles` (the padded elements, spec 10.2) wins; with none, the curve is
  * as smooth as it gets.
  */
-export function curvedRoute(points: Point[], obstacles: Rect[]): DrawnRoute {
+export function curvedRoute(points: Point[], obstacles: Rect[]): CurvedRoute {
     let cubics = smooth(points, 0);
     for (const tension of TENSIONS) {
         const candidate = smooth(points, tension);
@@ -96,7 +103,7 @@ export function curvedRoute(points: Point[], obstacles: Rect[]): DrawnRoute {
             break;
         }
     }
-    return { route: sample(cubics), path: pathOf(cubics) };
+    return { route: sample(cubics), cubics };
 }
 
 /**
@@ -108,7 +115,7 @@ export function cubicRoute(
     c1: Point,
     c2: Point,
     to: Point,
-): DrawnRoute {
+): CurvedRoute {
     const cubics = [{ from, c1, c2, to }];
-    return { route: sample(cubics), path: pathOf(cubics) };
+    return { route: sample(cubics), cubics };
 }
