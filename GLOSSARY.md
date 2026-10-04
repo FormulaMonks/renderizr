@@ -1,11 +1,11 @@
 # Renderizr
 
-Renderizr turns a Structurizr workspace into a static site or a single self-contained HTML file. It renders a workspace; it does not define one. This glossary fixes the words used when talking about how a view gets drawn.
+Renderizr turns a Structurizr workspace into a static site or a single self-contained HTML file. It renders a workspace; it does not define one. This glossary fixes the words we use when we talk about how the engine draws a view.
 
 ## Language
 
 **Workspace**:
-The Structurizr model, views, styles and documentation that Renderizr is given as JSON. The sole source of truth for what is drawn.
+The Structurizr model, views, styles and documentation that Renderizr receives as JSON. The sole source of truth for what Renderizr draws.
 _Avoid_: project, architecture file
 
 **View**:
@@ -25,7 +25,7 @@ A React root mounted inside the diagram target and nowhere else. The rest of the
 _Avoid_: widget, embed
 
 **Stored layout**:
-A view whose elements carry coordinates and whose relationships may carry vertices, all set by the workspace author. Drawn where it says, never re-laid out.
+A view whose elements carry coordinates and whose relationships may carry vertices, all set by the workspace author. The engine draws it where it says and never lays it out again.
 _Avoid_: manual layout, fixed positions
 
 **Automatic layout**:
@@ -33,11 +33,11 @@ A view with no coordinates of its own, laid out at render time according to the 
 _Avoid_: auto layout, graph layout
 
 **Unplaced element**:
-An element in a stored layout that has no coordinates of its own, which the workspace records as the origin. It is placed next to the elements it relates to; the rest of the view stays where it is.
+An element in a stored layout that has no coordinates of its own, which the workspace records as the origin. The engine places it next to the elements it relates to; the rest of the view stays where it is.
 _Avoid_: new element, orphan, missing position
 
 **Boundary**:
-A container drawn around elements that share a parent: a software system in a container view, a container in a component view, a group, or a deployment node. An element is drawn as a boundary when at least one of its children is in the view, and as an ordinary element otherwise; a group is always a boundary. A boundary takes its size and position from its children, never from coordinates of its own. Boundaries nest.
+A container drawn around elements that share a parent: a software system in a container view, a container in a component view, a group, or a deployment node. The engine draws an element as a boundary when at least one of its children is in the view, and as an ordinary element otherwise; a group is always a boundary. A boundary takes its size and position from its children, never from coordinates of its own. Boundaries nest.
 _Avoid_: group (one kind of boundary), cluster, subflow
 
 **Workspace semantics**:
@@ -69,7 +69,7 @@ A glyph drawn on an element, a boundary's label band or an edge's label for each
 _Avoid_: badge, affordance, icon (that is the element's own image)
 
 **Relationship**:
-A connection from one element to another in the workspace, with a description, technology and tags. It is drawn in a view as an edge.
+A connection from one element to another in the workspace, with a description, technology and tags. The engine draws it in a view as an edge.
 _Avoid_: link, connector, arrow
 
 **Edge**:
@@ -85,15 +85,15 @@ The character of a route as the workspace names it: Direct (as straight as possi
 _Avoid_: router, connector type, edge type
 
 **Vertex**:
-A point stored in the workspace that a route must pass through. A relationship with vertices is routed by its author.
+A point stored in the workspace that a route must pass through. The workspace author routes a relationship that has vertices.
 _Avoid_: waypoint, bend point, control point
 
 **Avoidance**:
-Routing an edge without vertices so it crosses no element other than its own source and target. Boundaries are never avoided.
+Routing an edge without vertices so it crosses no element other than its own source and target. Avoidance ignores boundaries.
 _Avoid_: obstacle routing, collision avoidance
 
 **Edge end**:
-Where an edge meets the outline of its source or target. Edge ends that share a side of an element are spread along that side.
+Where an edge meets the outline of its source or target. The engine spreads edge ends that share a side of an element along that side.
 _Avoid_: port, handle, anchor, connection point
 
 **Jump-over**:

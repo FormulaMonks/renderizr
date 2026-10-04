@@ -1,8 +1,8 @@
 # Contributing to Renderizr
 
-Thanks for being here. This document is meant to take you from a fresh clone to a merged pull request without needing to ask anyone a question. If it fails at that, that is a bug in this file — [open an issue](https://github.com/FormulaMonks/renderizr/issues/new/choose) and say where it lost you.
+Thanks for being here. This document aims to take you from a fresh clone to a merged pull request without needing to ask anyone a question. If it fails at that, that is a bug in this file — [open an issue](https://github.com/FormulaMonks/renderizr/issues/new/choose) and say where it lost you.
 
-Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Questions about *using* Renderizr belong in [SUPPORT.md](SUPPORT.md); security problems belong in [SECURITY.md](SECURITY.md) and must not be filed as public issues.
+We expect everyone taking part to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Questions about *using* Renderizr belong in [SUPPORT.md](SUPPORT.md); security problems belong in [SECURITY.md](SECURITY.md), and you must never file them as public issues.
 
 ## Table of contents
 
@@ -56,7 +56,7 @@ git submodule update --init --recursive
 
 ### About the submodule
 
-`submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr), the upstream source of the diagram renderer. It is **optional for day-to-day work**: the handful of files the build actually reads are committed under `vendor/structurizr`, so install, dev, build, test and lint all pass on a clone with an empty `submodules/` directory. You need the submodule checked out only when you want to pull in a newer upstream renderer:
+`submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr), the upstream source of the diagram renderer. It is **optional for day-to-day work**: we commit the handful of files the build actually reads under `vendor/structurizr`, so install, dev, build, test and lint all pass on a clone with an empty `submodules/` directory. You need the submodule checked out only when you want to pull in a newer upstream renderer:
 
 ```bash
 git submodule update --init --remote submodules/structurizr
@@ -72,7 +72,7 @@ pnpm install
 pnpm hooks      # once per clone — installs the git hooks
 ```
 
-`pnpm hooks` is a separate step rather than a `prepare` script on purpose. `prepare` runs when a package is installed from a git URL, and `npx github:FormulaMonks/renderizr` is exactly that — so a `prepare` script here would run husky inside every consumer's install tree, in a directory that is usually not a git repository at all. Contributors are the only people who want the hooks, so installing them is opt-in and costs you one command.
+`pnpm hooks` is a separate step rather than a `prepare` script on purpose. `prepare` runs when a package manager installs a package from a git URL, and `npx github:FormulaMonks/renderizr` is exactly that — so a `prepare` script here would run husky inside every consumer's install tree, in a directory that is usually not a git repository at all. Contributors are the only people who want the hooks, so installing them is opt-in and costs you one command.
 
 You can confirm it took:
 
@@ -82,7 +82,7 @@ git config --get core.hooksPath   # should print .husky/_
 
 ## The commands
 
-Every command below is run from the repository root.
+Run every command below from the repository root.
 
 | Command | What it does |
 | --- | --- |
@@ -115,7 +115,7 @@ pnpm dev -- architecture/workspace.json --font Inter --engine react-flow
 
 Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know: `pnpm dev test/__fixtures__/edge-routing.json --engine react-flow` exits with ``Unknown option `--engine` ``.
 
-`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of `--engine`, `--font` or `--logo`. `RENDERIZR_WORKSPACE` is consulted only when no such argument was passed, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
+`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of `--engine`, `--font` or `--logo`. It reads `RENDERIZR_WORKSPACE` only when you pass no such argument, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
 
 ### Build
 
@@ -139,7 +139,7 @@ pnpm exec biome check .            # what's wrong
 pnpm exec biome check --write .    # fix what can be fixed
 ```
 
-`biome ci` never writes. When the pre-commit hook rejects your change, run `check --write` on the offending file and `git add` it again — the recipe is spelled out below.
+`biome ci` never writes. When the pre-commit hook rejects your change, run `check --write` on the offending file and `git add` it again. The section below spells out the recipe.
 
 ## Branches
 
@@ -151,10 +151,10 @@ Name every branch `<type>/<issue>/<short-description>`, for example `feat/42/res
 
 ## Commits
 
-Commit messages follow [Conventional Commits](https://www.conventionalcommits.org), enforced by commitlint with `@commitlint/config-conventional` (see `commitlint.config.cjs`). The rules you will actually hit:
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org), and commitlint enforces them with `@commitlint/config-conventional` (see `commitlint.config.cjs`). The rules you will actually hit:
 
 - The header is `type(optional-scope): subject` — for example `fix: stop emitting escapes a Claude artifact upload rejects`.
-- Allowed types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. Anything else is rejected.
+- Allowed types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style`, `test`. commitlint rejects anything else.
 - The type must be lower-case, the subject must not be empty, and the subject must not end with a full stop.
 - The header must be at most 100 characters.
 - A breaking change is `feat!:` / `feat(cli)!:`, or a `BREAKING CHANGE:` footer, or both.
@@ -178,7 +178,7 @@ pnpm exec czg
 
 ## The git hooks
 
-Three hooks, all in `.husky/`, all installed by `pnpm hooks`.
+Three hooks live in `.husky/`, and `pnpm hooks` installs all of them.
 
 | Hook | Runs | Purpose |
 | --- | --- | --- |
@@ -208,7 +208,7 @@ Your message is not a valid conventional commit; the output names the rule (`typ
 git commit          # czg will prompt you this time
 ```
 
-If the commit was already created and only the message is wrong, `git commit --amend` re-runs the same check.
+If you already created the commit and only the message is wrong, `git commit --amend` re-runs the same check.
 
 **Nothing happened and you expected a prompt**
 
@@ -227,7 +227,7 @@ git config --unset custom.hooks.pre-commit    # back on
 
 `git commit --no-verify` skips `pre-commit` and `commit-msg` for a single commit.
 
-Either way the checks still run in CI — the switches save you time locally, they do not lower the bar. Specifically: `biome ci` runs in the `static` job, and the `pr title` job runs the *same* `commitlint.config.cjs` over your pull request **title**. That is the one message that has to be conventional no matter what you did locally, because every PR is squash-merged and the title becomes the squash commit — the one release-please reads. Individual commit messages inside the branch do not survive the squash, so a hook you skipped costs you nothing; a title you did not think about fails the build.
+Either way the checks still run in CI — the switches save you time locally, they do not lower the bar. Specifically: `biome ci` runs in the `static` job, and the `pr title` job runs the *same* `commitlint.config.cjs` over your pull request **title**. That is the one message that has to be conventional no matter what you did locally, because a maintainer squash-merges every PR and the title becomes the squash commit, the one release-please reads. Individual commit messages inside the branch do not survive the squash, so a hook you skipped costs you nothing; a title you did not think about fails the build.
 
 ## Project layout
 
@@ -278,7 +278,7 @@ Tests use the Node built-in runner — no Jest, no Vitest, no config. There are 
 | Anything in `scripts/` — the CLI, asset loading, the Vite config, the build plugins | `scripts/<module>.test.js`, next to the module | The module directly: `import { parseCliArgs } from "./cli.js"` |
 | Anything in `src/` — the router, the menu, a page, the markdown renderer | `test/<subject>.test.js` | `test/support/ts.js`, which installs the DOM and the TypeScript hooks: `const { default: Menu } = await importSrc("components/menu")` |
 
-`pnpm test` expands both globs, so a new file ending in `.test.js` in either directory is picked up with nothing else to register. Files under `test/support/` are the harness, not tests, and are not matched by the glob.
+`pnpm test` expands both globs, so it picks up a new file ending in `.test.js` in either directory with nothing else to register. Files under `test/support/` are the harness, not tests, and the glob does not match them.
 
 ### A pipeline test
 
@@ -324,13 +324,13 @@ srcTest("renders one entry per view", () => {
 
 `test/menu.test.js` is the model to copy. Three things about the harness are worth knowing before you fight it:
 
-- **The DOM in `test/support/dom.js` is a purpose-built subset, not jsdom.** It covers the parsing, selectors, events and window APIs `src/` actually uses, and it is itself tested by `test/dom.test.js`. Its selector engine **throws on any selector syntax it does not implement** rather than quietly matching nothing — that deliberate strictness is how a `button:last-child` that had silently stopped matching was caught. So valid CSS that a component ships can still fail here. When it does, the fix is to extend the engine in `dom.js` and add a case to `test/dom.test.js` — never to rewrite the component's selector to something the harness happens to understand.
+- **The DOM in `test/support/dom.js` is a purpose-built subset, not jsdom.** It covers the parsing, selectors, events and window APIs `src/` actually uses, and it is itself tested by `test/dom.test.js`. Its selector engine **throws on any selector syntax it does not implement** rather than quietly matching nothing. That deliberate strictness is how the suite caught a `button:last-child` that silently stopped matching. So valid CSS that a component ships can still fail here. When it does, the fix is to extend the engine in `dom.js` and add a case to `test/dom.test.js` — never to rewrite the component's selector to something the harness happens to understand.
 - **Timers and animation frames are fake.** Nothing deferred runs until a test calls `dom.runTimers()`, which is why the suite never sleeps.
 - **`installDOM()` returns the same window for the whole process.** Use `dom.reset()` in a `beforeEach`; `history/hash` captures `document.defaultView` at import time and a second window would strand it.
 
 `test/e2e.test.js` goes further and runs a real `--single-file` build in headless Chrome. It skips itself with a message when no Chrome-shaped binary is on the machine, so it never fails a clone that has none.
 
-`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. Workspaces from `submodules/structurizr` are skipped with a reason when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. Views are opened one Chrome at a time, so that the 2 s budget is measured in wall-clock time from outside the page: virtual time fakes every clock inside it.
+`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. The harness skips workspaces from `submodules/structurizr`, with a reason, when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. The harness opens views one Chrome at a time, so that it measures the 2 s budget in wall-clock time from outside the page: virtual time fakes every clock inside it.
 
 To review every acceptance view by eye, under the Structurizr renderer and the React Flow engine side by side:
 
@@ -344,7 +344,7 @@ node test/contact-sheet.js        # writes contact-sheet/index.html
 pnpm test:coverage
 ```
 
-Read the number it prints with one caveat in mind: V8's in-process coverage only sees files that were *loaded in that process*, so six source files never appear in the table at all — `src/main.ts`, `src/pages/diagrams.ts`, `src/components/current-view.ts`, `src/components/diagram-navigation.ts`, `src/structurizr-globals.ts` and `src/structurizr-runtime.ts`. They are exercised only by the headless-Chrome end-to-end test, in a browser V8 cannot instrument from here. A high "all files" percentage is a statement about the thirteen files in the table, not about `main.ts`.
+Read the number it prints with one caveat in mind: V8's in-process coverage only sees files *that process loaded*, so six source files never appear in the table at all — `src/main.ts`, `src/pages/diagrams.ts`, `src/components/current-view.ts`, `src/components/diagram-navigation.ts`, `src/structurizr-globals.ts` and `src/structurizr-runtime.ts`. Only the headless-Chrome end-to-end test exercises them, in a browser V8 cannot instrument from here. A high "all files" percentage is a statement about the thirteen files in the table, not about `main.ts`.
 
 ## Pull requests
 
@@ -357,7 +357,7 @@ pnpm exec tsc --noEmit
 pnpm test
 ```
 
-Then build something real and look at it — a docs or rendering change that only passes the tests has not been tested:
+Then build something real and look at it. A docs or rendering change that only passes the tests is still untested:
 
 ```bash
 pnpm build architecture/workspace.json --single-file
@@ -375,7 +375,7 @@ Use the package scripts (`pnpm dev`, `pnpm build`, `pnpm test`) in anything you 
 What a good pull request looks like here:
 
 - **One concern per PR.** Branch off `main` and name the branch as [Branches](#branches) says (`fix/57/setext-headings-hijack-page-structure`, `feat/42/reading-experience`).
-- **Conventional commits throughout**, because the changelog and the version bump are generated from them. A `feat:` in a PR of `fix:` commits changes what the next release is called.
+- **Conventional commits throughout**, because release-please generates the changelog and the version bump from them. A `feat:` in a PR of `fix:` commits changes what the next release is called.
 - **A description that says what changed and why.** For anything visual, a before/after screenshot or a link to a rendered `--single-file` output is worth more than a paragraph.
 - **Tests for anything in `scripts/`.** New behavior gets a test; a fixed bug gets the test that would have caught it.
 - **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text *and* the flag table in `README.md`. A changed workflow means this file.
@@ -387,13 +387,13 @@ What a good pull request looks like here:
 
 1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 20/22/24, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
-3. Review comments come in three flavors, and they are labeled so you are never guessing:
+3. Review comments come in three flavors, and reviewers label them so you never have to guess:
    - **blocking** — must change before merge.
    - **suggestion** — take it or explain why not; either answer merges.
    - **nit** — cosmetic, never blocking.
 4. Push fixes as new commits rather than force-pushing while a review is in flight, so reviewers can read the delta. Squashing happens at merge, so the intermediate commits cost nothing.
-5. Once approved and green, a maintainer merges. **Every PR is squash-merged** — the squash commit message is the conventional-commit header the release tooling reads, so it gets edited to say what the whole PR did, not what the last commit did.
-6. Nothing merges into `main` without a passing CI run and one approving review from someone other than the author — maintainers' own changes included. `main` carries no branch protection today, so that is a rule the maintainers hold themselves to rather than a setting GitHub enforces; it is written down in [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to) precisely so it can be pointed at when someone breaks it.
+5. Once approved and green, a maintainer merges. **The maintainer squash-merges every PR**: the squash commit message is the conventional-commit header the release tooling reads, so the maintainer edits it to say what the whole PR did, not what the last commit did.
+6. Nothing merges into `main` without a passing CI run and one approving review from someone other than the author — maintainers' own changes included. `main` carries no branch protection today, so that is a rule the maintainers hold themselves to rather than a setting GitHub enforces; [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to) writes it down precisely so anyone can point at it when someone breaks it.
 
 If a PR goes quiet for 30 days with unaddressed blocking feedback, we will close it with a note. That is bookkeeping, not a verdict — reopen it whenever you pick it back up.
 
@@ -402,10 +402,10 @@ If a PR goes quiet for 30 days with unaddressed blocking feedback, we will close
 You do not need to do anything for a release; this section is so you know what happens to your change after it merges.
 
 - **`main` is the shipping surface.** Consumers run `npx github:FormulaMonks/renderizr`, which resolves to the default branch, so a merged PR is in front of users as soon as it lands. That is the main reason every change goes through a reviewed, CI-green pull request — see [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to).
-- **Releases are prepared by [release-please](https://github.com/googleapis/release-please).** Every push to `main` runs `.github/workflows/release.yml`, which recomputes the next version from the conventional-commit types since the last tag and keeps a `chore(release): X.Y.Z` pull request open with the version bump and the [CHANGELOG.md](CHANGELOG.md) entry in it. That is why the commit convention is enforced rather than merely suggested. It runs as a GitHub App rather than as GitHub Actions, so that the release pull request triggers `ci` like any other — a pull request opened with `GITHUB_TOKEN` does not, and `ci` is a required check. If no App is configured the workflow says so and releases nothing; see [MAINTAINERS.md](MAINTAINERS.md#repository-setup-still-to-be-done).
-- **Without the automation App, a maintainer runs the same tool locally.** Creating a GitHub App needs organization access, so it is not a prerequisite for shipping. `pnpm release:pr` opens or updates exactly the same release pull request using your own `gh` login — nothing is stored, and because the pull request is authored by a person rather than by GitHub Actions, `ci` runs on it, which a workflow-opened one does not get. After merging it, `pnpm release:tag` creates the tag and the GitHub Release, and `gh workflow run release.yml -f tag=vX.Y.Z` attaches the build artifacts. The script refuses to run anywhere but `main`.
+- **[release-please](https://github.com/googleapis/release-please) prepares releases.** Every push to `main` runs `.github/workflows/release.yml`, which recomputes the next version from the conventional-commit types since the last tag and keeps a `chore(release): X.Y.Z` pull request open with the version bump and the [CHANGELOG.md](CHANGELOG.md) entry in it. That is why the hooks and CI enforce the commit convention rather than merely suggesting it. It runs as a GitHub App rather than as GitHub Actions, so that the release pull request triggers `ci` like any other — a pull request opened with `GITHUB_TOKEN` does not, and `ci` is a required check. If no App is configured the workflow says so and releases nothing; see [MAINTAINERS.md](MAINTAINERS.md#repository-setup-still-to-be-done).
+- **Without the automation App, a maintainer runs the same tool locally.** Creating a GitHub App needs organization access, so it is not a prerequisite for shipping. `pnpm release:pr` opens or updates exactly the same release pull request using your own `gh` login. It stores nothing, and because a person, rather than GitHub Actions, authors the pull request, `ci` runs on it, which a workflow-opened one does not get. After merging it, `pnpm release:tag` creates the tag and the GitHub Release, and `gh workflow run release.yml -f tag=vX.Y.Z` attaches the build artifacts. The script refuses to run anywhere but `main`.
 - **Merging that pull request is the release.** It bumps `package.json`, writes the changelog entry, creates the `vX.Y.Z` tag and publishes the GitHub Release with the generated notes — all from the same commit history, so the four can never disagree. Below `1.0.0`, `feat:` bumps the minor, everything else the patch, and a breaking change bumps the minor rather than the major (`bump-minor-pre-major` in `release-please-config.json`).
 - **Each Release carries artifacts**: a source tarball built with `npm pack`, the fixture workspace rendered as a static site (`.zip`), the same workspace rendered with `--single-file`, and `SHA256SUMS.txt`. The job asserts the single-file build references no external assets before it uploads anything.
-- **Nothing is published to a registry.** `package.json` is marked `"private": true` and there is no publish job, so a release cannot reach npm by any path, deliberate or accidental. `npx github:FormulaMonks/renderizr` reads git, and the GitHub Release is the whole distribution channel.
+- **Nothing is published to a registry.** `package.json` sets `"private": true` and there is no publish job, so a release cannot reach npm by any path, deliberate or accidental. `npx github:FormulaMonks/renderizr` reads git, and the GitHub Release is the whole distribution channel.
 
 Your commit subject is the line that shows up in those notes. Write it for the person reading the changelog, not for the person reading the diff.
