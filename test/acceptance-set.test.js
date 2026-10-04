@@ -5,11 +5,13 @@
  */
 
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
-import { prepareWorkspace } from "./support/acceptance.js";
+import { runCli } from "../scripts/__fixtures__/helpers.js";
+import { INVALID_SET, prepareWorkspace } from "./support/acceptance.js";
 
 const SCRATCH = await mkdtemp(join(tmpdir(), "renderizr-acceptance-set-"));
 after(() => rm(SCRATCH, { recursive: true, force: true }));
@@ -71,3 +73,17 @@ test("a theme icon with no committed copy is left out rather than fetched", asyn
         "an icon with no copy kept its relative name",
     );
 });
+
+for (const { name, source, message } of INVALID_SET) {
+    test(`the build refuses ${name} with the spec's message`, async () => {
+        const out = join(SCRATCH, `invalid-${name}`);
+        const { code, stderr } = await runCli([source, "--out", out]);
+
+        assert.notEqual(code, 0, "the build succeeded");
+        assert.ok(
+            stderr.includes(message),
+            `stderr does not hold ${JSON.stringify(message)}:\n${stderr}`,
+        );
+        assert.ok(!existsSync(out), "an output directory was created anyway");
+    });
+}
