@@ -20,8 +20,8 @@ import styles from "./diagrams-shell.module.css";
 
 /**
  * The toolbar still speaks the Structurizr `Diagram`'s toggles; this turns
- * them into the engine's idempotent setters. Animation arrives with its own
- * ticket, so for now no view offers one.
+ * them into the engine's idempotent setters. Its animation buttons drive the
+ * engine's animation members directly.
  */
 function toolbarFor(engine: Engine, scheme: ColorScheme): ToolbarDiagram {
     let current = scheme;
@@ -46,15 +46,6 @@ function toolbarFor(engine: Engine, scheme: ColorScheme): ToolbarDiagram {
             engine.getCurrentView() as unknown as ReturnType<
                 ToolbarDiagram["getCurrentView"]
             >,
-        animationStarted: () => false,
-        currentViewHasAnimation: () => false,
-        currentViewIsDynamic: () => false,
-        onAnimationStarted: () => {},
-        onAnimationStopped: () => {},
-        startAnimation: () => {},
-        stepBackwardInAnimation: () => {},
-        stepForwardInAnimation: () => {},
-        stopAnimation: () => {},
     };
 }
 
@@ -156,6 +147,7 @@ export default class ReactFlowDiagrams extends Page {
                     zoomIn: () => engine.zoomIn(),
                     zoomOut: () => engine.zoomOut(),
                 },
+                engine,
                 model,
             ),
         );

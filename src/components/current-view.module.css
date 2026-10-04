@@ -109,6 +109,12 @@
         );
     }
 
+    /* A view with no animation steps shows no animation buttons (spec 11);
+       the group's own display would otherwise beat the attribute. */
+    &[hidden] {
+        display: none;
+    }
+
     /*
      * A toggle that is on reads as on, in either theme, and stays readable as
      * on while the pointer is over it — the plain hover rule above carries

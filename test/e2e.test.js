@@ -25,7 +25,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
-import { fixture, runCli } from "../scripts/__fixtures__/helpers.js";
+import { fixture, REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
 import { findChrome, renderPage, serveDirectory } from "./support/browser.js";
 import { parseDocument } from "./support/dom.js";
 
@@ -938,5 +938,165 @@ test(
         assert.match(sensor.textContent, /Sensor/);
         assert.match(sensor.textContent, /\[Hardware\]/);
         assert.equal(canvas.querySelector("[data-boundary-id]"), null);
+    },
+);
+
+/* ------------------------------------------------------------- animation */
+
+/** The committed animation fixture, built once as a single React Flow file. */
+const animationBuild = once(async () => {
+    const out = join(SCRATCH, "react-flow-animation");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/animation.json"),
+            "--out",
+            out,
+            "--single-file",
+            "--engine",
+            "react-flow",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return out;
+});
+
+/** The toolbar's animation buttons in `document`, by name. */
+const animationButtons = (document) => {
+    const group = document.querySelector(".animation-buttons");
+    const button = (name) => group?.querySelector(`.${name}`);
+    return { group, button };
+};
+
+test(
+    "--engine react-flow: a dynamic view draws one edge per order and offers its animation",
+    { skip: SKIP },
+    async () => {
+        const out = await animationBuild();
+        const document = await render(viewUrlIn(out, "Checkout"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-ready"), "true");
+        assert.equal(root.getAttribute("role"), "group");
+        assert.equal(root.getAttribute("aria-label"), "Checking out");
+        assert.deepEqual(
+            canvas
+                .querySelectorAll("[data-relationship-id]")
+                .map((edge) => [
+                    edge.getAttribute("data-relationship-id"),
+                    edge.getAttribute("data-order"),
+                ]),
+            [
+                ["10", "1"],
+                ["11", "2"],
+                ["12", "3"],
+                ["13", "3"],
+                ["11", "4"],
+                ["14", null],
+            ],
+            "relationship 11 twice, at two orders; 14 without an order",
+        );
+
+        // The toolbar renders from the engine's AnimationState.
+        const { group, button } = animationButtons(document);
+        assert.ok(group, "the toolbar has its animation buttons");
+        assert.equal(group.getAttribute("hidden"), null, "and shows them");
+        assert.equal(button("prev-step").getAttribute("disabled"), null);
+        assert.equal(button("next-step").getAttribute("disabled"), null);
+        assert.equal(
+            button("play-animation").getAttribute("aria-label"),
+            "Play animation",
+        );
+
+        // Before any step, the full view: nothing faded, nothing inert.
+        assert.equal(canvas.querySelector("[inert]"), null);
+        for (const node of canvas.querySelectorAll(".react-flow__node")) {
+            assert.doesNotMatch(
+                node.getAttribute("style") ?? "",
+                /opacity:\s*0[.;]/,
+                "no node is faded before the animation starts",
+            );
+        }
+    },
+);
+
+test(
+    "--engine react-flow: a static view with animation steps offers its animation",
+    { skip: SKIP },
+    async () => {
+        const out = await animationBuild();
+        const document = await render(viewUrlIn(out, "Containers"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        assert.equal(
+            canvas.querySelector("[data-view-key]").getAttribute("data-ready"),
+            "true",
+        );
+        assert.equal(
+            canvas.querySelectorAll("[data-element-id]").length,
+            5,
+            "every element shows before the first step",
+        );
+        const { group } = animationButtons(document);
+        assert.equal(group.getAttribute("hidden"), null);
+    },
+);
+
+test(
+    "--engine react-flow: a view without steps hides the animation buttons",
+    { skip: SKIP },
+    async () => {
+        const { out } = await buildReactFlowWorkspace("no-steps", () => {});
+        const document = await render(viewUrlIn(out, "FixtureContext"));
+        const { group } = animationButtons(document);
+        assert.ok(group, "the toolbar keeps the group");
+        assert.notEqual(group.getAttribute("hidden"), null, "hidden");
+    },
+);
+
+test(
+    "--engine react-flow: a dynamic-view order that isn't an integer shows an error panel for that view only",
+    { skip: SKIP },
+    async () => {
+        // The build refuses this workspace, so build an integer order and
+        // make it fractional in the output.
+        const out = join(SCRATCH, "react-flow-fractional");
+        const workspace = JSON.parse(
+            await readFile(
+                join(REPO_ROOT, "test/__fixtures__/animation.json"),
+                "utf8",
+            ),
+        );
+        workspace.views.dynamicViews[0].relationships[2].order = "424242";
+        const source = join(SCRATCH, "fractional.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const result = await runCli(
+            [source, "--out", out, "--single-file", "--engine", "react-flow"],
+            { env: OFFLINE },
+        );
+        assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+        const index = join(out, "index.html");
+        const html = await readFile(index, "utf8");
+        assert.match(html, /424242/);
+        await writeFile(index, html.replaceAll("424242", "1.1"));
+
+        const document = await render(viewUrlIn(out, "Checkout"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        const root = canvas.querySelector("[data-view-key]");
+        assert.equal(root.getAttribute("data-ready"), "true");
+        const panel = canvas.querySelector("[data-view-error]");
+        assert.ok(panel, "the error panel should replace the canvas");
+        assert.equal(
+            panel.textContent,
+            'Dynamic view "Checkout": relationship "API → Database" has order "1.1"; orders must be integers.',
+        );
+        assert.equal(canvas.querySelector("[data-element-id]"), null);
+        // The rest of the page keeps working.
+        assert.ok(document.querySelector("#workspace-navigation"));
+        assert.ok(
+            document.querySelector(
+                '#structurizr-diagram-navigation [data-viewkey="Containers"]',
+            ),
+            "the drawer still lists the other views",
+        );
     },
 );
