@@ -66,7 +66,7 @@
         "lint:renovate": "pnpm dlx --package renovate renovate-config-validator --strict",
         "format": "biome check --write .",
         "typecheck": "tsc --noEmit",
-        "test": "node --test scripts/*.test.js test/*.test.js",
+        "test": "node --test scripts/*.test.js \"test/!(acceptance).test.js\" && node --test test/acceptance.test.js",
         "test:coverage": "node --test --experimental-test-coverage scripts/*.test.js test/*.test.js",
         "release:pr": "./scripts/release.sh pr",
         "release:tag": "./scripts/release.sh tag",

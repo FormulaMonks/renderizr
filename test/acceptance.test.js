@@ -8,7 +8,9 @@
  * Each workspace is built once as a single file with the report flag on;
  * each view is opened at its own URL, one Chrome at a time, so the wall-clock
  * time to the document, less what Chrome takes to start, is that view's alone
- * (`renderPage`, `launchCost`).
+ * (`renderPage`, `launchCost`). `pnpm test` runs this file by itself, after
+ * the other test files, which `node --test` runs side by side: their builds
+ * and Chromes would otherwise share the runner with the timed views.
  *
  * Skips with a reason when Chrome is missing, and per workspace when the
  * Structurizr submodule is.

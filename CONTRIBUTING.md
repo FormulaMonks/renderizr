@@ -89,7 +89,7 @@ Every command below is run from the repository root.
 | `pnpm dev` | Vite dev server on <http://localhost:5173>, rendering this repository's own workspace (`architecture/workspace.json`) |
 | `pnpm dev -- path/to/workspace.json` | Same, against a workspace of your choice — a local path or a URL |
 | `pnpm build <workspace> [flags]` | Type-checks with `tsc`, then runs the real production build into `./structurizr-output` |
-| `pnpm test` | `node --test` over `scripts/*.test.js` (the build pipeline) and `test/*.test.js` (the app) |
+| `pnpm test` | `node --test` over `scripts/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own |
 | `pnpm exec biome check .` | Lint + format check, reports only |
 | `pnpm exec biome check --write .` | Lint + format, fixes in place |
 | `pnpm exec biome ci .` | Exactly what the pre-commit hook and CI run: check, never fix, non-zero on any finding |
@@ -278,7 +278,7 @@ Tests use the Node built-in runner — no Jest, no Vitest, no config. There are 
 | Anything in `scripts/` — the CLI, asset loading, the Vite config, the build plugins | `scripts/<module>.test.js`, next to the module | The module directly: `import { parseCliArgs } from "./cli.js"` |
 | Anything in `src/` — the router, the menu, a page, the markdown renderer | `test/<subject>.test.js` | `test/support/ts.js`, which installs the DOM and the TypeScript hooks: `const { default: Menu } = await importSrc("components/menu")` |
 
-`pnpm test` expands both globs, so a new file ending in `.test.js` in either directory is picked up with nothing else to register. Files under `test/support/` are the harness, not tests, and are not matched by the glob.
+`pnpm test` expands both globs, so a new file ending in `.test.js` in either directory is picked up with nothing else to register. The one exception is `test/acceptance.test.js`, which runs after the others, by itself (see below). Files under `test/support/` are the harness, not tests, and are not matched by the glob.
 
 ### A pipeline test
 
@@ -330,7 +330,7 @@ srcTest("renders one entry per view", () => {
 
 `test/e2e.test.js` goes further and runs a real `--single-file` build in headless Chrome. It skips itself with a message when no Chrome-shaped binary is on the machine, so it never fails a clone that has none.
 
-`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. Workspaces from `submodules/structurizr` are skipped with a reason when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. Views are opened one Chrome at a time, so that the 2 s budget is measured in wall-clock time from outside the page: virtual time fakes every clock inside it.
+`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. Workspaces from `submodules/structurizr` are skipped with a reason when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. Views are opened one Chrome at a time, so that the 2 s budget is measured in wall-clock time from outside the page: virtual time fakes every clock inside it. For the same reason `pnpm test` runs this file alone, once every other test file has finished. `node --test` runs files in parallel, and a Vite build or another Chrome on the same runner slows a view by a second or more, which a view under test cannot help.
 
 To review every acceptance view by eye, under the Structurizr renderer and the React Flow engine side by side:
 
