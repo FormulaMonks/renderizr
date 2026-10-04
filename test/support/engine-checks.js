@@ -23,6 +23,23 @@ export const OUTLINE_TOLERANCE = 1;
 /* ------------------------------------------------- what resolveView says */
 
 /**
+ * The box upstream draws `shape` in, from the style's `width` and `height`:
+ * it derives the height from the width for a Circle or Diamond (square) and
+ * a Hexagon (regular, flat-topped), whatever the style says, and stored
+ * layouts were made against that box. Style resolution squares Person and
+ * Robot already.
+ */
+function upstreamBox(shape, width, height) {
+    if (shape === "Circle" || shape === "Diamond") {
+        return { width, height: width };
+    }
+    if (shape === "Hexagon") {
+        return { width, height: Math.floor((width * Math.sqrt(3)) / 2) };
+    }
+    return { width, height };
+}
+
+/**
  * What `resolveView` says the engine should draw for `key`: the elements
  * with their stored boxes (`placed` is false for an unplaced element), the
  * ids of the boundaries (elements with children in the view, groups and the
@@ -46,8 +63,7 @@ export function expectedDrawing(model, key) {
                 id: placed.id,
                 x: placed.x,
                 y: placed.y,
-                width: style.width,
-                height: style.height,
+                ...upstreamBox(style.shape, style.width, style.height),
                 placed: !unplaced.has(placed.id),
             };
         });
