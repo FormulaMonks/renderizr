@@ -322,6 +322,8 @@ test("the label band is measured with the text measure it is given", () => {
 test("boundaries are drawn outer before inner, each a level deeper", () => {
     const model = containers((json) => {
         json.model.softwareSystems[0].containers[0].group = "Web";
+        // A container's group is drawn in a container view only.
+        json.views.containerViews = json.views.systemContextViews.splice(1, 1);
     });
     const graph = buildGraph(model, "FixtureContainers", "light", LABELS);
 

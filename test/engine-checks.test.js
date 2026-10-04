@@ -109,6 +109,8 @@ test("groups and the boundaries a view does not list are expected too", () => {
     const json = structuredClone(FIXTURE);
     json.model.softwareSystems[0].containers[0].group = "Web";
     json.views.systemContextViews[1].elements = [{ id: "3", x: 300, y: 300 }];
+    // A container's group is drawn in a container view, not a context view.
+    json.views.containerViews = json.views.systemContextViews.splice(1, 1);
     const expected = expectedDrawing(
         new WorkspaceModel(json),
         "FixtureContainers",

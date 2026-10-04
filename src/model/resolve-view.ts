@@ -112,6 +112,7 @@ export function resolveView(
         model,
         view,
         elements.map((e) => e.element),
+        filtered ? requested : undefined,
     );
     const boundaryIds = new Set(boundaries.map((b) => b.id));
     const drawn = elements.filter((e) => !boundaryIds.has(e.id));
