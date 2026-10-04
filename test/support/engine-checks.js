@@ -359,6 +359,12 @@ const polygonRegion = (...points) => points.map(([x, y]) => ({ x, y }));
 const CAP = 30;
 
 /**
+ * A cap's half-depth along a side of `length`: two caps must fit on it, so a
+ * box shorter than 60 that way gets caps half its length deep each.
+ */
+const capDepth = (length) => Math.min(CAP, length / 2);
+
+/**
  * Person and Robot are drawn in a square box (upstream derives the height
  * from the width); the body is the lower 60% of it.
  */
@@ -370,6 +376,9 @@ const bodyTop = (height) => 0.4 * height;
  * devices are one frame each: their panels, buttons and displays lie inside
  * it. Their frame is the element's height (upstream overhangs it by the
  * stroke width), so no shape needs anything the box does not give.
+ * Upstream's fixed corner radii, insets and cap depths overrun a small box, so
+ * each one shrinks with the box (a 60 × 60 Robot's head keeps rounded corners
+ * smaller than its side, a Folder's tab stays clear of the body's corner).
  */
 const SHAPE_REGIONS = {
     Box: (w, h) => [rectRegion(0, 0, w, h, 1)],
@@ -392,21 +401,26 @@ const SHAPE_REGIONS = {
     Diamond: (w, h) => [
         polygonRegion([w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]),
     ],
-    Cylinder: (w, h) => [
-        ellipseRegion(w / 2, CAP, w / 2, CAP),
-        rectRegion(0, CAP, w, h - 2 * CAP),
-        ellipseRegion(w / 2, h - CAP, w / 2, CAP),
-    ],
-    Bucket: (w, h) => {
-        // The bottom is an arc of an ellipse 2·CAP tall whose chord, 0.8 of
-        // the width, joins the walls CAP above the box's bottom.
-        const chord = h - CAP;
-        const cy = chord - 0.6 * 2 * CAP;
+    Cylinder: (w, h) => {
+        const cap = capDepth(h);
         return [
-            ellipseRegion(w / 2, CAP, w / 2, CAP),
+            ellipseRegion(w / 2, cap, w / 2, cap),
+            rectRegion(0, cap, w, h - 2 * cap),
+            ellipseRegion(w / 2, h - cap, w / 2, cap),
+        ];
+    },
+    Bucket: (w, h) => {
+        // The lid's lower half is its inner rim, inside the body, so only
+        // the upper half is filled. The bottom is an arc of an ellipse 2·CAP tall whose chord, 0.8 of
+        // the width, joins the walls CAP above the box's bottom.
+        const cap = capDepth(h);
+        const chord = h - cap;
+        const cy = chord - 0.6 * 2 * cap;
+        return [
+            arcPoints(w / 2, cap, w / 2, cap, Math.PI, 2 * Math.PI),
             polygonRegion(
-                [0, CAP],
-                [w, CAP],
+                [0, cap],
+                [w, cap],
                 [0.9 * w, chord],
                 [0.1 * w, chord],
             ),
@@ -414,17 +428,20 @@ const SHAPE_REGIONS = {
                 w / 2,
                 cy,
                 w / 2,
-                2 * CAP,
+                2 * cap,
                 Math.atan2(0.6, 0.8),
                 Math.atan2(0.6, -0.8),
             ),
         ];
     },
-    Pipe: (w, h) => [
-        ellipseRegion(CAP, h / 2, CAP, h / 2),
-        rectRegion(CAP, 0, w - 2 * CAP, h),
-        ellipseRegion(w - CAP, h / 2, CAP, h / 2),
-    ],
+    Pipe: (w, h) => {
+        const cap = capDepth(w);
+        return [
+            ellipseRegion(cap, h / 2, cap, h / 2),
+            rectRegion(cap, 0, w - 2 * cap, h),
+            ellipseRegion(w - cap, h / 2, cap, h / 2),
+        ];
+    },
     Person: (w, h) => {
         const r = Math.min(w, h) / 4.5;
         const top = bodyTop(h);
@@ -436,9 +453,10 @@ const SHAPE_REGIONS = {
     Robot: (w, h) => {
         const side = Math.min(w, h) / 2.25;
         const top = bodyTop(h);
+        const headX = (w - side) / 2;
         const headY = top - 0.9 * side;
         return [
-            rectRegion((w - side) / 2, headY, side, side, 30),
+            rectRegion(headX, headY, side, side, Math.min(30, 0.3875 * side)),
             rectRegion(
                 (w - 1.25 * side) / 2,
                 headY + (side - 0.225 * side) / 2,
@@ -446,12 +464,12 @@ const SHAPE_REGIONS = {
                 0.225 * side,
                 10,
             ),
-            rectRegion(0, top, w, h - top, 30),
+            rectRegion(0, top, w, h - top, Math.min(30, 0.3 * h, headX)),
         ];
     },
     Folder: (w, h) => [
-        rectRegion(10, 0, w / 3, h / 4, 10),
-        rectRegion(0, h / 8, w, h - h / 8, 5),
+        rectRegion(Math.min(10, w / 12), 0, w / 3, h / 4, 10),
+        rectRegion(0, h / 8, w, h - h / 8, Math.min(5, w / 4, (7 * h) / 32)),
     ],
     WebBrowser: (w, h) => [rectRegion(0, 0, w, h, 10)],
     Window: (w, h) => [rectRegion(0, 0, w, h, 10)],
@@ -460,10 +478,29 @@ const SHAPE_REGIONS = {
     Component: (w, h) => {
         const blockWidth = w / 6;
         const blockHeight = h / 8;
+        const blockRadius = Math.min(5, w / 24);
         return [
-            rectRegion(blockWidth / 2, 0, w - blockWidth / 2, h, 10),
-            rectRegion(0, 0.6 * blockHeight, blockWidth, blockHeight, 5),
-            rectRegion(0, 2 * blockHeight, blockWidth, blockHeight, 5),
+            rectRegion(
+                blockWidth / 2,
+                0,
+                w - blockWidth / 2,
+                h,
+                Math.min(10, 0.075 * h),
+            ),
+            rectRegion(
+                0,
+                0.6 * blockHeight,
+                blockWidth,
+                blockHeight,
+                blockRadius,
+            ),
+            rectRegion(
+                0,
+                2 * blockHeight,
+                blockWidth,
+                blockHeight,
+                blockRadius,
+            ),
         ];
     },
     Shell: (w, h) => [rectRegion(0, 0, w, h, 10)],

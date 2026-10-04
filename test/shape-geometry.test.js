@@ -443,7 +443,12 @@ test("geometry is plain JSON", () => {
  */
 for (const shape of SHAPES) {
     test(`every edge end on a ${shape} lies on the harness's outline for it`, () => {
-        for (const [styleWidth, styleHeight] of [...SIZES, [200, 120]]) {
+        for (const [styleWidth, styleHeight] of [
+            ...SIZES,
+            [200, 120],
+            [60, 60],
+            [100, 40],
+        ]) {
             const { width, height } = shapeSize(shape, styleWidth, styleHeight);
             const geometry = shapeGeometry(shape, width, height);
             const outline = elementOutline({
