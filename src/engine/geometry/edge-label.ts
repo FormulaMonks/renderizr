@@ -11,6 +11,7 @@
 
 import { type MeasureText, wrapLines } from "./boundary";
 import type { Bounds, Size } from "./bounds";
+import { INDICATOR_GAP, INDICATOR_SIZE, indicatorRowWidth } from "./indicators";
 import { LINE_HEIGHT, METADATA_SCALE } from "./label";
 import { pointAlong } from "./routing/path";
 import type { Point } from "./shapes/types";
@@ -63,6 +64,11 @@ export type EdgeLabelLayout = {
     /** At the metadata size, below the description. */
     technology: string[];
     size: Size;
+    /**
+     * The indicator row after the text, relative to the backing's top-left;
+     * absent when the relationship has no targets (spec 10.9).
+     */
+    indicators?: Bounds;
 };
 
 /**
@@ -93,14 +99,20 @@ function wrapMetadata(
  * The label's lines wrapped at `width`, the description at `fontSize`
  * (breaking at newlines like an element's) and the technology at the
  * metadata size below it, and its backing: the widest line and every line's
- * height, plus padding all round. `undefined` for a label that says nothing.
+ * height, plus padding all round. `indicators` glyphs follow the text, which
+ * wraps short of them; with no text they are the whole label (spec 10.9).
+ * `undefined` for a label that says nothing and has no glyphs.
  */
 export function layoutEdgeLabel(
     text: EdgeLabelText,
     fontSize: number,
-    width: number,
+    labelWidth: number,
     measure: MeasureText,
+    indicators = 0,
 ): EdgeLabelLayout | undefined {
+    const row = indicatorRowWidth(indicators);
+    const width =
+        row > 0 ? Math.max(0, labelWidth - row - INDICATOR_GAP) : labelWidth;
     const metadataSize = fontSize * METADATA_SCALE;
     const description = text.description
         ? wrapLines(text.description, width, fontSize, false, measure)
@@ -111,23 +123,37 @@ export function layoutEdgeLabel(
         metadataSize,
         measure,
     );
-    if (description.length === 0 && technology.length === 0) return undefined;
+    const says = description.length > 0 || technology.length > 0;
+    if (!says && row === 0) return undefined;
     // Unclamped: a word wider than `width` is drawn whole on its own line.
     const widest = Math.max(
+        0,
         ...description.map((line) => measure(line, fontSize, false)),
         ...technology.map((line) => measure(line, metadataSize, false)),
     );
-    const height =
+    const textHeight =
         description.length * fontSize * LINE_HEIGHT +
         (description.length && technology.length ? TECHNOLOGY_GAP : 0) +
         technology.length * metadataSize * LINE_HEIGHT;
+    const gap = says && row > 0 ? INDICATOR_GAP : 0;
+    const height =
+        Math.max(textHeight, row > 0 ? INDICATOR_SIZE : 0) +
+        2 * EDGE_LABEL_PADDING;
     return {
         description,
         technology,
         size: {
-            width: widest + 2 * EDGE_LABEL_PADDING,
-            height: height + 2 * EDGE_LABEL_PADDING,
+            width: widest + gap + row + 2 * EDGE_LABEL_PADDING,
+            height,
         },
+        ...(row > 0 && {
+            indicators: {
+                x: EDGE_LABEL_PADDING + widest + gap,
+                y: (height - INDICATOR_SIZE) / 2,
+                width: row,
+                height: INDICATOR_SIZE,
+            },
+        }),
     };
 }
 

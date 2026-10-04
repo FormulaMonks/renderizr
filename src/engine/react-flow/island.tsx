@@ -41,6 +41,10 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
     createContext,
+    type CSSProperties,
+    type FocusEvent,
+    type KeyboardEvent,
+    type MouseEvent,
     type RefObject,
     useCallback,
     useContext,
@@ -52,7 +56,15 @@ import {
     useSyncExternalStore,
 } from "react";
 import type { WorkspaceModel } from "../../model";
+import type { Anchor } from "../contract";
 import type { TextBlock } from "../geometry/boundary";
+import {
+    INDICATOR_GAP,
+    INDICATOR_INSET,
+    INDICATOR_MARGIN,
+    INDICATOR_SIZE,
+    indicatorKinds,
+} from "../geometry/indicators";
 import {
     breakLines,
     DESCRIPTION_GAP,
@@ -80,22 +92,28 @@ import {
 } from "./animation";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
+    type Activation,
+    type ActivationType,
     type BoundaryBox,
     type Bounds,
     buildGraph,
     type ColorScheme,
     type EdgeLine,
     type ElementBox,
+    type FocusItem,
     fitMaxZoom,
     type Graph,
     type GraphImage,
     type ImageState,
     imageBox,
     type Labels,
+    panIntoView,
     readyFor,
     stepZoom,
+    type TargetKind,
     zoomLimits,
 } from "./graph";
+import styles from "./island.module.css";
 
 export type IslandState = {
     key: string;
@@ -134,7 +152,9 @@ export type IslandCommands = {
     zoomOut(): void;
 };
 
-type IslandProps = {
+export type { ActivationType };
+
+export type IslandProps = {
     model: WorkspaceModel;
     store: IslandStore;
     commands: IslandCommands;
@@ -146,6 +166,8 @@ type IslandProps = {
     onRedrawn(graph: Graph): void;
     /** Escape on the canvas: stops the animation (spec 6.2, 11). */
     onEscape(): void;
+    /** An item with targets was clicked, or Enter or Space pressed on it. */
+    onActivate(type: ActivationType, id: string, anchor: Anchor): void;
 };
 
 /** Fraction of the container left around a fitted view. */
@@ -161,6 +183,147 @@ const FIT_PADDING = 0.05;
  */
 function warnAuthor(message: string) {
     console.warn(message);
+}
+
+/* ---------------- indicators and activation (spec 6.1, 6.2, 9.2, 10.9) */
+
+/**
+ * Each target kind's glyph, stroked in a 20-unit box: a magnifier for a
+ * view to drill down to, a page for the documentation, a checked circle for
+ * the decisions and an arrow out of a box for a link.
+ */
+const GLYPHS: Record<TargetKind, string[]> = {
+    view: [
+        "M8.5 3a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11z",
+        "M12.6 12.6L17 17",
+        "M6 8.5h5",
+        "M8.5 6v5",
+    ],
+    documentation: [
+        "M4.5 2.5h7.5l3.5 3.5v11.5h-11z",
+        "M12 2.5v3.5h3.5",
+        "M7.5 10h5",
+        "M7.5 13h5",
+    ],
+    decisions: [
+        "M10 2.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15z",
+        "M6.5 10.2l2.5 2.5l4.5-5",
+    ],
+    link: ["M11 3h6v6", "M17 3l-8 8", "M15 12v5h-12v-12h5"],
+};
+
+type IndicatorsProps = {
+    targets: TargetKind[];
+    color: string;
+    /** Where the row sits in its container; in the flow when absent. */
+    box?: Bounds;
+    style?: CSSProperties;
+};
+
+/** One glyph per kind of target, in a row; decoration for sighted readers. */
+function Indicators({ targets, color, box, style }: IndicatorsProps) {
+    return (
+        <div
+            data-indicators=""
+            aria-hidden="true"
+            style={{
+                display: "flex",
+                gap: INDICATOR_GAP,
+                flexShrink: 0,
+                ...(box && { position: "absolute", left: box.x, top: box.y }),
+                ...style,
+            }}
+        >
+            {indicatorKinds(targets).map((kind) => (
+                <svg
+                    key={kind}
+                    aria-hidden="true"
+                    data-indicator={kind}
+                    width={INDICATOR_SIZE}
+                    height={INDICATOR_SIZE}
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={1.6}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    {GLYPHS[kind].map((d) => (
+                        <path key={d} d={d} />
+                    ))}
+                </svg>
+            ))}
+        </div>
+    );
+}
+
+/** How wide the invisible stroke round an edge that takes its clicks is. */
+const EDGE_HIT_WIDTH = 12;
+
+/** How far one arrow key pans the canvas, in screen pixels. */
+const PAN_STEP = 50;
+
+/** The arrow keys, as the direction each moves the diagram (spec 6.2). */
+const PAN_KEYS: Partial<Record<string, { x: number; y: number }>> = {
+    ArrowLeft: { x: 1, y: 0 },
+    ArrowRight: { x: -1, y: 0 },
+    ArrowUp: { x: 0, y: 1 },
+    ArrowDown: { x: 0, y: -1 },
+};
+
+/** `+` zooms in, `-` out and `0` fits; `=` is `+` without Shift. */
+const ZOOM_KEYS: Partial<Record<string, keyof IslandCommands>> = {
+    "+": "zoomIn",
+    "=": "zoomIn",
+    "-": "zoomOut",
+    _: "zoomOut",
+    "0": "fit",
+};
+
+/** Reports an activation to the handle; the island never navigates. */
+const Activate = createContext<IslandProps["onActivate"]>(() => {});
+
+/** An item as the focus order and the DOM find it. */
+type FocusRef = Pick<FocusItem, "type" | "id">;
+
+/** The key an item is found by in the focus order and the DOM. */
+const focusKey = (item: FocusRef) => `${item.type}:${item.id}`;
+
+/** What an item without targets takes: nothing, so it stays inert. */
+const INERT: { onClick?: (event: MouseEvent) => void } = {};
+
+/**
+ * What makes an item with targets activatable (spec 6.1, 6.2): a pointer,
+ * a click, a place in the canvas's own Tab order and an accessible name.
+ * An element activates itself; a boundary or an edge names what it
+ * activates.
+ */
+function useTargetProps(
+    item: FocusRef,
+    targets: TargetKind[],
+    label: string,
+    activation: Activation | undefined = item.type === "element"
+        ? { type: "element", id: item.id }
+        : undefined,
+) {
+    const activate = useContext(Activate);
+    if (targets.length === 0 || !activation) return INERT;
+    return {
+        className: styles.target,
+        tabIndex: -1,
+        role: "button",
+        "aria-label": label,
+        "aria-haspopup": targets.length > 1 ? ("menu" as const) : undefined,
+        "data-focus-item": focusKey(item),
+        "data-targets": targets.join(" "),
+        onClick: (event: MouseEvent) => {
+            event.stopPropagation();
+            activate(activation.type, activation.id, {
+                x: event.clientX,
+                y: event.clientY,
+            });
+        },
+    };
 }
 
 type BoxNode = Node<ElementBox, "box">;
@@ -185,6 +348,7 @@ type ElementLabelProps = Pick<
     | "iconPosition"
     | "fontSize"
     | "color"
+    | "targets"
 >;
 
 type FixedPartsProps = {
@@ -264,8 +428,10 @@ function ElementLabel({
     iconPosition,
     fontSize,
     color,
+    targets,
 }: ElementLabelProps) {
     const layout = ICON_LAYOUTS[iconPosition];
+    const indicators = targets.length > 0;
     const nameRef = useRef<HTMLDivElement>(null);
     const metadataRef = useRef<HTMLDivElement>(null);
     const probeNameRef = useRef<HTMLDivElement>(null);
@@ -294,6 +460,7 @@ function ElementLabel({
                       ? heightsOf(probe, probeMetadataRef.current)
                       : drawn,
                 description: Boolean(description),
+                indicators,
             });
             // A Left icon changes the text width, so the heights just read
             // are stale: draw the icon as decided and measure again.
@@ -325,6 +492,7 @@ function ElementLabel({
         icon,
         iconPosition,
         id,
+        indicators,
         name,
         showIcon,
     ]);
@@ -352,6 +520,10 @@ function ElementLabel({
         overflowWrap: "break-word",
     } as const;
 
+    // The indicator row sits at the bottom of the content area, above a
+    // Bottom icon and inset from the bottom edge, and the rest is centered
+    // in what is left (spec 9.2).
+    const iconLast = layout.after && image;
     return (
         <div
             data-element-label=""
@@ -364,8 +536,7 @@ function ElementLabel({
                 boxSizing: "border-box",
                 padding: `0 ${SIDE_PADDING}px`,
                 display: "flex",
-                flexDirection: beside ? "row" : "column",
-                justifyContent: "center",
+                flexDirection: "column",
                 alignItems: "center",
                 textAlign: "center",
                 color,
@@ -373,62 +544,92 @@ function ElementLabel({
                 lineHeight: LINE_HEIGHT,
             }}
         >
-            {probing && (
+            <div
+                style={{
+                    flex: "1 1 0",
+                    minHeight: 0,
+                    width: "100%",
+                    display: "flex",
+                    flexDirection: beside ? "row" : "column",
+                    justifyContent: "center",
+                    alignItems: "center",
+                }}
+            >
+                {probing && (
+                    <div
+                        aria-hidden="true"
+                        style={{
+                            ...column,
+                            position: "absolute",
+                            visibility: "hidden",
+                            width: textWidth(content.width, iconPosition, true),
+                        }}
+                    >
+                        <FixedParts
+                            name={name}
+                            metadata={metadata}
+                            fontSize={fontSize}
+                            nameRef={probeNameRef}
+                            metadataRef={probeMetadataRef}
+                        />
+                    </div>
+                )}
+                {!layout.after && image}
                 <div
-                    aria-hidden="true"
                     style={{
                         ...column,
-                        position: "absolute",
-                        visibility: "hidden",
-                        width: textWidth(content.width, iconPosition, true),
+                        flexShrink: 0,
+                        width: textWidth(content.width, iconPosition, showIcon),
                     }}
                 >
                     <FixedParts
                         name={name}
                         metadata={metadata}
                         fontSize={fontSize}
-                        nameRef={probeNameRef}
-                        metadataRef={probeMetadataRef}
+                        nameRef={nameRef}
+                        metadataRef={metadataRef}
                     />
+                    {description && lines !== 0 && (
+                        <div
+                            data-element-description=""
+                            style={{
+                                flexShrink: 0,
+                                marginTop: DESCRIPTION_GAP,
+                                whiteSpace: "pre-line",
+                                overflow: "hidden",
+                                // Unclamped only until the first
+                                // measurement, which runs before paint,
+                                // so that state is never seen.
+                                ...(lines !== undefined && {
+                                    display: "-webkit-box",
+                                    WebkitBoxOrient: "vertical",
+                                    WebkitLineClamp: lines,
+                                }),
+                            }}
+                        >
+                            {breakLines(description)}
+                        </div>
+                    )}
+                </div>
+                {!indicators && iconLast}
+            </div>
+            {indicators && (
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        paddingBottom: INDICATOR_INSET,
+                    }}
+                >
+                    <Indicators
+                        targets={targets}
+                        color={color}
+                        style={{ marginTop: INDICATOR_MARGIN }}
+                    />
+                    {iconLast}
                 </div>
             )}
-            {!layout.after && image}
-            <div
-                style={{
-                    ...column,
-                    flexShrink: 0,
-                    width: textWidth(content.width, iconPosition, showIcon),
-                }}
-            >
-                <FixedParts
-                    name={name}
-                    metadata={metadata}
-                    fontSize={fontSize}
-                    nameRef={nameRef}
-                    metadataRef={metadataRef}
-                />
-                {description && lines !== 0 && (
-                    <div
-                        data-element-description=""
-                        style={{
-                            flexShrink: 0,
-                            marginTop: DESCRIPTION_GAP,
-                            whiteSpace: "pre-line",
-                            overflow: "hidden",
-                            // Unclamped only until the first measurement, which
-                            // runs before paint, so that state is never seen.
-                            ...(lines !== undefined && {
-                                display: "-webkit-box",
-                                WebkitBoxOrient: "vertical",
-                                WebkitLineClamp: lines,
-                            }),
-                        }}
-                    >
-                        {breakLines(description)}
-                    </div>
-                )}
-            </div>
-            {layout.after && image}
         </div>
     );
 }
@@ -441,6 +642,11 @@ function ElementLabel({
  */
 function BoxElement({ data }: NodeProps<BoxNode>) {
     const fullText = labelText(data.name, data.metadata, data.description);
+    const target = useTargetProps(
+        { type: "element", id: data.id },
+        data.targets,
+        fullText,
+    );
 
     return (
         <div
@@ -448,6 +654,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
             data-shape={data.shape}
             title={fullText}
             aria-label={fullText}
+            {...target}
             style={{ position: "relative", width: "100%", height: "100%" }}
         >
             {/* React Flow drops every edge of a node without a handle (#23). */}
@@ -549,10 +756,16 @@ function TextLines({
  * label and icon stay opaque, as on elements.
  */
 function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
-    const { band } = data;
-    const label = [data.name.lines.join(" "), data.metadata?.lines.join(" ")]
-        .filter(Boolean)
-        .join("\n");
+    const { band, accessibleName } = data;
+    // Its label band is what activates the element it is drawn for.
+    const target = useTargetProps(
+        { type: "boundary", id: data.id },
+        data.targets,
+        accessibleName,
+        data.elementId === undefined
+            ? undefined
+            : { type: "element", id: data.elementId },
+    );
     return (
         <div
             data-boundary-id={data.id}
@@ -587,7 +800,8 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
             </svg>
             <div
                 data-boundary-label=""
-                title={label}
+                title={accessibleName}
+                {...target}
                 style={{
                     position: "absolute",
                     left: band.x,
@@ -631,6 +845,16 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
                         color={data.color}
                         top={band.y}
                         instanceCount
+                    />
+                )}
+                {data.indicators && (
+                    <Indicators
+                        targets={data.targets}
+                        color={data.color}
+                        box={{
+                            ...data.indicators,
+                            y: data.indicators.y - band.y,
+                        }}
                     />
                 )}
             </div>
@@ -713,9 +937,25 @@ const CanvasBackground = createContext("#ffffff");
  */
 function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
     const background = useContext(CanvasBackground);
+    // Keyboard focus sits on the label, which is where the pointer can
+    // activate it too, as on the invisible stroke round the line (spec 10.9).
+    const target = useTargetProps(
+        { type: "edge", id },
+        data?.targets ?? [],
+        data?.name ?? "",
+        data && { type: "relationship", id: data.id },
+    );
     if (!data) return null;
-    const { thickness, labelBox, labelLines, presence, transition } = data;
+    const {
+        thickness,
+        labelBox,
+        labelLines,
+        labelIndicators,
+        presence,
+        transition,
+    } = data;
     const hidden = presence === "hidden";
+    const active = data.targets.length > 0;
 
     return (
         <g
@@ -724,9 +964,22 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
             aria-hidden={hidden || undefined}
             style={presenceStyle(presence, transition)}
         >
+            {active && !hidden && (
+                // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard reaches the relationship through its label
+                <path
+                    data-hit-stroke=""
+                    className={styles.hitStroke}
+                    d={data.path}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={EDGE_HIT_WIDTH}
+                    onClick={target.onClick}
+                />
+            )}
             <g opacity={data.opacity}>
                 <BaseEdge
                     id={id}
+                    interactionWidth={0}
                     path={data.path}
                     style={{
                         stroke: data.color,
@@ -750,6 +1003,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                         wraps them again (spec 10.8). */}
                     <div
                         data-relationship-label={data.id}
+                        {...target}
                         inert={hidden || undefined}
                         style={{
                             ...presenceStyle(presence, transition),
@@ -764,37 +1018,61 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                             background,
                             textAlign: "center",
                             whiteSpace: "pre",
+                            pointerEvents: hidden
+                                ? "none"
+                                : active
+                                  ? "all"
+                                  : undefined,
                         }}
                     >
-                        {labelLines.description.length > 0 && (
-                            <div
-                                style={{
-                                    fontSize: data.fontSize,
-                                    opacity: data.opacity,
-                                }}
-                            >
-                                {labelLines.description.map((line, i) => (
-                                    // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
-                                    <div key={i}>{line}</div>
-                                ))}
-                            </div>
+                        {labelIndicators && (
+                            <Indicators
+                                targets={data.targets}
+                                color={data.color}
+                                box={labelIndicators}
+                            />
                         )}
-                        {labelLines.technology.length > 0 && (
-                            <div
-                                style={{
-                                    fontSize: data.fontSize * METADATA_SCALE,
-                                    marginTop: labelLines.description.length
-                                        ? TECHNOLOGY_GAP
-                                        : 0,
-                                    opacity: data.opacity,
-                                }}
-                            >
-                                {labelLines.technology.map((line, i) => (
-                                    // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
-                                    <div key={i}>{line}</div>
-                                ))}
-                            </div>
-                        )}
+                        <div
+                            style={{
+                                // The text column stops short of the glyphs.
+                                width: labelIndicators
+                                    ? labelIndicators.x -
+                                      EDGE_LABEL_PADDING -
+                                      INDICATOR_GAP
+                                    : undefined,
+                            }}
+                        >
+                            {labelLines.description.length > 0 && (
+                                <div
+                                    style={{
+                                        fontSize: data.fontSize,
+                                        opacity: data.opacity,
+                                    }}
+                                >
+                                    {labelLines.description.map((line, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
+                                        <div key={i}>{line}</div>
+                                    ))}
+                                </div>
+                            )}
+                            {labelLines.technology.length > 0 && (
+                                <div
+                                    style={{
+                                        fontSize:
+                                            data.fontSize * METADATA_SCALE,
+                                        marginTop: labelLines.description.length
+                                            ? TECHNOLOGY_GAP
+                                            : 0,
+                                        opacity: data.opacity,
+                                    }}
+                                >
+                                    {labelLines.technology.map((line, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
+                                        <div key={i}>{line}</div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </EdgeLabelRenderer>
             )}
@@ -1057,6 +1335,7 @@ function Canvas({
     onPainted,
     onRedrawn,
     onEscape,
+    onActivate,
 }: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
     const family = diagramFontFamily(font);
@@ -1271,58 +1550,176 @@ function Canvas({
         };
     }, [fitted, empty, key, flow, onPainted, graph]);
 
+    /** Each item with targets by its focus key. */
+    const focusable = useMemo(
+        () =>
+            new Map(
+                (graph?.focusOrder ?? []).map((item) => [focusKey(item), item]),
+            ),
+        [graph],
+    );
+    /**
+     * Set while the pointer is what moves focus, so a click focuses its item
+     * where it is: panning it into view then would move the canvas under the
+     * pointer (spec 6.2). A key press hands focus back to the keyboard.
+     */
+    const pointing = useRef(false);
+
+    const itemElement = (item: FocusRef | undefined) =>
+        item
+            ? wrapper.current?.querySelector<HTMLElement>(
+                  `[data-focus-item="${CSS.escape(focusKey(item))}"]`,
+              )
+            : null;
+
+    /**
+     * Tab and Shift+Tab walk the items with targets in reading order, then
+     * leave the canvas (spec 6.2). The items are not in the page's own Tab
+     * order, so the canvas is one stop on the way through the page.
+     */
+    const onTab = (event: KeyboardEvent<HTMLDivElement>) => {
+        // A step's hidden items are inert, so they leave the walk (spec 11).
+        const order = (graph?.focusOrder ?? []).filter(
+            (item) => !itemElement(item)?.closest("[inert]"),
+        );
+        const current = (document.activeElement as HTMLElement | null)?.dataset
+            ?.focusItem;
+        const index = order.findIndex((item) => focusKey(item) === current);
+        const onCanvas = document.activeElement === wrapper.current;
+        let next: HTMLElement | null | undefined;
+        if (event.shiftKey) {
+            if (index === 0) next = wrapper.current;
+            else if (index > 0) next = itemElement(order[index - 1]);
+        } else if (onCanvas) {
+            next = itemElement(order[0]);
+        } else if (index >= 0 && index < order.length - 1) {
+            next = itemElement(order[index + 1]);
+        }
+        if (!next) return;
+        event.preventDefault();
+        next.focus({ preventScroll: true });
+    };
+
+    const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+        pointing.current = false;
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.key === "Tab") return onTab(event);
+        if (event.key === "Escape") {
+            // Escape on the canvas stops the animation (spec 11).
+            onEscape();
+            return;
+        }
+
+        const item = (event.target as HTMLElement).dataset?.focusItem;
+        const activation = item ? focusable.get(item)?.activation : undefined;
+        if (activation && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            const box = (event.target as HTMLElement).getBoundingClientRect();
+            onActivate(activation.type, activation.id, {
+                x: box.left + box.width / 2,
+                y: box.bottom,
+            });
+            return;
+        }
+
+        const pan = PAN_KEYS[event.key];
+        if (pan) {
+            event.preventDefault();
+            moved.current = true;
+            const viewport = flow.getViewport();
+            flow.setViewport({
+                ...viewport,
+                x: viewport.x + pan.x * PAN_STEP,
+                y: viewport.y + pan.y * PAN_STEP,
+            });
+            return;
+        }
+        const command = ZOOM_KEYS[event.key];
+        if (command) {
+            event.preventDefault();
+            commands[command]();
+        }
+    };
+
+    // An item the keyboard focuses off screen is panned into view, zoom
+    // unchanged. One the pointer focuses is already where the reader is.
+    const onFocus = (event: FocusEvent<HTMLDivElement>) => {
+        if (pointing.current) return;
+        const item = (event.target as HTMLElement).dataset?.focusItem;
+        const box = item ? focusable.get(item)?.box : undefined;
+        if (!box) return;
+        const panned = panIntoView(flow.getViewport(), box, size);
+        if (!panned) return;
+        moved.current = true;
+        flow.setViewport(panned);
+    };
+
     return (
         <div
             ref={wrapper}
-            role="group"
-            aria-label={graph?.title}
-            // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas takes focus so its keys act only while it has it (spec 6.2)
-            tabIndex={0}
-            onKeyDown={(event) => {
-                if (event.key === "Escape") onEscape();
-            }}
             data-view-key={key ?? ""}
             data-ready={readyFor(key, readyKey) ? "true" : "false"}
-            style={{
-                width: "100%",
-                height: "100%",
-                background: graph?.background,
-                fontFamily: family,
+            // One focusable region, labeled with the view's title (spec 6.2).
+            role="group"
+            aria-label={graph?.title}
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas is one Tab stop that pans, zooms and walks its items by key (spec 6.2)
+            tabIndex={0}
+            className={styles.canvas}
+            onKeyDown={onKeyDown}
+            onPointerDownCapture={() => {
+                pointing.current = true;
             }}
+            onFocus={onFocus}
+            style={
+                {
+                    width: "100%",
+                    height: "100%",
+                    background: graph?.background,
+                    fontFamily: family,
+                    "--focus-ring": graph?.color,
+                } as CSSProperties
+            }
         >
-            <CanvasBackground.Provider value={graph?.background ?? "#ffffff"}>
-                {graph?.error ? (
-                    <ViewError graph={graph} />
-                ) : (
-                    <ReactFlow
-                        nodes={nodes}
-                        edges={edges}
-                        nodeTypes={nodeTypes}
-                        edgeTypes={edgeTypes}
-                        nodeOrigin={nodeOrigin}
-                        connectionMode={ConnectionMode.Loose}
-                        nodesDraggable={false}
-                        nodesConnectable={false}
-                        nodesFocusable={false}
-                        edgesFocusable={false}
-                        elementsSelectable={false}
-                        panOnDrag
-                        panOnScroll
-                        zoomOnScroll={false}
-                        zoomOnPinch
-                        zoomOnDoubleClick={false}
-                        zoomActivationKeyCode={zoomKeys}
-                        minZoom={floor}
-                        maxZoom={ceiling}
-                        colorMode={state.scheme}
-                        proOptions={proOptions}
-                        onMoveStart={(event) => {
-                            // Programmatic moves carry no event; only the reader's do.
-                            if (event) moved.current = true;
-                        }}
-                    />
-                )}
-            </CanvasBackground.Provider>
+            <Activate.Provider value={onActivate}>
+                <CanvasBackground.Provider
+                    value={graph?.background ?? "#ffffff"}
+                >
+                    {graph?.error ? (
+                        <ViewError graph={graph} />
+                    ) : (
+                        <ReactFlow
+                            nodes={nodes}
+                            edges={edges}
+                            nodeTypes={nodeTypes}
+                            edgeTypes={edgeTypes}
+                            nodeOrigin={nodeOrigin}
+                            connectionMode={ConnectionMode.Loose}
+                            nodesDraggable={false}
+                            nodesConnectable={false}
+                            nodesFocusable={false}
+                            edgesFocusable={false}
+                            elementsSelectable={false}
+                            // The canvas owns the keys (spec 6.2).
+                            disableKeyboardA11y
+                            panOnDrag
+                            panOnScroll
+                            zoomOnScroll={false}
+                            zoomOnPinch
+                            zoomOnDoubleClick={false}
+                            zoomActivationKeyCode={zoomKeys}
+                            minZoom={floor}
+                            maxZoom={ceiling}
+                            colorMode={state.scheme}
+                            proOptions={proOptions}
+                            onMoveStart={(event) => {
+                                // Programmatic moves carry no event; only
+                                // the reader's do.
+                                if (event) moved.current = true;
+                            }}
+                        />
+                    )}
+                </CanvasBackground.Provider>
+            </Activate.Provider>
         </div>
     );
 }

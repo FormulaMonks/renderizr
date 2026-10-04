@@ -182,7 +182,13 @@ class DOMEventTarget {
             let node = this.parentNode;
             while (node) {
                 path.push(node);
-                node = node.parentNode ?? node.defaultView ?? null;
+                // Up from <html> to the document, as a document-level
+                // listener for an outside click expects, then the window.
+                const isRoot = node === node.ownerDocument?.documentElement;
+                node =
+                    node.parentNode ??
+                    (isRoot ? node.ownerDocument : node.defaultView) ??
+                    null;
             }
         }
 
@@ -249,6 +255,14 @@ export class DOMNode extends DOMEventTarget {
 
     remove() {
         this.parentNode?.removeChild(this);
+    }
+
+    /** Whether `node` is this node or inside it, as an outside click asks. */
+    contains(node) {
+        for (let at = node; at; at = at.parentNode) {
+            if (at === this) return true;
+        }
+        return false;
     }
 
     replaceWith(node) {
@@ -569,7 +583,10 @@ export class DOMElement extends DOMNode {
         });
     }
 
-    focus() {}
+    /** Focus moves; nothing scrolls and no focus events fire. */
+    focus() {
+        if (this.ownerDocument) this.ownerDocument.activeElement = this;
+    }
 }
 
 for (const property of REFLECTED) {
@@ -874,6 +891,7 @@ class DOMDocument extends DOMEventTarget {
         this.documentElement.appendChild(this.head);
         this.documentElement.appendChild(this.body);
         this.parentNode = null;
+        this.activeElement = this.body;
     }
 
     get title() {
@@ -1246,6 +1264,7 @@ export function installDOM() {
             document.documentElement.attributeMap.clear();
             document.head.childNodes = [];
             document.body.childNodes = [];
+            document.activeElement = document.body;
             document.scrolledIntoView.length = 0;
             window.scrollCalls.length = 0;
             window.timers.length = 0;

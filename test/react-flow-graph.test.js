@@ -9,9 +9,8 @@ import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
-const { buildGraph, stepZoom, ZOOM_STEP, zoomLimits } = await importSrc(
-    "engine/react-flow/graph",
-);
+const { buildGraph, panIntoView, stepZoom, ZOOM_STEP, zoomLimits } =
+    await importSrc("engine/react-flow/graph");
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
 
 const FIXTURE = JSON.parse(
@@ -1706,4 +1705,166 @@ test("response: true outside a dynamic view changes nothing", () => {
         ["1", "2"],
         "source to destination, as in the model",
     );
+});
+
+/* ---------------- targets, indicators and reading order (spec 6.1, 6.2) */
+
+test("an element carries the kind of each target it offers, and one with none carries none", () => {
+    const graph = contextGraph((json) => {
+        json.model.people[0].url = "https://example.com/reader";
+        json.model.people[0].properties = {
+            Profile: "https://people.example.com/reader",
+        };
+    });
+    const targets = (id) => graph.elements.find((e) => e.id === id).targets;
+
+    assert.deepEqual(targets("1"), ["link", "link"]);
+    // The system drills down to FixtureContainers; FixtureContext is on screen.
+    assert.deepEqual(targets("2"), ["view"]);
+    assert.deepEqual(
+        contextGraph((json) => {
+            json.views.systemContextViews.pop();
+        }).elements.find((e) => e.id === "2").targets,
+        [],
+    );
+});
+
+test("a boundary of an element offers that element's targets and keeps room for its indicators", () => {
+    const plain = buildGraph(
+        containers(),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+    const linked = buildGraph(
+        containers((json) => {
+            json.model.softwareSystems[0].url = "https://example.com/system";
+        }),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+
+    assert.deepEqual(plain.boundaries[0].targets, ["view"]);
+    assert.equal(plain.boundaries[0].elementId, "2");
+    assert.deepEqual(linked.boundaries[0].targets, ["link", "view"]);
+    assert.equal(linked.boundaries[0].indicators.width, 2 * 20 + 5);
+});
+
+test("a relationship offers its link and http(s) properties, and a glyph-only label when it says nothing", () => {
+    const graph = contextGraph((json) => {
+        const [relationship] = json.model.people[0].relationships;
+        relationship.url = "https://example.com/browses";
+        relationship.description = "";
+        relationship.technology = "";
+    });
+    const [edge] = graph.edges;
+
+    assert.deepEqual(edge.targets, ["link"]);
+    assert.ok(edge.labelBox, "the glyph needs a label to sit in");
+    assert.deepEqual(edge.labelLines, { description: [], technology: [] });
+    assert.deepEqual(edge.labelIndicators, {
+        x: 4,
+        y: 4,
+        width: 20,
+        height: 20,
+    });
+});
+
+test("an edge's accessible name reads source → target: description", () => {
+    const graph = contextGraph(() => {});
+    const bare = contextGraph((json) => {
+        json.model.people[0].relationships[0].description = "";
+    });
+
+    assert.equal(graph.edges[0].name, "Reader → Fixture System: Browses");
+    assert.equal(bare.edges[0].name, "Reader → Fixture System");
+});
+
+test("a boundary's accessible name reads its name, metadata and description, as an element's does", () => {
+    const [boundary] = buildGraph(
+        containers(),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    ).boundaries;
+    const [hidden] = buildGraph(containers(), "FixtureContainers", "light", {
+        ...LABELS,
+        descriptions: false,
+    }).boundaries;
+
+    assert.equal(
+        boundary.accessibleName,
+        "Fixture System\n[Software System]\nThe system under test",
+    );
+    assert.equal(
+        hidden.accessibleName,
+        "Fixture System\n[Software System]",
+        "the descriptions toggle hides it, as on an element",
+    );
+});
+
+test("a boundary's label band activates the element it is drawn for", () => {
+    const graph = buildGraph(
+        containers((json) => {
+            json.model.softwareSystems[0].url = "https://example.com/system";
+        }),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+    const [boundary] = graph.boundaries;
+    const item = graph.focusOrder.find((i) => i.type === "boundary");
+
+    assert.deepEqual(item.activation, { type: "element", id: "2" });
+    assert.deepEqual(item.box, {
+        ...boundary.band,
+        x: boundary.x + boundary.band.x,
+        y: boundary.y + boundary.band.y,
+    });
+});
+
+test("only items with targets are in the focus order, top to bottom then left to right", () => {
+    const graph = contextGraph((json) => {
+        json.model.people[0].url = "https://example.com/reader";
+        json.model.people[0].relationships[0].url = "https://example.com/r";
+    });
+
+    // The reader is at y 200, the edge's label between it and the system at
+    // y 800, which drills down.
+    assert.deepEqual(
+        graph.focusOrder.map(({ type, id }) => `${type}:${id}`),
+        ["element:1", "edge:10", "element:2"],
+    );
+    assert.deepEqual(
+        contextGraph((json) => {
+            json.views.systemContextViews.pop();
+        }).focusOrder,
+        [],
+    );
+});
+
+test("focusing an item already on screen leaves the viewport alone", () => {
+    const viewport = { x: 0, y: 0, zoom: 1 };
+    const size = { width: 800, height: 600 };
+
+    assert.equal(
+        panIntoView(viewport, { x: 100, y: 100, width: 50, height: 50 }, size),
+        null,
+    );
+});
+
+test("focusing an off-screen item pans it into view without changing zoom", () => {
+    const size = { width: 800, height: 600 };
+    // At zoom 2 the box spans 2000..2100 by -200..-100 on screen.
+    const panned = panIntoView(
+        { x: 0, y: -400, zoom: 2 },
+        { x: 1000, y: 100, width: 50, height: 50 },
+        size,
+    );
+
+    assert.equal(panned.zoom, 2);
+    // Its right edge lands 16 inside the right side, its top 16 below the top.
+    assert.equal(1000 * 2 + panned.x + 100, 800 - 16);
+    assert.equal(100 * 2 + panned.y, 16);
 });

@@ -37,6 +37,7 @@
  */
 
 import { type Bounds, boundsOf } from "./bounds";
+import { INDICATOR_SIZE, indicatorRowWidth } from "./indicators";
 import {
     breakLines,
     LINE_HEIGHT,
@@ -111,6 +112,8 @@ export type BoundaryLabel = {
     icon: boolean;
     /** A deployment node's `x<instances>`, from `formatInstanceCount`. */
     instances?: string;
+    /** How many indicator glyphs the band carries, left of the count. */
+    indicators?: number;
     /**
      * Whether the metadata, like the name, sets the minimum width: true for
      * a deployment node, as upstream sizes one.
@@ -138,6 +141,8 @@ export type DerivedBoundary = Bounds & {
     metadata?: TextBlock;
     iconBox?: Bounds;
     instances?: TextBlock;
+    /** The indicator row at the right end of the band (spec 9.2). */
+    indicators?: Bounds;
 };
 
 /**
@@ -193,7 +198,9 @@ function bandParts(label: BoundaryLabel, measure: MeasureText) {
         ? measure(label.instances, countSize, true)
         : 0;
     const left = label.icon ? iconSize + BAND_GAP : 0;
-    const right = label.instances ? countWidth + BAND_GAP : 0;
+    const count = label.instances ? countWidth + BAND_GAP : 0;
+    const rowWidth = indicatorRowWidth(label.indicators ?? 0);
+    const right = count + (rowWidth > 0 ? rowWidth + BAND_GAP : 0);
     return {
         nameSize,
         metadataSize,
@@ -201,6 +208,8 @@ function bandParts(label: BoundaryLabel, measure: MeasureText) {
         countSize,
         countWidth,
         left,
+        count,
+        rowWidth,
         right,
     };
 }
@@ -238,9 +247,9 @@ export function minimumWidth(label: BoundaryLabel, measure: MeasureText) {
 
 /**
  * Lay out the label band of a boundary `width` wide whose band starts at
- * `bandTop` (relative to the box), where its padded children end: the text wraps between the icon on the left
- * and the instance count on the right, and everything sits on the band's
- * bottom margin.
+ * `bandTop` (relative to the box), where its padded children end: the text
+ * wraps between the icon on the left and the indicators and instance count
+ * on the right, and everything sits on the band's bottom margin.
  */
 function layoutBand(
     label: BoundaryLabel,
@@ -280,6 +289,7 @@ function layoutBand(
         textHeight,
         label.icon ? parts.iconSize : 0,
         countHeight,
+        parts.rowWidth > 0 ? INDICATOR_SIZE : 0,
     );
     const bottom = bandTop + content;
     const textX = BAND_MARGIN + parts.left;
@@ -322,12 +332,24 @@ function layoutBand(
           }
         : undefined;
 
+    // Left of the count, on the text's last line (spec 9.2).
+    const indicators: Bounds | undefined =
+        parts.rowWidth > 0
+            ? {
+                  x: width - BAND_MARGIN - parts.count - parts.rowWidth,
+                  y: bottom - INDICATOR_SIZE,
+                  width: parts.rowWidth,
+                  height: INDICATOR_SIZE,
+              }
+            : undefined;
+
     return {
         band: { x: 0, y: bandTop, width, height: content + BAND_MARGIN },
         name,
         ...(metadata && { metadata }),
         ...(icon && { iconBox: icon }),
         ...(instances && { instances }),
+        ...(indicators && { indicators }),
     };
 }
 

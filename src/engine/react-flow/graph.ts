@@ -27,11 +27,16 @@ import {
     getMetadataForElement,
     getMetadataForRelationship,
     type ImageContent,
+    elementTargets,
+    type ModelElement,
+    type ModelRelationship,
+    relationshipTargets,
     type ResolvedBoundary,
     type ResolvedRelationship,
     type ResolvedView,
     resolveView,
     SCHEME_DEFAULTS,
+    type TargetKind,
     type ViewAnimation,
     type WorkspaceModel,
 } from "../../model/index";
@@ -58,7 +63,12 @@ import {
     layoutLabelRoom,
     placeEdgeLabels,
 } from "../geometry/edge-label";
-import { type IconPosition, iconPositionOf } from "../geometry/label";
+import { indicatorKinds } from "../geometry/indicators";
+import {
+    type IconPosition,
+    iconPositionOf,
+    labelText,
+} from "../geometry/label";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
     type RoutingElement,
@@ -81,9 +91,28 @@ import {
 } from "../geometry/unplaced";
 import { type LayoutBoundary, layOut } from "../layout/automatic";
 
-export type { Bounds, ColorScheme, Labels };
+export type { Bounds, ColorScheme, Labels, TargetKind };
 
 export type { Point };
+
+/** What was activated: an element (or its boundary) or a relationship. */
+export type ActivationType = "element" | "relationship";
+
+/** The element or relationship an item activates. */
+export type Activation = { type: ActivationType; id: string };
+
+/**
+ * What the reader can activate, by keyboard as by pointer (spec 6.2): an
+ * element, a boundary's label band or an edge's label, by its node id or
+ * edge key, with what it activates and the box focusing it brings on
+ * screen, in model units.
+ */
+export type FocusItem = {
+    type: "element" | "boundary" | "edge";
+    id: string;
+    activation: Activation;
+    box: Bounds;
+};
 
 export type ElementBox = {
     id: string;
@@ -123,11 +152,25 @@ export type ElementBox = {
     labelHeight: number;
     /** A deployment node's `x<instances>`, bottom-right inside its box. */
     instances?: TextBlock;
+    /**
+     * The kind of each target activating it offers, in order (spec 6.1).
+     * Empty: no indicators, no pointer cursor, not focusable.
+     */
+    targets: TargetKind[];
 };
 
 /** A boundary drawn around its children, with its label band (spec 8). */
 export type BoundaryBox = DerivedBoundary & {
     kind: BoundaryKind;
+    /** The element the boundary is drawn for, which its band activates. */
+    elementId?: string;
+    /** As an element's: what activating its label band offers. */
+    targets: TargetKind[];
+    /**
+     * Its accessible name and title: name, metadata and description, as an
+     * element's (spec 6.2).
+     */
+    accessibleName: string;
     /** 0 for an outermost boundary; inner ones are drawn above outer ones. */
     depth: number;
     /** 20 for the RoundedBox family, square otherwise. */
@@ -185,6 +228,12 @@ export type EdgeLine = {
      * they are; absent when the label says nothing.
      */
     labelLines?: Pick<EdgeLabelLayout, "description" | "technology">;
+    /** The indicator row inside `labelBox`, relative to its top-left. */
+    labelIndicators?: Bounds;
+    /** What activating it offers: its link and `http(s)` properties. */
+    targets: TargetKind[];
+    /** Its accessible name: "source → target: description" (spec 6.2). */
+    name: string;
     fontSize: number;
     /** The label's wrap width: the style's `width`. */
     labelWidth: number;
@@ -218,6 +267,7 @@ type EdgeDraft = Omit<
     | "labelPosition"
     | "labelBox"
     | "labelLines"
+    | "labelIndicators"
 > & {
     /** The view's stored position, which placement never nudges. */
     storedPosition?: number;
@@ -253,6 +303,8 @@ export type Graph = {
     placements: (Placement & { name: string })[];
     /** Authoring problems found while drawing, for the island to log once. */
     warnings: string[];
+    /** Every item with targets, in reading order: the Tab order (spec 6.2). */
+    focusOrder: FocusItem[];
     /** The steps the view plays, when it animates (spec 11). */
     animation?: ViewAnimation;
 };
@@ -409,7 +461,14 @@ export function buildGraph(
         bounds: NO_BOUNDS,
         placements: [],
         warnings: [],
+        focusOrder: [],
     });
+    const kindsFor = (element: ModelElement) =>
+        elementTargets(model, element, key).map((target) => target.kind);
+    const relationshipKinds = (relationship: ModelRelationship) =>
+        relationshipTargets(model, relationship, key).map(
+            (target) => target.kind,
+        );
 
     const error = findViewError(model, key);
     if (error) {
@@ -489,6 +548,7 @@ export function buildGraph(
                 ? labelHeightClearOf(geometry.content, instances)
                 : geometry.content.height,
             ...(instances && { instances }),
+            targets: kindsFor(placed.element),
         };
         elements.push(box);
         drawn.set(box.id, { box, geometry });
@@ -500,7 +560,20 @@ export function buildGraph(
             boundaryStyle(model, b, colorScheme),
         ]),
     );
-    const inputs = boundaryInputs(model, view.boundaries, styles, labels);
+    // Groups and the enterprise boundary lead nowhere.
+    const boundaryTargets = new Map(
+        view.boundaries.map((b) => [
+            b.id,
+            b.kind === "Element" ? kindsFor(b.element) : [],
+        ]),
+    );
+    const inputs = boundaryInputs(
+        model,
+        view.boundaries,
+        styles,
+        labels,
+        boundaryTargets,
+    );
     const keys = edgeKeys(view.relationships, drawn);
     const edges: EdgeDraft[] = [];
     const warnings: string[] = [];
@@ -557,12 +630,17 @@ export function buildGraph(
             technology,
             order: dynamic && style.description ? placed.order : undefined,
         });
+        const targets = relationshipKinds(relationship);
         const label = layoutEdgeLabel(
             text,
             style.fontSize,
             style.width,
             measure,
+            indicatorKinds(targets).length,
         );
+        // The full description, whatever the toggles and styles hide.
+        const said =
+            (dynamic && placed.description) || relationship.description;
         edges.push({
             key,
             id: placed.id,
@@ -574,6 +652,8 @@ export function buildGraph(
             ...(placed.order !== undefined && { order: placed.order }),
             ...text,
             ...(label && { label }),
+            targets,
+            name: `${from.box.name} → ${to.box.name}${said ? `: ${said}` : ""}`,
             storedPosition: placed.position,
             startPosition: placed.position ?? style.position,
             fontSize: style.fontSize,
@@ -622,8 +702,10 @@ export function buildGraph(
         view.boundaries,
         inputs,
         styles,
+        boundaryTargets,
         elements,
         colorScheme,
+        labels,
         measure,
     );
 
@@ -677,6 +759,9 @@ export function buildGraph(
                         technology: label.technology,
                     },
                 }),
+                ...(label?.indicators && {
+                    labelIndicators: label.indicators,
+                }),
             };
         },
     );
@@ -701,8 +786,65 @@ export function buildGraph(
             ...p,
             name: names.get(p.id) ?? "",
         })),
+        focusOrder: readingOrder(elements, drawnBoundaries, routed),
         ...(animation && { animation }),
     };
+}
+
+/**
+ * Every item with targets in reading order (spec 6.2): by the top, then the
+ * left, of an element's box, a boundary's label band or an edge's label.
+ */
+function readingOrder(
+    elements: ElementBox[],
+    boundaries: BoundaryBox[],
+    edges: EdgeLine[],
+): FocusItem[] {
+    const items: FocusItem[] = [
+        ...elements
+            .filter((e) => e.targets.length > 0)
+            .map((e) => ({
+                type: "element" as const,
+                id: e.id,
+                activation: { type: "element" as const, id: e.id },
+                box: { x: e.x, y: e.y, width: e.width, height: e.height },
+            })),
+        ...boundaries.flatMap((b) =>
+            b.targets.length > 0 && b.elementId
+                ? [
+                      {
+                          type: "boundary" as const,
+                          id: b.id,
+                          activation: {
+                              type: "element" as const,
+                              id: b.elementId,
+                          },
+                          box: {
+                              ...b.band,
+                              x: b.x + b.band.x,
+                              y: b.y + b.band.y,
+                          },
+                      },
+                  ]
+                : [],
+        ),
+        ...edges.flatMap((e) =>
+            e.targets.length > 0 && e.labelBox
+                ? [
+                      {
+                          type: "edge" as const,
+                          id: e.key,
+                          activation: {
+                              type: "relationship" as const,
+                              id: e.id,
+                          },
+                          box: e.labelBox,
+                      },
+                  ]
+                : [],
+        ),
+    ];
+    return items.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
 }
 
 /* --------------------------------------------------------------- layout */
@@ -881,6 +1023,7 @@ function boundaryInputs(
     resolved: ResolvedBoundary[],
     styles: ReadonlyMap<string, ElementStyle>,
     labels: Labels,
+    targets: ReadonlyMap<string, TargetKind[]>,
 ): BoundaryInput[] {
     return resolved.map((boundary) => {
         const style = styles.get(boundary.id)!;
@@ -895,6 +1038,8 @@ function boundaryInputs(
                 icon: Boolean(style.icon),
                 instances: formatInstanceCount(element?.instances),
                 metadataSetsWidth: element?.type === "DeploymentNode",
+                indicators: indicatorKinds(targets.get(boundary.id) ?? [])
+                    .length,
             },
         };
     });
@@ -908,8 +1053,10 @@ function boundaryBoxes(
     resolved: ResolvedBoundary[],
     inputs: BoundaryInput[],
     styles: ReadonlyMap<string, ElementStyle>,
+    targets: ReadonlyMap<string, TargetKind[]>,
     elements: ElementBox[],
     scheme: ModelColorScheme,
+    labels: Labels,
     measure: MeasureText,
 ): BoundaryBox[] {
     const derived = new Map(
@@ -926,9 +1073,24 @@ function boundaryBoxes(
         if (!box) continue;
         const style = styles.get(boundary.id)!;
         const defaults = SCHEME_DEFAULTS[scheme];
+        const description =
+            boundary.kind === "Element" &&
+            labels.descriptions &&
+            style.description
+                ? boundary.element.description ?? ""
+                : "";
         boxes.push({
             ...box,
             kind: boundary.kind,
+            ...(boundary.kind === "Element" && {
+                elementId: boundary.element.id,
+            }),
+            targets: targets.get(boundary.id) ?? [],
+            accessibleName: labelText(
+                box.name.lines.join(" "),
+                box.metadata?.lines.join(" ") ?? "",
+                description,
+            ),
             depth: boundary.depth,
             radius: boundaryRadius(style.shape),
             background: style.background,
@@ -972,6 +1134,41 @@ export function zoomLimits(
     const floor = moved ? Math.min(fit, zoom) : fit;
     const ceiling = Math.max(4, fit * 4, moved ? zoom : 0);
     return { floor, ceiling };
+}
+
+/** A React Flow viewport: a model point `p` is on screen at `p * zoom + x`. */
+export type Viewport = { x: number; y: number; zoom: number };
+
+/** How far inside the canvas an item focused off screen comes to rest. */
+const FOCUS_MARGIN = 16;
+
+/** The shift along one axis that brings `[start, end]` inside `[0, length]`. */
+function shiftInto(start: number, end: number, length: number): number {
+    const low = FOCUS_MARGIN;
+    const high = length - FOCUS_MARGIN;
+    // Too big to fit: show its start.
+    if (end - start > high - low || start < low) return low - start;
+    if (end > high) return high - end;
+    return 0;
+}
+
+/**
+ * The viewport that brings `box` (model units) on screen in a canvas of
+ * `size`, moved as little as possible and at the same zoom; `null` when it
+ * is already in view (spec 6.2).
+ */
+export function panIntoView(
+    viewport: Viewport,
+    box: Bounds,
+    size: Size,
+): Viewport | null {
+    const { zoom } = viewport;
+    const left = box.x * zoom + viewport.x;
+    const top = box.y * zoom + viewport.y;
+    const dx = shiftInto(left, left + box.width * zoom, size.width);
+    const dy = shiftInto(top, top + box.height * zoom, size.height);
+    if (dx === 0 && dy === 0) return null;
+    return { x: viewport.x + dx, y: viewport.y + dy, zoom };
 }
 
 /**

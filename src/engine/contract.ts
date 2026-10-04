@@ -35,6 +35,12 @@ export type AnimationState = {
 };
 
 /**
+ * Where an activation happened, in viewport (client) coordinates: under the
+ * pointer, or below the focused item for a key. The target menu opens there.
+ */
+export type Anchor = { x: number; y: number };
+
+/**
  * The state of a view that does not animate, and of every animation before
  * an engine has said anything: no steps, the full view, not playing. Shared
  * by the player, the toolbar and the Structurizr adapter.
@@ -61,10 +67,7 @@ export type AnimationControls = {
     onAnimationChanged(callback: (state: AnimationState) => void): () => void;
 };
 
-/**
- * Spec section 5 but for the activation members, which arrive with their
- * own ticket.
- */
+/** The engine contract of spec section 5. */
 export type Engine = AnimationControls & {
     showView(key: string): void;
     setColorScheme(scheme: ColorScheme): void;
@@ -77,6 +80,16 @@ export type Engine = AnimationControls & {
 
     onViewShown(
         callback: (view: ModelView, animation: AnimationState) => void,
+    ): () => void;
+    /**
+     * An element, or a boundary drawn for one, was activated. The engine
+     * never navigates: the page resolves its targets (spec 6.1).
+     */
+    onElementActivated(
+        callback: (elementId: string, anchor: Anchor) => void,
+    ): () => void;
+    onRelationshipActivated(
+        callback: (relationshipId: string, anchor: Anchor) => void,
     ): () => void;
 
     unmount(): void;

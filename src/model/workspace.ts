@@ -22,6 +22,7 @@
  * ordering, terminology and view titles the model layer needs.
  */
 
+import { sectionId } from "./documentation";
 import type {
     ElementType,
     ModelElement,
@@ -85,6 +86,11 @@ export class WorkspaceModel {
     readonly model: Json;
     readonly views: Json;
     readonly configuration: Json;
+    /**
+     * The ids the documentation and decisions pages address, empty where the
+     * workspace has none: what an element link may lead to (spec 6.1).
+     */
+    readonly documentation: { sections: string[]; decisions: string[] };
 
     #elementsById = new Map<string, ModelElement>();
     #relationshipsById = new Map<string, ModelRelationship>();
@@ -104,6 +110,14 @@ export class WorkspaceModel {
         workspace.views ??= {};
         this.views = workspace.views;
         this.configuration = this.#initViews();
+
+        const documentation = workspace.documentation ?? {};
+        this.documentation = {
+            sections: (documentation.sections ?? []).map(sectionId),
+            decisions: (documentation.decisions ?? []).map((decision: Json) =>
+                String(decision.id),
+            ),
+        };
     }
 
     #initModel() {

@@ -941,6 +941,131 @@ test(
     },
 );
 
+/* ------------------------------- activation targets and keyboard (#48) */
+
+const TARGETS_FIXTURE = new URL(
+    "./__fixtures__/activation-targets.json",
+    import.meta.url,
+);
+
+const targetsBuild = once(async () => {
+    const out = join(SCRATCH, "react-flow-targets");
+    const result = await runCli(
+        [
+            TARGETS_FIXTURE.pathname,
+            "--out",
+            out,
+            "--single-file",
+            "--engine",
+            "react-flow",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return out;
+});
+
+const indicatorsOf = (item) =>
+    item
+        .querySelectorAll("[data-indicator]")
+        .map((glyph) => glyph.getAttribute("data-indicator"));
+
+test(
+    "--engine react-flow: the canvas is one focusable region labeled with the view's title",
+    { skip: SKIP },
+    async () => {
+        const document = await render(
+            viewUrlIn(await targetsBuild(), "Landscape"),
+        );
+        const root = document.querySelector(
+            "#structurizr-diagram-target [data-view-key]",
+        );
+
+        assert.equal(root.getAttribute("data-ready"), "true");
+        assert.equal(root.getAttribute("role"), "group");
+        assert.equal(root.getAttribute("aria-label"), "Landscape");
+        assert.equal(root.getAttribute("tabindex"), "0");
+    },
+);
+
+test(
+    "--engine react-flow: an element with targets shows one glyph per kind and is reachable; one without is inert",
+    { skip: SKIP },
+    async () => {
+        const document = await render(
+            viewUrlIn(await targetsBuild(), "Landscape"),
+        );
+        const shop = document.querySelector('[data-element-id="2"]');
+        const payments = document.querySelector('[data-element-id="3"]');
+
+        assert.equal(shop.getAttribute("role"), "button");
+        assert.equal(shop.getAttribute("tabindex"), "-1");
+        assert.equal(shop.getAttribute("aria-haspopup"), "menu");
+        assert.deepEqual(indicatorsOf(shop), ["link", "view"]);
+        assert.match(
+            shop.getAttribute("aria-label"),
+            /^Shop\n\[Software System\]/,
+        );
+
+        assert.equal(payments.getAttribute("role"), null);
+        assert.equal(payments.getAttribute("tabindex"), null);
+        assert.deepEqual(indicatorsOf(payments), []);
+    },
+);
+
+test(
+    "--engine react-flow: a relationship with a link takes clicks on a hit stroke and its label, which holds only a glyph when it says nothing",
+    { skip: SKIP },
+    async () => {
+        const document = await render(
+            viewUrlIn(await targetsBuild(), "Landscape"),
+        );
+        const buys = document.querySelector('[data-relationship-label="10"]');
+        const glyphOnly = document.querySelector(
+            '[data-relationship-label="12"]',
+        );
+        const plain = document.querySelector('[data-relationship-label="11"]');
+
+        assert.equal(
+            buys.getAttribute("aria-label"),
+            "Customer → Shop: Buys from",
+        );
+        assert.equal(buys.getAttribute("role"), "button");
+        assert.ok(
+            document.querySelector(
+                '[data-relationship-id="10"] [data-hit-stroke]',
+            ),
+            "the line takes clicks",
+        );
+        assert.deepEqual(indicatorsOf(glyphOnly), ["link"]);
+        assert.equal(glyphOnly.textContent.trim(), "");
+        assert.equal(plain.getAttribute("role"), null);
+        assert.equal(
+            document.querySelector(
+                '[data-relationship-id="11"] [data-hit-stroke]',
+            ),
+            null,
+            "a relationship without targets takes no clicks",
+        );
+    },
+);
+
+test(
+    "--engine react-flow: a boundary's label band carries its element's indicators",
+    { skip: SKIP },
+    async () => {
+        const document = await render(
+            viewUrlIn(await targetsBuild(), "ShopContainers"),
+        );
+        const band = document.querySelector(
+            '[data-boundary-id="2"] [data-boundary-label]',
+        );
+
+        assert.equal(band.getAttribute("role"), "button");
+        assert.deepEqual(indicatorsOf(band), ["link", "view"]);
+    },
+);
+
 /* ------------------------------------------------------------- animation */
 
 /** The committed animation fixture, built once as a single React Flow file. */

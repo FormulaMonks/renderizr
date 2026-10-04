@@ -3,16 +3,25 @@ import { createRoot, type Root } from "react-dom/client";
 import { type ModelView, WorkspaceModel } from "../../model";
 import {
     abortError,
+    type Anchor,
     type Engine,
     type EngineOptions,
     whenMeasurable,
 } from "../contract";
 import { AnimationPlayer } from "./animation";
 import type { Graph } from "./graph";
-import { type IslandCommands, IslandStore, Island } from "./island";
+import {
+    type IslandCommands,
+    type IslandProps,
+    IslandStore,
+    Island,
+} from "./island";
 import { engineReport } from "./report";
 import { removeReport, writeReport } from "./report-script";
 import { ShownListeners } from "./shown";
+
+/** Hears that an element or a relationship was activated, and where. */
+type ActivationListener = (id: string, anchor: Anchor) => void;
 
 /**
  * Mount the React Flow engine into `target` and resolve once the first view
@@ -65,6 +74,22 @@ export function mountEngine(
             return view;
         };
         const shown = new ShownListeners<ModelView>();
+        const activated = {
+            element: new Set<ActivationListener>(),
+            relationship: new Set<ActivationListener>(),
+        };
+        const listen = (
+            listeners: Set<ActivationListener>,
+            callback: ActivationListener,
+        ) => {
+            listeners.add(callback);
+            return () => {
+                listeners.delete(callback);
+            };
+        };
+        const onActivate: IslandProps["onActivate"] = (type, id, anchor) => {
+            for (const callback of activated[type]) callback(id, anchor);
+        };
 
         const engine: Engine = {
             showView(key) {
@@ -105,11 +130,17 @@ export function mountEngine(
                 // A late subscriber still hears about the view already shown.
                 return shown.add((view) => callback(view, player.state));
             },
+            onElementActivated: (callback) =>
+                listen(activated.element, callback),
+            onRelationshipActivated: (callback) =>
+                listen(activated.relationship, callback),
             unmount() {
                 stopWaiting();
                 shown.clear();
                 player.dispose();
                 document.removeEventListener("visibilitychange", onVisibility);
+                activated.element.clear();
+                activated.relationship.clear();
                 root?.unmount();
                 root = null;
                 if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
@@ -148,6 +179,7 @@ export function mountEngine(
                     onPainted,
                     onRedrawn,
                     onEscape: () => player.stop(),
+                    onActivate,
                 }),
             );
         });
