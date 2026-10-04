@@ -82,6 +82,14 @@ export const ACCEPTANCE_SET = [
         source: join(REPO_ROOT, "test/__fixtures__/view-types.json"),
         submodule: false,
     },
+    {
+        // structurizr/ui's Big Bank, every view with its stored layout: the
+        // other Big Bank lays every view out automatically, so the layouts
+        // Structurizr's editor saves were never drawn here (#72).
+        name: "Big Bank plc (stored layout)",
+        source: join(REPO_ROOT, "test/__fixtures__/big-bank-plc-stored.json"),
+        submodule: false,
+    },
 ];
 
 /** The committed copies of remote themes, beside this repository's fixtures. */

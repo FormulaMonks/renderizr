@@ -240,13 +240,16 @@ export function elementsInsideBoundaries(report, expected) {
 }
 
 /**
- * No boundary overlaps a boundary neither inside nor round it, or an element
- * it is not drawn around; touching is fine. Dagre never sizes a boundary
- * (spec 7.1), so this is what holds the engine to making room for them.
- * Which boundaries are round what comes from `expected.nesting`, as in
- * `elementsInsideBoundaries`; without it, from the report's own `children`.
+ * In an automatic layout, no boundary overlaps a boundary neither inside nor
+ * round it, or an element it is not drawn around; touching is fine. Dagre
+ * never sizes a boundary (spec 7.1), so this is what holds the engine to
+ * making room for them. A stored layout is drawn where its author put it,
+ * overlaps and all. Which boundaries are round what comes from
+ * `expected.nesting`, as in `elementsInsideBoundaries`; without it, from the
+ * report's own `children`.
  */
 export function noOverlappingBoundaries(report, expected) {
+    if (expected && !isAutomatic(expected)) return [];
     const nesting =
         expected?.nesting ??
         Object.fromEntries(

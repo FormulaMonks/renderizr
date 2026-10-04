@@ -424,12 +424,29 @@ test("a boundary may overlap what it is drawn round, at any depth, but no other 
     });
     const problems = noOverlappingBoundaries(drawn, {
         ...RESOLVED,
+        layout: "automatic",
         nesting: { 9: ["8"], 8: ["1"] },
     });
     assert.deepEqual(
         problems,
         ["boundary 9 overlaps element 2, which it is not drawn around"],
         problems.join("\n"),
+    );
+});
+
+test("a stored layout's boundaries are drawn where the author's coordinates put them, overlaps and all", () => {
+    const drawn = report({
+        elements: [box("1", 50, 50), box("2", 280, 50)],
+        boundaries: [
+            boundaryAt("8", 0, 0, ["1"]),
+            boundaryAt("9", 250, 0, ["2"]),
+        ],
+    });
+    const problems = noOverlappingBoundaries(drawn, RESOLVED);
+    assert.deepEqual(
+        problems,
+        [],
+        "a stored layout is drawn as the author placed it",
     );
 });
 
