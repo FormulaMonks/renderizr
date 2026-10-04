@@ -58,9 +58,7 @@ after(() => rm(SCRATCH, { recursive: true, force: true }));
 
 /**
  * Spec 15.2: an ordinary acceptance view is painted within 2 s. An entry of
- * the set can allow more with `readyWithinMs`, as the large fixture does,
- * and name in `slowViews` the views that cannot meet it yet, each with the
- * reason, to report their time as a todo.
+ * the set can allow more with `readyWithinMs`, as the large fixture does.
  */
 const READY_WITHIN_MS = 2000;
 
@@ -158,12 +156,12 @@ const chromeLaunch = () => {
  * view over the limit is opened again, up to `TIMED_RUNS` times, and the
  * fastest run is the one read, as `launchCost` takes the least of its runs.
  */
-async function drawView(site, key, readyWithin, runs = TIMED_RUNS) {
+async function drawView(site, key, readyWithin) {
     // Measured before the first view opens, so that view is not the one to
     // pay for Chrome's cold start, which `launchCost` would not take off.
     const launched = await chromeLaunch();
     let page;
-    for (let run = 0; run < runs; run++) {
+    for (let run = 0; run < TIMED_RUNS; run++) {
         const next = await renderPage(CHROME, viewUrl(site, key), {
             offline: true,
         });
@@ -202,10 +200,7 @@ for (const entry of ACCEPTANCE_SET) {
             // and the wall-clock time to the document is the budget.
             const views = new Map();
             for (const key of keys) {
-                // A view known to be slow is opened once: it is slow every
-                // time, and each run costs its whole time again.
-                const runs = entry.slowViews?.[key] ? 1 : TIMED_RUNS;
-                views.set(key, await drawView(site, key, readyWithin, runs));
+                views.set(key, await drawView(site, key, readyWithin));
             }
             return views;
         });
@@ -225,7 +220,7 @@ for (const entry of ACCEPTANCE_SET) {
         test(`view ${key} of ${entry.name} is drawn as the workspace says`, async (t) => {
             const view = (await draw()).get(key);
 
-            await t.test(`is painted within ${readyWithin} ms`, (timed) => {
+            await t.test(`is painted within ${readyWithin} ms`, () => {
                 assert.equal(
                     view.viewKey,
                     key,
@@ -234,10 +229,6 @@ for (const entry of ACCEPTANCE_SET) {
                 assert.ok(view.ready, "data-ready never turned true");
                 assert.ok(view.report, "no #engine-report in the document");
                 const slow = readyInTime(view.readyIn, readyWithin);
-                // A view the engine cannot paint in time yet still has to
-                // paint: only the time is a todo, with the reason.
-                const pending = entry.slowViews?.[key];
-                if (pending) timed.todo(pending);
                 assert.deepEqual(slow, [], slow.join("\n"));
             });
             if (!view.report) return;

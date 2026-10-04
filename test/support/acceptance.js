@@ -114,13 +114,6 @@ export const ACCEPTANCE_SET = [
         source: join(REPO_ROOT, "test/__fixtures__/large-landscape.json"),
         submodule: false,
         readyWithinMs: 5000,
-        slowViews: {
-            // Measured at 10.6 s in headless Chrome, all but 1.3 s of it in
-            // Dagre's network-simplex ranker over the 20 compound groups, so
-            // no lever of spec 15.3 on routing or rendering brings it under.
-            LargeLandscapeAutomatic:
-                "Dagre ranks this view in about 9 s; the 5 s budget needs a decision on the ranker (#51)",
-        },
     },
     {
         // The purpose-built workspace of spec 15.3: every shape, icon
