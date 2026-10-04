@@ -199,7 +199,8 @@ export function consoleMessages(stderr) {
  * Load `url` and resolve with the serialized DOM, every console message the
  * page wrote while it loaded, and `elapsed`: the wall-clock milliseconds from
  * launching Chrome to the document arriving. Rejects if Chrome fails or takes
- * longer than `timeout`.
+ * longer than `timeout`. `flags` are extra Chrome switches for this run, such
+ * as `--force-prefers-reduced-motion`.
  *
  * The page cannot time itself here. `--virtual-time-budget` fakes every clock
  * inside it, `performance.now()` and `Date.now()` alike, and skips the waits
@@ -212,13 +213,13 @@ export function consoleMessages(stderr) {
 export async function renderPage(
     chrome,
     url,
-    { timeout = 60_000, offline = false } = {},
+    { timeout = 60_000, offline = false, flags = [] } = {},
 ) {
     const launched = performance.now();
     const { out, err } = await runChrome(
         chrome,
         url,
-        ["--dump-dom", ...(offline ? OFFLINE_FLAGS : [])],
+        ["--dump-dom", ...(offline ? OFFLINE_FLAGS : []), ...flags],
         { timeout, isDone: documentComplete },
     );
     return {

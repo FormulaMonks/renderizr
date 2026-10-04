@@ -331,7 +331,8 @@
                     {
                         "tag": "Person",
                         "shape": "Person",
-                        "background": "#08427b"
+                        "background": "#08427b",
+                        "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
                     },
                     {
                         "tag": "Container",
