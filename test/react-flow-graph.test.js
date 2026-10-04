@@ -547,6 +547,70 @@ for (const key of BIG_BANK_VIEWS)
         assert.deepEqual(graph.placements, [], "nothing was unplaced");
     });
 
+/** Big Bank with every view's separations set to `separation`. */
+const bigBankSeparatedBy = (separation) => {
+    const json = structuredClone(BIG_BANK);
+    for (const view of Object.values(json.views).filter(Array.isArray).flat())
+        if (view.automaticLayout)
+            Object.assign(view.automaticLayout, {
+                rankSeparation: separation,
+                nodeSeparation: separation,
+            });
+    return json;
+};
+
+/**
+ * Each boundary of `graph` that overlaps a boundary neither inside nor
+ * round it, or an element it is not drawn around.
+ */
+const foreignOverlaps = (graph) => {
+    const ancestors = ancestorsIn(graph);
+    const parent = new Map();
+    for (const boundary of graph.boundaries)
+        for (const child of boundary.children) parent.set(child, boundary.id);
+    const around = (id) => {
+        const ids = [];
+        for (let p = parent.get(id); p; p = parent.get(p)) ids.push(p);
+        return ids;
+    };
+    const problems = [];
+    for (const [i, a] of graph.boundaries.entries()) {
+        for (const b of graph.boundaries.slice(i + 1))
+            if (
+                !around(a.id).includes(b.id) &&
+                !around(b.id).includes(a.id) &&
+                overlaps(a, b)
+            )
+                problems.push(`boundaries ${a.id} and ${b.id}`);
+        for (const element of graph.elements)
+            if (
+                !ancestors.get(element.id).includes(a.id) &&
+                overlaps(a, element)
+            )
+                problems.push(`boundary ${a.id} and element ${element.id}`);
+    }
+    return problems;
+};
+
+for (const separation of [300, 100, 50])
+    test(`at separations of ${separation}, no Big Bank boundary overlaps a sibling or an element it is not drawn around`, () => {
+        const model = new WorkspaceModel(bigBankSeparatedBy(separation));
+        for (const key of BIG_BANK_VIEWS) {
+            const graph = buildGraph(model, key, "light", LABELS);
+            assert.ok(graph.boundaries.length + graph.elements.length > 1);
+            assert.deepEqual(
+                foreignOverlaps(graph),
+                [],
+                `${key}: boundaries overlap what they are not drawn around`,
+            );
+            assert.deepEqual(
+                overlapping(graph),
+                [],
+                `${key}: elements overlap`,
+            );
+        }
+    });
+
 /**
  * The gaps between Big Bank's Containers ranks under upstream's renderer,
  * top to bottom, read off its Dagre call in Chrome: three rank separations

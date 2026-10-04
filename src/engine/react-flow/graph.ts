@@ -36,6 +36,7 @@ import {
 
 import type { ColorScheme, Labels } from "../contract";
 import {
+    BOUNDARY_PADDING,
     type BoundaryInput,
     boundaryRadius,
     type DerivedBoundary,
@@ -70,6 +71,7 @@ import type {
     ShapeGeometry,
     ShapePart,
 } from "../geometry/shapes/types";
+import { spaceBoundaries } from "../geometry/spacing";
 import {
     type DeriveBoundaries,
     type Placement,
@@ -789,9 +791,26 @@ function positionElements(
             },
             view.automaticLayout,
         );
+        // Dagre never sees how big a derived boundary is, so make the room
+        // it did not leave between a boundary and its neighbors: the padding
+        // a boundary keeps from its own children. At Structurizr's 300
+        // separations Dagre leaves at least that, and nothing moves; spec
+        // 7.2's 60 would move Big Bank's Live deployment.
+        const { rankDirection } = view.automaticLayout;
+        const spaced = spaceBoundaries({
+            elements: layout.boxes,
+            parent,
+            boundaries,
+            vertices: layout.edges,
+            gap: BOUNDARY_PADDING,
+            rankAxis:
+                rankDirection === "LeftRight" || rankDirection === "RightLeft"
+                    ? "x"
+                    : "y",
+        });
         const moved = new Map<string, Point>();
-        for (const [id, { x, y }] of layout.boxes) moved.set(id, { x, y });
-        return { moved, vertices: layout.edges, placements: [] };
+        for (const [id, { x, y }] of spaced.elements) moved.set(id, { x, y });
+        return { moved, vertices: spaced.vertices, placements: [] };
     }
 
     const unplaced = new Set(view.unplaced);
