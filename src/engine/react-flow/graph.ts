@@ -418,8 +418,8 @@ function boundaryStyle(
 
 /**
  * What a boundary's band says under its name: an element's metadata, unless
- * its style hides it. A group and the enterprise boundary show their name
- * alone (spec 8).
+ * its style or the technologies toggle hides it. A group and the enterprise
+ * boundary show their name alone (spec 8).
  */
 function boundaryMetadata(
     model: WorkspaceModel,
@@ -427,8 +427,9 @@ function boundaryMetadata(
     style: ElementStyle,
     labels: Labels,
 ): string {
-    if (boundary.kind !== "Element" || !style.metadata) return "";
-    return getMetadataForElement(model, boundary.element, labels.technologies);
+    if (boundary.kind !== "Element" || !style.metadata || !labels.technologies)
+        return "";
+    return getMetadataForElement(model, boundary.element, true);
 }
 
 /**
@@ -518,13 +519,11 @@ export function buildGraph(
             shape: geometry.shape,
             parts: geometry.parts,
             name: placed.element.name,
-            metadata: style.metadata
-                ? getMetadataForElement(
-                      model,
-                      placed.element,
-                      labels.technologies,
-                  )
-                : "",
+            // The technologies toggle hides the whole line, the type with it.
+            metadata:
+                style.metadata && labels.technologies
+                    ? getMetadataForElement(model, placed.element, true)
+                    : "",
             description:
                 labels.descriptions && style.description
                     ? placed.element.description ?? ""
@@ -607,19 +606,17 @@ export function buildGraph(
                 : relationship,
             colorScheme,
         );
-        // Only a dynamic view tells its own story about a relationship.
-        const description =
-            labels.descriptions && style.description
-                ? (dynamic && placed.description) ||
-                  relationship.description ||
-                  ""
-                : "";
+        // Only a dynamic view tells its own story about a relationship. The
+        // descriptions toggle is for elements: an edge keeps its description.
+        const description = style.description
+            ? (dynamic && placed.description) || relationship.description || ""
+            : "";
         const technology =
             style.metadata && labels.technologies
                 ? getMetadataForRelationship(model, relationship)
                 : "";
-        // The descriptions toggle leaves a step's order showing; the style's
-        // `description: false` hides it with the description, as upstream.
+        // The style's `description: false` hides a step's order with the
+        // description, as upstream.
         const text = edgeLabelText({
             description,
             technology,

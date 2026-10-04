@@ -195,16 +195,24 @@ test("an edge ends on the drawn outline of a shape, not on its box", () => {
     );
 });
 
-test("labels hide descriptions and technologies", () => {
+test("labels hide element descriptions, element metadata and edge technologies", () => {
     const graph = buildGraph(model(), "FixtureContext", "light", {
         descriptions: false,
         technologies: false,
     });
 
     assert.equal(graph.elements[1].description, "");
-    assert.equal(graph.edges[0].description, "", "the edge's description");
+    for (const element of graph.elements) {
+        assert.equal(element.metadata, "", `${element.name}'s metadata`);
+    }
+    assert.equal(
+        graph.edges[0].description,
+        "Browses",
+        "the edge keeps its description",
+    );
     assert.equal(graph.edges[0].technology, "", "the edge's technology");
     const shown = buildGraph(model(), "FixtureContext", "light", LABELS);
+    assert.equal(shown.elements[0].metadata, "[Person]", "shown metadata");
     assert.equal(shown.edges[0].description, "Browses", "shown description");
     assert.equal(shown.edges[0].technology, "[HTTPS]", "shown technology");
 });
@@ -1294,17 +1302,13 @@ test("a dynamic view's label is its order, then the view's description, then the
     );
 });
 
-test("a dynamic view's label keeps its order with descriptions toggled off", () => {
+test("a dynamic view's label keeps its description with descriptions toggled off", () => {
     const steps = [{ id: "10", order: "3", description: "Opens the site" }];
     const toggledOff = dynamicGraph(steps, undefined, {
         descriptions: false,
         technologies: true,
     });
-    assert.equal(
-        toggledOff.edges[0].description,
-        "3",
-        "the order alone, with descriptions toggled off",
-    );
+    assert.equal(toggledOff.edges[0].description, "3: Opens the site");
 });
 
 test("description: false in a dynamic view hides the order too, as upstream does", () => {
@@ -1590,10 +1594,11 @@ test("on the stored-layout Big Bank's Containers, the customer's edges enter the
 });
 
 test("an edge with nothing to say has no label", () => {
-    const [edge] = buildGraph(model(), "FixtureContext", "light", {
-        descriptions: false,
-        technologies: false,
-    }).edges;
+    const [edge] = contextGraph(
+        (json) => relationshipStyle(json, { description: false }),
+        "light",
+        { descriptions: true, technologies: false },
+    ).edges;
     assert.equal(edge.labelBox, undefined, "no label box");
     assert.equal(edge.labelLines, undefined, "no label lines");
 });

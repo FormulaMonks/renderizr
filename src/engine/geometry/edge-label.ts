@@ -42,7 +42,7 @@ export type EdgeLabelText = {
 /**
  * The label's two parts. In a dynamic view the description is prefixed
  * `order: `, and the order shows alone when there is no description to show,
- * so a step can still be told apart with descriptions toggled off.
+ * so a step without one can still be told apart.
  */
 export function edgeLabelText(parts: {
     description: string;
