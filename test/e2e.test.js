@@ -1135,6 +1135,17 @@ const opacity = (element) => {
 };
 const viewport = () =>
     canvas().querySelector(".react-flow__viewport").style.transform;
+// The font swap re-derives the boundaries and refits the view, later on a
+// busy machine; wait for it so the full view's viewport is the final one.
+const settled = async () => {
+    await document.fonts.ready;
+    let last = viewport();
+    for (let tries = 0; tries < 40; tries++) {
+        await sleep(100);
+        if (viewport() === last) return;
+        last = viewport();
+    }
+};
 const shots = [];
 const shoot = (name) => {
     for (const animation of document.getAnimations()) animation.finish();
@@ -1186,6 +1197,7 @@ const probeAnimation = async (name, view, scenario, { flags = [] } = {}) => {
     ${PROBE_HELPERS}
     try {
         await until(() => canvas()?.dataset.ready === "true");
+        await settled();
         ${scenario}
     } catch (error) {
         shots.push({ name: "error", error: String(error) });
