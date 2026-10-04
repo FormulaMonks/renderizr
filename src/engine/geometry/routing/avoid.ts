@@ -89,6 +89,23 @@ function withinReach(
 /* ---------------- Direct */
 
 /**
+ * Whether the Direct route from `from` to `to` is the straight line between
+ * them: it crosses none of the `elements` grown by `padding`, nor
+ * `sourceAndTarget`, the edge's own source and target boxes. Side choice
+ * asks the same question before any end is placed (`chooseSides`).
+ */
+export function isStraightClear(
+    from: Point,
+    to: Point,
+    elements: Rect[],
+    sourceAndTarget: Rect[],
+    padding: number,
+): boolean {
+    const obstacles = obstaclesFor(elements, [from, to], padding);
+    return isClear(from, to, [...obstacles, ...sourceAndTarget]);
+}
+
+/**
  * The Direct route from `from` to `to` (spec 10.2): straight when nothing is
  * in the way, otherwise the shortest route through the corners of the
  * `elements` grown by `padding`, with `BEND_PENALTY` per bend.
@@ -103,10 +120,10 @@ export function directRoute(
     sourceAndTarget: Rect[],
     padding: number,
 ): Point[] {
-    const obstacles = obstaclesFor(elements, [from, to], padding);
-    if (isClear(from, to, [...obstacles, ...sourceAndTarget])) {
+    if (isStraightClear(from, to, elements, sourceAndTarget, padding)) {
         return [from, to];
     }
+    const obstacles = obstaclesFor(elements, [from, to], padding);
     const around = sourceAndTarget.map((box) => grow(box, padding));
     return (
         withinReach(from, to, obstacles, padding, (active) =>

@@ -986,6 +986,68 @@ test("a label keeps clear of a boundary's label band", () => {
     }
 });
 
+/** The side of `box` nearest `point`: the one an edge end sits on. */
+function nearestSide(point, box) {
+    const distances = {
+        top: Math.abs(point.y - box.y),
+        right: Math.abs(point.x - (box.x + box.width)),
+        bottom: Math.abs(point.y - (box.y + box.height)),
+        left: Math.abs(point.x - box.x),
+    };
+    return Object.keys(distances).reduce((a, b) =>
+        distances[b] < distances[a] ? b : a,
+    );
+}
+
+test("on the stored-layout Big Bank's Containers, the customer's edges enter the apps' tops and every label is clear", () => {
+    // Choosing sides by length plus axis-aligned bends sent both edges into
+    // the apps' sides, along their edges, 52 apart: neither label found a
+    // clear spot, and one covered the other and Mobile App (#72).
+    const json = JSON.parse(
+        readFileSync(
+            new URL("./__fixtures__/big-bank-plc-stored.json", import.meta.url),
+            "utf-8",
+        ),
+    );
+    const graph = buildGraph(
+        new WorkspaceModel(json),
+        "Containers",
+        "light",
+        LABELS,
+    );
+    const byId = new Map(graph.elements.map((e) => [e.id, e]));
+    // 29 and 30: Personal Banking Customer to Single-Page Application (17)
+    // and to Mobile App (18).
+    for (const [id, targetId] of [
+        ["29", "17"],
+        ["30", "18"],
+    ]) {
+        const edge = graph.edges.find((e) => e.id === id);
+        const target = byId.get(targetId);
+        const side = nearestSide(edge.target, target);
+        assert.equal(
+            side,
+            "top",
+            `edge ${id} enters ${target.name} by its ${side}`,
+        );
+    }
+    const labelled = graph.edges.filter((e) => e.labelBox);
+    for (const [i, edge] of labelled.entries()) {
+        for (const element of graph.elements) {
+            assert.ok(
+                !overlap(edge.labelBox, element),
+                `edge ${edge.id}'s label covers ${element.name}`,
+            );
+        }
+        for (const other of labelled.slice(i + 1)) {
+            assert.ok(
+                !overlap(edge.labelBox, other.labelBox),
+                `edge ${edge.id}'s label covers edge ${other.id}'s`,
+            );
+        }
+    }
+});
+
 test("an edge with nothing to say has no label", () => {
     const [edge] = buildGraph(model(), "FixtureContext", "light", {
         descriptions: false,
