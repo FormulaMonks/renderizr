@@ -15,9 +15,12 @@ const { WorkspaceModel } = await importSrc("model/index");
 const { default: DiagramNavigation } = await importSrc(
     "components/diagram-navigation",
 );
-const { default: CurrentView } = await importSrc("components/current-view");
+const { default: CurrentView, DIAGRAM_THEME_STORAGE_KEY } = await importSrc(
+    "components/current-view",
+);
+const theme = await importSrc("components/theme");
 
-const { document } = dom;
+const { document, window } = dom;
 
 const model = new WorkspaceModel(
     JSON.parse(
@@ -229,4 +232,51 @@ test("clearing the toolbar stops listening to the engine", () => {
     const { toolbar } = animatedToolbar(animation);
     toolbar.clear();
     assert.equal(animation.listeners.size, 0);
+});
+
+test("a toolbar rendered again after clear repaints the animation buttons", () => {
+    const animation = stubAnimation();
+    const { toolbar } = animatedToolbar(animation);
+    toolbar.clear();
+    toolbar.render(model.findViewByKey("SignIn"));
+
+    animation.emit({ steps: 6 });
+    const group = toolbar.element.querySelector(".animation-buttons");
+    assert.equal(group.hidden, false, "the engine's new state reaches it");
+    toolbar.clear();
+    assert.equal(animation.listeners.size, 0, "and clear lets go again");
+});
+
+/* ----------------------------------------------------------- color scheme */
+
+test("a toolbar rendered again after clear still follows the page theme", () => {
+    // No diagram-specific choice, so the diagram follows the page.
+    window.localStorage.removeItem(DIAGRAM_THEME_STORAGE_KEY);
+    window.localStorage.removeItem("structurizr_cooper:darkModeDiagrams");
+    theme.setMode("light");
+    let dark = false;
+    const diagram = {
+        ...stubDiagram(),
+        isDarkMode: () => dark,
+        setDarkMode: (value) => {
+            dark = value;
+        },
+    };
+    const element = document.createElement("section");
+    const toolbar = new CurrentView(
+        element,
+        diagram,
+        CONTROLS,
+        stubAnimation(),
+        model,
+    );
+    toolbar.render(model.findViewByKey("SignIn"));
+    toolbar.clear();
+    toolbar.render(model.findViewByKey("SignIn"));
+
+    theme.setMode("dark");
+    assert.equal(dark, true, "the diagram turns dark with the page");
+    toolbar.clear();
+    theme.setMode("light");
+    assert.equal(dark, true, "a cleared toolbar no longer follows the page");
 });

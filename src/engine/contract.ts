@@ -34,6 +34,17 @@ export type AnimationState = {
     playing: boolean;
 };
 
+/**
+ * The state of a view that does not animate, and of every animation before
+ * an engine has said anything: no steps, the full view, not playing. Shared
+ * by the player, the toolbar and the Structurizr adapter.
+ */
+export const NOT_ANIMATING: Readonly<AnimationState> = {
+    steps: 0,
+    step: null,
+    playing: false,
+};
+
 /** The animation members of the engine, which the toolbar drives. */
 export type AnimationControls = {
     /** Advance every 2 s from the step shown, or from step 1. */

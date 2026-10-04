@@ -1,8 +1,9 @@
 import { readSetting, writeSetting } from "../storage";
-import type {
-    AnimationControls,
-    AnimationState,
-    Labels,
+import {
+    type AnimationControls,
+    type AnimationState,
+    type Labels,
+    NOT_ANIMATING,
 } from "../engine/contract";
 import type { Diagram } from "../types/structurizr-diagram";
 import type { WorkspaceModel } from "../model";
@@ -37,9 +38,6 @@ export type ToolbarDiagram = Pick<
     | "toggleDescription"
     | "toggleMetadata"
 >;
-
-/** What the toolbar knows before the engine has said anything. */
-const NOT_ANIMATING: AnimationState = { steps: 0, step: null, playing: false };
 
 export type DiagramControls = {
     /** Return the diagram to the size the page chose for it. */
@@ -151,7 +149,10 @@ export default class CurrentView extends Component {
     #animation: AnimationControls;
     #model: WorkspaceModel;
 
-    /** The engine's animation state, which the animation buttons render from. */
+    /**
+     * The engine's animation state, which the animation buttons render from;
+     * not animating until the engine says otherwise.
+     */
     #animationState: AnimationState = NOT_ANIMATING;
     #unsubscribeAnimation: (() => void) | null = null;
 
@@ -219,26 +220,38 @@ export default class CurrentView extends Component {
         this.#animation = animation;
         this.#model = model;
 
-        // The animation buttons render from the engine's state alone, so
-        // nothing the toolbar does has to stop an animation behind its back.
-        this.#unsubscribeAnimation = animation.onAnimationChanged((state) => {
-            this.#animationState = state;
-            this.#paintAnimationButtons();
-        });
-
         // Seed the engine from the persisted preferences before anything is
         // drawn. Both are safe this early: `setDarkMode()` bails out of
         // `renderView()` while there is no current view, and the label flags
         // are re-read every time a view is drawn.
         this.applyColorScheme(getDiagramTheme());
         this.#syncLabels();
+    }
+
+    /**
+     * Listen to the engine and the page theme. Called by every `render()`,
+     * after the `clear()` that stops listening, so a toolbar rendered again
+     * after a clear still hears both.
+     */
+    #subscribe() {
+        // The animation buttons render from the engine's state alone, so
+        // nothing the toolbar does has to stop an animation behind its back.
+        this.#unsubscribeAnimation = this.#animation.onAnimationChanged(
+            (state) => {
+                this.#animationState = state;
+                this.#paintAnimationButtons();
+            },
+        );
 
         // Until the reader makes a diagram-specific choice, diagrams follow
         // the page (and, through it, the OS). After that they never do again.
-        this.#unsubscribeTheme = onThemeChange((resolved) => {
+        // A change made while the toolbar was cleared is caught up here.
+        const follow = (resolved: ResolvedTheme) => {
             if (getStoredDiagramTheme()) return;
             this.applyColorScheme(resolved);
-        });
+        };
+        follow(getResolvedTheme());
+        this.#unsubscribeTheme = onThemeChange(follow);
     }
 
     #button(name: string): HTMLButtonElement | null {
@@ -423,6 +436,8 @@ export default class CurrentView extends Component {
         if (!this.element || !currentView) return;
         const view = this.#model.findViewByKey(currentView.key);
         if (!view) return;
+        this.clear();
+        this.#subscribe();
         const [description, author] = view.description.split("Author: ");
         // Structurizr's own naming: an explicit title when the view has one,
         // otherwise "Container View: Internet Banking System" and the like.
