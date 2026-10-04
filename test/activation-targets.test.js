@@ -1,7 +1,7 @@
 /**
  * `src/model/targets.ts`: what activating an element or a relationship
  * offers the reader, in the order spec 6.1 gives, and how each destination
- * is labelled in the target menu.
+ * is labeled in the target menu.
  */
 
 import assert from "node:assert/strict";
@@ -127,7 +127,7 @@ const workspace = () => ({
 const model = (json = workspace()) => new WorkspaceModel(json);
 
 /** A target as the menu shows it: its kind and its label. */
-const labelled = (targets) =>
+const labeled = (targets) =>
     targets.map(({ kind, label }) => `${kind}: ${label}`);
 
 const elementOf = (m, id) => m.findElementById(id);
@@ -138,7 +138,7 @@ test("a software system offers its link, its drill-down views, its image views, 
     const m = model();
 
     assert.deepEqual(
-        labelled(elementTargets(m, elementOf(m, "system"), "Landscape")),
+        labeled(elementTargets(m, elementOf(m, "system"), "Landscape")),
         [
             "link: github.com",
             "view: System in context",
@@ -164,7 +164,7 @@ test("software system and container instances drill down like what they are inst
     const m = model();
 
     assert.deepEqual(
-        labelled(elementTargets(m, elementOf(m, "system-1"), "Live")),
+        labeled(elementTargets(m, elementOf(m, "system-1"), "Live")),
         [
             "link: github.com",
             "view: System in context",
@@ -173,7 +173,7 @@ test("software system and container instances drill down like what they are inst
         "an instance takes its system's link but has no image views of its own",
     );
     assert.deepEqual(
-        labelled(elementTargets(m, elementOf(m, "api-1"), "Live")),
+        labeled(elementTargets(m, elementOf(m, "api-1"), "Live")),
         ["view: System in context", "view: Component View: System - API"],
     );
 });
@@ -181,17 +181,16 @@ test("software system and container instances drill down like what they are inst
 test("a deployment node has no drill-down, only its link", () => {
     const m = model();
 
-    assert.deepEqual(
-        labelled(elementTargets(m, elementOf(m, "node"), "Live")),
-        ["link: console.example.com"],
-    );
+    assert.deepEqual(labeled(elementTargets(m, elementOf(m, "node"), "Live")), [
+        "link: console.example.com",
+    ]);
 });
 
 test("only properties whose value is an http(s) URL are targets", () => {
     const m = model();
 
     assert.deepEqual(
-        labelled(elementTargets(m, elementOf(m, "user"), "Landscape")),
+        labeled(elementTargets(m, elementOf(m, "user"), "Landscape")),
         ["link: Profile (people.example.com)"],
     );
 });
@@ -221,7 +220,7 @@ test("a relationship offers its link, then its http(s) properties, and no drill-
     const uses = m.getRelationships().find((r) => r.id === "uses");
     const plain = m.getRelationships().find((r) => r.id === "plain");
 
-    assert.deepEqual(labelled(relationshipTargets(m, uses, "Landscape")), [
+    assert.deepEqual(labeled(relationshipTargets(m, uses, "Landscape")), [
         "link: runbooks.example.com",
         "link: Trace (trace.example.com)",
     ]);
@@ -332,7 +331,7 @@ test("links to documentation or decisions a workspace does not have open as ordi
     assert.equal(target?.kind, "link");
 });
 
-test("documentation and decisions are labelled by what they are", () => {
+test("documentation and decisions are labeled by what they are", () => {
     const m = model();
 
     assert.equal(
@@ -347,6 +346,6 @@ test("documentation and decisions are labelled by what they are", () => {
     assert.equal(
         classifyLink(m, "mailto:team@example.com").label,
         "mailto:team@example.com",
-        "a link with no host is labelled with itself",
+        "a link with no host is labeled with itself",
     );
 });

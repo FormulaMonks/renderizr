@@ -61,7 +61,7 @@ const PAGES: Record<
 /** Every document page kind, in the order the lookups below try them. */
 const PAGE_KINDS = Object.keys(PAGES) as PageKind[];
 
-/** Schemes that run something instead of going somewhere. */
+/** Schemes that run code in the page that opens them. */
 const UNSAFE_SCHEME = /^(javascript|data|vbscript):/i;
 
 /** Structurizr's stand-in for the workspace's own address in a link. */
@@ -117,7 +117,8 @@ function routeTarget(model: WorkspaceModel, query: string): Target | undefined {
 
 /**
  * Structurizr's own pages under a workspace's address: `…/diagrams#key`,
- * `…/documentation…` and `…/decisions…`. `undefined` for any other path.
+ * `…/documentation…` and `…/decisions…`. `undefined` for any other
+ * path.
  */
 function structurizrTarget(
     model: WorkspaceModel,

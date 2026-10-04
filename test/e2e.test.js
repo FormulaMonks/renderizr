@@ -971,7 +971,7 @@ const indicatorsOf = (item) =>
         .map((glyph) => glyph.getAttribute("data-indicator"));
 
 test(
-    "--engine react-flow: the canvas is one focusable region labelled with the view's title",
+    "--engine react-flow: the canvas is one focusable region labeled with the view's title",
     { skip: SKIP },
     async () => {
         const document = await render(
