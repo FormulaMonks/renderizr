@@ -2,6 +2,8 @@
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+Write every issue title, body and comment the way `writing.md` says: active voice, simple tenses, American spelling, no em dashes and the glossary's terms. Ticket references are the one exception.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.

@@ -5,11 +5,12 @@ paths:
 
 # Writing Markdown documentation
 
-How to write every Markdown file in this repo: ADRs, pages in `architecture/docs/` and `docs/`, the README, the glossary and these rules. ADRs follow `adr-guidelines.md` on top of this. Issue and pull request bodies live outside the repo and may reference tickets freely.
+How to write every Markdown file in this repo (ADRs, pages in `architecture/docs/` and `docs/`, the README, the glossary and these rules) and every issue, pull request and comment written for it. ADRs follow `adr-guidelines.md` on top of this. Issue and pull request bodies live outside the repo, so they may reference tickets freely; every other rule applies to them too.
 
 ## Style
 
 - **Write in the imperative, plainly.** State decisions as instructions: "Use Dagre for automatic layout", "Derive every boundary from its children". Prefer short sentences and common words. Lead with the point; put the reasoning after it.
+- **Prefer active voice.** Name who does what: "The engine places each element", "Dagre lays out automatic views". Use simple tenses ("the build fails", "we chose Dagre") over progressive and perfect ones ("the build is failing", "we have chosen"). Avoid passive constructions such as "elements are placed by the engine" or "it was decided".
 - **Leave out ticket references.** No `#123`, no issue or pull request links, no "decided on the map". A document should stand on its own long after the tracker has moved on. Say what was found or measured instead of pointing at where. Links to other documents in the repo (another ADR, the glossary, a spec section) are fine.
 - **Say what something is, and stop.** Avoid contrast built on a negation: "semantics, not pixels", "it's X, not Y", "Direct means as straight as possible, not straight regardless". Write the positive statement on its own ("Honor workspace semantics"). When a rejected alternative matters, give it its own sentence under the alternatives considered.
 - **Name things by what they are.** Call a system, component or approach by its name ("the React Flow engine", "the vendored Structurizr renderer"), and avoid labels that only say when it arrived: "new", "old", "next", "current", "upcoming", "legacy". Those go stale the moment the change lands, and the document then misleads. The same goes for flags and identifiers: `--engine react-flow` stays accurate, `--engine next` stops being true at cutover.

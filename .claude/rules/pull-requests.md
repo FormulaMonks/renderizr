@@ -1,6 +1,6 @@
 # Pull requests
 
-How to write the body of every pull request opened in this repo, by hand or by an agent. `.github/PULL_REQUEST_TEMPLATE.md` holds the same sections; fill them in rather than replacing them.
+How to write the body of every pull request opened in this repo, by hand or by an agent. `.github/PULL_REQUEST_TEMPLATE.md` holds the same sections; fill them in rather than replacing them. Write every section, the title and any review comment the way `writing.md` says: active voice, simple tenses, American spelling, no em dashes and the glossary's terms.
 
 ## Title
 
