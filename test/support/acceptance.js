@@ -90,6 +90,14 @@ export const ACCEPTANCE_SET = [
         source: join(REPO_ROOT, "test/__fixtures__/big-bank-plc-stored.json"),
         submodule: false,
     },
+    {
+        // Elements, boundaries and relationships with none, one or several
+        // targets and their indicators (spec 6.1, 9.2, 10.9), until #51's
+        // purpose-built fixture covers them.
+        name: "Activation targets",
+        source: join(REPO_ROOT, "test/__fixtures__/activation-targets.json"),
+        submodule: false,
+    },
 ];
 
 /** The committed copies of remote themes, beside this repository's fixtures. */
