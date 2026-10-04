@@ -14,7 +14,7 @@ import type { WorkspaceModel } from "./workspace";
  * entry of the view's `animations` list, which adds to what earlier steps
  * revealed.
  */
-export type AnimationStep = {
+export type Step = {
     /** The order, as an integer: what the steps are sorted by. */
     order: number;
     /** The elements the step shows, in view order. */
@@ -27,7 +27,7 @@ export type ViewAnimation = {
     /** A dynamic view highlights one step; a static view reveals up to it. */
     kind: "dynamic" | "static";
     /** At least one; sorted by order. */
-    steps: AnimationStep[];
+    steps: Step[];
     /** `structurizr.zoomOnAnimation`: fit each step, and the view on stop. */
     zoom: boolean;
 };
@@ -71,11 +71,27 @@ export function findOrderError(
     return undefined;
 }
 
-/** Whether a view's `structurizr.zoomOnAnimation` property is set to true. */
-const zoomOnAnimation = (view: ModelView | undefined) =>
-    String(view?.properties?.["structurizr.zoomOnAnimation"] ?? "")
-        .trim()
-        .toLowerCase() === "true";
+/**
+ * Whether `structurizr.zoomOnAnimation` is true for a view: its own value,
+ * then its base's when it is filtered, then the view set's. The first one
+ * set wins, so an explicit false holds against a true further down, as
+ * Structurizr's `getViewOrViewSetProperty` reads it.
+ */
+function zoomOnAnimation(
+    model: WorkspaceModel,
+    ...views: (ModelView | undefined)[]
+): boolean {
+    const name = "structurizr.zoomOnAnimation";
+    const value = [
+        ...views.map((view) => view?.properties?.[name]),
+        model.configuration.properties?.[name],
+    ].find((set) => set !== undefined && set !== null && set !== "");
+    return (
+        String(value ?? "")
+            .trim()
+            .toLowerCase() === "true"
+    );
+}
 
 /**
  * The animation `view` plays, or `undefined` when it plays none (spec 11):
@@ -95,10 +111,10 @@ export function animationOf(
     const base = view.filter
         ? model.findViewByKey(view.filter.baseViewKey)
         : view.view;
-    const zoom = zoomOnAnimation(view.view) || zoomOnAnimation(base);
+    const zoom = zoomOnAnimation(model, view.view, base);
 
     if (view.type === "Dynamic") {
-        const byOrder = new Map<number, AnimationStep>();
+        const byOrder = new Map<number, Step>();
         for (const placed of view.relationships) {
             const order = orderOf(placed);
             if (order === undefined) continue;

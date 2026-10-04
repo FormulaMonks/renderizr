@@ -257,6 +257,65 @@ describe("steps", () => {
         assert.equal(zoom("Containers"), false);
     });
 
+    test("structurizr.zoomOnAnimation is read from the view, its base, then the view set", () => {
+        const ZOOM = "structurizr.zoomOnAnimation";
+        const zoomIn = (key, edit) => {
+            const model = workspace(edit);
+            return animationOf(model, resolveView(model, key)).zoom;
+        };
+        const viewSet = (value) => (json) => {
+            json.views.configuration ??= {};
+            json.views.configuration.properties = { [ZOOM]: value };
+        };
+        const filtered = (properties) => (json) => {
+            json.views.filteredViews = [
+                {
+                    key: "SomeContainers",
+                    baseViewKey: "Containers",
+                    mode: "Exclude",
+                    tags: ["Nothing"],
+                    properties,
+                },
+            ];
+        };
+
+        assert.equal(zoomIn("Containers", viewSet("true")), true);
+        assert.equal(
+            zoomIn("CheckoutInPlace", viewSet("true")),
+            true,
+            "a view that says nothing takes the view set's",
+        );
+        assert.equal(
+            zoomIn("Checkout", viewSet("false")),
+            true,
+            "the view's own true wins over the view set's false",
+        );
+        assert.equal(
+            zoomIn("Containers", (json) => {
+                viewSet("true")(json);
+                json.views.containerViews[0].properties = { [ZOOM]: "false" };
+            }),
+            false,
+            "the view's own false wins over the view set's true",
+        );
+        assert.equal(
+            zoomIn("SomeContainers", (json) => {
+                filtered({ [ZOOM]: "false" })(json);
+                json.views.containerViews[0].properties = { [ZOOM]: "true" };
+            }),
+            false,
+            "a filtered view's own false wins over its base's true",
+        );
+        assert.equal(
+            zoomIn("SomeContainers", (json) => {
+                filtered(undefined)(json);
+                json.views.containerViews[0].properties = { [ZOOM]: "true" };
+            }),
+            true,
+            "a filtered view that says nothing takes its base's",
+        );
+    });
+
     test("the graph carries the view's animation", () => {
         const model = workspace();
         const graph = buildGraph(model, "Checkout", "light", LABELS);
