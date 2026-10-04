@@ -83,6 +83,37 @@ test("the expected drawing of a stored view lists its elements at their stored b
     );
 });
 
+test("a Circle, Diamond or Hexagon is expected in the box upstream derives from its width", () => {
+    const workspace = structuredClone(FIXTURE);
+    const shapes = { 1: "Diamond", 2: "Hexagon" };
+    workspace.views.configuration.styles.elements.push(
+        ...Object.entries(shapes).map(([id, shape]) => ({
+            tag: `Shape ${id}`,
+            shape,
+        })),
+    );
+    for (const element of [
+        ...workspace.model.people,
+        ...workspace.model.softwareSystems,
+    ]) {
+        if (shapes[element.id]) element.tags += `,Shape ${element.id}`;
+    }
+
+    const sizes = expectedDrawing(
+        new WorkspaceModel(workspace),
+        "FixtureContext",
+    ).elements.map(({ id, width, height }) => ({ id, width, height }));
+
+    assert.deepEqual(
+        sizes,
+        [
+            { id: "1", width: 450, height: 450 },
+            { id: "2", width: 450, height: 389 },
+        ],
+        "the expected boxes ignore the height upstream derives from the width",
+    );
+});
+
 test("a boundary is expected as a boundary, not an element", () => {
     const json = structuredClone(FIXTURE);
     json.views.systemContextViews[1].elements.push({ id: "3", x: 300, y: 300 });
