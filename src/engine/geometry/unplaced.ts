@@ -125,12 +125,14 @@ function slotsAround(
 }
 
 /**
- * The placed elements `element` relates to, once per relationship, and the
- * gap a slot keeps from each: one `separation`, widened along x to fit the
- * widest label between them beside it and along y to fit the tallest above
- * or below it, with `LABEL_CLEARANCE` on either side. Without it, a label
- * drawn between two elements a separation apart covers one of them whenever
- * it is wider or taller than the gap.
+ * The placed elements `element` relates to, each once, and the gap a slot
+ * keeps from each: one `separation`, widened along x to fit the widest label
+ * of any relationship between them beside it and along y to fit the tallest
+ * above or below it, with `LABEL_CLEARANCE` on either side. Without it, a
+ * label drawn between two elements a separation apart covers one of them
+ * whenever it is wider or taller than the gap. Listing a neighbor once per
+ * relationship weighted the centroid by relationship count, so two parallel
+ * relationships pulled the element toward that neighbor.
  */
 function neighborsOf(
     element: string,
@@ -150,7 +152,7 @@ function neighborsOf(
         // finds no box here.
         const box = other === undefined ? undefined : placed.get(other);
         if (!box) continue;
-        neighbors.push(box);
+        if (!gaps.has(box)) neighbors.push(box);
         const gap = gaps.get(box) ?? {
             x: input.separation,
             y: input.separation,
@@ -164,14 +166,78 @@ function neighborsOf(
     return { neighbors, gaps };
 }
 
+/** The clearance every placement keeps, along both axes. */
+const CLEAR: Gap = { x: UNPLACED_GAP, y: UNPLACED_GAP };
+
+/**
+ * Whether putting `element` at `slot` keeps each boundary around it clear of
+ * `obstacles`: the placed elements and the boundaries it is not inside. Each
+ * boundary is derived again with the element in it, since a slot clear of
+ * everything can still stretch the element's boundary back across a
+ * non-member on the way to its other members. An overlap the stored layout
+ * already had is the author's, so only what the slot adds counts.
+ */
+function keepsBoundariesClear(
+    element: UnplacedElement,
+    slot: Bounds,
+    placed: ReadonlyMap<string, Bounds>,
+    before: ReadonlyMap<string, Bounds>,
+    obstacles: Bounds[],
+    derive: DeriveBoundaries,
+): boolean {
+    if (!element.ancestors.length) return true;
+    const after = derive(new Map(placed).set(element.id, slot));
+    return element.ancestors.every((id) => {
+        const grown = after.get(id);
+        if (!grown) return true;
+        const was = before.get(id);
+        return obstacles.every(
+            (o) =>
+                !crowds(grown, o, CLEAR) ||
+                (was !== undefined && crowds(was, o, CLEAR)),
+        );
+    });
+}
+
+/**
+ * Where an element with no free slot goes: right of `view`, at least
+ * `UNPLACED_GAP` past it, stepping a further `UNPLACED_GAP` right while the
+ * spot does not `fit`. A separation under the gap put it closer than any
+ * slot may come. Once it is `reach` past the first spot it is clear of
+ * every placed element and label gap; what blocks it then is a boundary of
+ * its own stretching back to its other members, which no step right can
+ * clear, so the first spot stands.
+ */
+function fallback(
+    element: UnplacedElement,
+    view: Bounds | undefined,
+    y: number,
+    separation: number,
+    reach: number,
+    fits: (spot: Bounds) => boolean,
+): Bounds {
+    const spot = (x: number) => ({
+        x,
+        y,
+        width: element.width,
+        height: element.height,
+    });
+    if (!view) return spot(0);
+    const first = view.x + view.width + Math.max(separation, UNPLACED_GAP);
+    for (let x = first; x <= first + reach; x += UNPLACED_GAP)
+        if (fits(spot(x))) return spot(x);
+    return spot(first);
+}
+
 /**
  * Place each unplaced element in view order: try the slots around every
  * related element already placed, nearest the centroid of those neighbors
  * first, preferring slots inside the element's own boundary, and take the
  * first that keeps `UNPLACED_GAP` from every placed element and from every
- * boundary it is not inside, and its label gap from every related element.
- * Without one, it goes to the right of the view. Each placement counts as
- * placed for the next.
+ * boundary it is not inside, and its label gap from every related element,
+ * without growing a boundary around it within `UNPLACED_GAP` of anything
+ * outside it. Without one, it goes to the right of the view. Each placement
+ * counts as placed for the next. Placed elements never move.
  */
 export function placeUnplaced(input: UnplacedInput): Placement[] {
     const placed = new Map(input.placed);
@@ -202,8 +268,7 @@ export function placeUnplaced(input: UnplacedInput): Placement[] {
                 .filter(([id]) => !ancestors.has(id))
                 .map(([, box]) => box),
         ];
-        const clear = { x: UNPLACED_GAP, y: UNPLACED_GAP };
-        const free = [...inside, ...outside].find((slot) =>
+        const fits = (slot: Bounds) =>
             obstacles.every((o) => {
                 const gap = gaps.get(o);
                 return !crowds(
@@ -211,19 +276,34 @@ export function placeUnplaced(input: UnplacedInput): Placement[] {
                     o,
                     gap
                         ? {
-                              x: Math.max(clear.x, gap.x),
-                              y: Math.max(clear.y, gap.y),
+                              x: Math.max(CLEAR.x, gap.x),
+                              y: Math.max(CLEAR.y, gap.y),
                           }
-                        : clear,
+                        : CLEAR,
                 );
-            }),
-        );
-
+            }) &&
+            keepsBoundariesClear(
+                element,
+                slot,
+                placed,
+                boundaries,
+                obstacles,
+                input.boundaries,
+            );
+        const reach =
+            element.width +
+            Math.max(CLEAR.x, ...[...gaps.values()].map((g) => g.x));
         const view = boundsOf([...placed.values(), ...boundaries.values()]);
-        const at = free ?? {
-            x: view ? view.x + view.width + input.separation : 0,
-            y: centroid ? centroid.y - element.height / 2 : view?.y ?? 0,
-        };
+        const at =
+            [...inside, ...outside].find(fits) ??
+            fallback(
+                element,
+                view,
+                centroid ? centroid.y - element.height / 2 : view?.y ?? 0,
+                input.separation,
+                reach,
+                fits,
+            );
         placements.push({ id: element.id, x: at.x, y: at.y });
         placed.set(element.id, {
             x: at.x,

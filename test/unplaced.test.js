@@ -156,6 +156,88 @@ test("with no free slot, an element goes right of the view's bounding box", () =
     );
 });
 
+test("the fallback keeps at least 60 from the view, whatever the separation", () => {
+    const [placement] = placeUnplaced({
+        placed: new Map([["a", box(0, 0)]]),
+        unplaced: [element("b")],
+        relationships: [],
+        separation: 50,
+        boundaries: () => new Map([["s", box(-100, -100, 1000, 800)]]),
+    });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 900 + UNPLACED_GAP, y: -100 },
+        "b is not 60 right of the view, level with its top",
+    );
+});
+
+test("a fallback whose own boundary would crowd the view steps further right", () => {
+    // b is the first of s's members to be placed, so s is b's box plus its
+    // padding, which reaches back within 60 of a at the first spot.
+    const [placement] = placeUnplaced({
+        placed: new Map([["a", box(0, 0)]]),
+        unplaced: [element("b", ["s"])],
+        relationships: [],
+        separation: 50,
+        boundaries: around({ s: ["b"] }),
+    });
+    assert.ok(
+        placement.x - PADDING >= W + UNPLACED_GAP,
+        `s around b at x ${placement.x} comes within 60 of a`,
+    );
+    assert.deepEqual(
+        placement,
+        { id: "b", x: W + 2 * UNPLACED_GAP, y: 0 },
+        "b did not step right by 60 from the first spot",
+    );
+});
+
+/* ------------------------------------------------------------- neighbors */
+
+test("parallel relationships to one neighbor do not pull the centroid toward it", () => {
+    const placed = new Map([
+        ["a", box(100, 100)],
+        ["c", box(3100, 100)],
+    ]);
+    const once = [
+        ["a", "b"],
+        ["b", "c"],
+    ];
+    for (const relationships of [once, [["a", "b"], ...once]]) {
+        const [placement] = placeUnplaced({
+            placed,
+            unplaced: [element("b")],
+            relationships,
+            separation: SEPARATION,
+            boundaries: NO_BOUNDARIES,
+        });
+        assert.deepEqual(
+            placement,
+            { id: "b", x: 1600, y: 100 },
+            `with ${relationships.length} relationships, b is not midway between a and c`,
+        );
+    }
+});
+
+test("a neighbor related more than once keeps the widest label gap of them all", () => {
+    const label = { width: 200, height: 400 };
+    const [placement] = placeUnplaced({
+        placed: new Map([["a", box(0, 0)]]),
+        unplaced: [element("b")],
+        relationships: [
+            ["a", "b", label],
+            ["b", "a", { width: 10, height: 10 }],
+        ],
+        separation: SEPARATION,
+        boundaries: NO_BOUNDARIES,
+    });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 0, y: H + label.height + 2 * LABEL_CLEARANCE },
+        "b does not leave room for the taller of the two labels",
+    );
+});
+
 test("each placement counts as placed for the next", () => {
     const placements = placeUnplaced({
         placed: new Map([["a", box(0, 0)]]),
@@ -284,6 +366,85 @@ test("boundaries are derived again from what has been placed so far", () => {
         seen,
         [["a"], ["a", "b"]],
         "boundaries were not derived again after b was placed",
+    );
+});
+
+/* ------------------------------------------------------ boundary growth */
+
+/** The padding `around` keeps on every side of a boundary's members. */
+const PADDING = 50;
+
+/**
+ * Boundaries derived the way section 8 does, label band aside: each one the
+ * box of its members placed so far, `PADDING` out on every side.
+ */
+const around = (members) => (placed) => {
+    const boxes = new Map();
+    for (const [id, ids] of Object.entries(members)) {
+        const inside = ids.map((m) => placed.get(m)).filter(Boolean);
+        if (!inside.length) continue;
+        const x = Math.min(...inside.map((b) => b.x)) - PADDING;
+        const y = Math.min(...inside.map((b) => b.y)) - PADDING;
+        const right = Math.max(...inside.map((b) => b.x + b.width)) + PADDING;
+        const bottom = Math.max(...inside.map((b) => b.y + b.height)) + PADDING;
+        boxes.set(id, box(x, y, right - x, bottom - y));
+    }
+    return boxes;
+};
+
+/** Whether `a` and `b` come within `UNPLACED_GAP` of each other. */
+const crowds = (a, b) =>
+    a.x < b.x + b.width + UNPLACED_GAP &&
+    b.x < a.x + a.width + UNPLACED_GAP &&
+    a.y < b.y + b.height + UNPLACED_GAP &&
+    b.y < a.y + a.height + UNPLACED_GAP;
+
+test("a slot that would grow the element's boundary over a non-member is skipped", () => {
+    // b belongs with a but relates to n, which does not: every slot near n
+    // stretches s from a across n, so b goes where s stays clear of it.
+    const placed = new Map([
+        ["a", box(100, 100)],
+        ["n", box(1300, 100)],
+    ]);
+    const boundaries = around({ s: ["a", "b"] });
+    const [placement] = placeUnplaced({
+        placed,
+        unplaced: [element("b", ["s"])],
+        relationships: [["b", "n"]],
+        separation: SEPARATION,
+        boundaries,
+    });
+    const s = boundaries(
+        new Map([...placed, ["b", box(placement.x, placement.y)]]),
+    ).get("s");
+    assert.ok(
+        !crowds(s, placed.get("n")),
+        `b at (${placement.x},${placement.y}) grows s over n`,
+    );
+    assert.deepEqual(
+        placement,
+        { id: "b", x: -950, y: 100 },
+        "b did not take the nearest slot that keeps s clear of n",
+    );
+});
+
+test("an overlap the author already made does not turn every slot away", () => {
+    // s already covers x, which is not a member: growing s further below a
+    // makes nothing worse, so b still takes the slot below a.
+    const [placement] = placeUnplaced({
+        placed: new Map([
+            ["a", box(0, 0)],
+            ["x", box(500, 0)],
+        ]),
+        unplaced: [element("b", ["s"])],
+        relationships: [["a", "b"]],
+        separation: SEPARATION,
+        boundaries: around({ s: ["a", "b"] }),
+    });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 0, y: H + SEPARATION },
+        "b was turned away by an overlap that was there before it",
     );
 });
 
