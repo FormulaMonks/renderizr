@@ -139,9 +139,7 @@ export function resolveView(
         const relationship = model.findRelationshipById(placement.id);
         if (!relationship) continue;
         if (view.type === "Dynamic") {
-            const order =
-                orderOf(placement) ?? String(placement.order ?? "").trim();
-            const at = `${placement.id}\n${order}`;
+            const at = `${placement.id}\n${orderOf(placement) ?? placement.order}`;
             if (listed.has(at)) continue;
             listed.add(at);
         }

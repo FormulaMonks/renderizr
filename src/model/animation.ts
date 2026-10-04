@@ -41,9 +41,7 @@ export type ViewAnimation = {
  * mirrors the test, since the build cannot import TypeScript.
  */
 export function orderOf(placement: { order?: unknown }): number | undefined {
-    const { order } = placement;
-    if (order === undefined || order === null) return undefined;
-    const text = String(order).trim();
+    const text = String(placement.order ?? "").trim();
     return /^\d+$/.test(text) ? Number(text) : undefined;
 }
 

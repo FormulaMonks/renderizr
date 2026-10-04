@@ -1195,30 +1195,21 @@ function Canvas({
     }, [flow, fitted]);
 
     // zoomOnAnimation fits each step and the whole view on stop, overriding
-    // the reader's viewport; otherwise a step never moves it (spec 11). A
-    // step that changes with the view is left to the new view's own fit, so
-    // the outgoing view is never refitted on its way out.
-    const shownStep = useRef({ viewKey, step });
+    // the reader's viewport; otherwise a step never moves it (spec 11). The
+    // step only ever clears together with a new view's key (`showView`), so
+    // this never refits the outgoing view on its way out.
+    const shownStep = useRef(step);
     useEffect(() => {
-        const shown = shownStep.current;
-        if (shown.viewKey === viewKey && shown.step === step) return;
-        shownStep.current = { viewKey, step };
-        if (shown.viewKey !== viewKey || !zoomOnAnimation) return;
+        if (shownStep.current === step) return;
+        shownStep.current = step;
+        if (!zoomOnAnimation) return;
         const viewport = step === null ? fitted : stepFitted;
         if (!viewport) return;
         moved.current = false;
         flow.setViewport(viewport, {
             duration: reducedMotion ? 0 : TRANSITION_MS,
         });
-    }, [
-        viewKey,
-        step,
-        zoomOnAnimation,
-        fitted,
-        stepFitted,
-        flow,
-        reducedMotion,
-    ]);
+    }, [step, zoomOnAnimation, fitted, stepFitted, flow, reducedMotion]);
 
     useEffect(() => {
         commands.fit = fit;
