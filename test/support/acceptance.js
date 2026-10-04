@@ -28,8 +28,9 @@ const STRUCTURIZR_RESOURCES = join(
 );
 
 /**
- * Every workspace whose views the engine has to draw. The large views join
- * with #51.
+ * Every workspace whose views the engine has to draw (spec 15.3): the
+ * Structurizr examples, the large landscape, the purpose-built workspace and
+ * the fixtures that cover one area of the spec each.
  */
 export const ACCEPTANCE_SET = [
     {
