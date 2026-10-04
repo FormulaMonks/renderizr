@@ -5,6 +5,11 @@
  */
 
 import assert from "node:assert/strict";
+import {
+    distanceToOutline,
+    elementOutline,
+    OUTLINE_TOLERANCE,
+} from "./support/engine-checks.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { SHAPES, isShape, shapeGeometry, shapeSize } = await importSrc(
@@ -427,3 +432,52 @@ test("geometry is plain JSON", () => {
         assert.deepEqual(JSON.parse(JSON.stringify(geometry)), geometry, shape);
     }
 });
+
+/* ---------------- the acceptance harness's outlines */
+
+/**
+ * The acceptance set draws only some of the 19 shapes with edges, so the
+ * harness's outline check (`edgeEndsOnOutlines`) meets the others only here:
+ * every edge end `intersect` and `touch` work out, all round every shape,
+ * lies on the outline the harness works out for it on its own.
+ */
+for (const shape of SHAPES) {
+    test(`every edge end on a ${shape} lies on the harness's outline for it`, () => {
+        for (const [styleWidth, styleHeight] of [...SIZES, [200, 120]]) {
+            const { width, height } = shapeSize(shape, styleWidth, styleHeight);
+            const geometry = shapeGeometry(shape, width, height);
+            const outline = elementOutline({
+                shape,
+                x: 0,
+                y: 0,
+                width,
+                height,
+            });
+            const ends = [];
+            for (let degrees = 0; degrees < 360; degrees += 5) {
+                const angle = (degrees * Math.PI) / 180;
+                ends.push(
+                    intersect(geometry, {
+                        x: width / 2 + 1000 * Math.cos(angle),
+                        y: height / 2 + 1000 * Math.sin(angle),
+                    }),
+                );
+            }
+            for (const side of SIDES) {
+                const { from, to } = geometry.spans[side];
+                for (let i = 0; i <= 20; i++) {
+                    ends.push(
+                        touch(geometry, side, from + ((to - from) * i) / 20),
+                    );
+                }
+            }
+            for (const end of ends) {
+                const distance = distanceToOutline(end, outline);
+                assert.ok(
+                    distance <= OUTLINE_TOLERANCE,
+                    `at ${width}×${height}, ${fmt(end)} is ${distance} off the harness's outline`,
+                );
+            }
+        }
+    });
+}
