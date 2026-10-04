@@ -821,7 +821,7 @@
                 "externalSoftwareSystemBoundariesVisible": false,
                 "key": "Containers",
                 "name": "Container View: Shop",
-                "order": 4,
+                "order": 5,
                 "relationships": [
                     {
                         "id": "16"
@@ -950,7 +950,7 @@
                 ],
                 "key": "Shapes",
                 "name": "Custom View: Shapes",
-                "order": 7,
+                "order": 8,
                 "title": "Shapes"
             },
             {
@@ -989,7 +989,7 @@
                 ],
                 "key": "Styles",
                 "name": "Custom View: Styles",
-                "order": 8,
+                "order": 9,
                 "title": "Styles"
             }
         ],
@@ -1041,7 +1041,7 @@
                 "environment": "Live",
                 "key": "Deployment",
                 "name": "Deployment View: Shop - Live",
-                "order": 6,
+                "order": 7,
                 "relationships": [
                     {
                         "id": "28"
@@ -1101,7 +1101,7 @@
                 "externalBoundariesVisible": false,
                 "key": "Checkout",
                 "name": "Dynamic View: Shop",
-                "order": 5,
+                "order": 6,
                 "relationships": [
                     {
                         "description": "Checks out using",
@@ -1143,7 +1143,7 @@
                 "key": "ContextInternal",
                 "mode": "Exclude",
                 "name": "Filtered: System Context View: Shop",
-                "order": 3,
+                "order": 4,
                 "tags": ["External"]
             }
         ],
@@ -1184,7 +1184,7 @@
                 "enterpriseBoundaryVisible": true,
                 "key": "Context",
                 "name": "System Context View: Shop",
-                "order": 2,
+                "order": 3,
                 "relationships": [
                     {
                         "id": "11"
@@ -1285,6 +1285,74 @@
                                 "y": 1600
                             }
                         ]
+                    }
+                ]
+            },
+            {
+                "automaticLayout": {
+                    "applied": false,
+                    "edgeSeparation": 0,
+                    "implementation": "Graphviz",
+                    "nodeSeparation": 300,
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "vertices": false
+                },
+                "description": "The landscape laid out automatically, with the enterprise boundary around the shop's own people and systems",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "2",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "3",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "8",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "9",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "10",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "enterpriseBoundaryVisible": true,
+                "key": "LandscapeAutomatic",
+                "name": "System Landscape View",
+                "order": 2,
+                "relationships": [
+                    {
+                        "id": "11"
+                    },
+                    {
+                        "id": "12"
+                    },
+                    {
+                        "id": "13"
+                    },
+                    {
+                        "id": "14"
+                    },
+                    {
+                        "id": "15"
+                    },
+                    {
+                        "id": "16"
                     }
                 ]
             }
