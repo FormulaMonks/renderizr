@@ -23,17 +23,38 @@ export type EngineOptions = {
     labels: Labels;
 };
 
+/**
+ * Where the current view's animation is (spec 11): how many steps it has (0
+ * when it does not animate), the step shown (null for the full view) and
+ * whether play is advancing it.
+ */
 export type AnimationState = {
     steps: number;
     step: number | null;
     playing: boolean;
 };
 
+/** The animation members of the engine, which the toolbar drives. */
+export type AnimationControls = {
+    /** Advance every 2 s from the step shown, or from step 1. */
+    play(): void;
+    /** Stop advancing, keeping the step. */
+    pause(): void;
+    /** The next step: step 1 from the full view, the full view past the last. */
+    stepForward(): void;
+    /** The previous step: the full view from step 1, nothing from the full view. */
+    stepBack(): void;
+    /** End the animation and show the full view. */
+    stop(): void;
+    /** Every change of `AnimationState`, starting with the current one. */
+    onAnimationChanged(callback: (state: AnimationState) => void): () => void;
+};
+
 /**
- * Only part of spec section 5 so far: the animation and activation members
- * arrive with their own tickets.
+ * Spec section 5 but for the activation members, which arrive with their
+ * own ticket.
  */
-export type Engine = {
+export type Engine = AnimationControls & {
     showView(key: string): void;
     setColorScheme(scheme: ColorScheme): void;
     setLabels(labels: Labels): void;
