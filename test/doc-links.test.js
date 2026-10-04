@@ -10,7 +10,8 @@
 import assert from "node:assert/strict";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { createLinkResolver, githubSlug, sectionId } = await importSrc(
+const { sectionId } = await importSrc("model/documentation");
+const { createLinkResolver, githubSlug } = await importSrc(
     "components/doc-links",
 );
 

@@ -22,7 +22,7 @@
  * ordering, terminology and view titles the model layer needs.
  */
 
-import { sectionId } from "../components/doc-links";
+import { sectionId } from "./documentation";
 import type {
     ElementType,
     ModelElement,

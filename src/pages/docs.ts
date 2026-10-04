@@ -1,8 +1,9 @@
 import { asciidocToMarkdown, isAsciiDoc } from "../components/asciidoc";
-import { type LinkResolver, sectionId } from "../components/doc-links";
+import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
+import { sectionId } from "../model/documentation";
 import type { DocumentationSection } from "../types/structurizr-documentation";
 import Page from "./_page";
 import history from "history/hash";
