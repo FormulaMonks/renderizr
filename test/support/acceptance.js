@@ -62,8 +62,7 @@ export const ACCEPTANCE_SET = [
         submodule: false,
     },
     {
-        // One stored-layout view per edge-routing case of spec 10, until #51's
-        // purpose-built fixture covers them.
+        // One stored-layout view per edge-routing case of spec 10.
         name: "Edge routing",
         source: join(REPO_ROOT, "test/__fixtures__/edge-routing.json"),
         submodule: false,
@@ -77,15 +76,13 @@ export const ACCEPTANCE_SET = [
         submodule: false,
     },
     {
-        // The filtered, custom and image views of spec 12, until #51's
-        // purpose-built fixture covers them.
+        // The filtered, custom and image views of spec 12.
         name: "View types",
         source: join(REPO_ROOT, "test/__fixtures__/view-types.json"),
         submodule: false,
     },
     {
-        // The dynamic and static animations of spec 11, until #51's
-        // purpose-built fixture covers them.
+        // The dynamic and static animations of spec 11.
         name: "Animation",
         source: join(REPO_ROOT, "test/__fixtures__/animation.json"),
         submodule: false,
@@ -100,8 +97,7 @@ export const ACCEPTANCE_SET = [
     },
     {
         // Elements, boundaries and relationships with none, one or several
-        // targets and their indicators (spec 6.1, 9.2, 10.9), until #51's
-        // purpose-built fixture covers them.
+        // targets and their indicators (spec 6.1, 9.2, 10.9).
         name: "Activation targets",
         source: join(REPO_ROOT, "test/__fixtures__/activation-targets.json"),
         submodule: false,
