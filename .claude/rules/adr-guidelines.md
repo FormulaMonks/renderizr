@@ -5,9 +5,9 @@ paths:
 
 # ADR Guidelines
 
-ADRs are **immutable records**. Once an ADR has landed on `main`, never edit its content. **Three exceptions apply:** the `## Status` section, which is a live pointer rather than part of the record (see below); an ADR that has not yet landed on `main`; and a merged ADR that still reads `Draft`, which stays revisable until it is promoted to `Accepted`. Spelling and formatting fixes that leave every sentence meaning what it meant (American spelling under `writing.md`, Markdown syntax, link targets that moved) are format, not content, and may be made to any ADR; a change that alters, adds or removes a claim is never one of these.
+ADRs are **immutable records**. Once an ADR lands on `main`, never edit its content. **Three exceptions apply:** the `## Status` section, which is a live pointer rather than part of the record (see below); an ADR that has not yet landed on `main`; and a merged ADR that still reads `Draft`, which stays revisable until someone promotes it to `Accepted`. Spelling and formatting fixes that leave every sentence meaning what it meant (American spelling under `writing.md`, Markdown syntax, link targets that moved) are format, not content, and may be made to any ADR; a change that alters, adds or removes a claim is never one of these.
 
-**Immutability begins when the PR merges to `main` — not when the ADR's `## Status` field is set to `Accepted`.** An ADR is not yet a record while its introducing PR is still open, whatever its status word says. So marking it `Accepted` inside an open PR does not freeze the content: it may still be revised in place — rewritten, cut, or reversed — for as long as that PR has not merged. Promoting a `Draft` to `Accepted` in the same change is the normal way an ADR lands, and neither that revision nor the status change needs a superseding or amending ADR. Once the PR merges, the rules below apply in full.
+**Immutability begins when the PR merges to `main` — not when the ADR's `## Status` field is set to `Accepted`.** An ADR is not yet a record while its introducing PR is still open, whatever its status word says. So marking it `Accepted` inside an open PR does not freeze the content: you may still revise it in place (rewrite, cut or reverse it) for as long as that PR has not merged. Promoting a `Draft` to `Accepted` in the same change is the normal way an ADR lands, and neither that revision nor the status change needs a superseding or amending ADR. Once the PR merges, the rules below apply in full.
 
 Two things a revisable ADR's revision still owes its readers, because nothing else records what moved:
 
@@ -19,7 +19,7 @@ Two things a revisable ADR's revision still owes its readers, because nothing el
 
 ## Status format
 
-**The status word is one of exactly three: `Draft`, `Accepted`, or `Amended`.** A new ADR opens at `Draft` while the decision is still being worked out, moves to `Accepted` once it is settled, and moves to `Amended` when a later ADR amends part of it — those are the only three words that ever stand on that line. A superseded ADR is the one case with no status word at all: the back-pointer replaces it (see [Superseding and amending](#superseding-and-amending)). There is no `Proposed`, `Rejected`, or `Deprecated`.
+**The status word is one of exactly three: `Draft`, `Accepted`, or `Amended`.** A new ADR opens at `Draft` while we still work out the decision, moves to `Accepted` once it is settled, and moves to `Amended` when a later ADR amends part of it — those are the only three words that ever stand on that line. A superseded ADR is the one case with no status word at all: the back-pointer replaces it (see [Superseding and amending](#superseding-and-amending)). There is no `Proposed`, `Rejected`, or `Deprecated`.
 
 `Amended` still means the decision is in force. It reads differently from `Accepted` only to make the amendment visible where the status is rendered on its own, without the pointers beneath it.
 
@@ -39,13 +39,13 @@ When linking to another ADR from a `## Status` section, the link text is the tar
 
 ## Superseding and amending
 
-If a decision is superseded or amended, create a **new ADR**. **Both ADRs always point at each other** — the forward pointer on the new ADR, the back-pointer on the old one. There are exactly **three** relationships; do not invent a fourth wording (no "refines", "delivers", "builds on", "extends", "revisits"):
+To supersede or amend a decision, create a **new ADR**. **Both ADRs always point at each other** — the forward pointer on the new ADR, the back-pointer on the old one. There are exactly **three** relationships; do not invent a fourth wording (no "refines", "delivers", "builds on", "extends", "revisits"):
 
 | Relationship | Means | On the new ADR | On the older ADR |
 | --- | --- | --- | --- |
 | **Supersede** | Full replacement — the old decision stops being current | `Supersedes [<n>. <Title>](000X-title.md).` | `Superseded by [<n>. <Title>](000Y-title.md).` **replaces** the status word |
 | **Amend** | **Partial extension without full supersession** — the old decision stays in force | `Amends [<n>. <Title>](000X-title.md).` | `Amended by [<n>. <Title>](000Y-title.md).`, and the status word becomes `Amended` |
-| **Reference** | Neither — the new ADR depends on or is informed by the old one, and changes nothing about it | `References [<n>. <Title>](000X-title.md).` | `Referenced by [<n>. <Title>](000Y-title.md).` |
+| **Reference** | Neither — the new ADR depends on or draws on the old one, and changes nothing about it | `References [<n>. <Title>](000X-title.md).` | `Referenced by [<n>. <Title>](000Y-title.md).` |
 
 **Amend** is the relationship for every partial change, whatever its flavor: adding to the old decision, narrowing it, or settling a point it left open or deferred. Optionally name what changed after a colon, so the reader knows which part moved: `Amends [<n>. <Title>](000X-title.md): the X it deferred.`
 
@@ -71,7 +71,7 @@ If a decision is superseded or amended, create a **new ADR**. **Both ADRs always
 
 ## File format
 
-`architecture/decisions/` is imported into the Structurizr workspace by `!adrs decisions` in `architecture/workspace.dsl`, so ADRs render in renderizr's own architecture site. Structurizr's default importer expects **adr-tools format**; anything else fails to parse:
+`!adrs decisions` in `architecture/workspace.dsl` imports `architecture/decisions/` into the Structurizr workspace, so ADRs render in renderizr's own architecture site. Structurizr's default importer expects **adr-tools format**; anything else fails to parse:
 
 - File name: `NNNN-kebab-title.md` (zero-padded, sequential).
 - First line: `# N. Title`.
@@ -87,5 +87,5 @@ ADRs follow `writing.md` like every Markdown file. On top of that:
 - **Context**: the situation and the forces in play, in a few sentences.
 - **Decision**: what to do, in the imperative.
 - **Consequences**: what follows, good and bad.
-- **Alternatives considered**: when a rejected option is likely to be suggested again, one bullet per option with the reason it lost.
+- **Alternatives considered**: when someone is likely to suggest a rejected option again, one bullet per option with the reason it lost.
 - **Links to other ADRs** in the body use the target's `# <n>. <Title>` heading as link text, the same as in `## Status`.

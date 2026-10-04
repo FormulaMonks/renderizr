@@ -12,16 +12,16 @@ metadata:
 
 # Renderizr — a Structurizr workspace as one shareable file
 
-This skill renders a [Structurizr workspace](https://docs.structurizr.com/workspaces) — its views, documentation and decision log — into a browsable static site, or into a single self-contained HTML file that can be uploaded as a Claude artifact and opened by anyone, with no server and no network.
+This skill renders a [Structurizr workspace](https://docs.structurizr.com/workspaces) — its views, documentation and decision log — into a browsable static site, or into a single self-contained HTML file that you can upload as a Claude artifact and anyone can open, with no server and no network.
 
-Diagrams are drawn by Structurizr's own renderer rather than re-implemented, so they pan, zoom and play back dynamic views exactly as they do in Structurizr.
+Renderizr reuses Structurizr's own renderer to draw the diagrams, so they pan, zoom and play back dynamic views exactly as they do in Structurizr.
 
 ## When to use this skill
 
 - The user wants to **see** an architecture model rather than read its source.
 - The user wants to **share** a model with people who have no Structurizr account, no server and no copy of the DSL.
 - The user asks for an **artifact**, a **preview**, or "publish the diagrams".
-- The user is working in a repository that has an `./architecture` folder — often one created by [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/) — and wants output from it.
+- The user works in a repository that has an `./architecture` folder — often one created by [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/) — and wants output from it.
 
 Do **not** use this skill to author or edit a model. Renderizr renders; it does not parse DSL and never writes to the workspace. Editing the model is Scaffoldizr's job.
 
@@ -58,12 +58,12 @@ Renderizr takes **JSON**, either a local path or a URL. It does not parse DSL.
     --single-file --out /tmp/big-bank
   ```
 
-`workspace.json` is a **compiled output** in a Scaffoldizr repository. Render it, but never edit it — it is overwritten on the next export.
+`workspace.json` is a **compiled output** in a Scaffoldizr repository. Render it, but never edit it: the next export overwrites it.
 
 ## Recommended flow
 
 1. **Find the workspace.** Look for `./architecture/workspace.json`. If only `workspace.dsl` exists, export it first and say so; do not silently render a stale JSON.
-2. **Render it**, into a temporary directory rather than the repository, unless the user asked for the output to be kept:
+2. **Render it**, into a temporary directory rather than the repository, unless the user asked you to keep the output:
 
    ```bash
    npx github:FormulaMonks/renderizr ./architecture/workspace.json --single-file --out /tmp/renderizr-out
@@ -88,11 +88,11 @@ Full reference in [flags](./references/flags.md). The ones that matter most:
 
 ## Things that will bite you
 
-Each of these has been verified against the tool, not inferred:
+We verified each of these against the tool:
 
 - **Node 20 is a hard floor.** `npx` runs against whatever Node is first on `PATH`, which is often not the one the shell reports. Renderizr checks and exits with a clear message rather than failing deep inside the build.
 - **`artifact.html` and `index.html` are not interchangeable.** See the table above.
-- **The output directory is emptied** before writing. Never point `--out` at a directory holding anything you want to keep.
+- **Renderizr empties the output directory** before writing. Never point `--out` at a directory holding anything you want to keep.
 - **`https://` in the output is not a leak.** A rendered page contains ordinary hyperlinks to `structurizr.com`, `c4model.com` and the like. Self-containment is about *asset* references — `<script src>`, `<link href>`, `<img src>` — of which there are none. Check the right thing; see [verifying](./references/verifying.md).
 - **Working inside a clone of the Renderizr repository is different.** `pnpm build <workspace> [flags]` — and specifically *not* `pnpm build -- <workspace> --flag`, which makes the flag arrive as a second workspace. `pnpm dev` is the opposite and does want the `--`. This only applies inside the repository; `npx` users are unaffected.
 

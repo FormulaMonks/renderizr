@@ -20,13 +20,13 @@ npx github:FormulaMonks/renderizr ./architecture/workspace.json --single-file --
 | Intended host | somewhere that supplies its own document, i.e. **a Claude artifact** | a browser opening a file directly |
 | Opening it from disk | works, browsers are forgiving | works |
 
-**Upload `artifact.html`.** A Claude artifact is wrapped in a document skeleton at publish time, so handing over `index.html` nests a document inside a document. It usually still renders, which is what makes the mistake easy to miss and worth getting right the first time.
+**Upload `artifact.html`.** The host wraps a Claude artifact in a document skeleton at publish time, so handing over `index.html` nests a document inside a document. It usually still renders, which is what makes the mistake easy to miss and worth getting right the first time.
 
 Use `index.html` when the user wants a file to email, drop in a bucket, or open by double-clicking.
 
 ## What is inside
 
-Everything. Stylesheets, scripts, fonts, icons, the Structurizr renderer and the workspace JSON are all inlined. The page makes **no network requests at all** — it works from `file://`, inside a sandboxed frame, with the network unplugged.
+Everything. The build inlines stylesheets, scripts, fonts, icons, the Structurizr renderer and the workspace JSON. The page makes **no network requests at all** — it works from `file://`, inside a sandboxed frame, with the network unplugged.
 
 That is a checkable claim, not a promise. See [verifying](./verifying.md).
 
@@ -56,4 +56,4 @@ Adding `--font` costs another 45–70 KB gzipped, and `--font-italic` roughly do
 
 ## What it is not
 
-Renderizr renders a workspace; it does not edit one. There is no authoring UI, and nothing written back to `workspace.json`. Diagram layout comes from the workspace — if a diagram is laid out badly, fix it in the model, then re-render.
+Renderizr renders a workspace; it does not edit one. There is no authoring UI, and Renderizr writes nothing back to `workspace.json`. Diagram layout comes from the workspace: if a diagram's layout looks wrong, fix it in the model, then re-render.

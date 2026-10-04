@@ -9,5 +9,5 @@ How to check a change by hand, and how to write the steps for someone else to ch
   pnpm dev -- test/__fixtures__/edge-routing.json --engine react-flow
   ```
 
-  Avoid copy scripts and throwaway workspaces. The fixture is tracked, so `git status` shows whether anything changed it during the check. When no fixture shows the change, add one under `test/__fixtures__/` in the same change.
+  Avoid copy scripts and throwaway workspaces. Git tracks the fixture, so `git status` shows whether anything changed it during the check. When no fixture shows the change, add one under `test/__fixtures__/` in the same change.
 - **Mind the separator.** `pnpm dev` needs `--` before its arguments, because Vite rejects options it does not know (`--engine`). `pnpm build` takes its arguments with no `--`, because pnpm forwards a literal `--` and the CLI rejects it.

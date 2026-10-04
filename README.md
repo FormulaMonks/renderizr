@@ -33,7 +33,7 @@ You need Node 20 or newer. Nothing else — no JVM, no Docker, no Graphviz, no P
 
 ## Who this is for
 
-You keep a C4 model in Structurizr, and you want everyone else to be able to look at it without an account, a running server or a copy of the DSL. Renderizr takes the workspace JSON you already have and turns it into pages you can put behind a URL: the views, the workspace documentation and the decision log, with the diagrams drawn by Structurizr's own renderer so they look exactly as they do in Structurizr itself.
+You keep a C4 model in Structurizr, and you want everyone else to be able to look at it without an account, a running server or a copy of the DSL. Renderizr takes the workspace JSON you already have and turns it into pages you can put behind a URL: the views, the workspace documentation and the decision log. Structurizr's own renderer draws the diagrams, so they look exactly as they do in Structurizr itself.
 
 It renders a workspace. It does not define one — the model, the views and the styles all come from your workspace, unchanged.
 
@@ -41,12 +41,12 @@ It renders a workspace. It does not define one — the model, the views and the 
 
 - **Every view**, listed down the side: landscape, context, container, component, dynamic, deployment, image, filtered and custom — each with its own mark and key.
 - **The real Structurizr renderer**, vendored from [structurizr/structurizr](https://github.com/structurizr/structurizr), not a PlantUML export. Diagrams pan and zoom, dynamic views play back, labels toggle.
-- **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions (`02-containers.md#api`, `../decisions/0005-foo.md`) open the matching page; a link to a file the workspace doesn't include is shown as plain text. Markdown gets GitHub-style alerts, permalinks and highlighting; AsciiDoc is converted, not dumped as `:toc:` noise.
+- **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions (`02-containers.md#api`, `../decisions/0005-foo.md`) open the matching page; Renderizr shows a link to a file the workspace doesn't include as plain text. Markdown gets GitHub-style alerts, permalinks and highlighting; AsciiDoc is converted, not dumped as `:toc:` noise.
 - **The decision log**: status pills, supersessions and amendments, grouped by year, headed by how many are recorded and how many still stand.
 - **Light and dark**, following the reader's system setting until they override it. Page and diagrams keep separate preferences.
 - **Deep links that survive**: routing lives in the URL hash, so a link to a view, document or decision still works after a reload, over `file://`, and inside a sandboxed frame.
 
-Documentation and decisions are read from the workspace level (`documentation.sections` and `documentation.decisions`). Sections attached to an individual software system or container are not rendered as pages.
+Renderizr reads documentation and decisions from the workspace level (`documentation.sections` and `documentation.decisions`). It does not render sections attached to an individual software system or container as pages.
 
 ## Single file
 
@@ -67,7 +67,7 @@ The Big Bank example comes out at about 1MB, or 325KB gzipped — renderer, icon
 
 This mode exists because a directory of files is not always something you can hand over. A single file goes in a chat message, an email, a wiki attachment or an S3 bucket with no build step. It opens off a USB stick on a machine with no network, and it survives being copied somewhere nobody remembers to point a static server at.
 
-Themes, element icons and a logo referenced by URL are all fetched during the build and folded in. The rendered page never reaches for the network, which is also what makes it work under a strict content security policy.
+The build fetches themes, element icons and a logo referenced by URL, and folds them all in. The rendered page never reaches for the network, which is also what makes it work under a strict content security policy.
 
 ## Options
 
@@ -82,15 +82,15 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 
 | Flag | Effect |
 | --- | --- |
-| `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. It is emptied before the build |
+| `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. The build empties it first |
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
 | `--base <path>` | Base public path for the multi-file build. Default is empty, which emits relative URLs (`./assets/…`) that work from any subdirectory. Set it to something like `/renderizr/` when the assets must be referenced absolutely |
 | `--engine <name>` | Diagram engine. Default `structurizr`, the vendored Structurizr renderer. `react-flow` builds with the React Flow engine instead, which is in development and draws stored-layout views only |
-| `--logo <path\|url>` | Image shown at the top left of the header. Fetched at build time, minified if it is SVG, and embedded as a data URI. PNG, JPEG, GIF, WebP and SVG are recognized from their bytes rather than their extension; an SVG containing script is rejected |
+| `--logo <path\|url>` | Image shown at the top left of the header. The build fetches it, minifies it if it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes rather than their extension, and rejects an SVG containing script |
 | `--logo-alt <text>` | Alt text for the logo. Default empty |
 | `--logo-href <url>` | Wraps the logo in a link |
-| `--font <family>` | A [Google Web Font](https://fonts.google.com) family, e.g. `Inter` or `"Source Sans 3"`. Downloaded as woff2 at build time and embedded, including into the diagram labels |
-| `--font-weights <list>` | Comma-separated weights. Default `400,700`. A variable font covering the range is preferred when the family has one |
+| `--font <family>` | A [Google Web Font](https://fonts.google.com) family, e.g. `Inter` or `"Source Sans 3"`. The build downloads it as woff2 and embeds it, including into the diagram labels |
+| `--font-weights <list>` | Comma-separated weights. Default `400,700`. The build prefers a variable font covering the range when the family has one |
 | `--font-subsets <list>` | Comma-separated subsets. Default `latin` |
 | `--font-italic` | Also embed the italic faces, which roughly doubles the font's contribution |
 | `-h, --help` | Print this reference as text and exit |
@@ -99,7 +99,7 @@ A font is the one option with a real cost: Inter at latin, weights 400–700, ad
 
 ## Use it from an AI agent
 
-Renderizr ships an agent skill, so a coding agent can render a workspace for you without being told how each time:
+Renderizr ships an agent skill, so a coding agent can render a workspace for you without you telling it how each time:
 
 ```bash
 npx skills add formulamonks/renderizr
@@ -146,9 +146,9 @@ pnpm install
 pnpm hooks   # once, to install the git hooks
 ```
 
-Installing the hooks is a separate step rather than a `prepare` script: `prepare` runs when a package is installed from a git URL, and `npx github:FormulaMonks/renderizr` is exactly that — so a `prepare` script here would try to run husky inside every consumer's install tree. Contributors are the only people who want the hooks.
+Installing the hooks is a separate step rather than a `prepare` script: `prepare` runs when a package manager installs a package from a git URL, and `npx github:FormulaMonks/renderizr` is exactly that — so a `prepare` script here would try to run husky inside every consumer's install tree. Contributors are the only people who want the hooks.
 
-The Structurizr submodule is optional — the files the build reads from it are committed under `vendor/structurizr`. Check it out only to pull in a newer upstream:
+The Structurizr submodule is optional: we commit the files the build reads from it under `vendor/structurizr`. Check it out only to pull in a newer upstream:
 
 ```bash
 git submodule update --init --remote submodules/structurizr
@@ -196,7 +196,7 @@ pnpm exec biome ci .       # lint and format
 | `scripts/sync-vendor.js` | Copies the files the build reads out of the submodule into `vendor/structurizr` |
 | `vite.config.ts` | Dev server only; production goes through `scripts/build.js` |
 
-Diagrams are drawn by Structurizr's own renderer, taken from [structurizr/structurizr](https://github.com/structurizr/structurizr) — the same code the official local server serves, so a workspace renders here exactly as it does there. The renderer, its stylesheet and the icons live in `vendor/structurizr`, copied verbatim from the submodule and committed: neither npm nor pnpm fetches submodules for a git dependency, so an `npx` install would otherwise arrive with nothing to render with. `pnpm sync:vendor` refreshes them, taking exactly the files the source imports. `src/structurizr-globals.ts` supplies the handful of globals it expects, and `scripts/plugins.js` concatenates and injects it as a classic script (the renderer is written for sloppy mode, which an ES module forbids; an inline script is not `eval`, so a strict CSP still passes). The comments in both explain the details.
+Structurizr's own renderer, taken from [structurizr/structurizr](https://github.com/structurizr/structurizr), draws the diagrams. It is the same code the official local server serves, so a workspace renders here exactly as it does there. The renderer, its stylesheet and the icons live in `vendor/structurizr`, copied verbatim from the submodule and committed: neither npm nor pnpm fetches submodules for a git dependency, so an `npx` install would otherwise arrive with nothing to render with. `pnpm sync:vendor` refreshes them, taking exactly the files the source imports. `src/structurizr-globals.ts` supplies the handful of globals it expects, and `scripts/plugins.js` concatenates and injects it as a classic script (the renderer is written for sloppy mode, which an ES module forbids; an inline script is not `eval`, so a strict CSP still passes). The comments in both explain the details.
 
 ## Contributing
 
