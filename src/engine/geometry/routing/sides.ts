@@ -26,7 +26,8 @@ const dot = (a: Point, b: Point) => a.x * b.x + a.y * b.y;
 /**
  * How many bends the simplest axis-aligned route needs to leave `from`
  * through `fromSide` and arrive at `to` through `toSide`, each perpendicular
- * to its side. A cost estimate for side choice in every routing mode.
+ * to its side. A cost estimate for side choice in Orthogonal, and in Direct
+ * and Curved when avoidance bends the route (`chooseSides`).
  */
 export function bendsBetween(
     from: Point,
@@ -61,16 +62,50 @@ const midpointOf = (box: Rect, side: Side): Point => {
 export type EdgeSides = { source: Side; target: Side };
 
 /**
- * The sides an edge without vertices leaves `from` and enters `to` by: the
- * pair with the lowest cost, its length (axis-aligned for Orthogonal, straight
- * otherwise) plus `BEND_PENALTY` per bend. A tie goes to the pair met first,
- * clockwise from the top.
+ * Whether a straight line from `from` to `to` leaves `fromSide` outward and
+ * enters `toSide` inward, so drawing it adds no bend at either end.
+ */
+function runsStraight(
+    from: Point,
+    fromSide: Side,
+    to: Point,
+    toSide: Side,
+): boolean {
+    const toward = { x: to.x - from.x, y: to.y - from.y };
+    return (
+        dot(toward, outward(fromSide)) > CLEARANCE &&
+        -dot(toward, outward(toSide)) > CLEARANCE
+    );
+}
+
+/**
+ * The sides an edge without vertices leaves `from` and enters `to` by.
+ *
+ * In Direct and Curved, the sides the line between the two centers leaves
+ * and enters (`facingSide`), as Structurizr aims an edge from center to
+ * center: a target below gets the edge on its top. That holds while the
+ * straight line between those sides' midpoints is clear, as `isClear` judges
+ * it; once avoidance has to bend the route, and in Orthogonal always, the
+ * pair with the lowest cost: its length (axis-aligned for Orthogonal,
+ * straight otherwise) plus `BEND_PENALTY` per bend. A tie goes to the pair
+ * met first, clockwise from the top.
  */
 export function chooseSides(
     from: Rect,
     to: Rect,
     mode: RoutingMode,
+    isClear: (a: Point, b: Point) => boolean = () => true,
 ): EdgeSides {
+    if (mode !== "Orthogonal") {
+        const source = facingSide(from, centerOf(to));
+        const target = facingSide(to, centerOf(from));
+        const a = midpointOf(from, source);
+        const b = midpointOf(to, target);
+        // Elements that overlap have no straight line between facing sides.
+        if (runsStraight(a, source, b, target) && isClear(a, b)) {
+            return { source, target };
+        }
+    }
     let best: EdgeSides = { source: SIDES[0], target: SIDES[0] };
     let lowest = Number.POSITIVE_INFINITY;
     for (const source of SIDES) {
@@ -94,7 +129,9 @@ export function chooseSides(
 
 /**
  * The side a ray from the center of `box` toward `point` leaves by: how an
- * edge with vertices picks its sides, facing its first or last vertex.
+ * edge with vertices picks its sides, facing its first or last vertex, and
+ * how a Direct or Curved edge without them does, facing the other element's
+ * center.
  */
 export function facingSide(box: Rect, point: Point): Side {
     const center = centerOf(box);

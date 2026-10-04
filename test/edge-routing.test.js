@@ -188,35 +188,158 @@ for (const { name, to, sides } of SIDE_CASES) {
     });
 }
 
-test("chooseSides weighs length against a penalty per bend", () => {
+/** The midpoint of `box`'s `side`, where `chooseSides` measures from. */
+const midpointOf = (box, side) =>
+    ({
+        top: { x: box.x + box.width / 2, y: box.y },
+        right: { x: box.x + box.width, y: box.y + box.height / 2 },
+        bottom: { x: box.x + box.width / 2, y: box.y + box.height },
+        left: { x: box.x, y: box.y + box.height / 2 },
+    })[side];
+
+const straightLength = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+const axisLength = (a, b) => Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+
+/**
+ * What the cost rule charges for leaving `from` by `source` and entering `to`
+ * by `target`: the length between the sides' midpoints plus `BEND_PENALTY`
+ * per bend of the simplest axis-aligned route.
+ */
+function sideCost(from, to, { source, target }, length) {
+    const a = midpointOf(from, source);
+    const b = midpointOf(to, target);
+    return length(a, b) + BEND_PENALTY * bendsBetween(a, source, b, target);
+}
+
+/** The lowest cost of any side pair between `from` and `to`. */
+function lowestSideCost(from, to, length) {
+    const sides = ["top", "right", "bottom", "left"];
+    return Math.min(
+        ...sides.flatMap((source) =>
+            sides.map((target) =>
+                sideCost(from, to, { source, target }, length),
+            ),
+        ),
+    );
+}
+
+const CENTER_LINE_CASES = [
+    {
+        // The cost rule charges bottom→top the two bends an axis-aligned
+        // route would need, so it took a corner pair Direct never draws.
+        name: "a target below and to the side",
+        from: { x: 0, y: 0, width: 200, height: 100 },
+        to: { x: 300, y: 300, width: 200, height: 100 },
+        sides: { source: "bottom", target: "top" },
+    },
+    {
+        name: "a target to the right and below",
+        from: { x: 0, y: 0, width: 200, height: 100 },
+        to: { x: 500, y: 150, width: 200, height: 100 },
+        sides: { source: "right", target: "left" },
+    },
+    {
+        name: "a target above and to the left",
+        from: { x: 600, y: 600, width: 200, height: 100 },
+        to: { x: 200, y: 200, width: 200, height: 100 },
+        sides: { source: "top", target: "bottom" },
+    },
+    {
+        // Mobile App above Sign In Controller on Big Bank's Components, laid
+        // out automatically: the cost rule entered the controller's side.
+        name: "a target far below and to the side, as on Big Bank's Components",
+        from: { x: 1400, y: 300, width: 450, height: 300 },
+        to: { x: 150, y: 2180, width: 450, height: 300 },
+        sides: { source: "bottom", target: "top" },
+    },
+];
+
+for (const { name, from, to, sides } of CENTER_LINE_CASES) {
+    test(`chooseSides in Direct and Curved takes the sides the center-to-center line leaves and enters, for ${name}`, () => {
+        for (const mode of ["Direct", "Curved"]) {
+            assert.deepEqual(
+                chooseSides(from, to, mode),
+                sides,
+                `${mode} should leave and enter where the line between the centers does`,
+            );
+        }
+    });
+}
+
+test("chooseSides in Orthogonal still weighs length against a penalty per bend", () => {
     // Diagonal: right→left is the shortest pair but needs two bends;
     // bottom→left and right→top need one and are barely longer.
-    const from = { x: 0, y: 0, width: 200, height: 100 };
-    const to = { x: 300, y: 300, width: 200, height: 100 };
-    const { source, target } = chooseSides(from, to, "Direct");
-    const mid = (box, side) =>
-        ({
-            top: { x: box.x + box.width / 2, y: box.y },
-            right: { x: box.x + box.width, y: box.y + box.height / 2 },
-            bottom: { x: box.x + box.width / 2, y: box.y + box.height },
-            left: { x: box.x, y: box.y + box.height / 2 },
-        })[side];
-    const cost = (s, t) => {
-        const a = mid(from, s);
-        const b = mid(to, t);
-        return (
-            Math.hypot(b.x - a.x, b.y - a.y) +
-            BEND_PENALTY * bendsBetween(a, s, b, t)
-        );
-    };
-    const sides = ["top", "right", "bottom", "left"];
-    const best = Math.min(
-        ...sides.flatMap((s) => sides.map((t) => cost(s, t))),
-    );
-    assert.equal(cost(source, target), best);
+    const { from, to } = CENTER_LINE_CASES[0];
+    const sides = chooseSides(from, to, "Orthogonal");
     assert.equal(
-        bendsBetween(mid(from, source), source, mid(to, target), target),
+        sideCost(from, to, sides, axisLength),
+        lowestSideCost(from, to, axisLength),
+        `Orthogonal chose ${JSON.stringify(sides)}, which is not the cheapest pair`,
+    );
+    assert.equal(
+        bendsBetween(
+            midpointOf(from, sides.source),
+            sides.source,
+            midpointOf(to, sides.target),
+            sides.target,
+        ),
         1,
+        `Orthogonal chose ${JSON.stringify(sides)}, expected a one-bend corner pair`,
+    );
+});
+
+test("chooseSides in Direct and Curved falls back to length plus bends when the straight line is blocked", () => {
+    const { from, to } = CENTER_LINE_CASES[0];
+    const blocked = () => false;
+    for (const mode of ["Direct", "Curved"]) {
+        const sides = chooseSides(from, to, mode, blocked);
+        assert.equal(
+            sideCost(from, to, sides, straightLength),
+            lowestSideCost(from, to, straightLength),
+            `${mode} chose ${JSON.stringify(sides)} round a blocked line, which is not the cheapest pair`,
+        );
+        assert.notDeepEqual(
+            sides,
+            { source: "bottom", target: "top" },
+            `${mode} kept the blocked center-to-center sides`,
+        );
+    }
+});
+
+test("chooseSides checks the line between the midpoints of the sides the center-to-center line uses", () => {
+    const { from, to } = CENTER_LINE_CASES[0];
+    const checked = [];
+    chooseSides(from, to, "Direct", (a, b) => {
+        checked.push([a, b]);
+        return true;
+    });
+    assert.deepEqual(
+        checked,
+        [[midpointOf(from, "bottom"), midpointOf(to, "top")]],
+        "the line checked should run from the source's bottom to the target's top",
+    );
+});
+
+test("routeView bends a blocked Direct edge round the element in the way from the sides the cost rule picks", () => {
+    // Element c sits on the line between a's bottom and b's top.
+    const a = element("a", 0, 0);
+    const b = element("b", 300, 300);
+    const c = element("c", 220, 170, 60, 60);
+    const [routed] = routeView([a, b, c], [edge("ab", "a", "b")]);
+    const sides = chooseSides(boxOf(a), boxOf(b), "Direct", () => false);
+    const start = routed.route[0];
+    const end = routed.route[routed.route.length - 1];
+    const onSide = (box, side, point) =>
+        side === "top" || side === "bottom"
+            ? Math.abs(point.y - midpointOf(box, side).y) < EPSILON
+            : Math.abs(point.x - midpointOf(box, side).x) < EPSILON;
+    assert.ok(
+        onSide(boxOf(a), sides.source, start),
+        `the edge should leave a by its ${sides.source}, not at ${JSON.stringify(start)}`,
+    );
+    assert.ok(
+        onSide(boxOf(b), sides.target, end),
+        `the edge should enter b by its ${sides.target}, not at ${JSON.stringify(end)}`,
     );
 });
 

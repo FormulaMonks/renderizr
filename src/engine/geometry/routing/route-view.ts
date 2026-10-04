@@ -17,6 +17,7 @@
 import type { Point, Rect, ShapeGeometry, Side } from "../shapes/types";
 import {
     directRoute,
+    isStraightClear,
     obstaclePadding,
     obstaclesFor,
     orthogonalRoute,
@@ -137,12 +138,18 @@ export function routeView(
         const from = boxOf(source);
         const to = boxOf(target);
         const { vertices } = edge;
+        const others = elements
+            .filter((element) => element !== source && element !== target)
+            .map(boxOf);
+        const padding = obstaclePadding(edge.thickness);
         const chosen = vertices.length
             ? {
                   source: facingSide(from, vertices[0]),
                   target: facingSide(to, vertices[vertices.length - 1]),
               }
-            : chooseSides(from, to, edge.routing);
+            : chooseSides(from, to, edge.routing, (a, b) =>
+                  isStraightClear(a, b, others, [from, to], padding),
+              );
         sides.set(index, chosen);
         addEnd(source.id, {
             id: sourceEnd(index),
