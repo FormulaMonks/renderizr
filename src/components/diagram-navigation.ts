@@ -88,6 +88,13 @@ export default class DiagramNavigation extends Component {
     #unlisten: (() => void) | null = null;
     #collapsed = readSetting(COLLAPSED_KEY) === "true";
     #list: HTMLElement | null = null;
+    /**
+     * The view last handed to the diagram. Asking for it again is a no-op:
+     * the page's view-changed handler calls back into `changeView`, and the
+     * Structurizr diagram, which reports a filtered view's base as current,
+     * would otherwise render the filtered view again, endlessly.
+     */
+    #shown: string | null = null;
 
     constructor(
         element: HTMLElement,
@@ -218,6 +225,8 @@ export default class DiagramNavigation extends Component {
 
         this.#setViewInUrl(viewKey, replace);
         this.#revealActive(viewKey);
+        if (viewKey === this.#shown) return;
+        this.#shown = viewKey;
         this.#diagram.changeView(viewKey);
     }
 

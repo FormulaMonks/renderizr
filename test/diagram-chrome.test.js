@@ -96,3 +96,26 @@ test("the toolbar titles the current view from the model", () => {
     assert.match(heading.querySelector("span").textContent, /^Code$/);
     toolbar.clear();
 });
+
+test("a filtered view is shown once, though the diagram reports its base as current", () => {
+    const element = document.createElement("nav");
+    const calls = [];
+    // As the vendored diagram does for a filtered view: its base becomes the
+    // current view, and the page's view-changed handler drives the drawer.
+    const diagram = {
+        changeView: (key) => {
+            calls.push(key);
+            if (calls.length > 3) throw new Error("changeView recursed");
+            drawer.changeView(key);
+        },
+        getCurrentView: () => ({ key: "Base" }),
+    };
+    const drawer = new DiagramNavigation(element, diagram, model);
+    drawer.render();
+    calls.length = 0; // render() opens the starting view; count from here
+
+    drawer.changeView("Filtered");
+
+    assert.deepEqual(calls, ["Filtered"]);
+    drawer.clear();
+});
