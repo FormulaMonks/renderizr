@@ -79,6 +79,8 @@ import { borderDashes, paintPart } from "../geometry/paint";
 import { lineDashes } from "../geometry/line";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
 import {
+    type Activation,
+    type ActivationType,
     type BoundaryBox,
     type Bounds,
     buildGraph,
@@ -135,8 +137,7 @@ export type IslandCommands = {
     zoomOut(): void;
 };
 
-/** What was activated: an element (or its boundary) or a relationship. */
-export type ActivationType = "element" | "relationship";
+export type { ActivationType };
 
 export type IslandProps = {
     model: WorkspaceModel;
@@ -262,72 +263,34 @@ const ZOOM_KEYS: Partial<Record<string, keyof IslandCommands>> = {
     "0": "fit",
 };
 
-/** What a focused item activates, and the box focusing it brings on screen. */
-type FocusTarget = { type: ActivationType; id: string; box: Bounds };
-
-/**
- * Every item with targets by its focus key: an element by its box, a
- * boundary by its label band, an edge by its label (spec 6.2).
- */
-function focusTargets(graph: Graph | undefined): Map<string, FocusTarget> {
-    const targets = new Map<string, FocusTarget>();
-    for (const item of graph?.focusOrder ?? []) {
-        const key = focusKey(item);
-        if (item.type === "element") {
-            const element = graph?.elements.find((e) => e.id === item.id);
-            if (element) {
-                targets.set(key, {
-                    type: "element",
-                    id: item.id,
-                    box: element,
-                });
-            }
-        } else if (item.type === "boundary") {
-            const boundary = graph?.boundaries.find((b) => b.id === item.id);
-            if (boundary?.elementId) {
-                targets.set(key, {
-                    type: "element",
-                    id: boundary.elementId,
-                    box: {
-                        ...boundary.band,
-                        x: boundary.x + boundary.band.x,
-                        y: boundary.y + boundary.band.y,
-                    },
-                });
-            }
-        } else {
-            const edge = graph?.edges.find((e) => e.key === item.id);
-            if (edge?.labelBox) {
-                targets.set(key, {
-                    type: "relationship",
-                    id: edge.id,
-                    box: edge.labelBox,
-                });
-            }
-        }
-    }
-    return targets;
-}
-
 /** Reports an activation to the handle; the island never navigates. */
 const Activate = createContext<IslandProps["onActivate"]>(() => {});
 
+/** An item as the focus order and the DOM find it. */
+type FocusRef = Pick<FocusItem, "type" | "id">;
+
 /** The key an item is found by in the focus order and the DOM. */
-const focusKey = (item: FocusItem) => `${item.type}:${item.id}`;
+const focusKey = (item: FocusRef) => `${item.type}:${item.id}`;
+
+/** What an item without targets takes: nothing, so it stays inert. */
+const INERT: { onClick?: (event: MouseEvent) => void } = {};
 
 /**
  * What makes an item with targets activatable (spec 6.1, 6.2): a pointer,
  * a click, a place in the canvas's own Tab order and an accessible name.
- * Nothing for an item without targets, which stays inert.
+ * An element activates itself; a boundary or an edge names what it
+ * activates.
  */
 function useTargetProps(
-    item: FocusItem,
+    item: FocusRef,
     targets: TargetKind[],
-    activation: { type: ActivationType; id: string } | undefined,
     label: string,
+    activation: Activation | undefined = item.type === "element"
+        ? { type: "element", id: item.id }
+        : undefined,
 ) {
     const activate = useContext(Activate);
-    if (targets.length === 0 || !activation) return {};
+    if (targets.length === 0 || !activation) return INERT;
     return {
         className: styles.target,
         tabIndex: -1,
@@ -613,8 +576,9 @@ function ElementLabel({
                                 marginTop: DESCRIPTION_GAP,
                                 whiteSpace: "pre-line",
                                 overflow: "hidden",
-                                // Unclamped only until the first measurement, which
-                                // runs before paint, so that state is never seen.
+                                // Unclamped only until the first
+                                // measurement, which runs before paint,
+                                // so that state is never seen.
                                 ...(lines !== undefined && {
                                     display: "-webkit-box",
                                     WebkitBoxOrient: "vertical",
@@ -653,7 +617,6 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
     const target = useTargetProps(
         { type: "element", id: data.id },
         data.targets,
-        { type: "element", id: data.id },
         fullText,
     );
 
@@ -765,18 +728,15 @@ function TextLines({
  * label and icon stay opaque, as on elements.
  */
 function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
-    const { band } = data;
-    const label = [data.name.lines.join(" "), data.metadata?.lines.join(" ")]
-        .filter(Boolean)
-        .join("\n");
+    const { band, accessibleName } = data;
     // Its label band is what activates the element it is drawn for.
     const target = useTargetProps(
         { type: "boundary", id: data.id },
         data.targets,
+        accessibleName,
         data.elementId === undefined
             ? undefined
             : { type: "element", id: data.elementId },
-        label,
     );
     return (
         <div
@@ -812,7 +772,7 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
             </svg>
             <div
                 data-boundary-label=""
-                title={label}
+                title={accessibleName}
                 {...target}
                 style={{
                     position: "absolute",
@@ -886,14 +846,13 @@ const CanvasBackground = createContext("#ffffff");
  */
 function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
     const background = useContext(CanvasBackground);
-    const activate = useContext(Activate);
     // Keyboard focus sits on the label, which is where the pointer can
     // activate it too, as on the invisible stroke round the line (spec 10.9).
     const target = useTargetProps(
         { type: "edge", id },
         data?.targets ?? [],
-        data && { type: "relationship", id: data.id },
         data?.name ?? "",
+        data && { type: "relationship", id: data.id },
     );
     if (!data) return null;
     const { thickness, labelBox, labelLines, labelIndicators } = data;
@@ -910,13 +869,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     fill="none"
                     stroke="transparent"
                     strokeWidth={EDGE_HIT_WIDTH}
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        activate("relationship", data.id, {
-                            x: event.clientX,
-                            y: event.clientY,
-                        });
-                    }}
+                    onClick={target.onClick}
                 />
             )}
             <g opacity={data.opacity}>
@@ -1420,10 +1373,22 @@ function Canvas({
         };
     }, [fitted, empty, key, flow, onPainted, graph]);
 
-    /** Each item with targets by its focus key: what it activates, and where. */
-    const focusable = useMemo(() => focusTargets(graph), [graph]);
+    /** Each item with targets by its focus key. */
+    const focusable = useMemo(
+        () =>
+            new Map(
+                (graph?.focusOrder ?? []).map((item) => [focusKey(item), item]),
+            ),
+        [graph],
+    );
+    /**
+     * Set while the pointer is what moves focus, so a click focuses its item
+     * where it is: panning it into view then would move the canvas under the
+     * pointer (spec 6.2). A key press hands focus back to the keyboard.
+     */
+    const pointing = useRef(false);
 
-    const itemElement = (item: FocusItem | undefined) =>
+    const itemElement = (item: FocusRef | undefined) =>
         item
             ? wrapper.current?.querySelector<HTMLElement>(
                   `[data-focus-item="${CSS.escape(focusKey(item))}"]`,
@@ -1456,11 +1421,12 @@ function Canvas({
     };
 
     const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+        pointing.current = false;
         if (event.altKey || event.ctrlKey || event.metaKey) return;
         if (event.key === "Tab") return onTab(event);
 
         const item = (event.target as HTMLElement).dataset?.focusItem;
-        const activation = item ? focusable.get(item) : undefined;
+        const activation = item ? focusable.get(item)?.activation : undefined;
         if (activation && (event.key === "Enter" || event.key === " ")) {
             event.preventDefault();
             const box = (event.target as HTMLElement).getBoundingClientRect();
@@ -1490,8 +1456,10 @@ function Canvas({
         }
     };
 
-    // An item focused off screen is panned into view, zoom unchanged.
+    // An item the keyboard focuses off screen is panned into view, zoom
+    // unchanged. One the pointer focuses is already where the reader is.
     const onFocus = (event: FocusEvent<HTMLDivElement>) => {
+        if (pointing.current) return;
         const item = (event.target as HTMLElement).dataset?.focusItem;
         const box = item ? focusable.get(item)?.box : undefined;
         if (!box) return;
@@ -1506,13 +1474,16 @@ function Canvas({
             ref={wrapper}
             data-view-key={key ?? ""}
             data-ready={readyFor(key, readyKey) ? "true" : "false"}
-            // One focusable region, labelled with the view's title (spec 6.2).
+            // One focusable region, labeled with the view's title (spec 6.2).
             role="group"
             aria-label={graph?.title}
             // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas is one Tab stop that pans, zooms and walks its items by key (spec 6.2)
             tabIndex={0}
             className={styles.canvas}
             onKeyDown={onKeyDown}
+            onPointerDownCapture={() => {
+                pointing.current = true;
+            }}
             onFocus={onFocus}
             style={
                 {
@@ -1543,7 +1514,7 @@ function Canvas({
                             nodesFocusable={false}
                             edgesFocusable={false}
                             elementsSelectable={false}
-                            // The canvas owns the keys (spec 6.2), not React Flow.
+                            // The canvas owns the keys (spec 6.2).
                             disableKeyboardA11y
                             panOnDrag
                             panOnScroll
@@ -1556,7 +1527,8 @@ function Canvas({
                             colorMode={state.scheme}
                             proOptions={proOptions}
                             onMoveStart={(event) => {
-                                // Programmatic moves carry no event; only the reader's do.
+                                // Programmatic moves carry no event; only
+                                // the reader's do.
                                 if (event) moved.current = true;
                             }}
                         />

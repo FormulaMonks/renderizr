@@ -22,6 +22,9 @@ import { ShownListeners } from "./shown";
 
 const NO_ANIMATION: AnimationState = { steps: 0, step: null, playing: false };
 
+/** Hears that an element or a relationship was activated, and where. */
+type ActivationListener = (id: string, anchor: Anchor) => void;
+
 /**
  * Mount the React Flow engine into `target` and resolve once the first view
  * is painted (spec section 5). The island mounts only once `target` has a
@@ -60,12 +63,12 @@ export function mountEngine(
         };
         const shown = new ShownListeners<ModelView>();
         const activated = {
-            element: new Set<(id: string, anchor: Anchor) => void>(),
-            relationship: new Set<(id: string, anchor: Anchor) => void>(),
+            element: new Set<ActivationListener>(),
+            relationship: new Set<ActivationListener>(),
         };
         const listen = (
-            listeners: Set<(id: string, anchor: Anchor) => void>,
-            callback: (id: string, anchor: Anchor) => void,
+            listeners: Set<ActivationListener>,
+            callback: ActivationListener,
         ) => {
             listeners.add(callback);
             return () => {

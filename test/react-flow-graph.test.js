@@ -1781,6 +1781,49 @@ test("an edge's accessible name reads source → target: description", () => {
     assert.equal(bare.edges[0].name, "Reader → Fixture System");
 });
 
+test("a boundary's accessible name reads its name, metadata and description, as an element's does", () => {
+    const [boundary] = buildGraph(
+        containers(),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    ).boundaries;
+    const [hidden] = buildGraph(containers(), "FixtureContainers", "light", {
+        ...LABELS,
+        descriptions: false,
+    }).boundaries;
+
+    assert.equal(
+        boundary.accessibleName,
+        "Fixture System\n[Software System]\nThe system under test",
+    );
+    assert.equal(
+        hidden.accessibleName,
+        "Fixture System\n[Software System]",
+        "the descriptions toggle hides it, as on an element",
+    );
+});
+
+test("a boundary's label band activates the element it is drawn for", () => {
+    const graph = buildGraph(
+        containers((json) => {
+            json.model.softwareSystems[0].url = "https://example.com/system";
+        }),
+        "FixtureContainers",
+        "light",
+        LABELS,
+    );
+    const [boundary] = graph.boundaries;
+    const item = graph.focusOrder.find((i) => i.type === "boundary");
+
+    assert.deepEqual(item.activation, { type: "element", id: "2" });
+    assert.deepEqual(item.box, {
+        ...boundary.band,
+        x: boundary.x + boundary.band.x,
+        y: boundary.y + boundary.band.y,
+    });
+});
+
 test("only items with targets are in the focus order, top to bottom then left to right", () => {
     const graph = contextGraph((json) => {
         json.model.people[0].url = "https://example.com/reader";

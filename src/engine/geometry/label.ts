@@ -165,9 +165,10 @@ export const INDICATOR_ROW_HEIGHT = INDICATOR_SIZE + INDICATOR_MARGIN;
 
 /**
  * What of the label fits its content area (spec 9.1). Icon, name, metadata
- * and the indicator row are fixed parts; when they overflow, the icon goes first, and if
- * name and metadata still overflow they are reported. The description gets
- * the whole lines left after them, and is clamped there with an ellipsis.
+ * and the indicator row are fixed parts; when they overflow, the icon goes
+ * first, and if name and metadata still overflow they are reported. The
+ * description gets the whole lines left after them, and is clamped there
+ * with an ellipsis.
  *
  * Lines and overflow are worked out from the heights as drawn now. A Left
  * icon narrows the text column, so when the icon kept differs from the one

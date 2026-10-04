@@ -1,7 +1,7 @@
 /*
- * What the island draws with class names rather than `style` props: states
- * a style prop cannot reach. `--focus-ring` is the scheme's text color, set
- * on the canvas as a style prop (spec 6.2).
+ * What the island draws with class names: states a style prop cannot
+ * reach. `--focus-ring` is the scheme's text color, set on the canvas as a
+ * style prop (spec 6.2).
  */
 
 /* The canvas is one focusable region; its ring sits inside its rounded box. */

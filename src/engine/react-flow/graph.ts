@@ -62,7 +62,11 @@ import {
     placeEdgeLabels,
 } from "../geometry/edge-label";
 import { indicatorKinds } from "../geometry/indicators";
-import { type IconPosition, iconPositionOf } from "../geometry/label";
+import {
+    type IconPosition,
+    iconPositionOf,
+    labelText,
+} from "../geometry/label";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
     type RoutingElement,
@@ -89,12 +93,24 @@ export type { Bounds, ColorScheme, Labels, TargetKind };
 
 export type { Point };
 
+/** What was activated: an element (or its boundary) or a relationship. */
+export type ActivationType = "element" | "relationship";
+
+/** The element or relationship an item activates. */
+export type Activation = { type: ActivationType; id: string };
+
 /**
  * What the reader can activate, by keyboard as by pointer (spec 6.2): an
  * element, a boundary's label band or an edge's label, by its node id or
- * edge key.
+ * edge key, with what it activates and the box focusing it brings on
+ * screen, in model units.
  */
-export type FocusItem = { type: "element" | "boundary" | "edge"; id: string };
+export type FocusItem = {
+    type: "element" | "boundary" | "edge";
+    id: string;
+    activation: Activation;
+    box: Bounds;
+};
 
 export type ElementBox = {
     id: string;
@@ -144,10 +160,15 @@ export type ElementBox = {
 /** A boundary drawn around its children, with its label band (spec 8). */
 export type BoundaryBox = DerivedBoundary & {
     kind: BoundaryKind;
-    /** The element a boundary of an element is drawn for, which it activates. */
+    /** The element the boundary is drawn for, which its band activates. */
     elementId?: string;
     /** As an element's: what activating its label band offers. */
     targets: TargetKind[];
+    /**
+     * Its accessible name and title: name, metadata and description, as an
+     * element's (spec 6.2).
+     */
+    accessibleName: string;
     /** 0 for an outermost boundary; inner ones are drawn above outer ones. */
     depth: number;
     /** 20 for the RoundedBox family, square otherwise. */
@@ -679,6 +700,7 @@ export function buildGraph(
         boundaryTargets,
         elements,
         colorScheme,
+        labels,
         measure,
     );
 
@@ -772,30 +794,51 @@ function readingOrder(
     boundaries: BoundaryBox[],
     edges: EdgeLine[],
 ): FocusItem[] {
-    const items: (FocusItem & { at: Point })[] = [
+    const items: FocusItem[] = [
         ...elements
             .filter((e) => e.targets.length > 0)
             .map((e) => ({
                 type: "element" as const,
                 id: e.id,
-                at: { x: e.x, y: e.y },
+                activation: { type: "element" as const, id: e.id },
+                box: { x: e.x, y: e.y, width: e.width, height: e.height },
             })),
-        ...boundaries
-            .filter((b) => b.targets.length > 0)
-            .map((b) => ({
-                type: "boundary" as const,
-                id: b.id,
-                at: { x: b.x + b.band.x, y: b.y + b.band.y },
-            })),
+        ...boundaries.flatMap((b) =>
+            b.targets.length > 0 && b.elementId
+                ? [
+                      {
+                          type: "boundary" as const,
+                          id: b.id,
+                          activation: {
+                              type: "element" as const,
+                              id: b.elementId,
+                          },
+                          box: {
+                              ...b.band,
+                              x: b.x + b.band.x,
+                              y: b.y + b.band.y,
+                          },
+                      },
+                  ]
+                : [],
+        ),
         ...edges.flatMap((e) =>
             e.targets.length > 0 && e.labelBox
-                ? [{ type: "edge" as const, id: e.key, at: e.labelBox }]
+                ? [
+                      {
+                          type: "edge" as const,
+                          id: e.key,
+                          activation: {
+                              type: "relationship" as const,
+                              id: e.id,
+                          },
+                          box: e.labelBox,
+                      },
+                  ]
                 : [],
         ),
     ];
-    return items
-        .sort((a, b) => a.at.y - b.at.y || a.at.x - b.at.x)
-        .map(({ type, id }) => ({ type, id }));
+    return items.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
 }
 
 /* --------------------------------------------------------------- layout */
@@ -1007,6 +1050,7 @@ function boundaryBoxes(
     targets: ReadonlyMap<string, TargetKind[]>,
     elements: ElementBox[],
     scheme: ModelColorScheme,
+    labels: Labels,
     measure: MeasureText,
 ): BoundaryBox[] {
     const derived = new Map(
@@ -1023,6 +1067,12 @@ function boundaryBoxes(
         if (!box) continue;
         const style = styles.get(boundary.id)!;
         const defaults = SCHEME_DEFAULTS[scheme];
+        const description =
+            boundary.kind === "Element" &&
+            labels.descriptions &&
+            style.description
+                ? boundary.element.description ?? ""
+                : "";
         boxes.push({
             ...box,
             kind: boundary.kind,
@@ -1030,6 +1080,11 @@ function boundaryBoxes(
                 elementId: boundary.element.id,
             }),
             targets: targets.get(boundary.id) ?? [],
+            accessibleName: labelText(
+                box.name.lines.join(" "),
+                box.metadata?.lines.join(" ") ?? "",
+                description,
+            ),
             depth: boundary.depth,
             radius: boundaryRadius(style.shape),
             background: style.background,
@@ -1099,7 +1154,7 @@ function shiftInto(start: number, end: number, length: number): number {
 export function panIntoView(
     viewport: Viewport,
     box: Bounds,
-    size: { width: number; height: number },
+    size: Size,
 ): Viewport | null {
     const { zoom } = viewport;
     const left = box.x * zoom + viewport.x;
