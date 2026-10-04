@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { placeUnplaced, UNPLACED_GAP } = await importSrc(
+const { LABEL_CLEARANCE, placeUnplaced, UNPLACED_GAP } = await importSrc(
     "engine/geometry/unplaced",
 );
 const { layOut } = await importSrc("engine/layout/automatic");
@@ -175,6 +175,93 @@ test("each placement counts as placed for the next", () => {
         placements[0],
         { id: "b", x: 0, y: H + SEPARATION },
         "b is not one separation below a",
+    );
+});
+
+/* ----------------------------------------------------------------- labels */
+
+test("a slot below a neighbor leaves room for the label between them", () => {
+    const label = { width: 200, height: 400 };
+    const [placement] = placeUnplaced({
+        placed: new Map([["a", box(0, 0)]]),
+        unplaced: [element("b")],
+        relationships: [["a", "b", label]],
+        separation: SEPARATION,
+        boundaries: NO_BOUNDARIES,
+    });
+    assert.deepEqual(
+        placement,
+        {
+            id: "b",
+            x: 0,
+            y: H + label.height + 2 * LABEL_CLEARANCE,
+        },
+        "b should sit the label's height plus clearance below a",
+    );
+});
+
+test("a slot beside a neighbor leaves room for the label's width", () => {
+    // Unrelated elements fill the slots above and below a.
+    const label = { width: 500, height: 40 };
+    const [placement] = placeUnplaced({
+        placed: new Map([
+            ["a", box(0, 0)],
+            ["above", box(0, -H - 100)],
+            ["below", box(0, H + 100)],
+        ]),
+        unplaced: [element("b")],
+        relationships: [["a", "b", label]],
+        separation: SEPARATION,
+        boundaries: NO_BOUNDARIES,
+    });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: W + label.width + 2 * LABEL_CLEARANCE, y: 0 },
+        "b should sit the label's width plus clearance right of a",
+    );
+});
+
+test("a short label still keeps a slot one separation away", () => {
+    const [placement] = placeUnplaced({
+        placed: new Map([["a", box(0, 0)]]),
+        unplaced: [element("b")],
+        relationships: [["a", "b", { width: 10, height: 10 }]],
+        separation: SEPARATION,
+        boundaries: NO_BOUNDARIES,
+    });
+    assert.deepEqual(
+        placement,
+        { id: "b", x: 0, y: H + SEPARATION },
+        "b should still be one separation below a",
+    );
+});
+
+test("a slot keeps label room from every related neighbor, not only the one it was found next to", () => {
+    // The slot below a is 200 clear of c, which b relates to through a
+    // 400-high label: too close, so b goes elsewhere.
+    const label = { width: 200, height: 400 };
+    const c = box(0, 2 * H + SEPARATION + 200);
+    const [placement] = placeUnplaced({
+        placed: new Map([
+            ["a", box(0, 0)],
+            ["c", c],
+        ]),
+        unplaced: [element("b")],
+        relationships: [
+            ["a", "b"],
+            ["b", "c", label],
+        ],
+        separation: SEPARATION,
+        boundaries: NO_BOUNDARIES,
+    });
+    const b = box(placement.x, placement.y);
+    const room = label.height + 2 * LABEL_CLEARANCE;
+    const sideBySide = b.x + b.width <= c.x || c.x + c.width <= b.x;
+    assert.ok(
+        sideBySide ||
+            b.y + b.height + room <= c.y ||
+            c.y + c.height + room <= b.y,
+        `b at ${JSON.stringify(b)} leaves no room for its label to c`,
     );
 });
 
