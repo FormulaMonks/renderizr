@@ -1605,6 +1605,34 @@ test(
 );
 
 test(
+    "--engine react-flow: back on the painted view before the next one paints, its steps return",
+    { skip: SKIP },
+    async () => {
+        // Both clicks land before Containers paints, so the canvas never
+        // leaves Checkout and has nothing new to paint.
+        const { back, stepped } = await probeAnimation(
+            "back",
+            "Checkout",
+            `click('#structurizr-diagram-navigation [data-viewkey="Containers"] button');
+            click('#structurizr-diagram-navigation [data-viewkey="Checkout"] button');
+            await sleep(300);
+            shoot("back");
+            shots.at(-1).hidden = document.querySelector(".animation-buttons").hidden;
+            click(".next-step");
+            await sleep(50);
+            shoot("stepped");`,
+        );
+        assert.equal(back.view, "Checkout");
+        assert.equal(back.hidden, false, "the animation buttons still show");
+        assert.equal(
+            edgeOpacities(stepped)["11@2"],
+            0.2,
+            "and the next step still fades the edges outside it",
+        );
+    },
+);
+
+test(
     "--engine react-flow: under reduced motion a step changes at once",
     { skip: SKIP },
     async () => {

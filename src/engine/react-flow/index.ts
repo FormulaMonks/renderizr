@@ -61,6 +61,12 @@ export function mountEngine(
         let mounted = false;
 
         const player = new AnimationPlayer();
+        /**
+         * The view last painted and how many steps it plays. The island
+         * paints only a view it has not painted last, so a view shown again
+         * before another one paints takes its steps back from here.
+         */
+        let painted: { key: string; steps: number } | null = null;
         player.onChanged(({ step }) => {
             if (step !== store.get().step) store.set({ step });
         });
@@ -96,12 +102,13 @@ export function mountEngine(
                 if (key === store.get().key) return;
                 if (!model.findViewByKey(key)) return;
                 // The animation ends with the view it belongs to; the new
-                // view's steps load once it is painted. The key and the full
-                // view arrive together: a step cleared on the outgoing view
-                // first would refit it under zoomOnAnimation just before the
-                // new view paints.
+                // view's steps load once it is painted, or at once for the
+                // view painted last, which paints nothing new. The key and
+                // the full view arrive together: a step cleared on the
+                // outgoing view first would refit it under zoomOnAnimation
+                // just before the new view paints.
                 store.set({ key, step: null });
-                player.load(0);
+                player.load(painted?.key === key ? painted.steps : 0);
             },
             setColorScheme(scheme) {
                 if (scheme !== store.get().scheme) store.set({ scheme });
@@ -152,7 +159,8 @@ export function mountEngine(
             if (__RENDERIZR_ENGINE_REPORT__) {
                 writeReport(document, engineReport(graph));
             }
-            player.load(graph.animation?.steps.length ?? 0);
+            painted = { key, steps: graph.animation?.steps.length ?? 0 };
+            player.load(painted.steps);
             const view = model.findViewByKey(key);
             if (view) shown.paint(view);
             if (!mounted) {
