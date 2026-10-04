@@ -95,6 +95,8 @@ Run every command below from the repository root.
 | `pnpm exec biome ci .` | Exactly what the pre-commit hook and CI run: check, never fix, non-zero on any finding |
 | `pnpm exec tsc --noEmit` | Type-check `src/` on its own |
 | `pnpm sync:vendor` | Refresh `vendor/structurizr` from the submodule (see above) |
+| `pnpm fixtures:large` | Write `test/__fixtures__/large-landscape.json` again from its generator, `test/support/large-landscape.js` |
+| `pnpm fixtures:acceptance` | Export `test/__fixtures__/acceptance/workspace.dsl` to the `workspace.json` beside it with the Structurizr CLI (`structurizr-cli` on the `PATH`, or `STRUCTURIZR_CLI`), then format it |
 
 ### Dev server
 
@@ -255,6 +257,8 @@ public/         static files copied into every build (currently the favicon)
 | `test/support/` | The harness those tests import: `dom.js`, `ts.js`, `vite-hooks.js`, `browser.js`, `history.js` |
 | `test/support/acceptance.js` | The acceptance set (spec 15.3) and how each of its workspaces is built offline, for the acceptance harness and the contact sheet |
 | `test/support/engine-checks.js` | The rules the acceptance harness holds every engine report to, as plain functions over numbers |
+| `test/support/large-landscape.js` | The seeded generator of the large fixture (spec 15.3); `pnpm fixtures:large` writes `test/__fixtures__/large-landscape.json` from it |
+| `test/support/fixtures.js` | What the fixture writers share: the model's people and software systems, and the format a committed fixture keeps |
 | `test/contact-sheet.js` | Screenshots every acceptance view under both engines into one HTML page for people to review; run by hand or by CI, never by `pnpm test` |
 | `src/main.ts` | App entry point |
 | `src/components/` | Reusable UI: router, menu, navigation, theme, markdown renderer, scroll-spy |

@@ -3,11 +3,11 @@
  * exercises every drawing rule the React Flow engine has to honor.
  *
  * workspace.json beside this file is its export. Regenerate it with
- * `node test/__fixtures__/acceptance/export.js` (then `pnpm format`), which runs
- * `structurizr-cli export -f json` on this file and marks the elements
- * tagged "Internal" with `location: Internal`: structurizr-java 5 dropped
- * the enterprise and element locations, which the enterprise boundary of
- * older workspaces still needs.
+ * `pnpm fixtures:acceptance`, which runs `structurizr-cli export -f json`
+ * on this file, marks the elements tagged "Internal" with
+ * `location: Internal` and formats the result with Biome: structurizr-java
+ * 5 dropped the enterprise and element locations, which the enterprise
+ * boundary of older workspaces still needs.
  *
  * The `!script` block at the end stores every view's layout, vertices
  * included, since the DSL has no syntax for coordinates. "Queue" stays
@@ -95,6 +95,11 @@ workspace "Acceptance" "Every drawing rule of the renderer spec in one workspace
     views {
         systemLandscape "Landscape" "Every routing mode, with and without vertices, inside and across the enterprise boundary" {
             include customer clerk shop warehouse payments courier
+        }
+
+        systemLandscape "LandscapeAutomatic" "The landscape laid out automatically, with the enterprise boundary around the shop's own people and systems" {
+            include customer clerk shop warehouse payments courier
+            autoLayout
         }
 
         systemContext shop "Context" "The shop and its neighbors, laid out automatically" {

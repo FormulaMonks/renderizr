@@ -28,6 +28,12 @@ export const OUTLINE_TOLERANCE = 1;
  * a Hexagon (regular, flat-topped), whatever the style says, and stored
  * layouts were made against that box. Style resolution squares Person and
  * Robot already.
+ *
+ * The engine applies the same rule in `shapeSize`
+ * (`src/engine/geometry/shapes/index.ts`), which documents it as an
+ * exception to spec 9.1. It is written out again here on purpose, as an
+ * oracle independent of the engine: a check that read the box from
+ * `shapeSize` would pass whatever size the engine drew.
  */
 function upstreamBox(shape, width, height) {
     if (shape === "Circle" || shape === "Diamond") {

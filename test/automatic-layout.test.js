@@ -5,10 +5,22 @@
  */
 
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+import { REPO_ROOT } from "../scripts/__fixtures__/helpers.js";
+import {
+    ACCEPTANCE_SET,
+    INVALID_SET,
+    missingReason,
+    prepareWorkspace,
+} from "./support/acceptance.js";
+import { expectedDrawing, isAutomatic } from "./support/engine-checks.js";
+import { LARGE_LANDSCAPE_FIXTURE } from "./support/large-landscape.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { LARGE_VIEW_ELEMENTS, layOut, layoutOrder, rankerFor, simplify } =
     await importSrc("engine/layout/automatic");
+const { WorkspaceModel } = await importSrc("model/index");
 
 const SETTINGS = {
     rankDirection: "TopBottom",
@@ -525,3 +537,77 @@ test("a large view still keeps its elements apart and ranked along its edges", (
         assert.ok(sorted[i].y > sorted[i - 1].y, `${i + 1} is not below ${i}`);
     }
 });
+
+/** The test fixtures that hold workspaces, each with its views' layouts. */
+const FIXTURES = join(REPO_ROOT, "test/__fixtures__");
+
+/**
+ * Every committed workspace with views to lay out: the acceptance set,
+ * submodule workspaces included, and every other workspace among the test
+ * fixtures. The workspaces the build refuses lay nothing out.
+ */
+const LAID_OUT = [
+    ...ACCEPTANCE_SET,
+    ...readdirSync(FIXTURES)
+        .filter((file) => file.endsWith(".json"))
+        .map((file) => ({
+            name: `test/__fixtures__/${file}`,
+            source: join(FIXTURES, file),
+            submodule: false,
+        }))
+        .filter(
+            ({ source }) =>
+                ![...ACCEPTANCE_SET, ...INVALID_SET].some(
+                    (entry) => entry.source === source,
+                ),
+        ),
+];
+
+/**
+ * The graph the engine hands Dagre for a view, as far as the ranker reads
+ * it: the elements and boundaries `expectedDrawing` says the view draws.
+ */
+function rankedGraph(expected) {
+    return {
+        nodes: expected.elements.map(({ id, width, height }) => ({
+            id,
+            width,
+            height,
+        })),
+        boundaries: expected.boundaries.map((id) => ({ id })),
+        edges: [],
+    };
+}
+
+// ADR 14 promises that every ordinary automatic view keeps the ranker, and
+// so the layout, it had before the large landscape needed tight-tree.
+for (const entry of LAID_OUT) {
+    const skip = missingReason(entry);
+    if (skip) {
+        test(
+            `every automatic view of ${entry.name} is ranked by network-simplex`,
+            {
+                skip,
+            },
+        );
+        continue;
+    }
+    const model = new WorkspaceModel(prepareWorkspace(entry));
+    const ranker =
+        entry.source === LARGE_LANDSCAPE_FIXTURE
+            ? "tight-tree"
+            : "network-simplex";
+    for (const { key } of model.getViews()) {
+        const expected = expectedDrawing(model, key);
+        if (!isAutomatic(expected)) continue;
+        const graph = rankedGraph(expected);
+
+        test(`automatic view ${key} of ${entry.name} is ranked by ${ranker}`, () => {
+            assert.equal(
+                rankerFor(graph),
+                ranker,
+                `${graph.nodes.length} elements`,
+            );
+        });
+    }
+}

@@ -9,6 +9,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { expectedDrawing } from "./support/engine-checks.js";
+import { peopleAndSoftwareSystems } from "./support/fixtures.js";
 import {
     AUTOMATIC_VIEW,
     LARGE_LANDSCAPE_FIXTURE,
@@ -56,10 +57,7 @@ test("the stored-layout view keeps every element where the workspace puts it", (
 
 test("no relationship joins an element to itself or repeats another", () => {
     const pairs = new Set();
-    for (const element of [
-        ...workspace.model.people,
-        ...workspace.model.softwareSystems,
-    ]) {
+    for (const element of peopleAndSoftwareSystems(workspace)) {
         for (const relationship of element.relationships ?? []) {
             assert.notEqual(relationship.destinationId, element.id);
             const pair = `${element.id}->${relationship.destinationId}`;
@@ -82,6 +80,6 @@ test("the committed fixture is what the generator writes", () => {
     assert.deepEqual(
         committed,
         workspace,
-        "run node test/support/large-landscape.js to write it again",
+        "run pnpm fixtures:large to write it again",
     );
 });
