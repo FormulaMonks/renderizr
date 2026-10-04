@@ -53,17 +53,17 @@ test("an element's indicators are a fixed part of its label: the description giv
         metadata: 20,
         description: true,
     };
-    // 300 - 40 - 8 - 20 - 15 = 217 holds 7 lines of 28.8; the row and its
-    // margin take 30 of it, and 187 holds 6.
+    // 300 - 40 - 8 - 20 - 15 = 217 holds 7 lines of 28.8; the row, its
+    // margin and its inset take 50 of it, and 167 holds 5.
     assert.equal(fitLabel(base).descriptionLines, 7);
-    assert.equal(fitLabel({ ...base, indicators: true }).descriptionLines, 6);
+    assert.equal(fitLabel({ ...base, indicators: true }).descriptionLines, 5);
 });
 
 test("an element's indicator row keeps an inset from the bottom of its content area", () => {
     // 40 + 8 + 20 + 15 above the description, and below it the row's 20,
-    // its margin's 10 and the inset's 10: one line of 28.8 fits exactly.
+    // its margin's 10 and the inset's 20: one line of 28.8 fits exactly.
     const label = {
-        height: 40 + 8 + 20 + 15 + 28.8 + 20 + 10 + 10,
+        height: 40 + 8 + 20 + 15 + 28.8 + 20 + 10 + 20,
         fontSize: 24,
         iconPosition: "Bottom",
         name: 40,
@@ -71,7 +71,7 @@ test("an element's indicator row keeps an inset from the bottom of its content a
         description: true,
     };
 
-    assert.equal(INDICATOR_ROW_HEIGHT, INDICATOR_SIZE + INDICATOR_MARGIN + 10);
+    assert.equal(INDICATOR_ROW_HEIGHT, INDICATOR_SIZE + INDICATOR_MARGIN + 20);
     assert.equal(fitLabel({ ...label, indicators: true }).descriptionLines, 1);
     assert.equal(
         fitLabel({ ...label, height: label.height - 1, indicators: true })
