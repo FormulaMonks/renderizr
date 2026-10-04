@@ -135,7 +135,7 @@ export type ModelView = {
     contentLight?: string;
     contentDark?: string;
     enterpriseBoundaryVisible?: boolean;
-    /** A static view's animation steps, in any order. */
+    /** A static view's steps, one entry each, in any order (spec 11). */
     animations?: AnimationEntry[];
     properties?: Record<string, string>;
     automaticLayout?: Partial<AutomaticLayoutSettings>;

@@ -1,3 +1,4 @@
+import { orderOf } from "./animation";
 import { type ResolvedBoundary, resolveBoundaries } from "./boundaries";
 import {
     elementPasses,
@@ -128,13 +129,19 @@ export function resolveView(
 
     const survivors = new Set(elements.map((e) => e.id));
     const relationships: ResolvedRelationship[] = [];
-    /** A dynamic view draws one edge per relationship per order (spec 11). */
+    /**
+     * A dynamic view draws one edge per relationship per order, read as an
+     * integer, so "1" and "01" are one edge (spec 11). An order that isn't
+     * an integer keeps its text; `findViewError` refuses the view anyway.
+     */
     const listed = new Set<string>();
     for (const placement of view.relationships ?? []) {
         const relationship = model.findRelationshipById(placement.id);
         if (!relationship) continue;
         if (view.type === "Dynamic") {
-            const at = `${placement.id}\n${String(placement.order ?? "").trim()}`;
+            const order =
+                orderOf(placement) ?? String(placement.order ?? "").trim();
+            const at = `${placement.id}\n${order}`;
             if (listed.has(at)) continue;
             listed.add(at);
         }

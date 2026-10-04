@@ -14,7 +14,7 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 const { WorkspaceModel, animationOf, findViewError, resolveView } =
     await importSrc("model/index");
 const { buildGraph } = await importSrc("engine/react-flow/graph");
-const { AnimationPlayer, frameOf, PLAY_INTERVAL } = await importSrc(
+const { AnimationPlayer, stepStateOf, PLAY_INTERVAL_MS } = await importSrc(
     "engine/react-flow/animation",
 );
 
@@ -162,6 +162,38 @@ describe("steps", () => {
         );
     });
 
+    test('orders "1" and "01" are one step, with one edge per relationship', () => {
+        const model = workspace((json) => {
+            checkout(json).relationships.push({
+                id: "10",
+                description: "Checks out again using",
+                order: "01",
+            });
+        });
+        const view = resolveView(model, "Checkout");
+        assert.deepEqual(
+            view.relationships.map(({ id }) => id),
+            ["10", "11", "12", "13", "11", "14"],
+            "relationship 10 at order 01 is the one at order 1",
+        );
+        const { steps } = animationOf(model, view);
+        assert.deepEqual(
+            steps.map((step) => step.order),
+            [1, 2, 3, 4],
+        );
+    });
+
+    test("a static view's malformed order falls back to the entry's place", () => {
+        const model = workspace((json) => {
+            json.views.containerViews[0].animations[0].order = "first";
+        });
+        const animation = animationOf(model, resolveView(model, "Containers"));
+        assert.ok(
+            animation.steps.every((step) => Number.isInteger(step.order)),
+            `orders ${animation.steps.map((step) => step.order)} should all be integers`,
+        );
+    });
+
     test("a relationship without an order has no step", () => {
         const model = workspace();
         const { steps } = animationOf(model, resolveView(model, "Checkout"));
@@ -236,34 +268,34 @@ describe("steps", () => {
     });
 });
 
-/* ---------------------------------------------------------------- frames */
+/* ----------------------------------------------------------- step states */
 
-describe("frames", () => {
+describe("step states", () => {
     const graphOf = (key, edit) =>
         buildGraph(workspace(edit), key, "light", LABELS);
 
     test("with no step, everything is shown", () => {
-        const frame = frameOf(graphOf("Checkout"), null);
+        const state = stepStateOf(graphOf("Checkout"), null);
         assert.ok(
             [
-                ...Object.values(frame.elements),
-                ...Object.values(frame.edges),
-                ...Object.values(frame.boundaries),
+                ...Object.values(state.elements),
+                ...Object.values(state.edges),
+                ...Object.values(state.boundaries),
             ].every((presence) => presence === "shown"),
         );
-        assert.equal(frame.focus, undefined);
+        assert.equal(state.focus, undefined);
     });
 
     test("a dynamic step shows its edges and their ends, and fades the rest", () => {
-        const frame = frameOf(graphOf("Checkout"), 3);
-        assert.deepEqual(frame.elements, {
+        const state = stepStateOf(graphOf("Checkout"), 3);
+        assert.deepEqual(state.elements, {
             1: "faded",
             3: "faded",
             4: "shown",
             5: "shown",
             6: "shown",
         });
-        assert.deepEqual(frame.edges, {
+        assert.deepEqual(state.edges, {
             10: "faded",
             11: "faded",
             12: "shown",
@@ -275,18 +307,18 @@ describe("frames", () => {
     });
 
     test("a dynamic step highlights only the edge at its order when a relationship repeats", () => {
-        const frame = frameOf(graphOf("Checkout"), 4);
-        assert.equal(frame.edges["11#1"], "shown");
-        assert.equal(frame.edges["11"], "faded");
+        const state = stepStateOf(graphOf("Checkout"), 4);
+        assert.equal(state.edges["11#1"], "shown");
+        assert.equal(state.edges["11"], "faded");
     });
 
     test("boundaries never fade", () => {
         const graph = graphOf("Checkout");
         assert.ok(graph.boundaries.length > 0, "the shop is a boundary");
         for (let step = 1; step <= 4; step++) {
-            const frame = frameOf(graph, step);
+            const state = stepStateOf(graph, step);
             assert.ok(
-                Object.values(frame.boundaries).every((p) => p === "shown"),
+                Object.values(state.boundaries).every((p) => p === "shown"),
                 `step ${step}`,
             );
         }
@@ -294,14 +326,14 @@ describe("frames", () => {
 
     test("a static step reveals everything up to it and hides the rest", () => {
         const graph = graphOf("Containers");
-        assert.deepEqual(frameOf(graph, 1).elements, {
+        assert.deepEqual(stepStateOf(graph, 1).elements, {
             1: "shown",
             3: "hidden",
             4: "hidden",
             5: "hidden",
             6: "hidden",
         });
-        const third = frameOf(graph, 3);
+        const third = stepStateOf(graph, 3);
         assert.deepEqual(third.elements, {
             1: "shown",
             3: "shown",
@@ -322,15 +354,15 @@ describe("frames", () => {
         const graph = graphOf("Containers", (json) => {
             json.views.containerViews[0].animations[1].relationships = [];
         });
-        assert.equal(frameOf(graph, 2).edges["10"], "hidden");
-        assert.equal(frameOf(graph, 2).elements["3"], "shown");
+        assert.equal(stepStateOf(graph, 2).edges["10"], "hidden");
+        assert.equal(stepStateOf(graph, 2).elements["3"], "shown");
     });
 
     test("a boundary appears with its first revealed child, sized from all of them", () => {
         const graph = graphOf("Containers");
         const shop = graph.boundaries.find((b) => b.id === "2");
-        assert.deepEqual(frameOf(graph, 1).boundaries, { 2: "hidden" });
-        assert.deepEqual(frameOf(graph, 2).boundaries, { 2: "shown" });
+        assert.deepEqual(stepStateOf(graph, 1).boundaries, { 2: "hidden" });
+        assert.deepEqual(stepStateOf(graph, 2).boundaries, { 2: "shown" });
         // Derived from Web App, API and Database, whatever is revealed.
         assert.ok(shop.x < 200 && shop.x + shop.width > 975 + 450);
         assert.ok(shop.y + shop.height > 1300 + 300);
@@ -338,7 +370,7 @@ describe("frames", () => {
 
     test("the focus is the box around the step's elements", () => {
         const graph = graphOf("Checkout");
-        assert.deepEqual(frameOf(graph, 1).focus, {
+        assert.deepEqual(stepStateOf(graph, 1).focus, {
             x: 200,
             y: 0,
             width: 1200,
@@ -422,7 +454,7 @@ describe("player", () => {
 
     test("play advances every 2 s and stops at the end", () => {
         const { clock, player } = playerWith(3);
-        assert.equal(PLAY_INTERVAL, 2000);
+        assert.equal(PLAY_INTERVAL_MS, 2000);
         player.play();
         assert.deepEqual(player.state, { steps: 3, step: 1, playing: true });
         clock.tick(1999);
@@ -477,7 +509,7 @@ describe("player", () => {
         });
     });
 
-    test("playback pauses while the page is hidden and resumes the same step's time", () => {
+    test("play holds while the page is hidden and resumes the same step's time", () => {
         const { clock, player } = playerWith(3);
         player.play();
         clock.tick(1500);

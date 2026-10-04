@@ -33,14 +33,19 @@ export type ViewAnimation = {
 };
 
 /**
- * Whether `order` is one Structurizr would write: digits only, after trimming
+ * The integer a placement's order stands for, or `undefined` when it has no
+ * order or one Structurizr would not write: digits only, after trimming
  * (spec 11). Structurizr only generates integers and parallel sequences reuse
- * one; a non-integer explicit DSL order breaks upstream.
+ * one; a non-integer explicit DSL order breaks upstream. Read as integers,
+ * "1" and "01" are the same step. `validateWorkspace` in `scripts/assets.js`
+ * mirrors the test, since the build cannot import TypeScript.
  */
-export const isIntegerOrder = (order: unknown) =>
-    /^\d+$/.test(String(order).trim());
-
-const orderOf = (order: unknown) => Number(String(order).trim());
+export function orderOf(placement: { order?: unknown }): number | undefined {
+    const { order } = placement;
+    if (order === undefined || order === null) return undefined;
+    const text = String(order).trim();
+    return /^\d+$/.test(text) ? Number(text) : undefined;
+}
 
 /**
  * Why a dynamic view's orders cannot be drawn, or `undefined` when they can:
@@ -55,9 +60,8 @@ export function findOrderError(
     if (view.type !== "Dynamic") return undefined;
     for (const placement of view.relationships ?? []) {
         const { order } = placement;
-        if (order === undefined || order === null || isIntegerOrder(order)) {
-            continue;
-        }
+        if (order === undefined || order === null) continue;
+        if (orderOf(placement) !== undefined) continue;
         const relationship = model.findRelationshipById(placement.id);
         const name = (id: string | undefined) =>
             (id && model.findElementById(id)?.name) || id;
@@ -83,7 +87,8 @@ const zoomOnAnimation = (view: ModelView | undefined) =>
  * A dynamic view's steps are its distinct orders sorted as integers; every
  * relationship sharing an order belongs to that step, and a relationship
  * without an order belongs to none. A static view's steps are its entries
- * sorted by order, keeping only what the view draws.
+ * sorted by order, keeping only what the view draws; an entry without an
+ * integer order takes its place in the list (1-based) as its order.
  */
 export function animationOf(
     model: WorkspaceModel,
@@ -97,10 +102,8 @@ export function animationOf(
     if (view.type === "Dynamic") {
         const byOrder = new Map<number, AnimationStep>();
         for (const placed of view.relationships) {
-            if (placed.order === undefined || !isIntegerOrder(placed.order)) {
-                continue;
-            }
-            const order = orderOf(placed.order);
+            const order = orderOf(placed);
+            if (order === undefined) continue;
             const step = byOrder.get(order) ?? {
                 order,
                 elements: [],
@@ -125,7 +128,7 @@ export function animationOf(
     const drawnRelationships = new Set(view.relationships.map((r) => r.id));
     const steps = entries
         .map((entry, index) => ({
-            order: Number(entry.order ?? index + 1),
+            order: orderOf(entry) ?? index + 1,
             elements: (entry.elements ?? []).filter((id) =>
                 drawnElements.has(id),
             ),

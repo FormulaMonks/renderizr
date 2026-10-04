@@ -23,7 +23,7 @@ import { ShownListeners } from "./shown";
  * The engine owns one animation player (spec 11). Only `showView`, which
  * stops it first, and `stop` end an animation: scheme, label, font and size
  * changes never reach the player, so they keep the step, the play state and
- * the time left on the step. Playback holds while the page is hidden.
+ * the time left on the step. Play holds while the page is hidden.
  */
 export function mountEngine(
     target: HTMLElement,
@@ -71,9 +71,12 @@ export function mountEngine(
                 if (key === store.get().key) return;
                 if (!model.findViewByKey(key)) return;
                 // The animation ends with the view it belongs to; the new
-                // view's steps load once it is painted.
+                // view's steps load once it is painted. The key and the full
+                // view arrive together: a step cleared on the outgoing view
+                // first would refit it under zoomOnAnimation just before the
+                // new view paints.
+                store.set({ key, step: null });
                 player.load(0);
-                store.set({ key });
             },
             setColorScheme(scheme) {
                 if (scheme !== store.get().scheme) store.set({ scheme });

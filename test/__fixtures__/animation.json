@@ -113,7 +113,7 @@
                 "order": 1,
                 "softwareSystemId": "2",
                 "title": "The shop, revealed one step at a time",
-                "description": "A static view with four animation steps; the viewport stays where the reader puts it",
+                "description": "A static view with four steps; the viewport stays where the reader puts it",
                 "externalSoftwareSystemBoundariesVisible": true,
                 "elements": [
                     {

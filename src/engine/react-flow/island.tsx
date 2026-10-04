@@ -12,7 +12,7 @@
  * "Image not available" placeholder (spec 12). A view that cannot be drawn
  * shows an error panel in place of the canvas (spec 13).
  *
- * An animation step is drawn as opacity on whole nodes and edges, text and
+ * A step is drawn as opacity on whole nodes and edges, text and
  * icon included, eased over 200 ms or instant under reduced motion; hidden
  * items are inert. With `structurizr.zoomOnAnimation` each step is fitted,
  * and the view again on stop (spec 11).
@@ -72,10 +72,10 @@ import { EDGE_LABEL_PADDING, TECHNOLOGY_GAP } from "../geometry/edge-label";
 import { borderDashes, paintPart } from "../geometry/paint";
 import { lineDashes } from "../geometry/line";
 import {
-    type Frame,
-    frameOf,
     type Presence,
     PRESENCE_OPACITY,
+    type StepState,
+    stepStateOf,
     TRANSITION_MS,
 } from "./animation";
 import { canvasMeasure, diagramFontFamily, whenFontLoads } from "./fonts";
@@ -101,7 +101,7 @@ export type IslandState = {
     key: string;
     scheme: ColorScheme;
     labels: Labels;
-    /** The animation step shown, or null for the full view (spec 11). */
+    /** The step of the animation shown, or null for the full view (spec 11). */
     step: number | null;
 };
 
@@ -638,7 +638,7 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
 }
 
 /**
- * How a node or edge is drawn in an animation frame (spec 11): real opacity
+ * How a node or edge is drawn at a step (spec 11): real opacity
  * over the whole of it, text and icon included, and no pointer events once
  * it is hidden. `transition` eases the change, or is undefined under reduced
  * motion.
@@ -653,6 +653,10 @@ const presenceStyle = (presence: Presence, transition: string | undefined) => ({
 const opacityTransition = (reduced: boolean) =>
     reduced ? undefined : `opacity ${TRANSITION_MS}ms ease`;
 
+/**
+ * The media query for a reader who asks for reduced motion: opacity and
+ * viewport changes are then instant rather than eased (spec 11).
+ */
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
 const subscribeReducedMotion = (callback: () => void) => {
@@ -669,23 +673,23 @@ const useReducedMotion = () =>
     );
 
 /**
- * `nodes` as `frame` shows them: a faded or hidden element or boundary
+ * `nodes` as `stepState` shows them: a faded or hidden element or boundary
  * takes its opacity on React Flow's own wrapper, so its label and icon fade
  * with it, and a hidden one is inert, out of the tab order and the
  * accessibility tree (spec 11). Image nodes never animate.
  */
 function withPresence(
     nodes: DiagramNode[],
-    frame: Frame | undefined,
+    stepState: StepState | undefined,
     transition: string | undefined,
 ): DiagramNode[] {
-    if (!frame) return nodes;
+    if (!stepState) return nodes;
     return nodes.map((node) => {
         const presence =
             node.type === "box"
-                ? frame.elements[node.id]
+                ? stepState.elements[node.id]
                 : node.type === "boundary"
-                  ? frame.boundaries[node.data.id]
+                  ? stepState.boundaries[node.data.id]
                   : undefined;
         if (!presence) return node;
         return {
@@ -1027,7 +1031,7 @@ function toElementNodes(graph: Graph): BoxNode[] {
 
 function toEdges(
     graph: Graph,
-    frame: Frame | undefined,
+    stepState: StepState | undefined,
     transition: string | undefined,
 ): LineEdge[] {
     return graph.edges.map((edge) => ({
@@ -1037,7 +1041,7 @@ function toEdges(
         target: edge.targetId,
         data: {
             ...edge,
-            presence: frame?.edges[edge.key] ?? "shown",
+            presence: stepState?.edges[edge.key] ?? "shown",
             transition,
         },
         selectable: false,
@@ -1076,20 +1080,20 @@ function Canvas({
     const image = useImage(viewKey, graph?.image);
     const reducedMotion = useReducedMotion();
     const transition = opacityTransition(reducedMotion);
-    const stepFrame = useMemo(
-        () => (graph ? frameOf(graph, step) : undefined),
+    const stepState = useMemo(
+        () => (graph ? stepStateOf(graph, step) : undefined),
         [graph, step],
     );
     // An image view is fitted to its picture once its size is known.
     const drawing = useMemo(() => drawingOf(graph, image), [graph, image]);
     const { bounds } = drawing;
     const nodes = useMemo(
-        () => withPresence(drawing.nodes, stepFrame, transition),
-        [drawing, stepFrame, transition],
+        () => withPresence(drawing.nodes, stepState, transition),
+        [drawing, stepState, transition],
     );
     const edges = useMemo(
-        () => (graph ? toEdges(graph, stepFrame, transition) : []),
-        [graph, stepFrame, transition],
+        () => (graph ? toEdges(graph, stepState, transition) : []),
+        [graph, stepState, transition],
     );
 
     // Each authoring problem once per visit, however often the view redraws
@@ -1162,7 +1166,7 @@ function Canvas({
     // (spec 11), however far in that takes the canvas.
     const zoomOnAnimation = graph?.animation?.zoom === true;
     const focus =
-        zoomOnAnimation && step !== null ? stepFrame?.focus : undefined;
+        zoomOnAnimation && step !== null ? stepState?.focus : undefined;
     const stepFitted = useMemo(
         () =>
             graph && focus && size.width > 0 && size.height > 0
@@ -1191,19 +1195,30 @@ function Canvas({
     }, [flow, fitted]);
 
     // zoomOnAnimation fits each step and the whole view on stop, overriding
-    // the reader's viewport; otherwise a step never moves it (spec 11).
-    const shownStep = useRef(step);
+    // the reader's viewport; otherwise a step never moves it (spec 11). A
+    // step that changes with the view is left to the new view's own fit, so
+    // the outgoing view is never refitted on its way out.
+    const shownStep = useRef({ viewKey, step });
     useEffect(() => {
-        if (shownStep.current === step) return;
-        shownStep.current = step;
-        if (!zoomOnAnimation) return;
+        const shown = shownStep.current;
+        if (shown.viewKey === viewKey && shown.step === step) return;
+        shownStep.current = { viewKey, step };
+        if (shown.viewKey !== viewKey || !zoomOnAnimation) return;
         const viewport = step === null ? fitted : stepFitted;
         if (!viewport) return;
         moved.current = false;
         flow.setViewport(viewport, {
             duration: reducedMotion ? 0 : TRANSITION_MS,
         });
-    }, [step, zoomOnAnimation, fitted, stepFitted, flow, reducedMotion]);
+    }, [
+        viewKey,
+        step,
+        zoomOnAnimation,
+        fitted,
+        stepFitted,
+        flow,
+        reducedMotion,
+    ]);
 
     useEffect(() => {
         commands.fit = fit;

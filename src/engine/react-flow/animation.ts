@@ -2,23 +2,25 @@
  * Animation in the engine (spec 11): what one step of a view shows, and the
  * player that moves between steps. Both are plain TypeScript over the graph
  * and a clock, so they run under `node --test`; the island only turns a
- * frame into opacity, and `index.ts` owns the one player per engine.
+ * step's state into opacity, and `index.ts` owns the one player per engine.
  */
 
-import { isIntegerOrder } from "../../model/index";
-import type { AnimationState } from "../contract";
+import { orderOf } from "../../model/index";
+import { type AnimationState, NOT_ANIMATING } from "../contract";
 import { type Bounds, boundsOf } from "../geometry/bounds";
 import type { Graph } from "./graph";
 
+/* -------------------------------------------------------------- step state */
+
 /**
- * How an item is drawn in a frame: as usual, at real opacity 0.2 with its
+ * How an item is drawn at a step: as usual, at real opacity 0.2 with its
  * text and icon (a dynamic step's focus effect), or at opacity 0, inert and
  * out of the tab order (a static step that has not revealed it yet).
  */
 export type Presence = "shown" | "faded" | "hidden";
 
 /** What one step shows: each element and boundary by id, each edge by key. */
-export type Frame = {
+export type StepState = {
     elements: Record<string, Presence>;
     boundaries: Record<string, Presence>;
     edges: Record<string, Presence>;
@@ -36,8 +38,8 @@ export const PRESENCE_OPACITY: Record<Presence, number> = {
 /** How long an opacity or viewport change eases for; 0 under reduced motion. */
 export const TRANSITION_MS = 200;
 
-/** How long play stays on each step (spec 11). */
-export const PLAY_INTERVAL = 2000;
+/** How long play stays on each step, in milliseconds (spec 11). */
+export const PLAY_INTERVAL_MS = 2000;
 
 const everything = (ids: string[], presence: Presence) =>
     Object.fromEntries(ids.map((id) => [id, presence]));
@@ -54,7 +56,7 @@ const everything = (ids: string[], presence: Presence) =>
  * revealed child. Boundary boxes are derived from all their children either
  * way, so nothing moves from step to step.
  */
-export function frameOf(graph: Graph, step: number | null): Frame {
+export function stepStateOf(graph: Graph, step: number | null): StepState {
     const elementIds = graph.elements.map((e) => e.id);
     const boundaryIds = graph.boundaries.map((b) => b.id);
     const edgeKeys = graph.edges.map((e) => e.key);
@@ -74,13 +76,11 @@ export function frameOf(graph: Graph, step: number | null): Frame {
         const inStep = new Set(current.elements);
         const edges: Record<string, Presence> = {};
         for (const edge of graph.edges) {
-            const order = edge.order;
+            const order = orderOf(edge);
             edges[edge.key] =
-                order === undefined || !isIntegerOrder(order)
+                order === undefined || order === current.order
                     ? "shown"
-                    : Number(order.trim()) === current.order
-                      ? "shown"
-                      : "faded";
+                    : "faded";
         }
         return {
             elements: Object.fromEntries(
@@ -141,6 +141,8 @@ function focusOf(
     return boundsOf(graph.elements.filter((box) => ends.has(box.id)));
 }
 
+/* ------------------------------------------------------------------ player */
+
 /** The timers the player runs on; the browser's unless a test hands its own. */
 export type Clock = {
     setTimeout(callback: () => void, ms: number): unknown;
@@ -148,13 +150,16 @@ export type Clock = {
     now(): number;
 };
 
+/**
+ * The page's own timers and clock, which the player runs on in the browser.
+ * Wrapped rather than passed as `window`, so they are called with `window`
+ * as `this`.
+ */
 const BROWSER_CLOCK: Clock = {
     setTimeout: (callback, ms) => window.setTimeout(callback, ms),
     clearTimeout: (id) => window.clearTimeout(id as number),
     now: () => performance.now(),
 };
-
-const NOT_ANIMATING: AnimationState = { steps: 0, step: null, playing: false };
 
 /**
  * The animation state machine behind the engine's `play`, `pause`,
@@ -207,7 +212,7 @@ export class AnimationPlayer {
         const { steps, step, playing } = this.#state;
         if (steps === 0 || playing) return;
         this.#set({ step: step ?? 1, playing: true });
-        this.#schedule(PLAY_INTERVAL);
+        this.#schedule(PLAY_INTERVAL_MS);
     }
 
     pause() {
@@ -227,7 +232,7 @@ export class AnimationPlayer {
         const next = step === null ? 1 : step + 1;
         if (next > steps) return this.stop();
         this.#set({ step: next });
-        if (playing) this.#schedule(PLAY_INTERVAL);
+        if (playing) this.#schedule(PLAY_INTERVAL_MS);
     }
 
     stepBack() {
@@ -235,7 +240,7 @@ export class AnimationPlayer {
         if (step === null) return;
         if (step === 1) return this.stop();
         this.#set({ step: step - 1 });
-        if (playing) this.#schedule(PLAY_INTERVAL);
+        if (playing) this.#schedule(PLAY_INTERVAL_MS);
     }
 
     /** Hold the timer while the page is hidden, and resume it after. */
@@ -250,7 +255,7 @@ export class AnimationPlayer {
                 this.#timer = null;
             }
         } else {
-            this.#schedule(this.#remaining ?? PLAY_INTERVAL);
+            this.#schedule(this.#remaining ?? PLAY_INTERVAL_MS);
         }
     }
 

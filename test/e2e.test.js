@@ -1021,7 +1021,7 @@ test(
 );
 
 test(
-    "--engine react-flow: a static view with animation steps offers its animation",
+    "--engine react-flow: a static view with steps offers its animation",
     { skip: SKIP },
     async () => {
         const out = await animationBuild();

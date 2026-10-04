@@ -4,7 +4,11 @@ import CurrentView, {
     type ToolbarDiagram,
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
-import type { AnimationControls, AnimationState } from "../engine/contract";
+import {
+    type AnimationControls,
+    type AnimationState,
+    NOT_ANIMATING,
+} from "../engine/contract";
 import { WorkspaceModel } from "../model";
 import type { Diagram } from "../types/structurizr-diagram";
 import type {
@@ -88,7 +92,7 @@ function whenMeasurable(element: HTMLElement, start: () => void) {
  */
 function structurizrToolbar(diagram: Diagram) {
     const listeners = new Set<(state: AnimationState) => void>();
-    let state: AnimationState = { steps: 0, step: null, playing: false };
+    let state: AnimationState = NOT_ANIMATING;
     const emit = (patch: Partial<AnimationState>) => {
         state = { ...state, ...patch };
         for (const listener of listeners) listener(state);

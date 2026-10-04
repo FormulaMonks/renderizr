@@ -109,7 +109,7 @@
         );
     }
 
-    /* A view with no animation steps shows no animation buttons (spec 11);
+    /* A view that does not animate shows no animation buttons (spec 11);
        the group's own display would otherwise beat the attribute. */
     &[hidden] {
         display: none;
