@@ -282,7 +282,19 @@ export const elementOutline = ({ x, y, width, height }) => [
     { x, y: y + height },
 ];
 
-/** Every edge starts and ends on its elements' outlines, within 1 unit. */
+/** Whether `point` is inside `box` or within the tolerance of it. */
+const withinBox = (point, { x, y, width, height }) =>
+    point.x >= x - OUTLINE_TOLERANCE &&
+    point.x <= x + width + OUTLINE_TOLERANCE &&
+    point.y >= y - OUTLINE_TOLERANCE &&
+    point.y <= y + height + OUTLINE_TOLERANCE;
+
+/**
+ * Every edge starts and ends on its elements' outlines, within 1 unit. The
+ * harness outlines every element as its box, so for any shape but a Box an
+ * end anywhere inside the box passes: a Person's head, say, is met inside
+ * it once automatic layout brings edges in from the side.
+ */
 export function edgeEndsOnOutlines(report) {
     const elements = new Map(
         report.elements.map((element) => [element.id, element]),
@@ -297,7 +309,8 @@ export function edgeEndsOnOutlines(report) {
             const element = elements.get(id);
             if (!element || !point) continue;
             const distance = distanceToOutline(point, elementOutline(element));
-            if (distance > OUTLINE_TOLERANCE) {
+            const shaped = element.shape !== "Box" && withinBox(point, element);
+            if (distance > OUTLINE_TOLERANCE && !shaped) {
                 problems.push(
                     `edge ${edge.key}'s ${end} end is ${round(distance)} units off element ${id}'s outline`,
                 );

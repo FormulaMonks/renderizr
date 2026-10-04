@@ -60,6 +60,14 @@ export const ACCEPTANCE_SET = [
         submodule: false,
     },
     {
+        // Stored-layout views with unplaced elements (spec 7.2), each placed
+        // beside its neighbors, clear of a foreign boundary, or to the right
+        // of the view when every slot is taken.
+        name: "Unplaced elements",
+        source: join(REPO_ROOT, "test/__fixtures__/unplaced-elements.json"),
+        submodule: false,
+    },
+    {
         // The filtered, custom and image views of spec 12, until #51's
         // purpose-built fixture covers them.
         name: "View types",

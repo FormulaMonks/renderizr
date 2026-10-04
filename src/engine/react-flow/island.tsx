@@ -138,9 +138,10 @@ const FIT_PADDING = 0.05;
 /**
  * Tell the workspace author about a problem in what they wrote: an element
  * whose label overflows (spec 9.1), a relationship that cannot be routed
- * (spec 10.6) or an image view that cannot be drawn (spec 13). The one console call in shipped code, a deliberate exception to
- * CODING_STANDARDS.md: the page has nowhere else to report an authoring
- * problem.
+ * (spec 10.6), an element placed around a stored layout (spec 7.2) or an
+ * image view that cannot be drawn (spec 13). The one console call in shipped
+ * code, a deliberate exception to CODING_STANDARDS.md: the page has nowhere
+ * else to report an authoring problem.
  */
 function warnAuthor(message: string) {
     console.warn(message);
@@ -1073,6 +1074,20 @@ function Canvas({
         if (key === undefined) return;
         moved.current = false;
     }, [key]);
+
+    // Name every unplaced element placed around a stored layout, once each
+    // time its view is shown, not again on a scheme, labels or font redraw.
+    const placements = graph?.placements;
+    const logged = useRef<string | null>(null);
+    useEffect(() => {
+        if (key === undefined || logged.current === key) return;
+        logged.current = key;
+        // Spec 7.2 asks for a line naming each placed element.
+        for (const { id, name, x, y } of placements ?? [])
+            warnAuthor(
+                `Placed unplaced element ${id} ("${name}") at (${x}, ${y}) in view ${key}.`,
+            );
+    }, [key, placements]);
 
     // Fit on every view change and container resize until the reader moves.
     // A view with nothing drawable has nothing to fit, but is still painted.

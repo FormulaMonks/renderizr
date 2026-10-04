@@ -177,16 +177,20 @@ test("a software system whose containers are in the view is a boundary, though t
 });
 
 test("a container whose components are in the view is a boundary inside its software system", () => {
+    // A component view groups components only, so neither Web's group nor
+    // Shop's is drawn around them.
     const view = resolveView(model(), "Components");
 
-    assert.deepEqual(nesting(view).web, {
-        parent: FRONT,
-        children: ["controller"],
-    });
-    assert.deepEqual(nesting(view).shop, {
-        parent: groupBoundaryId("", "Retail/Online"),
-        children: [FRONT, "db"],
-    });
+    assert.deepEqual(
+        nesting(view).web,
+        { parent: "shop", children: ["controller"] },
+        "Web should sit directly inside Shop",
+    );
+    assert.deepEqual(
+        nesting(view).shop,
+        { parent: undefined, children: ["web", "db"] },
+        "Shop should be outermost, around Web and the Database",
+    );
 });
 
 test("a software system none of whose containers the view lists is not a boundary, though its container is", () => {
@@ -200,7 +204,11 @@ test("a software system none of whose containers the view lists is not a boundar
 
     assert.ok(ids.includes("web"), "Web's component is in the view");
     assert.ok(!ids.includes("shop"), "none of Shop's containers is listed");
-    assert.equal(nesting(view)[FRONT].parent, undefined);
+    assert.equal(
+        nesting(view).web.parent,
+        undefined,
+        "Web should be outermost",
+    );
 });
 
 test("deployment nodes with children in the view are boundaries, and a node with none is an element", () => {
@@ -268,6 +276,59 @@ test("a group's identity is its scope plus its name, and it sits inside its memb
     assert.deepEqual(
         nesting(resolveView(model(), "Live"))[DATA_CENTRE].children,
         ["server"],
+    );
+});
+
+test("a container view draws groups around its containers only, not around the software systems beside them", () => {
+    // Mail is in the Retail group, but a container view draws groups for
+    // containers alone, as upstream's `includeGroup` does.
+    const view = resolveView(model(), "Containers");
+    const groups = view.boundaries
+        .filter((boundary) => boundary.kind === "Group")
+        .map((boundary) => boundary.id);
+
+    assert.deepEqual(groups, [FRONT], "the wrong groups were drawn");
+});
+
+test("each view type draws groups around the element types upstream does", () => {
+    const cases = [
+        // [view, the groups it draws]
+        ["Landscape", [RETAIL, ONLINE]],
+        ["Containers", [FRONT]],
+        ["Components", []],
+        ["Live", [DATA_CENTRE]],
+    ];
+    for (const [key, expected] of cases) {
+        const groups = resolveView(model(), key)
+            .boundaries.filter((boundary) => boundary.kind === "Group")
+            .map((boundary) => boundary.id);
+        assert.deepEqual(
+            groups.sort(),
+            [...expected].sort(),
+            `${key} drew the wrong groups`,
+        );
+    }
+});
+
+test("structurizr.groups false on a view draws none of its groups", () => {
+    const view = resolveView(
+        model((workspace) => {
+            workspace.views.systemLandscapeViews[0].properties = {
+                "structurizr.groups": "false",
+            };
+        }),
+        "Landscape",
+    );
+
+    assert.deepEqual(
+        view.boundaries.map((boundary) => boundary.id),
+        ["enterprise"],
+        "a group was drawn though the view switches groups off",
+    );
+    assert.deepEqual(
+        view.boundaries[0].children,
+        ["shop", "mail"],
+        "the enterprise boundary should hold the Internal elements directly",
     );
 });
 
