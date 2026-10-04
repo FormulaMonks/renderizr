@@ -119,7 +119,7 @@
                 "order": 1,
                 "title": "The shop and everyone it deals with",
                 "description": "The base view the filtered views start from",
-                "enterpriseBoundaryVisible": true,
+                "enterpriseBoundaryVisible": false,
                 "elements": [
                     {
                         "id": "1",
