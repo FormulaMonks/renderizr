@@ -581,6 +581,19 @@ describe("image views", () => {
         ['width="200" viewBox="0 0 400 1200"', { width: 200, height: 600 }],
         ['height="600px" viewBox="0 0 400 1200"', { width: 200, height: 600 }],
         ['width="10em" viewBox="0 0 400 1200"', { width: 400, height: 1200 }],
+        ['width="2in" viewBox="0 0 400 1200"', { width: 192, height: 576 }],
+        [
+            'height="1.5e2pt" viewBox="0 0 400 1200"',
+            { width: 200 / 3, height: 200 },
+        ],
+        [
+            'width="100%" aria-label="A > B" viewBox="0 0 400 1200"',
+            { width: 400, height: 1200 },
+        ],
+        [
+            `data-note='width="10" height="10"' viewBox="0 0 400 1200"`,
+            { width: 400, height: 1200 },
+        ],
     ];
     for (const [attributes, size] of sizes) {
         test(`an SVG with ${attributes} takes its size from its viewBox`, () => {
@@ -589,7 +602,20 @@ describe("image views", () => {
         });
     }
 
+    test("a minimally encoded SVG with a literal % takes its size from its viewBox", () => {
+        assert.deepEqual(
+            svgSize(
+                'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 400 1200"><rect/></svg>',
+            ),
+            { width: 400, height: 1200 },
+        );
+    });
+
     const browserSized = [
+        [
+            "an SVG sized in inches",
+            svg('width="2in" height="1in" viewBox="0 0 400 1200"'),
+        ],
         [
             "an SVG sized in pixels",
             svg('width="480" height="240" viewBox="0 0 10 10"'),

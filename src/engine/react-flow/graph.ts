@@ -335,25 +335,51 @@ export function imageVariant(
     return preferred.find((src) => typeof src === "string" && src !== "");
 }
 
-/** An SVG length the browser can size by: a number, in pixels or bare. */
-const ABSOLUTE_LENGTH = /^\s*(\d*\.?\d+)\s*(px)?\s*$/i;
+/** Pixels per absolute CSS unit; a bare number is in pixels. */
+const PIXELS_PER_UNIT: Record<string, number> = {
+    "": 1,
+    px: 1,
+    in: 96,
+    cm: 96 / 2.54,
+    mm: 96 / 25.4,
+    q: 96 / 101.6,
+    pt: 96 / 72,
+    pc: 16,
+};
+
+/** An SVG length: a number, signed or with an exponent, and its unit. */
+const LENGTH = /^\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)\s*([a-z%]*)\s*$/i;
+
+/** An SVG root tag, quoted attribute values and all (a `>` may be in one). */
+const SVG_ROOT = /<svg\b(?:[^>"']|"[^"]*"|'[^']*')*>/i;
+
+/** One attribute of a tag and its quoted value. */
+const ATTRIBUTE = /([^\s=<>"']+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 
 /** The value of `name` on an SVG root tag, if it has one. */
 function svgAttribute(root: string, name: string): string | undefined {
-    const match = new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)')`).exec(
-        root,
-    );
-    return match ? match[2] ?? match[3] : undefined;
+    for (const [, key, double, single] of root.matchAll(ATTRIBUTE)) {
+        if (key === name) return double ?? single;
+    }
+    return undefined;
 }
 
-/** A positive pixel length from an SVG `width` or `height`, if absolute. */
+/**
+ * A positive length in pixels from an SVG `width` or `height`, if it is in
+ * an absolute unit; a relative one (`%`, `em`) is left to the `viewBox`.
+ */
 function absoluteLength(value: string | undefined): number | undefined {
-    const match = value === undefined ? null : ABSOLUTE_LENGTH.exec(value);
-    const length = match ? Number(match[1]) : Number.NaN;
+    const match = value === undefined ? null : LENGTH.exec(value);
+    const perUnit = match ? PIXELS_PER_UNIT[match[2].toLowerCase()] : undefined;
+    const length = match && perUnit ? Number(match[1]) * perUnit : Number.NaN;
     return length > 0 ? length : undefined;
 }
 
-/** The text of a `data:` URI, or undefined when it is not one. */
+/**
+ * The text of a `data:` URI, or undefined when it is not one. A browser
+ * loads a `%` that starts no escape as itself, as in a minimally encoded
+ * `width="100%"`, so it is escaped before decoding.
+ */
 function dataUriText(src: string): string | undefined {
     const comma = src.indexOf(",");
     if (!/^data:/i.test(src) || comma < 0) return undefined;
@@ -361,7 +387,7 @@ function dataUriText(src: string): string | undefined {
     try {
         return /;base64$/i.test(src.slice(0, comma))
             ? atob(payload)
-            : decodeURIComponent(payload);
+            : decodeURIComponent(payload.replace(/%(?![\da-f]{2})/gi, "%25"));
     } catch {
         return undefined;
     }
@@ -373,12 +399,12 @@ function dataUriText(src: string): string | undefined {
  * `viewBox`, keeping the other side's length when that one is absolute.
  * Mermaid exports `width="100%"` and no `height`, which a browser sizes at
  * its 150 px default. Undefined for anything else, whose natural size the
- * browser already knows: a raster picture, an SVG sized in pixels, one with
- * no `viewBox` or a picture that is not a `data:` URI.
+ * browser already knows: a raster picture, an SVG sized in absolute units,
+ * one with no `viewBox` or a picture that is not a `data:` URI.
  */
 export function svgSize(src: string): Size | undefined {
     if (!/^data:image\/svg\+xml[;,]/i.test(src)) return undefined;
-    const root = /<svg\b[^>]*>/i.exec(dataUriText(src) ?? "")?.[0];
+    const root = SVG_ROOT.exec(dataUriText(src) ?? "")?.[0];
     if (!root) return undefined;
     const width = absoluteLength(svgAttribute(root, "width"));
     const height = absoluteLength(svgAttribute(root, "height"));
