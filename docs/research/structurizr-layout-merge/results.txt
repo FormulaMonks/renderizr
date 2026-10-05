@@ -1,0 +1,170 @@
+Output of the scripts in this folder, run on scratch copies of test/__fixtures__/acceptance/ with structurizr-cli 2025.11.09 (structurizr-java 5.0.2) from Homebrew on an Apple silicon Mac running macOS 27.
+
+# Merge experiments: merge_experiments.py on Java 21
+
+structurizr-cli: 2025.11.09
+structurizr-java: 5.0.2
+Java: 21.0.12/Eclipse Adoptium
+OS: Mac OS X 27.0.1 (aarch64)
+
+## E1 merge of an edited layout into the unchanged DSL
+- Landscape customer: export (100, 800), layout (111, 888), merged (111, 888)
+- Landscape courier (absent from layout): export (2700, 100), merged (2700, 100)
+- Containers queue: export (0, 0), layout (1900, 700), merged (1900, 700)
+- Shapes box: export (100, 100), layout (120, 100), merged (120, 100)
+- LandscapeAutomatic customer: layout (500, 500), merged (0, 0)
+- shop->warehouse: export {'vertices': [{'x': 2025, 'y': 600}]}, merged {'vertices': [{'x': 1500, 'y': 500}, {'x': 1600, 'y': 500}], 'routing': 'Curved', 'position': 30, 'jump': True}
+- warehouse->courier (layout vertices emptied, courier unmatched): export {'vertices': [{'x': 2025, 'y': 0}, {'x': 2925, 'y': 0}]}, merged {'vertices': [{'x': 2025, 'y': 0}, {'x': 2925, 'y': 0}]}
+- payments->customer (untouched): merged {'vertices': [{'x': 2925, 'y': 1600}, {'x': 325, 'y': 1600}]}
+- Landscape paperSize A3_Landscape, dimensions {'height': 2000, 'width': 3500}
+- unknown element-view key 'width' kept: False
+- unknown relationship-view key 'side' kept: False
+- lastSavedView: Containers
+- log: There is no layout information for the element named Courier on view Landscape
+
+## E1b merge -v Containers
+- Containers queue (1900, 700), Landscape customer (100, 800)
+- lastSavedView: None
+
+## E2 rename Warehouse to Fulfilment (description unchanged)
+- Landscape warehouse: layout (1850, 150), merged (1850, 150)
+- shop->warehouse vertices kept: {'vertices': [{'x': 1500, 'y': 500}, {'x': 1600, 'y': 500}], 'routing': 'Curved', 'position': 30, 'jump': True}
+- warnings: ['There is no layout information for the element named Courier on view Landscape']
+
+## E3 rename and redescribe Card gateway (same id)
+- Landscape payments: layout (2750, 850), merged (2750, 850)
+- warnings: ['There is no layout information for the element named Courier on view Landscape']
+
+## E4 insert an element first, then rename and redescribe Card gateway (ids shift)
+- payments id: layout 9, variant 10
+- Landscape payments: layout (2750, 850), script (2700, 800), merged (2700, 800)
+- Landscape customer (canonical name unchanged): layout (111, 888), merged (111, 888)
+- warnings: ['There is no layout information for the element named Payments on view Landscape', 'There is no layout information for the element named Courier on view Landscape', 'There is no layout information for the element named Payments on view Containers']
+
+## E4b E4 merged with the unchanged export (Courier present)
+- ids: payments 9 -> 10, courier 10 -> 11
+- Landscape payments: export (2700, 800), merged (2700, 100)
+- Landscape courier: export (2700, 100), merged (2700, 100)
+- warnings: ['There is no layout information for the element named Payments on view Containers']
+
+## E5 E4 without the !script block
+- Landscape payments: export (0, 0), merged (0, 0)
+- Landscape customer: export (0, 0), merged (111, 888)
+- Landscape courier (absent from layout): merged (0, 0)
+
+## E6 move webInstance from Web server to API server
+- Deployment webInstance: layout (300, 300), script (200, 200), merged (300, 300)
+- warnings: ['There is no layout information for the element named Courier on view Landscape']
+
+## E7 rename Shop to Store (children's canonical names change)
+- Containers queue: layout (1900, 700), merged (1900, 700)
+- Containers api: layout (900, 1300), merged (900, 1300)
+- warnings: ['There is no layout information for the element named Courier on view Landscape']
+
+## E8 rename the Containers view key
+- key changed, description kept: queue [(1900, 700)] (layout had (1900, 700))
+- key and description changed: queue [(0, 0)]
+
+## E9 change the description of shop -> warehouse
+- merged {'vertices': [{'x': 1500, 'y': 500}, {'x': 1600, 'y': 500}], 'routing': 'Curved', 'position': 30, 'jump': True}
+
+## E10 script changes vs. the layout
+- Landscape customer: script (150, 850), layout (111, 888), merged (111, 888)
+- Landscape returns (not in layout): script (100, 100), merged (100, 100)
+- Containers queue: script (1500, 700), layout (1900, 700), merged (1900, 700)
+- customer->shop: script {'routing': 'Curved', 'position': 70}, layout {}, merged {}
+- customer->returns (not in layout): merged {}
+
+## E11 script places queue, layout still has it at the origin
+- Containers queue: script (1500, 700), layout (0, 0), merged (0, 0)
+
+## E12 script calls setMergeFromRemote(false) on Shapes
+- Shapes box: script (100, 100), layout (120, 100), merged (100, 100)
+- mergeFromRemote in JSON: False
+
+## E13 remove autoLayout from LandscapeAutomatic
+- LandscapeAutomatic customer: layout (500, 500), merged (500, 500)
+- automaticLayout in merged view: None
+
+## E14 export with no -o
+- exit 0; Landscape customer in workspace.json beside the DSL: before (111, 888), after (100, 800)
+
+# Unexpected values: value_experiments.py on Java 21, one value per merge
+
+no-vertices: payments->customer without vertices in the layout (the script sets two) -> {}
+fractional-xy: x 100.7, y 799.2 -> (100, 799)
+negative-xy: x -40, y -10 -> (-40, -10)
+string-xy: x '120', y '820' -> (120, 820)
+fractional-vertex: vertex (1500.6, 499.5) -> {'vertices': [{'x': 1500, 'y': 499}]}
+unknown-routing: routing 'Spline' -> {'vertices': [{'x': 2025, 'y': 600}]}
+position-over: position 150 -> {'vertices': [{'x': 2025, 'y': 600}], 'position': 100}
+position-under: position -5 -> {'vertices': [{'x': 2025, 'y': 600}], 'position': 0}
+jump-string: merge fails: InvalidFormatException: Cannot deserialize value of type `java.lang.Boolean` from String "yes": only "true" or "false" recognized
+unknown-paper-size: paperSize 'A9_Portrait' -> None
+fractional-dimensions: dimensions (3000.9, 1800) -> {'height': 1800, 'width': 3000}
+
+# Jackson format: jackson_format.py on files Structurizr wrote
+
+identical: runs/e0-base/export/workspace.json (28708 bytes)
+identical: runs/e1-merged.json (29000 bytes)
+identical: runs/e10-script-vs-layout/merged.json (29515 bytes)
+identical: runs/e4b-merged.json (28926 bytes)
+identical: large/out/workspace.json (265884 bytes), the `export -f json` of test/__fixtures__/large-landscape.json
+
+# Cold-JVM time: time-export.sh, five runs each
+
+Acceptance DSL with its Groovy !script, Java 21 (two batches):
+run 1: 1.47 s
+run 2: 1.28 s
+run 3: 1.23 s
+run 4: 1.24 s
+run 5: 1.33 s
+run 1: 1.32 s
+run 2: 1.29 s
+run 3: 1.30 s
+run 4: 1.27 s
+run 5: 1.26 s
+
+Acceptance DSL with its Groovy !script, Homebrew OpenJDK 26.0.1:
+run 1: 1.49 s
+run 2: 1.27 s
+run 3: 1.25 s
+run 4: 1.32 s
+run 5: 1.35 s
+
+Acceptance DSL without the !script block, Java 21:
+run 1: 0.66 s
+run 2: 0.64 s
+run 3: 0.61 s
+run 4: 0.60 s
+run 5: 0.60 s
+
+test/__fixtures__/large-landscape.json (300 elements, 600 relationships), JSON to JSON, Java 21:
+run 1: 0.71 s
+run 2: 0.73 s
+run 3: 0.70 s
+run 4: 0.74 s
+run 5: 0.75 s
+
+merge -w <acceptance DSL> -l <layout from E1> -o <file>, Java 21:
+merge run 1: 1.53 s
+merge run 2: 1.44 s
+merge run 3: 1.33 s
+merge run 4: 1.31 s
+merge run 5: 1.31 s
+
+# Graphviz: export with no `dot` on the PATH (PATH=<Java 21>/bin:/usr/bin:/bin)
+
+export -f json   -> writes workspace.json, " - finished"
+export -f static -> exit 1, java.io.IOException: Cannot run program "dot": Exec failed, error: 2 (No such file or directory)
+
+With `dot` on the PATH, export -f static fills coordinates, dimensions and paperSize for the automatic-layout views and leaves "applied" : false:
+LandscapeAutomatic automaticLayout {applied: false, implementation: Graphviz, rankDirection: TopBottom, ...}, dimensions {height: 2716, width: 2079}, paperSize A4_Portrait
+Context automaticLayout {applied: false, implementation: Graphviz, rankDirection: LeftRight, ...}, dimensions {height: 1316, width: 2316}, paperSize A5_Landscape
+
+# Java versions and Groovy 3.0.25
+
+The E10 DSL (its !script refers to com.structurizr.view.Routing.Curved):
+Java 21.0.12, 23.0.2, 25.0.2 -> export finishes
+Homebrew OpenJDK 26.0.1 -> BUG! exception in phase 'semantic analysis' in source unit 'Script1.groovy' Unsupported class file major version 70
+The unchanged acceptance DSL exports on all four.
