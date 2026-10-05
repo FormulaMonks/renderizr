@@ -862,6 +862,37 @@ test(
 );
 
 test(
+    "--engine react-flow: an SVG with no size of its own is drawn at its viewBox size",
+    { skip: SKIP },
+    async () => {
+        // Mermaid's export: width 100%, no height, the size only in the viewBox.
+        const svg =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 400px;" viewBox="0 0 400 1200"><rect width="400" height="1200" fill="#1168bd"/></svg>';
+        const { out } = await buildReactFlowWorkspace(
+            "image-sizeless",
+            (json) => {
+                json.views.imageViews = [
+                    {
+                        key: "Picture",
+                        content: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
+                    },
+                ];
+            },
+        );
+
+        const document = await render(viewUrlIn(out, "Picture"));
+        const canvas = document.querySelector("#structurizr-diagram-target");
+        assert.equal(
+            canvas.querySelector("[data-view-key]").getAttribute("data-ready"),
+            "true",
+        );
+        const image = canvas.querySelector("img[data-image-view]");
+        assert.equal(image.getAttribute("width"), "400");
+        assert.equal(image.getAttribute("height"), "1200");
+    },
+);
+
+test(
     "--engine react-flow: an image that was not inlined shows the placeholder and logs why",
     { skip: SKIP },
     async () => {

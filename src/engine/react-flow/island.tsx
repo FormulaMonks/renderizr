@@ -110,6 +110,7 @@ import {
     panIntoView,
     readyFor,
     stepZoom,
+    svgSize,
     type TargetKind,
     zoomLimits,
 } from "./graph";
@@ -1154,14 +1155,14 @@ function useImage(key: string, picture: GraphImage | undefined): ImageState {
         const image = new Image();
         image.onload = () => {
             if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                // An SVG with no size of its own takes it from its viewBox.
+                const size = svgSize(src) ?? {
+                    width: image.naturalWidth,
+                    height: image.naturalHeight,
+                };
                 setState({
                     subject,
-                    image: {
-                        status: "loaded",
-                        src,
-                        width: image.naturalWidth,
-                        height: image.naturalHeight,
-                    },
+                    image: { status: "loaded", src, ...size },
                 });
             } else {
                 fail("its image has no size.");

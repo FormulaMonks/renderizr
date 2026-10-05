@@ -335,6 +335,97 @@ export function imageVariant(
     return preferred.find((src) => typeof src === "string" && src !== "");
 }
 
+/** Pixels per absolute CSS unit; a bare number is in pixels. */
+const PIXELS_PER_UNIT: Record<string, number> = {
+    "": 1,
+    px: 1,
+    in: 96,
+    cm: 96 / 2.54,
+    mm: 96 / 25.4,
+    q: 96 / 101.6,
+    pt: 96 / 72,
+    pc: 16,
+};
+
+/** An SVG length: a number, signed or with an exponent, and its unit. */
+const LENGTH = /^\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)\s*([a-z%]*)\s*$/i;
+
+/** An SVG root tag, quoted attribute values and all (a `>` may be in one). */
+const SVG_ROOT = /<svg\b(?:[^>"']|"[^"]*"|'[^']*')*>/i;
+
+/** One attribute of a tag and its quoted value. */
+const ATTRIBUTE = /([^\s=<>"']+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
+/** The value of `name` on an SVG root tag, if it has one. */
+function svgAttribute(root: string, name: string): string | undefined {
+    for (const [, key, double, single] of root.matchAll(ATTRIBUTE)) {
+        if (key === name) return double ?? single;
+    }
+    return undefined;
+}
+
+/**
+ * A positive length in pixels from an SVG `width` or `height`, if it is in
+ * an absolute unit; a relative one (`%`, `em`) is left to the `viewBox`.
+ */
+function absoluteLength(value: string | undefined): number | undefined {
+    const match = value === undefined ? null : LENGTH.exec(value);
+    const perUnit = match ? PIXELS_PER_UNIT[match[2].toLowerCase()] : undefined;
+    const length = match && perUnit ? Number(match[1]) * perUnit : Number.NaN;
+    return length > 0 ? length : undefined;
+}
+
+/**
+ * The text of a `data:` URI, or undefined when it is not one. A browser
+ * loads a `%` that starts no escape as itself, as in a minimally encoded
+ * `width="100%"`, so it is escaped before decoding.
+ */
+function dataUriText(src: string): string | undefined {
+    const comma = src.indexOf(",");
+    if (!/^data:/i.test(src) || comma < 0) return undefined;
+    const payload = src.slice(comma + 1);
+    try {
+        return /;base64$/i.test(src.slice(0, comma))
+            ? atob(payload)
+            : decodeURIComponent(payload.replace(/%(?![\da-f]{2})/gi, "%25"));
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * The size an SVG picture was drawn at, when its root leaves the browser to
+ * guess one: a missing or relative `width` or `height` is read from its
+ * `viewBox`, keeping the other side's length when that one is absolute.
+ * Mermaid exports `width="100%"` and no `height`, which a browser sizes at
+ * its 150 px default. Undefined for anything else, whose natural size the
+ * browser already knows: a raster picture, an SVG sized in absolute units,
+ * one with no `viewBox` or a picture that is not a `data:` URI.
+ */
+export function svgSize(src: string): Size | undefined {
+    if (!/^data:image\/svg\+xml[;,]/i.test(src)) return undefined;
+    const root = SVG_ROOT.exec(dataUriText(src) ?? "")?.[0];
+    if (!root) return undefined;
+    const width = absoluteLength(svgAttribute(root, "width"));
+    const height = absoluteLength(svgAttribute(root, "height"));
+    if (width !== undefined && height !== undefined) return undefined;
+    const box = (svgAttribute(root, "viewBox") ?? "")
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
+    const [, , boxWidth = 0, boxHeight = 0] = box;
+    if (box.length !== 4 || !(boxWidth > 0) || !(boxHeight > 0)) {
+        return undefined;
+    }
+    if (width !== undefined) {
+        return { width, height: (width * boxHeight) / boxWidth };
+    }
+    if (height !== undefined) {
+        return { width: (height * boxWidth) / boxHeight, height };
+    }
+    return { width: boxWidth, height: boxHeight };
+}
+
 /**
  * Where an image view's picture is, as the island learns it. A loaded one
  * carries the `src` it loaded, so what draws it never has to re-check that

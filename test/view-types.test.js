@@ -13,8 +13,14 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel, findViewError, resolveView } =
     await importSrc("model/index");
-const { buildGraph, fitMaxZoom, imageBox, imageVariant, IMAGE_PLACEHOLDER } =
-    await importSrc("engine/react-flow/graph");
+const {
+    buildGraph,
+    fitMaxZoom,
+    imageBox,
+    imageVariant,
+    IMAGE_PLACEHOLDER,
+    svgSize,
+} = await importSrc("engine/react-flow/graph");
 
 const BIG_BANK = JSON.parse(
     readFileSync(
@@ -552,6 +558,79 @@ describe("image views", () => {
         assert.equal(fitMaxZoom(image), 1, "an image is never upscaled");
         assert.equal(fitMaxZoom(plain), Number.POSITIVE_INFINITY);
     });
+
+    /** An SVG data URI whose root carries `attributes`. */
+    const svg = (attributes, encode = "base64") => {
+        const text = `<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" ${attributes}><rect/></svg>`;
+        return encode === "base64"
+            ? `data:image/svg+xml;base64,${Buffer.from(text).toString("base64")}`
+            : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
+    };
+
+    const sizes = [
+        // [root attributes, the size the picture was drawn at]
+        [
+            'width="100%" style="max-width: 933.617px;" viewBox="0 -50 933.6171875 4565.796875"',
+            { width: 933.6171875, height: 4565.796875 },
+        ],
+        ['viewBox="0 0 400 1200"', { width: 400, height: 1200 }],
+        [
+            "viewBox='0,0,400,1200' width='100%' height='100%'",
+            { width: 400, height: 1200 },
+        ],
+        ['width="200" viewBox="0 0 400 1200"', { width: 200, height: 600 }],
+        ['height="600px" viewBox="0 0 400 1200"', { width: 200, height: 600 }],
+        ['width="10em" viewBox="0 0 400 1200"', { width: 400, height: 1200 }],
+        ['width="2in" viewBox="0 0 400 1200"', { width: 192, height: 576 }],
+        [
+            'height="1.5e2pt" viewBox="0 0 400 1200"',
+            { width: 200 / 3, height: 200 },
+        ],
+        [
+            'width="100%" aria-label="A > B" viewBox="0 0 400 1200"',
+            { width: 400, height: 1200 },
+        ],
+        [
+            `data-note='width="10" height="10"' viewBox="0 0 400 1200"`,
+            { width: 400, height: 1200 },
+        ],
+    ];
+    for (const [attributes, size] of sizes) {
+        test(`an SVG with ${attributes} takes its size from its viewBox`, () => {
+            assert.deepEqual(svgSize(svg(attributes)), size);
+            assert.deepEqual(svgSize(svg(attributes, "url")), size);
+        });
+    }
+
+    test("a minimally encoded SVG with a literal % takes its size from its viewBox", () => {
+        assert.deepEqual(
+            svgSize(
+                'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 400 1200"><rect/></svg>',
+            ),
+            { width: 400, height: 1200 },
+        );
+    });
+
+    const browserSized = [
+        [
+            "an SVG sized in inches",
+            svg('width="2in" height="1in" viewBox="0 0 400 1200"'),
+        ],
+        [
+            "an SVG sized in pixels",
+            svg('width="480" height="240" viewBox="0 0 10 10"'),
+        ],
+        ["an SVG with no viewBox", svg('width="100%"')],
+        ["an SVG with an empty viewBox", svg('viewBox="0 0 0 1200"')],
+        ["a raster picture", PLAIN],
+        ["a remote SVG", "https://example.test/picture.svg"],
+        ["a data URI that does not decode", "data:image/svg+xml;base64,%%%"],
+    ];
+    for (const [name, src] of browserSized) {
+        test(`${name} keeps the size the browser gives it`, () => {
+            assert.equal(svgSize(src), undefined);
+        });
+    }
 
     test("a plain view's graph has no image", () => {
         const graph = buildGraph(bigBank(), "Containers", "light", LABELS);
