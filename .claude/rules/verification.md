@@ -6,8 +6,8 @@ How to check a change by hand, and how to write the steps for someone else to ch
 - **Point the dev server at a versioned fixture.** Pick the workspace under `test/__fixtures__/` that shows the change, or `architecture/workspace.json`, and open it directly:
 
   ```bash
-  pnpm dev -- test/__fixtures__/edge-routing.json --engine react-flow
+  pnpm dev -- test/__fixtures__/edge-routing.json --font Inter
   ```
 
   Avoid copy scripts and throwaway workspaces. Git tracks the fixture, so `git status` shows whether anything changed it during the check. When no fixture shows the change, add one under `test/__fixtures__/` in the same change.
-- **Mind the separator.** `pnpm dev` needs `--` before its arguments, because Vite rejects options it does not know (`--engine`). `pnpm build` takes its arguments with no `--`, because pnpm forwards a literal `--` and the CLI rejects it.
+- **Mind the separator.** `pnpm dev` needs `--` before its arguments, because Vite rejects options it does not know (`--font`). `pnpm build` takes its arguments with no `--`, because pnpm forwards a literal `--` and the CLI rejects it.

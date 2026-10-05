@@ -33,14 +33,14 @@ You need Node 20 or newer. Nothing else — no JVM, no Docker, no Graphviz, no P
 
 ## Who this is for
 
-You keep a C4 model in Structurizr, and you want everyone else to be able to look at it without an account, a running server or a copy of the DSL. Renderizr takes the workspace JSON you already have and turns it into pages you can put behind a URL: the views, the workspace documentation and the decision log. Structurizr's own renderer draws the diagrams, so they look exactly as they do in Structurizr itself.
+You keep a C4 model in Structurizr, and you want everyone else to be able to look at it without an account, a running server or a copy of the DSL. Renderizr takes the workspace JSON you already have and turns it into pages you can put behind a URL: the views, the workspace documentation and the decision log, with the diagrams drawn by Renderizr's own engine from everything the workspace says: positions, styles, themes, shapes and routing. They read the way they do in Structurizr, with real text wrapping and embedded fonts, but they aren't pixel copies.
 
 It renders a workspace. It does not define one — the model, the views and the styles all come from your workspace, unchanged.
 
 ## What you get
 
 - **Every view**, listed down the side: landscape, context, container, component, dynamic, deployment, image, filtered and custom — each with its own mark and key.
-- **The real Structurizr renderer**, vendored from [structurizr/structurizr](https://github.com/structurizr/structurizr), not a PlantUML export. Diagrams pan and zoom, dynamic views play back, labels toggle.
+- **A live diagram engine** built for workspace JSON, not a PlantUML export. Diagrams pan and zoom, dynamic views animate, labels toggle, and an element with several destinations offers a choice.
 - **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions (`02-containers.md#api`, `../decisions/0005-foo.md`) open the matching page; Renderizr shows a link to a file the workspace doesn't include as plain text. Markdown gets GitHub-style alerts, permalinks and highlighting; AsciiDoc is converted, not dumped as `:toc:` noise.
 - **The decision log**: status pills, supersessions and amendments, grouped by year, headed by how many are recorded and how many still stand.
 - **Light and dark**, following the reader's system setting until they override it. Page and diagrams keep separate preferences.
@@ -63,7 +63,7 @@ You get two files:
 | `index.html` | Anywhere a URL can point: GitHub Pages, S3, an email attachment, or straight off your disk over `file://` |
 | `artifact.html` | Hosts that supply their own document scaffolding, such as a Claude artifact — same page, no `<html>`/`<head>`/`<body>` of its own |
 
-The Big Bank example comes out at about 1MB, or 325KB gzipped — renderer, icons and workspace included. Multi-file builds emit `index.html`, an `assets/` folder and a favicon instead, with relative URLs, so they can sit in any subdirectory.
+The Big Bank example comes out at about 920KB, or 300KB gzipped, with the engine, icons and workspace included. Multi-file builds emit `index.html`, an `assets/` folder and a favicon instead, with relative URLs, so they can sit in any subdirectory.
 
 This mode exists because a directory of files is not always something you can hand over. A single file goes in a chat message, an email, a wiki attachment or an S3 bucket with no build step. It opens off a USB stick on a machine with no network, and it survives being copied somewhere nobody remembers to point a static server at.
 
@@ -85,7 +85,6 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 | `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. The build empties it first |
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
 | `--base <path>` | Base public path for the multi-file build. Default is empty, which emits relative URLs (`./assets/…`) that work from any subdirectory. Set it to something like `/renderizr/` when the assets must be referenced absolutely |
-| `--engine <name>` | Diagram engine. Default `structurizr`, the vendored Structurizr renderer. `react-flow` builds with the React Flow engine instead, which is in development and draws stored-layout views only |
 | `--logo <path\|url>` | Image shown at the top left of the header. The build fetches it, minifies it if it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes rather than their extension, and rejects an SVG containing script |
 | `--logo-alt <text>` | Alt text for the logo. Default empty |
 | `--logo-href <url>` | Wraps the logo in a link |
@@ -117,7 +116,7 @@ It pairs with [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/), whose 
 | --- | --- | --- |
 | Runtime | Node ≥ 20, one `npx` invocation | A JVM, installed via Homebrew or a tarball — or Docker instead |
 | Input | Workspace JSON | Structurizr DSL, parsed by the official parser — including straight from a git repository |
-| Diagrams | Structurizr's own browser renderer: pan, zoom, dynamic-view playback | PlantUML export to SVG, PNG and `.puml`, downloadable as files |
+| Diagrams | Renderizr's own browser engine, which honors Structurizr's layout and styles: pan, zoom, dynamic-view animation | PlantUML export to SVG, PNG and `.puml`, downloadable as files |
 | Output shape | One page, hash routing — or one file | A page per view and per software system, crawlable and linkable |
 | Documentation and ADRs | Workspace level | Workspace level *and* per software system |
 | Full-text search | No | Yes, a Lunr index over the whole site |
@@ -127,7 +126,7 @@ It pairs with [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/), whose 
 
 Reach for **structurizr-site-generatr** when you want a browsable documentation site — search, one URL per system, several branches published together, per-system docs — and a JVM or Docker in the pipeline is not a problem.
 
-Reach for **Renderizr** when you want the workspace to *look like Structurizr* and to travel: a live renderer rather than exported images, no toolchain beyond Node, and an output you can attach to a message or drop into a bucket. If you keep your model in DSL, get the JSON first — [structurizr-cli](https://docs.structurizr.com/cli) exports a DSL workspace to JSON — and hand that to Renderizr.
+Reach for **Renderizr** when you want the workspace to keep the layout and styling you gave it in Structurizr and to travel: a live engine rather than exported images, no toolchain beyond Node, and an output you can attach to a message or drop into a bucket. If you keep your model in DSL, get the JSON first: [structurizr-cli](https://docs.structurizr.com/cli) exports a DSL workspace to JSON — and hand that to Renderizr.
 
 ## Requirements
 
@@ -148,11 +147,10 @@ pnpm hooks   # once, to install the git hooks
 
 Installing the hooks is a separate step rather than a `prepare` script: `prepare` runs when a package manager installs a package from a git URL, and `npx github:FormulaMonks/renderizr` is exactly that — so a `prepare` script here would try to run husky inside every consumer's install tree. Contributors are the only people who want the hooks.
 
-The Structurizr submodule is optional: we commit the files the build reads from it under `vendor/structurizr`. Check it out only to pull in a newer upstream:
+The Structurizr submodule is optional: only the acceptance tests read workspaces from it, and they skip those workspaces when it is absent. Check it out to run them:
 
 ```bash
-git submodule update --init --remote submodules/structurizr
-pnpm sync:vendor
+git submodule update --init submodules/structurizr
 ```
 
 ### Dev server
@@ -191,12 +189,11 @@ pnpm exec biome ci .       # lint and format
 | `scripts/cli.js` | Argument definitions and `--help` |
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, icons, logo and font |
 | `scripts/config.js` | The Vite configuration, shared with the dev server |
-| `scripts/plugins.js` | Build plugins: Structurizr globals, CSS trimming, branding injection, single-file inlining |
+| `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
 | `scripts/escapes.js` | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive |
-| `scripts/sync-vendor.js` | Copies the files the build reads out of the submodule into `vendor/structurizr` |
 | `vite.config.ts` | Dev server only; production goes through `scripts/build.js` |
 
-Structurizr's own renderer, taken from [structurizr/structurizr](https://github.com/structurizr/structurizr), draws the diagrams. It is the same code the official local server serves, so a workspace renders here exactly as it does there. The renderer, its stylesheet and the icons live in `vendor/structurizr`, copied verbatim from the submodule and committed: neither npm nor pnpm fetches submodules for a git dependency, so an `npx` install would otherwise arrive with nothing to render with. `pnpm sync:vendor` refreshes them, taking exactly the files the source imports. `src/structurizr-globals.ts` supplies the handful of globals it expects, and `scripts/plugins.js` concatenates and injects it as a classic script (the renderer is written for sloppy mode, which an ES module forbids; an inline script is not `eval`, so a strict CSP still passes). The comments in both explain the details.
+The page draws diagrams with Renderizr's own engine, in `src/engine/`. The model layer in `src/model/` reads the workspace: a typed port of Structurizr's workspace model and style resolution, and `resolveView`, which turns any view key into a concrete view. `src/engine/geometry/` and `src/engine/layout/` are plain functions over that view (boundaries, shapes, unplaced elements, routes, and Dagre for automatic layout). The island in `src/engine/react-flow/` is a React root built on [React Flow](https://reactflow.dev) that draws the result inside the diagram target and nowhere else, and `src/engine/index.ts` is the only way in: `mountEngine` and the `Engine` it returns. The rest of the page stays plain TypeScript.
 
 ## Contributing
 
@@ -208,4 +205,4 @@ Please do not open a public issue for a security problem. Report it privately th
 
 MIT — see [LICENSE](LICENSE). Copyright (c) 2024-2026 Formula.Monks.
 
-Renderizr vendors, bundles and inlines a fair amount of code it did not write — the Structurizr renderer under `vendor/structurizr` (Apache 2.0), [Bootstrap Icons](https://icons.getbootstrap.com) (MIT), and the libraries that end up inside every rendered page. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists each one with its version, license and copyright line, and says whether it ships in the output or only runs during the build. [NOTICE](NOTICE) is the short form.
+Renderizr bundles and inlines a fair amount of code it did not write: React and React Flow (MIT), Dagre (MIT), [Bootstrap Icons](https://icons.getbootstrap.com) (MIT) and the other libraries that end up inside every rendered page. Its model layer derives from Structurizr's own code (Apache 2.0). [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists each one with its version, license and copyright line, and says whether it ships in the output or only runs during the build. [NOTICE](NOTICE) is the short form.

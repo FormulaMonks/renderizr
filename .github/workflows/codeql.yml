@@ -5,10 +5,9 @@
 # to analyze, so `build-mode: none` is the correct mode and there is no build
 # step to keep in step with CI.
 #
-# `vendor/` is Structurizr's renderer, committed verbatim by `pnpm sync:vendor`
-# and never edited here; `submodules/` is an upstream checkout (and is not even
-# fetched by this workflow). Alerts in either would be reports against someone
-# else's code that no pull request here could fix, so both are excluded.
+# `submodules/` is an upstream checkout (and is not even fetched by this
+# workflow). Alerts in it would be reports against someone else's code that no
+# pull request here could fix, so it is excluded.
 
 name: codeql
 
@@ -65,7 +64,6 @@ jobs:
           queries: security-extended
           config: |
             paths-ignore:
-              - vendor
               - submodules
               - dist
               - output

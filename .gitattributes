@@ -3,11 +3,6 @@
 # fails on every file before the contributor has changed anything.
 * text=auto eol=lf
 
-# Copied verbatim from the Structurizr submodule by `pnpm sync:vendor`. Marking
-# it vendored keeps 400KB of upstream JavaScript out of GitHub's language stats
-# and collapses it in diffs.
-vendor/** linguist-vendored
-
 # Generated. Reviewing a 65KB lockfile line by line is not review.
 pnpm-lock.yaml linguist-generated -diff
 mise.lock linguist-generated -diff

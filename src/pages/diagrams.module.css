@@ -1,84 +1,87 @@
+/*
+ * The diagrams page: a full-viewport shell that never scrolls (ADR 6).
+ * Header, view drawer, toolbar and footer stay on screen; the canvas takes
+ * what remains, sized by CSS alone. Diagrams pan and zoom inside the canvas.
+ *
+ * `<html data-diagram-shell>` is set by the page while it is on screen, so
+ * every other page keeps the ordinary scrolling document.
+ */
+
+:global(html[data-diagram-shell]),
+:global(html[data-diagram-shell] body) {
+    height: 100dvh;
+    overflow: hidden;
+}
+
+:global(html[data-diagram-shell] #app main) {
+    height: 100dvh;
+    min-height: 0;
+}
+
 .pageContent {
     display: flex;
     flex-direction: column;
+    min-height: 0;
+    padding-bottom: 0.75rem;
 }
 
 .layout {
+    flex: 1;
+    min-height: 0;
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 1.25rem;
     padding-top: 1rem;
+}
+
+/* The view drawer scrolls on its own, within the shell. */
+.layout > :global(#structurizr-diagram-navigation) {
+    position: static;
+    align-self: stretch;
+    max-height: none;
+    min-height: 0;
 }
 
 .main {
     flex: 1;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
-/*
- * Height is set in JS from the diagram's own proportions, so the canvas is
- * always as wide as the column: a diagram that fits gets exactly the height it
- * needs, and one that does not runs past the fold for the page to scroll to.
- */
 .diagramTarget {
+    flex: 1;
+    min-height: 0;
     width: 100%;
-    /* Starting height only, so the engine has a box to measure. The script
-    replaces it with an inline style — which is why this is `height` and not
-    `min-height`: a min-height would keep winning and letterbox everything. */
-    height: 60dvh;
     border-radius: 6px;
     overflow: hidden;
-    /* Vertical swipes scroll the page; pinch zooms natively. */
-    touch-action: pan-y pinch-zoom;
-    /* Matches the viewport backdrop below, so the box the engine has not
-    filled in yet is already the right color. */
-    background: rgb(238, 238, 238);
+    /* The island owns every gesture on the canvas. */
+    touch-action: none;
+    background: #ffffff;
 }
 
 :root[data-diagram-theme="dark"] .diagramTarget {
-    background: rgb(51, 51, 51);
+    background: #111111;
 }
 
-/*
- * The canvas backdrop follows the *diagram* color scheme
- * (`<html data-diagram-theme>`, owned by `current-view.ts`), NOT the page
- * theme: the whole point is that a reader can keep dark documentation beside
- * light diagrams. The toolbar above the canvas is page chrome and follows
- * `data-theme` instead — see `../components/current-view.module.css`.
- *
- * The colors are literals rather than tokens for the same reason: a token
- * would resolve against the page theme and drag the two back together. They
- * bracket the engine's own paper colors (`#ffffff` light, `#111111` dark), so
- * the sheet always reads as sitting on a surface.
- */
-:global(.structurizrDiagramViewport) {
-    /* The engine turns overflow on when the diagram is zoomed past its box.
-    Keeping the scrollbar visible is the only thing that says so — without it a
-    zoomed-in diagram looks like the whole diagram. */
-    scrollbar-width: thin;
-}
-
-/*
- * Both branches are qualified by the attribute on purpose: that lifts them
- * above the bare `.structurizrDiagramViewport` rule the engine ships, and
- * above any `@media (prefers-color-scheme: dark)` variant of it a future
- * vendored drop might carry — neither of which we can edit.
- */
-:global(html[data-diagram-theme="light"] .structurizrDiagramViewport) {
-    background: rgb(238, 238, 238);
-}
-
-:global(html[data-diagram-theme="dark"] .structurizrDiagramViewport) {
-    background: rgb(51, 51, 51);
+/* What the canvas says when the workspace has no views to draw. */
+.empty {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    margin: 0;
+    color: var(--color-muted);
 }
 
 @media (max-width: 767px) {
     .layout {
         flex-direction: column;
-        gap: 0;
+        gap: 0.5rem;
     }
 
-    .main {
-        width: 100%;
+    .layout > :global(#structurizr-diagram-navigation) {
+        flex: none;
+        max-height: 30dvh;
     }
 }

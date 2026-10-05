@@ -1,50 +1,40 @@
 import { readSetting, writeSetting } from "../storage";
 import {
-    type AnimationControls,
     type AnimationState,
+    type Engine,
     type Labels,
     NOT_ANIMATING,
 } from "../engine/contract";
-import type { Diagram } from "../types/structurizr-diagram";
 import type { WorkspaceModel } from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
 import styles from "./current-view.module.css";
-import lightModeIcon from "../../vendor/structurizr/bootstrap-icons/moon-fill.svg?raw";
-import darkModeIcon from "../../vendor/structurizr/bootstrap-icons/sun-fill.svg?raw";
-import toggleDescriptionsIcon from "../../vendor/structurizr/bootstrap-icons/card-text.svg?raw";
-import toggleTechnologiesIcon from "../../vendor/structurizr/bootstrap-icons/code-square.svg?raw";
-import resetZoomIcon from "../../vendor/structurizr/bootstrap-icons/aspect-ratio.svg?raw";
-import zoomInIcon from "../../vendor/structurizr/bootstrap-icons/zoom-in.svg?raw";
-import zoomOutIcon from "../../vendor/structurizr/bootstrap-icons/zoom-out.svg?raw";
-import playIcon from "../../vendor/structurizr/bootstrap-icons/play-fill.svg?raw";
-import prevStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-start-fill.svg?raw";
-import nextStepIcon from "../../vendor/structurizr/bootstrap-icons/skip-end-fill.svg?raw";
+import lightModeIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
+import darkModeIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
+import toggleDescriptionsIcon from "bootstrap-icons/icons/card-text.svg?raw";
+import toggleTechnologiesIcon from "bootstrap-icons/icons/code-square.svg?raw";
+import resetZoomIcon from "bootstrap-icons/icons/aspect-ratio.svg?raw";
+import zoomInIcon from "bootstrap-icons/icons/zoom-in.svg?raw";
+import zoomOutIcon from "bootstrap-icons/icons/zoom-out.svg?raw";
+import playIcon from "bootstrap-icons/icons/play-fill.svg?raw";
+import pauseIcon from "bootstrap-icons/icons/pause-fill.svg?raw";
+import prevStepIcon from "bootstrap-icons/icons/skip-start-fill.svg?raw";
+import nextStepIcon from "bootstrap-icons/icons/skip-end-fill.svg?raw";
 import Component from "./_component";
 
-/**
- * Bootstrap Icons' `pause-fill` (MIT, like the vendored icons beside it).
- * Upstream Structurizr ships no pause icon for `pnpm sync:vendor` to copy;
- * the toolbar takes every icon from the `bootstrap-icons` package at cutover
- * (spec 16).
- */
-const PAUSE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pause-fill" viewBox="0 0 16 16"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"/></svg>`;
-
-/** The part of the Structurizr `Diagram` the toolbar drives. */
-export type ToolbarDiagram = Pick<
-    Diagram,
-    | "getCurrentView"
-    | "isDarkMode"
-    | "setDarkMode"
-    | "toggleDescription"
-    | "toggleMetadata"
+/** The part of the engine the toolbar drives. */
+export type ToolbarEngine = Pick<
+    Engine,
+    | "setColorScheme"
+    | "setLabels"
+    | "fit"
+    | "zoomIn"
+    | "zoomOut"
+    | "play"
+    | "pause"
+    | "stepForward"
+    | "stepBack"
+    | "onAnimationChanged"
 >;
-
-export type DiagramControls = {
-    /** Return the diagram to the size the page chose for it. */
-    fit: () => void;
-    zoomIn: () => void;
-    zoomOut: () => void;
-};
 
 /* -------------------------------------------------------------------------
  * Diagram color scheme
@@ -109,18 +99,15 @@ export function applyDiagramTheme(theme: DiagramTheme): void {
     document.documentElement.dataset.diagramTheme = theme;
 }
 
-/**
- * `structurizr-diagram.js` initializes `descriptionEnabled` and
- * `metadataEnabled` to `true`, so a freshly constructed diagram shows both.
- */
-export const STRUCTURIZR_LABEL_DEFAULTS: Labels = {
+/** What a reader who never toggled a label sees: descriptions and technologies. */
+export const LABEL_DEFAULTS: Labels = {
     descriptions: true,
     technologies: true,
 };
 
 export function readLabelState(): Labels {
     const raw = readSetting(DIAGRAM_LABELS_STORAGE_KEY);
-    if (!raw) return { ...STRUCTURIZR_LABEL_DEFAULTS };
+    if (!raw) return { ...LABEL_DEFAULTS };
 
     try {
         const parsed = JSON.parse(raw) as Partial<Labels>;
@@ -128,14 +115,14 @@ export function readLabelState(): Labels {
             descriptions:
                 typeof parsed.descriptions === "boolean"
                     ? parsed.descriptions
-                    : STRUCTURIZR_LABEL_DEFAULTS.descriptions,
+                    : LABEL_DEFAULTS.descriptions,
             technologies:
                 typeof parsed.technologies === "boolean"
                     ? parsed.technologies
-                    : STRUCTURIZR_LABEL_DEFAULTS.technologies,
+                    : LABEL_DEFAULTS.technologies,
         };
     } catch {
-        return { ...STRUCTURIZR_LABEL_DEFAULTS };
+        return { ...LABEL_DEFAULTS };
     }
 }
 
@@ -144,9 +131,7 @@ function writeLabelState(state: Labels): void {
 }
 
 export default class CurrentView extends Component {
-    #diagram: ToolbarDiagram;
-    #controls: DiagramControls;
-    #animation: AnimationControls;
+    #engine: ToolbarEngine;
     #model: WorkspaceModel;
 
     /**
@@ -163,27 +148,20 @@ export default class CurrentView extends Component {
      */
     #labels: Labels = readLabelState();
 
-    /**
-     * What the diagram is actually showing. `structurizr-diagram.js` exposes
-     * no getter or setter for these flags — only `toggleDescription()` and
-     * `toggleMetadata()` — and `changeView()` leaves them alone, so we mirror
-     * them here and toggle only on a mismatch. That turns the toggles into
-     * idempotent setters and stops the state from ever drifting or
-     * double-flipping.
-     */
-    #appliedLabels: Labels = { ...STRUCTURIZR_LABEL_DEFAULTS };
+    /** The color scheme the engine was last given. */
+    #scheme: DiagramTheme = getDiagramTheme();
 
     #unsubscribeTheme: (() => void) | null = null;
 
     #actions = new Map<string, () => void>([
-        ["zoom-in", () => this.#controls.zoomIn()],
-        ["zoom-out", () => this.#controls.zoomOut()],
-        ["reset-zoom", () => this.#controls.fit()],
+        ["zoom-in", () => this.#engine.zoomIn()],
+        ["zoom-out", () => this.#engine.zoomOut()],
+        ["reset-zoom", () => this.#engine.fit()],
         [
             "dark-mode",
             () =>
                 this.applyColorScheme(
-                    this.#diagram.isDarkMode() ? "light" : "dark",
+                    this.#scheme === "dark" ? "light" : "dark",
                     true,
                 ),
         ],
@@ -200,32 +178,27 @@ export default class CurrentView extends Component {
             "play-animation",
             () =>
                 this.#animationState.playing
-                    ? this.#animation.pause()
-                    : this.#animation.play(),
+                    ? this.#engine.pause()
+                    : this.#engine.play(),
         ],
-        ["prev-step", () => this.#animation.stepBack()],
-        ["next-step", () => this.#animation.stepForward()],
+        ["prev-step", () => this.#engine.stepBack()],
+        ["next-step", () => this.#engine.stepForward()],
     ]);
 
     constructor(
         element: HTMLElement,
-        diagram: ToolbarDiagram,
-        controls: DiagramControls,
-        animation: AnimationControls,
+        engine: ToolbarEngine,
         model: WorkspaceModel,
     ) {
         super(element);
-        this.#diagram = diagram;
-        this.#controls = controls;
-        this.#animation = animation;
+        this.#engine = engine;
         this.#model = model;
 
-        // Seed the engine from the persisted preferences before anything is
-        // drawn. Both are safe this early: `setDarkMode()` bails out of
-        // `renderView()` while there is no current view, and the label flags
-        // are re-read every time a view is drawn.
-        this.applyColorScheme(getDiagramTheme());
-        this.#syncLabels();
+        // Seed the engine from the persisted preferences. Both setters are
+        // idempotent, so this costs nothing when the engine was mounted with
+        // the same state.
+        this.applyColorScheme(this.#scheme);
+        this.#engine.setLabels({ ...this.#labels });
     }
 
     /**
@@ -236,7 +209,7 @@ export default class CurrentView extends Component {
     #subscribe() {
         // The animation buttons render from the engine's state alone, so
         // nothing the toolbar does has to stop an animation behind its back.
-        this.#unsubscribeAnimation = this.#animation.onAnimationChanged(
+        this.#unsubscribeAnimation = this.#engine.onAnimationChanged(
             (state) => {
                 this.#animationState = state;
                 this.#paintAnimationButtons();
@@ -280,7 +253,7 @@ export default class CurrentView extends Component {
         const play = this.#button("play-animation");
         if (!play) return;
         const label = playing ? "Pause animation" : "Play animation";
-        play.innerHTML = playing ? PAUSE_ICON : playIcon;
+        play.innerHTML = playing ? pauseIcon : playIcon;
         play.dataset.playing = playing ? "true" : "";
         play.title = label;
         play.setAttribute("aria-label", label);
@@ -295,40 +268,16 @@ export default class CurrentView extends Component {
         if (persist) storeDiagramTheme(theme);
         applyDiagramTheme(theme);
 
-        const darkMode = theme === "dark";
-        if (this.#diagram.isDarkMode() !== darkMode) {
-            this.#diagram.setDarkMode(darkMode);
-        }
-
+        this.#scheme = theme;
+        this.#engine.setColorScheme(theme);
         this.#paintControlButtons();
-    }
-
-    /**
-     * Brings the diagram in line with the desired label visibility.
-     *
-     * `changeView()` does *not* reset `descriptionEnabled` / `metadataEnabled`
-     * — they are closure-level flags only ever flipped by `toggle*()`, and the
-     * renderer re-reads them at the end of every draw — so after the initial
-     * reconciliation this is a no-op. Re-toggling blindly on each view change
-     * would invert the state every time.
-     */
-    #syncLabels(): void {
-        if (this.#appliedLabels.descriptions !== this.#labels.descriptions) {
-            this.#diagram.toggleDescription();
-            this.#appliedLabels.descriptions = this.#labels.descriptions;
-        }
-
-        if (this.#appliedLabels.technologies !== this.#labels.technologies) {
-            this.#diagram.toggleMetadata();
-            this.#appliedLabels.technologies = this.#labels.technologies;
-        }
     }
 
     #setLabels(next: Partial<Labels>) {
         this.#labels = { ...this.#labels, ...next };
         writeLabelState(this.#labels);
 
-        this.#syncLabels();
+        this.#engine.setLabels({ ...this.#labels });
         this.#paintControlButtons();
     }
 
@@ -349,7 +298,7 @@ export default class CurrentView extends Component {
      * reader's actual settings.
      */
     #paintControlButtons() {
-        const isDarkMode = this.#diagram.isDarkMode();
+        const isDarkMode = this.#scheme === "dark";
         const themeButton = this.#button("dark-mode");
 
         if (themeButton) {

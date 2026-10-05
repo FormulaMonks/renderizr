@@ -4,7 +4,7 @@
  * the only module that knows which library lays a view out, so a swap stays
  * a one-file change.
  *
- * It hands Dagre the graph today's renderer hands it through JointJS's
+ * It hands Dagre the graph Structurizr's renderer hands it through JointJS's
  * `DirectedGraph` adapter, so automatic layouts keep their look: one
  * `setParent` per boundary, nodes in the order upstream's cells are in, the
  * view's rank direction and separations mapped one to one, each edge's

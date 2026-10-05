@@ -2,10 +2,9 @@
 
 /**
  * The contact sheet (spec 15.2, ADR 11): every view of the acceptance set
- * screenshotted with Chrome's `--screenshot`, once under the vendored
- * Structurizr renderer and once under the React Flow engine, side by side in
- * one self-contained HTML page. A person works through it and accepts each
- * view or files an issue against it; nothing here compares pixels.
+ * screenshotted with Chrome's `--screenshot` in one self-contained HTML page.
+ * A person reviewing a change to the engine works through it and files an
+ * issue against any view that reads worse; nothing here compares pixels.
  *
  *   node test/contact-sheet.js [out-dir]        (default: ./contact-sheet)
  *
@@ -29,54 +28,33 @@ import {
 } from "./support/acceptance.js";
 import { findChrome, screenshot } from "./support/browser.js";
 
-/** The two engines a build can carry, in the order the sheet shows them. */
-const ENGINES = [
-    { engine: "structurizr", label: "Structurizr renderer" },
-    { engine: "react-flow", label: "React Flow engine" },
-];
-
 const escapeHtml = (text) =>
     String(text).replace(
         /[&<>"']/g,
         (character) => `&#${character.charCodeAt(0)};`,
     );
 
-/** Screenshot every view of `entry` under both engines with `chrome`. */
+/** Screenshot every view of `entry` with `chrome`. */
 async function shootWorkspace(chrome, entry, scratch) {
     const workspace = prepareWorkspace(entry);
     const keys = viewKeys(workspace);
-    const sites = await Promise.all(
-        ENGINES.map(({ engine }) =>
-            buildForAcceptance(workspace, join(scratch, entry.name, engine), {
-                engine,
-            }),
-        ),
-    );
-    const shots = keys.flatMap((key) =>
-        ENGINES.map((_, at) => ({ key, at, site: sites[at] })),
-    );
-    const images = await mapLimit(shots, BROWSERS, async (shot, index) => {
+    const site = await buildForAcceptance(workspace, join(scratch, entry.name));
+    const images = await mapLimit(keys, BROWSERS, async (key, index) => {
         const path = join(scratch, `${index}-${entry.name}.png`);
         try {
-            await screenshot(chrome, viewUrl(shot.site, shot.key), path, {
+            await screenshot(chrome, viewUrl(site, key), path, {
                 offline: true,
             });
             return { image: (await readFile(path)).toString("base64") };
         } catch (error) {
-            // One view an engine cannot draw in time (the vendored renderer on
-            // the large landscape) is a finding for the sheet, not a reason to
-            // lose every other screenshot.
+            // One view the engine cannot draw in time is a finding for the
+            // sheet, not a reason to lose every other screenshot.
             const failure = String(error.message).split("\n")[0];
-            process.stderr.write(
-                `warning: ${entry.name} ${shot.key} (${ENGINES[shot.at].engine}): ${failure}\n`,
-            );
+            process.stderr.write(`warning: ${entry.name} ${key}: ${failure}\n`);
             return { failure };
         }
     });
-    return keys.map((key, row) => ({
-        key,
-        images: ENGINES.map((_, at) => images[row * ENGINES.length + at]),
-    }));
+    return keys.map((key, row) => ({ key, image: images[row] }));
 }
 
 const figure = (label, { image, failure }) => `
@@ -87,7 +65,6 @@ const figure = (label, { image, failure }) => `
                 : `
           <img src="data:image/png;base64,${image}" alt="${escapeHtml(label)}" loading="lazy">`
         }
-          <figcaption>${escapeHtml(label)}</figcaption>
         </figure>`;
 
 const section = ({ entry, views, skipped }) => `
@@ -98,11 +75,9 @@ const section = ({ entry, views, skipped }) => `
     <p class="skipped">Skipped: ${escapeHtml(skipped)}</p>`
             : views
                   .map(
-                      ({ key, images }) => `
+                      ({ key, image }) => `
     <article>
-      <h3>${escapeHtml(key)}</h3>
-      <div class="pair">${ENGINES.map(({ label }, at) => figure(label, images[at])).join("")}
-      </div>
+      <h3>${escapeHtml(key)}</h3>${figure(key, image)}
     </article>`,
                   )
                   .join("")
@@ -118,16 +93,14 @@ const page = (sections, built) => `<!doctype html>
 <style>
   body { font-family: Helvetica, Arial, sans-serif; margin: 2rem; color: #222; background: #fff; }
   h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; }
-  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   figure { margin: 0; }
   img { width: 100%; border: 1px solid #ccc; }
-  figcaption { font-size: 0.85rem; color: #555; }
   .skipped, .failed { color: #a00; }
 </style>
 </head>
 <body>
 <h1>Contact sheet</h1>
-<p>Every acceptance view under the Structurizr renderer and the React Flow engine, built ${escapeHtml(built)}. Accept each view, or open an issue against it.</p>
+<p>Every acceptance view, built ${escapeHtml(built)}. Open an issue against any view that reads worse than before.</p>
 ${sections.map(section).join("\n")}
 </body>
 </html>

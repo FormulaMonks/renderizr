@@ -13,7 +13,7 @@ One diagram definition in the workspace: a selection of elements and relationshi
 _Avoid_: diagram (that is the drawn result), page
 
 **Engine**:
-The part of the page that draws a view: shapes, boundaries, edges, layout and animation. Today the vendored Structurizr renderer; the subject of the React Flow effort.
+The part of the page that draws a view: shapes, boundaries, edges, layout and animation. Renderizr draws with the React Flow engine in `src/engine/`.
 _Avoid_: renderer (ambiguous with Renderizr itself), canvas library
 
 **Diagram contract**:

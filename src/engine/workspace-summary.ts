@@ -1,9 +1,9 @@
 import type { WorkspaceSummary } from "../components/navigation";
 
 /**
- * The header and documentation summary of a workspace JSON, with the defaults
- * Structurizr's `Workspace` fills in, and empty text where it would leave
- * `undefined`.
+ * The header and documentation summary of a workspace JSON: empty text for a
+ * missing name or description, now for a missing date, and empty lists for
+ * missing documentation.
  */
 export function summarizeWorkspace(
     json: Record<string, unknown> & {
@@ -16,9 +16,10 @@ export function summarizeWorkspace(
         name: typeof json.name === "string" ? json.name : "",
         description:
             typeof json.description === "string" ? json.description : "",
-        // Typed as a `Date`, but Structurizr hands the JSON's ISO string through.
-        lastModifiedDate: (json.lastModifiedDate ??
-            new Date().toISOString()) as WorkspaceSummary["lastModifiedDate"],
+        lastModifiedDate:
+            typeof json.lastModifiedDate === "string"
+                ? json.lastModifiedDate
+                : new Date().toISOString(),
         documentation: {
             sections: documentation.sections ?? [],
             decisions: documentation.decisions ?? [],

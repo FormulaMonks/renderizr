@@ -231,16 +231,17 @@ test("the ADR and documentation pages are shipped as their own chunks", async ()
     );
 });
 
-test("the vendored Structurizr renderer reaches the entry chunk", async () => {
+test("the React Flow engine reaches the entry chunk, and the vendored renderer does not", async () => {
     const { out } = await multiFile();
     const code = await entryChunk(out);
 
-    // The renderer is injected as a classic script built from vendor/.
-    assert.ok(code.includes("structurizr"));
+    assert.ok(code.includes("react-flow__"), "React Flow is not in the bundle");
     assert.ok(
-        code.includes("DEFAULT_AUTOLAYOUT_RANK_SEPARATION"),
-        "the vendored renderer is not in the bundle",
+        !code.includes("DEFAULT_AUTOLAYOUT_RANK_SEPARATION"),
+        "the vendored renderer was bundled",
     );
+    assert.ok(!code.includes("joint-element"), "JointJS was bundled");
+    assert.ok(!code.includes("jQuery"), "jQuery was bundled");
 });
 
 test("the entry chunk is a syntactically valid ES module", async () => {
@@ -388,7 +389,7 @@ test("the single file still carries the whole application", async () => {
     assert.ok(html.includes("Fixture Workspace"));
     assert.ok(html.includes("FixtureContext"));
     assert.ok(html.includes("Render diagrams in the browser"));
-    assert.ok(html.includes("DEFAULT_AUTOLAYOUT_RANK_SEPARATION"));
+    assert.ok(html.includes("react-flow__"), "React Flow is not in the file");
     assert.ok(
         !html.includes("__VITE_PRELOAD__"),
         "an unresolved preload marker survived",
@@ -531,54 +532,8 @@ test("the binary refuses to run without a workspace", async () => {
     assert.match(stderr, /Missing the workspace to render\./);
 });
 
-/* ------------------------------------------------------ the React Flow engine */
-
-const reactFlowMulti = once(() =>
-    build("react-flow-multi", ["--engine", "react-flow"]),
-);
-const reactFlowSingle = once(() =>
-    build("react-flow-single", ["--single-file", "--engine", "react-flow"]),
-);
-
-test("--engine react-flow builds a multi-file site carrying React Flow and not the vendored renderer", async () => {
-    const { out } = await reactFlowMulti();
-    const code = await entryChunk(out);
-
-    assert.ok(code.includes("react-flow__"), "React Flow is not in the bundle");
-    assert.ok(code.includes("FixtureContext"), "the workspace is missing");
-    assert.ok(
-        !code.includes("DEFAULT_AUTOLAYOUT_RANK_SEPARATION"),
-        "the vendored renderer was bundled as well",
-    );
-    assert.ok(!code.includes("joint-element"), "JointJS was bundled as well");
-});
-
-test("--engine react-flow builds a single file that is self-contained", async () => {
-    const { out } = await reactFlowSingle();
-    const html = await readFile(join(out, "index.html"), "utf-8");
-
-    assert.deepEqual((await readdir(out)).sort(), [
-        "artifact.html",
-        "index.html",
-    ]);
-    assertSelfContained(html);
-    assert.ok(!html.includes("DEFAULT_AUTOLAYOUT_RANK_SEPARATION"));
-    assert.ok(
-        !html.includes("__VITE_PRELOAD__"),
-        "an unresolved preload marker survived",
-    );
-
-    const module = html.match(
-        /<script type="module"[^>]*>([\s\S]*?)<\/script>/,
-    );
-    const path = join(SCRATCH, "react-flow-inline.mjs");
-    await writeFile(path, module[1]);
-    const { code, stderr } = await runNode(["--check", path]);
-    assert.equal(code, 0, `the inlined module does not parse:\n${stderr}`);
-});
-
-test("--engine react-flow's artifact.html passes the escaping and fragment checks", async () => {
-    const { out } = await reactFlowSingle();
+test("artifact.html passes the escaping and fragment checks", async () => {
+    const { out } = await singleFile();
     const artifact = await readFile(join(out, "artifact.html"), "utf-8");
     const skeleton = htmlSkeleton(artifact);
 
@@ -590,10 +545,10 @@ test("--engine react-flow's artifact.html passes the escaping and fragment check
 
 /* ------------------------------------------------------ the engine report */
 
-test("--engine react-flow writes no engine report unless asked to", async () => {
+test("a build writes no engine report unless asked to", async () => {
     // The report is for the acceptance harness only (spec 15.1); a reader's
     // build carries neither the writer nor the element id.
-    const { out } = await reactFlowMulti();
+    const { out } = await multiFile();
     assert.ok(
         !(await entryChunk(out)).includes("engine-report"),
         "a reader's build carries the report writer",
@@ -601,11 +556,10 @@ test("--engine react-flow writes no engine report unless asked to", async () => 
 });
 
 test("RENDERIZR_ENGINE_REPORT=1 builds the engine report into the page", async () => {
-    const out = join(SCRATCH, "react-flow-report");
-    const result = await runCli(
-        [WORKSPACE, "--out", out, "--engine", "react-flow"],
-        { env: { ...OFFLINE, RENDERIZR_ENGINE_REPORT: "1" } },
-    );
+    const out = join(SCRATCH, "report");
+    const result = await runCli([WORKSPACE, "--out", out], {
+        env: { ...OFFLINE, RENDERIZR_ENGINE_REPORT: "1" },
+    });
     assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
     assert.ok(
         (await entryChunk(out)).includes("engine-report"),
@@ -657,8 +611,8 @@ const ANIMATION_GZIPPED_BYTES = 2_500;
  * Dagre is a measured library the spec added after #26, so it joins the
  * measured figure and takes the same margin; the router, activation and
  * animation are overruns of that margin, so their allowances sit on top,
- * unscaled. The margin was raised from 10% while both renderers ship side by
- * side; #64 lowers it again once 2.0 drops the vendored renderer.
+ * unscaled. The margin was raised from 10% while both renderers shipped side
+ * by side, and stays there until #64 decides it again.
  */
 const ISLAND_BUDGET_BYTES =
     Math.floor((ISLAND_GZIPPED_BYTES + DAGRE_GZIPPED_BYTES) * 1.15) +

@@ -5,7 +5,7 @@
  * proves the workspace was embedded and the document is self-contained;
  * `test/*.test.js` proves each controller does its job in a DOM of our own.
  * Both can be green while the shipped artifact opens to a blank screen — a
- * failure in the Structurizr engine, in the bundling, or in the order the
+ * failure in the diagram engine, in the bundling, or in the order the
  * chunks initialize would show up nowhere else.
  *
  * So: build the committed fixture workspace with the real CLI, load the result
@@ -161,11 +161,9 @@ test("the single-file document draws a diagram", { skip: SKIP }, async () => {
         "the engine should have drawn an svg into the canvas",
     );
     assert.ok(
-        canvas.querySelectorAll("g.joint-element").length > 0,
-        "the svg should hold laid-out shapes, not just an empty root",
+        canvas.querySelectorAll("[data-element-id]").length > 0,
+        "the canvas should hold laid-out shapes, not just an empty root",
     );
-    // `\s` rather than a space: the renderer lays labels out with
-    // non-breaking spaces so a name never wraps inside a box.
     assert.match(
         canvas.textContent,
         /Fixture\sSystem/,
@@ -380,21 +378,11 @@ test(
     },
 );
 
-/* ---------------------------------------------- the React Flow engine (#41) */
-
-const reactFlowSingle = once(() =>
-    build("react-flow-single", ["--single-file", "--engine", "react-flow"]),
-);
-const reactFlowMulti = once(async () => {
-    const out = await build("react-flow-multi", ["--engine", "react-flow"]);
-    const server = await serveDirectory(out);
-    servers.push(server);
-    return { out, origin: server.origin };
-});
+/* ------------------------------------------------------- the engine (#41) */
 
 const CONTEXT_VIEW = "#/?page=diagrams&view=FixtureContext";
 
-/** The assertions every React Flow output has to pass, whatever it was built as. */
+/** The assertions every output has to pass, whatever it was built as. */
 const assertDrawnView = (document) => {
     const canvas = document.querySelector("#structurizr-diagram-target");
     assert.ok(canvas, "the diagram canvas should be on the page");
@@ -423,13 +411,6 @@ const assertDrawnView = (document) => {
         "the relationship should be drawn as an edge",
     );
 
-    // One engine per output (ADR 12): the Structurizr renderer drew nothing.
-    // Whether it drew anything, not how much: the count went with #42.
-    assert.equal(
-        canvas.querySelector("g.joint-element"),
-        null,
-        "the Structurizr renderer drew into a React Flow build",
-    );
     // None of React Flow's own chrome.
     assert.equal(canvas.querySelector(".react-flow__attribution"), null);
     assert.equal(canvas.querySelector(".react-flow__controls"), null);
@@ -442,55 +423,57 @@ const assertDrawnView = (document) => {
     );
 };
 
+test("the single file draws a stored-layout view", { skip: SKIP }, async () => {
+    const out = await singleFile();
+    const document = await render(
+        `${fileUrl(join(out, "index.html"))}${CONTEXT_VIEW}`,
+    );
+
+    assertDrawnView(document);
+    assert.match(
+        document.querySelector("#structurizr-current-view h2").textContent,
+        /System Context View: Fixture System/,
+        "the toolbar names the view the engine drew",
+    );
+    assert.equal(
+        document
+            .querySelector(
+                '#structurizr-diagram-navigation [aria-current="true"]',
+            )
+            .closest("li")
+            .getAttribute("data-viewkey"),
+        "FixtureContext",
+    );
+    assert.ok(
+        document.documentElement.hasAttribute("data-diagram-shell"),
+        "the diagrams page is the full-viewport shell",
+    );
+    assert.match(
+        document.querySelector("#disclaimer").textContent,
+        /^Diagrams from a Structurizr workspace, in C4 notation, drawn with React Flow\. Created with Renderizr v\d+\.\d+\.\d+\.$/,
+    );
+    assert.deepEqual(
+        document
+            .querySelectorAll("#disclaimer a")
+            .map((link) => link.textContent),
+        ["Structurizr", "C4 notation", "React Flow", "Renderizr"],
+    );
+});
+
 test(
-    "--engine react-flow: the single file draws a stored-layout view",
+    "the multi-file site draws the view when served",
     { skip: SKIP },
     async () => {
-        const out = await reactFlowSingle();
-        const document = await render(
-            `${fileUrl(join(out, "index.html"))}${CONTEXT_VIEW}`,
-        );
-
-        assertDrawnView(document);
-        assert.match(
-            document.querySelector("#structurizr-current-view h2").textContent,
-            /System Context View: Fixture System/,
-            "the toolbar names the view the engine drew",
-        );
-        assert.equal(
-            document
-                .querySelector(
-                    '#structurizr-diagram-navigation [aria-current="true"]',
-                )
-                .closest("li")
-                .getAttribute("data-viewkey"),
-            "FixtureContext",
-        );
-        assert.ok(
-            document.documentElement.hasAttribute("data-diagram-shell"),
-            "the diagrams page is the full-viewport shell",
-        );
-        assert.match(
-            document.querySelector("#disclaimer").textContent,
-            /React Flow/,
-        );
-    },
-);
-
-test(
-    "--engine react-flow: the multi-file site draws the view when served",
-    { skip: SKIP },
-    async () => {
-        const { origin } = await reactFlowMulti();
+        const { origin } = await multiFile();
         assertDrawnView(await render(`${origin}/index.html${CONTEXT_VIEW}`));
     },
 );
 
 test(
-    "--engine react-flow: artifact.html draws the view with nothing beside it",
+    "artifact.html draws the view with nothing beside it",
     { skip: SKIP },
     async () => {
-        const out = await reactFlowSingle();
+        const out = await singleFile();
         const alone = await mkdtemp(join(tmpdir(), "renderizr-alone-"));
         const copy = join(alone, "artifact.html");
         await writeFile(copy, await readFile(join(out, "artifact.html")));
@@ -502,7 +485,7 @@ test(
 );
 
 test(
-    "--engine react-flow: a view with nothing to draw still counts as painted",
+    "a view with nothing to draw still counts as painted",
     { skip: SKIP },
     async () => {
         // A view with no elements has nothing to fit, but it is still shown,
@@ -519,11 +502,10 @@ test(
         });
         const source = join(SCRATCH, "empty-view.json");
         await writeFile(source, JSON.stringify(workspace));
-        const out = join(SCRATCH, "react-flow-empty");
-        const result = await runCli(
-            [source, "--out", out, "--single-file", "--engine", "react-flow"],
-            { env: OFFLINE },
-        );
+        const out = join(SCRATCH, "empty");
+        const result = await runCli([source, "--out", out, "--single-file"], {
+            env: OFFLINE,
+        });
         assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
 
         const document = await render(
@@ -539,7 +521,7 @@ test(
 );
 
 test(
-    "--engine react-flow: an element's label is clamped to its box and its outline is SVG",
+    "an element's label is clamped to its box and its outline is SVG",
     { skip: SKIP },
     async () => {
         const workspace = JSON.parse(
@@ -555,11 +537,10 @@ test(
         });
         const source = join(SCRATCH, "label.json");
         await writeFile(source, JSON.stringify(workspace));
-        const out = join(SCRATCH, "react-flow-label");
-        const result = await runCli(
-            [source, "--out", out, "--single-file", "--engine", "react-flow"],
-            { env: OFFLINE },
-        );
+        const out = join(SCRATCH, "label");
+        const result = await runCli([source, "--out", out, "--single-file"], {
+            env: OFFLINE,
+        });
         assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
 
         const document = await render(
@@ -592,7 +573,7 @@ test(
 );
 
 test(
-    "--engine react-flow: every element draws its shape, sized as Structurizr sizes it",
+    "every element draws its shape, sized as Structurizr sizes it",
     { skip: SKIP },
     async () => {
         // The Person stays; the system becomes a Circle styled 450×300, and
@@ -624,11 +605,10 @@ test(
         }
         const source = join(SCRATCH, "shapes.json");
         await writeFile(source, JSON.stringify(workspace));
-        const out = join(SCRATCH, "react-flow-shapes");
-        const result = await runCli(
-            [source, "--out", out, "--single-file", "--engine", "react-flow"],
-            { env: OFFLINE },
-        );
+        const out = join(SCRATCH, "shapes");
+        const result = await runCli([source, "--out", out, "--single-file"], {
+            env: OFFLINE,
+        });
         assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
 
         const document = await render(
@@ -673,7 +653,7 @@ test(
 );
 
 test(
-    "--engine react-flow: a workspace without a name or date has a clean header",
+    "a workspace without a name or date has a clean header",
     { skip: SKIP },
     async () => {
         // Structurizr's `Workspace` would default these; reading the JSON
@@ -685,11 +665,10 @@ test(
         workspace.lastModifiedDate = undefined;
         const source = join(SCRATCH, "unnamed.json");
         await writeFile(source, JSON.stringify(workspace));
-        const out = join(SCRATCH, "react-flow-unnamed");
-        const result = await runCli(
-            [source, "--out", out, "--single-file", "--engine", "react-flow"],
-            { env: OFFLINE },
-        );
+        const out = join(SCRATCH, "unnamed");
+        const result = await runCli([source, "--out", out, "--single-file"], {
+            env: OFFLINE,
+        });
         assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
 
         const document = await render(
@@ -708,21 +687,20 @@ test(
 /* ---------------------------------------- filtered, image and custom views */
 
 /**
- * Build the fixture as a single React Flow file, after `edit` has changed
+ * Build the fixture as a single file, after `edit` has changed
  * its JSON, and hand back the output directory and the CLI's result.
  */
-const buildReactFlowWorkspace = async (name, edit) => {
+const buildEditedWorkspace = async (name, edit) => {
     const workspace = JSON.parse(
         await readFile(fixture("workspace.json"), "utf8"),
     );
     edit(workspace);
     const source = join(SCRATCH, `${name}.json`);
     await writeFile(source, JSON.stringify(workspace));
-    const out = join(SCRATCH, `react-flow-${name}`);
-    const result = await runCli(
-        [source, "--out", out, "--single-file", "--engine", "react-flow"],
-        { env: OFFLINE },
-    );
+    const out = join(SCRATCH, `${name}`);
+    const result = await runCli([source, "--out", out, "--single-file"], {
+        env: OFFLINE,
+    });
     assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
     return { out, result };
 };
@@ -731,10 +709,29 @@ const viewUrlIn = (out, key) =>
     `${fileUrl(join(out, "index.html"))}#/?page=diagrams&view=${key}`;
 
 test(
-    "--engine react-flow: a filtered view draws its base minus what the filter drops",
+    "a workspace with no views says so instead of loading forever",
     { skip: SKIP },
     async () => {
-        const { out } = await buildReactFlowWorkspace("filtered", (json) => {
+        // Documentation and decisions only: a valid workspace, nothing to draw.
+        const { out } = await buildEditedWorkspace("no-views", (json) => {
+            json.views = {};
+        });
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}#/?page=diagrams`,
+        );
+        const canvas = document.querySelector("#structurizr-diagram-target");
+
+        assert.equal(canvas.querySelector(".loading"), null);
+        assert.match(canvas.textContent, /This workspace has no views\./);
+        assert.equal(canvas.querySelector("[data-view-key]"), null);
+    },
+);
+
+test(
+    "a filtered view draws its base minus what the filter drops",
+    { skip: SKIP },
+    async () => {
+        const { out } = await buildEditedWorkspace("filtered", (json) => {
             json.views.filteredViews = [
                 {
                     key: "NoPeople",
@@ -767,30 +764,27 @@ test(
 );
 
 test(
-    "--engine react-flow: a filtered view whose base is filtered shows an error panel naming both views",
+    "a filtered view whose base is filtered shows an error panel naming both views",
     { skip: SKIP },
     async () => {
         // The build refuses this workspace, so build one it accepts and
         // point the second filtered view at the first in the output.
-        const { out } = await buildReactFlowWorkspace(
-            "filtered-twice",
-            (json) => {
-                json.views.filteredViews = [
-                    {
-                        key: "NoPeople",
-                        baseViewKey: "FixtureContext",
-                        mode: "Exclude",
-                        tags: ["Person"],
-                    },
-                    {
-                        key: "NoPeopleTwice",
-                        baseViewKey: "SwapForNoPeople",
-                        mode: "Exclude",
-                        tags: ["Person"],
-                    },
-                ];
-            },
-        );
+        const { out } = await buildEditedWorkspace("filtered-twice", (json) => {
+            json.views.filteredViews = [
+                {
+                    key: "NoPeople",
+                    baseViewKey: "FixtureContext",
+                    mode: "Exclude",
+                    tags: ["Person"],
+                },
+                {
+                    key: "NoPeopleTwice",
+                    baseViewKey: "SwapForNoPeople",
+                    mode: "Exclude",
+                    tags: ["Person"],
+                },
+            ];
+        });
         const index = join(out, "index.html");
         const html = await readFile(index, "utf8");
         assert.match(html, /SwapForNoPeople/);
@@ -811,11 +805,11 @@ test(
 );
 
 test(
-    "--engine react-flow: an image view draws one image at its natural size, in the variant for the scheme",
+    "an image view draws one image at its natural size, in the variant for the scheme",
     { skip: SKIP },
     async () => {
         const png = await readFile(fixture("logo.png"));
-        const { out } = await buildReactFlowWorkspace("image", (json) => {
+        const { out } = await buildEditedWorkspace("image", (json) => {
             json.views.imageViews = [
                 {
                     key: "Picture",
@@ -862,23 +856,20 @@ test(
 );
 
 test(
-    "--engine react-flow: an SVG with no size of its own is drawn at its viewBox size",
+    "an SVG with no size of its own is drawn at its viewBox size",
     { skip: SKIP },
     async () => {
         // Mermaid's export: width 100%, no height, the size only in the viewBox.
         const svg =
             '<svg xmlns="http://www.w3.org/2000/svg" width="100%" style="max-width: 400px;" viewBox="0 0 400 1200"><rect width="400" height="1200" fill="#1168bd"/></svg>';
-        const { out } = await buildReactFlowWorkspace(
-            "image-sizeless",
-            (json) => {
-                json.views.imageViews = [
-                    {
-                        key: "Picture",
-                        content: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
-                    },
-                ];
-            },
-        );
+        const { out } = await buildEditedWorkspace("image-sizeless", (json) => {
+            json.views.imageViews = [
+                {
+                    key: "Picture",
+                    content: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`,
+                },
+            ];
+        });
 
         const document = await render(viewUrlIn(out, "Picture"));
         const canvas = document.querySelector("#structurizr-diagram-target");
@@ -893,10 +884,10 @@ test(
 );
 
 test(
-    "--engine react-flow: an image that was not inlined shows the placeholder and logs why",
+    "an image that was not inlined shows the placeholder and logs why",
     { skip: SKIP },
     async () => {
-        const { out, result } = await buildReactFlowWorkspace(
+        const { out, result } = await buildEditedWorkspace(
             "image-missing",
             (json) => {
                 json.views.imageViews = [
@@ -939,10 +930,10 @@ test(
 );
 
 test(
-    "--engine react-flow: a custom view draws its custom elements with no boundary",
+    "a custom view draws its custom elements with no boundary",
     { skip: SKIP },
     async () => {
-        const { out } = await buildReactFlowWorkspace("custom", (json) => {
+        const { out } = await buildEditedWorkspace("custom", (json) => {
             json.model.customElements = [
                 { id: "30", name: "Sensor", metadata: "Hardware" },
             ];
@@ -980,16 +971,9 @@ const TARGETS_FIXTURE = new URL(
 );
 
 const targetsBuild = once(async () => {
-    const out = join(SCRATCH, "react-flow-targets");
+    const out = join(SCRATCH, "targets");
     const result = await runCli(
-        [
-            TARGETS_FIXTURE.pathname,
-            "--out",
-            out,
-            "--single-file",
-            "--engine",
-            "react-flow",
-        ],
+        [TARGETS_FIXTURE.pathname, "--out", out, "--single-file"],
         { env: OFFLINE },
     );
     assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
@@ -1002,7 +986,7 @@ const indicatorsOf = (item) =>
         .map((glyph) => glyph.getAttribute("data-indicator"));
 
 test(
-    "--engine react-flow: the canvas is one focusable region labeled with the view's title",
+    "the canvas is one focusable region labeled with the view's title",
     { skip: SKIP },
     async () => {
         const document = await render(
@@ -1020,7 +1004,7 @@ test(
 );
 
 test(
-    "--engine react-flow: an element with targets shows one glyph per kind and is reachable; one without is inert",
+    "an element with targets shows one glyph per kind and is reachable; one without is inert",
     { skip: SKIP },
     async () => {
         const document = await render(
@@ -1045,7 +1029,7 @@ test(
 );
 
 test(
-    "--engine react-flow: a relationship with a link takes clicks on a hit stroke and its label, which holds only a glyph when it says nothing",
+    "a relationship with a link takes clicks on a hit stroke and its label, which holds only a glyph when it says nothing",
     { skip: SKIP },
     async () => {
         const document = await render(
@@ -1082,7 +1066,7 @@ test(
 );
 
 test(
-    "--engine react-flow: a boundary's label band carries its element's indicators",
+    "a boundary's label band carries its element's indicators",
     { skip: SKIP },
     async () => {
         const document = await render(
@@ -1099,17 +1083,15 @@ test(
 
 /* ------------------------------------------------------------- animation */
 
-/** The committed animation fixture, built once as a single React Flow file. */
+/** The committed animation fixture, built once as a single file. */
 const animationBuild = once(async () => {
-    const out = join(SCRATCH, "react-flow-animation");
+    const out = join(SCRATCH, "animation");
     const result = await runCli(
         [
             join(REPO_ROOT, "test/__fixtures__/animation.json"),
             "--out",
             out,
             "--single-file",
-            "--engine",
-            "react-flow",
         ],
         { env: OFFLINE },
     );
@@ -1125,7 +1107,7 @@ const animationButtons = (document) => {
 };
 
 test(
-    "--engine react-flow: a dynamic view draws one edge per order and offers its animation",
+    "a dynamic view draws one edge per order and offers its animation",
     { skip: SKIP },
     async () => {
         const out = await animationBuild();
@@ -1177,7 +1159,7 @@ test(
 );
 
 test(
-    "--engine react-flow: a static view with steps offers its animation",
+    "a static view with steps offers its animation",
     { skip: SKIP },
     async () => {
         const out = await animationBuild();
@@ -1198,10 +1180,10 @@ test(
 );
 
 test(
-    "--engine react-flow: a view without steps hides the animation buttons",
+    "a view without steps hides the animation buttons",
     { skip: SKIP },
     async () => {
-        const { out } = await buildReactFlowWorkspace("no-steps", () => {});
+        const { out } = await buildEditedWorkspace("no-steps", () => {});
         const document = await render(viewUrlIn(out, "FixtureContext"));
         const { group } = animationButtons(document);
         assert.ok(group, "the toolbar keeps the group");
@@ -1210,12 +1192,12 @@ test(
 );
 
 test(
-    "--engine react-flow: a dynamic-view order that isn't an integer shows an error panel for that view only",
+    "a dynamic-view order that isn't an integer shows an error panel for that view only",
     { skip: SKIP },
     async () => {
         // The build refuses this workspace, so build an integer order and
         // make it fractional in the output.
-        const out = join(SCRATCH, "react-flow-fractional");
+        const out = join(SCRATCH, "fractional");
         const workspace = JSON.parse(
             await readFile(
                 join(REPO_ROOT, "test/__fixtures__/animation.json"),
@@ -1225,10 +1207,9 @@ test(
         workspace.views.dynamicViews[0].relationships[2].order = "424242";
         const source = join(SCRATCH, "fractional.json");
         await writeFile(source, JSON.stringify(workspace));
-        const result = await runCli(
-            [source, "--out", out, "--single-file", "--engine", "react-flow"],
-            { env: OFFLINE },
-        );
+        const result = await runCli([source, "--out", out, "--single-file"], {
+            env: OFFLINE,
+        });
         assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
         const index = join(out, "index.html");
         const html = await readFile(index, "utf8");
@@ -1404,7 +1385,7 @@ const edgeOpacities = (shot) =>
     );
 
 test(
-    "--engine react-flow: a dynamic step shows its edges and fades everything else to a real 0.2, text and icon included",
+    "a dynamic step shows its edges and fades everything else to a real 0.2, text and icon included",
     { skip: SKIP },
     async () => {
         const { full, second } = await probeAnimation(
@@ -1457,7 +1438,7 @@ test(
 );
 
 test(
-    "--engine react-flow: a static step hides what it has not revealed, at opacity 0 and inert",
+    "a static step hides what it has not revealed, at opacity 0 and inert",
     { skip: SKIP },
     async () => {
         const { first, second } = await probeAnimation(
@@ -1498,14 +1479,11 @@ test(
     },
 );
 
-test(
-    "--engine react-flow: Escape on the canvas stops the animation",
-    { skip: SKIP },
-    async () => {
-        const { playing, stopped } = await probeAnimation(
-            "escape",
-            "CheckoutInPlace",
-            `click(".play-animation");
+test("Escape on the canvas stops the animation", { skip: SKIP }, async () => {
+    const { playing, stopped } = await probeAnimation(
+        "escape",
+        "CheckoutInPlace",
+        `click(".play-animation");
             await sleep(50);
             shoot("playing");
             canvas().focus();
@@ -1514,21 +1492,20 @@ test(
             );
             await sleep(50);
             shoot("stopped");`,
-        );
-        assert.equal(playing.play, "Pause animation");
-        assert.equal(playing.edges["11@2"].opacity, 0.2, "step 1 is showing");
-        assert.equal(stopped.play, "Play animation", "play has stopped");
-        assert.ok(
-            Object.values(edgeOpacities(stopped)).every((o) => o === 1),
-            "the full view is back",
-        );
-    },
-);
+    );
+    assert.equal(playing.play, "Pause animation");
+    assert.equal(playing.edges["11@2"].opacity, 0.2, "step 1 is showing");
+    assert.equal(stopped.play, "Play animation", "play has stopped");
+    assert.ok(
+        Object.values(edgeOpacities(stopped)).every((o) => o === 1),
+        "the full view is back",
+    );
+});
 
 // Under reduced motion each viewport change is instant; an eased one runs
 // on animation frames, which virtual time never produces.
 test(
-    "--engine react-flow: zoomOnAnimation fits each step and the whole view on stop",
+    "zoomOnAnimation fits each step and the whole view on stop",
     { skip: SKIP },
     async () => {
         const { full, first, second, stopped } = await probeAnimation(
@@ -1555,7 +1532,7 @@ test(
 );
 
 test(
-    "--engine react-flow: without zoomOnAnimation a step never moves the viewport",
+    "without zoomOnAnimation a step never moves the viewport",
     { skip: SKIP },
     async () => {
         const { full, first, second, stopped } = await probeAnimation(
@@ -1582,7 +1559,7 @@ test(
 );
 
 test(
-    "--engine react-flow: switching views mid-step never refits the outgoing view",
+    "switching views mid-step never refits the outgoing view",
     { skip: SKIP },
     async () => {
         // What changes once the drawer is clicked, in order: the canvas's
@@ -1636,7 +1613,7 @@ test(
 );
 
 test(
-    "--engine react-flow: back on the painted view before the next one paints, its steps return",
+    "back on the painted view before the next one paints, its steps return",
     { skip: SKIP },
     async () => {
         // Both clicks land before Containers paints, so the canvas never
@@ -1664,7 +1641,7 @@ test(
 );
 
 test(
-    "--engine react-flow: under reduced motion a step changes at once",
+    "under reduced motion a step changes at once",
     { skip: SKIP },
     async () => {
         const { full, first } = await probeAnimation(
@@ -1692,7 +1669,7 @@ test(
 );
 
 test(
-    "--engine react-flow: changing the scheme or the labels keeps the step and play",
+    "changing the scheme or the labels keeps the step and play",
     { skip: SKIP },
     async () => {
         const { playing, scheme, labels } = await probeAnimation(

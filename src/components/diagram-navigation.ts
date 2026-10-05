@@ -1,16 +1,16 @@
 import { readSetting, writeSetting } from "../storage";
 import type { ModelView, WorkspaceModel } from "../model";
-import collapseIcon from "../../vendor/structurizr/bootstrap-icons/arrow-bar-left.svg?raw";
-import expandIcon from "../../vendor/structurizr/bootstrap-icons/arrow-bar-right.svg?raw";
-import componentIcon from "../../vendor/structurizr/bootstrap-icons/box-seam.svg?raw";
-import containerIcon from "../../vendor/structurizr/bootstrap-icons/boxes.svg?raw";
-import dynamicIcon from "../../vendor/structurizr/bootstrap-icons/collection-play-fill.svg?raw";
-import imageIcon from "../../vendor/structurizr/bootstrap-icons/file-earmark-image.svg?raw";
-import filteredIcon from "../../vendor/structurizr/bootstrap-icons/funnel.svg?raw";
-import systemLandscapeIcon from "../../vendor/structurizr/bootstrap-icons/globe2.svg?raw";
-import systemContextIcon from "../../vendor/structurizr/bootstrap-icons/layout-wtf.svg?raw";
-import customIcon from "../../vendor/structurizr/bootstrap-icons/pentagon.svg?raw";
-import deploymentIcon from "../../vendor/structurizr/bootstrap-icons/rocket-takeoff.svg?raw";
+import collapseIcon from "bootstrap-icons/icons/arrow-bar-left.svg?raw";
+import expandIcon from "bootstrap-icons/icons/arrow-bar-right.svg?raw";
+import componentIcon from "bootstrap-icons/icons/box-seam.svg?raw";
+import containerIcon from "bootstrap-icons/icons/boxes.svg?raw";
+import dynamicIcon from "bootstrap-icons/icons/collection-play-fill.svg?raw";
+import imageIcon from "bootstrap-icons/icons/file-earmark-image.svg?raw";
+import filteredIcon from "bootstrap-icons/icons/funnel.svg?raw";
+import systemLandscapeIcon from "bootstrap-icons/icons/globe2.svg?raw";
+import systemContextIcon from "bootstrap-icons/icons/layout-wtf.svg?raw";
+import customIcon from "bootstrap-icons/icons/pentagon.svg?raw";
+import deploymentIcon from "bootstrap-icons/icons/rocket-takeoff.svg?raw";
 import history from "history/hash";
 import Component from "./_component";
 import styles from "./diagram-navigation.module.css";
@@ -72,8 +72,7 @@ const SCROLL_KEY = "renderizr:diagramDrawerScroll";
 
 /**
  * What the drawer needs from whatever draws the view: which one is on screen,
- * and a way to show another. The Structurizr `Diagram` already has this
- * shape; the React Flow page adapts its `Engine` to it.
+ * and a way to show another. The diagrams page adapts its `Engine` to it.
  */
 export type ViewSwitcher = {
     getCurrentView(): { key: string } | null | undefined;
@@ -89,10 +88,9 @@ export default class DiagramNavigation extends Component {
     #collapsed = readSetting(COLLAPSED_KEY) === "true";
     #list: HTMLElement | null = null;
     /**
-     * The view last handed to the diagram. Asking for it again is a no-op:
-     * the page's view-changed handler calls back into `changeView`, and the
-     * Structurizr diagram, which reports a filtered view's base as current,
-     * would otherwise render the filtered view again, endlessly.
+     * The view last handed to the diagram. Asking for it again is a no-op, so
+     * a switcher that echoes each change back into `changeView`, or reports a
+     * filtered view's base as current, cannot show the same view endlessly.
      */
     #shown: string | null = null;
 

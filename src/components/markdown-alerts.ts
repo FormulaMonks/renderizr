@@ -1,9 +1,9 @@
 import type MarkdownIt from "markdown-it";
-import noteIcon from "../../vendor/structurizr/bootstrap-icons/info-circle-fill.svg?raw";
-import tipIcon from "../../vendor/structurizr/bootstrap-icons/lightbulb-fill.svg?raw";
-import importantIcon from "../../vendor/structurizr/bootstrap-icons/megaphone-fill.svg?raw";
-import warningIcon from "../../vendor/structurizr/bootstrap-icons/exclamation-triangle-fill.svg?raw";
-import cautionIcon from "../../vendor/structurizr/bootstrap-icons/exclamation-octagon-fill.svg?raw";
+import noteIcon from "bootstrap-icons/icons/info-circle-fill.svg?raw";
+import tipIcon from "bootstrap-icons/icons/lightbulb-fill.svg?raw";
+import importantIcon from "bootstrap-icons/icons/megaphone-fill.svg?raw";
+import warningIcon from "bootstrap-icons/icons/exclamation-triangle-fill.svg?raw";
+import cautionIcon from "bootstrap-icons/icons/exclamation-octagon-fill.svg?raw";
 
 /**
  * GitHub-flavored alert blockquotes for markdown-it.

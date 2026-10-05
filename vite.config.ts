@@ -13,7 +13,6 @@ const DEFAULT_WORKSPACE = "architecture/workspace.json";
  *
  *   pnpm dev                                    (this repo's own workspace)
  *   pnpm dev -- path/to/workspace.json [--logo x.svg] [--font Inter]
- *   pnpm dev -- --engine react-flow             (the React Flow engine)
  */
 export default async () => {
     const args = process.argv.slice(2);
@@ -30,7 +29,7 @@ export default async () => {
             .filter(
                 (arg, at) =>
                     !arg.startsWith("-") &&
-                    !["--font", "--logo", "--engine"].includes(args[at - 1]),
+                    !["--font", "--logo"].includes(args[at - 1]),
             )
             .at(-1) ??
         process.env.RENDERIZR_WORKSPACE ??
@@ -62,7 +61,6 @@ export default async () => {
             logo,
             font,
             singleFile: args.includes("--single-file"),
-            engine: flag("engine") ?? "structurizr",
             mode: "serve",
         }),
     );

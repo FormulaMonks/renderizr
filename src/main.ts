@@ -1,10 +1,11 @@
 import { initTheme } from "./components/theme.ts";
-import { loadEngine } from "virtual:renderizr-engine";
 import "./main.css";
 import Router from "./components/router.ts";
 import Navigation from "./components/navigation.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
+import { summarizeWorkspace } from "./engine/workspace-summary";
 import type Page from "./pages/_page.ts";
+import DiagramsPage from "./pages/diagrams";
 
 /**
  * Publish the sticky header's height as a custom property.
@@ -35,8 +36,7 @@ async function init() {
     // it in step with the OS while the reader is on "system".
     initTheme();
 
-    // Exactly one engine is bundled, chosen at build time by `--engine`.
-    const { workspace, DiagramsPage, credit } = await loadEngine();
+    const workspace = summarizeWorkspace(workspaceData);
 
     // Which Renderizr produced this page. A site outlives the version that
     // built it, and the first question about a stale-looking render is which
@@ -50,7 +50,7 @@ async function init() {
                 <hr />
             </section>
             <section id="page-content"></section>
-            <footer id="disclaimer">Diagrams rendered using ${credit} and <a href="https://c4model.com/" target="_blank">C4 notation.</a> Created with <a href="https://github.com/FormulaMonks/renderizr" target="_blank">Renderizr</a>${version}.</footer>
+            <footer id="disclaimer">Diagrams from a <a href="https://structurizr.com/" target="_blank">Structurizr</a> workspace, in <a href="https://c4model.com/" target="_blank">C4 notation</a>, drawn with <a href="https://reactflow.dev/" target="_blank">React Flow</a>. Created with <a href="https://github.com/FormulaMonks/renderizr" target="_blank">Renderizr</a>${version}.</footer>
         </main>
     `;
 

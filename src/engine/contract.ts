@@ -43,7 +43,7 @@ export type Anchor = { x: number; y: number };
 /**
  * The state of a view that does not animate, and of every animation before
  * an engine has said anything: no steps, the full view, not playing. Shared
- * by the player, the toolbar and the Structurizr adapter.
+ * by the player and the toolbar.
  */
 export const NOT_ANIMATING: Readonly<AnimationState> = {
     steps: 0,

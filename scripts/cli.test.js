@@ -21,7 +21,6 @@ test("a bare workspace takes every default", () => {
         out: "structurizr-output",
         base: "",
         singleFile: false,
-        engine: "structurizr",
         logo: null,
         font: null,
     });
@@ -62,19 +61,6 @@ test("--single-file is a boolean flag", () => {
 });
 
 /* --------------------------------------------------------------------- logo */
-
-test("--engine picks the diagram engine, Structurizr's by default", () => {
-    assert.equal(OPTIONS.engine.default, "structurizr");
-    assert.equal(parseCliArgs(["w.json"]).engine, "structurizr");
-    assert.equal(
-        parseCliArgs(["w.json", "--engine", "react-flow"]).engine,
-        "react-flow",
-    );
-    assert.equal(
-        parseCliArgs(["w.json", "--engine=structurizr"]).engine,
-        "structurizr",
-    );
-});
 
 test("--logo alone carries empty alt text and no link", () => {
     assert.deepEqual(parseCliArgs(["w.json", "--logo", "./logo.svg"]).logo, {
@@ -256,9 +242,10 @@ test("a value handed to a boolean flag is a usage error", async () => {
     );
 });
 
-test("an unknown engine is a usage error", async () => {
+test("--engine is gone with the vendored renderer (2.0) and is a usage error", async () => {
+    assert.ok(!Object.hasOwn(OPTIONS, "engine"));
     await rejects(
-        ["w.json", "--engine", "joint"],
-        /Unknown engine 'joint'; expected one of: structurizr, react-flow/,
+        ["w.json", "--engine", "react-flow"],
+        /Unknown option '--engine'/,
     );
 });

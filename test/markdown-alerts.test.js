@@ -12,8 +12,11 @@
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import markdownIt from "markdown-it";
 import { importSrc, srcTest as test } from "./support/ts.js";
+
+const require = createRequire(import.meta.url);
 
 const { default: markdownItAlerts } = await importSrc(
     "components/markdown-alerts",
@@ -175,13 +178,10 @@ test("markdown inside an alert is still markdown", () => {
 
 /* -------------------------------------------------------------------- icons */
 
-test("each type carries the vendored Bootstrap icon it names", async () => {
+test("each type carries the Bootstrap icon it names", async () => {
     for (const [type, file] of Object.entries(ICON_FILES)) {
         const source = await readFile(
-            new URL(
-                `../vendor/structurizr/bootstrap-icons/${file}`,
-                import.meta.url,
-            ),
+            require.resolve(`bootstrap-icons/icons/${file}`),
             "utf-8",
         );
 

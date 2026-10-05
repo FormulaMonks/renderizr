@@ -1,8 +1,8 @@
 /**
  * The acceptance set (spec 15.3) and how each workspace in it is built for the
  * harness: `test/acceptance.test.js` checks the React Flow engine's report for
- * every view, and `test/contact-sheet.js` screenshots every view under both
- * engines for people to review (ADR 11).
+ * every view, and `test/contact-sheet.js` screenshots every view for people
+ * to review (ADR 11).
  *
  * Workspaces from the pinned `submodules/structurizr` checkout are skipped,
  * with a reason, where the submodule is absent. Builds run offline: remote
@@ -197,9 +197,8 @@ export function missingReason(entry) {
 export function prepareWorkspace(entry) {
     const workspace = JSON.parse(readFileSync(entry.source, "utf-8"));
 
-    // An image view whose content is a URL needs the network. Offline, the
-    // Structurizr renderer fails to load it and raises an `alert()`, which
-    // stops headless Chrome for good; the view is drawn without its image.
+    // An image view whose content is a URL needs the network, which these
+    // builds never reach; the engine draws such a view as its placeholder.
     for (const view of workspace.views?.imageViews ?? []) {
         for (const field of ["content", "contentLight", "contentDark"]) {
             if (/^https?:/i.test(view[field] ?? "")) delete view[field];
@@ -259,26 +258,19 @@ const OFFLINE = {
 };
 
 /**
- * Build `workspace` as a single file into `out` with `engine`, writing the
- * engine report when `report` is set, and resolve with `out`.
+ * Build `workspace` as a single file into `out`, writing the engine report
+ * when `report` is set, and resolve with `out`.
  */
 export async function buildForAcceptance(
     workspace,
     out,
-    { engine, report = false },
+    { report = false } = {},
 ) {
     await mkdir(out, { recursive: true });
     const source = join(out, "workspace.json");
     await writeFile(source, JSON.stringify(workspace));
     const result = await runCli(
-        [
-            source,
-            "--out",
-            join(out, "site"),
-            "--single-file",
-            "--engine",
-            engine,
-        ],
+        [source, "--out", join(out, "site"), "--single-file"],
         {
             env: {
                 ...OFFLINE,
@@ -288,7 +280,7 @@ export async function buildForAcceptance(
     );
     if (result.code !== 0) {
         throw new Error(
-            `building ${workspace.name} with ${engine} failed:\n${result.stdout}\n${result.stderr}`,
+            `building ${workspace.name} failed:\n${result.stdout}\n${result.stderr}`,
         );
     }
     return join(out, "site");

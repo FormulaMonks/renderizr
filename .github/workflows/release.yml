@@ -158,8 +158,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TAG }}
-          # The build does not need submodules/structurizr — the renderer is
-          # vendored under vendor/. Left off on purpose.
+          # The build does not need submodules/structurizr, which only holds
+          # acceptance fixtures. Left off on purpose.
           submodules: false
           persist-credentials: false
 

@@ -12,13 +12,13 @@ How to write the code in this repository. [CONTRIBUTING.md](CONTRIBUTING.md) cov
 ## TypeScript in `src/`
 
 - Declare shapes with `type`; the codebase has one `interface`. Model closed sets as unions of string literals; there are no `enum`s.
-- Mark type-only imports with `import type` or the inline `type` modifier. Write relative imports without an extension; stylesheets keep `.module.css`, vendored icons take `?raw`.
+- Mark type-only imports with `import type` or the inline `type` modifier. Write relative imports without an extension; stylesheets keep `.module.css`, and icons from the `bootstrap-icons` package take `?raw`.
 - Use `#private` fields for everything a class owns. The `private` keyword appears nowhere.
 - `const` by default, `for (const x of xs)` over `.forEach`, `??` and `?.` over manual checks, `readonly` on a field assigned once. Name an ignored parameter `__`.
 - A non-null assertion is for an element the same function just wrote into the DOM, or for state an earlier guard established. Everywhere else, narrow: `if (!this.container) return;`.
 - `any` appears only at the untyped-JSON boundary, each use behind a `biome-ignore` that says why. Past `WorkspaceModel`, everything is typed.
 - Module-level constants are `SCREAMING_CASE` with a doc comment. Small helpers are `const name = (...) => ...` one-liners; anything exported and longer than a line is a `function` declaration.
-- A component or page is an `export default class`. Functions and types are named exports. The one barrel is `src/model/index.ts`. Where there is no element to own, write a module of functions with module-level state, as `components/theme.ts` and `storage.ts` do.
+- A component or page is an `export default class`. Functions and types are named exports. The two barrels are `src/model/index.ts` and `src/engine/index.ts`. Where there is no element to own, write a module of functions with module-level state, as `components/theme.ts` and `storage.ts` do.
 
 ## Browser code
 
@@ -53,14 +53,14 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 
 - React lives in `src/engine/react-flow/island.tsx` and `index.ts` only; write `.tsx` nowhere else. The page reaches the island through `mountEngine` and the `Engine` handle, and `contract.ts` names nothing from React ([3. Mount React Flow as an island behind the engine contract](architecture/decisions/0003-mount-react-flow-as-an-island-behind-the-engine-contract.md)).
 - Geometry and the model are pure functions over numbers and JSON, with no DOM and no React, so they run under `node --test`.
-- A build carries exactly one engine, resolved through `virtual:renderizr-engine` ([12. Ship behind a flag, then cut over in one release](architecture/decisions/0012-ship-behind-a-flag-then-cut-over-in-one-release.md)). Shared code imports neither engine's entry directly.
+- The page mounts the engine through `src/engine/index.ts`. Components that render the engine's state, such as the toolbar, may import the contract's types and constants from `src/engine/contract.ts`.
 - Ported upstream code carries the Apache-2.0 header naming the upstream files and what changed, as `src/model/` does, and `THIRD-PARTY-NOTICES.md` lists the package.
 
 ## Node code in `scripts/`
 
 - Use only what Node 20 ships. Import builtins with the `node:` prefix. A bin starts with `#! /usr/bin/env node`.
 - Write to `process.stdout` and `process.stderr` with `.write()` and a trailing `\n`: progress to stdout, warnings and errors to stderr. `console.*` appears in no shipped code.
-- Only `cli.js` (usage errors, `--help`) and the Node-floor guard at the top of `build.js` call `process.exit`. Everything else throws an `Error` whose message names the input and what it expected: `Unknown engine '${engine}'; expected one of: …`.
+- Only `cli.js` (usage errors, `--help`) and the Node-floor guard at the top of `build.js` call `process.exit`. Everything else throws an `Error` whose message names the input and what it expected: `Expected one workspace, got 2: a.json, b.json`.
 - Degrade when the output can still be right (a theme that fails to load warns and the build carries on). Fail when it would be wrong (an unrecognized image, invalid JSON, an escape sequence that survived rewriting).
 - Export the parts as named functions; `build.js` is the one module with top-level side effects. A flag lives in `OPTIONS` in `cli.js` and its `USAGE` text.
 
@@ -81,6 +81,6 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 
 ## Dependencies
 
-- Pin `jquery`, `@joint/*` and `@dagrejs/*` to exact versions: the vendored renderer reads them off `window` and is sensitive to which build it gets. Everything else uses a caret range.
+- Pin `@dagrejs/*` to exact versions: `src/engine/layout/automatic.ts` imports Dagre's internal `lib/order` modules, which carry no semver promise. Everything else uses a caret range.
 - Updates arrive through Renovate. Every patch and minor update auto-merges once `ci` passes, and majors wait for a person; packages inlined into rendered output get one pull request each, and Renovate groups dev tooling; no bot ever bumps the `engines` range.
 - `pnpm-workspace.yaml` allows build scripts for `@biomejs/biome` and `esbuild` only. Add a package that needs a postinstall step to that list deliberately.
