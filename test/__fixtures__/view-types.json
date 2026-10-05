@@ -230,6 +230,13 @@
                 "order": 6,
                 "title": "Image: nothing to show",
                 "description": "No content at all, so the view shows the placeholder"
+            },
+            {
+                "key": "SizelessPicture",
+                "order": 7,
+                "title": "Image: an SVG sized by its viewBox",
+                "description": "A Mermaid-style SVG with width 100% and no height: the picture fits the canvas at its 400 x 1200 viewBox, and zoom in reaches its full size",
+                "content": "data:image/svg+xml;base64,PHN2ZyBpZD0ibXktc3ZnIiB3aWR0aD0iMTAwJSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBzdHlsZT0ibWF4LXdpZHRoOiA0MDBweDsgYmFja2dyb3VuZC1jb2xvcjogd2hpdGU7IiB2aWV3Qm94PSIwIDAgNDAwIDEyMDAiPjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMTIwMCIgZmlsbD0iI2ZmZmZmZiIvPjxyZWN0IHg9IjEwMCIgeT0iODAiIHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiByeD0iOCIgZmlsbD0iIzExNjhiZCIvPjxyZWN0IHg9IjEwMCIgeT0iNTQwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEyMCIgcng9IjgiIGZpbGw9IiMxMTY4YmQiLz48cmVjdCB4PSIxMDAiIHk9IjEwMDAiIHdpZHRoPSIyMDAiIGhlaWdodD0iMTIwIiByeD0iOCIgZmlsbD0iIzExNjhiZCIvPjxwYXRoIGQ9Ik0yMDAgMjAwVjU0ME0yMDAgNjYwVjEwMDAiIHN0cm9rZT0iIzQ0NDQ0NCIgc3Ryb2tlLXdpZHRoPSI0Ii8+PC9zdmc+"
             }
         ],
         "configuration": {

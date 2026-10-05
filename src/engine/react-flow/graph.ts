@@ -335,6 +335,71 @@ export function imageVariant(
     return preferred.find((src) => typeof src === "string" && src !== "");
 }
 
+/** An SVG length the browser can size by: a number, in pixels or bare. */
+const ABSOLUTE_LENGTH = /^\s*(\d*\.?\d+)\s*(px)?\s*$/i;
+
+/** The value of `name` on an SVG root tag, if it has one. */
+function svgAttribute(root: string, name: string): string | undefined {
+    const match = new RegExp(`\\s${name}\\s*=\\s*("([^"]*)"|'([^']*)')`).exec(
+        root,
+    );
+    return match ? match[2] ?? match[3] : undefined;
+}
+
+/** A positive pixel length from an SVG `width` or `height`, if absolute. */
+function absoluteLength(value: string | undefined): number | undefined {
+    const match = value === undefined ? null : ABSOLUTE_LENGTH.exec(value);
+    const length = match ? Number(match[1]) : Number.NaN;
+    return length > 0 ? length : undefined;
+}
+
+/** The text of a `data:` URI, or undefined when it is not one. */
+function dataUriText(src: string): string | undefined {
+    const comma = src.indexOf(",");
+    if (!/^data:/i.test(src) || comma < 0) return undefined;
+    const payload = src.slice(comma + 1);
+    try {
+        return /;base64$/i.test(src.slice(0, comma))
+            ? atob(payload)
+            : decodeURIComponent(payload);
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * The size an SVG picture was drawn at, when its root leaves the browser to
+ * guess one: a missing or relative `width` or `height` is read from its
+ * `viewBox`, keeping the other side's length when that one is absolute.
+ * Mermaid exports `width="100%"` and no `height`, which a browser sizes at
+ * its 150 px default. Undefined for anything else, whose natural size the
+ * browser already knows: a raster picture, an SVG sized in pixels, one with
+ * no `viewBox` or a picture that is not a `data:` URI.
+ */
+export function svgSize(src: string): Size | undefined {
+    if (!/^data:image\/svg\+xml[;,]/i.test(src)) return undefined;
+    const root = /<svg\b[^>]*>/i.exec(dataUriText(src) ?? "")?.[0];
+    if (!root) return undefined;
+    const width = absoluteLength(svgAttribute(root, "width"));
+    const height = absoluteLength(svgAttribute(root, "height"));
+    if (width !== undefined && height !== undefined) return undefined;
+    const box = (svgAttribute(root, "viewBox") ?? "")
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
+    const [, , boxWidth = 0, boxHeight = 0] = box;
+    if (box.length !== 4 || !(boxWidth > 0) || !(boxHeight > 0)) {
+        return undefined;
+    }
+    if (width !== undefined) {
+        return { width, height: (width * boxHeight) / boxWidth };
+    }
+    if (height !== undefined) {
+        return { width: (height * boxWidth) / boxHeight, height };
+    }
+    return { width: boxWidth, height: boxHeight };
+}
+
 /**
  * Where an image view's picture is, as the island learns it. A loaded one
  * carries the `src` it loaded, so what draws it never has to re-check that
