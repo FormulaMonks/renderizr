@@ -21,6 +21,52 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.0.0](https://github.com/FormulaMonks/renderizr/compare/v1.1.1...v2.0.0) (2026-10-05)
+
+Renderizr draws every diagram with its own React Flow engine, built to the [React Flow engine spec](https://github.com/FormulaMonks/renderizr/issues/39).
+
+
+### ⚠ BREAKING CHANGES
+
+* every diagram is drawn by the React Flow engine, so rendered output looks different, and --engine is no longer an option.
+
+### Added
+
+* cut over to the React Flow engine ([#103](https://github.com/FormulaMonks/renderizr/issues/103)) ([5c311d8](https://github.com/FormulaMonks/renderizr/commit/5c311d87aa8a310fdfcff9b6092fd5b94a939635)), closes [#52](https://github.com/FormulaMonks/renderizr/issues/52)
+* **engine:** acceptance harness with engine report, geometry checks and contact sheet ([#58](https://github.com/FormulaMonks/renderizr/issues/58)) ([a980a14](https://github.com/FormulaMonks/renderizr/commit/a980a14b8b1f4aee5254e0a3377a299d562209e5)), closes [#42](https://github.com/FormulaMonks/renderizr/issues/42)
+* **layout:** complete the acceptance set and rank large views with tight-tree ([#83](https://github.com/FormulaMonks/renderizr/issues/83)) ([4c51549](https://github.com/FormulaMonks/renderizr/commit/4c515497136f7a782b4fef892df0300f5a2e3d58))
+* **react-flow:** activation targets, target menu, indicators and keyboard access ([#74](https://github.com/FormulaMonks/renderizr/issues/74)) ([fe5f3d9](https://github.com/FormulaMonks/renderizr/commit/fe5f3d9b7de084b7e0d7bb435b7108174630a2e3)), closes [#48](https://github.com/FormulaMonks/renderizr/issues/48)
+* **react-flow:** derive boundaries from their children and re-derive on font load ([#65](https://github.com/FormulaMonks/renderizr/issues/65)) ([dadc715](https://github.com/FormulaMonks/renderizr/commit/dadc715a4b3f45313a6ea07461f21b7ca86eb31c))
+* **react-flow:** draw edge labels and line styles ([#69](https://github.com/FormulaMonks/renderizr/issues/69)) ([ab873a6](https://github.com/FormulaMonks/renderizr/commit/ab873a6b12dd59729b079e1c659a8cb3dca9a266))
+* **react-flow:** draw elements with the label template and all 19 shapes ([#59](https://github.com/FormulaMonks/renderizr/issues/59)) ([40377bc](https://github.com/FormulaMonks/renderizr/commit/40377bc04bc5bf7a24a7b3629485ec01ba6df99f))
+* **react-flow:** draw filtered, image and custom views ([#71](https://github.com/FormulaMonks/renderizr/issues/71)) ([ecc7ade](https://github.com/FormulaMonks/renderizr/commit/ecc7aded58bd1af593f37c5affbfc45f033a8384))
+* **react-flow:** lay out automatic views with Dagre and place unplaced elements ([#70](https://github.com/FormulaMonks/renderizr/issues/70)) ([df91336](https://github.com/FormulaMonks/renderizr/commit/df913360631acf0d0e03b8d1207d3b7beeadd887)), closes [#45](https://github.com/FormulaMonks/renderizr/issues/45)
+* **react-flow:** play dynamic and static animation ([#73](https://github.com/FormulaMonks/renderizr/issues/73)) ([336ad0d](https://github.com/FormulaMonks/renderizr/commit/336ad0d7a0c098e33bc41f91e959f839d3b3317a))
+* **react-flow:** route edges in every routing mode ([#62](https://github.com/FormulaMonks/renderizr/issues/62)) ([3655ae2](https://github.com/FormulaMonks/renderizr/commit/3655ae207cb2c39f14d987b8b1e0533de7b5fb48))
+* typed workspace model, style resolution and resolveView ([#53](https://github.com/FormulaMonks/renderizr/issues/53)) ([056b910](https://github.com/FormulaMonks/renderizr/commit/056b910e14425f4cded2e1473d8d308cfa38758e))
+
+
+### Fixed
+
+* **geometry:** aim Direct and Curved edges from center to center ([#75](https://github.com/FormulaMonks/renderizr/issues/75)) ([5bd2066](https://github.com/FormulaMonks/renderizr/commit/5bd20668c6dc7a89fac4d2a51386d47a7a37621d)), closes [#72](https://github.com/FormulaMonks/renderizr/issues/72)
+* **layout:** keep every group on its ranks while Dagre orders a view ([#85](https://github.com/FormulaMonks/renderizr/issues/85)) ([3d8a6be](https://github.com/FormulaMonks/renderizr/commit/3d8a6be065b79ce39e08704c887235db02cb23d9))
+* **react-flow:** scope the label toggles to element text ([#78](https://github.com/FormulaMonks/renderizr/issues/78)) ([4c3ad46](https://github.com/FormulaMonks/renderizr/commit/4c3ad46ef5c897ae964928985dbe4b85acdb7472)), closes [#77](https://github.com/FormulaMonks/renderizr/issues/77)
+* **react-flow:** size SVG image views from their viewBox ([#87](https://github.com/FormulaMonks/renderizr/issues/87)) ([93a2743](https://github.com/FormulaMonks/renderizr/commit/93a2743b86f27d999fd8958c57733a391d58fff4))
+* **routing:** aim each edge end where its edge heads ([#88](https://github.com/FormulaMonks/renderizr/issues/88)) ([b13c8fe](https://github.com/FormulaMonks/renderizr/commit/b13c8fef4f4878651536e49a7ffd78b11b3aa2d0))
+* **test:** hold every edge end to its shape's outline ([#79](https://github.com/FormulaMonks/renderizr/issues/79)) ([ba229ad](https://github.com/FormulaMonks/renderizr/commit/ba229addd537ddff70ca92176ce9a47f3e98bbe9))
+* **test:** time acceptance views with no other test file running ([#81](https://github.com/FormulaMonks/renderizr/issues/81)) ([d5d4b4a](https://github.com/FormulaMonks/renderizr/commit/d5d4b4a7d6f19870da55519546da1247bc61cbcf))
+
+
+### Documentation
+
+* add branch naming and verification rules ([#68](https://github.com/FormulaMonks/renderizr/issues/68)) ([268ea84](https://github.com/FormulaMonks/renderizr/commit/268ea843bbeacd08917a059ce845524b4782320f))
+* add coding standards and spell American English throughout ([#56](https://github.com/FormulaMonks/renderizr/issues/56)) ([a953462](https://github.com/FormulaMonks/renderizr/commit/a953462e721fa27c938b1d5a4cf187ec2331a363))
+* add the domain glossary, agent rules and the React Flow engine ADRs ([8581022](https://github.com/FormulaMonks/renderizr/commit/8581022685cb0a0f00b66adc94e595c2cc882e26)) ([ad5dafe](https://github.com/FormulaMonks/renderizr/commit/ad5dafe007c9e6499b488de087d4a5e5dff77032))
+* **architecture:** record the React Flow engine decisions ([c402c1f](https://github.com/FormulaMonks/renderizr/commit/c402c1ffbdd5d4e17f15500ebf846332daa8686b))
+* ask every pull request for what, how to verify and notes ([#54](https://github.com/FormulaMonks/renderizr/issues/54)) ([777ecb4](https://github.com/FormulaMonks/renderizr/commit/777ecb4c0b99065322955d0c771028d0c81d6c39))
+* prefer active voice and simple tenses ([#80](https://github.com/FormulaMonks/renderizr/issues/80)) ([823b844](https://github.com/FormulaMonks/renderizr/commit/823b84495486fead245130ef453749026fbb564d))
+* scope the documentation rules by path ([a018278](https://github.com/FormulaMonks/renderizr/commit/a018278d751f571363926cb26dd762110f7be639))
+
 ## [1.1.1](https://github.com/FormulaMonks/renderizr/compare/v1.1.0...v1.1.1) - 2026-09-26
 
 ### Fixed
