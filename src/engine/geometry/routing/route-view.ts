@@ -216,6 +216,7 @@ export function routeView(
         const spread = spreadEnds(
             edgeEndsOn.get(element.id) ?? [],
             element.geometry.spans,
+            boxOf(element),
         );
         for (const [id, position] of spread) along.set(id, position);
     }
