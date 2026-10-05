@@ -75,11 +75,16 @@ export default class Diagrams extends Page {
             </div>
         `;
 
-        if (!first) return;
-
         const target = this.container.querySelector<HTMLElement>(
             "#structurizr-diagram-target",
         ) as HTMLElement;
+
+        // A workspace of documentation and decisions only has nothing to
+        // mount, so nothing would ever replace the loading message.
+        if (!first) {
+            target.innerHTML = `<p class="${styles.empty}">This workspace has no views.</p>`;
+            return;
+        }
         const abort = new AbortController();
         this.#abort = abort;
 

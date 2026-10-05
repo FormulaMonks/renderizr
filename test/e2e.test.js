@@ -709,6 +709,25 @@ const viewUrlIn = (out, key) =>
     `${fileUrl(join(out, "index.html"))}#/?page=diagrams&view=${key}`;
 
 test(
+    "a workspace with no views says so instead of loading forever",
+    { skip: SKIP },
+    async () => {
+        // Documentation and decisions only: a valid workspace, nothing to draw.
+        const { out } = await buildEditedWorkspace("no-views", (json) => {
+            json.views = {};
+        });
+        const document = await render(
+            `${fileUrl(join(out, "index.html"))}#/?page=diagrams`,
+        );
+        const canvas = document.querySelector("#structurizr-diagram-target");
+
+        assert.equal(canvas.querySelector(".loading"), null);
+        assert.match(canvas.textContent, /This workspace has no views\./);
+        assert.equal(canvas.querySelector("[data-view-key]"), null);
+    },
+);
+
+test(
     "a filtered view draws its base minus what the filter drops",
     { skip: SKIP },
     async () => {
