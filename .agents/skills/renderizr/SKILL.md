@@ -14,7 +14,7 @@ metadata:
 
 This skill renders a [Structurizr workspace](https://docs.structurizr.com/workspaces) — its views, documentation and decision log — into a browsable static site, or into a single self-contained HTML file that you can upload as a Claude artifact and anyone can open, with no server and no network.
 
-Renderizr reuses Structurizr's own renderer to draw the diagrams, so they pan, zoom and play back dynamic views exactly as they do in Structurizr.
+Renderizr draws the diagrams with its own engine from everything the workspace says (positions, styles, themes, shapes and routing), so they pan, zoom and animate dynamic views the way they do in Structurizr.
 
 ## When to use this skill
 

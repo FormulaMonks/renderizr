@@ -1,14 +1,14 @@
 # Licensing and attribution
 
-Renderizr is MIT-licensed. The pages it produces are not purely Renderizr: every rendered `index.html` is a bundle of minified third-party code — Structurizr's diagram renderer under Apache-2.0, JointJS under MPL-2.0, jQuery, highlight.js, markdown-it and a dozen others under MIT and BSD terms. This page explains who owes attribution to whom, and the routes by which that attribution can reach the page a reader actually opens.
+Renderizr is MIT-licensed. The pages it produces are not purely Renderizr: every rendered `index.html` is a bundle of minified third-party code (React, React Flow, Dagre, highlight.js, markdown-it and two dozen others under MIT, ISC and BSD terms) and a model layer derived from Structurizr's Apache-2.0 code. This page explains who owes attribution to whom, and the routes by which that attribution can reach the page a reader actually opens.
 
 The component-by-component list, with versions, exact copyright lines and full license texts, is [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md). The short-form block meant for pasting is [`NOTICE`](../NOTICE). This page is about plumbing, not inventory.
 
 ## Three parties, three obligations
 
-**Renderizr the project** owes the notices for everything it vendors and bundles. `LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.md` and `vendor/structurizr/LICENSE` discharge that obligation, all committed at the root of the repository. They arrive with every install by either route: `npx github:FormulaMonks/renderizr` clones the repository, and an npm tarball carries all four because `package.json`'s `files` array names `NOTICE`, `THIRD-PARTY-NOTICES.md` and `vendor` (`LICENSE` npm includes unasked). Verified with `npm pack --dry-run` — 83 files, all four present. The one file that is *not* in the tarball is this page: `docs/` is not in `files`. See [finding 5](../THIRD-PARTY-NOTICES.md#5-the-npm-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
+**Renderizr the project** owes the notices for everything it bundles and derives. `LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses/Apache-2.0.txt` discharge that obligation, all committed in the repository. They arrive with every install by either route: `npx github:FormulaMonks/renderizr` clones the repository, and an npm tarball carries all four because `package.json`'s `files` array names `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses` (`LICENSE` npm includes unasked). Verified with `npm pack --dry-run`: 99 files, all four present. The one file that is *not* in the tarball is this page: `docs/` is not in `files`. See [finding 4](../THIRD-PARTY-NOTICES.md#4-the-release-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
 
-**You, running `renderizr your-workspace.json`,** produce a new distribution: an HTML file containing minified copies of all that third-party code. MIT and BSD both require the copyright and permission notices to travel with binary distributions; MPL-2.0 section 3.2 requires you to tell recipients where to get JointJS's source. **Renderizr's build does not put those notices into the HTML for you.** Only jQuery's `/*! ... */` banner survives minification; minification strips every other header. If you hand someone the rendered file and nothing else, the notices did not travel.
+**You, running `renderizr your-workspace.json`,** produce a new distribution: an HTML file containing minified copies of all that third-party code. MIT, ISC and BSD all require the copyright and permission notices to travel with binary distributions, and Apache-2.0 requires recipients to get a copy of its license. **Renderizr's build does not put those notices into the HTML for you.** Minification strips every license header. If you hand someone the rendered file and nothing else, the notices did not travel.
 
 **Whoever opens the page** owes nothing, and is the person the notices are for.
 
@@ -16,9 +16,9 @@ The component-by-component list, with versions, exact copyright lines and full l
 
 `src/main.ts` renders a footer on every page:
 
-> Diagrams rendered using [Structurizr](https://structurizr.com/) and [C4 notation.](https://c4model.com/) Created with [Renderizr](https://github.com/FormulaMonks/renderizr).
+> Diagrams from a [Structurizr](https://structurizr.com/) workspace, in [C4 notation](https://c4model.com/), drawn with [React Flow](https://reactflow.dev/). Created with [Renderizr](https://github.com/FormulaMonks/renderizr).
 
-That is credit, and it is genuinely useful — it names the two upstreams a reader is most likely to want to look up. It is **not** license attribution: it carries no copyright lines, no license names, and no source-availability statement for JointJS. Do not treat it as discharging anything.
+That is credit, and it is genuinely useful: it names the upstreams a reader is most likely to want to look up. It is **not** license attribution: it carries no copyright lines and no license names. Do not treat it as discharging anything.
 
 ## Route 1 — ship `NOTICE` beside the output
 
@@ -29,7 +29,7 @@ npx github:FormulaMonks/renderizr ./workspace.json --out ./site
 cp NOTICE ./site/NOTICE          # from a clone of this repository
 ```
 
-We wrote `NOTICE` to stand on its own: it carries the copyright line and resolved version of all 17 bundled components, the MIT permission notice verbatim, the BSD-2 and BSD-3 conditions and disclaimers verbatim, a URL to the Apache-2.0 license text, and the JointJS source-availability statement. Copying that one file is therefore enough to discharge MIT section 1, the BSD conditions, Apache-2.0 section 4(a) and MPL-2.0 section 3.2(b) for the rendered output. Serve or publish the directory as a whole and the notices travel with the pages, which is what MIT's "included in all copies or substantial portions" asks for.
+We wrote `NOTICE` to stand on its own: it carries the copyright line and resolved version of all 30 components that ship in rendered output, the MIT and ISC permission notices verbatim, the BSD-2 and BSD-3 conditions and disclaimers verbatim, and a URL to the Apache-2.0 license text. Copying that one file is therefore enough to discharge MIT section 1, the ISC and BSD conditions and Apache-2.0 section 4(a) for the rendered output. Serve or publish the directory as a whole and the notices travel with the pages, which is what MIT's "included in all copies or substantial portions" asks for.
 
 Copy `THIRD-PARTY-NOTICES.md` alongside it if you want the recipient to have the provenance and the full license texts too — that is generosity, not obligation:
 
@@ -57,7 +57,7 @@ Add a section to your workspace JSON:
         "filename": "colophon.md",
         "order": 99,
         "format": "Markdown",
-        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr diagram renderer — Copyright Structurizr — Apache-2.0\n- Bootstrap Icons — Copyright (c) 2019-2024 The Bootstrap Authors — MIT\n- JointJS — Copyright 2013 client IO — MPL-2.0 — source: https://github.com/clientIO/joint\n- jQuery — Copyright OpenJS Foundation and other contributors — MIT\n- highlight.js — Copyright (c) 2006, Ivan Sagalaev — BSD-3-Clause\n"
+        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr (portions derived from): Copyright Structurizr, Apache-2.0\n- React: Copyright (c) Meta Platforms, Inc. and affiliates, MIT\n- React Flow: Copyright (c) 2019-2025 webkid GmbH, MIT\n- Bootstrap Icons: Copyright (c) 2019-2024 The Bootstrap Authors, MIT\n- highlight.js: Copyright (c) 2006, Ivan Sagalaev, BSD-3-Clause\n"
       }
     ]
   }
@@ -66,9 +66,9 @@ Add a section to your workspace JSON:
 
 The fields match the section shape declared in `src/types/structurizr-documentation.ts`. One of them is load-bearing in a way that is easy to get wrong: **a section with neither `id` nor `filename` renders as an empty Documentation page** — the nav entry appears, the content does not. Either key on its own is enough; supplying both, as above, is the safe habit.
 
-**We truncated the `content` string in that example to keep it readable.** It names 5 of the 17 components that ship in rendered output, and it shortens the JointJS entry to a bare repository URL — no version, no "at no charge" — so it is *not* compliant as written. Do not copy it into a workspace.
+**We truncated the `content` string in that example to keep it readable.** It names 5 of the 30 components that ship in rendered output, with no versions and no license texts, so it is *not* compliant as written. Do not copy it into a workspace.
 
-Take the real body from [`NOTICE`](../NOTICE), which carries all 17 components with their resolved versions, the MIT permission notice, the BSD conditions and disclaimers, the Apache-2.0 license URL and the JointJS source-availability statement MPL-2.0 section 3.2(b) requires. JSON has no multi-line strings, so the whole file has to become one escaped string. Generate it rather than retyping it — **from the root of a Renderizr checkout**, since the path is relative and `NOTICE` lives there:
+Take the real body from [`NOTICE`](../NOTICE), which carries all 30 components with their resolved versions, the MIT and ISC permission notices, the BSD conditions and disclaimers and the Apache-2.0 license URL. JSON has no multi-line strings, so the whole file has to become one escaped string. Generate it rather than retyping it, **from the root of a Renderizr checkout**, since the path is relative and `NOTICE` lives there:
 
 ````bash
 node -e 'console.log(JSON.stringify("# Colophon\n\n```\n" + require("fs").readFileSync("NOTICE","utf8") + "```\n"))'
@@ -76,7 +76,7 @@ node -e 'console.log(JSON.stringify("# Colophon\n\n```\n" + require("fs").readFi
 
 The single quotes are load-bearing: the snippet contains double quotes and backticks, and only `'…'` keeps the shell out of both. Run from anywhere else and the only failure you get is `ENOENT: no such file or directory, open 'NOTICE'` — point `readFileSync` at an absolute path in that case.
 
-That prints one line: a ready-to-paste JSON string value for `content`, fenced so the notice renders as preformatted text rather than being reflowed. Against the `NOTICE` in this repository it is 11,030 bytes and begins
+That prints one line: a ready-to-paste JSON string value for `content`, fenced so the notice renders as preformatted text rather than being reflowed. Against the `NOTICE` in this repository it is 13,460 bytes and begins
 
 ````text
 "# Colophon\n\n```\nRenderizr\nCopyright (c) 2024-2026 Formula.Monks\n\nLicensed …
@@ -110,6 +110,6 @@ Renderizr embeds the workspace JSON, its documentation and decision records, and
 
 - [ ] `LICENSE` year range still covers the current year.
 - [ ] `THIRD-PARTY-NOTICES.md` matches the resolved dependency tree. The way to check is to re-run the Rollup scan described under [How this list was produced](../THIRD-PARTY-NOTICES.md#how-this-list-was-produced) — not to read `package.json`, which lists ranges that do not match what the build bundles.
-- [ ] If the Structurizr submodule moved, `pnpm sync:vendor` ran again, so `vendor/structurizr/LICENSE` and the recorded upstream commit are current.
+- [ ] A file ported from Structurizr into `src/model/` carries the Apache-2.0 header naming its upstream files and saying that Renderizr modified it.
 - [ ] The "ships in the rendered output" table lists any new runtime dependency, with its license checked on disk, in `node_modules`, rather than guessed from the package name.
-- [ ] Escalate a new license family (anything reciprocal beyond MPL-2.0, anything with an advertising clause, anything unlicensed) rather than add it quietly. MPL-2.0 is already the strictest thing in the tree.
+- [ ] Escalate a new license family (anything reciprocal, such as MPL-2.0 or the GPL family, anything with an advertising clause, anything unlicensed) rather than add it quietly. No copyleft component ships in the output today.

@@ -1,20 +1,6 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
-import {
-    RENDERER_FILES,
-    branding,
-    singleFile,
-    structurizrRenderer,
-} from "./plugins.js";
-
-const VENDOR = fileURLToPath(
-    new URL("../vendor/structurizr/js/", import.meta.url),
-);
-const RESOLVED_ID = "\0virtual:structurizr-renderer";
+import { branding, singleFile } from "./plugins.js";
 
 /**
  * A stand-in for the Rollup plugin context: `generateBundle` only ever calls
@@ -88,70 +74,6 @@ const artifactOf = (context) =>
         context.emitted.find((file) => file.fileName === "artifact.html")
             .source,
     );
-
-/* -------------------------------------------------------- renderer plugin */
-
-test("every renderer file the plugin concatenates is vendored", () => {
-    for (const file of RENDERER_FILES) {
-        assert.ok(
-            existsSync(resolve(VENDOR, file)),
-            `vendor is missing ${file}`,
-        );
-    }
-});
-
-test("the renderer files are listed in load order", () => {
-    // Each file extends the namespace the one before it creates, so
-    // structurizr.js must come first and the diagram last.
-    assert.equal(RENDERER_FILES[0], "structurizr.js");
-    assert.equal(RENDERER_FILES.at(-1), "structurizr-diagram.js");
-    assert.equal(new Set(RENDERER_FILES).size, RENDERER_FILES.length);
-});
-
-test("only the virtual renderer id is resolved", () => {
-    const plugin = structurizrRenderer();
-
-    assert.equal(plugin.name, "renderizr:structurizr-renderer");
-    assert.equal(plugin.resolveId("virtual:structurizr-renderer"), RESOLVED_ID);
-    assert.equal(plugin.resolveId("./main.ts"), null);
-    assert.equal(plugin.resolveId(RESOLVED_ID), null);
-});
-
-test("the renderer loads as one minified string, not as modules", async () => {
-    const plugin = structurizrRenderer();
-
-    assert.equal(await plugin.load("./main.ts"), null);
-
-    const loaded = await plugin.load(RESOLVED_ID);
-    assert.match(loaded, /^export default "[\s\S]*";$/);
-
-    const source = JSON.parse(loaded.slice("export default ".length, -1));
-    assert.equal(typeof source, "string");
-
-    // It is the whole renderer, and still a classic script: it must stay
-    // parseable as sloppy-mode source rather than as an ES module.
-    assert.ok(source.includes("structurizr"));
-    assert.ok(
-        source.length > 50_000,
-        `renderer is only ${source.length} bytes`,
-    );
-    assert.doesNotThrow(
-        () => new Function(source),
-        "the renderer does not parse",
-    );
-
-    // Minified: smaller than the files it was built from, and free of the
-    // license banners and doc comments those files open with.
-    const raw = (
-        await Promise.all(
-            RENDERER_FILES.map((file) =>
-                readFile(resolve(VENDOR, file), "utf-8"),
-            ),
-        )
-    ).join("");
-    assert.ok(source.length < raw.length, "the renderer was not minified");
-    assert.ok(!source.includes("/**"), "doc comments survived minification");
-});
 
 /* -------------------------------------------------------- branding plugin */
 

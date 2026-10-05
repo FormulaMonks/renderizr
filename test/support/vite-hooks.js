@@ -24,7 +24,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
 
@@ -72,8 +72,12 @@ export async function resolve(specifier, context, next) {
 
     if (specifier.includes("?raw")) {
         const [path] = specifier.split("?");
+        // A bare specifier (`bootstrap-icons/icons/x.svg`) is a package file.
+        const url = isPath(path)
+            ? new URL(path, parentURL).href
+            : pathToFileURL(createRequire(parentURL).resolve(path)).href;
         return {
-            url: RAW_PREFIX + new URL(path, parentURL).href,
+            url: RAW_PREFIX + url,
             format: "module",
             shortCircuit: true,
         };

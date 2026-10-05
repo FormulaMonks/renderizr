@@ -64,5 +64,4 @@ If something goes quiet for two weeks, a comment on the thread is welcome and wi
 ## What is out of scope
 
 - **Structurizr itself** — the DSL, the workspace format, the cloud service, the modeling questions. Those belong at [structurizr/structurizr](https://github.com/structurizr/structurizr) or on the [Structurizr community forum](https://github.com/structurizr/structurizr/discussions). Renderizr renders a workspace; it does not author one.
-- **Bugs in the diagram renderer.** The renderer in `vendor/structurizr` is Structurizr's own code, taken verbatim, so a diagram that renders wrong here almost certainly renders wrong in Structurizr's own viewer. Check there first — if it does, report it upstream and link the issue here so we can pull the fix through.
 - **General hosting and static-site questions** — how to configure S3, GitHub Pages or your CDN. We will happily fix anything about the output that *makes* it hard to host.

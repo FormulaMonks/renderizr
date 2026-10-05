@@ -56,14 +56,11 @@ git submodule update --init --recursive
 
 ### About the submodule
 
-`submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr), the upstream source of the diagram renderer. It is **optional for day-to-day work**: we commit the handful of files the build actually reads under `vendor/structurizr`, so install, dev, build, test and lint all pass on a clone with an empty `submodules/` directory. You need the submodule checked out only when you want to pull in a newer upstream renderer:
+`submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr). It is **optional for day-to-day work**: install, dev, build, test and lint all pass on a clone with an empty `submodules/` directory. The acceptance harness and the end-to-end test read three workspaces from it (Big Bank plc, groups and Amazon Web Services) and skip them, with a reason, when it is absent. Check it out to run them:
 
 ```bash
-git submodule update --init --remote submodules/structurizr
-pnpm sync:vendor      # copies the files the build imports into vendor/structurizr
+git submodule update --init submodules/structurizr
 ```
-
-Commit the resulting `vendor/structurizr` changes together with the submodule pointer bump.
 
 ## Install
 
@@ -94,7 +91,6 @@ Run every command below from the repository root.
 | `pnpm exec biome check --write .` | Lint + format, fixes in place |
 | `pnpm exec biome ci .` | Exactly what the pre-commit hook and CI run: check, never fix, non-zero on any finding |
 | `pnpm exec tsc --noEmit` | Type-check `src/` on its own |
-| `pnpm sync:vendor` | Refresh `vendor/structurizr` from the submodule (see above) |
 | `pnpm fixtures:large` | Write `test/__fixtures__/large-landscape.json` again from its generator, `test/support/large-landscape.js` |
 | `pnpm fixtures:acceptance` | Export `test/__fixtures__/acceptance/workspace.dsl` to the `workspace.json` beside it with the Structurizr CLI (`structurizr-cli` on the `PATH`, or `STRUCTURIZR_CLI`), then format it |
 
@@ -104,20 +100,20 @@ Run every command below from the repository root.
 pnpm dev                                  # this repo's workspace
 pnpm dev -- ../some-project/workspace.json
 pnpm dev -- https://example.com/workspace.json
-pnpm dev -- test/__fixtures__/edge-routing.json --engine react-flow
+pnpm dev -- test/__fixtures__/edge-routing.json
 RENDERIZR_WORKSPACE=./ws.json pnpm dev    # or set it in the environment
 ```
 
-The dev server also accepts `--engine <structurizr|react-flow>`, `--logo <path|url>`, `--font <family>` and `--single-file`, in any order before or after the workspace path:
+The dev server also accepts `--logo <path|url>`, `--font <family>` and `--single-file`, in any order before or after the workspace path:
 
 ```bash
 pnpm dev -- --font Inter --logo ./logo.svg architecture/workspace.json
-pnpm dev -- architecture/workspace.json --font Inter --engine react-flow
+pnpm dev -- architecture/workspace.json --font Inter
 ```
 
-Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know: `pnpm dev test/__fixtures__/edge-routing.json --engine react-flow` exits with ``Unknown option `--engine` ``.
+Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know: `pnpm dev test/__fixtures__/edge-routing.json --font Inter` exits with ``Unknown option `--font` ``.
 
-`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of `--engine`, `--font` or `--logo`. It reads `RENDERIZR_WORKSPACE` only when you pass no such argument, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
+`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of `--font` or `--logo`. It reads `RENDERIZR_WORKSPACE` only when you pass no such argument, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
 
 ### Build
 
@@ -134,7 +130,7 @@ Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm buil
 
 ### Lint and format
 
-Biome is the only linter and the only formatter — no ESLint, no Prettier. The settings that matter: 4-space indent, `submodules/`, `vendor/` and `architecture/` excluded, `.gitignore` respected. See `biome.json`.
+Biome is the only linter and the only formatter: no ESLint, no Prettier. The settings that matter: 4-space indent, `submodules/` and `architecture/` excluded, `.gitignore` respected. See `biome.json`.
 
 ```bash
 pnpm exec biome check .            # what's wrong
@@ -237,8 +233,7 @@ Either way the checks still run in CI — the switches save you time locally, th
 scripts/        the build pipeline — plain ESM JavaScript, no TypeScript, runs on Node
 src/            the single-page app that ships in the output — TypeScript, bundled by Vite
 test/           the tests for src/, plus the DOM and module-hook harness they run on
-vendor/         third-party code committed verbatim; not linted, not edited by hand
-submodules/     upstream sources, for regenerating vendor/ only
+submodules/     upstream sources, for the acceptance fixtures only
 architecture/   Renderizr's own Structurizr workspace, which the dev server renders by default
 public/         static files copied into every build (currently the favicon)
 ```
@@ -249,9 +244,8 @@ public/         static files copied into every build (currently the favicon)
 | `scripts/cli.js` | Option definitions and `--help` text |
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
 | `scripts/config.js` | The Vite configuration, shared by the build and the dev server |
-| `scripts/plugins.js` | Build plugins: Structurizr globals, CSS trimming, branding injection, single-file inlining |
+| `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
 | `scripts/escapes.js` | Rewrites escape sequences a Claude artifact upload rejects; fails the build if any survive |
-| `scripts/sync-vendor.js` | Copies the files the build imports out of the submodule into `vendor/structurizr` |
 | `scripts/*.test.js` | Tests for the build pipeline, next to the module each one covers |
 | `test/*.test.js` | Tests for `src/` — router, menu, pages, theme, markdown, plus an end-to-end build |
 | `test/support/` | The harness those tests import: `dom.js`, `ts.js`, `vite-hooks.js`, `browser.js`, `history.js` |
@@ -259,19 +253,16 @@ public/         static files copied into every build (currently the favicon)
 | `test/support/engine-checks.js` | The rules the acceptance harness holds every engine report to, as plain functions over numbers |
 | `test/support/large-landscape.js` | The seeded generator of the large fixture (spec 15.3); `pnpm fixtures:large` writes `test/__fixtures__/large-landscape.json` from it |
 | `test/support/fixtures.js` | What the fixture writers share: the model's people and software systems, and the format a committed fixture keeps |
-| `test/contact-sheet.js` | Screenshots every acceptance view under both engines into one HTML page for people to review; run by hand or by CI, never by `pnpm test` |
+| `test/contact-sheet.js` | Screenshots every acceptance view into one HTML page for people to review; run by hand or by CI, never by `pnpm test` |
 | `src/main.ts` | App entry point |
 | `src/components/` | Reusable UI: router, menu, navigation, theme, markdown renderer, scroll-spy |
 | `src/pages/` | The three top-level pages: `diagrams`, `docs`, `adrs` |
-| `src/types/` | Type declarations for the Structurizr workspace, diagram and documentation shapes |
-| `src/structurizr-globals.ts` | The globals the vendored renderer expects, injected as a classic script |
-| `vendor/structurizr/` | Structurizr's renderer, stylesheet and icons, copied verbatim from the submodule |
+| `src/model/` | The typed workspace model and style resolution, ported from Structurizr, and `resolveView` |
+| `src/engine/` | The React Flow engine: the contract in `index.ts`, geometry, layout and the island |
+| `src/types/` | Type declarations for the workspace's documentation shapes |
 | `vite.config.ts` | Dev server only — production goes through `scripts/build.js` |
 
-Two rules follow from that shape:
-
-1. **Never hand-edit `vendor/`.** Change the upstream or change `scripts/sync-vendor.js`, then run `pnpm sync:vendor`. Biome ignores `vendor/` precisely so upstream formatting survives review.
-2. **`scripts/` is JavaScript, `src/` is TypeScript.** `tsconfig.json` includes only `src`, so `pnpm exec tsc --noEmit` will not type-check the pipeline; the tests in `scripts/` are what guard it. Keep `scripts/` plain ESM so `npx` can run it with no build step.
+One rule follows from that shape: **`scripts/` is JavaScript, `src/` is TypeScript.** `tsconfig.json` includes only `src`, so `pnpm exec tsc --noEmit` will not type-check the pipeline; the tests in `scripts/` are what guard it. Keep `scripts/` plain ESM so `npx` can run it with no build step.
 
 ## Adding a test
 
@@ -336,7 +327,7 @@ srcTest("renders one entry per view", () => {
 
 `test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. The harness skips workspaces from `submodules/structurizr`, with a reason, when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. The harness opens views one Chrome at a time, so that it measures the 2 s budget in wall-clock time from outside the page: virtual time fakes every clock inside it. For the same reason `pnpm test` runs this file alone, once every other test file has finished. `node --test` runs files in parallel, and a Vite build or another Chrome on the same runner slows a view by a second or more, which a view under test cannot help.
 
-To review every acceptance view by eye, under the Structurizr renderer and the React Flow engine side by side:
+To review every acceptance view by eye:
 
 ```sh
 node test/contact-sheet.js        # writes contact-sheet/index.html
@@ -348,7 +339,7 @@ node test/contact-sheet.js        # writes contact-sheet/index.html
 pnpm test:coverage
 ```
 
-Read the number it prints with one caveat in mind: V8's in-process coverage only sees files *that process loaded*, so six source files never appear in the table at all — `src/main.ts`, `src/pages/diagrams.ts`, `src/components/current-view.ts`, `src/components/diagram-navigation.ts`, `src/structurizr-globals.ts` and `src/structurizr-runtime.ts`. Only the headless-Chrome end-to-end test exercises them, in a browser V8 cannot instrument from here. A high "all files" percentage is a statement about the thirteen files in the table, not about `main.ts`.
+Read the number it prints with one caveat in mind: V8's in-process coverage only sees files *that process loaded*, so five source files never appear in the table at all: `src/main.ts`, `src/pages/diagrams.ts`, `src/engine/index.ts`, `src/engine/react-flow/index.ts` and `src/engine/react-flow/island.tsx`. Only the headless-Chrome end-to-end test and the acceptance harness exercise them, in a browser V8 cannot instrument from here. A high "all files" percentage is a statement about the files in the table, not about `main.ts` or the island.
 
 ## Pull requests
 
@@ -371,7 +362,7 @@ pnpm build architecture/workspace.json --single-file
 To check a change in the dev server, point it at a versioned fixture under `test/__fixtures__/` rather than a copied or throwaway workspace. The fixture is tracked, so `git status` shows whether anything changed it while you looked. When no fixture shows your change, add one in the same PR:
 
 ```bash
-pnpm dev -- test/__fixtures__/edge-routing.json --engine react-flow
+pnpm dev -- test/__fixtures__/edge-routing.json
 ```
 
 Use the package scripts (`pnpm dev`, `pnpm build`, `pnpm test`) in anything you write down for someone else to run, never the `node scripts/…` they wrap.

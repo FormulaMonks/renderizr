@@ -14,4 +14,4 @@ contact_links:
     about: Renderizr renders a workspace; it does not define one. Ask upstream.
   - name: Structurizr community discussions
     url: https://github.com/structurizr/structurizr/discussions
-    about: Diagrams come from Structurizr's own renderer, which Renderizr vendors unmodified.
+    about: Questions about Structurizr's workspace format and how Structurizr itself draws a view.

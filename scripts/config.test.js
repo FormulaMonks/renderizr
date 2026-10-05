@@ -87,11 +87,7 @@ test("the multi-file build serves the public directory and splits assets", () =>
         config.build.rollupOptions.output.inlineDynamicImports,
         undefined,
     );
-    assert.deepEqual(pluginNames(config), [
-        "renderizr:engine",
-        "renderizr:structurizr-renderer",
-        "renderizr:branding",
-    ]);
+    assert.deepEqual(pluginNames(config), ["renderizr:branding"]);
 });
 
 test("the single-file build inlines everything and drops the public directory", () => {
@@ -106,10 +102,9 @@ test("the single-file build inlines everything and drops the public directory", 
     );
 });
 
-test("vendor globals are never split into chunks", () => {
+test("the build keeps one stylesheet and preloads no modules", () => {
     for (const singleFile of [false, true]) {
         const config = createConfig({ workspace: WORKSPACE, singleFile });
-        assert.equal(config.build.rollupOptions.output.manualChunks, undefined);
         assert.equal(config.build.cssCodeSplit, false);
         assert.equal(config.build.modulePreload, false);
     }
@@ -146,22 +141,10 @@ test("build mode adds no dev server settings", () => {
     assert.ok(!("server" in createConfig({ workspace: WORKSPACE })));
 });
 
-test("the Structurizr engine is the default, and the only one bundling the vendored renderer", () => {
-    const config = createConfig({ workspace: WORKSPACE });
-    assert.ok(pluginNames(config).includes("renderizr:structurizr-renderer"));
-    assert.ok(pluginNames(config).includes("renderizr:engine"));
-});
-
-test("--engine react-flow bundles the React Flow engine instead", () => {
-    const config = createConfig({ workspace: WORKSPACE, engine: "react-flow" });
-    assert.ok(!pluginNames(config).includes("renderizr:structurizr-renderer"));
-    assert.equal(config.esbuild.jsx, "automatic");
-});
-
-test("an unknown engine is refused", () => {
-    assert.throws(
-        () => createConfig({ workspace: WORKSPACE, engine: "joint" }),
-        /Unknown engine 'joint'/,
+test("the React Flow island's JSX is built by esbuild", () => {
+    assert.equal(
+        createConfig({ workspace: WORKSPACE }).esbuild.jsx,
+        "automatic",
     );
 });
 

@@ -8,12 +8,7 @@
         ":semanticCommitTypeAll(chore)"
     ],
     "enabledManagers": ["npm", "github-actions"],
-    "ignorePaths": [
-        "**/node_modules/**",
-        "vendor/**",
-        "submodules/**",
-        "architecture/**"
-    ],
+    "ignorePaths": ["**/node_modules/**", "submodules/**", "architecture/**"],
     "semanticCommits": "enabled",
     "semanticCommitType": "chore",
     "semanticCommitScope": "deps",
@@ -68,9 +63,11 @@
             "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own PR, which keeps a bad update easy to find and revert \u2014 never grouped, never rolled up with anything else.",
             "matchManagers": ["npm"],
             "matchPackageNames": [
-                "jquery",
-                "@joint/**",
+                "react",
+                "react-dom",
+                "@xyflow/**",
                 "@dagrejs/**",
+                "bootstrap-icons",
                 "markdown-it",
                 "markdown-it-**",
                 "highlight.js",
@@ -82,9 +79,9 @@
             "labels": ["dependencies", "ships-to-users"]
         },
         {
-            "description": "jquery, @joint/* and @dagrejs/* are pinned to exact versions in package.json on purpose: Structurizr's vendored renderer reads them off `window` and is sensitive to which build it gets. Renovate replaces the exact version with a new exact version; it must never widen the pin into a range.",
+            "description": "@dagrejs/* is pinned to exact versions in package.json on purpose: `src/engine/layout/automatic.ts` imports Dagre's internal `lib/order` modules, which carry no semver promise. Renovate replaces the exact version with a new exact version; it must never widen the pin into a range.",
             "matchManagers": ["npm"],
-            "matchPackageNames": ["jquery", "@joint/**", "@dagrejs/**"],
+            "matchPackageNames": ["@dagrejs/**"],
             "rangeStrategy": "auto",
             "separateMajorMinor": true,
             "minimumReleaseAge": "14 days"
@@ -96,7 +93,7 @@
             "enabled": false
         },
         {
-            "description": "Auto-merge every patch, minor, pin and digest update, for npm and GitHub Actions alike, runtime packages included. CI is the review: nothing merges without the `ci` check, which runs the whole suite and both render modes, and `minimumReleaseAge` keeps anything from merging the day it is published (14 days for jquery, @joint/* and @dagrejs/*). Majors and lock file maintenance stay manual: a major changes APIs and behavior, and those pull requests still need a person.",
+            "description": "Auto-merge every patch, minor, pin and digest update, for npm and GitHub Actions alike, runtime packages included. CI is the review: nothing merges without the `ci` check, which runs the whole suite and both render modes, and `minimumReleaseAge` keeps anything from merging the day it is published (14 days for @dagrejs/*). Majors and lock file maintenance stay manual: a major changes APIs and behavior, and those pull requests still need a person.",
             "matchUpdateTypes": ["patch", "minor", "pin", "digest"],
             "automerge": true
         }

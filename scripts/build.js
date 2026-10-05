@@ -39,7 +39,6 @@ await build(
         singleFile: options.singleFile,
         out: options.out,
         base: options.base,
-        engine: options.engine,
         // Not a CLI flag: only the acceptance harness asks for the engine's
         // geometry report (spec 15.1), and readers never need it.
         engineReport: process.env.RENDERIZR_ENGINE_REPORT === "1",

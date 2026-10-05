@@ -193,7 +193,6 @@ for (const entry of ACCEPTANCE_SET) {
     let drawn;
     const draw = () => {
         drawn ??= buildForAcceptance(workspace, join(SCRATCH, entry.name), {
-            engine: "react-flow",
             report: true,
         }).then(async (site) => {
             // One at a time: Chromes beside each other slow each other down,

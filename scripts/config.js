@@ -1,13 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-    branding,
-    engineEntry,
-    ENGINE_ENTRIES,
-    singleFile,
-    structurizrRenderer,
-} from "./plugins.js";
+import { branding, singleFile } from "./plugins.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -39,15 +33,9 @@ export function createConfig({
     singleFile: asSingleFile = false,
     out = "structurizr-output",
     base = "",
-    engine = "structurizr",
     engineReport = false,
     mode = "build",
 }) {
-    if (!Object.hasOwn(ENGINE_ENTRIES, engine)) {
-        throw new Error(
-            `Unknown engine '${engine}'; expected one of: ${Object.keys(ENGINE_ENTRIES).join(", ")}`,
-        );
-    }
     const outDir = resolve(process.cwd(), out);
 
     return {
@@ -57,12 +45,7 @@ export function createConfig({
         // Vite also load vite.config.ts would re-parse argv in dev-server mode.
         ...(mode === "build" ? { configFile: false } : {}),
         publicDir: asSingleFile ? false : resolve(root, "public"),
-        plugins: [
-            engineEntry(engine),
-            ...(engine === "structurizr" ? [structurizrRenderer()] : []),
-            branding({ font }),
-            ...(asSingleFile ? [singleFile()] : []),
-        ],
+        plugins: [branding({ font }), ...(asSingleFile ? [singleFile()] : [])],
         build: {
             target: "esnext",
             outDir,
@@ -74,13 +57,7 @@ export function createConfig({
                 ? Number.MAX_SAFE_INTEGER
                 : undefined,
             rollupOptions: {
-                output: {
-                    // Structurizr's engine reads jquery, lodash, backbone and
-                    // jointjs off `window`; splitting them into chunks reorders
-                    // initialization and throws before the app boots.
-                    manualChunks: undefined,
-                    ...(asSingleFile ? { inlineDynamicImports: true } : {}),
-                },
+                output: asSingleFile ? { inlineDynamicImports: true } : {},
             },
         },
         // The React Flow island is the one place JSX is written.

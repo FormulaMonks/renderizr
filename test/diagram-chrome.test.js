@@ -1,10 +1,7 @@
 /**
- * The toolbar title (`CurrentView`) and the view drawer
- * (`DiagramNavigation`) read view lists and titles from the typed workspace
- * model in `src/model/`, not from the vendored renderer's globals.
- *
- * No `structurizr` global exists in this file, so a component still reaching
- * for `structurizr.ui.getTitleForView` throws here.
+ * The toolbar (`CurrentView`) and the view drawer (`DiagramNavigation`) read
+ * view lists and titles from the typed workspace model in `src/model/` and
+ * drive the engine through its contract.
  */
 
 import assert from "node:assert/strict";
@@ -31,18 +28,14 @@ const model = new WorkspaceModel(
     ),
 );
 
-/** Just enough of the vendored diagram for the chrome to drive it. */
-function stubDiagram() {
+/** Just enough of a view switcher for the drawer to drive it. */
+function stubSwitcher() {
     let current = null;
     return {
         changeView: (key) => {
             current = { key };
         },
         getCurrentView: () => current,
-        isDarkMode: () => false,
-        setDarkMode: () => {},
-        toggleDescription: () => {},
-        toggleMetadata: () => {},
     };
 }
 
@@ -75,11 +68,27 @@ function stubAnimation(initial = { steps: 0, step: null, playing: false }) {
     };
 }
 
-const CONTROLS = { fit() {}, zoomIn() {}, zoomOut() {} };
+/**
+ * The engine as the toolbar sees it: its animation members from `animation`,
+ * and its setters and zoom, recording the scheme and labels it was given.
+ */
+function stubEngine(animation = stubAnimation()) {
+    const engine = {
+        ...animation,
+        schemes: [],
+        labels: [],
+        setColorScheme: (scheme) => engine.schemes.push(scheme),
+        setLabels: (labels) => engine.labels.push(labels),
+        fit() {},
+        zoomIn() {},
+        zoomOut() {},
+    };
+    return engine;
+}
 
 test("the drawer lists the model's views with their titles", () => {
     const element = document.createElement("nav");
-    const drawer = new DiagramNavigation(element, stubDiagram(), model);
+    const drawer = new DiagramNavigation(element, stubSwitcher(), model);
     drawer.render();
 
     const items = [...element.querySelectorAll("li[data-viewkey]")];
@@ -105,13 +114,7 @@ test("the drawer lists the model's views with their titles", () => {
 
 test("the toolbar titles the current view from the model", () => {
     const element = document.createElement("section");
-    const toolbar = new CurrentView(
-        element,
-        stubDiagram(),
-        CONTROLS,
-        stubAnimation(),
-        model,
-    );
+    const toolbar = new CurrentView(element, stubEngine(), model);
 
     toolbar.render(model.findViewByKey("Components"));
     assert.equal(
@@ -126,11 +129,11 @@ test("the toolbar titles the current view from the model", () => {
     toolbar.clear();
 });
 
-test("a filtered view is shown once, though the diagram reports its base as current", () => {
+test("a filtered view is shown once, though the switcher reports its base as current", () => {
     const element = document.createElement("nav");
     const calls = [];
-    // As the vendored diagram does for a filtered view: its base becomes the
-    // current view, and the page's view-changed handler drives the drawer.
+    // A switcher that reports a filtered view's base as current and echoes
+    // every change back into the drawer.
     const diagram = {
         changeView: (key) => {
             calls.push(key);
@@ -154,13 +157,7 @@ test("a filtered view is shown once, though the diagram reports its base as curr
 /** A toolbar over `animation`, rendered for the dynamic Big Bank view. */
 function animatedToolbar(animation) {
     const element = document.createElement("section");
-    const toolbar = new CurrentView(
-        element,
-        stubDiagram(),
-        CONTROLS,
-        animation,
-        model,
-    );
+    const toolbar = new CurrentView(element, stubEngine(animation), model);
     toolbar.render(model.findViewByKey("SignIn"));
     const group = element.querySelector(".animation-buttons");
     const button = (name) => element.querySelector(`.${name}`);
@@ -254,29 +251,56 @@ test("a toolbar rendered again after clear still follows the page theme", () => 
     window.localStorage.removeItem(DIAGRAM_THEME_STORAGE_KEY);
     window.localStorage.removeItem("structurizr_cooper:darkModeDiagrams");
     theme.setMode("light");
-    let dark = false;
-    const diagram = {
-        ...stubDiagram(),
-        isDarkMode: () => dark,
-        setDarkMode: (value) => {
-            dark = value;
-        },
-    };
+    const engine = stubEngine();
     const element = document.createElement("section");
-    const toolbar = new CurrentView(
-        element,
-        diagram,
-        CONTROLS,
-        stubAnimation(),
-        model,
-    );
+    const toolbar = new CurrentView(element, engine, model);
     toolbar.render(model.findViewByKey("SignIn"));
     toolbar.clear();
     toolbar.render(model.findViewByKey("SignIn"));
 
     theme.setMode("dark");
-    assert.equal(dark, true, "the diagram turns dark with the page");
+    assert.equal(engine.schemes.at(-1), "dark", "the diagram turns dark");
     toolbar.clear();
     theme.setMode("light");
-    assert.equal(dark, true, "a cleared toolbar no longer follows the page");
+    assert.equal(
+        engine.schemes.at(-1),
+        "dark",
+        "a cleared toolbar no longer follows the page",
+    );
+});
+
+test("the toolbar's scheme and label buttons set the engine's state", () => {
+    window.localStorage.clear();
+    theme.setMode("light");
+    const engine = stubEngine();
+    const element = document.createElement("section");
+    const toolbar = new CurrentView(element, engine, model);
+    toolbar.render(model.findViewByKey("SignIn"));
+    const button = (name) => element.querySelector(`.${name}`);
+
+    // Seeded from the reader's stored preferences before anything is drawn.
+    assert.equal(engine.schemes.at(-1), "light");
+    assert.deepEqual(engine.labels.at(-1), {
+        descriptions: true,
+        technologies: true,
+    });
+
+    button("dark-mode").click();
+    assert.equal(engine.schemes.at(-1), "dark");
+    assert.equal(button("dark-mode").getAttribute("aria-pressed"), "true");
+
+    button("toggle-description").click();
+    button("toggle-technologies").click();
+    button("toggle-technologies").click();
+    assert.deepEqual(engine.labels.slice(-3), [
+        { descriptions: false, technologies: true },
+        { descriptions: false, technologies: false },
+        { descriptions: false, technologies: true },
+    ]);
+    assert.equal(
+        button("toggle-description").getAttribute("aria-pressed"),
+        "false",
+    );
+    toolbar.clear();
+    window.localStorage.clear();
 });

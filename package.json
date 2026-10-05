@@ -51,12 +51,12 @@
         "!scripts/**/*.test.js",
         "!scripts/__fixtures__",
         "src",
-        "vendor",
         "public",
         "index.html",
         "tsconfig.json",
         "NOTICE",
-        "THIRD-PARTY-NOTICES.md"
+        "THIRD-PARTY-NOTICES.md",
+        "licenses"
     ],
     "scripts": {
         "dev": "vite",
@@ -72,14 +72,12 @@
         "test:coverage": "node --test --experimental-test-coverage scripts/*.test.js test/*.test.js",
         "release:pr": "./scripts/release.sh pr",
         "release:tag": "./scripts/release.sh tag",
-        "sync:vendor": "node scripts/sync-vendor.js",
         "hooks": "husky || true"
     },
     "devDependencies": {
         "@biomejs/biome": "^1.8.2",
         "@commitlint/cli": "^20.5.3",
         "@commitlint/config-conventional": "^20.5.3",
-        "@types/jquery": "^3.5.34",
         "@types/markdown-it": "^14.1.2",
         "@types/node": "^22.20.1",
         "@types/react": "^19.3.0",
@@ -93,12 +91,10 @@
     "dependencies": {
         "@dagrejs/dagre": "1.1.8",
         "@dagrejs/graphlib": "2.2.4",
-        "@joint/core": "4.1.3",
-        "@joint/layout-directed-graph": "4.1.3",
         "@xyflow/react": "^12.12.0",
+        "bootstrap-icons": "^1.13.1",
         "highlight.js": "^11.12.0",
         "history": "^5.3.0",
-        "jquery": "3.7.1",
         "markdown-it": "^14.3.0",
         "markdown-it-anchor": "^9.2.1",
         "markdown-it-shift-headings": "^1.0.2",

@@ -1,17 +1,28 @@
-import type { Workspace } from "../types/structurizr-workspace";
+import type {
+    Decision,
+    DocumentationSection,
+} from "../types/structurizr-documentation";
 
-/** What the header reads off the workspace, whichever engine loaded it. */
-export type WorkspaceSummary = Pick<
-    Workspace,
-    "name" | "description" | "version" | "lastModifiedDate" | "documentation"
->;
+/** What the header and the documentation pages read off the workspace. */
+export type WorkspaceSummary = {
+    name: string;
+    description: string;
+    version?: string;
+    /** The workspace JSON's ISO string. */
+    lastModifiedDate: string;
+    documentation: {
+        sections: DocumentationSection[];
+        decisions: Decision[];
+        images: Record<string, unknown>[];
+    };
+};
 import history from "history/hash";
 import Component from "./_component";
 import styles from "./navigation.module.css";
 import { cycleMode, getMode, onThemeChange, type ThemeMode } from "./theme";
-import lightIcon from "../../vendor/structurizr/bootstrap-icons/sun-fill.svg?raw";
-import darkIcon from "../../vendor/structurizr/bootstrap-icons/moon-fill.svg?raw";
-import systemIcon from "../../vendor/structurizr/bootstrap-icons/circle-half.svg?raw";
+import lightIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
+import darkIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
+import systemIcon from "bootstrap-icons/icons/circle-half.svg?raw";
 
 const THEME_ICON: Record<ThemeMode, string> = {
     light: lightIcon,

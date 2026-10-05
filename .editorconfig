@@ -39,9 +39,9 @@ indent_size = 2
 [.husky/*]
 indent_size = 2
 
-# Upstream code, kept byte-for-byte so `pnpm sync:vendor` diffs stay honest.
-# biome.json ignores these same three paths.
-[{vendor,submodules,architecture}/**]
+# Upstream code and generated architecture files, kept byte-for-byte.
+# biome.json ignores these same two paths.
+[{submodules,architecture}/**]
 charset = unset
 end_of_line = unset
 indent_style = unset
