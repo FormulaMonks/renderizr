@@ -5,11 +5,22 @@
  */
 
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+import { REPO_ROOT } from "../scripts/__fixtures__/helpers.js";
+import {
+    ACCEPTANCE_SET,
+    INVALID_SET,
+    missingReason,
+    prepareWorkspace,
+} from "./support/acceptance.js";
+import { expectedDrawing, isAutomatic } from "./support/engine-checks.js";
+import { LARGE_LANDSCAPE_FIXTURE } from "./support/large-landscape.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { layOut, layoutOrder, simplify } = await importSrc(
-    "engine/layout/automatic",
-);
+const { LARGE_VIEW_ELEMENTS, layOut, layoutOrder, rankerFor, simplify } =
+    await importSrc("engine/layout/automatic");
+const { WorkspaceModel } = await importSrc("model/index");
 
 const SETTINGS = {
     rankDirection: "TopBottom",
@@ -482,3 +493,121 @@ for (const { name, points, expected } of SIMPLIFY)
             "the wrong points were kept",
         );
     });
+
+/* ------------------------------------------------------------------ ranker */
+
+/** A graph of `count` elements in a chain, with no boundaries. */
+const chain = (count) => ({
+    nodes: Array.from({ length: count }, (_, i) => node(String(i + 1))),
+    boundaries: [],
+    edges: Array.from({ length: count - 1 }, (_, i) => ({
+        id: `r${i}`,
+        source: String(i + 1),
+        target: String(i + 2),
+    })),
+});
+
+test("a view of up to 100 elements is ranked by network simplex, as upstream ranks it", () => {
+    assert.equal(LARGE_VIEW_ELEMENTS, 100);
+    assert.equal(rankerFor(chain(2)), "network-simplex");
+    assert.equal(rankerFor(chain(LARGE_VIEW_ELEMENTS)), "network-simplex");
+});
+
+test("a view of more than 100 elements is ranked by tight-tree", () => {
+    assert.equal(rankerFor(chain(LARGE_VIEW_ELEMENTS + 1)), "tight-tree");
+});
+
+test("boundaries do not count toward the size of a view", () => {
+    const graph = chain(LARGE_VIEW_ELEMENTS);
+    graph.boundaries = [{ id: "b1" }, { id: "b2" }];
+
+    assert.equal(rankerFor(graph), "network-simplex");
+});
+
+test("a large view still keeps its elements apart and ranked along its edges", () => {
+    const graph = chain(LARGE_VIEW_ELEMENTS + 1);
+    const { boxes } = layOut(graph, SETTINGS);
+
+    const sorted = graph.nodes.map(({ id }) => boxes.get(id));
+    for (let i = 1; i < sorted.length; i++) {
+        assert.ok(
+            !overlaps(sorted[i - 1], sorted[i]),
+            `${i} overlaps ${i + 1}`,
+        );
+        assert.ok(sorted[i].y > sorted[i - 1].y, `${i + 1} is not below ${i}`);
+    }
+});
+
+/** The test fixtures that hold workspaces, each with its views' layouts. */
+const FIXTURES = join(REPO_ROOT, "test/__fixtures__");
+
+/**
+ * Every committed workspace with views to lay out: the acceptance set,
+ * submodule workspaces included, and every other workspace among the test
+ * fixtures. The workspaces the build refuses lay nothing out.
+ */
+const LAID_OUT = [
+    ...ACCEPTANCE_SET,
+    ...readdirSync(FIXTURES)
+        .filter((file) => file.endsWith(".json"))
+        .map((file) => ({
+            name: `test/__fixtures__/${file}`,
+            source: join(FIXTURES, file),
+            submodule: false,
+        }))
+        .filter(
+            ({ source }) =>
+                ![...ACCEPTANCE_SET, ...INVALID_SET].some(
+                    (entry) => entry.source === source,
+                ),
+        ),
+];
+
+/**
+ * The graph the engine hands Dagre for a view, as far as the ranker reads
+ * it: the elements and boundaries `expectedDrawing` says the view draws.
+ */
+function rankedGraph(expected) {
+    return {
+        nodes: expected.elements.map(({ id, width, height }) => ({
+            id,
+            width,
+            height,
+        })),
+        boundaries: expected.boundaries.map((id) => ({ id })),
+        edges: [],
+    };
+}
+
+// ADR 14 promises that every ordinary automatic view keeps the ranker, and
+// so the layout, it had before the large landscape needed tight-tree.
+for (const entry of LAID_OUT) {
+    const skip = missingReason(entry);
+    if (skip) {
+        test(
+            `every automatic view of ${entry.name} is ranked by network-simplex`,
+            {
+                skip,
+            },
+        );
+        continue;
+    }
+    const model = new WorkspaceModel(prepareWorkspace(entry));
+    const ranker =
+        entry.source === LARGE_LANDSCAPE_FIXTURE
+            ? "tight-tree"
+            : "network-simplex";
+    for (const { key } of model.getViews()) {
+        const expected = expectedDrawing(model, key);
+        if (!isAutomatic(expected)) continue;
+        const graph = rankedGraph(expected);
+
+        test(`automatic view ${key} of ${entry.name} is ranked by ${ranker}`, () => {
+            assert.equal(
+                rankerFor(graph),
+                ranker,
+                `${graph.nodes.length} elements`,
+            );
+        });
+    }
+}

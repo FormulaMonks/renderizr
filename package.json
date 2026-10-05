@@ -65,6 +65,8 @@
         "lint": "biome ci .",
         "lint:renovate": "pnpm dlx --package renovate renovate-config-validator --strict",
         "format": "biome check --write .",
+        "fixtures:acceptance": "node test/__fixtures__/acceptance/export.js && biome format --write test/__fixtures__/acceptance/workspace.json",
+        "fixtures:large": "node test/support/large-landscape.js",
         "typecheck": "tsc --noEmit",
         "test": "node --test scripts/*.test.js \"test/!(acceptance).test.js\" && node --test test/acceptance.test.js",
         "test:coverage": "node --test --experimental-test-coverage scripts/*.test.js test/*.test.js",

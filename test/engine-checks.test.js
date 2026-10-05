@@ -25,6 +25,7 @@ import {
     storedElementsInPlace,
     unexpectedLogs,
 } from "./support/engine-checks.js";
+import { peopleAndSoftwareSystems } from "./support/fixtures.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
@@ -82,6 +83,38 @@ test("the expected drawing of a stored view lists its elements at their stored b
         "the expected edges are not the view's relationships",
     );
 });
+
+/**
+ * The shapes upstream draws in a box derived from the style's width, each
+ * with the height it gives element 2's 450 × 300 style.
+ */
+const DERIVED_BOXES = [
+    { shape: "Circle", height: 450 },
+    { shape: "Diamond", height: 450 },
+    { shape: "Hexagon", height: 389 },
+];
+
+for (const { shape, height } of DERIVED_BOXES)
+    test(`a ${shape} is expected in the box upstream derives from its width`, () => {
+        const workspace = structuredClone(FIXTURE);
+        workspace.views.configuration.styles.elements.push({
+            tag: "Derived",
+            shape,
+        });
+        for (const element of peopleAndSoftwareSystems(workspace))
+            if (element.id === "2") element.tags += ",Derived";
+
+        const drawn = expectedDrawing(
+            new WorkspaceModel(workspace),
+            "FixtureContext",
+        ).elements.find(({ id }) => id === "2");
+
+        assert.deepEqual(
+            { width: drawn.width, height: drawn.height },
+            { width: 450, height },
+            "the expected box ignores the height upstream derives from the width",
+        );
+    });
 
 test("a boundary is expected as a boundary, not an element", () => {
     const json = structuredClone(FIXTURE);
