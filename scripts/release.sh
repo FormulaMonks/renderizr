@@ -2,8 +2,7 @@
 #
 # Cut a release without any stored credentials.
 #
-# `release.yml` does this automatically when the automation GitHub App is
-# configured, but creating an App needs organization access not everyone has.
+# `release.yml` does this automatically when the RENOVATE_TOKEN secret is set.
 # This is the same tool, run locally against your own `gh` login: nothing is
 # stored, nothing is shared, and the pull request is authored by you — which
 # also means `ci` runs on it, unlike one opened by GitHub Actions.

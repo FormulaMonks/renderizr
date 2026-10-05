@@ -10,18 +10,18 @@
 #                       with the generated notes, and this workflow attaches the
 #                       build artifacts to it.
 #   workflow_dispatch   attach the build artifacts to a tag and Release that
-#                       already exist. For a release cut by hand — the first
-#                       one, or any made before the App was configured — which
-#                       would otherwise carry no downloads at all.
+#                       already exist. For a release cut by hand with
+#                       `pnpm release:tag`, which would otherwise carry no
+#                       downloads at all.
 #
 # Renderizr is not published to any registry. It is consumed straight from git
 # with `npx github:FormulaMonks/renderizr`, so the GitHub Release is the whole
 # distribution channel and `package.json` is marked private to keep it that way.
 #
-# release-please runs as a GitHub App rather than as GitHub Actions. That is
-# not a preference — see the comment on the first step; with GITHUB_TOKEN this
-# workflow cannot open the release pull request at all, and if it could, `ci`
-# would never run on it.
+# release-please runs with the personal access token in RENOVATE_TOKEN rather
+# than with GITHUB_TOKEN. That is not a preference: see the comment on the
+# release-please step. With GITHUB_TOKEN this workflow cannot open the release
+# pull request at all, and if it could, `ci` would never run on it.
 name: release
 
 on:
@@ -50,22 +50,30 @@ jobs:
   # Keeps the release pull request in sync with `main`, and — when that pull
   # request is merged — creates the tag and the GitHub Release.
   release-please:
-    # Skipped, not failed, until the GitHub App is installed — see the
-    # `release-app-missing` job below and MAINTAINERS.md. A brand-new clone of
-    # this repository should not show a red release run for a setting nobody
-    # has had the chance to configure yet.
-    if: github.event_name == 'push' && vars.AUTOMATION_APP_ID != ''
+    if: github.event_name == 'push'
     name: prepare release
     runs-on: ubuntu-latest
     permissions:
-      # Deliberately read-only. Every write below is made with the App token
-      # minted in the first step, not with GITHUB_TOKEN.
+      # Deliberately read-only. Every write below is made with RENOVATE_TOKEN,
+      # not with GITHUB_TOKEN.
       contents: read
+    # A secret cannot appear in a job's `if`, so it goes through the
+    # environment and each step checks it there, as renovate.yml does.
+    env:
+      HAS_TOKEN: ${{ secrets.RENOVATE_TOKEN != '' }}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
     steps:
+      # Say why nothing was released instead of failing. A fresh clone of this
+      # repository should not show a red release run for a secret nobody has
+      # had the chance to add yet.
+      - name: Report the missing token
+        if: env.HAS_TOKEN != 'true'
+        run: |
+          echo "::warning title=Releases are not configured::No RENOVATE_TOKEN secret is set, so release-please did not run and no release pull request was opened or updated. Add a classic personal access token with the repo and workflow scopes as the repository secret RENOVATE_TOKEN; see MAINTAINERS.md, 'Repository setup still to be done'. Until then, run pnpm release:pr locally."
+
       # release-please must not act as GitHub Actions itself, for two reasons.
       #
       # It cannot: "Allow GitHub Actions to create and approve pull requests"
@@ -75,37 +83,22 @@ jobs:
       #
       # And it should not: a pull request opened with GITHUB_TOKEN does not
       # trigger other workflows, so `ci` would never report on the release pull
-      # request — and `ci` is a required status check in the `main` ruleset.
+      # request, and `ci` is a required status check in the `main` ruleset.
       # Every release would need an administrator to bypass the ruleset.
       #
-      # An App identity solves both. The pull request is not "GitHub Actions",
-      # so the restriction does not apply, and it triggers ci.yml like any
-      # other pull request.
-      - name: Mint a token for the release pull request
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ vars.AUTOMATION_APP_ID }}
-          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
-
+      # A personal access token solves both. The pull request belongs to the
+      # token's owner, so the restriction does not apply, and it triggers
+      # ci.yml like any other pull request. Renovate already holds one with
+      # the `repo` scope, which covers everything release-please writes: the
+      # release branch, the pull request and its labels, the tag and the
+      # GitHub Release.
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        if: env.HAS_TOKEN == 'true'
         id: release
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.RENOVATE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-
-  # Says why nothing was released, rather than leaving a silently skipped job.
-  # Green on purpose: not having configured the App yet is a to-do, not a
-  # broken build.
-  release-app-missing:
-    if: github.event_name == 'push' && vars.AUTOMATION_APP_ID == ''
-    name: prepare release (not configured)
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - run: |
-          echo "::warning title=Releases are not configured::No AUTOMATION_APP_ID variable is set, so release-please did not run and no release pull request was opened or updated. Install the release GitHub App and add the AUTOMATION_APP_ID variable and AUTOMATION_APP_PRIVATE_KEY secret — see MAINTAINERS.md, 'Repository setup still to be done'."
 
   # Attaches something downloadable to the Release: a source tarball of exactly
   # the files a consumer receives, and a rendered example of what Renderizr
@@ -117,9 +110,9 @@ jobs:
   release-assets:
     needs: release-please
     # Two ways in. Normally release-please has just created the Release and
-    # this fills it. But a tag cut by hand — the first one, or any release made
-    # before the App exists — produces a Release with nothing attached and no
-    # way to fix it, so `workflow_dispatch` can point this job at an existing
+    # this fills it. But a release cut by hand with `pnpm release:tag` produces
+    # a Release with nothing attached and no way to fix it, so
+    # `workflow_dispatch` can point this job at an existing
     # tag instead. `always()` is required because release-please is skipped on
     # a dispatch, and a skipped dependency would otherwise skip this too.
     if: >-
