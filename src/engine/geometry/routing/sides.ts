@@ -165,50 +165,102 @@ const rankOf = ({ toward }: EdgeEnd) =>
     toward === "from" ? -1 : toward === "to" ? 1 : 0;
 
 /**
- * The order of two ends on one side: loop ends at their corner's end of it,
- * earlier loops nearer the corner; every other end by its far end, then by
- * view order.
+ * Where on `side` of `box`, measured as `sidePoint` measures it, a ray from
+ * the box's center toward `far` crosses the side's line: where an edge aimed
+ * from center to center leaves, as Structurizr draws it. A far end level
+ * with the side or behind it aims as if a unit out, far along the side.
  */
-function compareEnds(
-    a: EdgeEnd,
-    b: EdgeEnd,
-    coordinate: (end: EdgeEnd) => number,
-) {
+export function aimAlong(box: Rect, side: Side, far: Point): number {
+    const center = centerOf(box);
+    const out = outward(side);
+    const half = isHorizontal(side) ? box.height / 2 : box.width / 2;
+    const ahead = Math.max(
+        (far.x - center.x) * out.x + (far.y - center.y) * out.y,
+        1,
+    );
+    const across = isHorizontal(side) ? far.x - center.x : far.y - center.y;
+    const middle = isHorizontal(side) ? box.width / 2 : box.height / 2;
+    return middle + (across * half) / ahead;
+}
+
+/**
+ * The order of two ends on one side: loop ends at their corner's end of it,
+ * earlier loops nearer the corner; every other end by where it aims, then
+ * by view order.
+ */
+function compareEnds(a: EdgeEnd, b: EdgeEnd, aim: (end: EdgeEnd) => number) {
     const rank = rankOf(a) - rankOf(b);
     if (rank) return rank;
     if (rankOf(a) > 0) return b.order - a.order;
     if (rankOf(a) < 0) return a.order - b.order;
-    return coordinate(a) - coordinate(b) || a.order - b.order;
+    return aim(a) - aim(b) || a.order - b.order;
+}
+
+/**
+ * The positions closest to `wanted`, in the order given, that keep `gap`
+ * apart and stay within `span`: each run of positions that would come
+ * closer than `gap` moves as one, centered on what its members want (pool
+ * adjacent violators, on each position less its share of the gaps).
+ */
+function keepApart(wanted: number[], gap: number, span: Span): number[] {
+    const blocks: { sum: number; count: number }[] = [];
+    for (const [i, position] of wanted.entries()) {
+        let block = { sum: position - i * gap, count: 1 };
+        let last = blocks.at(-1);
+        while (last && last.sum / last.count >= block.sum / block.count) {
+            blocks.pop();
+            block = {
+                sum: last.sum + block.sum,
+                count: last.count + block.count,
+            };
+            last = blocks.at(-1);
+        }
+        blocks.push(block);
+    }
+    const lowest = span.from;
+    const highest = span.to - (wanted.length - 1) * gap;
+    const placed: number[] = [];
+    for (const { sum, count } of blocks) {
+        const start = Math.min(Math.max(sum / count, lowest), highest);
+        for (let k = 0; k < count; k++) {
+            placed.push(start + placed.length * gap);
+        }
+    }
+    return placed;
 }
 
 /**
  * Where each of one element's edge ends sits along its side, keyed by end
- * id: the ends sharing a side sorted by their far end's coordinate along it,
- * then by view order, and placed at `(i + 1) / (n + 1)` of the side's usable
- * span. Ties keep view order on both elements, which is what makes A→B and
- * B→A two parallel lanes. A self-relationship's loop ends take part too,
- * at their corner's end of the side (`compareEnds`).
+ * id. Each end aims where the line from the element's center toward its far
+ * end crosses the side (`aimAlong`), so an edge leaves already heading its
+ * way, as Structurizr's do. The ends sharing a side are sorted by that aim,
+ * then by view order, and kept at least `1 / (n + 1)` of the side's usable
+ * span apart and within it, moving as little as they can. Ties keep view
+ * order on both elements, which is what makes A→B and B→A two parallel
+ * lanes. A self-relationship's loop ends take part too, at their corner's
+ * end of the side (`compareEnds`), aiming at their even share of it.
  */
 export function spreadEnds(
     ends: EdgeEnd[],
     spans: Partial<Record<Side, Span>>,
+    box: Rect,
 ): Map<string, number> {
     const along = new Map<string, number>();
     for (const side of SIDES) {
         const span = spans[side];
         if (!span) continue;
-        const coordinate = (end: EdgeEnd) =>
-            isHorizontal(side) ? end.far.x : end.far.y;
-        const sorted = ends
-            .filter((end) => end.side === side)
-            .sort((a, b) => compareEnds(a, b, coordinate));
-        for (const [i, end] of sorted.entries()) {
-            along.set(
-                end.id,
-                span.from +
-                    ((i + 1) / (sorted.length + 1)) * (span.to - span.from),
-            );
-        }
+        const onSide = ends.filter((end) => end.side === side);
+        const aims = new Map(
+            onSide.map((end) => [end, aimAlong(box, side, end.far)]),
+        );
+        const aim = (end: EdgeEnd) => aims.get(end)!;
+        const sorted = onSide.sort((a, b) => compareEnds(a, b, aim));
+        const gap = (span.to - span.from) / (sorted.length + 1);
+        const wanted = sorted.map((end, i) =>
+            end.toward ? span.from + (i + 1) * gap : aim(end),
+        );
+        const placed = keepApart(wanted, gap, span);
+        for (const [i, end] of sorted.entries()) along.set(end.id, placed[i]);
     }
     return along;
 }

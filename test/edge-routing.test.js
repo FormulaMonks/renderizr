@@ -15,8 +15,14 @@ import { avoidsElements } from "./support/engine-checks.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
-const { BEND_PENALTY, bendsBetween, chooseSides, facingSide, spreadEnds } =
-    await importSrc("engine/geometry/routing/sides");
+const {
+    aimAlong,
+    BEND_PENALTY,
+    bendsBetween,
+    chooseSides,
+    facingSide,
+    spreadEnds,
+} = await importSrc("engine/geometry/routing/sides");
 const { directRoute, obstaclePadding, orthogonalRoute, orthogonalThrough } =
     await importSrc("engine/geometry/routing/avoid");
 const { curvedRoute, curvePath } = await importSrc(
@@ -356,24 +362,72 @@ test("facingSide is the side a ray from the center toward a point leaves by", ()
 
 /* ---------------- spreading edge ends */
 
-test("edge ends sharing a side sit at (i + 1) / (n + 1) of its span, sorted by the far end", () => {
-    const spans = { top: { from: 10, to: 210 }, bottom: { from: 10, to: 210 } };
+test("aimAlong is where the ray from the center toward the far end crosses the side", () => {
+    const box = { x: 0, y: 0, width: 200, height: 100 };
+    assert.equal(aimAlong(box, "bottom", { x: 100, y: 500 }), 100);
+    assert.equal(aimAlong(box, "bottom", { x: 300, y: 250 }), 150);
+    assert.equal(aimAlong(box, "right", { x: 400, y: 350 }), 150);
+    assert.equal(aimAlong(box, "top", { x: -100, y: -50 }), 0);
+});
+
+test("a lone edge end sits where its edge aims, within the side's span", () => {
+    const box = { x: 0, y: 0, width: 200, height: 100 };
+    const spans = {
+        right: { from: 25, to: 75 },
+        bottom: { from: 10, to: 190 },
+    };
     const along = spreadEnds(
         [
-            { id: "c", side: "bottom", far: { x: 900, y: 500 }, order: 0 },
-            { id: "a", side: "bottom", far: { x: -300, y: 500 }, order: 1 },
-            { id: "b", side: "bottom", far: { x: 100, y: 500 }, order: 2 },
-            { id: "alone", side: "top", far: { x: 0, y: -500 }, order: 3 },
+            { id: "down", side: "bottom", far: { x: 300, y: 250 }, order: 0 },
+            { id: "steep", side: "right", far: { x: 400, y: 900 }, order: 1 },
         ],
         spans,
+        box,
     );
-    assert.equal(along.get("a"), 60);
-    assert.equal(along.get("b"), 110);
-    assert.equal(along.get("c"), 160);
-    assert.equal(along.get("alone"), 110);
+    assert.equal(along.get("down"), 150);
+    // Aimed past the span's end, it stops there.
+    assert.equal(along.get("steep"), 75);
+});
+
+test("edge ends sharing a side keep 1 / (n + 1) of its span apart, sorted by where they aim", () => {
+    const box = { x: 0, y: 0, width: 220, height: 100 };
+    const spans = { bottom: { from: 10, to: 210 } };
+    const along = spreadEnds(
+        [
+            { id: "c", side: "bottom", far: { x: 120, y: 500 }, order: 0 },
+            { id: "a", side: "bottom", far: { x: 100, y: 500 }, order: 1 },
+            { id: "b", side: "bottom", far: { x: 110, y: 500 }, order: 2 },
+        ],
+        spans,
+        box,
+    );
+    // All three aim near the middle, so they spread round it.
+    assert.ok(Math.abs(along.get("a") - 60) < EPSILON);
+    assert.ok(Math.abs(along.get("b") - 110) < EPSILON);
+    assert.ok(Math.abs(along.get("c") - 160) < EPSILON);
+});
+
+test("edge ends that crowd each other move apart around where they aim", () => {
+    const box = { x: 0, y: 0, width: 200, height: 100 };
+    const spans = { bottom: { from: 0, to: 200 } };
+    const along = spreadEnds(
+        [
+            { id: "left", side: "bottom", far: { x: 90, y: 500 }, order: 0 },
+            { id: "right", side: "bottom", far: { x: 110, y: 500 }, order: 1 },
+        ],
+        spans,
+        box,
+    );
+    const gap = 200 / 3;
+    assert.ok(Math.abs(along.get("right") - along.get("left") - gap) < EPSILON);
+    assert.ok(
+        Math.abs((along.get("left") + along.get("right")) / 2 - 100) < EPSILON,
+        "the pair stays centered on where they aim",
+    );
 });
 
 test("edge ends with the same far end keep view order", () => {
+    const box = { x: 0, y: 0, width: 200, height: 300 };
     const spans = { right: { from: 0, to: 300 } };
     const along = spreadEnds(
         [
@@ -381,6 +435,7 @@ test("edge ends with the same far end keep view order", () => {
             { id: "first", side: "right", far: { x: 500, y: 50 }, order: 0 },
         ],
         spans,
+        box,
     );
     assert.ok(along.get("first") < along.get("second"));
 });
@@ -840,11 +895,11 @@ test("a self-relationship's line also ends short of its target end", () => {
 
 test("each end moves inward to the drawn outline, perpendicular to its side", () => {
     const [routed] = routeView(
-        [element("a", 0, 0), element("circle", 0, 400, 300, 300, "Circle")],
+        [element("a", 50, 0), element("circle", 0, 400, 300, 300, "Circle")],
         [edge("ab", "a", "circle")],
     );
     const end = routed.route.at(-1);
-    // Straight down onto the circle's top: x is the side's spread point.
+    // Straight down onto the circle's top: x is where the edge aims.
     assert.ok(Math.abs(end.x - 150) < EPSILON, fmt(routed.route));
     assert.ok(
         Math.abs(Math.hypot(end.x - 150, end.y - 550) - 150) < EPSILON,
@@ -933,7 +988,7 @@ test("a loop's edge ends are spread with the other edge ends on their sides, nea
         element("w", -200, 400),
     ];
     const { top, right } = a.geometry.spans;
-    const third = (span, i) => span.from + (i / 3) * (span.to - span.from);
+    const third = (span) => (span.to - span.from) / 3;
     for (const routing of ["Direct", "Orthogonal", "Curved"]) {
         const routes = routeView(elements, [
             edge("an", "a", "n", { routing }),
@@ -944,12 +999,21 @@ test("a loop's edge ends are spread with the other edge ends on their sides, nea
         ]);
         const [an, ae, , , loop] = routes.map((r) => r.route);
         const message = `${routing}: ${fmt(loop)}`;
-        // Top: the edge to N at 1/3, the loop at 2/3, nearer the corner.
-        assert.ok(near(an[0], { x: 400 + third(top, 1), y: 400 }), message);
-        assert.ok(near(loop[0], { x: 400 + third(top, 2), y: 400 }), message);
-        // Right: the loop at 1/3, nearer the corner, the edge to E at 2/3.
-        assert.ok(near(loop.at(-1), { x: 600, y: 400 + third(right, 1) }));
-        assert.ok(near(ae[0], { x: 600, y: 400 + third(right, 2) }), message);
+        // Top: the loop right of the edge to N, nearer the corner, a third
+        // of the span apart.
+        assert.equal(an[0].y, 400, message);
+        assert.equal(loop[0].y, 400, message);
+        assert.ok(
+            Math.abs(loop[0].x - an[0].x - third(top)) < EPSILON,
+            message,
+        );
+        // Right: the loop above the edge to E, nearer the corner.
+        assert.equal(loop.at(-1).x, 600, message);
+        assert.equal(ae[0].x, 600, message);
+        assert.ok(
+            Math.abs(ae[0].y - loop.at(-1).y - third(right)) < EPSILON,
+            message,
+        );
         assert.ok(
             loop.slice(1, -1).every((p) => p.y < 400 || p.x > 600),
             `${message} stays outside the element`,

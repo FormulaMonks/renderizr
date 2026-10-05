@@ -12,6 +12,7 @@ const { WorkspaceModel } = await importSrc("model/index");
 const { buildGraph, panIntoView, stepZoom, ZOOM_STEP, zoomLimits } =
     await importSrc("engine/react-flow/graph");
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
+const { num } = await importSrc("engine/geometry/shapes/outline");
 
 const FIXTURE = JSON.parse(
     readFileSync(
@@ -1065,7 +1066,10 @@ test("an edge's route starts and ends at its edge ends, and its path draws it", 
 
     assert.deepEqual(edge.route[0], edge.source);
     assert.deepEqual(edge.route.at(-1), edge.target);
-    assert.match(edge.path, /^M 400 600 /, "the path starts at the source end");
+    assert.ok(
+        edge.path.startsWith(`M ${num(edge.source.x)} ${num(edge.source.y)} `),
+        "the path starts at the source end",
+    );
     assert.equal(edge.routing, "Direct");
 });
 
@@ -1665,12 +1669,12 @@ test("an edge draws a filled arrowhead at its target only, and its line stops sh
     const [edge] = buildGraph(model(), "FixtureContext", "light", LABELS).edges;
     const tip = edge.target;
     assert.ok(
-        edge.arrowhead.startsWith(`M ${tip.x} ${tip.y} L `) &&
+        edge.arrowhead.startsWith(`M ${num(tip.x)} ${num(tip.y)} L `) &&
             edge.arrowhead.endsWith(" Z"),
         `the arrowhead ${edge.arrowhead} has its tip at the target end`,
     );
     assert.ok(
-        !edge.path.endsWith(`${tip.x} ${tip.y}`),
+        !edge.path.endsWith(`${num(tip.x)} ${num(tip.y)}`),
         "the line ends before the tip",
     );
 });
