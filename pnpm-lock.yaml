@@ -28,10 +28,10 @@ importers:
         version: 5.3.0
       markdown-it:
         specifier: ^14.3.0
-        version: 14.3.0
+        version: 14.3.1
       markdown-it-anchor:
         specifier: ^9.2.1
-        version: 9.2.1(@types/markdown-it@14.1.2)(markdown-it@14.3.0)
+        version: 9.2.1(@types/markdown-it@14.1.2)(markdown-it@14.3.1)
       markdown-it-shift-headings:
         specifier: ^1.0.2
         version: 1.0.2
@@ -622,10 +622,6 @@ packages:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
 
-  ansi-regex@6.0.1:
-    resolution: {integrity: sha512-n5M855fKb2SsfMIiFFoVrABHJC8QtHwVx+mHWP3QcEqBHYienj5dHSgjbxtC0WEZXYt4wcD6zrQElDPhFuZgfA==}
-    engines: {node: '>=12'}
-
   ansi-regex@6.3.0:
     resolution: {integrity: sha512-WpDfL7NO6j7tH88IDBNVdUJxDh9nmCteAVW9dsep846XdwF4naCBK+/tGLX3KJgcpgMRXCFlTM2hKGoK9FsdrQ==}
     engines: {node: '>=12'}
@@ -637,10 +633,6 @@ packages:
   ansi-styles@4.3.0:
     resolution: {integrity: sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==}
     engines: {node: '>=8'}
-
-  ansi-styles@6.2.1:
-    resolution: {integrity: sha512-bN798gFfQX+viw3R7yrGWRqnrN2oRkEkUjjl4JNn4E8GxxbjtG3FbrEIIY3l8/hrwUwIeCZvi4QuOTP4MErVug==}
-    engines: {node: '>=12'}
 
   ansi-styles@6.2.3:
     resolution: {integrity: sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg==}
@@ -814,10 +806,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  escalade@3.1.2:
-    resolution: {integrity: sha512-ErCHMCae19vR8vQGe50xIsVomy19rg6gFu3+r3jkEO46suLMWBksvVyoGgQV+jOfl84ZSOSlmv6Gxa89PmTGmA==}
-    engines: {node: '>=6'}
-
   escalade@3.2.0:
     resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
     engines: {node: '>=6'}
@@ -852,10 +840,6 @@ packages:
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
-
-  get-east-asian-width@1.2.0:
-    resolution: {integrity: sha512-2nk+7SIVb14QrgXFHcm84tD4bKQz0RxPuMT8Ag5KPOq7J5fEmAg0UbXdTOSHqNuHSU28k55qnceesxXRZGzKWA==}
-    engines: {node: '>=18'}
 
   get-east-asian-width@1.6.0:
     resolution: {integrity: sha512-QRbvDIbx6YklUe6RxeTeleMR0yv3cYH6PsPZHcnVn7xv7zO1BHN8r0XETu8n6Ye3Q+ahtSarc3WgtNWmehIBfA==}
@@ -904,10 +888,6 @@ packages:
   is-fullwidth-code-point@3.0.0:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
     engines: {node: '>=8'}
-
-  is-fullwidth-code-point@5.0.0:
-    resolution: {integrity: sha512-OVa3u9kkBbw7b8Xw5F9P+D/T9X+Z4+JruYVNapTjPYZYUznQ5YfWeFkOj606XYYW8yugTfC8Pj0hYqvi4ryAhA==}
-    engines: {node: '>=18'}
 
   is-fullwidth-code-point@5.1.0:
     resolution: {integrity: sha512-5XHYaSyiqADb4RnZ1Bdad6cPp8Toise4TzEjcOYDHZkTCbKgiUl7WTUCpNWHuxmDt91wnsZBc9xinNzopv3JMQ==}
@@ -1040,8 +1020,8 @@ packages:
   markdown-it-shift-headings@1.0.2:
     resolution: {integrity: sha512-drz+jnO+okFGJmOY7KGlEwbGJcPLkNR2aab8SyIN4df4Zb1hy7/+wLf08EN1ozNuD9q79jbjJ21MD9wdNZUWJw==}
 
-  markdown-it@14.3.0:
-    resolution: {integrity: sha512-RCEsPjR+sr0x+AuYp601tKTkgFG4YEPLCzHST3cQ/fhlJkqAkz1L2/Qbp1j9qw5SBwQHFBoW8+hoN5xssOF0Tw==}
+  markdown-it@14.3.1:
+    resolution: {integrity: sha512-4Ej49aYTDFIQ+uBkfX8GBvJGccoARxxPep+7aWTs55ozbjQJpW9M26Fe53vnGgvLeVzva/amzjQQaQu9w0vMhA==}
     hasBin: true
 
   mdurl@2.0.0:
@@ -1170,10 +1150,6 @@ packages:
   strip-ansi@6.0.1:
     resolution: {integrity: sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==}
     engines: {node: '>=8'}
-
-  strip-ansi@7.1.0:
-    resolution: {integrity: sha512-iq6eVVI64nQQTRYq2KtEg2d2uU7LElhTJwsH4YzIHZshxlgZms/wIc4VoDQTlG/IvVIrBKG06CrZnp0qv7hkcQ==}
-    engines: {node: '>=12'}
 
   strip-ansi@7.2.0:
     resolution: {integrity: sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w==}
@@ -1708,8 +1684,6 @@ snapshots:
 
   ansi-regex@5.0.1: {}
 
-  ansi-regex@6.0.1: {}
-
   ansi-regex@6.3.0: {}
 
   ansi-styles@3.2.1:
@@ -1719,8 +1693,6 @@ snapshots:
   ansi-styles@4.3.0:
     dependencies:
       color-convert: 2.0.1
-
-  ansi-styles@6.2.1: {}
 
   ansi-styles@6.2.3: {}
 
@@ -1897,8 +1869,6 @@ snapshots:
       '@esbuild/win32-ia32': 0.28.2
       '@esbuild/win32-x64': 0.28.2
 
-  escalade@3.1.2: {}
-
   escalade@3.2.0: {}
 
   escape-string-regexp@1.0.5: {}
@@ -1917,8 +1887,6 @@ snapshots:
     optional: true
 
   get-caller-file@2.0.5: {}
-
-  get-east-asian-width@1.2.0: {}
 
   get-east-asian-width@1.6.0: {}
 
@@ -1956,10 +1924,6 @@ snapshots:
   is-arrayish@0.2.1: {}
 
   is-fullwidth-code-point@3.0.0: {}
-
-  is-fullwidth-code-point@5.0.0:
-    dependencies:
-      get-east-asian-width: 1.2.0
 
   is-fullwidth-code-point@5.1.0:
     dependencies:
@@ -2060,17 +2024,17 @@ snapshots:
       ansi-escapes: 7.3.0
       cli-cursor: 5.0.0
       slice-ansi: 7.1.0
-      strip-ansi: 7.1.0
+      strip-ansi: 7.2.0
       wrap-ansi: 9.0.0
 
-  markdown-it-anchor@9.2.1(@types/markdown-it@14.1.2)(markdown-it@14.3.0):
+  markdown-it-anchor@9.2.1(@types/markdown-it@14.1.2)(markdown-it@14.3.1):
     dependencies:
       '@types/markdown-it': 14.1.2
-      markdown-it: 14.3.0
+      markdown-it: 14.3.1
 
   markdown-it-shift-headings@1.0.2: {}
 
-  markdown-it@14.3.0:
+  markdown-it@14.3.1:
     dependencies:
       argparse: 2.0.1
       entities: 4.5.0
@@ -2178,8 +2142,8 @@ snapshots:
 
   slice-ansi@7.1.0:
     dependencies:
-      ansi-styles: 6.2.1
-      is-fullwidth-code-point: 5.0.0
+      ansi-styles: 6.2.3
+      is-fullwidth-code-point: 5.1.0
 
   slice-ansi@8.0.0:
     dependencies:
@@ -2199,8 +2163,8 @@ snapshots:
   string-width@7.1.0:
     dependencies:
       emoji-regex: 10.3.0
-      get-east-asian-width: 1.2.0
-      strip-ansi: 7.1.0
+      get-east-asian-width: 1.6.0
+      strip-ansi: 7.2.0
 
   string-width@8.2.2:
     dependencies:
@@ -2210,10 +2174,6 @@ snapshots:
   strip-ansi@6.0.1:
     dependencies:
       ansi-regex: 5.0.1
-
-  strip-ansi@7.1.0:
-    dependencies:
-      ansi-regex: 6.0.1
 
   strip-ansi@7.2.0:
     dependencies:
@@ -2263,9 +2223,9 @@ snapshots:
 
   wrap-ansi@9.0.0:
     dependencies:
-      ansi-styles: 6.2.1
+      ansi-styles: 6.2.3
       string-width: 7.1.0
-      strip-ansi: 7.1.0
+      strip-ansi: 7.2.0
 
   y18n@5.0.8: {}
 
@@ -2276,7 +2236,7 @@ snapshots:
   yargs@17.7.2:
     dependencies:
       cliui: 8.0.1
-      escalade: 3.1.2
+      escalade: 3.2.0
       get-caller-file: 2.0.5
       require-directory: 2.1.1
       string-width: 4.2.3
