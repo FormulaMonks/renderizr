@@ -28,8 +28,9 @@ const STRUCTURIZR_RESOURCES = join(
 );
 
 /**
- * Every workspace whose views the engine has to draw. More join with #51:
- * the purpose-built fixture, the large views and the two invalid ones.
+ * Every workspace whose views the engine has to draw (spec 15.3): the
+ * Structurizr examples, the large landscape, the purpose-built workspace and
+ * the fixtures that cover one area of the spec each.
  */
 export const ACCEPTANCE_SET = [
     {
@@ -61,8 +62,7 @@ export const ACCEPTANCE_SET = [
         submodule: false,
     },
     {
-        // One stored-layout view per edge-routing case of spec 10, until #51's
-        // purpose-built fixture covers them.
+        // One stored-layout view per edge-routing case of spec 10.
         name: "Edge routing",
         source: join(REPO_ROOT, "test/__fixtures__/edge-routing.json"),
         submodule: false,
@@ -76,15 +76,13 @@ export const ACCEPTANCE_SET = [
         submodule: false,
     },
     {
-        // The filtered, custom and image views of spec 12, until #51's
-        // purpose-built fixture covers them.
+        // The filtered, custom and image views of spec 12.
         name: "View types",
         source: join(REPO_ROOT, "test/__fixtures__/view-types.json"),
         submodule: false,
     },
     {
-        // The dynamic and static animations of spec 11, until #51's
-        // purpose-built fixture covers them.
+        // The dynamic and static animations of spec 11.
         name: "Animation",
         source: join(REPO_ROOT, "test/__fixtures__/animation.json"),
         submodule: false,
@@ -99,11 +97,49 @@ export const ACCEPTANCE_SET = [
     },
     {
         // Elements, boundaries and relationships with none, one or several
-        // targets and their indicators (spec 6.1, 9.2, 10.9), until #51's
-        // purpose-built fixture covers them.
+        // targets and their indicators (spec 6.1, 9.2, 10.9).
         name: "Activation targets",
         source: join(REPO_ROOT, "test/__fixtures__/activation-targets.json"),
         submodule: false,
+    },
+    {
+        // The large fixture of spec 15.3: 300 elements, 600 relationships and
+        // 20 groups in one landscape, laid out automatically and stored,
+        // written by `test/support/large-landscape.js`. Spec 15.2 gives it
+        // 5 s where an ordinary view has 2 s.
+        name: "Large landscape",
+        source: join(REPO_ROOT, "test/__fixtures__/large-landscape.json"),
+        submodule: false,
+        readyWithinMs: 5000,
+    },
+    {
+        // The purpose-built workspace of spec 15.3: every shape, icon
+        // position, Dark style, opacity, border and routing mode, a filtered
+        // and a custom view, the enterprise boundary, a childless deployment
+        // node, several targets, parallel orders and an unplaced element.
+        // workspace.dsl beside it is the source; export.js regenerates it.
+        name: "Acceptance",
+        source: join(REPO_ROOT, "test/__fixtures__/acceptance/workspace.json"),
+        submodule: false,
+    },
+];
+
+/**
+ * The workspaces the build refuses (spec 13), each with the message it
+ * fails with. `test/acceptance-set.test.js` builds each one.
+ */
+export const INVALID_SET = [
+    {
+        name: "Fractional dynamic-view order",
+        source: join(REPO_ROOT, "test/__fixtures__/fractional-order.json"),
+        message:
+            'Dynamic view "SignIn": relationship "API → Database" has order "1.1"; orders must be integers.',
+    },
+    {
+        name: "Filtered view of a filtered view",
+        source: join(REPO_ROOT, "test/__fixtures__/filtered-twice.json"),
+        message:
+            'Filtered view "Twice" has filtered view "NoExternal" as its base; the base of a filtered view must not be filtered.',
     },
 ];
 

@@ -57,10 +57,21 @@ async function shootWorkspace(chrome, entry, scratch) {
     );
     const images = await mapLimit(shots, BROWSERS, async (shot, index) => {
         const path = join(scratch, `${index}-${entry.name}.png`);
-        await screenshot(chrome, viewUrl(shot.site, shot.key), path, {
-            offline: true,
-        });
-        return (await readFile(path)).toString("base64");
+        try {
+            await screenshot(chrome, viewUrl(shot.site, shot.key), path, {
+                offline: true,
+            });
+            return { image: (await readFile(path)).toString("base64") };
+        } catch (error) {
+            // One view an engine cannot draw in time (the vendored renderer on
+            // the large landscape) is a finding for the sheet, not a reason to
+            // lose every other screenshot.
+            const failure = String(error.message).split("\n")[0];
+            process.stderr.write(
+                `warning: ${entry.name} ${shot.key} (${ENGINES[shot.at].engine}): ${failure}\n`,
+            );
+            return { failure };
+        }
     });
     return keys.map((key, row) => ({
         key,
@@ -68,9 +79,14 @@ async function shootWorkspace(chrome, entry, scratch) {
     }));
 }
 
-const figure = (label, image) => `
-        <figure>
-          <img src="data:image/png;base64,${image}" alt="${escapeHtml(label)}" loading="lazy">
+const figure = (label, { image, failure }) => `
+        <figure>${
+            failure
+                ? `
+          <p class="failed">No screenshot: ${escapeHtml(failure)}</p>`
+                : `
+          <img src="data:image/png;base64,${image}" alt="${escapeHtml(label)}" loading="lazy">`
+        }
           <figcaption>${escapeHtml(label)}</figcaption>
         </figure>`;
 
@@ -106,7 +122,7 @@ const page = (sections, built) => `<!doctype html>
   figure { margin: 0; }
   img { width: 100%; border: 1px solid #ccc; }
   figcaption { font-size: 0.85rem; color: #555; }
-  .skipped { color: #a00; }
+  .skipped, .failed { color: #a00; }
 </style>
 </head>
 <body>

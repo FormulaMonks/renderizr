@@ -4,7 +4,9 @@ Date: 2026-10-02
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [14. Rank large views with tight-tree](0014-rank-large-views-with-tight-tree.md).
 
 Referenced by [9. Derive boundaries from their children](0009-derive-boundaries-from-their-children.md).
 
