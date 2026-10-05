@@ -32,6 +32,10 @@ _Avoid_: manual layout, fixed positions
 A view with no coordinates of its own, laid out at render time according to the rank direction and separations the view specifies.
 _Avoid_: auto layout, graph layout
 
+**Calculated layout**:
+A stored layout the editor computes by laying out the whole view once, the way an automatic layout would, and stores as the view's coordinates and vertices. The view stays a stored layout.
+_Avoid_: auto layout, auto-layout, automatic layout (that belongs to a view), suggested layout
+
 **Unplaced element**:
 An element in a stored layout that has no coordinates of its own, which the workspace records as the origin. The engine places it next to the elements it relates to; the rest of the view stays where it is.
 _Avoid_: new element, orphan, missing position
