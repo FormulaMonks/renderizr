@@ -14,9 +14,9 @@
  * the boxes it computes for boundaries are discarded and every boundary is
  * derived from its children afterwards (spec 8, ADR 9). A view of more than
  * `LARGE_VIEW_ELEMENTS` elements is ranked by tight-tree rather than
- * network simplex, which stops scaling there (ADR 14). Dagre's ordering
- * step runs here, through `customOrder`, so that it never drops a group
- * (see `order`).
+ * network simplex, which stops scaling there (ADR 14). When Dagre's
+ * ordering step leaves two elements in one place on a rank, it runs again
+ * here in a form that keeps every group on its ranks (see `order`).
  */
 
 import dagre from "@dagrejs/dagre";
@@ -238,7 +238,12 @@ export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
             edge.id,
         );
 
-    dagre.layout(g, { customOrder: order });
+    dagre.layout(g, {
+        customOrder: (layoutGraph, dagreOrder) => {
+            dagreOrder(layoutGraph, {});
+            if (!placesEachOnce(layoutGraph)) order(layoutGraph);
+        },
+    });
 
     const boxes = new Map<string, Bounds>();
     for (const node of graph.nodes) {
@@ -300,7 +305,10 @@ const ranked = (g: Graph, v: string) => g.node(v) as unknown as Ranked;
  *
  * Here a constraint that would close a cycle is left out, so every
  * boundary stays on its rank. On a view whose constraints never close one,
- * this orders every rank exactly as Dagre does.
+ * this orders every rank exactly as Dagre does. `layOut` runs it only after
+ * Dagre's own ordering step has left two elements in one place, so every
+ * view Dagre orders soundly keeps the layout it has always had, even one
+ * whose sweeps dropped a group on the way.
  */
 function order(g: Graph): void {
     const maxRank = util.maxRank(g);
@@ -341,6 +349,23 @@ function order(g: Graph): void {
         }
     }
     assignOrder(g, best);
+}
+
+/** Whether every rank of `g` gives each of its places to one node. */
+function placesEachOnce(g: Graph): boolean {
+    const counts = new Map<number, number>();
+    for (const v of g.nodes()) {
+        const { rank } = ranked(g, v);
+        if (rank !== undefined) counts.set(rank, (counts.get(rank) ?? 0) + 1);
+    }
+    // A layer is a sparse array: two nodes in one place leave a hole, which
+    // `every` would skip, so each index is read.
+    return util.buildLayerMatrix(g).every((layer, rank) => {
+        if (layer.length !== (counts.get(rank) ?? 0)) return false;
+        for (let i = 0; i < layer.length; i++)
+            if (layer[i] === undefined) return false;
+        return true;
+    });
 }
 
 /** One sweep of Dagre's ordering step over `layerGraphs`. */
