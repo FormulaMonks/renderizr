@@ -23,6 +23,8 @@ Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bump
 
 ## [2.0.0](https://github.com/FormulaMonks/renderizr/compare/v1.1.1...v2.0.0) (2026-10-05)
 
+Renderizr draws every diagram with its own React Flow engine, built to the [React Flow engine spec](https://github.com/FormulaMonks/renderizr/issues/39).
+
 
 ### ⚠ BREAKING CHANGES
 
@@ -30,7 +32,6 @@ Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bump
 
 ### Added
 
-* --engine react-flow draws a stored-layout view in a full-viewport shell ([#55](https://github.com/FormulaMonks/renderizr/issues/55)) ([57e5310](https://github.com/FormulaMonks/renderizr/commit/57e5310bfef25952cabc0381e3f94540f97e0594))
 * cut over to the React Flow engine ([#103](https://github.com/FormulaMonks/renderizr/issues/103)) ([5c311d8](https://github.com/FormulaMonks/renderizr/commit/5c311d87aa8a310fdfcff9b6092fd5b94a939635)), closes [#52](https://github.com/FormulaMonks/renderizr/issues/52)
 * **engine:** acceptance harness with engine report, geometry checks and contact sheet ([#58](https://github.com/FormulaMonks/renderizr/issues/58)) ([a980a14](https://github.com/FormulaMonks/renderizr/commit/a980a14b8b1f4aee5254e0a3377a299d562209e5)), closes [#42](https://github.com/FormulaMonks/renderizr/issues/42)
 * **layout:** complete the acceptance set and rank large views with tight-tree ([#83](https://github.com/FormulaMonks/renderizr/issues/83)) ([4c51549](https://github.com/FormulaMonks/renderizr/commit/4c515497136f7a782b4fef892df0300f5a2e3d58))
@@ -60,10 +61,9 @@ Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bump
 
 * add branch naming and verification rules ([#68](https://github.com/FormulaMonks/renderizr/issues/68)) ([268ea84](https://github.com/FormulaMonks/renderizr/commit/268ea843bbeacd08917a059ce845524b4782320f))
 * add coding standards and spell American English throughout ([#56](https://github.com/FormulaMonks/renderizr/issues/56)) ([a953462](https://github.com/FormulaMonks/renderizr/commit/a953462e721fa27c938b1d5a4cf187ec2331a363))
-* add the domain glossary and agent rules ([8581022](https://github.com/FormulaMonks/renderizr/commit/8581022685cb0a0f00b66adc94e595c2cc882e26))
+* add the domain glossary, agent rules and the React Flow engine ADRs ([8581022](https://github.com/FormulaMonks/renderizr/commit/8581022685cb0a0f00b66adc94e595c2cc882e26)) ([ad5dafe](https://github.com/FormulaMonks/renderizr/commit/ad5dafe007c9e6499b488de087d4a5e5dff77032))
 * **architecture:** record the React Flow engine decisions ([c402c1f](https://github.com/FormulaMonks/renderizr/commit/c402c1ffbdd5d4e17f15500ebf846332daa8686b))
 * ask every pull request for what, how to verify and notes ([#54](https://github.com/FormulaMonks/renderizr/issues/54)) ([777ecb4](https://github.com/FormulaMonks/renderizr/commit/777ecb4c0b99065322955d0c771028d0c81d6c39))
-* glossary, agent rules and the React Flow engine ADRs ([ad5dafe](https://github.com/FormulaMonks/renderizr/commit/ad5dafe007c9e6499b488de087d4a5e5dff77032))
 * prefer active voice and simple tenses ([#80](https://github.com/FormulaMonks/renderizr/issues/80)) ([823b844](https://github.com/FormulaMonks/renderizr/commit/823b84495486fead245130ef453749026fbb564d))
 * scope the documentation rules by path ([a018278](https://github.com/FormulaMonks/renderizr/commit/a018278d751f571363926cb26dd762110f7be639))
 
