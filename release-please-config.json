@@ -9,6 +9,7 @@
             "release-type": "node",
             "package-name": "@formula-monks/renderizr",
             "changelog-path": "CHANGELOG.md",
+            "extra-files": [".agents/skills/renderizr/SKILL.md"],
             "include-v-in-tag": true,
             "include-component-in-tag": false,
             "draft": false,
