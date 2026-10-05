@@ -1,0 +1,912 @@
+{
+    "id": 0,
+    "name": "Cyclic groups",
+    "description": "A grouped system landscape whose relationships run in cycles, reduced from a 300-element landscape: Dagre 1.1.8 drops some groups from a rank while it orders the view and throws in findType2Conflicts.",
+    "configuration": {},
+    "model": {
+        "people": [
+            {
+                "id": "15",
+                "tags": "Element,Person",
+                "name": "Person 15",
+                "relationships": [
+                    {
+                        "id": "57",
+                        "tags": "Relationship",
+                        "sourceId": "15",
+                        "destinationId": "8",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "33",
+                "tags": "Element,Person",
+                "name": "Person 33",
+                "relationships": [
+                    {
+                        "id": "73",
+                        "tags": "Relationship",
+                        "sourceId": "33",
+                        "destinationId": "34",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "39",
+                "tags": "Element,Person",
+                "name": "Person 39",
+                "relationships": [
+                    {
+                        "id": "77",
+                        "tags": "Relationship",
+                        "sourceId": "39",
+                        "destinationId": "15",
+                        "description": "Uses"
+                    },
+                    {
+                        "id": "78",
+                        "tags": "Relationship",
+                        "sourceId": "39",
+                        "destinationId": "12",
+                        "description": "Uses"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "1",
+                "tags": "Element,Software System",
+                "name": "System 1",
+                "relationships": [
+                    {
+                        "id": "40",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "3",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "2",
+                "tags": "Element,Software System",
+                "name": "System 2",
+                "relationships": [
+                    {
+                        "id": "41",
+                        "tags": "Relationship",
+                        "sourceId": "2",
+                        "destinationId": "5",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "3",
+                "tags": "Element,Software System",
+                "name": "System 3",
+                "relationships": [
+                    {
+                        "id": "42",
+                        "tags": "Relationship",
+                        "sourceId": "3",
+                        "destinationId": "4",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "4",
+                "tags": "Element,Software System",
+                "name": "System 4",
+                "relationships": [
+                    {
+                        "id": "43",
+                        "tags": "Relationship",
+                        "sourceId": "4",
+                        "destinationId": "5",
+                        "description": "Uses"
+                    },
+                    {
+                        "id": "44",
+                        "tags": "Relationship",
+                        "sourceId": "4",
+                        "destinationId": "2",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "5",
+                "tags": "Element,Software System",
+                "name": "System 5",
+                "group": "Group A",
+                "relationships": [
+                    {
+                        "id": "45",
+                        "tags": "Relationship",
+                        "sourceId": "5",
+                        "destinationId": "24",
+                        "description": "Uses"
+                    },
+                    {
+                        "id": "46",
+                        "tags": "Relationship",
+                        "sourceId": "5",
+                        "destinationId": "6",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "6",
+                "tags": "Element,Software System",
+                "name": "System 6",
+                "group": "Group A",
+                "relationships": [
+                    {
+                        "id": "48",
+                        "tags": "Relationship",
+                        "sourceId": "6",
+                        "destinationId": "7",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "7",
+                "tags": "Element,Software System",
+                "name": "System 7",
+                "relationships": [
+                    {
+                        "id": "47",
+                        "tags": "Relationship",
+                        "sourceId": "7",
+                        "destinationId": "2",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "8",
+                "tags": "Element,Software System",
+                "name": "System 8",
+                "group": "Group B",
+                "relationships": [
+                    {
+                        "id": "49",
+                        "tags": "Relationship",
+                        "sourceId": "8",
+                        "destinationId": "32",
+                        "description": "Uses"
+                    },
+                    {
+                        "id": "50",
+                        "tags": "Relationship",
+                        "sourceId": "8",
+                        "destinationId": "27",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "9",
+                "tags": "Element,Software System",
+                "name": "System 9",
+                "group": "Group B",
+                "relationships": [
+                    {
+                        "id": "51",
+                        "tags": "Relationship",
+                        "sourceId": "9",
+                        "destinationId": "33",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "10",
+                "tags": "Element,Software System",
+                "name": "System 10",
+                "group": "Group B",
+                "relationships": [
+                    {
+                        "id": "55",
+                        "tags": "Relationship",
+                        "sourceId": "10",
+                        "destinationId": "15",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "11",
+                "tags": "Element,Software System",
+                "name": "System 11",
+                "group": "Group B",
+                "relationships": [
+                    {
+                        "id": "56",
+                        "tags": "Relationship",
+                        "sourceId": "11",
+                        "destinationId": "14",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "12",
+                "tags": "Element,Software System",
+                "name": "System 12",
+                "relationships": [
+                    {
+                        "id": "52",
+                        "tags": "Relationship",
+                        "sourceId": "12",
+                        "destinationId": "13",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "13",
+                "tags": "Element,Software System",
+                "name": "System 13",
+                "relationships": [
+                    {
+                        "id": "53",
+                        "tags": "Relationship",
+                        "sourceId": "13",
+                        "destinationId": "11",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "14",
+                "tags": "Element,Software System",
+                "name": "System 14",
+                "relationships": [
+                    {
+                        "id": "54",
+                        "tags": "Relationship",
+                        "sourceId": "14",
+                        "destinationId": "20",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "16",
+                "tags": "Element,Software System",
+                "name": "System 16",
+                "relationships": [
+                    {
+                        "id": "58",
+                        "tags": "Relationship",
+                        "sourceId": "16",
+                        "destinationId": "17",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "17",
+                "tags": "Element,Software System",
+                "name": "System 17",
+                "group": "Group C",
+                "relationships": []
+            },
+            {
+                "id": "18",
+                "tags": "Element,Software System",
+                "name": "System 18",
+                "group": "Group C",
+                "relationships": [
+                    {
+                        "id": "59",
+                        "tags": "Relationship",
+                        "sourceId": "18",
+                        "destinationId": "30",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "19",
+                "tags": "Element,Software System",
+                "name": "System 19",
+                "group": "Group D",
+                "relationships": [
+                    {
+                        "id": "60",
+                        "tags": "Relationship",
+                        "sourceId": "19",
+                        "destinationId": "1",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "20",
+                "tags": "Element,Software System",
+                "name": "System 20",
+                "group": "Group D",
+                "relationships": [
+                    {
+                        "id": "61",
+                        "tags": "Relationship",
+                        "sourceId": "20",
+                        "destinationId": "16",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "21",
+                "tags": "Element,Software System",
+                "name": "System 21",
+                "relationships": [
+                    {
+                        "id": "62",
+                        "tags": "Relationship",
+                        "sourceId": "21",
+                        "destinationId": "25",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "22",
+                "tags": "Element,Software System",
+                "name": "System 22",
+                "relationships": [
+                    {
+                        "id": "63",
+                        "tags": "Relationship",
+                        "sourceId": "22",
+                        "destinationId": "6",
+                        "description": "Uses"
+                    },
+                    {
+                        "id": "64",
+                        "tags": "Relationship",
+                        "sourceId": "22",
+                        "destinationId": "23",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "23",
+                "tags": "Element,Software System",
+                "name": "System 23",
+                "relationships": [
+                    {
+                        "id": "65",
+                        "tags": "Relationship",
+                        "sourceId": "23",
+                        "destinationId": "25",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "24",
+                "tags": "Element,Software System",
+                "name": "System 24",
+                "group": "Group E",
+                "relationships": [
+                    {
+                        "id": "66",
+                        "tags": "Relationship",
+                        "sourceId": "24",
+                        "destinationId": "21",
+                        "description": "Uses"
+                    },
+                    {
+                        "id": "67",
+                        "tags": "Relationship",
+                        "sourceId": "24",
+                        "destinationId": "36",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "25",
+                "tags": "Element,Software System",
+                "name": "System 25",
+                "group": "Group E",
+                "relationships": [
+                    {
+                        "id": "68",
+                        "tags": "Relationship",
+                        "sourceId": "25",
+                        "destinationId": "26",
+                        "description": "Uses"
+                    },
+                    {
+                        "id": "69",
+                        "tags": "Relationship",
+                        "sourceId": "25",
+                        "destinationId": "22",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "26",
+                "tags": "Element,Software System",
+                "name": "System 26",
+                "group": "Group E",
+                "relationships": []
+            },
+            {
+                "id": "27",
+                "tags": "Element,Software System",
+                "name": "System 27",
+                "group": "Group F",
+                "relationships": []
+            },
+            {
+                "id": "28",
+                "tags": "Element,Software System",
+                "name": "System 28",
+                "group": "Group F",
+                "relationships": [
+                    {
+                        "id": "70",
+                        "tags": "Relationship",
+                        "sourceId": "28",
+                        "destinationId": "35",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "29",
+                "tags": "Element,Software System",
+                "name": "System 29",
+                "group": "Group F",
+                "relationships": []
+            },
+            {
+                "id": "30",
+                "tags": "Element,Software System",
+                "name": "System 30",
+                "relationships": [
+                    {
+                        "id": "72",
+                        "tags": "Relationship",
+                        "sourceId": "30",
+                        "destinationId": "31",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "31",
+                "tags": "Element,Software System",
+                "name": "System 31",
+                "relationships": [
+                    {
+                        "id": "71",
+                        "tags": "Relationship",
+                        "sourceId": "31",
+                        "destinationId": "29",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "32",
+                "tags": "Element,Software System",
+                "name": "System 32",
+                "relationships": []
+            },
+            {
+                "id": "34",
+                "tags": "Element,Software System",
+                "name": "System 34",
+                "group": "Group G",
+                "relationships": []
+            },
+            {
+                "id": "35",
+                "tags": "Element,Software System",
+                "name": "System 35",
+                "group": "Group G",
+                "relationships": [
+                    {
+                        "id": "74",
+                        "tags": "Relationship",
+                        "sourceId": "35",
+                        "destinationId": "37",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "36",
+                "tags": "Element,Software System",
+                "name": "System 36",
+                "group": "Group G",
+                "relationships": [
+                    {
+                        "id": "75",
+                        "tags": "Relationship",
+                        "sourceId": "36",
+                        "destinationId": "38",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "37",
+                "tags": "Element,Software System",
+                "name": "System 37",
+                "group": "Group G",
+                "relationships": [
+                    {
+                        "id": "76",
+                        "tags": "Relationship",
+                        "sourceId": "37",
+                        "destinationId": "39",
+                        "description": "Uses"
+                    }
+                ]
+            },
+            {
+                "id": "38",
+                "tags": "Element,Software System",
+                "name": "System 38",
+                "group": "Group G",
+                "relationships": []
+            }
+        ]
+    },
+    "documentation": {},
+    "views": {
+        "systemLandscapeViews": [
+            {
+                "key": "CyclicGroups",
+                "order": 1,
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "enterpriseBoundaryVisible": false,
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "2",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "3",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "4",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "5",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "6",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "7",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "8",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "9",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "10",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "11",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "12",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "13",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "14",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "15",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "16",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "17",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "18",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "19",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "20",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "21",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "22",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "23",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "24",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "25",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "26",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "27",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "28",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "29",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "30",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "31",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "32",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "33",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "34",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "35",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "36",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "37",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "38",
+                        "x": 0,
+                        "y": 0
+                    },
+                    {
+                        "id": "39",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "40"
+                    },
+                    {
+                        "id": "41"
+                    },
+                    {
+                        "id": "42"
+                    },
+                    {
+                        "id": "43"
+                    },
+                    {
+                        "id": "44"
+                    },
+                    {
+                        "id": "45"
+                    },
+                    {
+                        "id": "46"
+                    },
+                    {
+                        "id": "47"
+                    },
+                    {
+                        "id": "48"
+                    },
+                    {
+                        "id": "49"
+                    },
+                    {
+                        "id": "50"
+                    },
+                    {
+                        "id": "51"
+                    },
+                    {
+                        "id": "52"
+                    },
+                    {
+                        "id": "53"
+                    },
+                    {
+                        "id": "54"
+                    },
+                    {
+                        "id": "55"
+                    },
+                    {
+                        "id": "56"
+                    },
+                    {
+                        "id": "57"
+                    },
+                    {
+                        "id": "58"
+                    },
+                    {
+                        "id": "59"
+                    },
+                    {
+                        "id": "60"
+                    },
+                    {
+                        "id": "61"
+                    },
+                    {
+                        "id": "62"
+                    },
+                    {
+                        "id": "63"
+                    },
+                    {
+                        "id": "64"
+                    },
+                    {
+                        "id": "65"
+                    },
+                    {
+                        "id": "66"
+                    },
+                    {
+                        "id": "67"
+                    },
+                    {
+                        "id": "68"
+                    },
+                    {
+                        "id": "69"
+                    },
+                    {
+                        "id": "70"
+                    },
+                    {
+                        "id": "71"
+                    },
+                    {
+                        "id": "72"
+                    },
+                    {
+                        "id": "73"
+                    },
+                    {
+                        "id": "74"
+                    },
+                    {
+                        "id": "75"
+                    },
+                    {
+                        "id": "76"
+                    },
+                    {
+                        "id": "77"
+                    },
+                    {
+                        "id": "78"
+                    }
+                ],
+                "title": "Cyclic groups, automatic layout"
+            }
+        ],
+        "configuration": {
+            "branding": {},
+            "styles": {},
+            "terminology": {}
+        }
+    }
+}

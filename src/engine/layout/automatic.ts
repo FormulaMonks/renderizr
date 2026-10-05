@@ -14,10 +14,18 @@
  * the boxes it computes for boundaries are discarded and every boundary is
  * derived from its children afterwards (spec 8, ADR 9). A view of more than
  * `LARGE_VIEW_ELEMENTS` elements is ranked by tight-tree rather than
- * network simplex, which stops scaling there (ADR 14).
+ * network simplex, which stops scaling there (ADR 14). When Dagre's
+ * ordering step leaves two elements in one place on a rank, it runs again
+ * here in a form that keeps every group on its ranks (see `order`).
  */
 
 import dagre from "@dagrejs/dagre";
+import addSubgraphConstraints from "@dagrejs/dagre/lib/order/add-subgraph-constraints";
+import buildLayerGraph from "@dagrejs/dagre/lib/order/build-layer-graph";
+import crossCount from "@dagrejs/dagre/lib/order/cross-count";
+import initOrder from "@dagrejs/dagre/lib/order/init-order";
+import sortSubgraph from "@dagrejs/dagre/lib/order/sort-subgraph";
+import util from "@dagrejs/dagre/lib/util";
 
 import type { AutomaticLayoutSettings } from "../../model/index";
 import type { Bounds, Size } from "../geometry/bounds";
@@ -230,7 +238,12 @@ export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
             edge.id,
         );
 
-    dagre.layout(g);
+    dagre.layout(g, {
+        customOrder: (layoutGraph, dagreOrder) => {
+            dagreOrder(layoutGraph, {});
+            if (!placesEachOnce(layoutGraph)) order(layoutGraph);
+        },
+    });
 
     const boxes = new Map<string, Bounds>();
     for (const node of graph.nodes) {
@@ -261,6 +274,138 @@ export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
         );
     }
     return { boxes, edges: routes };
+}
+
+type Graph = dagre.graphlib.Graph;
+/** What Dagre keeps on each node while it orders them. */
+type Ranked = {
+    rank?: number;
+    minRank?: number;
+    maxRank?: number;
+    order: number;
+};
+const ranked = (g: Graph, v: string) => g.node(v) as unknown as Ranked;
+
+/**
+ * Dagre's ordering step (`lib/order/index.js` in 1.1.8), step for step and
+ * with Dagre's own pieces, with one change: the constraint graph never
+ * closes a cycle.
+ *
+ * Each sweep keeps a constraint graph between sibling boundaries: once a
+ * rank puts one boundary left of another, later ranks keep it there. Dagre
+ * adds constraints one rank at a time, between neighbors on that rank
+ * only, and ranks hold different sets of boundaries, so on a grouped
+ * view whose relationships run in cycles the constraints can close a
+ * cycle. Dagre's
+ * `resolveConflicts` walks the constraints in topological order and never
+ * reaches the boundaries on a cycle, so it drops them from the rank. Their
+ * elements keep the order of an earlier sweep, two elements end up in the
+ * same place on a rank, and Dagre throws `Cannot read properties of
+ * undefined (reading 'dummy')` in `findType2Conflicts`.
+ *
+ * Here a constraint that would close a cycle is left out, so every
+ * boundary stays on its rank. On a view whose constraints never close one,
+ * this orders every rank exactly as Dagre does. `layOut` runs it only after
+ * Dagre's own ordering step has left two elements in one place, so every
+ * view Dagre orders soundly keeps the layout it has always had, even one
+ * whose sweeps dropped a group on the way.
+ */
+function order(g: Graph): void {
+    const maxRank = util.maxRank(g);
+    const nodesByRank = new Map<number, string[]>();
+    const addToRank = (rank: number, v: string) => {
+        const nodes = nodesByRank.get(rank);
+        if (nodes) nodes.push(v);
+        else nodesByRank.set(rank, [v]);
+    };
+    for (const v of g.nodes()) {
+        const { rank, minRank, maxRank: last } = ranked(g, v);
+        if (typeof rank === "number") addToRank(rank, v);
+        if (typeof minRank === "number" && typeof last === "number")
+            for (let r = minRank; r <= last; r++)
+                if (r !== rank) addToRank(r, v);
+    }
+    const layerGraphs = (
+        ranks: number[],
+        relationship: "inEdges" | "outEdges",
+    ) =>
+        ranks.map((rank) =>
+            buildLayerGraph(g, rank, relationship, nodesByRank.get(rank) ?? []),
+        );
+    const down = layerGraphs(util.range(1, maxRank + 1), "inEdges");
+    const up = layerGraphs(util.range(maxRank - 1, -1, -1), "outEdges");
+
+    assignOrder(g, initOrder(g));
+    let bestCrossings = Number.POSITIVE_INFINITY;
+    let best: string[][] = [];
+    for (let i = 0, lastBest = 0; lastBest < 4; ++i, ++lastBest) {
+        sweep(i % 2 ? down : up, i % 4 >= 2);
+        const layering = util.buildLayerMatrix(g);
+        const crossings = crossCount(g, layering);
+        if (crossings < bestCrossings) {
+            lastBest = 0;
+            best = layering;
+            bestCrossings = crossings;
+        }
+    }
+    assignOrder(g, best);
+}
+
+/** Whether every rank of `g` gives each of its places to one node. */
+function placesEachOnce(g: Graph): boolean {
+    const counts = new Map<number, number>();
+    for (const v of g.nodes()) {
+        const { rank } = ranked(g, v);
+        if (rank !== undefined) counts.set(rank, (counts.get(rank) ?? 0) + 1);
+    }
+    // A layer is a sparse array: two nodes in one place leave a hole, which
+    // `every` would skip, so each index is read.
+    return util.buildLayerMatrix(g).every((layer, rank) => {
+        if (layer.length !== (counts.get(rank) ?? 0)) return false;
+        for (let i = 0; i < layer.length; i++)
+            if (layer[i] === undefined) return false;
+        return true;
+    });
+}
+
+/** One sweep of Dagre's ordering step over `layerGraphs`. */
+function sweep(layerGraphs: Graph[], biasRight: boolean): void {
+    const constraints = new dagre.graphlib.Graph();
+    const setEdge = constraints.setEdge.bind(constraints);
+    constraints.setEdge = ((v: string, w: string) =>
+        reaches(constraints, w, v)
+            ? constraints
+            : setEdge(v, w)) as typeof constraints.setEdge;
+    for (const lg of layerGraphs) {
+        const { root } = lg.graph() as { root: string };
+        const { vs } = sortSubgraph(lg, root, constraints, biasRight);
+        vs.forEach((v, i) => {
+            ranked(lg, v).order = i;
+        });
+        addSubgraphConstraints(lg, constraints, vs);
+    }
+}
+
+/** Whether a path in `g` leads from `from` to `to`. */
+function reaches(g: Graph, from: string, to: string): boolean {
+    const seen = new Set([from]);
+    const stack = [from];
+    for (let v = stack.pop(); v !== undefined; v = stack.pop()) {
+        if (v === to) return true;
+        for (const w of g.successors(v) ?? [])
+            if (!seen.has(w)) {
+                seen.add(w);
+                stack.push(w);
+            }
+    }
+    return false;
+}
+
+function assignOrder(g: Graph, layering: string[][]): void {
+    for (const layer of layering)
+        layer.forEach((v, i) => {
+            ranked(g, v).order = i;
+        });
 }
 
 /**

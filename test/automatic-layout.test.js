@@ -5,7 +5,7 @@
  */
 
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { REPO_ROOT } from "../scripts/__fixtures__/helpers.js";
 import {
@@ -21,6 +21,7 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 const { LARGE_VIEW_ELEMENTS, layOut, layoutOrder, rankerFor, simplify } =
     await importSrc("engine/layout/automatic");
 const { WorkspaceModel } = await importSrc("model/index");
+const { buildGraph } = await importSrc("engine/react-flow/graph");
 
 const SETTINGS = {
     rankDirection: "TopBottom",
@@ -357,6 +358,33 @@ test("elements of one boundary are kept together, apart from the rest", () => {
         c.y >= boundary.top &&
         c.y + c.height <= boundary.bottom;
     assert.ok(!inside, "c was laid out inside a and b's boundary");
+});
+
+test("a grouped view whose relationships run in cycles keeps every group on its ranks", () => {
+    // Ordering this view's ranks, Dagre's own ordering step closes a cycle
+    // between groups, drops the groups on it from a rank and throws
+    // `Cannot read properties of undefined (reading 'dummy')`.
+    const workspace = JSON.parse(
+        readFileSync(
+            new URL("./__fixtures__/cyclic-groups.json", import.meta.url),
+            "utf-8",
+        ),
+    );
+    const graph = buildGraph(
+        new WorkspaceModel(workspace),
+        "CyclicGroups",
+        "light",
+        { descriptions: true, technologies: true },
+    );
+    const view = workspace.views.systemLandscapeViews[0];
+    assert.equal(
+        graph.elements.length,
+        view.elements.length,
+        "an element was not laid out",
+    );
+    for (const [i, a] of graph.elements.entries())
+        for (const b of graph.elements.slice(i + 1))
+            assert.ok(!overlaps(a, b), `${a.id} overlaps ${b.id}`);
 });
 
 /* ------------------------------------------------------------------- edges */
