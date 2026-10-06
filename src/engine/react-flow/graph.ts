@@ -553,6 +553,8 @@ export function buildGraph(
      * keep their routes from `previous`; the rest route with no obstacles.
      */
     drag?: { moved: ReadonlySet<string>; previous: Graph },
+    /** Prototype (#98): the vertices edit mode has given edges, by edge key. */
+    edgeVertices?: ReadonlyMap<string, Point[]>,
 ): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
@@ -750,7 +752,7 @@ export function buildGraph(
             targetId: to.box.id,
             routing: routingModeOf(placed.routing ?? style.routing),
             jump: placed.jump ?? style.jump ?? false,
-            vertices: placed.vertices ?? [],
+            vertices: edgeVertices?.get(key) ?? placed.vertices ?? [],
             ...(placed.order !== undefined && { order: placed.order }),
             ...text,
             ...(label && { label }),

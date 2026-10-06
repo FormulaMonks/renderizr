@@ -23,6 +23,10 @@ export const EDITING =
     typeof location !== "undefined" &&
     new URLSearchParams(location.search).has("edit");
 
+/** `?frozen`: freeze other edges' routes while a drag runs (round one). */
+export const FROZEN =
+    EDITING && new URLSearchParams(location.search).has("frozen");
+
 /** Structurizr Local's nudge grid. */
 export const GRID = 5;
 /** How close, in screen pixels, an edge must come to snap to a guide. */
@@ -239,5 +243,115 @@ event→commit              p50 ${pct(commits, 0.5)} p95 ${pct(commits, 0.95)} m
 geometry per frame        p50 ${pct(geometry, 0.5)} p95 ${pct(geometry, 0.95)} ms
 drop (full routing)       last ${stats.drops.at(-1)?.toFixed(0) ?? "–"} ms`}
         </div>
+    );
+}
+
+/* ---------------- vertices */
+
+const distanceToSegment = (p: Point, a: Point, b: Point) => {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = dx * dx + dy * dy;
+    const t = length
+        ? Math.max(
+              0,
+              Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / length),
+          )
+        : 0;
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+};
+
+/**
+ * `vertices` with `point` added where it splits the leg of the edge it is
+ * nearest: the legs run from the source end through each vertex to the
+ * target end, as Structurizr Local adds one on a double-click.
+ */
+export function insertVertex(
+    vertices: Point[],
+    source: Point,
+    target: Point,
+    point: Point,
+): Point[] {
+    const legs = [source, ...vertices, target];
+    let best = 0;
+    let nearest = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < legs.length - 1; i++) {
+        const d = distanceToSegment(point, legs[i], legs[i + 1]);
+        if (d < nearest) {
+            nearest = d;
+            best = i;
+        }
+    }
+    return [...vertices.slice(0, best), point, ...vertices.slice(best)];
+}
+
+export type VertexHandle = { edge: string; index: number; at: Point };
+
+type HandlesProps = {
+    handles: VertexHandle[];
+    zoom: number;
+    toFlow: (client: Point) => Point;
+    onMove: (handle: VertexHandle, to: Point, done: boolean) => void;
+    onRemove: (handle: VertexHandle) => void;
+};
+
+/**
+ * A handle on every vertex: a drag moves it, a double-click removes it.
+ * Drawn the same size on screen at any zoom.
+ */
+export function VertexHandles({
+    handles,
+    zoom,
+    toFlow,
+    onMove,
+    onRemove,
+}: HandlesProps) {
+    if (!handles.length) return null;
+    const size = 10 / zoom;
+    return (
+        <ViewportPortal>
+            {handles.map((handle) => (
+                <div
+                    key={`${handle.edge}:${handle.index}`}
+                    className="nodrag nopan"
+                    data-vertex={`${handle.edge}:${handle.index}`}
+                    style={{
+                        position: "absolute",
+                        zIndex: 1001,
+                        left: handle.at.x - size / 2,
+                        top: handle.at.y - size / 2,
+                        width: size,
+                        height: size,
+                        borderRadius: "50%",
+                        boxSizing: "border-box",
+                        background: "#ffffff",
+                        border: `${2 / zoom}px solid #e5007a`,
+                        cursor: "move",
+                        pointerEvents: "all",
+                    }}
+                    onPointerDown={(event) => {
+                        event.stopPropagation();
+                        const at = (e: PointerEvent) =>
+                            toFlow({ x: e.clientX, y: e.clientY });
+                        let moved = false;
+                        const move = (e: PointerEvent) => {
+                            moved = true;
+                            onMove(handle, at(e), false);
+                        };
+                        const up = (e: PointerEvent) => {
+                            window.removeEventListener("pointermove", move);
+                            window.removeEventListener("pointerup", up);
+                            if (moved) onMove(handle, at(e), true);
+                        };
+                        window.addEventListener("pointermove", move);
+                        window.addEventListener("pointerup", up);
+                    }}
+                    onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        onRemove(handle);
+                    }}
+                />
+            ))}
+        </ViewportPortal>
     );
 }

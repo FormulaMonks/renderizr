@@ -104,6 +104,7 @@ import {
     type FocusItem,
     fitMaxZoom,
     type Graph,
+    type Point,
     type GraphImage,
     type ImageState,
     imageBox,
@@ -118,13 +119,18 @@ import {
 import styles from "./island.module.css";
 import {
     EDITING,
+    FROZEN,
+    GRID,
     GUIDE_REACH,
     type Guide,
     Guides,
+    insertVertex,
     Readout,
     snap,
     stats,
     useFrameLatency,
+    type VertexHandle,
+    VertexHandles,
 } from "./edit-prototype";
 
 export type IslandState = {
@@ -977,10 +983,11 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
             aria-hidden={hidden || undefined}
             style={presenceStyle(presence, transition)}
         >
-            {active && !hidden && (
+            {(active || EDITING) && !hidden && (
                 // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard reaches the relationship through its label
                 <path
                     data-hit-stroke=""
+                    data-edge-key={id}
                     className={styles.hitStroke}
                     d={data.path}
                     fill="none"
@@ -1373,12 +1380,14 @@ function Canvas({
         drag: { moved: Set<string>; previous: Graph } | null;
         selected: Set<string>;
         guides: Guide[];
+        vertices: Map<string, { x: number; y: number }[]>;
     }>({
         key: viewKey,
         positions: null,
         drag: null,
         selected: new Set(),
         guides: [],
+        vertices: new Map(),
     });
     if (edit.key !== viewKey)
         setEdit({
@@ -1387,7 +1396,9 @@ function Canvas({
             drag: null,
             selected: new Set(),
             guides: [],
+            vertices: new Map(),
         });
+    const edgeVertices = edit.key === viewKey ? edit.vertices : undefined;
     const positions = edit.key === viewKey ? edit.positions : null;
     const drag = edit.key === viewKey ? edit.drag : null;
     // A new step is not a new graph: nothing is laid out again (spec 11).
@@ -1400,14 +1411,26 @@ function Canvas({
             labels,
             measure,
             positions ?? undefined,
-            drag ?? undefined,
+            // Every frame routes for real unless `?frozen` asks for the
+            // large-view cut the first round measured.
+            FROZEN ? drag ?? undefined : undefined,
+            edgeVertices,
         );
         if (positions)
             (drag ? stats.geometry : stats.drops).push(
                 performance.now() - start,
             );
         return built;
-    }, [model, viewKey, scheme, labels, measure, positions, drag]);
+    }, [
+        model,
+        viewKey,
+        scheme,
+        labels,
+        measure,
+        positions,
+        drag,
+        edgeVertices,
+    ]);
     useFrameLatency(graph);
     useEffect(() => {
         if (!EDITING || !graph || graph.image || graph.error) return;
@@ -1472,7 +1495,7 @@ function Canvas({
             moved.current = true;
         }
         setEdit((e) => {
-            let { selected, positions, drag, guides } = e;
+            let { selected, positions, drag, guides, vertices } = e;
             if (selecting.length) {
                 selected = new Set(selected);
                 for (const c of selecting)
@@ -1501,6 +1524,30 @@ function Canvas({
                     if (x === 0 && y === 0) x = 5;
                     positions.set(id, { x, y });
                 }
+                // #96: a relationship whose ends both move by the same
+                // amount takes its vertices along.
+                const shift = (id: string) => {
+                    const before = sizes.get(id);
+                    const after = positions?.get(id);
+                    return before && after && ids.has(id)
+                        ? { x: after.x - before.x, y: after.y - before.y }
+                        : undefined;
+                };
+                for (const line of graph.edges) {
+                    if (!line.vertices.length) continue;
+                    const a = shift(line.sourceId);
+                    const b = shift(line.targetId);
+                    if (!a || !b || a.x !== b.x || a.y !== b.y) continue;
+                    if (!a.x && !a.y) continue;
+                    if (vertices === e.vertices) vertices = new Map(vertices);
+                    vertices.set(
+                        line.key,
+                        line.vertices.map((v) => ({
+                            x: v.x + a.x,
+                            y: v.y + a.y,
+                        })),
+                    );
+                }
                 drag = drag ?? { moved: ids, previous: graph };
                 guides = snapped.guides;
             }
@@ -1508,7 +1555,7 @@ function Canvas({
                 drag = null;
                 guides = [];
             }
-            return { ...e, selected, positions, drag, guides };
+            return { ...e, selected, positions, drag, guides, vertices };
         });
     };
     // biome-ignore lint/correctness/useExhaustiveDependencies: `keep` reads a ref
@@ -1802,9 +1849,93 @@ function Canvas({
         flow.setViewport(panned);
     };
 
+    /** Prototype (#98): a vertex where a double-click lands on an edge. */
+    const onDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+        if (!EDITING || !graph) return;
+        const hit = (event.target as Element).closest("[data-edge-key]");
+        const line = graph.edges.find(
+            (e) => e.key === hit?.getAttribute("data-edge-key"),
+        );
+        if (!line) return;
+        event.stopPropagation();
+        const at = flow.screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
+        });
+        const point = {
+            x: Math.round(at.x / GRID) * GRID,
+            y: Math.round(at.y / GRID) * GRID,
+        };
+        const vertices = insertVertex(
+            line.vertices,
+            line.route[0],
+            line.route[line.route.length - 1],
+            point,
+        );
+        setEdit((e) => ({
+            ...e,
+            vertices: new Map(e.vertices).set(line.key, vertices),
+        }));
+    };
+
+    const handles: VertexHandle[] = EDITING
+        ? (graph?.edges ?? []).flatMap((line) =>
+              line.vertices.map((at, index) => ({ edge: line.key, index, at })),
+          )
+        : [];
+
+    /** Change one edge's vertices, from the ones it is drawn with now. */
+    const setVertices = (
+        edge: string,
+        change: (vertices: Point[]) => Point[],
+        guides: Guide[],
+    ) => {
+        const line = graph?.edges.find((e) => e.key === edge);
+        if (!line) return;
+        setEdit((e) => ({
+            ...e,
+            guides,
+            vertices: new Map(e.vertices).set(edge, change(line.vertices)),
+        }));
+    };
+
+    const onVertexMove = (handle: VertexHandle, to: Point, done: boolean) => {
+        const line = graph?.edges.find((e) => e.key === handle.edge);
+        if (!graph || !line) return;
+        // A vertex snaps into line with its neighbors on the route and with
+        // the elements around it, or else to the grid.
+        const legs = [line.route[0], ...line.vertices, line.route.at(-1)!];
+        const neighbors = [legs[handle.index], legs[handle.index + 2]].map(
+            (p) => ({ ...p, width: 0, height: 0 }),
+        );
+        const snapped = snap(
+            [{ ...to, width: 0, height: 0 }],
+            [...neighbors, ...graph.elements],
+            GUIDE_REACH / flow.getZoom(),
+        );
+        const point = {
+            x: Math.round(to.x + snapped.dx),
+            y: Math.round(to.y + snapped.dy),
+        };
+        setVertices(
+            handle.edge,
+            (vertices) =>
+                vertices.map((v, i) => (i === handle.index ? point : v)),
+            done ? [] : snapped.guides,
+        );
+    };
+
+    const onVertexRemove = (handle: VertexHandle) =>
+        setVertices(
+            handle.edge,
+            (vertices) => vertices.filter((_, i) => i !== handle.index),
+            [],
+        );
+
     return (
         <div
             ref={wrapper}
+            onDoubleClick={onDoubleClick}
             data-view-key={key ?? ""}
             data-ready={readyFor(key, readyKey) ? "true" : "false"}
             // One focusable region, labeled with the view's title (spec 6.2).
@@ -1881,6 +2012,15 @@ function Canvas({
                             }}
                         >
                             {EDITING && <Guides guides={edit.guides} />}
+                            {EDITING && (
+                                <VertexHandles
+                                    handles={handles}
+                                    zoom={zoom}
+                                    toFlow={flow.screenToFlowPosition}
+                                    onMove={onVertexMove}
+                                    onRemove={onVertexRemove}
+                                />
+                            )}
                         </ReactFlow>
                     )}
                 </CanvasBackground.Provider>
