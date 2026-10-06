@@ -555,6 +555,8 @@ export function buildGraph(
     drag?: { moved: ReadonlySet<string>; previous: Graph },
     /** Prototype (#98): the vertices edit mode has given edges, by edge key. */
     edgeVertices?: ReadonlyMap<string, Point[]>,
+    /** Prototype (#98): where edit mode has put edges' labels, by edge key. */
+    edgePositions?: ReadonlyMap<string, number>,
 ): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
@@ -758,8 +760,9 @@ export function buildGraph(
             ...(label && { label }),
             targets,
             name: `${from.box.name} → ${to.box.name}${said ? `: ${said}` : ""}`,
-            storedPosition: placed.position,
-            startPosition: placed.position ?? style.position,
+            storedPosition: edgePositions?.get(key) ?? placed.position,
+            startPosition:
+                edgePositions?.get(key) ?? placed.position ?? style.position,
             fontSize: style.fontSize,
             labelWidth: style.width,
             color: style.color,

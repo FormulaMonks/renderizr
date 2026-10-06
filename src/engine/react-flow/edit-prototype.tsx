@@ -16,7 +16,13 @@
  */
 
 import { ViewportPortal } from "@xyflow/react";
-import { useEffect, useLayoutEffect, useState } from "react";
+import {
+    createContext,
+    useContext,
+    useEffect,
+    useLayoutEffect,
+    useState,
+} from "react";
 import type { Bounds, Point } from "./graph";
 
 export const EDITING =
@@ -354,4 +360,73 @@ export function VertexHandles({
             ))}
         </ViewportPortal>
     );
+}
+
+/* ---------------- labels */
+
+/**
+ * How far along `route`, in whole percent of its length as Structurizr
+ * stores a relationship's `position`, the point nearest `point` lies.
+ */
+export function positionAlong(route: Point[], point: Point): number {
+    let total = 0;
+    let best = { distance: Number.POSITIVE_INFINITY, along: 0 };
+    for (let i = 1; i < route.length; i++) {
+        const a = route[i - 1];
+        const b = route[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const length = Math.hypot(dx, dy);
+        const t = length
+            ? Math.max(
+                  0,
+                  Math.min(
+                      1,
+                      ((point.x - a.x) * dx + (point.y - a.y) * dy) /
+                          (length * length),
+                  ),
+              )
+            : 0;
+        const d = Math.hypot(
+            point.x - (a.x + t * dx),
+            point.y - (a.y + t * dy),
+        );
+        if (d < best.distance)
+            best = { distance: d, along: total + t * length };
+        total += length;
+    }
+    return total ? Math.round((best.along / total) * 100) : 50;
+}
+
+/**
+ * What an edge's label calls while the author drags it: the edge's key,
+ * where the pointer is in client coordinates and whether the drag is over.
+ */
+export const LabelDrag = createContext<
+    ((edge: string, client: Point, done: boolean) => void) | null
+>(null);
+
+/** Pointer handlers that drag a label along its edge, in edit mode only. */
+export function useLabelDrag(edge: string) {
+    const drag = useContext(LabelDrag);
+    if (!EDITING || !drag) return {};
+    return {
+        className: "nodrag nopan",
+        style: { cursor: "grab", pointerEvents: "all" as const },
+        onPointerDown: (event: React.PointerEvent) => {
+            event.stopPropagation();
+            let moved = false;
+            const move = (e: PointerEvent) => {
+                moved = true;
+                drag(edge, { x: e.clientX, y: e.clientY }, false);
+            };
+            const up = (e: PointerEvent) => {
+                window.removeEventListener("pointermove", move);
+                window.removeEventListener("pointerup", up);
+                if (moved) drag(edge, { x: e.clientX, y: e.clientY }, true);
+            };
+            window.addEventListener("pointermove", move);
+            window.addEventListener("pointerup", up);
+        },
+    };
 }

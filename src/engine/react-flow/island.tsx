@@ -124,10 +124,13 @@ import {
     type Guide,
     Guides,
     insertVertex,
+    LabelDrag,
+    positionAlong,
     Readout,
     snap,
     stats,
     useFrameLatency,
+    useLabelDrag,
     type VertexHandle,
     VertexHandles,
 } from "./edit-prototype";
@@ -963,6 +966,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
         data?.name ?? "",
         data && { type: "relationship", id: data.id },
     );
+    const labelDrag = useLabelDrag(id);
     if (!data) return null;
     const {
         thickness,
@@ -1023,6 +1027,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     <div
                         data-relationship-label={data.id}
                         {...target}
+                        {...labelDrag}
                         inert={hidden || undefined}
                         style={{
                             ...presenceStyle(presence, transition),
@@ -1042,6 +1047,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                                 : active
                                   ? "all"
                                   : undefined,
+                            ...labelDrag.style,
                         }}
                     >
                         {labelIndicators && (
@@ -1380,6 +1386,7 @@ function Canvas({
         selected: Set<string>;
         guides: Guide[];
         vertices: Map<string, { x: number; y: number }[]>;
+        labels: Map<string, number>;
     }>({
         key: viewKey,
         positions: null,
@@ -1387,6 +1394,7 @@ function Canvas({
         selected: new Set(),
         guides: [],
         vertices: new Map(),
+        labels: new Map(),
     });
     if (edit.key !== viewKey)
         setEdit({
@@ -1396,8 +1404,10 @@ function Canvas({
             selected: new Set(),
             guides: [],
             vertices: new Map(),
+            labels: new Map(),
         });
     const edgeVertices = edit.key === viewKey ? edit.vertices : undefined;
+    const edgePositions = edit.key === viewKey ? edit.labels : undefined;
     const positions = edit.key === viewKey ? edit.positions : null;
     const drag = edit.key === viewKey ? edit.drag : null;
     // A new step is not a new graph: nothing is laid out again (spec 11).
@@ -1414,6 +1424,7 @@ function Canvas({
             // large-view cut the first round measured.
             FROZEN ? drag ?? undefined : undefined,
             edgeVertices,
+            edgePositions,
         );
         if (positions)
             (drag ? stats.geometry : stats.drops).push(
@@ -1429,6 +1440,7 @@ function Canvas({
         positions,
         drag,
         edgeVertices,
+        edgePositions,
     ]);
     useFrameLatency(graph);
     useEffect(() => {
@@ -1939,6 +1951,21 @@ function Canvas({
         );
     };
 
+    /** Prototype (#98): a label dragged along its edge stores its position. */
+    const onLabelDrag = (edge: string, client: Point) => {
+        const line = graph?.edges.find((e) => e.key === edge);
+        if (!line) return;
+        const position = positionAlong(
+            line.route,
+            flow.screenToFlowPosition(client),
+        );
+        setEdit((e) =>
+            e.labels.get(edge) === position
+                ? e
+                : { ...e, labels: new Map(e.labels).set(edge, position) },
+        );
+    };
+
     const onVertexRemove = (handle: VertexHandle) =>
         setVertices(
             handle.edge,
@@ -1974,71 +2001,81 @@ function Canvas({
                 } as CSSProperties
             }
         >
-            <Activate.Provider value={onActivate}>
-                <CanvasBackground.Provider
-                    value={graph?.background ?? "#ffffff"}
-                >
-                    {graph?.error ? (
-                        <ViewError graph={graph} />
-                    ) : (
-                        <ReactFlow
-                            nodes={nodes}
-                            edges={edges}
-                            nodeTypes={nodeTypes}
-                            edgeTypes={edgeTypes}
-                            nodeOrigin={nodeOrigin}
-                            connectionMode={ConnectionMode.Loose}
-                            nodesDraggable={EDITING}
-                            nodesConnectable={false}
-                            nodesFocusable={false}
-                            edgesFocusable={false}
-                            elementsSelectable={EDITING}
-                            onNodesChange={EDITING ? onNodesChange : undefined}
-                            // Prototype (#98): a plain drag on the canvas
-                            // draws a marquee; Space, the middle or the right
-                            // button pans.
-                            selectionOnDrag={EDITING}
-                            onlyRenderVisibleElements={
-                                EDITING &&
-                                new URLSearchParams(location.search).has(
-                                    "visible",
-                                )
-                            }
-                            selectionKeyCode={EDITING ? null : undefined}
-                            multiSelectionKeyCode={["Meta", "Control", "Shift"]}
-                            panActivationKeyCode={EDITING ? "Space" : undefined}
-                            // The canvas owns the keys (spec 6.2).
-                            disableKeyboardA11y
-                            panOnDrag={EDITING ? [1, 2] : true}
-                            panOnScroll
-                            zoomOnScroll={false}
-                            zoomOnPinch
-                            zoomOnDoubleClick={false}
-                            zoomActivationKeyCode={zoomKeys}
-                            minZoom={floor}
-                            maxZoom={ceiling}
-                            colorMode={state.scheme}
-                            proOptions={proOptions}
-                            onMoveStart={(event) => {
-                                // Programmatic moves carry no event; only
-                                // the reader's do.
-                                if (event) moved.current = true;
-                            }}
-                        >
-                            {EDITING && <Guides guides={edit.guides} />}
-                            {EDITING && (
-                                <VertexHandles
-                                    handles={handles}
-                                    zoom={zoom}
-                                    toFlow={flow.screenToFlowPosition}
-                                    onMove={onVertexMove}
-                                    onRemove={onVertexRemove}
-                                />
-                            )}
-                        </ReactFlow>
-                    )}
-                </CanvasBackground.Provider>
-            </Activate.Provider>
+            <LabelDrag.Provider value={EDITING ? onLabelDrag : null}>
+                <Activate.Provider value={onActivate}>
+                    <CanvasBackground.Provider
+                        value={graph?.background ?? "#ffffff"}
+                    >
+                        {graph?.error ? (
+                            <ViewError graph={graph} />
+                        ) : (
+                            <ReactFlow
+                                nodes={nodes}
+                                edges={edges}
+                                nodeTypes={nodeTypes}
+                                edgeTypes={edgeTypes}
+                                nodeOrigin={nodeOrigin}
+                                connectionMode={ConnectionMode.Loose}
+                                nodesDraggable={EDITING}
+                                nodesConnectable={false}
+                                nodesFocusable={false}
+                                edgesFocusable={false}
+                                elementsSelectable={EDITING}
+                                onNodesChange={
+                                    EDITING ? onNodesChange : undefined
+                                }
+                                // Prototype (#98): a plain drag on the canvas
+                                // draws a marquee; Space, the middle or the right
+                                // button pans.
+                                selectionOnDrag={EDITING}
+                                onlyRenderVisibleElements={
+                                    EDITING &&
+                                    new URLSearchParams(location.search).has(
+                                        "visible",
+                                    )
+                                }
+                                selectionKeyCode={EDITING ? null : undefined}
+                                multiSelectionKeyCode={[
+                                    "Meta",
+                                    "Control",
+                                    "Shift",
+                                ]}
+                                panActivationKeyCode={
+                                    EDITING ? "Space" : undefined
+                                }
+                                // The canvas owns the keys (spec 6.2).
+                                disableKeyboardA11y
+                                panOnDrag={EDITING ? [1, 2] : true}
+                                panOnScroll
+                                zoomOnScroll={false}
+                                zoomOnPinch
+                                zoomOnDoubleClick={false}
+                                zoomActivationKeyCode={zoomKeys}
+                                minZoom={floor}
+                                maxZoom={ceiling}
+                                colorMode={state.scheme}
+                                proOptions={proOptions}
+                                onMoveStart={(event) => {
+                                    // Programmatic moves carry no event; only
+                                    // the reader's do.
+                                    if (event) moved.current = true;
+                                }}
+                            >
+                                {EDITING && <Guides guides={edit.guides} />}
+                                {EDITING && (
+                                    <VertexHandles
+                                        handles={handles}
+                                        zoom={zoom}
+                                        toFlow={flow.screenToFlowPosition}
+                                        onMove={onVertexMove}
+                                        onRemove={onVertexRemove}
+                                    />
+                                )}
+                            </ReactFlow>
+                        )}
+                    </CanvasBackground.Provider>
+                </Activate.Provider>
+            </LabelDrag.Provider>
             {EDITING && <Readout selected={edit.selected.size} />}
         </div>
     );
