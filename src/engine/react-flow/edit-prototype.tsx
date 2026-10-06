@@ -20,8 +20,7 @@
  *   open http://localhost:5173/?edit#/?page=diagrams&view=Vertices
  *
  * Click an edge's line or label to select it. A button beside the page's
- * toolbar shows its routing mode and cycles it (Direct, Orthogonal, Curved),
- * as `r` does. Drag a label along its route. Drag a square edge-end handle
+ * toolbar shows its routing mode and cycles it (Direct, Orthogonal, Curved). Drag a label along its route. Drag a square edge-end handle
  * to another side: edit mode saves it as a vertex 20 units out. `?aim`
  * keeps #98's rule for author-routed ends; `?clear` empties an edge's
  * vertices when it turns Orthogonal, as Local does; `?pad=N` sets how far
@@ -36,6 +35,9 @@ import {
     useLayoutEffect,
     useState,
 } from "react";
+import directIcon from "bootstrap-icons/icons/arrow-up-right.svg?raw";
+import curvedIcon from "bootstrap-icons/icons/bezier2.svg?raw";
+import orthogonalIcon from "bootstrap-icons/icons/arrow-return-right.svg?raw";
 import { createPortal } from "react-dom";
 import { avoidance } from "../geometry/routing/avoid";
 import { endRule } from "../geometry/routing/sides";
@@ -478,6 +480,12 @@ export const SelectedEdge = createContext<string | null>(null);
 
 export type Routing = "Direct" | "Orthogonal" | "Curved";
 
+const ICONS: Record<Routing, string> = {
+    Direct: directIcon,
+    Orthogonal: orthogonalIcon,
+    Curved: curvedIcon,
+};
+
 /** The routing mode one click on the cycle button turns an edge to. */
 export const nextRouting = (now: Routing): Routing =>
     now === "Direct"
@@ -488,7 +496,7 @@ export const nextRouting = (now: Routing): Routing =>
 
 /**
  * The selected edge's toolbar: one button, beside the page's own toolbar,
- * that shows the edge's routing mode and cycles it on a click (or `r`):
+ * that shows the edge's routing mode as an icon and cycles it on a click:
  * Direct, Orthogonal, Curved, Direct. A click always stores the mode.
  */
 export function EdgeToolbar({
@@ -510,17 +518,12 @@ export function EdgeToolbar({
         <div className={host.className} data-edge-toolbar="">
             <button
                 type="button"
-                title={`Routing: ${routing}. Click (or r) for ${nextRouting(routing)}`}
-                aria-label={`Routing: ${routing}`}
+                title={`Routing: ${routing}. Click for ${nextRouting(routing)}`}
+                aria-label={`Routing: ${routing}. Click for ${nextRouting(routing)}`}
                 onClick={onCycle}
-                style={{
-                    width: "auto",
-                    padding: "0 8px",
-                    font: "12px system-ui",
-                }}
-            >
-                {routing}
-            </button>
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: a bundled Bootstrap icon, as the page's toolbar draws them
+                dangerouslySetInnerHTML={{ __html: ICONS[routing] }}
+            />
         </div>,
         host.parentElement,
     );

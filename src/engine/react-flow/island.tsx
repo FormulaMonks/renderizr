@@ -2061,16 +2061,12 @@ function Canvas({
                 }),
         }));
 
-    // On the selected edge, `r` cycles the routing mode like the button and
-    // Escape clears the selection.
+    // Escape clears the selected edge.
     useEffect(() => {
         if (!EDITING || !selectedLine) return;
         const onKey = (event: globalThis.KeyboardEvent) => {
             if (event.metaKey || event.ctrlKey || event.altKey) return;
-            const key = selectedLine.key;
-            if (event.key === "r") {
-                setRouting(key, nextRouting(selectedLine.routing));
-            } else if (event.key === "Escape") {
+            if (event.key === "Escape") {
                 setEdit((e) => ({ ...e, edge: null }));
             } else return;
             event.preventDefault();
