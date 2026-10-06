@@ -10,6 +10,10 @@ References [2. Draw diagrams from workspace semantics](0002-draw-diagrams-from-w
 
 Referenced by [6. Fill the viewport with the diagrams page](0006-fill-the-viewport-with-the-diagrams-page.md).
 
+Referenced by [15. Run edit mode as a local Vite server](0015-run-edit-mode-as-a-local-vite-server.md).
+
+Referenced by [18. Let the page own edited layouts and drive a controlled engine](0018-let-the-page-own-edited-layouts-and-drive-a-controlled-engine.md).
+
 ## Context
 
 The engine needs pan, zoom, fit, nested nodes and edges. React Flow (`@xyflow/react`, MIT) provides the viewport, parent-relative nesting, arrow markers and a node and edge store; shapes, boundaries, edge paths and labels are custom work with any library. The rest of Renderizr (router, view drawer, toolbar, documentation and decision pages) is vanilla TypeScript, and the output must work as a single file from `file://` under a strict CSP. A prototype and an audit confirmed React Flow makes no network requests, injects no styles at runtime and survives the artifact build unchanged.

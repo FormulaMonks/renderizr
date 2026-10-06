@@ -1,6 +1,6 @@
 # Renderizr
 
-Renderizr turns a Structurizr workspace into a static site or a single self-contained HTML file. It renders a workspace; it does not define one. This glossary fixes the words we use when we talk about how the engine draws a view.
+Renderizr turns a Structurizr workspace into a static site or a single self-contained HTML file. In edit mode it also changes the layout of the workspace's views; the author keeps writing the model, styles and documentation. This glossary fixes the words we use when we talk about how the engine draws a view and how the author edits one.
 
 ## Language
 
@@ -33,7 +33,7 @@ A view with no coordinates of its own, laid out at render time according to the 
 _Avoid_: auto layout, graph layout
 
 **Calculated layout**:
-A stored layout the editor computes by laying out the whole view once, the way an automatic layout would, and stores as the view's coordinates and vertices. The view stays a stored layout.
+A stored layout edit mode computes by laying out the whole view once, the way an automatic layout would, and stores as the view's coordinates and vertices. The view stays a stored layout.
 _Avoid_: auto layout, auto-layout, automatic layout (that belongs to a view), suggested layout
 
 **Unplaced element**:
@@ -97,7 +97,7 @@ Routing an edge without vertices so it crosses no element other than its own sou
 _Avoid_: obstacle routing, collision avoidance
 
 **Edge end**:
-Where an edge meets the outline of its source or target. The engine spreads edge ends that share a side of an element along that side.
+Where an edge meets the outline of its source or target. The engine spreads the edge ends of edges without vertices that share a side of an element along that side. An edge with vertices keeps each edge end right under its nearest vertex when that vertex lies straight out from a side, and otherwise where the line from the element's center toward that vertex crosses the side; those ends never spread.
 _Avoid_: port, handle, anchor, connection point
 
 **Jump-over**:
@@ -111,3 +111,39 @@ _Avoid_: playback, slideshow, sequence
 **Step**:
 One stage of an animation. In a dynamic view, every relationship sharing one order value; in a static view, one entry of the view's animation list, adding to what earlier steps revealed.
 _Avoid_: frame, stage, animation step
+
+**Edit mode**:
+The local server `renderizr edit` starts, where the author changes the layout of stored-layout views in the React Flow engine and saves it into `workspace.json` using only fields Structurizr defines. Builds stay read-only.
+_Avoid_: editor, layout editor, design mode
+
+**Edited layout**:
+A view's layout fields as the author has changed them in this session, laid over its stored layout until a save writes them.
+_Avoid_: overlay, draft, patch
+
+**Canvas**:
+The area a view's `dimensions` set, which frames an export and which edit mode draws behind the view.
+_Avoid_: paper, page, artboard
+
+**Selection**:
+The elements the author has picked to move or arrange together in edit mode. A boundary is never part of it.
+_Avoid_: highlight, focus (keyboard focus is another thing)
+
+**Reference element**:
+The selected element that align measures from: the first one the author selected.
+_Avoid_: anchor, key object
+
+**Selected edge**:
+The one edge the author has picked in edit mode to change its routing mode or sides. It is never part of the selection.
+_Avoid_: active edge, focused edge
+
+**Marquee**:
+The box the author drags across the canvas to select the elements inside it.
+_Avoid_: lasso, rubber band
+
+**Snapping**:
+Moving what the author drags onto an alignment guide or the grid when it comes close.
+_Avoid_: magnet
+
+**Alignment guide**:
+The dashed line edit mode draws while a dragged element or vertex lines up with another element, vertex or edge end.
+_Avoid_: smart guide, snap line

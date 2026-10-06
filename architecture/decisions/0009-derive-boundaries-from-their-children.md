@@ -12,6 +12,8 @@ References [4. Use Dagre for automatic layout](0004-use-dagre-for-automatic-layo
 
 Referenced by [10. Place unplaced elements around a stored layout](0010-place-unplaced-elements-around-a-stored-layout.md).
 
+Referenced by [17. Save layout the way Structurizr reads and writes it](0017-save-layout-the-way-structurizr-reads-and-writes-it.md).
+
 ## Context
 
 Software systems, containers, groups and deployment nodes are drawn as boundaries around their children. Structurizr's renderer computes a boundary's box from its children, ignores coordinates stored on it, and removes a deployment node when none of its children are in the view.
