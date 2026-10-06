@@ -1463,40 +1463,32 @@ function Canvas({
     // An image view is fitted to its picture once its size is known.
     const drawing = useMemo(() => drawingOf(graph, image), [graph, image]);
     const { bounds } = drawing;
-    // Prototype (#98): a node or edge that did not change keeps its object,
-    // so React Flow redraws only what a drag frame moved.
-    const stable = useRef(new Map<string, { sig: string; item: unknown }>());
-    const keep = <T,>(id: string, sig: string, make: () => T): T => {
-        const hit = stable.current.get(id);
-        if (hit && hit.sig === sig) return hit.item as T;
-        const item = make();
-        stable.current.set(id, { sig, item });
-        return item;
-    };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `keep` reads a ref
+    // Prototype (#98): every node is a new object on every change. React
+    // Flow keeps its own selection flags on a node whose object it has seen,
+    // so reusing objects left it out of step with the selection drawn.
     const nodes = useMemo(() => {
         const drawn = withPresence(drawing.nodes, stepState, transition);
         if (!EDITING) return drawn;
         return drawn.map((node) => {
             const selected = edit.selected.has(node.id);
-            const sig = `${node.position.x},${node.position.y},${node.width},${node.height},${selected},${node.type === "boundary" ? `${node.data.width},${node.data.height}` : ""}`;
-            return keep(`n:${node.id}`, sig, () =>
-                node.type === "box"
-                    ? { ...node, draggable: true, selectable: true, selected }
-                    : node.type === "boundary"
-                      ? // A press on a boundary reaches the canvas, so a
-                        // marquee can start inside it.
-                        {
-                            ...node,
-                            style: {
-                                ...node.style,
-                                pointerEvents: "none" as const,
-                            },
-                        }
-                      : node,
-            );
+            return node.type === "box"
+                ? { ...node, draggable: true, selectable: true, selected }
+                : node.type === "boundary"
+                  ? // A press on a boundary reaches the canvas, so a
+                    // marquee can start inside it.
+                    {
+                        ...node,
+                        style: {
+                            ...node.style,
+                            pointerEvents: "none" as const,
+                        },
+                    }
+                  : node;
         });
     }, [drawing, stepState, transition, edit.selected]);
+
+    /** Prototype (#98): what a modifier-held marquee keeps selected. */
+    const keptByMarquee = useRef<Set<string> | null>(null);
 
     const onNodesChange = (changes: NodeChange<DiagramNode>[]) => {
         if (!graph) return;
@@ -1522,6 +1514,8 @@ function Canvas({
                 for (const c of selecting)
                     if (c.type === "select")
                         c.selected ? selected.add(c.id) : selected.delete(c.id);
+                // A marquee drawn with a modifier adds to the selection.
+                for (const id of keptByMarquee.current ?? []) selected.add(id);
             }
             if (moving.length && positions) {
                 const ids = new Set(moving.map((m) => m.id));
@@ -1579,18 +1573,10 @@ function Canvas({
             return { ...e, selected, positions, drag, guides, vertices };
         });
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `keep` reads a ref
-    const edges = useMemo(() => {
-        const all = graph ? toEdges(graph, stepState, transition) : [];
-        if (!EDITING) return all;
-        return all.map((edge) =>
-            keep(
-                `e:${edge.id}`,
-                `${edge.data?.path}|${JSON.stringify(edge.data?.labelBox)}|${edge.data?.presence}`,
-                () => edge,
-            ),
-        );
-    }, [graph, stepState, transition]);
+    const edges = useMemo(
+        () => (graph ? toEdges(graph, stepState, transition) : []),
+        [graph, stepState, transition],
+    );
 
     // Each authoring problem once per visit, however often the view redraws
     // (a scheme or label change rebuilds the graph).
@@ -2038,6 +2024,53 @@ function Canvas({
                                 // draws a marquee; Space, the middle or the right
                                 // button pans.
                                 selectionOnDrag={EDITING}
+                                onSelectionStart={(event) => {
+                                    keptByMarquee.current =
+                                        event.shiftKey ||
+                                        event.metaKey ||
+                                        event.ctrlKey
+                                            ? new Set(edit.selected)
+                                            : null;
+                                }}
+                                onSelectionEnd={() => {
+                                    keptByMarquee.current = null;
+                                }}
+                                // Prototype (#98): a click sets the selection
+                                // from what is drawn, after React Flow's own
+                                // change. A modifier toggles the element; a
+                                // plain click on an unselected one selects it
+                                // alone, and on a selected one keeps the group
+                                // for a drag.
+                                onNodeClick={
+                                    EDITING
+                                        ? (event, node) => {
+                                              if (node.type !== "box") return;
+                                              const before = edit.selected;
+                                              const modified =
+                                                  event.shiftKey ||
+                                                  event.metaKey ||
+                                                  event.ctrlKey;
+                                              const selected = new Set(
+                                                  modified ? before : [],
+                                              );
+                                              if (
+                                                  modified &&
+                                                  before.has(node.id)
+                                              )
+                                                  selected.delete(node.id);
+                                              else selected.add(node.id);
+                                              if (
+                                                  !modified &&
+                                                  before.has(node.id)
+                                              )
+                                                  return;
+                                              setEdit((e) => ({
+                                                  ...e,
+                                                  selected,
+                                              }));
+                                          }
+                                        : undefined
+                                }
                                 onlyRenderVisibleElements={
                                     EDITING &&
                                     new URLSearchParams(location.search).has(

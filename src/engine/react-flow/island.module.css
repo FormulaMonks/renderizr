@@ -40,3 +40,12 @@
     cursor: pointer;
     pointer-events: stroke;
 }
+
+/*
+ * Prototype (#98): React Flow's box over a marquee's selection would take
+ * the clicks meant for the elements under it, so Shift+click could not take
+ * one back out. The selected elements drag the group themselves.
+ */
+.canvas :global(.react-flow__nodesselection) {
+    display: none;
+}
