@@ -156,12 +156,14 @@ export function routeView(
             side: chosen.source,
             far: vertices[0] ?? centerOf(to),
             order: index,
+            routed: vertices.length > 0,
         });
         addEnd(target.id, {
             id: targetEnd(index),
             side: chosen.target,
             far: vertices[vertices.length - 1] ?? centerOf(from),
             order: index,
+            routed: vertices.length > 0,
         });
     }
 

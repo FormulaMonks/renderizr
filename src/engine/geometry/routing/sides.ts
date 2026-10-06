@@ -158,6 +158,11 @@ export type EdgeEnd = {
      * other end on the side, the innermost loop nearest (spec 10.7).
      */
     toward?: "from" | "to";
+    /**
+     * Prototype (#98): set on an end whose edge has vertices. The author
+     * routes it, so it sits at its aim and never moves another end.
+     */
+    routed?: boolean;
 };
 
 /** Where an end sorts on its side: loop ends at either extreme. */
@@ -249,7 +254,18 @@ export function spreadEnds(
     for (const side of SIDES) {
         const span = spans[side];
         if (!span) continue;
-        const onSide = ends.filter((end) => end.side === side);
+        // Prototype (#98): an author-routed end sits at its own aim, within
+        // the span, and leaves the spreading to the others.
+        for (const end of ends)
+            if (end.side === side && end.routed)
+                along.set(
+                    end.id,
+                    Math.min(
+                        Math.max(aimAlong(box, side, end.far), span.from),
+                        span.to,
+                    ),
+                );
+        const onSide = ends.filter((end) => end.side === side && !end.routed);
         const aims = new Map(
             onSide.map((end) => [end, aimAlong(box, side, end.far)]),
         );
