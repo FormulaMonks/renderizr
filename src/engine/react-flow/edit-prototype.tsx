@@ -159,7 +159,7 @@ export function Guides({ guides }: { guides: Guide[] }) {
                         y1={g.from.y}
                         x2={g.to.x}
                         y2={g.to.y}
-                        stroke="#e5007a"
+                        stroke="var(--color-primary)"
                         strokeWidth={1}
                         vectorEffect="non-scaling-stroke"
                         strokeDasharray="4 3"
@@ -330,8 +330,8 @@ export function VertexHandles({
                         height: size,
                         borderRadius: "50%",
                         boxSizing: "border-box",
-                        background: "#ffffff",
-                        border: `${2 / zoom}px solid #e5007a`,
+                        background: "var(--color-surface)",
+                        border: `${2 / zoom}px solid var(--color-primary)`,
                         cursor: "move",
                         pointerEvents: "all",
                     }}
