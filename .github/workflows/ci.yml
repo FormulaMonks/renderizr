@@ -201,11 +201,15 @@ jobs:
       matrix:
         node: ["22", "24"]
     steps:
-      - name: Check out, with the structurizr submodule
+      - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: true
           persist-credentials: false
+
+      # `.gitmodules` sets `update = none` so `npx` skips the submodule, which
+      # makes `submodules: true` skip it as well. `--checkout` overrides that.
+      - name: Check out the structurizr submodule
+        run: git submodule update --init --checkout --depth=1 submodules/structurizr
 
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -225,12 +229,12 @@ jobs:
       - name: Confirm the fixture is really on disk
         run: test -s "$BIG_BANK"
 
-      # `pnpm build` is `tsc && node scripts/build.js` — the same command the
+      # `pnpm render` is `tsc && node scripts/build.js` — the same command the
       # README and CONTRIBUTING document. No `--` before the arguments: pnpm
       # forwards them, and node:util parseArgs would read everything after a
       # `--` as a positional workspace.
       - name: Render Big Bank plc (multi-file)
-        run: pnpm build "$BIG_BANK" --out dist-e2e
+        run: pnpm render "$BIG_BANK" --out dist-e2e
 
       - name: Assert the multi-file output is a site
         run: |
@@ -245,7 +249,7 @@ jobs:
           grep -q 'Big Bank plc' dist-e2e/assets/index-*.js
 
       - name: Render Big Bank plc (--single-file)
-        run: pnpm build "$BIG_BANK" --single-file --out dist-single
+        run: pnpm render "$BIG_BANK" --single-file --out dist-single
 
       - name: Assert the single-file output is one document
         run: |
@@ -336,13 +340,17 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Check out, with the structurizr submodule
+      - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: true
           # The whole history, so the base branch is there to diff against.
           fetch-depth: 0
           persist-credentials: false
+
+      # `.gitmodules` sets `update = none` so `npx` skips the submodule, which
+      # makes `submodules: true` skip it as well. `--checkout` overrides that.
+      - name: Check out the structurizr submodule
+        run: git submodule update --init --checkout --depth=1 submodules/structurizr
 
       - name: Check whether the pull request touches the engine
         id: engine

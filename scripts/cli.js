@@ -44,7 +44,7 @@ Examples
   renderizr https://example.com/workspace.json --single-file
   renderizr ./workspace.json --single-file --font Inter --logo ./logo.svg
 
-In a clone of this repository the same thing is: pnpm build <workspace> [options]
+In a clone of this repository the same thing is: pnpm render <workspace> [options]
 `;
 
 export function usage(stream = process.stdout) {

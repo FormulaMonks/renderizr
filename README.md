@@ -147,10 +147,12 @@ pnpm hooks   # once, to install the git hooks
 
 Installing the hooks is a separate step rather than a `prepare` script: `prepare` runs when a package manager installs a package from a git URL, and `npx github:FormulaMonks/renderizr` is exactly that — so a `prepare` script here would try to run husky inside every consumer's install tree. Contributors are the only people who want the hooks.
 
-The Structurizr submodule is optional: only the acceptance tests read workspaces from it, and they skip those workspaces when it is absent. Check it out to run them:
+For the same reason the script that renders a workspace is `render`. npm prepares a git dependency with a full `npm install --include dev` whenever its `package.json` has a `build`, `prepare`, `prepack`, `install`, `preinstall` or `postinstall` script, and that adds about 20 seconds to a cold `npx`. `scripts/install.test.js` fails if one of those names comes back.
+
+The Structurizr submodule is optional: only the acceptance tests read workspaces from it, and they skip those workspaces when it is absent. `.gitmodules` keeps it out of recursive clones, so `npx` never downloads it. Check it out to run the acceptance tests:
 
 ```bash
-git submodule update --init submodules/structurizr
+git submodule update --init --checkout submodules/structurizr
 ```
 
 ### Dev server
@@ -165,11 +167,11 @@ Vite serves it on <http://localhost:5173> with hot reload for `src/`. The `--` i
 ### Build locally
 
 ```bash
-pnpm build {path/to/workspace.json} [--single-file] [--logo ...] [--font ...]
+pnpm render {path/to/workspace.json} [--single-file] [--logo ...] [--font ...]
 # Outputs to ./structurizr-output/
 ```
 
-No `--` on this one, and it matters: `node:util`'s `parseArgs` treats everything after `--` as a positional, so `pnpm build -- ws.json --single-file` arrives as two workspaces and exits 1 with `Expected one workspace, got 2`. `pnpm build` type-checks first; `node scripts/build.js …` skips that and is what `npx` runs.
+No `--` on this one, and it matters: `node:util`'s `parseArgs` treats everything after `--` as a positional, so `pnpm render -- ws.json --single-file` arrives as two workspaces and exits 1 with `Expected one workspace, got 2`. `pnpm render` type-checks first; `node scripts/build.js …` skips that and is what `npx` runs.
 
 ### Checks
 

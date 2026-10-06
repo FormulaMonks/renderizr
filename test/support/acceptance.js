@@ -184,7 +184,7 @@ function withCopiedIcon({ icon, ...style }, icons) {
 export function missingReason(entry) {
     if (existsSync(entry.source)) return null;
     return entry.submodule
-        ? `${entry.name}: submodules/structurizr is not checked out; run git submodule update --init`
+        ? `${entry.name}: submodules/structurizr is not checked out; run git submodule update --init --checkout submodules/structurizr`
         : `${entry.name}: ${entry.source} is missing`;
 }
 

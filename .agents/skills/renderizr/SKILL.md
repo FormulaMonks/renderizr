@@ -94,7 +94,7 @@ We verified each of these against the tool:
 - **`artifact.html` and `index.html` are not interchangeable.** See the table above.
 - **Renderizr empties the output directory** before writing. Never point `--out` at a directory holding anything you want to keep.
 - **`https://` in the output is not a leak.** A rendered page contains ordinary hyperlinks to `structurizr.com`, `c4model.com` and the like. Self-containment is about *asset* references — `<script src>`, `<link href>`, `<img src>` — of which there are none. Check the right thing; see [verifying](./references/verifying.md).
-- **Working inside a clone of the Renderizr repository is different.** `pnpm build <workspace> [flags]` — and specifically *not* `pnpm build -- <workspace> --flag`, which makes the flag arrive as a second workspace. `pnpm dev` is the opposite and does want the `--`. This only applies inside the repository; `npx` users are unaffected.
+- **Working inside a clone of the Renderizr repository is different.** `pnpm render <workspace> [flags]` — and specifically *not* `pnpm render -- <workspace> --flag`, which makes the flag arrive as a second workspace. `pnpm dev` is the opposite and does want the `--`. This only applies inside the repository; `npx` users are unaffected.
 
 ## References
 

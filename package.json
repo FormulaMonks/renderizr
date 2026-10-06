@@ -60,7 +60,7 @@
     ],
     "scripts": {
         "dev": "vite",
-        "build": "tsc && node scripts/build.js",
+        "render": "tsc && node scripts/build.js",
         "preview": "node scripts/build.js architecture/workspace.json && vite preview -- architecture/workspace.json",
         "lint": "biome ci .",
         "lint:renovate": "pnpm dlx --package renovate renovate-config-validator --strict",
