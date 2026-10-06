@@ -165,6 +165,33 @@ export type EdgeEnd = {
     routed?: boolean;
 };
 
+/**
+ * Prototype (#99): which rule places an author-routed end. `aim` keeps the
+ * #98 rule alone: the end sits where the line from the element's center
+ * toward its nearest vertex crosses the side.
+ */
+export const endRule = { aim: false };
+
+/**
+ * Prototype (#99): where on `side`, measured as `sidePoint` measures it, the
+ * foot of the perpendicular from `far` lands, when `far` lies outside the
+ * side and the foot within `span`; otherwise `undefined`.
+ */
+function footAlong(
+    box: Rect,
+    side: Side,
+    far: Point,
+    span: Span,
+): number | undefined {
+    const out = outward(side);
+    const center = centerOf(box);
+    const half = isHorizontal(side) ? box.height / 2 : box.width / 2;
+    const ahead = (far.x - center.x) * out.x + (far.y - center.y) * out.y;
+    if (ahead <= half) return undefined;
+    const along = isHorizontal(side) ? far.x - box.x : far.y - box.y;
+    return along >= span.from && along <= span.to ? along : undefined;
+}
+
 /** Where an end sorts on its side: loop ends at either extreme. */
 const rankOf = ({ toward }: EdgeEnd) =>
     toward === "from" ? -1 : toward === "to" ? 1 : 0;
@@ -255,13 +282,21 @@ export function spreadEnds(
         const span = spans[side];
         if (!span) continue;
         // Prototype (#98): an author-routed end sits at its own aim, within
-        // the span, and leaves the spreading to the others.
+        // the span, and leaves the spreading to the others. Prototype (#99):
+        // unless `endRule.aim` is set, an end whose nearest vertex lies
+        // straight out from the side, within its span, sits right under it.
         for (const end of ends)
             if (end.side === side && end.routed)
                 along.set(
                     end.id,
                     Math.min(
-                        Math.max(aimAlong(box, side, end.far), span.from),
+                        Math.max(
+                            (endRule.aim
+                                ? undefined
+                                : footAlong(box, side, end.far, span)) ??
+                                aimAlong(box, side, end.far),
+                            span.from,
+                        ),
                         span.to,
                     ),
                 );

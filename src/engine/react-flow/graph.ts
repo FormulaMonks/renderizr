@@ -209,6 +209,13 @@ export type EdgeLine = {
     routing: RoutingMode;
     /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
     jump: boolean;
+    /** Prototype (#99): the view's own `routing`, unset when the style decides. */
+    storedRouting?: RoutingMode;
+    /** Prototype (#99): the view's own `jump`, unset when the style decides. */
+    storedJump?: boolean;
+    /** Prototype (#99): the routing mode and jump the style gives it. */
+    styleRouting?: RoutingMode;
+    styleJump?: boolean;
     /**
      * The relationship's stored vertices, or Dagre's in an automatic layout
      * that keeps them, which the route passes through.
@@ -557,6 +564,10 @@ export function buildGraph(
     edgeVertices?: ReadonlyMap<string, Point[]>,
     /** Prototype (#98): where edit mode has put edges' labels, by edge key. */
     edgePositions?: ReadonlyMap<string, number>,
+    /** Prototype (#99): routing modes edit mode has set; `null` unsets one. */
+    edgeRoutings?: ReadonlyMap<string, RoutingMode | null>,
+    /** Prototype (#99): jumps edit mode has set; `null` unsets one. */
+    edgeJumps?: ReadonlyMap<string, boolean | null>,
 ): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
@@ -747,13 +758,25 @@ export function buildGraph(
         // The full description, whatever the toggles and styles hide.
         const said =
             (dynamic && placed.description) || relationship.description;
+        const storedRouting = edgeRoutings?.has(key)
+            ? edgeRoutings.get(key) ?? undefined
+            : placed.routing;
+        const storedJump = edgeJumps?.has(key)
+            ? edgeJumps.get(key) ?? undefined
+            : placed.jump;
         edges.push({
             key,
             id: placed.id,
             sourceId: from.box.id,
             targetId: to.box.id,
-            routing: routingModeOf(placed.routing ?? style.routing),
-            jump: placed.jump ?? style.jump ?? false,
+            routing: routingModeOf(storedRouting ?? style.routing),
+            jump: storedJump ?? style.jump ?? false,
+            ...(storedRouting && {
+                storedRouting: routingModeOf(storedRouting),
+            }),
+            ...(storedJump !== undefined && { storedJump }),
+            styleRouting: routingModeOf(style.routing),
+            styleJump: style.jump ?? false,
             vertices: edgeVertices?.get(key) ?? placed.vertices ?? [],
             ...(placed.order !== undefined && { order: placed.order }),
             ...text,

@@ -13,6 +13,19 @@
  * to render only what is on screen. The readout at the bottom left times
  * each drag frame. `node test/prototype-drag-bench.js` times the geometry
  * headless.
+ *
+ * Prototype (#99), on edges:
+ *
+ *   pnpm dev -- test/__fixtures__/edge-routing.json
+ *   open http://localhost:5173/?edit#/?page=diagrams&view=Vertices
+ *
+ * Click an edge's line or label to select it. The toolbar at the bottom
+ * right sets its routing mode and jump (Default unsets them), removes its
+ * vertices and resets its label; `r` and `j` cycle them as Structurizr
+ * Local does, Up and Down move the label by 5%. Drag a square edge-end
+ * handle to another side: edit mode saves it as a vertex 20 units out.
+ * `?aim` keeps #98's rule for author-routed ends; `?clear` empties an
+ * edge's vertices when it turns Orthogonal, as Local does.
  */
 
 import { ViewportPortal } from "@xyflow/react";
@@ -23,11 +36,16 @@ import {
     useLayoutEffect,
     useState,
 } from "react";
+import { endRule } from "../geometry/routing/sides";
 import type { Bounds, Point } from "./graph";
 
 export const EDITING =
     typeof location !== "undefined" &&
     new URLSearchParams(location.search).has("edit");
+
+/** `?aim`: place author-routed edge ends by #98's rule alone (#99). */
+if (EDITING && new URLSearchParams(location.search).has("aim"))
+    endRule.aim = true;
 
 /** `?frozen`: freeze other edges' routes while a drag runs (round one). */
 export const FROZEN =
@@ -429,4 +447,228 @@ export function useLabelDrag(edge: string) {
             window.addEventListener("pointerup", up);
         },
     };
+}
+
+/* ---------------- edges (#99) */
+
+/**
+ * Prototype (#99): how far out from its side the vertex sits that saves an
+ * edge end's side, in model units.
+ */
+export const SIDE_OFFSET = 20;
+
+/** `?clear`: turning an edge Orthogonal empties its vertices, as in Local. */
+export const CLEAR_ON_ORTHOGONAL =
+    EDITING && new URLSearchParams(location.search).has("clear");
+
+/** What a click on an edge's line or label calls in edit mode. */
+export const EdgeSelect = createContext<((edge: string) => void) | null>(null);
+
+/** Which edge is selected, for the edge to draw its highlight. */
+export const SelectedEdge = createContext<string | null>(null);
+
+export type Routing = "Direct" | "Orthogonal" | "Curved";
+
+/** Structurizr Local's `r`: unset, Direct, Curved, Orthogonal, unset. */
+export const nextRouting = (now: Routing | undefined): Routing | null =>
+    now === undefined
+        ? "Direct"
+        : now === "Direct"
+          ? "Curved"
+          : now === "Curved"
+            ? "Orthogonal"
+            : null;
+
+/** Structurizr Local's `j`: unset, true, false, unset. */
+export const nextJump = (now: boolean | undefined): boolean | null =>
+    now === undefined ? true : now ? false : null;
+
+type ToolbarProps = {
+    routing: Routing | undefined;
+    styleRouting: Routing;
+    jump: boolean | undefined;
+    styleJump: boolean;
+    vertices: number;
+    position: number | undefined;
+    onRouting: (routing: Routing | null) => void;
+    onJump: (jump: boolean | null) => void;
+    onClearVertices: () => void;
+    onClearPosition: () => void;
+};
+
+const button = (on: boolean): React.CSSProperties => ({
+    font: "12px/1 system-ui, sans-serif",
+    padding: "5px 8px",
+    border: "1px solid var(--color-primary)",
+    borderRadius: 4,
+    cursor: "pointer",
+    background: on ? "var(--color-primary)" : "var(--color-surface)",
+    color: on ? "var(--color-surface)" : "var(--color-primary)",
+});
+
+/**
+ * The selected edge's toolbar: its routing mode and jump, each unset to let
+ * the style decide, and buttons that clear its vertices and label position.
+ * Pinned to the canvas's bottom right corner.
+ */
+export function EdgeToolbar(props: ToolbarProps) {
+    const { routing, styleRouting, jump, styleJump } = props;
+    const modes: Routing[] = ["Direct", "Orthogonal", "Curved"];
+    return (
+        <div
+            className="nodrag nopan"
+            onPointerDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            style={{
+                position: "absolute",
+                zIndex: 1002,
+                right: 8,
+                bottom: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                padding: 6,
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-primary)",
+                borderRadius: 6,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                pointerEvents: "all",
+                whiteSpace: "nowrap",
+            }}
+        >
+            <div style={{ display: "flex", gap: 4 }}>
+                <button
+                    type="button"
+                    style={button(routing === undefined)}
+                    title="Unset: the style decides (r cycles)"
+                    onClick={() => props.onRouting(null)}
+                >
+                    Default ({styleRouting})
+                </button>
+                {modes.map((mode) => (
+                    <button
+                        key={mode}
+                        type="button"
+                        style={button(routing === mode)}
+                        onClick={() => props.onRouting(mode)}
+                    >
+                        {mode}
+                    </button>
+                ))}
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+                <button
+                    type="button"
+                    style={button(jump === undefined)}
+                    title="Unset: the style decides (j cycles)"
+                    onClick={() => props.onJump(null)}
+                >
+                    Jump: default ({styleJump ? "on" : "off"})
+                </button>
+                <button
+                    type="button"
+                    style={button(jump === true)}
+                    onClick={() => props.onJump(true)}
+                >
+                    On
+                </button>
+                <button
+                    type="button"
+                    style={button(jump === false)}
+                    onClick={() => props.onJump(false)}
+                >
+                    Off
+                </button>
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+                <button
+                    type="button"
+                    style={button(false)}
+                    disabled={!props.vertices}
+                    onClick={props.onClearVertices}
+                >
+                    Remove {props.vertices} vertices
+                </button>
+                <button
+                    type="button"
+                    style={button(false)}
+                    disabled={props.position === undefined}
+                    title="↑/↓ move the label by 5%"
+                    onClick={props.onClearPosition}
+                >
+                    Label: {props.position ?? "auto"}
+                    {props.position !== undefined && "% (reset)"}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+export type EdgeEnd = "source" | "target";
+
+type EndHandlesProps = {
+    edge: string;
+    ends: Record<EdgeEnd, Point>;
+    zoom: number;
+    toFlow: (client: Point) => Point;
+    onStart: (end: EdgeEnd) => void;
+    onMove: (end: EdgeEnd, to: Point, done: boolean) => void;
+};
+
+/**
+ * Prototype (#99): a square handle on each end of the selected edge. A drag
+ * moves that end to the side of its element nearest the pointer.
+ */
+export function EdgeEndHandles({
+    edge,
+    ends,
+    zoom,
+    toFlow,
+    onStart,
+    onMove,
+}: EndHandlesProps) {
+    const size = 10 / zoom;
+    return (
+        <ViewportPortal>
+            {(["source", "target"] as const).map((end) => (
+                <div
+                    key={`${edge}:${end}`}
+                    className="nodrag nopan"
+                    data-edge-end={end}
+                    title={`Drag to move the ${end} end to another side`}
+                    style={{
+                        position: "absolute",
+                        zIndex: 1001,
+                        left: ends[end].x - size / 2,
+                        top: ends[end].y - size / 2,
+                        width: size,
+                        height: size,
+                        boxSizing: "border-box",
+                        background: "var(--color-primary)",
+                        border: `${2 / zoom}px solid var(--color-surface)`,
+                        cursor: "crosshair",
+                        pointerEvents: "all",
+                    }}
+                    onPointerDown={(event) => {
+                        event.stopPropagation();
+                        const at = (e: PointerEvent) =>
+                            toFlow({ x: e.clientX, y: e.clientY });
+                        let moved = false;
+                        const move = (e: PointerEvent) => {
+                            if (!moved) onStart(end);
+                            moved = true;
+                            onMove(end, at(e), false);
+                        };
+                        const up = (e: PointerEvent) => {
+                            window.removeEventListener("pointermove", move);
+                            window.removeEventListener("pointerup", up);
+                            if (moved) onMove(end, at(e), true);
+                        };
+                        window.addEventListener("pointermove", move);
+                        window.addEventListener("pointerup", up);
+                    }}
+                />
+            ))}
+        </ViewportPortal>
+    );
 }
