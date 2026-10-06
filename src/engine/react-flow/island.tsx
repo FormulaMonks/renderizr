@@ -31,6 +31,7 @@ import {
     getViewportForBounds,
     Handle,
     type Node,
+    type NodeChange,
     type NodeProps,
     Position,
     ReactFlow,
@@ -115,6 +116,16 @@ import {
     zoomLimits,
 } from "./graph";
 import styles from "./island.module.css";
+import {
+    EDITING,
+    GUIDE_REACH,
+    type Guide,
+    Guides,
+    Readout,
+    snap,
+    stats,
+    useFrameLatency,
+} from "./edit-prototype";
 
 export type IslandState = {
     key: string;
@@ -308,7 +319,8 @@ function useTargetProps(
         : undefined,
 ) {
     const activate = useContext(Activate);
-    if (targets.length === 0 || !activation) return INERT;
+    // Prototype (#98): in edit mode a click selects and never activates.
+    if (EDITING || targets.length === 0 || !activation) return INERT;
     return {
         className: styles.target,
         tabIndex: -1,
@@ -1353,11 +1365,60 @@ function Canvas({
         [family, fontsLoaded],
     );
     const { key: viewKey, scheme, labels, step } = state;
+    // Prototype (#98): where the author has dragged elements, a drag in
+    // progress, the selection and the guides showing.
+    const [edit, setEdit] = useState<{
+        key: string;
+        positions: Map<string, { x: number; y: number }> | null;
+        drag: { moved: Set<string>; previous: Graph } | null;
+        selected: Set<string>;
+        guides: Guide[];
+    }>({
+        key: viewKey,
+        positions: null,
+        drag: null,
+        selected: new Set(),
+        guides: [],
+    });
+    if (edit.key !== viewKey)
+        setEdit({
+            key: viewKey,
+            positions: null,
+            drag: null,
+            selected: new Set(),
+            guides: [],
+        });
+    const positions = edit.key === viewKey ? edit.positions : null;
+    const drag = edit.key === viewKey ? edit.drag : null;
     // A new step is not a new graph: nothing is laid out again (spec 11).
-    const graph = useMemo(
-        () => buildGraph(model, viewKey, scheme, labels, measure),
-        [model, viewKey, scheme, labels, measure],
-    );
+    const graph = useMemo(() => {
+        const start = performance.now();
+        const built = buildGraph(
+            model,
+            viewKey,
+            scheme,
+            labels,
+            measure,
+            positions ?? undefined,
+            drag ?? undefined,
+        );
+        if (positions)
+            (drag ? stats.geometry : stats.drops).push(
+                performance.now() - start,
+            );
+        return built;
+    }, [model, viewKey, scheme, labels, measure, positions, drag]);
+    useFrameLatency(graph);
+    useEffect(() => {
+        if (!EDITING || !graph || graph.image || graph.error) return;
+        if (edit.key !== graph.key || edit.positions) return;
+        setEdit((e) => ({
+            ...e,
+            positions: new Map(
+                graph.elements.map((el) => [el.id, { x: el.x, y: el.y }]),
+            ),
+        }));
+    }, [graph, edit]);
     const image = useImage(viewKey, graph?.image);
     const reducedMotion = useReducedMotion();
     const transition = opacityTransition(reducedMotion);
@@ -1368,14 +1429,100 @@ function Canvas({
     // An image view is fitted to its picture once its size is known.
     const drawing = useMemo(() => drawingOf(graph, image), [graph, image]);
     const { bounds } = drawing;
-    const nodes = useMemo(
-        () => withPresence(drawing.nodes, stepState, transition),
-        [drawing, stepState, transition],
-    );
-    const edges = useMemo(
-        () => (graph ? toEdges(graph, stepState, transition) : []),
-        [graph, stepState, transition],
-    );
+    // Prototype (#98): a node or edge that did not change keeps its object,
+    // so React Flow redraws only what a drag frame moved.
+    const stable = useRef(new Map<string, { sig: string; item: unknown }>());
+    const keep = <T,>(id: string, sig: string, make: () => T): T => {
+        const hit = stable.current.get(id);
+        if (hit && hit.sig === sig) return hit.item as T;
+        const item = make();
+        stable.current.set(id, { sig, item });
+        return item;
+    };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `keep` reads a ref
+    const nodes = useMemo(() => {
+        const drawn = withPresence(drawing.nodes, stepState, transition);
+        if (!EDITING) return drawn;
+        return drawn.map((node) => {
+            const selected = edit.selected.has(node.id);
+            const sig = `${node.position.x},${node.position.y},${node.width},${node.height},${selected},${node.type === "boundary" ? `${node.data.width},${node.data.height}` : ""}`;
+            return keep(`n:${node.id}`, sig, () =>
+                node.type === "box"
+                    ? { ...node, draggable: true, selectable: true, selected }
+                    : node,
+            );
+        });
+    }, [drawing, stepState, transition, edit.selected]);
+
+    const onNodesChange = (changes: NodeChange<DiagramNode>[]) => {
+        if (!graph) return;
+        const selecting = changes.filter((c) => c.type === "select");
+        const moving = changes.flatMap((c) =>
+            c.type === "position" && c.position && c.dragging
+                ? [{ id: c.id, position: c.position }]
+                : [],
+        );
+        const dropped = changes.some(
+            (c) => c.type === "position" && c.dragging === false,
+        );
+        if (!selecting.length && !moving.length && !dropped) return;
+        if (moving.length) {
+            stats.pending = performance.now();
+            // An edit never refits the canvas under the pointer.
+            moved.current = true;
+        }
+        setEdit((e) => {
+            let { selected, positions, drag, guides } = e;
+            if (selecting.length) {
+                selected = new Set(selected);
+                for (const c of selecting)
+                    if (c.type === "select")
+                        c.selected ? selected.add(c.id) : selected.delete(c.id);
+            }
+            if (moving.length && positions) {
+                const ids = new Set(moving.map((m) => m.id));
+                const sizes = new Map(graph.elements.map((el) => [el.id, el]));
+                const boxes = moving.map(({ id, position }) => ({
+                    ...position,
+                    width: sizes.get(id)?.width ?? 0,
+                    height: sizes.get(id)?.height ?? 0,
+                }));
+                const others = graph.elements.filter((el) => !ids.has(el.id));
+                const snapped = snap(
+                    boxes,
+                    others,
+                    GUIDE_REACH / flow.getZoom(),
+                );
+                positions = new Map(positions);
+                for (const { id, position } of moving) {
+                    let x = Math.round(position.x + snapped.dx);
+                    const y = Math.round(position.y + snapped.dy);
+                    // #96: no element is ever stored at exactly (0,0).
+                    if (x === 0 && y === 0) x = 5;
+                    positions.set(id, { x, y });
+                }
+                drag = drag ?? { moved: ids, previous: graph };
+                guides = snapped.guides;
+            }
+            if (dropped) {
+                drag = null;
+                guides = [];
+            }
+            return { ...e, selected, positions, drag, guides };
+        });
+    };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `keep` reads a ref
+    const edges = useMemo(() => {
+        const all = graph ? toEdges(graph, stepState, transition) : [];
+        if (!EDITING) return all;
+        return all.map((edge) =>
+            keep(
+                `e:${edge.id}`,
+                `${edge.data?.path}|${JSON.stringify(edge.data?.labelBox)}|${edge.data?.presence}`,
+                () => edge,
+            ),
+        );
+    }, [graph, stepState, transition]);
 
     // Each authoring problem once per visit, however often the view redraws
     // (a scheme or label change rebuilds the graph).
@@ -1675,6 +1822,7 @@ function Canvas({
                 {
                     width: "100%",
                     height: "100%",
+                    position: "relative",
                     background: graph?.background,
                     fontFamily: family,
                     "--focus-ring": graph?.color,
@@ -1695,14 +1843,28 @@ function Canvas({
                             edgeTypes={edgeTypes}
                             nodeOrigin={nodeOrigin}
                             connectionMode={ConnectionMode.Loose}
-                            nodesDraggable={false}
+                            nodesDraggable={EDITING}
                             nodesConnectable={false}
                             nodesFocusable={false}
                             edgesFocusable={false}
-                            elementsSelectable={false}
+                            elementsSelectable={EDITING}
+                            onNodesChange={EDITING ? onNodesChange : undefined}
+                            // Prototype (#98): a plain drag on the canvas
+                            // draws a marquee; Space, the middle or the right
+                            // button pans.
+                            selectionOnDrag={EDITING}
+                            onlyRenderVisibleElements={
+                                EDITING &&
+                                new URLSearchParams(location.search).has(
+                                    "visible",
+                                )
+                            }
+                            selectionKeyCode={EDITING ? null : undefined}
+                            multiSelectionKeyCode={["Meta", "Control", "Shift"]}
+                            panActivationKeyCode={EDITING ? "Space" : undefined}
                             // The canvas owns the keys (spec 6.2).
                             disableKeyboardA11y
-                            panOnDrag
+                            panOnDrag={EDITING ? [1, 2] : true}
                             panOnScroll
                             zoomOnScroll={false}
                             zoomOnPinch
@@ -1717,10 +1879,13 @@ function Canvas({
                                 // the reader's do.
                                 if (event) moved.current = true;
                             }}
-                        />
+                        >
+                            {EDITING && <Guides guides={edit.guides} />}
+                        </ReactFlow>
                     )}
                 </CanvasBackground.Provider>
             </Activate.Provider>
+            {EDITING && <Readout selected={edit.selected.size} />}
         </div>
     );
 }

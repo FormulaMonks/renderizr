@@ -72,11 +72,19 @@ function withinReach(
     obstacles: Rect[],
     padding: number,
     attempt: (active: Rect[]) => Point[] | null,
+    tag: string,
 ): Point[] | null {
     const reach = grow(boxAround([from, to]), padding);
     let active = obstacles.filter((box) => overlaps(box, reach));
     for (;;) {
-        const route = attempt(active);
+        const key = `${tag}|${from.x},${from.y},${to.x},${to.y}|${routeKey(active)}`;
+        let route = memo.get(key);
+        if (route === undefined) {
+            memoStats.misses++;
+            route = attempt(active);
+            if (memo.size > MEMO_LIMIT) memo.clear();
+            memo.set(key, route);
+        }
         if (!route) return null;
         const missed = obstacles.filter(
             (box) => !active.includes(box) && routeCrosses(route, box),
@@ -85,6 +93,16 @@ function withinReach(
         active = [...active, ...missed];
     }
 }
+
+/**
+ * Prototype (#98): every attempt's route, by everything it depends on. A
+ * drag changes few of them, so most frames find most routes here.
+ */
+export const memoStats = { misses: 0 };
+const memo = new Map<string, Point[] | null>();
+const MEMO_LIMIT = 50000;
+const rectKey = (b: Rect) => `${b.x},${b.y},${b.width},${b.height}`;
+export const routeKey = (rects: Rect[]) => rects.map(rectKey).join(";");
 
 /* ---------------- Direct */
 
@@ -126,13 +144,19 @@ export function directRoute(
     const obstacles = obstaclesFor(elements, [from, to], padding);
     const around = sourceAndTarget.map((box) => grow(box, padding));
     return (
-        withinReach(from, to, obstacles, padding, (active) =>
-            visibilityRoute(
-                from,
-                to,
-                [...active, ...sourceAndTarget],
-                [...active, ...around],
-            ),
+        withinReach(
+            from,
+            to,
+            obstacles,
+            padding,
+            (active) =>
+                visibilityRoute(
+                    from,
+                    to,
+                    [...active, ...sourceAndTarget],
+                    [...active, ...around],
+                ),
+            `D|${padding}|${routeKey(sourceAndTarget)}`,
         ) ?? [from, to]
     );
 }
@@ -226,16 +250,22 @@ export function orthogonalRoute(
     const obstacles = obstaclesFor(elements, [from, to], padding);
     const around = sourceAndTarget.map((box) => grow(box, padding));
     return (
-        withinReach(from, to, obstacles, padding, (active) =>
-            gridRoute(
-                from,
-                fromSide,
-                to,
-                toSide,
-                [...active, ...sourceAndTarget],
-                [...active, ...around],
-                padding,
-            ),
+        withinReach(
+            from,
+            to,
+            obstacles,
+            padding,
+            (active) =>
+                gridRoute(
+                    from,
+                    fromSide,
+                    to,
+                    toSide,
+                    [...active, ...sourceAndTarget],
+                    [...active, ...around],
+                    padding,
+                ),
+            `O|${fromSide}|${toSide}|${padding}|${routeKey(sourceAndTarget)}`,
         ) ?? orthogonalThrough([from, to], fromSide, toSide)
     );
 }

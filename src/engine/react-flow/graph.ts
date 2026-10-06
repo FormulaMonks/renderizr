@@ -71,6 +71,7 @@ import {
 } from "../geometry/label";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
+    type RoutedEdge,
     type RoutingElement,
     type RoutingMode,
     routeView,
@@ -307,6 +308,8 @@ export type Graph = {
     focusOrder: FocusItem[];
     /** The steps the view plays, when it animates (spec 11). */
     animation?: ViewAnimation;
+    /** Prototype (#98): every edge's route, for the next drag frame. */
+    routed?: RoutedEdge[];
 };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
@@ -539,6 +542,17 @@ export function buildGraph(
     scheme: ColorScheme,
     labels: Labels,
     measure: MeasureText = estimateText,
+    /**
+     * Prototype (#98): where edit mode has put elements. When given, the
+     * view's own layout never runs: every element sits here, or where the
+     * workspace says, and edges keep only their stored vertices.
+     */
+    positions?: ReadonlyMap<string, Point>,
+    /**
+     * Prototype (#98): a drag in progress. Edges that touch none of `moved`
+     * keep their routes from `previous`; the rest route with no obstacles.
+     */
+    drag?: { moved: ReadonlySet<string>; previous: Graph },
 ): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
@@ -753,28 +767,37 @@ export function buildGraph(
         });
     }
 
-    const { moved, vertices, placements } = positionElements(
-        view,
-        elements,
-        keys,
-        new Map(
-            edges.map((edge) => [
-                edge.key,
-                {
-                    room: layoutLabelRoom(
-                        edge.label,
-                        edge.fontSize,
-                        edge.labelWidth,
-                    ),
-                    size: edge.label?.size,
-                },
-            ]),
-        ),
-        (placed) =>
-            new Map(
-                deriveBoundaries(inputs, placed, measure).map((b) => [b.id, b]),
-            ),
-    );
+    const { moved, vertices, placements } = positions
+        ? {
+              moved: positions,
+              vertices: new Map<string, Point[]>(),
+              placements: [],
+          }
+        : positionElements(
+              view,
+              elements,
+              keys,
+              new Map(
+                  edges.map((edge) => [
+                      edge.key,
+                      {
+                          room: layoutLabelRoom(
+                              edge.label,
+                              edge.fontSize,
+                              edge.labelWidth,
+                          ),
+                          size: edge.label?.size,
+                      },
+                  ]),
+              ),
+              (placed) =>
+                  new Map(
+                      deriveBoundaries(inputs, placed, measure).map((b) => [
+                          b.id,
+                          b,
+                      ]),
+                  ),
+          );
     for (const edge of edges)
         edge.vertices = vertices.get(edge.key) ?? edge.vertices;
     const names = new Map<string, string>();
@@ -798,17 +821,19 @@ export function buildGraph(
     );
 
     // Each edge already carries every field a `RoutingEdge` names.
-    const routes = routeView(
-        [...drawn.values()].map(
-            ({ box, geometry }): RoutingElement => ({
-                id: box.id,
-                x: box.x,
-                y: box.y,
-                geometry,
-            }),
-        ),
-        edges,
-    );
+    const routes = drag
+        ? dragRoutes(drag, [...drawn.values()], edges)
+        : routeView(
+              [...drawn.values()].map(
+                  ({ box, geometry }): RoutingElement => ({
+                      id: box.id,
+                      x: box.x,
+                      y: box.y,
+                      geometry,
+                  }),
+              ),
+              edges,
+          );
     // Labels are placed in view order, clear of the elements, the boundary
     // label bands and the labels before them (spec 10.8).
     const placedLabels = placeEdgeLabels(
@@ -855,6 +880,7 @@ export function buildGraph(
     );
 
     return {
+        routed: routes,
         key: view.key,
         title: view.title,
         background: defaults.background,
@@ -877,6 +903,42 @@ export function buildGraph(
         focusOrder: readingOrder(elements, drawnBoundaries, routed),
         ...(animation && { animation }),
     };
+}
+
+/**
+ * Prototype (#98): one drag frame's routes. An edge with neither end moved
+ * keeps its last route; the others route among their own ends only, so
+ * avoidance does no work until the drop.
+ */
+function dragRoutes(
+    { moved, previous }: { moved: ReadonlySet<string>; previous: Graph },
+    drawn: { box: ElementBox; geometry: ShapeGeometry }[],
+    edges: EdgeDraft[],
+): RoutedEdge[] {
+    const before = new Map(
+        (previous.routed ?? []).map((route) => [route.key, route]),
+    );
+    const live = edges.filter(
+        (e) =>
+            moved.has(e.sourceId) ||
+            moved.has(e.targetId) ||
+            !before.has(e.key),
+    );
+    const ends = new Set(live.flatMap((e) => [e.sourceId, e.targetId]));
+    const fresh = new Map(
+        routeView(
+            drawn
+                .filter(({ box }) => ends.has(box.id))
+                .map(({ box, geometry }) => ({
+                    id: box.id,
+                    x: box.x,
+                    y: box.y,
+                    geometry,
+                })),
+            live,
+        ).map((route) => [route.key, route]),
+    );
+    return edges.map((e) => fresh.get(e.key) ?? before.get(e.key)!);
 }
 
 /**
