@@ -1891,7 +1891,36 @@ function Canvas({
     /** Prototype (#98): a vertex where a double-click lands on an edge. */
     const onDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
         if (!EDITING || !graph) return;
-        const hit = (event.target as Element).closest("[data-edge-key]");
+        const target = event.target as Element;
+        const anchor = { x: event.clientX, y: event.clientY };
+        // A double-click on an element or on an edge's label offers its
+        // activation targets, as a click does outside edit mode.
+        const element = graph.elements.find(
+            (e) =>
+                e.id ===
+                target
+                    .closest(".react-flow__node-box")
+                    ?.getAttribute("data-id"),
+        );
+        if (element) {
+            if (element.targets.length)
+                onActivate("element", element.id, anchor);
+            return;
+        }
+        const label = graph.edges.find(
+            (e) =>
+                e.id ===
+                target
+                    .closest("[data-relationship-label]")
+                    ?.getAttribute("data-relationship-label"),
+        );
+        if (label) {
+            if (label.targets.length)
+                onActivate("relationship", label.id, anchor);
+            return;
+        }
+        // A double-click on an edge's line adds a vertex there.
+        const hit = target.closest("[data-edge-key]");
         const line = graph.edges.find(
             (e) => e.key === hit?.getAttribute("data-edge-key"),
         );
