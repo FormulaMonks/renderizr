@@ -1994,6 +1994,7 @@ function Canvas({
                     background: graph?.background,
                     fontFamily: family,
                     "--focus-ring": graph?.color,
+                    "--zoom": zoom,
                 } as CSSProperties
             }
         >

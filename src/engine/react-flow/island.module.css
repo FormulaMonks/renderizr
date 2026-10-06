@@ -49,3 +49,13 @@
 .canvas :global(.react-flow__nodesselection) {
     display: none;
 }
+
+/*
+ * Prototype (#98): a selected element is outlined in the brand color, the
+ * same width on screen at any zoom (`--zoom` is the canvas's zoom).
+ */
+.canvas :global(.react-flow__node-box.selected) {
+    outline: calc(2px / var(--zoom, 1)) solid var(--color-primary);
+    outline-offset: calc(4px / var(--zoom, 1));
+    border-radius: calc(2px / var(--zoom, 1));
+}
