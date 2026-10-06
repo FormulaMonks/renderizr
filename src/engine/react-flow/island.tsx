@@ -120,7 +120,6 @@ import styles from "./island.module.css";
 import {
     EDITING,
     FROZEN,
-    GRID,
     GUIDE_REACH,
     type Guide,
     Guides,
@@ -1849,6 +1848,38 @@ function Canvas({
         flow.setViewport(panned);
     };
 
+    /**
+     * Prototype (#98): where a vertex at `to` lands. It snaps into line
+     * with the elements, with every other vertex in the view and with its
+     * own edge's ends, else to the grid; `index` is the vertex being moved.
+     */
+    const snapVertex = (to: Point, edge: string, index?: number) => {
+        const point = (p: Point) => ({ ...p, width: 0, height: 0 });
+        const targets = [
+            ...(graph?.elements ?? []),
+            ...(graph?.edges ?? []).flatMap((line) => [
+                ...line.vertices
+                    .filter((_, i) => line.key !== edge || i !== index)
+                    .map(point),
+                ...(line.key === edge
+                    ? [point(line.route[0]), point(line.route.at(-1)!)]
+                    : []),
+            ]),
+        ];
+        const snapped = snap(
+            [point(to)],
+            targets,
+            GUIDE_REACH / flow.getZoom(),
+        );
+        return {
+            point: {
+                x: Math.round(to.x + snapped.dx),
+                y: Math.round(to.y + snapped.dy),
+            },
+            guides: snapped.guides,
+        };
+    };
+
     /** Prototype (#98): a vertex where a double-click lands on an edge. */
     const onDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
         if (!EDITING || !graph) return;
@@ -1862,10 +1893,7 @@ function Canvas({
             x: event.clientX,
             y: event.clientY,
         });
-        const point = {
-            x: Math.round(at.x / GRID) * GRID,
-            y: Math.round(at.y / GRID) * GRID,
-        };
+        const { point } = snapVertex(at, line.key);
         const vertices = insertVertex(
             line.vertices,
             line.route[0],
@@ -1902,26 +1930,12 @@ function Canvas({
     const onVertexMove = (handle: VertexHandle, to: Point, done: boolean) => {
         const line = graph?.edges.find((e) => e.key === handle.edge);
         if (!graph || !line) return;
-        // A vertex snaps into line with its neighbors on the route and with
-        // the elements around it, or else to the grid.
-        const legs = [line.route[0], ...line.vertices, line.route.at(-1)!];
-        const neighbors = [legs[handle.index], legs[handle.index + 2]].map(
-            (p) => ({ ...p, width: 0, height: 0 }),
-        );
-        const snapped = snap(
-            [{ ...to, width: 0, height: 0 }],
-            [...neighbors, ...graph.elements],
-            GUIDE_REACH / flow.getZoom(),
-        );
-        const point = {
-            x: Math.round(to.x + snapped.dx),
-            y: Math.round(to.y + snapped.dy),
-        };
+        const { point, guides } = snapVertex(to, line.key, handle.index);
         setVertices(
             handle.edge,
             (vertices) =>
                 vertices.map((v, i) => (i === handle.index ? point : v)),
-            done ? [] : snapped.guides,
+            done ? [] : guides,
         );
     };
 
