@@ -14,7 +14,10 @@ import { resolve } from "node:path";
 import { test } from "node:test";
 import { REPO_ROOT } from "./__fixtures__/helpers.js";
 
-// The scripts that make npm (pacote) prepare a git dependency.
+/**
+ * The scripts that make npm (pacote) prepare a git dependency. A
+ * `workspaces` field triggers the same preparation on its own.
+ */
 const PREPARE_TRIGGERS = [
     "build",
     "install",
@@ -28,49 +31,39 @@ const manifest = JSON.parse(
     readFileSync(resolve(REPO_ROOT, "package.json"), "utf8"),
 );
 
+const gitmodules = (...args) =>
+    execFileSync("git", ["config", "--file", ".gitmodules", ...args], {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+    }).trim();
+
 test("package.json has no script that makes npm prepare the git dependency", () => {
     const triggers = PREPARE_TRIGGERS.filter(
         (name) => name in (manifest.scripts ?? {}),
     );
 
-    assert.deepEqual(triggers, []);
-    assert.equal(manifest.workspaces, undefined);
+    assert.deepEqual(triggers, [], "npx would install the dev dependencies");
+});
+
+test("package.json declares no workspaces, which also make npm prepare it", () => {
+    assert.equal(
+        manifest.workspaces,
+        undefined,
+        "npx would install the dev dependencies",
+    );
 });
 
 test("every submodule stays out of a recursive clone", () => {
-    const names = execFileSync(
-        "git",
-        [
-            "config",
-            "--file",
-            ".gitmodules",
-            "--get-regexp",
-            String.raw`^submodule\..*\.path$`,
-        ],
-        { cwd: REPO_ROOT, encoding: "utf8" },
-    )
-        .trim()
+    const names = gitmodules("--get-regexp", String.raw`^submodule\..*\.path$`)
         .split("\n")
-        .map((line) =>
-            line.split(" ")[0].slice("submodule.".length, -".path".length),
-        );
+        .map((line) => line.match(/^submodule\.(.+)\.path /)[1]);
 
     assert.ok(names.length > 0, ".gitmodules lists no submodule");
     for (const name of names) {
-        const update = execFileSync(
-            "git",
-            [
-                "config",
-                "--file",
-                ".gitmodules",
-                "--default",
-                "",
-                "--get",
-                `submodule.${name}.update`,
-            ],
-            { cwd: REPO_ROOT, encoding: "utf8" },
-        ).trim();
-
-        assert.equal(update, "none", `${name} is cloned by npx`);
+        assert.equal(
+            gitmodules("--default", "", "--get", `submodule.${name}.update`),
+            "none",
+            `${name} is cloned by npx`,
+        );
     }
 });

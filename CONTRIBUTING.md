@@ -59,6 +59,8 @@ git submodule update --init --checkout submodules/structurizr
 
 `.gitmodules` sets `update = none` because npm clones a git dependency with `--recurse-submodules`. Without it, every cold `npx github:FormulaMonks/renderizr` downloads the whole Structurizr repository before the CLI starts.
 
+The same setting means `git pull` and a plain `git submodule update` leave the submodule where it is when the gitlink moves. Run the `--checkout` command again after a change that bumps it.
+
 ## Install
 
 ```bash
