@@ -1483,7 +1483,17 @@ function Canvas({
             return keep(`n:${node.id}`, sig, () =>
                 node.type === "box"
                     ? { ...node, draggable: true, selectable: true, selected }
-                    : node,
+                    : node.type === "boundary"
+                      ? // A press on a boundary reaches the canvas, so a
+                        // marquee can start inside it.
+                        {
+                            ...node,
+                            style: {
+                                ...node.style,
+                                pointerEvents: "none" as const,
+                            },
+                        }
+                      : node,
             );
         });
     }, [drawing, stepState, transition, edit.selected]);
