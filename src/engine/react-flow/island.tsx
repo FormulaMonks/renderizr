@@ -127,7 +127,6 @@ import {
     EdgeToolbar,
     FROZEN,
     GUIDE_REACH,
-    nextJump,
     nextRouting,
     type Routing,
     SelectedEdge,
@@ -2062,28 +2061,15 @@ function Canvas({
                 }),
         }));
 
-    const setJump = (edge: string, jump: boolean | null) =>
-        setEdit((e) => ({ ...e, jumps: new Map(e.jumps).set(edge, jump) }));
-
-    // Local's keys, on the selected edge: `r` cycles the routing mode, `j`
-    // the jump, and Up and Down move the label by 5 percent.
+    // On the selected edge, `r` cycles the routing mode like the button and
+    // Escape clears the selection.
     useEffect(() => {
         if (!EDITING || !selectedLine) return;
         const onKey = (event: globalThis.KeyboardEvent) => {
             if (event.metaKey || event.ctrlKey || event.altKey) return;
             const key = selectedLine.key;
             if (event.key === "r") {
-                setRouting(key, nextRouting(selectedLine.storedRouting));
-            } else if (event.key === "j") {
-                setJump(key, nextJump(selectedLine.storedJump));
-            } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                const now = selectedLine.labelPosition;
-                const step = event.key === "ArrowUp" ? 5 : -5;
-                const position = Math.min(100, Math.max(0, now + step));
-                setEdit((e) => ({
-                    ...e,
-                    labels: new Map(e.labels).set(key, position),
-                }));
+                setRouting(key, nextRouting(selectedLine.routing));
             } else if (event.key === "Escape") {
                 setEdit((e) => ({ ...e, edge: null }));
             } else return;
@@ -2419,30 +2405,13 @@ function Canvas({
             {EDITING && <Readout selected={edit.selected.size} />}
             {selectedLine && toolbarAt && (
                 <EdgeToolbar
-                    routing={selectedLine.storedRouting}
-                    styleRouting={selectedLine.styleRouting ?? "Direct"}
-                    jump={selectedLine.storedJump}
-                    styleJump={selectedLine.styleJump ?? false}
-                    vertices={selectedLine.vertices.length}
-                    position={edit.labels.get(selectedLine.key)}
-                    onRouting={(r) => setRouting(selectedLine.key, r)}
-                    onJump={(j) => setJump(selectedLine.key, j)}
-                    onClearVertices={() =>
-                        setEdit((e) => ({
-                            ...e,
-                            vertices: new Map(e.vertices).set(
-                                selectedLine.key,
-                                [],
-                            ),
-                        }))
+                    routing={selectedLine.routing}
+                    onCycle={() =>
+                        setRouting(
+                            selectedLine.key,
+                            nextRouting(selectedLine.routing),
+                        )
                     }
-                    onClearPosition={() => {
-                        setEdit((e) => {
-                            const labels = new Map(e.labels);
-                            labels.delete(selectedLine.key);
-                            return { ...e, labels };
-                        });
-                    }}
                 />
             )}
         </div>

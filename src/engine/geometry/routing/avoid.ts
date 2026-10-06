@@ -32,7 +32,10 @@ import { BEND_PENALTY } from "./sides";
  * default thickness of 2, scaled to the edge's thickness (spec 10.2).
  */
 export const obstaclePadding = (thickness: number): number =>
-    16 + 2 * thickness;
+    avoidance.base + 2 * thickness;
+
+/** Prototype (#99): the padding's base, which `?pad=N` sets to try others. */
+export const avoidance = { base: 16 };
 
 /**
  * Each element grown by `padding`, except where that would swallow one of
