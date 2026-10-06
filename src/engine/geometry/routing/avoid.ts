@@ -28,11 +28,11 @@ import {
 import { BEND_PENALTY } from "./sides";
 
 /**
- * How far a route keeps from an element it goes around: about 20 at the
- * default thickness of 2, scaled to the edge's thickness (spec 10.2).
+ * How far a route keeps from an element it goes around: 64 plus twice the
+ * edge's thickness, so 68 at the default thickness of 2 (spec 10.2).
  */
 export const obstaclePadding = (thickness: number): number =>
-    16 + 2 * thickness;
+    64 + 2 * thickness;
 
 /**
  * Each element grown by `padding`, except where that would swallow one of
@@ -105,13 +105,53 @@ export function isStraightClear(
     return isClear(from, to, [...obstacles, ...sourceAndTarget]);
 }
 
+/** The shares of the padding a route tries in turn, down to none. */
+const PADDING_SHARES = [1, 1 / 2, 1 / 4, 0];
+
+/**
+ * The first route `router` finds from `from` to `to` past the `elements`
+ * grown by `padding`, then by half and a quarter of it, then by nothing, so
+ * a route squeezes through a gap narrower than twice the padding rather
+ * than crossing an element. The router gets the padded elements near the
+ * ends (`withinReach`) and the edge's own ends, both as they block and as
+ * they are gone around. `null` when there is no route even hugging them.
+ */
+function narrowingRoute(
+    from: Point,
+    to: Point,
+    elements: Rect[],
+    sourceAndTarget: Rect[],
+    padding: number,
+    router: (
+        blockers: Rect[],
+        around: Rect[],
+        padding: number,
+    ) => Point[] | null,
+): Point[] | null {
+    for (const share of PADDING_SHARES) {
+        const narrowed = padding * share;
+        const obstacles = obstaclesFor(elements, [from, to], narrowed);
+        const around = sourceAndTarget.map((box) => grow(box, narrowed));
+        const route = withinReach(from, to, obstacles, narrowed, (active) =>
+            router(
+                [...active, ...sourceAndTarget],
+                [...active, ...around],
+                narrowed,
+            ),
+        );
+        if (route) return route;
+    }
+    return null;
+}
+
 /**
  * The Direct route from `from` to `to` (spec 10.2): straight when nothing is
  * in the way, otherwise the shortest route through the corners of the
  * `elements` grown by `padding`, with `BEND_PENALTY` per bend.
  * `sourceAndTarget` are the edge's own source and target boxes, which it may
- * touch but not pass through.
- * Falls back to the straight segment between them when no route exists.
+ * touch but not pass through. Where the padded elements leave no way
+ * through, the padding narrows (`narrowingRoute`); with no route even then, it
+ * falls back to the straight segment between them.
  */
 export function directRoute(
     from: Point,
@@ -123,16 +163,14 @@ export function directRoute(
     if (isStraightClear(from, to, elements, sourceAndTarget, padding)) {
         return [from, to];
     }
-    const obstacles = obstaclesFor(elements, [from, to], padding);
-    const around = sourceAndTarget.map((box) => grow(box, padding));
     return (
-        withinReach(from, to, obstacles, padding, (active) =>
-            visibilityRoute(
-                from,
-                to,
-                [...active, ...sourceAndTarget],
-                [...active, ...around],
-            ),
+        narrowingRoute(
+            from,
+            to,
+            elements,
+            sourceAndTarget,
+            padding,
+            (blockers, around) => visibilityRoute(from, to, blockers, around),
         ) ?? [from, to]
     );
 }
@@ -212,7 +250,9 @@ const headingOf = (direction: Point) =>
  * `to`, arriving perpendicular to `toSide` (spec 10.2): the shortest
  * axis-aligned route that clears the `elements` grown by `padding`, with
  * `BEND_PENALTY` per bend, touching but never crossing `sourceAndTarget`.
- * Falls back to `orthogonalThrough` when there is no such route.
+ * Where the padded elements leave no way through, the padding narrows
+ * (`narrowingRoute`); with no route even then, it falls back to
+ * `orthogonalThrough`.
  */
 export function orthogonalRoute(
     from: Point,
@@ -223,19 +263,23 @@ export function orthogonalRoute(
     sourceAndTarget: Rect[],
     padding: number,
 ): Point[] {
-    const obstacles = obstaclesFor(elements, [from, to], padding);
-    const around = sourceAndTarget.map((box) => grow(box, padding));
     return (
-        withinReach(from, to, obstacles, padding, (active) =>
-            gridRoute(
-                from,
-                fromSide,
-                to,
-                toSide,
-                [...active, ...sourceAndTarget],
-                [...active, ...around],
-                padding,
-            ),
+        narrowingRoute(
+            from,
+            to,
+            elements,
+            sourceAndTarget,
+            padding,
+            (blockers, around, narrowed) =>
+                gridRoute(
+                    from,
+                    fromSide,
+                    to,
+                    toSide,
+                    blockers,
+                    around,
+                    narrowed,
+                ),
         ) ?? orthogonalThrough([from, to], fromSide, toSide)
     );
 }

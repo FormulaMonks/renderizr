@@ -473,10 +473,9 @@ test("an edge with vertices takes part in the ordering of its side", () => {
 
 /* ---------------- obstacles */
 
-test("obstacles are padded by about 20, scaled to thickness", () => {
-    assert.equal(obstaclePadding(2), 20);
-    assert.ok(obstaclePadding(10) > obstaclePadding(2));
-    assert.ok(obstaclePadding(1) < obstaclePadding(2));
+test("obstacles are padded by 64 plus twice the thickness", () => {
+    assert.equal(obstaclePadding(2), 68, "padding at the default thickness");
+    assert.equal(obstaclePadding(10), 84, "padding at the thickest line");
 });
 
 /* ---------------- Direct */
@@ -538,6 +537,48 @@ test("Direct never passes back through its own ends", () => {
         [],
         fmt(route),
     );
+});
+
+/**
+ * A source walled in 100 away above, below and on its right, the side its
+ * route leaves from, with the target past the right wall: a gap narrower
+ * than twice the padding of 68 on every side but the far-off left.
+ */
+const WALLED_IN = {
+    from: { x: 200, y: 50 },
+    to: { x: 600, y: 50 },
+    walls: [
+        element("above", -400, -200, 700, 100),
+        element("right", 300, -200, 100, 500),
+        element("below", -400, 200, 700, 100),
+    ],
+    ends: [
+        { x: 0, y: 0, width: 200, height: 100 },
+        { x: 600, y: 0, width: 200, height: 100 },
+    ],
+};
+
+test("Direct and Orthogonal squeeze through gaps narrower than their padding rather than cross an element", () => {
+    const { from, to, walls, ends } = WALLED_IN;
+    const blockers = walls.map(boxOf);
+    const routes = {
+        Direct: directRoute(from, to, blockers, ends, 68),
+        Orthogonal: orthogonalRoute(
+            from,
+            "right",
+            to,
+            "left",
+            blockers,
+            ends,
+            68,
+        ),
+    };
+    for (const [mode, route] of Object.entries(routes)) {
+        assert.deepEqual(route[0], from, `${mode} leaves from the source`);
+        assert.deepEqual(route.at(-1), to, `${mode} reaches the target`);
+        assert.deepEqual(crossings(route, walls), [], `${mode}: ${fmt(route)}`);
+    }
+    assert.ok(isAxisAligned(routes.Orthogonal), fmt(routes.Orthogonal));
 });
 
 /* ---------------- Orthogonal */
