@@ -183,6 +183,12 @@ export function mountEngine(
                 if (__RENDERIZR_EDIT_MODE__)
                     commands.calculateLayout?.(options);
             },
+            align(edge) {
+                if (__RENDERIZR_EDIT_MODE__) commands.align?.(edge);
+            },
+            distribute(axis) {
+                if (__RENDERIZR_EDIT_MODE__) commands.distribute?.(axis);
+            },
             onLayoutChanged(callback) {
                 layoutChanged.add(callback);
                 return () => {

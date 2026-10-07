@@ -360,6 +360,22 @@ export async function openBrowser(chrome) {
                     }
                     throw new Error(`The page never got to ${expression}`);
                 },
+                /** Click at `at` with `modifiers` held (DevTools bits). */
+                async click(at, modifiers = 0) {
+                    for (const [type, buttons] of [
+                        ["mouseMoved", 0],
+                        ["mousePressed", 1],
+                        ["mouseReleased", 0],
+                    ])
+                        await call("Input.dispatchMouseEvent", {
+                            type,
+                            ...at,
+                            button: "left",
+                            buttons,
+                            clickCount: 1,
+                            modifiers,
+                        });
+                },
                 /** Press at `from`, move in `steps` to `to` and release. */
                 async drag(from, to, steps = 10) {
                     const mouse = (type, { x, y }, buttons) =>

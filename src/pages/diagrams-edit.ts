@@ -11,8 +11,15 @@ import history from "history/hash";
 import { openCalculateLayout } from "../components/calculate-layout-dialog";
 import { version as workspaceVersion } from "virtual:renderizr/workspace";
 import type CurrentView from "../components/current-view";
-import { type EditingRoute, paintSaveStatus } from "../components/edit-buttons";
+import {
+    type EditingRoute,
+    type EditState,
+    paintEditState,
+    paintSaveStatus,
+} from "../components/edit-buttons";
 import { EditSession } from "../components/edit-session";
+import { pageCommand } from "../components/shortcuts";
+import { openShortcuts } from "../components/shortcuts-dialog";
 import {
     editingSearch,
     isEditingRoute,
@@ -73,6 +80,26 @@ export async function leave(
     if (await edits.save()) proceed();
 }
 
+/** How many elements the engine has selected, as it last said. */
+let selected = 0;
+
+/**
+ * Undo or redo one step of the view shown (spec 16). The engine draws the
+ * layout back through `setLayout`, and keeps its viewport.
+ */
+function step(engine: Engine, direction: "undo" | "redo") {
+    const edits = editSession();
+    const key = engine.getCurrentView().key;
+    const layout = direction === "undo" ? edits.undo(key) : edits.redo(key);
+    if (layout) engine.setLayout(key, layout);
+}
+
+/** What the edit toolbar enables its buttons from (spec 13.4, 16). */
+const editState = (engine: Engine): EditState => ({
+    selected,
+    ...editSession().history(engine.getCurrentView().key),
+});
+
 /** The editing route as the toolbar drives it (spec 4.6, 17.1). */
 export function editingRoute(
     engine: Engine,
@@ -112,14 +139,26 @@ export function editingRoute(
                 ? layoutNotice(view.layout, view.unplaced.length)
                 : null;
         },
+        align: (edge) => engine.align(edge),
+        distribute: (axis) => engine.distribute(axis),
+        undo: () => step(engine, "undo"),
+        redo: () => step(engine, "redo"),
+        showShortcuts: () => openShortcuts(document.body),
+        editState: () => editState(engine),
     };
 }
+
+/** Whether `target` takes typing, where the page leaves keys alone. */
+const typesText = (target: EventTarget | null) =>
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.matches("input, textarea, select"));
 
 /**
  * Wire the engine to the edit session while the page shows: the page hands
  * every layout change back at once (a change it didn't hand back would
- * revert, ADR 18), the toolbar shows where saving stands, Cmd/Ctrl+S saves,
- * Cmd/Ctrl+Z undoes and Cmd/Ctrl+Shift+Z redoes on the view shown, and the
+ * revert, ADR 18), the toolbar shows where saving stands and enables what
+ * the selection and the view's history allow, the page keys save, undo and
+ * redo on the view shown and open "Keyboard shortcuts" (spec 17.2), and the
  * toolbar, the engine and `<html data-editing>` follow the editing
  * route. The pencil, Done and Back change the route without changing the
  * view, so the engine shows nothing new and the page has to hear it from
@@ -135,24 +174,19 @@ export function startEditing(
     let shown = editing();
     root.toggleAttribute("data-editing", shown);
 
+    // The page's keys work with focus anywhere in the page, by physical key
+    // (spec 17.2), and leave a field that takes typing alone.
     const onKey = (event: KeyboardEvent) => {
-        // By physical key, so Option's characters don't get in the way
-        // (spec 17.2).
-        if (!editing() || !(event.metaKey || event.ctrlKey) || event.altKey)
-            return;
-        if (event.code === "KeyS") {
-            event.preventDefault();
-            void edits.save();
-            return;
-        }
-        if (event.code !== "KeyZ") return;
+        if (!editing() || typesText(event.target)) return;
+        const command = pageCommand(event);
+        if (!command) return;
         event.preventDefault();
-        // One step of the view shown, back or forward (spec 16).
-        const key = engine.getCurrentView().key;
-        const layout = event.shiftKey ? edits.redo(key) : edits.undo(key);
-        if (layout) engine.setLayout(key, layout);
+        if (command === "save") void edits.save();
+        else if (command === "shortcuts") openShortcuts(document.body);
+        else step(engine, command);
     };
     document.addEventListener("keydown", onKey);
+    const paintState = () => paintEditState(container, editState(engine));
 
     return [
         engine.onViewShown((view) => edits.setView(view.key)),
@@ -163,7 +197,15 @@ export function startEditing(
             // holds its first edit.
             if (first) currentView.render(engine.getCurrentView());
         }),
-        edits.onStatus((status) => paintSaveStatus(container, status)),
+        // Undo and redo, like every change, tell the session's listeners.
+        edits.onStatus((status) => {
+            paintSaveStatus(container, status);
+            paintState();
+        }),
+        engine.onSelectionChanged(({ elements }) => {
+            selected = elements.length;
+            paintState();
+        }),
         history.listen(() => {
             if (editing() === shown) return;
             shown = editing();

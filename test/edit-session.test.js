@@ -249,3 +249,46 @@ test("undo lays a change's before back, redo its after, one change per step and 
     edits.record(change("A", "1", 7, 7));
     assert.equal(edits.redo("A"), null, "a new edit clears redo");
 });
+
+test("the session says whether a view has a step to undo or redo, and tells its listeners when that changes", () => {
+    const edits = session(stubHost());
+    const heard = [];
+    edits.onStatus(() => heard.push(edits.history("A")));
+    assert.deepEqual(edits.history("A"), { undo: false, redo: false });
+
+    edits.record(change("A", "1", 10, 10));
+    assert.deepEqual(edits.history("A"), { undo: true, redo: false });
+    assert.deepEqual(edits.history("B"), { undo: false, redo: false });
+
+    edits.undo("A");
+    assert.deepEqual(edits.history("A"), { undo: false, redo: true });
+    assert.deepEqual(heard, [
+        { undo: true, redo: false },
+        { undo: false, redo: true },
+    ]);
+});
+
+test("clearing a view's history keeps its edited layout and the other views' histories", () => {
+    const edits = session(stubHost());
+    edits.record(change("A", "1", 10, 10));
+    edits.record(change("A", "1", 20, 20));
+    edits.undo("A");
+    edits.record(change("B", "2", 30, 40));
+    let heard = 0;
+    edits.onStatus(() => heard++);
+
+    edits.clearHistory("A");
+    assert.deepEqual(edits.history("A"), { undo: false, redo: false });
+    assert.equal(edits.undo("A"), null);
+    assert.equal(edits.redo("A"), null);
+    assert.deepEqual(edits.layoutOf("A"), { elements: { 1: { x: 0, y: 0 } } });
+    assert.deepEqual(edits.history("B"), { undo: true, redo: false });
+    assert.equal(heard, 1, "the listeners never heard the history go");
+});
+
+test("a save keeps every view's history", async () => {
+    const edits = session(stubHost());
+    edits.record(change("A", "1", 10, 10));
+    assert.equal(await edits.save(), true);
+    assert.deepEqual(edits.history("A"), { undo: true, redo: false });
+});
