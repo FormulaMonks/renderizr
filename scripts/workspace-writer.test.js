@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
-import { fixture, withTempDir } from "./__fixtures__/helpers.js";
+import { fileState, fixture, withTempDir } from "./__fixtures__/helpers.js";
 import {
     applyLayout,
     printWorkspace,
@@ -583,7 +583,8 @@ test("a save that changes nothing leaves the file alone", async () => {
             agent: AGENT,
             now: () => NOW,
         });
-        const before = await stat(file);
+        const before = await fileState(file);
+        assert.equal(before.text, text);
         const { version, written } = await writer.save({
             version: versionOf(text),
             view: "Landscape",
@@ -591,8 +592,7 @@ test("a save that changes nothing leaves the file alone", async () => {
         });
         assert.equal(written, false);
         assert.equal(version, versionOf(text));
-        assert.equal(await readFile(file, "utf8"), text);
-        assert.equal((await stat(file)).mtimeMs, before.mtimeMs);
+        assert.deepEqual(await fileState(file), before);
     });
 });
 
@@ -747,7 +747,7 @@ test("a run's workspace that matches the file but for its stamps writes nothing"
         setInOrder(saved, "lastModifiedUser", "author");
         const text = printWorkspace(saved);
         await writeFile(file, text);
-        const { mtimeMs } = await stat(file);
+        const before = await fileState(file);
 
         const writer = new WorkspaceWriter(file, {
             agent: AGENT,
@@ -756,8 +756,7 @@ test("a run's workspace that matches the file but for its stamps writes nothing"
         // Structurizr's merge writes none of these stamps.
         const result = await writer.replace(JSON.stringify(small()));
         assert.deepEqual(result, { version: versionOf(text), written: false });
-        assert.equal(await readFile(file, "utf8"), text);
-        assert.equal((await stat(file)).mtimeMs, mtimeMs);
+        assert.deepEqual(await fileState(file), before);
     });
 });
 

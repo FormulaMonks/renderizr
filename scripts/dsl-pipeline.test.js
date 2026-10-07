@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { DslPipeline, errorMessage } from "./dsl-pipeline.js";
 import { checkTools, shellCommand, toolsCommand } from "./structurizr-tools.js";
 import { WorkspaceWriter } from "./workspace-writer.js";
-import { fixture, withTempDir } from "./__fixtures__/helpers.js";
+import { fileState, fixture, withTempDir } from "./__fixtures__/helpers.js";
 
 /**
  * The DSL pipeline (spec 5, ADR 16) against a stub of Structurizr's tools,
@@ -185,8 +185,7 @@ test("a run with workspace.json merges with it as the layout and writes only on 
             view: "Landscape",
             views: { Landscape: { elements: { 1: { x: 300, y: 200 } } } },
         });
-        const saved = await readFile(json, "utf8");
-        const { mtimeMs } = await stat(json);
+        const saved = await fileState(json);
 
         await wait(20);
         assert.equal(await pipeline.run(), true);
@@ -199,12 +198,11 @@ test("a run with workspace.json merges with it as the layout and writes only on 
         assert.ok(
             merge.args[merge.args.indexOf("-output") + 1].startsWith("."),
         );
-        assert.equal(
-            await readFile(json, "utf8"),
+        assert.deepEqual(
+            await fileState(json),
             saved,
             "a merge that changed nothing rewrote workspace.json",
         );
-        assert.equal((await stat(json)).mtimeMs, mtimeMs);
         assert.equal(
             events.filter(({ event }) => event === "workspace").length,
             2,
