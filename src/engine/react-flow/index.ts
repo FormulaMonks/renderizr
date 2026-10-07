@@ -137,6 +137,12 @@ export function mountEngine(
             calculateLayout(options) {
                 commands.calculateLayout?.(options);
             },
+            align(edge) {
+                commands.align?.(edge);
+            },
+            distribute(axis) {
+                commands.distribute?.(axis);
+            },
             setRouting(mode) {
                 commands.setRouting?.(mode);
             },

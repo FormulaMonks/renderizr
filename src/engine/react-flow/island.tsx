@@ -68,9 +68,11 @@ import {
     type WorkspaceModel,
 } from "../../model";
 import type {
+    AlignEdge,
     Anchor,
     CalculateLayoutOptions,
     CanvasCommand,
+    DistributeAxis,
     SelectionState,
 } from "../contract";
 import type { TextBlock } from "../geometry/boundary";
@@ -84,7 +86,9 @@ import {
 import type { Point } from "../geometry/shapes/types";
 import { type Guide, guideReach, snapBox } from "../geometry/snapping";
 import { bringBackChange, calculatedChange, canvasChange } from "./commands";
-import { dragLayout, dropChange } from "./drag";
+import { moveChange } from "./arrange";
+import { dragLayout } from "./drag";
+import { useEditKeys, useKeepViewport } from "./edit-keys";
 import {
     routeChange,
     sideChange,
@@ -203,6 +207,11 @@ export type IslandCommands = {
     bringBack?(): void;
     calculateLayout?(options: CalculateLayoutOptions): void;
     setRouting?(mode: RoutingMode): void;
+    align?(edge: AlignEdge): void;
+    distribute?(axis: DistributeAxis): void;
+    /** The island's own keys, which no button calls (spec 9.2). */
+    nudge?(step: Point): void;
+    selectAll?(): void;
 };
 
 export type { ActivationType };
@@ -1960,6 +1969,27 @@ function Canvas({
     /** Set once the reader zooms or pans; refits on resize stop until `fit()`. */
     const moved = useRef(false);
     const painted = useRef<string | null>(null);
+    // A change to the edited layout never refits, and align, distribute,
+    // nudge and select all arrange the selection, by command or by key
+    // (spec 10.1, 13, 17.2). The flag is a build-time constant, so builds
+    // call neither hook (ADR 15).
+    if (__RENDERIZR_EDIT_MODE__) useKeepViewport(viewKey, edited, moved);
+    const editKey = __RENDERIZR_EDIT_MODE__
+        ? useEditKeys({
+              wrapper,
+              commands,
+              view:
+                  editable && drawn && !drawn.error && !drawn.image
+                      ? drawn
+                      : null,
+              viewKey,
+              edited,
+              selected,
+              select,
+              stepState,
+              onLayoutChanged,
+          })
+        : undefined;
 
     /**
      * React Flow reports a drag as position changes, for every selected
@@ -1992,7 +2022,7 @@ function Canvas({
             dragging.current = null;
             setDrag(null);
             const change = current?.positions
-                ? dropChange(viewKey, drawn, edited, current.positions)
+                ? moveChange(viewKey, drawn, edited, current.positions)
                 : null;
             if (change) onLayoutChanged?.(change);
             return;
@@ -2293,6 +2323,7 @@ function Canvas({
 
     const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         pointing.current = false;
+        if (__RENDERIZR_EDIT_MODE__ && editable && editKey?.(event)) return;
         if (event.altKey || event.ctrlKey || event.metaKey) return;
         if (event.key === "Tab") return onTab(event);
         if (event.key === "Escape") {

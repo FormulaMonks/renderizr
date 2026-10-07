@@ -113,31 +113,15 @@ export function dropChange(
         before[id] = drawn.get(id) as Point;
         after[id] = saved(point);
     }
-    // Vertices ride along with both their ends (spec 12.3).
-    const carried = carriedRoutes(
-        graph,
-        new Map(moved.map(([id, point]) => [id, saved(point)])),
-    );
-    const routes = storedRoutes(graph);
-    const was =
-        carried &&
-        Object.fromEntries(
-            Object.keys(carried).map((key) => [
-                key,
-                { vertices: routes.get(key) },
-            ]),
-        );
-    const fields = (
-        elements: Record<string, Point>,
-        relationships: Record<string, EditedRoute> | undefined,
-    ): EditedLayout => ({
-        elements,
-        ...(relationships && { relationships }),
-        ...(first && { dimensions: graph.canvas }),
-    });
+    if (!first)
+        return {
+            view,
+            before: { elements: before },
+            after: { elements: after },
+        };
     return {
         view,
-        before: fields(before, was),
-        after: fields(after, carried),
+        before: { elements: before, dimensions: graph.canvas },
+        after: { elements: after, dimensions: graph.canvas },
     };
 }

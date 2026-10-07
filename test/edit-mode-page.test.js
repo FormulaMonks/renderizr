@@ -243,6 +243,7 @@ function stubRoute(
         status = { state: "saved", waiting: false },
         notice = null,
         edge = null,
+        state = { selected: 0, undo: false, redo: false },
     } = {},
 ) {
     const calls = [];
@@ -257,6 +258,15 @@ function stubRoute(
         notice: () => notice,
         edge: () => edge,
         setRouting: (mode) => calls.push(["setRouting", mode]),
+        resizeCanvas: (command, recenter) =>
+            calls.push(["resizeCanvas", command, recenter]),
+        calculateLayout: () => calls.push(["calculateLayout"]),
+        align: (edge) => calls.push(["align", edge]),
+        distribute: (axis) => calls.push(["distribute", axis]),
+        undo: () => calls.push(["undo"]),
+        redo: () => calls.push(["redo"]),
+        showShortcuts: () => calls.push(["shortcuts"]),
+        editState: () => state,
     };
 }
 
@@ -400,6 +410,132 @@ test("in editing the toolbar shows where saving stands and a Save that waits for
     assert.equal(status.dataset.state, "failed");
     assert.equal(save.disabled, false, "a failed save can be tried again");
     toolbar.clear();
+});
+
+const { paintEditState } = await importSrc("components/edit-buttons");
+
+const ALIGN_TOOLTIPS = [
+    ["left", /^Align left \((⌥A|Alt\+A)\)$/],
+    ["center", /^Align horizontal centers \((⌥H|Alt\+H)\)$/],
+    ["right", /^Align right \((⌥D|Alt\+D)\)$/],
+    ["top", /^Align top \((⌥W|Alt\+W)\)$/],
+    ["middle", /^Align vertical centers \((⌥V|Alt\+V)\)$/],
+    ["bottom", /^Align bottom \((⌥S|Alt\+S)\)$/],
+];
+
+test("every edit toolbar button with a shortcut names it in its tooltip", () => {
+    const { toolbar } = toolbarFor("Landscape", stubRoute(true));
+    const button = (selector) => toolbar.element.querySelector(selector);
+    for (const [edge, tooltip] of ALIGN_TOOLTIPS)
+        assert.match(
+            button(`.align-selection[data-edge="${edge}"]`).title,
+            tooltip,
+        );
+    assert.match(
+        button('.distribute-selection[data-axis="horizontal"]').title,
+        /^Distribute horizontally \((⌥⇧H|Alt\+Shift\+H)\)$/,
+    );
+    assert.match(
+        button('.distribute-selection[data-axis="vertical"]').title,
+        /^Distribute vertically \((⌥⇧V|Alt\+Shift\+V)\)$/,
+    );
+    assert.match(button(".undo-layout").title, /^Undo \((⌘Z|Ctrl\+Z)\)$/);
+    assert.match(
+        button(".redo-layout").title,
+        /^Redo \((⇧⌘Z|Ctrl\+Shift\+Z)\)$/,
+    );
+    assert.equal(button(".show-shortcuts").title, "Keyboard shortcuts (?)");
+    assert.equal(button(".undo-layout").getAttribute("aria-label"), "Undo");
+    toolbar.clear();
+});
+
+test("the arranging buttons follow the selection: align from two elements, distribute from three", () => {
+    const route = stubRoute(true);
+    const { toolbar } = toolbarFor("Landscape", route);
+    const aligns = [...toolbar.element.querySelectorAll(".align-selection")];
+    const distributes = [
+        ...toolbar.element.querySelectorAll(".distribute-selection"),
+    ];
+    assert.equal(aligns.length, 6);
+    assert.equal(distributes.length, 2);
+    const enabled = () => [
+        aligns.every((button) => !button.disabled),
+        distributes.every((button) => !button.disabled),
+    ];
+    assert.deepEqual(enabled(), [false, false], "nothing selected");
+
+    paintEditState(toolbar.element, { selected: 1, undo: false, redo: false });
+    assert.deepEqual(enabled(), [false, false], "one element selected");
+    paintEditState(toolbar.element, { selected: 2, undo: false, redo: false });
+    assert.deepEqual(enabled(), [true, false], "two elements selected");
+    paintEditState(toolbar.element, { selected: 3, undo: false, redo: false });
+    assert.deepEqual(enabled(), [true, true], "three elements selected");
+
+    aligns[0].click();
+    distributes[1].click();
+    assert.deepEqual(route.calls, [
+        ["align", "left"],
+        ["distribute", "vertical"],
+    ]);
+    toolbar.clear();
+});
+
+test("undo and redo follow the view's history, and the keyboard button opens the shortcuts", () => {
+    const route = stubRoute(true, {
+        state: { selected: 0, undo: true, redo: false },
+    });
+    const { toolbar } = toolbarFor("Landscape", route);
+    const undo = toolbar.element.querySelector(".undo-layout");
+    const redo = toolbar.element.querySelector(".redo-layout");
+    assert.equal(undo.disabled, false, "undo waits with a step to undo");
+    assert.equal(redo.disabled, true, "redo is enabled with nothing undone");
+
+    paintEditState(toolbar.element, { selected: 0, undo: false, redo: true });
+    assert.equal(undo.disabled, true);
+    assert.equal(redo.disabled, false);
+
+    redo.click();
+    paintEditState(toolbar.element, { selected: 0, undo: true, redo: false });
+    undo.click();
+    toolbar.element.querySelector(".show-shortcuts").click();
+    assert.deepEqual(route.calls, [["redo"], ["undo"], ["shortcuts"]]);
+    toolbar.clear();
+});
+
+const { openShortcuts } = await importSrc("components/shortcuts-dialog");
+const { DOMEvent: KeyEvent } = await import("./support/dom.js");
+
+test("the Keyboard shortcuts dialog lists every group, and Escape closes it", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const dialog = () => host.querySelector("[data-shortcuts-dialog]");
+
+    openShortcuts(host);
+    assert.match(dialog().textContent, /Keyboard shortcuts/);
+    assert.deepEqual(
+        [...dialog().querySelectorAll("h3")].map((heading) =>
+            heading.textContent.trim(),
+        ),
+        ["Selection", "Moving", "Arranging", "History", "View"],
+    );
+    assert.match(dialog().textContent, /Distribute horizontally/);
+    openShortcuts(host);
+    assert.equal(
+        host.querySelectorAll("[data-shortcuts-dialog]").length,
+        1,
+        "a second ? opened a second dialog",
+    );
+
+    const press = new KeyEvent("keydown", { bubbles: true });
+    press.key = "Escape";
+    document.body.dispatchEvent(press);
+    assert.equal(dialog(), null, "Escape left the dialog open");
+    assert.equal(document.listenersFor("keydown").length, 0);
+
+    openShortcuts(host);
+    dialog().querySelector(".close-shortcuts").click();
+    assert.equal(dialog(), null, "Close left the dialog open");
+    host.remove();
 });
 
 test("while an edge is selected the toolbar shows its routing mode, and a click sets the next one", () => {

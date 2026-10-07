@@ -360,6 +360,22 @@ export async function openBrowser(chrome) {
                     }
                     throw new Error(`The page never got to ${expression}`);
                 },
+                /** Click at `at` with `modifiers` held (DevTools bits). */
+                async click(at, modifiers = 0) {
+                    for (const [type, buttons] of [
+                        ["mouseMoved", 0],
+                        ["mousePressed", 1],
+                        ["mouseReleased", 0],
+                    ])
+                        await call("Input.dispatchMouseEvent", {
+                            type,
+                            ...at,
+                            button: "left",
+                            buttons,
+                            clickCount: 1,
+                            modifiers,
+                        });
+                },
                 /** Press at `from`, move in `steps` to `to` and release. */
                 async drag(from, to, steps = 10) {
                     const mouse = (type, { x, y }, buttons) =>
@@ -385,8 +401,8 @@ export async function openBrowser(chrome) {
                     }
                     await mouse("mouseReleased", to, 0);
                 },
-                /** Click at `at` `count` times in a row: 2 is a double-click. */
-                async click(at, count = 1) {
+                /** Double-click at `at`. */
+                async doubleClick(at) {
                     const mouse = (type, clickCount, buttons) =>
                         call("Input.dispatchMouseEvent", {
                             type,
@@ -396,9 +412,9 @@ export async function openBrowser(chrome) {
                             clickCount,
                         });
                     await mouse("mouseMoved", 0, 0);
-                    for (let click = 1; click <= count; click++) {
-                        await mouse("mousePressed", click, 1);
-                        await mouse("mouseReleased", click, 0);
+                    for (const clickCount of [1, 2]) {
+                        await mouse("mousePressed", clickCount, 1);
+                        await mouse("mouseReleased", clickCount, 0);
                     }
                 },
                 /** Press a key by its physical `code`, with `modifiers` (DevTools bits). */

@@ -210,6 +210,28 @@
 }
 
 /*
+ * The edit toolbar (spec 17.1): its groups sit beside the read-only ones
+ * and wrap between them. In editing the whole toolbar takes the row under
+ * the view's title, so the title keeps its width and a save status that
+ * changes its text never moves the canvas.
+ */
+.editToolbar {
+    display: contents;
+}
+
+@media (min-width: 768px) {
+    :global(html[data-editing]) .currentView {
+        flex-wrap: wrap;
+        gap: 0.6rem 1rem;
+    }
+
+    :global(html[data-editing]) .controlButtons {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+}
+
+/*
  * Edit mode's way in and out (spec 4.6). Done is a word, so it takes the
  * width it needs, and the primary color marks it as the way back to reading.
  */
@@ -230,6 +252,7 @@
 /* Where saving stands in editing (spec 17.1); a failure says why. */
 .saveStatus {
     align-self: center;
+    min-width: 7.5rem;
     max-width: 18rem;
     padding: 0 0.5rem;
     overflow: hidden;

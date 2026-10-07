@@ -138,6 +138,24 @@ export class EditSession {
         return this.#apply(key, change.after);
     }
 
+    /** Whether view `key` has a step to undo and one to redo. */
+    history(key: string): { undo: boolean; redo: boolean } {
+        const history = this.#history.get(key);
+        return {
+            undo: (history?.done.length ?? 0) > 0,
+            redo: (history?.undone.length ?? 0) > 0,
+        };
+    }
+
+    /**
+     * Forget view `key`'s undo and redo history, keeping its edited layout,
+     * as when its layout comes again from disk (spec 6.2, 16).
+     */
+    clearHistory(key: string) {
+        if (!this.#history.delete(key)) return;
+        this.#notify();
+    }
+
     #historyOf(key: string): History {
         let history = this.#history.get(key);
         if (!history) {

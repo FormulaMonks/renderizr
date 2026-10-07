@@ -18,7 +18,8 @@ const {
 } = await importSrc("engine/geometry/edge-editing");
 const { WorkspaceModel } = await importSrc("model/index");
 const { buildGraph } = await importSrc("engine/react-flow/graph");
-const { dragLayout, dropChange } = await importSrc("engine/react-flow/drag");
+const { dragLayout } = await importSrc("engine/react-flow/drag");
+const { moveChange } = await importSrc("engine/react-flow/arrange");
 const { routeChange, sideChange, withVertex } = await importSrc(
     "engine/react-flow/edge-edits",
 );
@@ -276,7 +277,7 @@ test("a relationship whose two ends move by the same amount takes its vertices a
     assert.deepEqual(dragLayout(drawn, both).relationships, {
         [edge.key]: { vertices: [{ x: 4050, y: 4025 }] },
     });
-    const change = dropChange("Containers", drawn, edited, both);
+    const change = moveChange("Containers", drawn, edited, both);
     assert.deepEqual(change.after.relationships, {
         [edge.key]: { vertices: [{ x: 4050, y: 4025 }] },
     });
@@ -287,7 +288,7 @@ test("a relationship whose two ends move by the same amount takes its vertices a
     const one = new Map([[edge.sourceId, shift(edge.sourceId)]]);
     assert.equal(dragLayout(drawn, one).relationships, undefined);
     assert.equal(
-        dropChange("Containers", drawn, edited, one).after.relationships,
+        moveChange("Containers", drawn, edited, one).after.relationships,
         undefined,
     );
 });
