@@ -62,7 +62,7 @@ In a Scaffoldizr repository `workspace.json` holds the views' layout as well as 
 
 ## Recommended flow
 
-1. **Find the workspace.** Look for `./architecture/workspace.json`. If only `workspace.dsl` exists, or the DSL changed after the JSON, export it first and say so; do not silently render a stale JSON. When a `workspace.json` already exists, export with `merge` so it keeps the layout saved in it: `structurizr-cli merge -workspace workspace.dsl -layout workspace.json -output workspace.json`. A plain `export` overwrites `workspace.json` and loses that layout.
+1. **Find the workspace.** Look for `./architecture/workspace.json`. If only `workspace.dsl` exists, export it first and say so; do not silently render a stale JSON. An export that overwrites a `workspace.json` holding layout loses it: when one exists, export with `merge -layout workspace.json`.
 2. **Render it**, into a temporary directory rather than the repository, unless the user asked you to keep the output:
 
    ```bash
