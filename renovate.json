@@ -7,7 +7,7 @@
         ":semanticCommits",
         ":semanticCommitTypeAll(chore)"
     ],
-    "enabledManagers": ["npm", "github-actions"],
+    "enabledManagers": ["npm", "github-actions", "custom.regex"],
     "ignorePaths": ["**/node_modules/**", "submodules/**", "architecture/**"],
     "semanticCommits": "enabled",
     "semanticCommitType": "chore",
@@ -36,6 +36,18 @@
         "minimumReleaseAge": null
     },
     "osvVulnerabilityAlerts": true,
+    "customManagers": [
+        {
+            "customType": "regex",
+            "description": "The structurizr.war the `structurizr` CI job runs, pinned by STRUCTURIZR_VERSION under a `# renovate:` comment. Structurizr tags its application releases `vYYYY.MM.DD` and its library releases `vX.Y.Z` in the same repository; the regex versioning keeps only the dated ones. A new WAR can change what `pnpm fixtures:acceptance` writes, and then the job fails until the pull request commits the regenerated fixture.",
+            "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+            "matchStrings": [
+                "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z_]+_VERSION: \"(?<currentValue>[^\"]+)\""
+            ],
+            "extractVersionTemplate": "^v(?<version>.+)$",
+            "versioningTemplate": "regex:^(?<major>\\d{4})\\.(?<minor>\\d{2})\\.(?<patch>\\d{2})$"
+        }
+    ],
     "packageRules": [
         {
             "description": "Keep the pinned action digests current. Every third-party action in .github/workflows is pinned to a full commit SHA for OpenSSF Scorecard's Pinned-Dependencies check; without this rule those pins rot into a security liability instead of being one. One PR, monthly, since they move together and none of them ship into user output.",

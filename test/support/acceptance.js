@@ -117,7 +117,8 @@ export const ACCEPTANCE_SET = [
         // position, Dark style, opacity, border and routing mode, a filtered
         // and a custom view, the enterprise boundary, a childless deployment
         // node, several targets, parallel orders and an unplaced element.
-        // workspace.dsl beside it is the source; export.js regenerates it.
+        // Its workspace.json holds the layout and workspace.dsl the model;
+        // export.js merges the DSL into it again.
         name: "Acceptance",
         source: join(REPO_ROOT, "test/__fixtures__/acceptance/workspace.json"),
         submodule: false,
