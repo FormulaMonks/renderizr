@@ -2,16 +2,22 @@
  * The purpose-built acceptance workspace (spec 15.3): one workspace that
  * exercises every drawing rule the React Flow engine has to honor.
  *
- * workspace.json beside this file is its export. Regenerate it with
- * `pnpm fixtures:acceptance`, which runs `structurizr-cli export -f json`
- * on this file, marks the elements tagged "Internal" with
- * `location: Internal` and formats the result with Biome: structurizr-java
- * 5 dropped the enterprise and element locations, which the enterprise
- * boundary of older workspaces still needs.
+ * The layout lives in workspace.json beside this file, since the DSL has
+ * no syntax for coordinates or vertices. Edit mode edits it, and so does
+ * Structurizr Local. Leave the Containers view alone in edit mode: "Queue"
+ * stays unplaced there on purpose, and edit mode's first edit of a view
+ * stores every element.
  *
- * The `!script` block at the end stores every view's layout, vertices
- * included, since the DSL has no syntax for coordinates. "Queue" stays
- * unplaced in the Containers view on purpose.
+ * Regenerate workspace.json with `pnpm fixtures:acceptance`, after a DSL
+ * change or an edit-mode session. It runs Structurizr's `merge` on this
+ * file with workspace.json as the layout, marks the elements tagged
+ * "Internal" with `location: Internal`, names the enterprise and formats
+ * the result with Biome: structurizr-java 5 dropped the enterprise and
+ * element locations, which the enterprise boundary of older workspaces
+ * still needs.
+ *
+ * The `!script` block at the end adds the childless spare server to the
+ * Deployment view, which `include *` leaves out. It sets no layout.
  */
 workspace "Acceptance" "Every drawing rule of the renderer spec in one workspace" {
 
@@ -97,17 +103,17 @@ workspace "Acceptance" "Every drawing rule of the renderer spec in one workspace
             include customer clerk shop warehouse payments courier
         }
 
+        filtered "Landscape" exclude "External" "LandscapeInternal" "The landscape without the External elements"
+
         systemLandscape "LandscapeAutomatic" "The landscape laid out automatically, with the enterprise boundary around the shop's own people and systems" {
             include customer clerk shop warehouse payments courier
-            autoLayout
+            autoLayout tb 300 300
         }
 
         systemContext shop "Context" "The shop and its neighbors, laid out automatically" {
             include *
-            autoLayout lr
+            autoLayout lr 300 300
         }
-
-        filtered "Context" exclude "External" "ContextInternal" "The context without the External elements"
 
         container shop "Containers" "A stored layout that leaves the queue unplaced" {
             include *
@@ -125,7 +131,7 @@ workspace "Acceptance" "Every drawing rule of the renderer spec in one workspace
                 }
             }
             api -> queue "Publishes the order to"
-            autoLayout lr
+            autoLayout lr 300 300
         }
 
         deployment shop live "Deployment" "Live, with a spare server that holds nothing" {
@@ -280,48 +286,7 @@ workspace "Acceptance" "Every drawing rule of the renderer spec in one workspace
     }
 
     !script groovy {
-        def lookup = { String identifier -> workspace.model.elements.find({ it.properties["structurizr.dsl.identifier"] == identifier }) }
-        def place = { String key, Map layout ->
-            def view = workspace.views.getViewWithKey(key)
-            layout.each({ identifier, xy ->
-                def element = view.getElementView(lookup(identifier))
-                element.setX(xy[0])
-                element.setY(xy[1])
-            })
-        };
-        def bend = { String key, String source, String destination, List points ->
-            def view = workspace.views.getViewWithKey(key)
-            def relationship = workspace.model.relationships.find({ it.source == lookup(source) && it.destination == lookup(destination) })
-            view.getRelationshipView(relationship).setVertices(points.collect({ new com.structurizr.view.Vertex(it[0], it[1]) }))
-        };
-
-        place("Landscape", [
-            customer: [100, 800], clerk: [1000, 100], warehouse: [1800, 100],
-            shop: [1000, 800], payments: [2700, 800], courier: [2700, 100],
-        ])
-        bend("Landscape", "shop", "warehouse", [[2025, 600]])
-        bend("Landscape", "warehouse", "courier", [[2025, 0], [2925, 0]])
-        bend("Landscape", "payments", "customer", [[2925, 1600], [325, 1600]])
-
-        place("Containers", [
-            customer: [900, 100], web: [900, 700], api: [900, 1300], db: [900, 1900],
-            payments: [1900, 1300], warehouse: [1900, 1900],
-        ])
-
-        workspace.views.getViewWithKey("Deployment").addElement(lookup("spare"), false)
-        place("Deployment", [
-            webInstance: [200, 200], apiInstance: [1000, 200], dbInstance: [1800, 200],
-            spare: [1000, 1000],
-        ])
-
-        def shapes = ["box", "roundedBox", "circle", "ellipse", "hexagon", "diamond", "cylinder",
-            "bucket", "pipe", "personShape", "robot", "folder", "webBrowser", "window",
-            "portrait", "landscape", "component", "shell", "terminal"]
-        place("Shapes", shapes.withIndex().collectEntries({ identifier, i -> [(identifier): [100 + (i % 5) * 650, 100 + i.intdiv(5) * 500]] }))
-
-        place("Styles", [
-            iconTop: [100, 100], iconBottom: [750, 100], iconLeft: [1400, 100],
-            faded: [100, 600], dashed: [750, 600], dotted: [1400, 600],
-        ])
+        def spare = workspace.model.elements.find({ it.properties["structurizr.dsl.identifier"] == "spare" })
+        workspace.views.getViewWithKey("Deployment").addElement(spare, false)
     }
 }
