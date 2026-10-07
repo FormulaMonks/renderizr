@@ -1,5 +1,6 @@
 import { orderOf } from "./animation";
 import { type ResolvedBoundary, resolveBoundaries } from "./boundaries";
+import type { EditedLayout } from "./edited-layout";
 import {
     elementPasses,
     filterOf,
@@ -100,12 +101,17 @@ export type ResolvedView = {
  * stored base keeps their coordinates and an automatic one lays out what is
  * left.
  *
+ * An `edited` layout (ADR 18) is laid over the view's own coordinates before
+ * any of that is worked out, so the layout mode follows the coordinates the
+ * author sees.
+ *
  * `undefined` when the workspace has no view with that key, or a filtered
  * view's base is missing or itself filtered (`findViewError` says why).
  */
 export function resolveView(
     model: WorkspaceModel,
     key: string,
+    edited?: EditedLayout,
 ): ResolvedView | undefined {
     const requested = model.findViewByKey(key);
     if (!requested) return undefined;
@@ -119,10 +125,11 @@ export function resolveView(
         const element = model.findElementById(placement.id);
         if (!element) continue;
         if (filter && !elementPasses(model, filter, element)) continue;
+        const at = edited?.elements?.[placement.id] ?? placement;
         elements.push({
             id: placement.id,
-            x: placement.x ?? 0,
-            y: placement.y ?? 0,
+            x: at.x ?? 0,
+            y: at.y ?? 0,
             element,
         });
     }

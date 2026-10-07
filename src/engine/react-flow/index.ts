@@ -1,6 +1,12 @@
 import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { type ModelView, WorkspaceModel } from "../../model";
+import {
+    type EditedLayout,
+    isEditable,
+    type LayoutChange,
+    type ModelView,
+    WorkspaceModel,
+} from "../../model";
 import {
     abortError,
     type Anchor,
@@ -46,12 +52,22 @@ export function mountEngine(
         }
 
         const model = new WorkspaceModel(options.workspace);
+        const editableKey = (key: string) => {
+            const view = model.findViewByKey(key);
+            return view !== undefined && isEditable(view);
+        };
         const store = new IslandStore({
             key: options.view,
             scheme: options.colorScheme,
             labels: { ...options.labels },
             step: null,
+            editing:
+                __RENDERIZR_EDIT_MODE__ &&
+                options.editing === true &&
+                editableKey(options.view),
+            layouts: new Map(Object.entries(options.layouts ?? {})),
         });
+        const layoutChanged = new Set<(change: LayoutChange) => void>();
         const commands: IslandCommands = {
             fit: () => {},
             zoomIn: () => {},
@@ -141,6 +157,25 @@ export function mountEngine(
                 listen(activated.element, callback),
             onRelationshipActivated: (callback) =>
                 listen(activated.relationship, callback),
+            setEditing(on) {
+                if (!__RENDERIZR_EDIT_MODE__) return;
+                if (on && !editableKey(store.get().key)) return;
+                // Editing holds the step shown and stops playback (spec 18).
+                if (on) player.pause();
+                if (on !== store.get().editing) store.set({ editing: on });
+            },
+            setLayout(view: string, layout: EditedLayout) {
+                if (!__RENDERIZR_EDIT_MODE__) return;
+                const layouts = new Map(store.get().layouts);
+                layouts.set(view, layout);
+                store.set({ layouts });
+            },
+            onLayoutChanged(callback) {
+                layoutChanged.add(callback);
+                return () => {
+                    layoutChanged.delete(callback);
+                };
+            },
             unmount() {
                 stopWaiting();
                 shown.clear();
@@ -148,6 +183,7 @@ export function mountEngine(
                 document.removeEventListener("visibilitychange", onVisibility);
                 activated.element.clear();
                 activated.relationship.clear();
+                layoutChanged.clear();
                 root?.unmount();
                 root = null;
                 if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
@@ -188,6 +224,9 @@ export function mountEngine(
                     onRedrawn,
                     onEscape: () => player.stop(),
                     onActivate,
+                    onLayoutChanged: (change) => {
+                        for (const callback of layoutChanged) callback(change);
+                    },
                 }),
             );
         });

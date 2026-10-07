@@ -16,6 +16,7 @@
 import {
     animationOf,
     type BoundaryKind,
+    type EditedLayout,
     type ElementStyle,
     type ColorScheme as ModelColorScheme,
     findBoundaryStyle,
@@ -532,6 +533,10 @@ function boundaryMetadata(
  * (canvas `measureText` in the island). `undefined` when the workspace has
  * no view with that key. A view that cannot be drawn is an empty graph with
  * its `error`; an image view an empty graph with its `image`.
+ *
+ * In edit mode `edited` is the view's edited layout, laid over the stored
+ * one before anything is laid out (ADR 18). Boundaries re-derive and every
+ * edge routes again from what it says, so a drag frame costs one call.
  */
 export function buildGraph(
     model: WorkspaceModel,
@@ -539,6 +544,7 @@ export function buildGraph(
     scheme: ColorScheme,
     labels: Labels,
     measure: MeasureText = estimateText,
+    edited?: EditedLayout,
 ): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
@@ -568,7 +574,7 @@ export function buildGraph(
         return { ...empty({ key, title: model.getTitleForView(view) }), error };
     }
 
-    const view = resolveView(model, key);
+    const view = resolveView(model, key, edited);
     if (!view) return undefined;
     const animation = animationOf(model, view);
     if (view.image) {
