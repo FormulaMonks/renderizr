@@ -98,6 +98,22 @@ test("branding injects the font faces into the head before first paint", () => {
     assert.deepEqual(tags, [{ tag: "style", children: css, injectTo: "head" }]);
 });
 
+test("branding sets the primary color over both color schemes", () => {
+    const { tags } = branding({
+        font: null,
+        primaryColor: "#e4572e",
+    }).transformIndexHtml.handler("<html></html>");
+
+    assert.deepEqual(tags, [
+        {
+            tag: "style",
+            children:
+                "html:root, html:root[data-theme] { --color-primary: #e4572e; }",
+            injectTo: "head",
+        },
+    ]);
+});
+
 /* ----------------------------------------------------- single-file plugin */
 
 test("the single-file plugin runs after everything else", () => {

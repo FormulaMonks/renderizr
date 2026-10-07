@@ -21,8 +21,12 @@ import { WorkspaceWriter } from "./workspace-writer.js";
  * dispatches to it; `scripts/edit-plugin.js` is the server's own plugin.
  */
 
-/** The port edit mode listens on unless `--port` names another (spec 4.5). */
-export const DEFAULT_PORT = 5173;
+/**
+ * The port edit mode listens on unless `--port` names another (spec 4.5):
+ * one no popular dev server or database takes by default, so edit mode
+ * sits beside them, Vite's own 5173 included.
+ */
+export const DEFAULT_PORT = 7341;
 
 /** The only names edit mode looks for in a folder (spec 4.2). */
 const DSL_NAME = "workspace.dsl";
@@ -145,8 +149,9 @@ export async function startEditServer({
     session,
     logo = null,
     font = null,
+    primaryColor = null,
     port = DEFAULT_PORT,
-    open = true,
+    open = false,
     logLevel = "info",
     output = process.stdout,
     debounce,
@@ -186,6 +191,7 @@ export async function startEditServer({
         ...createConfig({
             logo,
             font,
+            primaryColor,
             mode: "edit",
             editMode: editMode({
                 workspace: session.json,

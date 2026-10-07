@@ -3,9 +3,10 @@
 import { resolve } from "node:path";
 import { build } from "vite";
 import { loadFont, loadLogo, loadWorkspace } from "./assets.js";
-import { parseCliArgs, parseEditArgs } from "./cli.js";
+import { parseCliArgs, parseEditArgs, withoutSeparator } from "./cli.js";
 import { createConfig } from "./config.js";
 import { sessionNotices, startEditServer } from "./edit.js";
+import { styles } from "./terminal.js";
 
 // `npx` runs against whatever Node is on the PATH, which is often not the one
 // the shell reports. Older versions fail deep inside the build instead — no
@@ -39,6 +40,7 @@ async function buildSite() {
             workspace,
             logo,
             font,
+            primaryColor: options.primaryColor,
             singleFile: options.singleFile,
             out: options.out,
             base: options.base,
@@ -61,8 +63,9 @@ async function buildSite() {
  */
 async function startEditMode(args) {
     const options = parseEditArgs(args);
+    const style = styles();
     for (const notice of sessionNotices(options.session)) {
-        process.stdout.write(`${notice}\n`);
+        process.stdout.write(`${style.yellow(notice)}\n`);
     }
 
     const [font, logo] = await Promise.all([
@@ -74,26 +77,39 @@ async function startEditMode(args) {
         session,
         logo,
         font,
+        primaryColor: options.primaryColor,
         port: options.port,
         open: options.open,
     });
 
-    // A DSL session saves workspace.json beside the DSL (spec 4.2).
-    const opened =
-        session.kind === "dsl"
-            ? `${session.dsl}, saving the layout into ${session.json}`
-            : session.json;
+    // What edit mode opened, and, in a DSL session, the workspace.json it
+    // saves beside the DSL (spec 4.2).
+    const lines = [
+        "",
+        `  ${style.green("✔")} ${style.bold("Edit mode is running")}`,
+        "",
+        `    ${style.dim("Opened ")}  ${session.kind === "dsl" ? session.dsl : session.json}`,
+    ];
+    if (session.kind === "dsl")
+        lines.push(`    ${style.dim("Saves to")}  ${session.json}`);
     // A DSL error keeps the server up; the page shows it until a run
     // succeeds (spec 5.3).
-    const failed = pipeline?.error
-        ? `Structurizr's tools couldn't read ${session.dsl}; the page shows why until you fix it.\n`
-        : "";
-    process.stdout.write(
-        `Edit mode opened ${opened}\n${failed}Open ${url}\nTo come back to edit mode later, use this URL. Press Ctrl+C to stop.\n`,
+    if (pipeline?.error)
+        lines.push(
+            "",
+            `  ${style.red("✖")} ${style.red(`Structurizr's tools couldn't read ${session.dsl}; the page shows why until you fix it.`)}`,
+        );
+    lines.push(
+        "",
+        `  ${style.cyan("➜")}  ${style.bold("Open")} ${style.cyan(style.underline(url))}`,
+        "",
+        `  ${style.dim("Use this URL to come back to edit mode later. Press Ctrl+C to stop.")}`,
+        "",
     );
+    process.stdout.write(lines.join("\n"));
 }
 
 // `edit` is the one subcommand; any other first argument is a workspace.
-const [command, ...rest] = process.argv.slice(2);
+const [command, ...rest] = withoutSeparator(process.argv.slice(2));
 if (command === "edit") await startEditMode(rest);
 else await buildSite();

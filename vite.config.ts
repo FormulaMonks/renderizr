@@ -29,7 +29,9 @@ export default async () => {
             .filter(
                 (arg, at) =>
                     !arg.startsWith("-") &&
-                    !["--font", "--logo"].includes(args[at - 1]),
+                    !["--font", "--logo", "--primary-color"].includes(
+                        args[at - 1],
+                    ),
             )
             .at(-1) ??
         process.env.RENDERIZR_WORKSPACE ??
@@ -60,6 +62,7 @@ export default async () => {
             workspace,
             logo,
             font,
+            primaryColor: flag("primary-color") ?? null,
             singleFile: args.includes("--single-file"),
             mode: "serve",
         }),

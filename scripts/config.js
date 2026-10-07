@@ -35,6 +35,7 @@ export function createConfig({
     workspace,
     logo = null,
     font = null,
+    primaryColor = null,
     singleFile: asSingleFile = false,
     out = "structurizr-output",
     base = "",
@@ -53,7 +54,7 @@ export function createConfig({
         ...(mode === "build" || editMode ? { configFile: false } : {}),
         publicDir: asSingleFile ? false : resolve(root, "public"),
         plugins: [
-            branding({ font }),
+            branding({ font, primaryColor }),
             editMode ?? workspaceModule(workspace),
             ...(asSingleFile ? [singleFile()] : []),
         ],

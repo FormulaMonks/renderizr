@@ -92,6 +92,7 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 | `--font-weights <list>` | Comma-separated weights. Default `400,700`. The build prefers a variable font covering the range when the family has one |
 | `--font-subsets <list>` | Comma-separated subsets. Default `latin` |
 | `--font-italic` | Also embed the italic faces, which roughly doubles the font's contribution |
+| `--primary-color <color>` | A CSS color, such as `#e4572e` or `rgb(228 87 46)`, for links, the active page and view, and edit mode's marks, in light and dark alike. Default is Renderizr's blue |
 | `-h, --help` | Print this reference as text and exit |
 
 A font is the one option with a real cost: Inter at latin, weights 400–700, adds about 50KB gzipped. Everything else is a few kilobytes at most.
@@ -104,7 +105,7 @@ Edit mode lets you arrange the layout of a workspace's views in a browser, with 
 npx github:FormulaMonks/renderizr edit ./architecture
 ```
 
-`renderizr edit [path]` takes a `workspace.dsl`, a `workspace.json` or a folder, and opens the current folder when you leave the path out. A file path can carry any name; in a folder, edit mode looks only for the exact names `workspace.dsl` and `workspace.json`, and never in subfolders. It starts a local server, opens the site in your browser and keeps running until you press Ctrl+C. The terminal prints the URL; use it to come back to the editor.
+`renderizr edit [path]` takes a `workspace.dsl`, a `workspace.json` or a folder, and opens the current folder when you leave the path out. A file path can carry any name; in a folder, edit mode looks only for the exact names `workspace.dsl` and `workspace.json`, and never in subfolders. It starts a local server and keeps running until you press Ctrl+C. The terminal prints the URL: open it in your browser, and use it again to come back to the editor. With `--open`, edit mode opens it for you.
 
 | You open | Edit mode runs | It saves into |
 | --- | --- | --- |
@@ -113,18 +114,18 @@ npx github:FormulaMonks/renderizr edit ./architecture
 | A `workspace.dsl`, or a folder holding one, without the tools and without a `workspace.json` | Nothing: it stops before the server starts and says how to set the tools up | Nothing |
 | A `workspace.json`, or a folder holding only one | A JSON session, with no tools and no JVM | That `workspace.json`, in place |
 
-On a view you can edit, the toolbar shows a pencil; **Done** takes you back to reading. A view with automatic layout shows the pencil disabled, since its layout comes from `autoLayout` in the DSL. A filtered view links to its base view, and an image view has nothing to edit. A view with no stored layout yet opens with the positions Renderizr would draw, and your first edit saves them.
+On a view you can edit, the toolbar shows a pencil. Two buttons take you back to reading: **Save and close** (the check mark) saves what waits, and **Discard changes and close** (the cross) puts every view back as it was when you entered editing, saves that and closes. A view with automatic layout shows the pencil disabled, since its layout comes from `autoLayout` in the DSL. A filtered view links to its base view, and an image view has nothing to edit. A view with no stored layout yet opens with the positions Renderizr would draw, and your first edit saves them.
 
-Edit mode saves 5 seconds after your last change, and at once on Cmd/Ctrl+S or **Save**. The toolbar shows whether your changes are saved.
+Edit mode saves 5 seconds after your last change, and at once on Cmd/Ctrl+S. A dot in the toolbar shows where saving stands: yellow while changes wait, gray and pulsing while a save is on its way, green once saved and red when a save failed. Its tooltip says why a save failed.
 
 ### Flags
 
-`renderizr edit` takes the branding flags of the build (`--logo`, `--logo-alt`, `--logo-href`, `--font`, `--font-weights`, `--font-subsets`, `--font-italic`), so the editor looks like your site, plus two of its own:
+`renderizr edit` takes the branding flags of the build (`--logo`, `--logo-alt`, `--logo-href`, `--font`, `--font-weights`, `--font-subsets`, `--font-italic`, `--primary-color`), so the editor looks like your site, plus two of its own:
 
 | Flag | Effect |
 | --- | --- |
-| `--port <n>` | Port for the local server. Default `5173`, or the next free one when that one is taken |
-| `--no-open` | Print the URL without opening the browser |
+| `--port <n>` | Port for the local server. Default `7341`, or the next free one when that one is taken |
+| `--open` | Also open the URL in your browser. Without it, edit mode only prints the URL |
 
 It refuses `--out`, `--single-file`, `--base` and `--engine`: edit mode writes no output and always draws with the React Flow engine. `renderizr edit --help` lists the flags.
 

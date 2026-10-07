@@ -124,8 +124,8 @@ pnpm render https://raw.githubusercontent.com/structurizr/ui/main/examples/big-b
 
 Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm render` runs `tsc` first, so a type error fails the build before Vite starts.
 
-> [!IMPORTANT]
-> Do **not** write `pnpm render -- <workspace> --flag`. pnpm forwards the literal `--` to the script, and Node's `parseArgs` treats everything after a bare `--` as a positional — so `--single-file` arrives as a second workspace and the build exits 1 with `Expected one workspace, got 2: architecture/workspace.json, --single-file`. Pass the arguments without the `--` separator: `pnpm render <workspace> --single-file`. `pnpm dev` is the opposite: it *does* want the separator, `pnpm dev -- <workspace>`, because Vite would otherwise try to interpret the path itself.
+> [!NOTE]
+> `pnpm render` needs no `--` separator, and takes one: `pnpm render -- <workspace> --flag` works too, since the CLI drops a leading `--` that pnpm forwards. `pnpm dev` *does* want the separator, `pnpm dev -- <workspace>`, because Vite would otherwise try to interpret the path itself.
 
 ### Lint and format
 

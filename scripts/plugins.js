@@ -37,23 +37,29 @@ export function workspaceModule(workspace) {
     };
 }
 
-/** Injects the embedded font faces before first paint. */
-export function branding({ font }) {
+/**
+ * Injects the embedded font faces, and the primary color when one is set,
+ * before first paint. The color's selector outweighs both color schemes'
+ * blocks in `main.css`, so it holds in light and dark alike, and the colors
+ * `main.css` derives from it follow.
+ */
+export function branding({ font, primaryColor = null }) {
+    const css = [
+        font?.css,
+        primaryColor &&
+            `html:root, html:root[data-theme] { --color-primary: ${primaryColor}; }`,
+    ].filter(Boolean);
     return {
         name: "renderizr:branding",
         transformIndexHtml: {
             order: "pre",
             handler: (html) => ({
                 html,
-                tags: font
-                    ? [
-                          {
-                              tag: "style",
-                              children: font.css,
-                              injectTo: "head",
-                          },
-                      ]
-                    : [],
+                tags: css.map((children) => ({
+                    tag: "style",
+                    children,
+                    injectTo: "head",
+                })),
             }),
         },
     };

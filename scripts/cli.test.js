@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
-import { OPTIONS, parseCliArgs, parseEditArgs, usage } from "./cli.js";
+import {
+    isCssColor,
+    OPTIONS,
+    parseCliArgs,
+    parseEditArgs,
+    usage,
+    withoutSeparator,
+} from "./cli.js";
 import {
     evalInChild,
     FIXTURES,
@@ -32,6 +39,7 @@ test("a bare workspace takes every default", () => {
         singleFile: false,
         logo: null,
         font: null,
+        primaryColor: null,
     });
 });
 
@@ -205,7 +213,7 @@ test("--help lists the edit subcommand and its flags", async () => {
     `);
 
     assert.match(stdout, /renderizr edit \[path\]/);
-    for (const flag of ["--port <n>", "--no-open"]) {
+    for (const flag of ["--port <n>", "--open"]) {
         assert.ok(
             stdout.includes(flag),
             `the main usage never mentions edit's ${flag}`,
@@ -256,6 +264,71 @@ test("more than one workspace is a usage error", async () => {
     );
 });
 
+test("a leading -- that pnpm forwards is dropped, so the flags after it stay flags", () => {
+    assert.deepEqual(withoutSeparator(["--", "w.json", "--single-file"]), [
+        "w.json",
+        "--single-file",
+    ]);
+    assert.deepEqual(withoutSeparator(["w.json", "--", "x"]), [
+        "w.json",
+        "--",
+        "x",
+    ]);
+    assert.equal(
+        parseCliArgs(withoutSeparator(["--", "w.json", "--logo=logo.svg"])).logo
+            .source,
+        "logo.svg",
+    );
+});
+
+test("pnpm render -- <workspace> --flag reaches the CLI as one workspace and its flags", async () => {
+    const { code, stderr } = await runCli(["--", "--help"]);
+    assert.equal(code, 0, stderr);
+    const edit = await runCli(["--", "edit", "--help"]);
+    assert.equal(edit.code, 0, edit.stderr);
+    assert.match(edit.stdout, /renderizr edit/);
+});
+
+test("--primary-color takes a CSS color, in the build and in edit mode", () => {
+    assert.equal(
+        parseCliArgs(["w.json", "--primary-color", "#e4572e"]).primaryColor,
+        "#e4572e",
+    );
+    assert.equal(
+        parseEditArgs([fixture("workspace.json"), "--primary-color", "teal"], {
+            cwd: REPO_ROOT,
+        }).primaryColor,
+        "teal",
+    );
+    for (const color of [
+        "#abc",
+        "#aabbccdd",
+        "rgb(228 87 46)",
+        "rgba(228, 87, 46, 0.5)",
+        "hsl(12deg 77% 54%)",
+        "oklch(0.65 0.19 35 / none)",
+        "oklch(0.65 0.19 35)",
+        "rebeccapurple",
+    ])
+        assert.equal(isCssColor(color), true, color);
+    for (const color of [
+        "#ab",
+        "red; } body { display: none",
+        "url(x)",
+        "rgb(1 2 3) }",
+        "rgb(var(--x))",
+        "",
+    ])
+        assert.equal(isCssColor(color), false, color);
+});
+
+test("a --primary-color that isn't a CSS color is a usage error", async () => {
+    await rejects(
+        ["w.json", "--primary-color", "red;}"],
+        /--primary-color takes a CSS color, such as "#e4572e"/,
+    );
+});
+
 test("an unknown flag is a usage error", async () => {
     await rejects(["w.json", "--nope"], /Unknown option '--nope'/);
 });
@@ -287,7 +360,7 @@ test("the usage text lists the edit subcommand", () => {
     assert.match(chunks.join(""), /renderizr edit \[path\]/);
 });
 
-test("renderizr edit opens the current folder on port 5173 and opens the browser", () => {
+test("renderizr edit opens the current folder on port 7341 and leaves the browser alone", () => {
     const options = parseEditArgs([], { cwd: FIXTURES });
     assert.deepEqual(options, {
         session: {
@@ -295,21 +368,22 @@ test("renderizr edit opens the current folder on port 5173 and opens the browser
             json: fixture("workspace.json"),
             dsl: null,
         },
-        port: 5173,
-        open: true,
+        port: 7341,
+        open: false,
         logo: null,
         font: null,
+        primaryColor: null,
     });
 });
 
-test("renderizr edit takes a path, --port and --no-open", () => {
+test("renderizr edit takes a path, --port and --open", () => {
     const options = parseEditArgs(
-        [fixture("workspace.json"), "--port", "8123", "--no-open"],
+        [fixture("workspace.json"), "--port", "8123", "--open"],
         { cwd: REPO_ROOT },
     );
     assert.equal(options.session.json, fixture("workspace.json"));
     assert.equal(options.port, 8123);
-    assert.equal(options.open, false);
+    assert.equal(options.open, true);
 });
 
 test("renderizr edit takes the branding flags the build takes", () => {
@@ -431,7 +505,7 @@ test("renderizr edit on a folder holding neither file is a usage error naming bo
 test("renderizr edit --help prints the edit usage and exits 0", async () => {
     const { stdout } = await parseEditInChild(["--help"]);
     assert.match(stdout, /renderizr edit \[path\]/);
-    for (const flag of ["--port", "--no-open", "--logo", "--font"]) {
+    for (const flag of ["--port", "--open", "--logo", "--font"]) {
         assert.ok(
             stdout.includes(flag),
             `the edit usage never mentions ${flag}`,
@@ -444,7 +518,7 @@ test("the binary dispatches edit to edit mode and keeps a bare workspace a build
     const edit = await runCli(["edit", "--help"]);
     assert.equal(edit.code, 0);
     assert.match(edit.stdout, /^renderizr edit: /);
-    assert.match(edit.stdout, /--no-open/);
+    assert.match(edit.stdout, /--open/);
 
     const build = await runCli(["--help"]);
     assert.equal(build.code, 0);

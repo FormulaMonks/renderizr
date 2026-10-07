@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { styles, takesColor } from "./terminal.js";
 
 /**
  * Structurizr's tools as edit mode and the acceptance fixture run them (spec
@@ -64,9 +65,13 @@ export function runTools(command, args, { cwd, output = process.stdout }) {
             stdio: ["ignore", "pipe", "pipe"],
         });
         const chunks = [];
+        // On a terminal the tools' own words stay in the background of
+        // edit mode's; anywhere else they go out byte for byte.
+        const { dim } = styles(output);
+        const color = takesColor(output);
         const take = (chunk) => {
             chunks.push(chunk);
-            output.write(chunk);
+            output.write(color ? dim(chunk.toString()) : chunk);
         };
         child.stdout.on("data", take);
         child.stderr.on("data", take);

@@ -9,6 +9,7 @@ export const OPTIONS = {
     "font-weights": { type: "string", default: "400,700" },
     "font-subsets": { type: "string", default: "latin" },
     "font-italic": { type: "boolean", default: false },
+    "primary-color": { type: "string" },
     "single-file": { type: "boolean", default: false },
     out: { type: "string", short: "o", default: "structurizr-output" },
     base: { type: "string", default: "" },
@@ -39,11 +40,14 @@ Options
   --font-subsets <list>    Comma-separated subsets (default: latin)
   --font-italic            Also embed the italic faces (roughly doubles font weight)
 
+  --primary-color <color>  CSS color for links, active items and edit mode's
+                           marks, e.g. "#e4572e" (default: Renderizr's blue)
+
   -h, --help               Show this message
 
 Edit options (renderizr edit [path]; renderizr edit --help says more)
       --port <n>           Port for the local server (default: ${DEFAULT_PORT})
-      --no-open            Print the URL without opening the browser
+      --open               Also open the URL in the browser
   Edit mode takes the --logo and --font options above, and refuses --out,
   --single-file and --base.
 
@@ -63,7 +67,15 @@ export function usage(stream = process.stdout) {
 /**
  * Parse the CLI arguments. Exits the process on `--help` or a usage error.
  */
-export function parseCliArgs(args = process.argv.slice(2)) {
+/**
+ * `args` without a leading `--`: `pnpm render -- <workspace> --flag`
+ * forwards the separator, and `parseArgs` would read every flag after it as
+ * one more workspace.
+ */
+export const withoutSeparator = (args) =>
+    args[0] === "--" ? args.slice(1) : args;
+
+export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
     let parsed;
 
     try {
@@ -86,6 +98,13 @@ export function parseCliArgs(args = process.argv.slice(2)) {
         process.exit(0);
     }
 
+    const wrongColor = colorError(values["primary-color"]);
+    if (wrongColor) {
+        process.stderr.write(`${wrongColor}\n\n`);
+        usage(process.stderr);
+        process.exit(1);
+    }
+
     if (positionals.length !== 1) {
         process.stderr.write(
             positionals.length
@@ -105,9 +124,34 @@ export function parseCliArgs(args = process.argv.slice(2)) {
     };
 }
 
-/** The logo and font the branding flags ask for, each `null` when not asked. */
+/**
+ * Whether `value` reads as one CSS color: a hex color, a color function such
+ * as `rgb()`, `hsl()` or `oklch()`, or a color keyword. Anything else could
+ * close the rule the page sets it in, so it never reaches the page.
+ */
+export function isCssColor(value) {
+    return (
+        /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(value) ||
+        /^(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\([\w\s.,%/+-]+\)$/i.test(
+            value,
+        ) ||
+        /^[a-z]+$/i.test(value)
+    );
+}
+
+/** What is wrong with `--primary-color <value>`, or `null` when nothing is. */
+const colorError = (value) =>
+    value === undefined || isCssColor(value)
+        ? null
+        : `--primary-color takes a CSS color, such as "#e4572e" or "rgb(228 87 46)"; got "${value}".`;
+
+/**
+ * The logo, font and primary color the branding flags ask for, each `null`
+ * when not asked.
+ */
 function branding(values) {
     return {
+        primaryColor: values["primary-color"] ?? null,
         logo: values.logo
             ? {
                   source: values.logo,
@@ -137,14 +181,17 @@ function branding(values) {
 /** The branding flags, which `renderizr edit` takes as the build does. */
 const BRANDING_OPTIONS = Object.fromEntries(
     Object.entries(OPTIONS).filter(
-        ([name]) => name.startsWith("logo") || name.startsWith("font"),
+        ([name]) =>
+            name.startsWith("logo") ||
+            name.startsWith("font") ||
+            name === "primary-color",
     ),
 );
 
 export const EDIT_OPTIONS = {
     ...BRANDING_OPTIONS,
     port: { type: "string", default: String(DEFAULT_PORT) },
-    "no-open": { type: "boolean", default: false },
+    open: { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
 };
 
@@ -178,7 +225,8 @@ the workspace.json beside the DSL.
 Options
       --port <n>           Port for the local server (default: ${DEFAULT_PORT}); the
                            next free one when it is taken
-      --no-open            Print the URL without opening the browser
+      --open               Also open the URL in the browser; edit mode
+                           otherwise only prints it
 
   --logo <path|url>        Image shown top-left in the header
   --logo-alt <text>        Alt text for the logo
@@ -187,6 +235,7 @@ Options
   --font-weights <list>    Comma-separated weights (default: 400,700)
   --font-subsets <list>    Comma-separated subsets (default: latin)
   --font-italic            Also embed the italic faces
+  --primary-color <color>  CSS color for links, active items and edit marks
 
   -h, --help               Show this message
 
@@ -194,7 +243,7 @@ Examples
   renderizr edit
   renderizr edit ./architecture --font Inter
   STRUCTURIZR_CLI="java -jar structurizr.war" renderizr edit workspace.dsl
-  renderizr edit ./big-bank.json --port 8080 --no-open
+  renderizr edit ./big-bank.json --port 8123 --open
 `;
 
 export function editUsage(stream = process.stdout) {
@@ -251,6 +300,9 @@ export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
         process.exit(0);
     }
 
+    const wrongColor = colorError(values["primary-color"]);
+    if (wrongColor) editUsageError(wrongColor);
+
     if (positionals.length > 1) {
         editUsageError(
             `Expected one path, got ${positionals.length}: ${positionals.join(", ")}`,
@@ -279,7 +331,7 @@ export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
     return {
         session,
         port,
-        open: !values["no-open"],
+        open: values.open,
         ...branding(values),
     };
 }
