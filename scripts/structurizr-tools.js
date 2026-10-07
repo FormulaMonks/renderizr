@@ -46,11 +46,11 @@ export function checkTools(command, { cwd = process.cwd() } = {}) {
 
 /**
  * What edit mode says when the tools it needs for `dsl` don't answer (spec
- * 5.1): both ways to name them, the Java versions they run on and the
- * README.
+ * 5.1): both ways to name them, the Java versions they run on, why Java 26
+ * fails and the README.
  */
 export const toolsMessage = (dsl, command) =>
-    `Edit mode opens ${dsl} with Structurizr's tools, and "${command} version" didn't run. Set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH. They need Java 21 to 25. See ${TOOLS_README}`;
+    `Edit mode opens ${dsl} with Structurizr's tools, and "${command} version" didn't run. Set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH. They need Java 21 to 25: Groovy !script blocks fail on Java 26. See ${TOOLS_README}`;
 
 /**
  * Run `command` with `args` from `cwd`, copying its output to `output` as it

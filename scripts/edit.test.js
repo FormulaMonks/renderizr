@@ -252,6 +252,9 @@ test("without the tools, a DSL with no workspace.json stops with a message namin
                     error.message.includes("broken-tools") &&
                     error.message.includes("Java 21 to 25") &&
                     error.message.includes(
+                        "Groovy !script blocks fail on Java 26",
+                    ) &&
+                    error.message.includes(
                         "github.com/FormulaMonks/renderizr#",
                     ),
             );
