@@ -1,5 +1,6 @@
 export * from "./animation";
 export * from "./boundaries";
+export * from "./editable";
 export * from "./filter";
 export * from "./metadata";
 export * from "./resolve-view";
