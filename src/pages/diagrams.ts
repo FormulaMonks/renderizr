@@ -22,7 +22,10 @@ import {
     editSession,
     flushEdits,
     leave,
+    liveWorkspace,
+    onWorkspace,
     startEditing,
+    swapWorkspace,
 } from "./diagrams-edit";
 import styles from "./diagrams.module.css";
 
@@ -55,6 +58,16 @@ function follow(
     }
 }
 
+/**
+ * Whether the URL may open view `key` of `model` though the drawer doesn't
+ * list it: the editing route of a filtered view's base view (spec 4.6).
+ */
+const reachableIn = (model: WorkspaceModel) => (key: string | null) => {
+    if (!key || !editing()) return false;
+    const view = model.findViewByKey(key);
+    return view ? isEditable(view) : false;
+};
+
 /** What a view switch goes through when nothing guards it: straight on. */
 const goOn = (proceed: () => void) => proceed();
 
@@ -77,16 +90,16 @@ export default class Diagrams extends Page {
         applyDiagramTheme(getDiagramTheme());
         document.documentElement.dataset.diagramShell = "";
 
-        const model = new WorkspaceModel(workspaceData);
+        // Edit mode draws the last workspace from disk (spec 6.1).
+        const workspace = __RENDERIZR_EDIT_MODE__
+            ? liveWorkspace(workspaceData)
+            : workspaceData;
+        const model = new WorkspaceModel(workspace);
         const views = model.getViews();
         const requested = new URLSearchParams(history.location.search).get(
             "view",
         );
-        const reachable = (key: string | null) => {
-            if (!key || !editing()) return false;
-            const view = model.findViewByKey(key);
-            return view ? isEditable(view) : false;
-        };
+        const reachable = reachableIn(model);
         const first =
             views.find((view) => view.key === requested)?.key ??
             (requested && reachable(requested) ? requested : undefined) ??
@@ -121,7 +134,7 @@ export default class Diagrams extends Page {
         mountEngine(
             target,
             {
-                workspace: workspaceData,
+                workspace,
                 view: first,
                 colorScheme: getDiagramTheme(),
                 labels: readLabelState(),
@@ -151,6 +164,25 @@ export default class Diagrams extends Page {
         model: WorkspaceModel,
         reachable: (key: string) => boolean,
     ) {
+        // A workspace from disk swaps in in place, with the drawer and the
+        // toolbar drawn again from it (spec 6.1).
+        const swap = __RENDERIZR_EDIT_MODE__
+            ? onWorkspace((arrival) => {
+                  const after = new WorkspaceModel(arrival.workspace);
+                  this.#stop();
+                  swapWorkspace(
+                      engine,
+                      model,
+                      after,
+                      arrival,
+                      document.getElementById(
+                          "structurizr-diagram-target",
+                      ) as HTMLElement,
+                  );
+                  this.#start(engine, after, reachableIn(after));
+              })
+            : null;
+
         const guard = __RENDERIZR_EDIT_MODE__
             ? (proceed: () => void) => void leave(engine, model, proceed)
             : goOn;
@@ -225,14 +257,26 @@ export default class Diagrams extends Page {
             }),
         ];
 
-        if (__RENDERIZR_EDIT_MODE__)
+        if (__RENDERIZR_EDIT_MODE__ && swap)
             this.#unsubscribe.push(
+                swap,
                 ...startEditing(
                     engine,
                     currentView,
                     this.container as HTMLElement,
+                    model,
                 ),
             );
+    }
+
+    /** Stop what `#start` started, keeping the engine. */
+    #stop() {
+        for (const unsubscribe of this.#unsubscribe) unsubscribe();
+        this.#unsubscribe = [];
+        this.#targetMenu?.clear();
+        this.#targetMenu = null;
+        this.removeAllComponents();
+        this.components.clear();
     }
 
     clear() {
@@ -240,14 +284,9 @@ export default class Diagrams extends Page {
         // The island goes before the router replaces the page.
         this.#abort?.abort();
         this.#abort = null;
-        for (const unsubscribe of this.#unsubscribe) unsubscribe();
-        this.#unsubscribe = [];
-        this.#targetMenu?.clear();
-        this.#targetMenu = null;
+        this.#stop();
         this.#engine?.unmount();
         this.#engine = null;
-        this.removeAllComponents();
-        this.components.clear();
         delete document.documentElement.dataset.diagramShell;
         if (this.container) this.container.innerHTML = "";
     }

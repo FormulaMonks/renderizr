@@ -8,7 +8,7 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -567,5 +567,270 @@ test(
                 relationship.position <= 100,
             `position is ${relationship.position}`,
         );
+    },
+);
+
+/* ------------------------------------------------------------ live reload */
+
+/**
+ * Change the `workspace.json` at `json` on disk, as another tool would:
+ * `change` edits the parsed workspace in place.
+ */
+async function changeOnDisk(json, change) {
+    const workspace = JSON.parse(await readFile(json, "utf8"));
+    change(workspace);
+    await writeFile(json, JSON.stringify(workspace, null, 2));
+}
+
+/** The Warehouse view of a parsed `workspace`. */
+const warehouseOf = (workspace) =>
+    workspace.views.customViews.find((view) => view.key === "Warehouse");
+
+/** Where element `id` of the Warehouse view sits in a parsed `workspace`. */
+const placementOf = (workspace, id) =>
+    warehouseOf(workspace).elements.find((element) => element.id === id);
+
+/** The page's expressions the live-reload tests read. */
+const NODE = (id) =>
+    `document.querySelector('.react-flow__node[data-id="${id}"]')`;
+const VIEWPORT = `document.querySelector(".react-flow__viewport").style.transform`;
+const NODE_TRANSFORM = (id) => `${NODE(id)}?.style.transform`;
+const SAVE_STATUS = `document.querySelector(".save-status")?.textContent`;
+const HELD_BAR = `document.querySelector("[data-held-bar]")`;
+
+/** Open the Warehouse view in editing at `url`, once it is painted. */
+async function openWarehouse(browser, url) {
+    const page = await browser.open(
+        `${url}#?page=diagrams&view=Warehouse&mode=edit`,
+    );
+    await page.waitFor(
+        `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="20"]')`,
+    );
+    return page;
+}
+
+/** The middle of element `id` on screen. */
+const centerOf = (page, id) =>
+    page.evaluate(`(() => {
+        const r = ${NODE(id)}.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    })()`);
+
+test(
+    "a change on disk swaps the workspace in place, keeping the view, the viewport, the selection and an untouched view's history",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await openWarehouse(browser, url);
+            // An edit, saved, gives the view a step to undo.
+            const from = await centerOf(page, "20");
+            await page.drag(from, { x: from.x + 60, y: from.y + 30 });
+            await page.press("s", "KeyS", CTRL);
+            await page.waitFor(`${SAVE_STATUS} === "Saved"`);
+            await page.click(await centerOf(page, "21"));
+            await page.waitFor(`${NODE("21")}.classList.contains("selected")`);
+            const viewport = await page.evaluate(VIEWPORT);
+
+            // Another view changes: the Warehouse keeps its history.
+            await changeOnDisk(json, (workspace) => {
+                workspace.views.systemLandscapeViews[0].elements[0].x += 100;
+            });
+            await page.waitFor(
+                `document.querySelector(".undo-layout")?.disabled === false && ${NODE("21")}.classList.contains("selected")`,
+            );
+
+            // The Warehouse changes: element 21 moves, the history goes.
+            const before = await page.evaluate(NODE_TRANSFORM("21"));
+            await changeOnDisk(json, (workspace) => {
+                placementOf(workspace, "21").x += 200;
+            });
+            await page.waitFor(
+                `${NODE_TRANSFORM("21")} !== ${JSON.stringify(before)}`,
+            );
+            await page.waitFor(
+                `document.querySelector(".undo-layout")?.disabled === true`,
+            );
+            assert.equal(
+                await page.evaluate(VIEWPORT),
+                viewport,
+                "the viewport moved",
+            );
+            assert.ok(
+                await page.evaluate(
+                    `${NODE("21")}.classList.contains("selected")`,
+                ),
+                "the selection lost element 21",
+            );
+            assert.equal(await page.evaluate(SAVE_STATUS), "Saved");
+            assert.equal(await page.evaluate(HELD_BAR), null);
+            assert.ok(
+                await page.evaluate(
+                    `new URLSearchParams(location.hash.slice(2)).get("view") === "Warehouse" && document.documentElement.hasAttribute("data-editing")`,
+                ),
+                "the page left the Warehouse's editing route",
+            );
+        } finally {
+            await browser.close();
+        }
+    },
+);
+
+test(
+    "edits waiting when workspace.json changes lie over it behind a bar, and Keep saves them against the file",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await openWarehouse(browser, url);
+            const from = await centerOf(page, "20");
+            await page.drag(from, { x: from.x + 60, y: from.y + 30 });
+            await page.waitFor(`${SAVE_STATUS} === "Unsaved changes"`);
+            const dragged = await page.evaluate(NODE_TRANSFORM("20"));
+            const before21 = await page.evaluate(NODE_TRANSFORM("21"));
+
+            await changeOnDisk(json, (workspace) => {
+                placementOf(workspace, "21").x += 200;
+            });
+            await page.waitFor(`!!${HELD_BAR}`);
+            assert.match(
+                await page.evaluate(`${HELD_BAR}.textContent`),
+                /workspace\.json changed on disk while .+ had unsaved changes/,
+            );
+            assert.equal(await page.evaluate(NODE_TRANSFORM("20")), dragged);
+            assert.notEqual(
+                await page.evaluate(NODE_TRANSFORM("21")),
+                before21,
+            );
+            assert.equal(await page.evaluate(SAVE_STATUS), "Unsaved changes");
+
+            await page.evaluate(
+                `${HELD_BAR}.querySelector(".keep-changes").click()`,
+            );
+            await page.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+        } finally {
+            await browser.close();
+        }
+
+        const saved = JSON.parse(await readFile(json, "utf8"));
+        const fixture = JSON.parse(
+            await readFile(
+                join(REPO_ROOT, "test/__fixtures__/view-types.json"),
+                "utf8",
+            ),
+        );
+        assert.ok(
+            placementOf(saved, "20").x > placementOf(fixture, "20").x,
+            "Keep lost the drag",
+        );
+        assert.equal(
+            placementOf(saved, "21").x,
+            placementOf(fixture, "21").x + 200,
+            "Keep lost the change on disk",
+        );
+    },
+);
+
+test(
+    "Discard takes the file's layout over edits that couldn't be saved",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await openWarehouse(browser, url);
+            const resting = await page.evaluate(NODE_TRANSFORM("20"));
+            const from = await centerOf(page, "20");
+            await page.drag(from, { x: from.x + 60, y: from.y + 30 });
+            await page.waitFor(`${SAVE_STATUS} === "Unsaved changes"`);
+
+            await changeOnDisk(json, (workspace) => {
+                workspace.description = "Changed on disk";
+            });
+            await page.waitFor(`!!${HELD_BAR}`);
+            await page.evaluate(
+                `${HELD_BAR}.querySelector(".discard-changes").click()`,
+            );
+            await page.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+            assert.equal(await page.evaluate(NODE_TRANSFORM("20")), resting);
+            assert.equal(
+                await page.evaluate(
+                    `document.querySelector(".undo-layout")?.disabled`,
+                ),
+                true,
+                "Discard kept the view's history",
+            );
+        } finally {
+            await browser.close();
+        }
+        assert.equal(
+            JSON.parse(await readFile(json, "utf8")).description,
+            "Changed on disk",
+        );
+    },
+);
+
+test(
+    "a view gone from workspace.json gives way to the first view, with a notice",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await openWarehouse(browser, url);
+            await changeOnDisk(json, (workspace) => {
+                warehouseOf(workspace).key = "Storehouse";
+            });
+            await page.waitFor(
+                `!!document.querySelector("[data-reload-notice]")`,
+            );
+            assert.match(
+                await page.evaluate(
+                    `document.querySelector("[data-reload-notice]").textContent`,
+                ),
+                /workspace\.json no longer has .+, so the page shows /,
+            );
+            await page.waitFor(
+                `new URLSearchParams(location.hash.slice(2)).get("view") !== "Warehouse"`,
+            );
+        } finally {
+            await browser.close();
+        }
+    },
+);
+
+test(
+    "a view workspace.json makes read-only drops to reading, with a notice",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await openWarehouse(browser, url);
+            await changeOnDisk(json, (workspace) => {
+                warehouseOf(workspace).automaticLayout = {
+                    rankDirection: "TopBottom",
+                };
+            });
+            await page.waitFor(
+                `!!document.querySelector("[data-reload-notice]") && !document.documentElement.hasAttribute("data-editing")`,
+            );
+            assert.match(
+                await page.evaluate(
+                    `document.querySelector("[data-reload-notice]").textContent`,
+                ),
+                /can no longer be edited, so the page shows it for reading/,
+            );
+            assert.equal(
+                await page.evaluate(
+                    `new URLSearchParams(location.hash.slice(2)).get("view")`,
+                ),
+                "Warehouse",
+            );
+        } finally {
+            await browser.close();
+        }
     },
 );

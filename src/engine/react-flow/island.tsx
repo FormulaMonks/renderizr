@@ -173,6 +173,11 @@ export type IslandState = {
      * shown is built again only when its own layout changes.
      */
     layouts: ReadonlyMap<string, EditedLayout>;
+    /**
+     * The workspace edit mode swapped in after mount (spec 6), drawn in
+     * place of the `model` prop. Builds never set it.
+     */
+    model?: WorkspaceModel;
 };
 
 /** A tiny external store: the handle writes, the island reads. */
@@ -1804,7 +1809,7 @@ function useEditSelection(
 }
 
 function Canvas({
-    model,
+    model: mounted,
     store,
     commands,
     font,
@@ -1816,6 +1821,7 @@ function Canvas({
     onSelectionChanged,
 }: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
+    const model = (__RENDERIZR_EDIT_MODE__ && state.model) || mounted;
     const family = diagramFontFamily(font);
     // Set once the --font faces load; a new measure re-derives the
     // boundaries with them (spec 9.5).
@@ -1973,7 +1979,8 @@ function Canvas({
     // nudge and select all arrange the selection, by command or by key
     // (spec 10.1, 13, 17.2). The flag is a build-time constant, so builds
     // call neither hook (ADR 15).
-    if (__RENDERIZR_EDIT_MODE__) useKeepViewport(viewKey, edited, moved);
+    if (__RENDERIZR_EDIT_MODE__)
+        useKeepViewport(viewKey, edited, model, moved, painted);
     const editKey = __RENDERIZR_EDIT_MODE__
         ? useEditKeys({
               wrapper,

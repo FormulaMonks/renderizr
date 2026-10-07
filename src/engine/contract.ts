@@ -182,6 +182,17 @@ export type EditControls = {
      * `onLayoutChanged`.
      */
     setRouting(mode: RoutingMode): void;
+    /**
+     * Swap in `workspace` in place, as edit mode does when `workspace.json`
+     * changes on disk (spec 6). The view shown stays by key, with its
+     * viewport, selection and animation step where they still exist. A view
+     * the workspace no longer has gives way to its first view, and a view
+     * `isEditable` now rejects drops to reading. Every edited layout goes,
+     * since each was laid over the workspace before: the page hands back
+     * the ones that still hold through `setLayout`. `onViewShown` hears the
+     * view again once it is painted.
+     */
+    setWorkspace(workspace: Record<string, unknown>): void;
 };
 
 /** The engine contract of spec section 5. */

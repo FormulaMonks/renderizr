@@ -216,18 +216,24 @@ export function useEditKeys({
 /**
  * Keep the viewport where it is when the edited layout of the view shown
  * changes (spec 10.1): a drop, a command, undo and redo draw through
- * `setLayout` and never refit the canvas. A new view still fits.
+ * `setLayout` and never refit the canvas. A workspace swapped in keeps it
+ * too (spec 6.3), and paints the view again, so the page hears it from the
+ * new workspace. A new view still fits.
  */
 export function useKeepViewport(
     viewKey: string,
     edited: unknown,
+    model: unknown,
     moved: { current: boolean },
+    painted: { current: string | null },
 ) {
-    const last = useRef({ viewKey, edited });
+    const last = useRef({ viewKey, edited, model });
     useEffect(() => {
         const before = last.current;
-        last.current = { viewKey, edited };
-        if (before.viewKey === viewKey && before.edited !== edited)
+        last.current = { viewKey, edited, model };
+        if (before.viewKey !== viewKey) return;
+        if (before.edited !== edited || before.model !== model)
             moved.current = true;
-    }, [viewKey, edited, moved]);
+        if (before.model !== model) painted.current = null;
+    }, [viewKey, edited, model, moved, painted]);
 }

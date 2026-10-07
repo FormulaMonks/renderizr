@@ -26,9 +26,15 @@ import {
  * It also takes the page's saves (spec 7, ADR 17) and writes them through
  * `scripts/workspace-writer.js`.
  *
- * The module is watched: a change to the file on disk drops the module and
- * reloads the page, which imports the file again. The plugin's own writes
- * drop the module and reload nothing.
+ * The module is watched (spec 6.1): a change to the file on disk drops the
+ * module, so the next page load imports the file again, and reaches every
+ * open page as a custom event over Vite's websocket, `{ version, workspace }`
+ * with the build's transforms applied, or `{ version, error }` when it won't
+ * load. The plugin's own writes drop the module and send nothing.
+ *
+ * Pages read the events with `import.meta.hot.on`. `flushPages` asks them to
+ * save what waits before something else writes the file, and waits for
+ * their answers.
  */
 
 /** Where the page posts its saves. `src/components/edit-session.ts` names it too. */
@@ -36,6 +42,47 @@ export const SAVE_PATH = "/__renderizr/save";
 
 /** The header that carries the session token, as Node spells it. */
 const TOKEN_HEADER = "x-renderizr-token";
+
+/**
+ * The custom events between the server and its pages (spec 6.1).
+ * `src/pages/diagrams-edit.ts` names them too.
+ */
+export const WORKSPACE_EVENT = "renderizr:workspace";
+export const ERROR_EVENT = "renderizr:error";
+export const FLUSH_EVENT = "renderizr:flush";
+/** A page's answer to a flush, once its save is done. */
+export const FLUSHED_EVENT = "renderizr:flushed";
+
+/** How long a flush waits for the pages' saves (spec 5.2). */
+export const FLUSH_TIMEOUT_MS = 1000;
+
+let flushes = 0;
+
+/**
+ * Ask every page open on Vite's websocket server `ws` to save what waits
+ * (spec 5.2), and resolve once each has answered, with `true`, or once
+ * `timeout` ms pass, with `false`. With no page open it resolves at once.
+ */
+export function flushPages(ws, { timeout = FLUSH_TIMEOUT_MS } = {}) {
+    const waiting = new Set(ws.clients);
+    if (waiting.size === 0) return Promise.resolve(true);
+    const id = ++flushes;
+    return new Promise((done) => {
+        const finish = (answered) => {
+            clearTimeout(timer);
+            ws.off(FLUSHED_EVENT, onFlushed);
+            done(answered);
+        };
+        const onFlushed = (data, client) => {
+            if (data?.id !== id) return;
+            waiting.delete(client);
+            if (waiting.size === 0) finish(true);
+        };
+        const timer = setTimeout(() => finish(false), timeout);
+        ws.on(FLUSHED_EVENT, onFlushed);
+        ws.send(FLUSH_EVENT, { id });
+    });
+}
 
 /** The largest save body the endpoint reads. */
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
@@ -126,6 +173,24 @@ export function editMode({ workspace, font = null, token = null, agent }) {
         if (module) server.moduleGraph.invalidateModule(module);
     };
 
+    /**
+     * Send the workspace on disk to every open page (spec 6.1), with the
+     * build's transforms applied, or the reason it won't load.
+     */
+    const publish = async (server) => {
+        const text = await readFile(file, "utf8").catch(() => null);
+        // Gone for a moment, as some editors save; its return publishes.
+        if (text === null) return;
+        const version = versionOf(text);
+        try {
+            const workspace = await loadWorkspace(file, { font });
+            server.ws.send(WORKSPACE_EVENT, { version, workspace });
+        } catch (error) {
+            server.config.logger.error(`${file} won't load: ${error.message}`);
+            server.ws.send(ERROR_EVENT, { version, error: error.message });
+        }
+    };
+
     const save = async (request, response, server) => {
         const { port } = server.httpServer.address();
         const refused = refusal(request, { token, port });
@@ -175,11 +240,10 @@ export function editMode({ workspace, font = null, token = null, agent }) {
         async handleHotUpdate({ file: changed, server }) {
             if (resolve(changed) !== file) return;
             dropModule(server);
-            // A save of the page's own comes back here as a change on disk;
-            // reloading would throw away the page it came from (spec 4.4).
+            // A save of the page's own comes back here as a change on disk,
+            // and the page already has it (spec 4.4).
             const text = await readFile(file, "utf8").catch(() => null);
-            if (text === null || !writer.wrote(text))
-                server.ws.send({ type: "full-reload" });
+            if (text !== null && !writer.wrote(text)) await publish(server);
             return [];
         },
     };
