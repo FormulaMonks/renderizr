@@ -31,7 +31,10 @@ import {
  * module, so the next page load imports the file again, and reaches every
  * open page as a custom event over Vite's websocket, `{ version, workspace }`
  * with the build's transforms applied, or `{ version, error }` when it won't
- * load. The plugin's own writes drop the module and send nothing.
+ * load. A page's save reaches every open page the same way, once, with the
+ * `source` the saving page named, so that page knows its own save and the
+ * others lay their held edits over it (spec 6.2); the watcher's news of the
+ * plugin's own writes sends nothing more.
  *
  * In a DSL session it also drives the DSL pipeline (spec 5, ADR 16): a
  * change under the DSL's folder runs it, each good run reaches the pages as
@@ -89,6 +92,9 @@ export function flushPages(ws, { timeout = FLUSH_TIMEOUT_MS } = {}) {
         ws.send(FLUSH_EVENT, { id });
     });
 }
+
+/** How many saves the plugin remembers the saving page of. */
+const RECENT_SAVES = 16;
 
 /** The largest save body the endpoint reads. */
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
@@ -154,6 +160,7 @@ function parseSave(body) {
         typeof save.version !== "string" ||
         typeof save.views !== "object" ||
         save.views === null ||
+        (save.source !== undefined && typeof save.source !== "string") ||
         (save.view !== null &&
             save.view !== undefined &&
             typeof save.view !== "string")
@@ -226,8 +233,15 @@ export function editMode({
     };
 
     /**
+     * The page that saved each recent version of the file, by version, as
+     * its save named it: at most `RECENT_SAVES`, oldest first.
+     */
+    const savers = new Map();
+
+    /**
      * Send the workspace on disk to every open page (spec 6.1), with the
-     * build's transforms applied, or the reason it won't load.
+     * build's transforms applied, or the reason it won't load. When a page's
+     * save wrote that version, the event names the page as its `source`.
      */
     const publish = async (server) => {
         const text = await readFile(file, "utf8").catch(() => null);
@@ -236,7 +250,11 @@ export function editMode({
         const version = versionOf(text);
         try {
             const workspace = await loadWorkspace(file, { font });
-            server.ws.send(WORKSPACE_EVENT, { version, workspace });
+            server.ws.send(WORKSPACE_EVENT, {
+                version,
+                workspace,
+                ...(savers.has(version) && { source: savers.get(version) }),
+            });
         } catch (error) {
             server.config.logger.error(`${file} won't load: ${error.message}`);
             server.ws.send(ERROR_EVENT, { version, error: error.message });
@@ -257,12 +275,24 @@ export function editMode({
             });
         try {
             const saved = await writer.save(edit);
-            // The next load of the page must carry the version just written.
-            if (saved.written) dropModule(server);
+            if (saved.written) {
+                // The next load of the page must carry the version just
+                // written, and the other open pages hear of it (spec 6.2).
+                dropModule(server);
+                if (edit.source) {
+                    savers.set(saved.version, edit.source);
+                    if (savers.size > RECENT_SAVES)
+                        savers.delete(savers.keys().next().value);
+                }
+                await publish(server);
+            }
             return answer(response, 200, { version: saved.version });
         } catch (error) {
             if (error instanceof StaleVersionError)
-                return answer(response, 409, { error: error.message });
+                return answer(response, 409, {
+                    error: error.message,
+                    version: error.version,
+                });
             return answer(response, 500, {
                 error: `The save couldn't be written: ${error.message}`,
             });
@@ -338,8 +368,8 @@ export function editMode({
                 return [];
             if (resolve(changed) !== file) return;
             dropModule(server);
-            // A save of the page's own comes back here as a change on disk,
-            // and the page already has it (spec 4.4).
+            // A save comes back here as a change on disk, and the save
+            // endpoint has told the pages already (spec 4.4).
             const text = await readFile(file, "utf8").catch(() => null);
             if (text !== null && !writer.wrote(text)) await publish(server);
             return [];

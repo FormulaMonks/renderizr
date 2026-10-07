@@ -109,7 +109,14 @@ test("a save sends the token, JSON, the loaded version, the open view and only w
         version: "first",
         view: "B",
         views: { A: { elements: { 1: { x: 10, y: 20 } } } },
+        source: edits.source,
     });
+    assert.equal(typeof edits.source, "string");
+    assert.notEqual(
+        edits.source,
+        session(stubHost()).source,
+        "two pages name themselves alike",
+    );
     assert.deepEqual(edits.status(), { state: "saved", waiting: false });
     assert.equal(stub.timers.size, 0, "a save at once cancels the autosave");
 
@@ -365,6 +372,7 @@ test("edits waiting when a workspace arrives lie over it by id, hold the autosav
         version: "disk",
         view: null,
         views: { A: { elements: { 2: { x: 25, y: 25 } } } },
+        source: edits.source,
     });
     edits.record(change("A", "2", 30, 30));
     assert.equal(stub.timers.size, 1, "Keep left the autosave held");
@@ -412,4 +420,19 @@ test("a save refused as stale holds its edits, drawn again, until the author kee
     assert.equal(stub.timers.size, 0, "the autosave still runs");
     assert.equal(await edits.save(), true);
     assert.equal(stub.requests.at(-1).body.version, "disk");
+});
+
+test("a save refused as stale takes the version the server names, so Keep saves against it before any workspace arrives", async () => {
+    const stub = stubHost([
+        {
+            status: 409,
+            body: { error: "workspace.json changed on disk", version: "v9" },
+        },
+    ]);
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 10));
+    assert.equal(await edits.save(), false);
+    assert.deepEqual(edits.held(), ["A"]);
+    assert.equal(await edits.save(), true, "Keep failed again");
+    assert.equal(stub.requests.at(-1).body.version, "v9");
 });

@@ -75,6 +75,12 @@ export type Arrival = {
 };
 
 export class EditSession {
+    /**
+     * What this page calls itself in its saves. The server names the saving
+     * page in the workspace event each save makes, so the page knows its own
+     * save when it comes back (spec 6.2).
+     */
+    readonly source = Math.random().toString(36).slice(2);
     readonly #host: SessionHost;
     readonly #token: string | null;
     #version: string | null;
@@ -332,6 +338,7 @@ export class EditSession {
                 version: this.#version,
                 view: this.#view,
                 views: Object.fromEntries(views),
+                source: this.source,
             }),
         });
     }
@@ -352,6 +359,10 @@ export class EditSession {
                 this.#version = answer.version;
             } else {
                 stale = response.status === 409;
+                // The server names the file's version now, so Keep saves
+                // against it even before that workspace arrives (spec 6.2).
+                if (stale && typeof answer.version === "string")
+                    this.#version = answer.version;
                 failure =
                     typeof answer.error === "string"
                         ? answer.error

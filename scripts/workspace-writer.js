@@ -398,13 +398,18 @@ function carryStamps(before, after) {
  */
 const RECENT_WRITES = 16;
 
-/** The refusal of a save made against a file that has changed since (spec 7.4). */
+/**
+ * The refusal of a save made against a file that has changed since (spec
+ * 7.4). It carries `version`, the file's version now, so the page can save
+ * against it once the author keeps the edits (spec 6.2).
+ */
 export class StaleVersionError extends Error {
-    constructor(file) {
+    constructor(file, version) {
         super(
-            `${basename(file)} changed on disk since this page loaded it. Reload the page to edit the file as it is now.`,
+            `${basename(file)} changed on disk since this page last read it.`,
         );
         this.name = "StaleVersionError";
+        this.version = version;
     }
 }
 
@@ -452,7 +457,7 @@ export class WorkspaceWriter {
     async #save({ version, view, views }) {
         const text = await readFile(this.#file, "utf8");
         if (versionOf(text) !== version)
-            throw new StaleVersionError(this.#file);
+            throw new StaleVersionError(this.#file, versionOf(text));
         const rendered = renderWorkspace(text, {
             views,
             view,

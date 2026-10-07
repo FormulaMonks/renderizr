@@ -600,6 +600,11 @@ test("the save endpoint refuses a save against a version the file no longer has"
         const { status, body } = await postSave(url, token, moveSave(version));
         assert.equal(status, 409);
         assert.match(body.error, /changed on disk/);
+        assert.equal(
+            body.version,
+            versionOf(await readFile(json, "utf8")),
+            "the refusal doesn't name the file's version",
+        );
         assert.ok(!(await readFile(json, "utf8")).includes('"x" : 205'));
     });
 });
@@ -617,16 +622,27 @@ function recordEvents(server) {
     return sent;
 }
 
-test("a save of the page's own never reaches the page, and an outside change arrives as a workspace event with its version and the build's transforms", async () => {
+test("a save reaches every page once, as a workspace event naming the page that saved, and an outside change arrives as one with its version and the build's transforms", async () => {
     const font = { family: "Fixture Sans", css: "@font-face{}" };
     await withEditServer({ font }, async ({ server, url, token, json }) => {
         const sent = recordEvents(server);
         const version = await servedVersion(new URL(url).origin);
-        const { status } = await postSave(url, token, moveSave(version));
+        const { status, body } = await postSave(url, token, {
+            ...moveSave(version),
+            source: "tab-1",
+        });
         assert.equal(status, 200);
         // Give the watcher time to report the write.
         await new Promise((resolve) => setTimeout(resolve, 600));
-        assert.deepEqual(sent, [], "the save came back to the page");
+        assert.equal(sent.length, 1, "the save reached the pages twice");
+        assert.equal(sent[0].event, WORKSPACE_EVENT);
+        assert.equal(sent[0].data.source, "tab-1");
+        assert.equal(sent[0].data.version, body.version);
+        assert.equal(
+            sent[0].data.workspace.views.customViews[0].elements[0].x,
+            205,
+        );
+        sent.length = 0;
 
         const workspace = JSON.parse(await readFile(json, "utf8"));
         workspace.description = "Changed outside edit mode";
@@ -637,6 +653,7 @@ test("a save of the page's own never reaches the page, and an outside change arr
         );
         const { data } = sent.find(({ event }) => event === WORKSPACE_EVENT);
         assert.equal(data.version, versionOf(await readFile(json, "utf8")));
+        assert.equal(data.source, undefined);
         assert.equal(data.workspace.description, "Changed outside edit mode");
         assert.match(
             JSON.stringify(data.workspace),
@@ -868,7 +885,9 @@ test("a DSL change flushes the open pages, merges and reaches them as a workspac
                 "the merge lost the layout the flush saved",
             );
             const { data } = sent.find(
-                ({ event }) => event === WORKSPACE_EVENT,
+                ({ event, data }) =>
+                    event === WORKSPACE_EVENT &&
+                    data.workspace.name === "After",
             );
             assert.equal(data.version, versionOf(await readFile(json, "utf8")));
         },

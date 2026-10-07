@@ -81,8 +81,15 @@ const ERROR_EVENT = "renderizr:error";
 const FLUSH_EVENT = "renderizr:flush";
 const FLUSHED_EVENT = "renderizr:flushed";
 
-/** A workspace from disk, as the server sends it. */
-type Arrived = { version: string; workspace: Record<string, unknown> };
+/**
+ * A workspace from disk, as the server sends it, with the `source` of the
+ * page whose save wrote it.
+ */
+type Arrived = {
+    version: string;
+    workspace: Record<string, unknown>;
+    source?: string;
+};
 
 /** The last workspace that arrived from disk, or `null` before one does. */
 let arrived: Record<string, unknown> | null = null;
@@ -141,7 +148,9 @@ export function onWorkspace(handler: (arrival: Arrived) => void) {
 
 /**
  * Hear edit mode's server for the life of the page (spec 6.1). A workspace
- * from disk goes to the diagrams page, which swaps it in place; any other
+ * from disk goes to the diagrams page, which swaps it in place, unless this
+ * page's own save wrote it: another page's save arrives as any change on
+ * disk does (spec 6.2). Any other
  * page reloads in full, as does a later trip from the diagrams page to the
  * documentation or decisions, whose pages hold the workspace they loaded
  * with. A flush saves what waits, unless the author still has to keep or
@@ -152,6 +161,7 @@ export function startLiveReload() {
     const hot = import.meta.hot;
     if (!hot) return;
     hot.on(WORKSPACE_EVENT, (arrival: Arrived) => {
+        if (session && arrival.source === session.source) return;
         arrived = arrival.workspace;
         failure = null;
         if (!swapIn) {
