@@ -4,9 +4,30 @@
  * reached only through `mountEngine` and the `Engine` handle (ADR 3).
  */
 
-import type { EditedLayout, LayoutChange, ModelView } from "../model";
+import type {
+    AutomaticLayoutSettings,
+    EditedLayout,
+    LayoutChange,
+    ModelView,
+} from "../model";
 
 export type { EditedLayout, LayoutChange };
+
+/**
+ * The options of the "Calculate layout" dialog (spec 15): Structurizr
+ * Local's five, with no ranker and no Graphviz.
+ */
+export type CalculateLayoutOptions = Pick<
+    AutomaticLayoutSettings,
+    | "rankDirection"
+    | "rankSeparation"
+    | "nodeSeparation"
+    | "edgeSeparation"
+    | "vertices"
+>;
+
+/** The three canvas commands (spec 14). */
+export type CanvasCommand = "decrease" | "increase" | "auto";
 
 export type ColorScheme = "light" | "dark";
 
@@ -121,6 +142,25 @@ export type Engine = AnimationControls & {
      * change to a view with no edited layout carries every element.
      */
     onLayoutChanged(callback: (change: LayoutChange) => void): () => void;
+    /**
+     * Resize the canvas of the view being edited (spec 14): Decrease and
+     * Increase by 100 each way, deleting `paperSize`, or Auto, the content
+     * plus 400. With `recenter` the content moves to the middle of the new
+     * canvas. Answers through `onLayoutChanged`.
+     */
+    resizeCanvas(command: CanvasCommand, options: { recenter: boolean }): void;
+    /**
+     * "Bring elements back onto the diagram" (spec 15): clamp every element
+     * and vertex into the canvas. Answers through `onLayoutChanged`.
+     */
+    bringBack(): void;
+    /**
+     * "Calculate layout" (spec 15): lay the whole view out once as an
+     * automatic layout would with `options`, and store it as a calculated
+     * layout with the canvas fitted by Auto's rule. Answers through
+     * `onLayoutChanged`, as one change.
+     */
+    calculateLayout(options: CalculateLayoutOptions): void;
 
     unmount(): void;
 };

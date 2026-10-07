@@ -196,3 +196,56 @@ test("leaving the page sends what waits with keepalive", () => {
     assert.equal(stub.requests[0].init.keepalive, true);
     assert.equal(stub.timers.size, 0);
 });
+
+test("a canvas change alone counts as unsaved and saves", async () => {
+    const stub = stubHost();
+    const edits = session(stub);
+    edits.record({
+        view: "A",
+        before: { dimensions: { width: 2000, height: 2000 } },
+        after: { dimensions: { width: 2100, height: 2100 }, paperSize: null },
+    });
+    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+    assert.equal(await edits.save(), true);
+    assert.deepEqual(stub.requests[0].body.views, {
+        A: { dimensions: { width: 2100, height: 2100 }, paperSize: null },
+    });
+});
+
+test("undo lays a change's before back, redo its after, one change per step and per view", async () => {
+    const stub = stubHost();
+    const edits = session(stub);
+    assert.equal(edits.undo("A"), null, "nothing to undo yet");
+    edits.record({
+        view: "A",
+        before: {
+            elements: { 1: { x: 1, y: 1 } },
+            relationships: { 9: { vertices: [] } },
+            dimensions: { width: 2000, height: 2000 },
+        },
+        after: {
+            elements: { 1: { x: 200, y: 200 } },
+            relationships: { 9: { vertices: [{ x: 5, y: 5 }] } },
+            dimensions: { width: 900, height: 600 },
+        },
+    });
+    edits.record(change("B", "2", 30, 40));
+    await edits.save();
+
+    assert.deepEqual(edits.undo("A"), {
+        elements: { 1: { x: 1, y: 1 } },
+        relationships: { 9: { vertices: [] } },
+        dimensions: { width: 2000, height: 2000 },
+    });
+    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+    assert.equal(edits.undo("A"), null, "one step per change");
+    assert.deepEqual(edits.layoutOf("B"), {
+        elements: { 2: { x: 30, y: 40 } },
+    });
+
+    assert.deepEqual(edits.redo("A").dimensions, { width: 900, height: 600 });
+    assert.equal(edits.redo("A"), null);
+    edits.undo("A");
+    edits.record(change("A", "1", 7, 7));
+    assert.equal(edits.redo("A"), null, "a new edit clears redo");
+});

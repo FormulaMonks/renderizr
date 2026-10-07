@@ -1,0 +1,27 @@
+/* The "Calculate layout" dialog in edit mode (spec 15). */
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.875rem;
+
+  & input[type="number"] {
+    width: 6rem;
+  }
+}
+
+.check {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.actions {
+  margin-top: 1rem;
+}
+
+.bringBack {
+  justify-content: flex-start;
+}

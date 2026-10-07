@@ -1,6 +1,6 @@
 import { orderOf } from "./animation";
 import { type ResolvedBoundary, resolveBoundaries } from "./boundaries";
-import type { EditedLayout } from "./edited-layout";
+import { type EditedLayout, relationshipKey } from "./edited-layout";
 import {
     elementPasses,
     filterOf,
@@ -101,9 +101,9 @@ export type ResolvedView = {
  * stored base keeps their coordinates and an automatic one lays out what is
  * left.
  *
- * An `edited` layout (ADR 18) is laid over the view's own coordinates before
- * any of that is worked out, so the layout mode follows the coordinates the
- * author sees.
+ * An `edited` layout (ADR 18) is laid over the view's own coordinates and
+ * vertices before any of that is worked out, so the layout mode follows the
+ * coordinates the author sees.
  *
  * `undefined` when the workspace has no view with that key, or a filtered
  * view's base is missing or itself filtered (`findViewError` says why).
@@ -142,6 +142,8 @@ export function resolveView(
      * an integer keeps its text; `findViewError` refuses the view anyway.
      */
     const listed = new Set<string>();
+    /** How often each relationship is listed so far, for its key. */
+    const repeats = new Map<string, number>();
     for (const placement of view.relationships ?? []) {
         const relationship = model.findRelationshipById(placement.id);
         if (!relationship) continue;
@@ -158,7 +160,15 @@ export function resolveView(
         ) {
             continue;
         }
-        relationships.push({ ...placement, relationship });
+        const repeat = repeats.get(placement.id) ?? 0;
+        repeats.set(placement.id, repeat + 1);
+        const route =
+            edited?.relationships?.[relationshipKey(placement.id, repeat)];
+        relationships.push({
+            ...placement,
+            ...(route?.vertices && { vertices: [...route.vertices] }),
+            relationship,
+        });
     }
 
     const boundaries = resolveBoundaries(

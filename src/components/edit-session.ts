@@ -5,11 +5,13 @@
  * Only edit mode creates one; builds compile it out (ADR 15).
  *
  * Undo and redo, and live reload, build on the same layouts: each records
- * through `record` and draws through the engine's `setLayout`.
+ * through `record` and draws through the engine's `setLayout`. Each view
+ * keeps its own history, one step per layout change (spec 16).
  */
 
 import {
     type EditedLayout,
+    isEmptyLayout,
     type LayoutChange,
     mergeLayouts,
 } from "../model/edited-layout";
@@ -50,8 +52,8 @@ const browserHost = (): SessionHost => ({
 /** What a save sends: the changed layout of each view, by view key. */
 type Layouts = Map<string, EditedLayout>;
 
-const isEmpty = (layout: EditedLayout) =>
-    Object.keys(layout.elements ?? {}).length === 0;
+/** A view's history: the changes undo walks back, and those redo replays. */
+type History = { done: LayoutChange[]; undone: LayoutChange[] };
 
 export class EditSession {
     readonly #host: SessionHost;
@@ -69,6 +71,8 @@ export class EditSession {
     #view: string | null = null;
     #queue: Promise<boolean> = Promise.resolve(true);
     readonly #listeners = new Set<(status: SaveStatus) => void>();
+    /** Each view's undo and redo history this session, by key. */
+    readonly #history = new Map<string, History>();
 
     constructor({
         version,
@@ -106,15 +110,48 @@ export class EditSession {
      * `setLayout`.
      */
     record(change: LayoutChange): EditedLayout {
-        const layout = mergeLayouts(
-            this.#layouts.get(change.view),
-            change.after,
-        );
-        this.#layouts.set(change.view, layout);
-        this.#pending.set(
-            change.view,
-            mergeLayouts(this.#pending.get(change.view), change.after),
-        );
+        const history = this.#historyOf(change.view);
+        history.done.push(change);
+        history.undone = [];
+        return this.#apply(change.view, change.after);
+    }
+
+    /**
+     * Undo the last change to view `key`: lay its `before` back as a change
+     * of its own, which waits for a save. Returns the view's edited layout,
+     * for the engine's `setLayout`, or `null` with nothing to undo.
+     */
+    undo(key: string): EditedLayout | null {
+        const history = this.#history.get(key);
+        const change = history?.done.pop();
+        if (!history || !change) return null;
+        history.undone.push(change);
+        return this.#apply(key, change.before);
+    }
+
+    /** Replay the last change undone on view `key`, like `undo`. */
+    redo(key: string): EditedLayout | null {
+        const history = this.#history.get(key);
+        const change = history?.undone.pop();
+        if (!history || !change) return null;
+        history.done.push(change);
+        return this.#apply(key, change.after);
+    }
+
+    #historyOf(key: string): History {
+        let history = this.#history.get(key);
+        if (!history) {
+            history = { done: [], undone: [] };
+            this.#history.set(key, history);
+        }
+        return history;
+    }
+
+    /** Lay `fields` over view `key`, mark them for a save and say so. */
+    #apply(key: string, fields: EditedLayout): EditedLayout {
+        const layout = mergeLayouts(this.#layouts.get(key), fields);
+        this.#layouts.set(key, layout);
+        this.#pending.set(key, mergeLayouts(this.#pending.get(key), fields));
         this.#schedule();
         this.#notify();
         return layout;
@@ -239,7 +276,7 @@ export class EditSession {
             }
         }
         for (const [key, layout] of this.#pending)
-            if (isEmpty(layout)) this.#pending.delete(key);
+            if (isEmptyLayout(layout)) this.#pending.delete(key);
         this.#failure = failure;
         this.#inFlight = null;
         this.#notify();

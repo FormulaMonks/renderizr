@@ -138,6 +138,10 @@ export type ModelView = {
     /** A static view's steps, one entry each, in any order (spec 11). */
     animations?: AnimationEntry[];
     properties?: Record<string, string>;
+    /** The canvas, in model units (spec 14). */
+    dimensions?: { width: number; height: number };
+    /** One of Structurizr's paper sizes, for a view without `dimensions`. */
+    paperSize?: string;
     automaticLayout?: Partial<AutomaticLayoutSettings>;
     elements: ElementView[];
     relationships: RelationshipView[];

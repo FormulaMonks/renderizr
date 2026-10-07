@@ -62,10 +62,15 @@ import {
     type LayoutChange,
     type WorkspaceModel,
 } from "../../model";
-import type { Anchor } from "../contract";
+import type {
+    Anchor,
+    CalculateLayoutOptions,
+    CanvasCommand,
+} from "../contract";
 import type { TextBlock } from "../geometry/boundary";
 import type { Point } from "../geometry/shapes/types";
 import { snapToGrid } from "../geometry/snapping";
+import { bringBackChange, calculatedChange, canvasChange } from "./commands";
 import { dragLayout, dropChange } from "./drag";
 import {
     INDICATOR_GAP,
@@ -106,6 +111,7 @@ import {
     type BoundaryBox,
     type Bounds,
     buildGraph,
+    calculatedGraph,
     type ColorScheme,
     type EdgeLine,
     type ElementBox,
@@ -168,6 +174,10 @@ export type IslandCommands = {
     fit(): void;
     zoomIn(): void;
     zoomOut(): void;
+    /** Edit mode's commands on the view shown (spec 9.2); no-ops in reading. */
+    resizeCanvas?(command: CanvasCommand, recenter: boolean): void;
+    bringBack?(): void;
+    calculateLayout?(options: CalculateLayoutOptions): void;
 };
 
 export type { ActivationType };
@@ -295,7 +305,7 @@ const PAN_KEYS: Partial<Record<string, { x: number; y: number }>> = {
 };
 
 /** `+` zooms in, `-` out and `0` fits; `=` is `+` without Shift. */
-const ZOOM_KEYS: Partial<Record<string, keyof IslandCommands>> = {
+const ZOOM_KEYS: Partial<Record<string, "fit" | "zoomIn" | "zoomOut">> = {
     "+": "zoomIn",
     "=": "zoomIn",
     "-": "zoomOut",
@@ -362,7 +372,13 @@ type BoxNode = Node<ElementBox, "box">;
 type BoundaryNode = Node<BoundaryBox, "boundary">;
 type ImageNode = Node<{ src: string; alt: string }, "image">;
 type PlaceholderNode = Node<{ color: string }, "placeholder">;
-type DiagramNode = BoxNode | BoundaryNode | ImageNode | PlaceholderNode;
+type CanvasNode = Node<Record<string, never>, "canvas">;
+type DiagramNode =
+    | BoxNode
+    | BoundaryNode
+    | ImageNode
+    | PlaceholderNode
+    | CanvasNode;
 type LineEdge = Edge<
     EdgeLine & { presence: Presence; transition: string | undefined },
     "line"
@@ -1152,6 +1168,14 @@ function ImagePlaceholder({ data }: NodeProps<PlaceholderNode>) {
 }
 
 /**
+ * The canvas in editing (spec 14): a frame behind the view, the size its
+ * `dimensions` set, that lets every pointer event through.
+ */
+function CanvasFrame() {
+    return <div data-canvas-frame="" className={styles.canvasFrame} />;
+}
+
+/**
  * One loading state for every render, so the nodes and bounds memoized on
  * it stay put; a fresh object each time rebuilt every view's nodes on every
  * render, which is how a ResizeObserver loop reached the console.
@@ -1281,6 +1305,7 @@ const nodeTypes = {
     boundary: BoundaryElement,
     image: ImagePicture,
     placeholder: ImagePlaceholder,
+    canvas: CanvasFrame,
 };
 const edgeTypes = { line: RouteEdge };
 const proOptions = { hideAttribution: true };
@@ -1292,6 +1317,20 @@ const zoomKeys = ["Meta", "Control"];
  * hidden by its fill; each level of nesting one higher.
  */
 const BOUNDARY_Z = -1000;
+
+/** The canvas frame's node id, which no element id takes (ids are numbers). */
+const CANVAS_NODE = "canvas:frame";
+
+/** The canvas frame, behind every boundary (spec 14). */
+const canvasNode = ({ width, height }: Graph["canvas"]): CanvasNode => ({
+    ...STATIC_NODE_PROPS,
+    id: CANVAS_NODE,
+    type: "canvas",
+    width,
+    height,
+    zIndex: BOUNDARY_Z - 1,
+    data: {},
+});
 
 function toBoundaryNodes(graph: Graph): BoundaryNode[] {
     return graph.boundaries.map((boundary) => ({
@@ -1439,12 +1478,15 @@ function Canvas({
         const shown = withPresence(drawing.nodes, stepState, transition);
         // In editing every element drags, faded ones included (spec 18);
         // boundaries never do (spec 8).
-        return editable
-            ? shown.map((node) =>
-                  node.type === "box" ? { ...node, draggable: true } : node,
-              )
-            : shown;
-    }, [drawing, stepState, transition, editable]);
+        if (!__RENDERIZR_EDIT_MODE__ || !editable) return shown;
+        const canvas = graph && !graph.image ? [canvasNode(graph.canvas)] : [];
+        return [
+            ...canvas,
+            ...shown.map((node) =>
+                node.type === "box" ? { ...node, draggable: true } : node,
+            ),
+        ];
+    }, [drawing, stepState, transition, editable, graph]);
     const edges = useMemo(
         () => (graph ? toEdges(graph, stepState, transition) : []),
         [graph, stepState, transition],
@@ -1607,6 +1649,52 @@ function Canvas({
             duration: reducedMotion ? 0 : TRANSITION_MS,
         });
     }, [step, zoomOnAnimation, fitted, stepFitted, flow, reducedMotion]);
+
+    /**
+     * Edit mode's commands on the whole view (spec 9.2, 14, 15), each one
+     * layout change for the page, as a drop is. Compiled out of builds
+     * (ADR 15); nothing happens in reading or on a view that can't be drawn.
+     */
+    useEffect(() => {
+        if (!__RENDERIZR_EDIT_MODE__) return;
+        const view =
+            editable && drawn && !drawn.error && !drawn.image ? drawn : null;
+        const run = (change: LayoutChange | null) => {
+            if (change) onLayoutChanged(change);
+        };
+        commands.resizeCanvas = (command, recenter) => {
+            if (view)
+                run(canvasChange(viewKey, view, edited, command, recenter));
+        };
+        commands.bringBack = () => {
+            if (view) run(bringBackChange(viewKey, view, edited));
+        };
+        commands.calculateLayout = (options) => {
+            if (!view) return;
+            const calculated = calculatedGraph(
+                model,
+                viewKey,
+                scheme,
+                labels,
+                measure,
+                edited,
+                options,
+            );
+            if (calculated)
+                run(calculatedChange(viewKey, view, calculated, options));
+        };
+    }, [
+        commands,
+        editable,
+        drawn,
+        edited,
+        model,
+        viewKey,
+        scheme,
+        labels,
+        measure,
+        onLayoutChanged,
+    ]);
 
     useEffect(() => {
         commands.fit = fit;

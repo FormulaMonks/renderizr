@@ -16,6 +16,7 @@
 import {
     animationOf,
     type BoundaryKind,
+    canvasOf,
     type EditedLayout,
     type ElementStyle,
     type ColorScheme as ModelColorScheme,
@@ -28,9 +29,12 @@ import {
     getMetadataForElement,
     getMetadataForRelationship,
     type ImageContent,
+    type LayoutMode,
     elementTargets,
     type ModelElement,
     type ModelRelationship,
+    type ModelView,
+    relationshipKey,
     relationshipTargets,
     type ResolvedBoundary,
     type ResolvedRelationship,
@@ -90,7 +94,11 @@ import {
     type Placement,
     placeUnplaced,
 } from "../geometry/unplaced";
-import { type LayoutBoundary, layOut } from "../layout/automatic";
+import {
+    type LayoutBoundary,
+    type LayoutSettings,
+    layOut,
+} from "../layout/automatic";
 
 export type { Bounds, ColorScheme, Labels, TargetKind };
 
@@ -298,6 +306,19 @@ export type Graph = {
     /** The box around every element, every route and every edge label. */
     bounds: Bounds;
     /**
+     * The view's canvas (spec 14), with the edited layout's laid over it.
+     * Edit mode draws it as a frame behind the view; builds, which never
+     * edit, leave it empty (ADR 15).
+     */
+    canvas: Size;
+    /** The paper size the view stores, which Decrease and Increase delete. */
+    paperSize?: string;
+    /**
+     * Which layout the view got (spec 7). In an automatic one every edge's
+     * `vertices` are Dagre's; otherwise they are the stored ones.
+     */
+    layout: LayoutMode;
+    /**
      * Where each unplaced element of a stored layout was put, in view order,
      * for the console line that names it (spec 7.2).
      */
@@ -311,6 +332,9 @@ export type Graph = {
 };
 
 const SCHEME = { light: "Light", dark: "Dark" } as const;
+
+/** The canvas of a build, which never draws one. */
+const NO_CANVAS: Size = { width: 0, height: 0 };
 
 /** The bounds of an empty view: nothing, at the origin. */
 const NO_BOUNDS: Bounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -546,9 +570,51 @@ export function buildGraph(
     measure: MeasureText = estimateText,
     edited?: EditedLayout,
 ): Graph | undefined {
+    return drawView(model, key, scheme, labels, measure, edited);
+}
+
+/**
+ * View `key` laid out once by `settings`, the way an automatic layout would
+ * lay it out, whatever coordinates it stores: the graph "Calculate layout"
+ * turns into a calculated layout (spec 15). Every edge's `vertices` are
+ * Dagre's, none with `settings.vertices` off.
+ */
+export function calculatedGraph(
+    model: WorkspaceModel,
+    key: string,
+    scheme: ColorScheme,
+    labels: Labels,
+    measure: MeasureText | undefined,
+    edited: EditedLayout | undefined,
+    settings: LayoutSettings,
+): Graph | undefined {
+    return drawView(
+        model,
+        key,
+        scheme,
+        labels,
+        measure ?? estimateText,
+        edited,
+        settings,
+    );
+}
+
+function drawView(
+    model: WorkspaceModel,
+    key: string,
+    scheme: ColorScheme,
+    labels: Labels,
+    measure: MeasureText,
+    edited: EditedLayout | undefined,
+    calculate?: LayoutSettings,
+): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
-    const empty = (view: { key: string; title: string }): Graph => ({
+    const empty = (view: {
+        key: string;
+        title: string;
+        view: ModelView;
+    }): Graph => ({
         key: view.key,
         title: view.title,
         background: defaults.background,
@@ -557,6 +623,10 @@ export function buildGraph(
         boundaries: [],
         edges: [],
         bounds: NO_BOUNDS,
+        canvas: __RENDERIZR_EDIT_MODE__
+            ? canvasOf(view.view, edited)
+            : NO_CANVAS,
+        layout: "stored",
         placements: [],
         warnings: [],
         focusOrder: [],
@@ -571,11 +641,24 @@ export function buildGraph(
     const error = findViewError(model, key);
     if (error) {
         const view = model.findViewByKey(key)!;
-        return { ...empty({ key, title: model.getTitleForView(view) }), error };
+        return {
+            ...empty({ key, title: model.getTitleForView(view), view }),
+            error,
+        };
     }
 
-    const view = resolveView(model, key, edited);
-    if (!view) return undefined;
+    const resolved = resolveView(model, key, edited);
+    if (!resolved) return undefined;
+    // "Calculate layout" lays the whole view out as an automatic layout
+    // would, with the dialog's options (spec 15).
+    const view: ResolvedView = calculate
+        ? {
+              ...resolved,
+              layout: "automatic",
+              unplaced: [],
+              automaticLayout: { ...resolved.automaticLayout, ...calculate },
+          }
+        : resolved;
     const animation = animationOf(model, view);
     if (view.image) {
         return {
@@ -782,7 +865,8 @@ export function buildGraph(
             ),
     );
     for (const edge of edges)
-        edge.vertices = vertices.get(edge.key) ?? edge.vertices;
+        edge.vertices =
+            vertices.get(edge.key) ?? (calculate ? [] : edge.vertices);
     const names = new Map<string, string>();
     for (const element of elements) {
         names.set(element.id, element.name);
@@ -875,6 +959,14 @@ export function buildGraph(
                 ...routed.flatMap((edge) => edge.route.map(pointBox)),
                 ...routed.flatMap((edge) => edge.labelBox ?? []),
             ]) ?? NO_BOUNDS,
+        canvas: __RENDERIZR_EDIT_MODE__
+            ? canvasOf(view.view, edited)
+            : NO_CANVAS,
+        ...(__RENDERIZR_EDIT_MODE__ &&
+            typeof view.view.paperSize === "string" && {
+                paperSize: view.view.paperSize,
+            }),
+        layout: view.layout,
         warnings,
         placements: placements.map((p) => ({
             ...p,
@@ -959,7 +1051,7 @@ function edgeKeys(
         if (!drawn.has(sourceId) || !drawn.has(destinationId)) return undefined;
         const repeat = seen.get(id) ?? 0;
         seen.set(id, repeat + 1);
-        return repeat === 0 ? id : `${id}#${repeat}`;
+        return relationshipKey(id, repeat);
     });
 }
 
@@ -1017,42 +1109,16 @@ function positionElements(
     });
 
     if (view.layout === "automatic") {
-        const layout = layOut(
-            {
-                nodes: elements.map(({ id, width, height }) => ({
-                    id,
-                    width,
-                    height,
-                    parent: parent.get(id),
-                })),
-                boundaries: layoutBoundaries(view),
-                edges: edges.map((edge) => ({
-                    ...edge,
-                    label: labels.get(edge.id)?.room,
-                })),
-            },
+        const { moved, vertices } = layOutView(
+            view,
+            elements,
+            edges,
+            parent,
+            labels,
+            boundaries,
             view.automaticLayout,
         );
-        // Dagre never sees how big a derived boundary is, so make the room
-        // it did not leave between a boundary and its neighbors: the padding
-        // a boundary keeps from its own children. At Structurizr's 300
-        // separations Dagre leaves at least that, and nothing moves; spec
-        // 7.2's 60 would move Big Bank's Live deployment.
-        const { rankDirection } = view.automaticLayout;
-        const spaced = spaceBoundaries({
-            elements: layout.boxes,
-            parent,
-            boundaries,
-            vertices: layout.edges,
-            gap: BOUNDARY_PADDING,
-            rankAxis:
-                rankDirection === "LeftRight" || rankDirection === "RightLeft"
-                    ? "x"
-                    : "y",
-        });
-        const moved = new Map<string, Point>();
-        for (const [id, { x, y }] of spaced.elements) moved.set(id, { x, y });
-        return { moved, vertices: spaced.vertices, placements: [] };
+        return { moved, vertices, placements: [] };
     }
 
     const unplaced = new Set(view.unplaced);
@@ -1084,6 +1150,60 @@ function positionElements(
     });
     const moved = new Map(placements.map(({ id, x, y }) => [id, { x, y }]));
     return { moved, vertices, placements };
+}
+
+/**
+ * The whole of `view` laid out by `settings`: the one function an automatic
+ * layout and "Calculate layout" share (spec 15). Dagre places the elements
+ * (`layOut`, with ADR 14's ranker), then `spaceBoundaries` makes room for
+ * the boundaries derived around them. Returns every element's new top-left
+ * and Dagre's vertices, both by id and edge key.
+ */
+function layOutView(
+    view: ResolvedView,
+    elements: ElementBox[],
+    edges: { id: string; source: string; target: string }[],
+    parent: ReadonlyMap<string, string>,
+    labels: ReadonlyMap<string, LabelRoom>,
+    boundaries: DeriveBoundaries,
+    settings: LayoutSettings,
+): { moved: Map<string, Point>; vertices: Map<string, Point[]> } {
+    const layout = layOut(
+        {
+            nodes: elements.map(({ id, width, height }) => ({
+                id,
+                width,
+                height,
+                parent: parent.get(id),
+            })),
+            boundaries: layoutBoundaries(view),
+            edges: edges.map((edge) => ({
+                ...edge,
+                label: labels.get(edge.id)?.room,
+            })),
+        },
+        settings,
+    );
+    // Dagre never sees how big a derived boundary is, so make the room it
+    // did not leave between a boundary and its neighbors: the padding a
+    // boundary keeps from its own children. At Structurizr's 300
+    // separations Dagre leaves at least that, and nothing moves; spec 7.2's
+    // 60 would move Big Bank's Live deployment.
+    const { rankDirection } = settings;
+    const spaced = spaceBoundaries({
+        elements: layout.boxes,
+        parent,
+        boundaries,
+        vertices: layout.edges,
+        gap: BOUNDARY_PADDING,
+        rankAxis:
+            rankDirection === "LeftRight" || rankDirection === "RightLeft"
+                ? "x"
+                : "y",
+    });
+    const moved = new Map<string, Point>();
+    for (const [id, { x, y }] of spaced.elements) moved.set(id, { x, y });
+    return { moved, vertices: spaced.vertices };
 }
 
 /**
