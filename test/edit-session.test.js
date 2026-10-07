@@ -436,3 +436,29 @@ test("a save refused as stale takes the version the server names, so Keep saves 
     assert.equal(await edits.save(), true, "Keep failed again");
     assert.equal(stub.requests.at(-1).body.version, "v9");
 });
+
+test("a save on its way counts as unsaved, so a view switch asks first", async () => {
+    let release;
+    const held = new Promise((resolve) => {
+        release = () => resolve({ status: 200, body: { version: "v2" } });
+    });
+    const stub = stubHost([held]);
+    const edits = session(stub);
+    assert.equal(edits.unsaved(), false);
+    edits.record(change("A", "1", 10, 20));
+    const saving = edits.save();
+    await Promise.resolve();
+    assert.equal(edits.waiting(), false, "the Save button stays off");
+    assert.equal(edits.unsaved(), true);
+    release();
+    await saving;
+    assert.equal(edits.unsaved(), false);
+});
+
+test("a failed save counts as unsaved", async () => {
+    const stub = stubHost([{ status: 500, body: { error: "disk full" } }]);
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 20));
+    await edits.save();
+    assert.equal(edits.unsaved(), true);
+});

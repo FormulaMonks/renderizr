@@ -63,7 +63,7 @@ export function editSession(): EditSession {
     // The browser asks before a tab with unsaved changes closes or reloads,
     // and whatever still waits goes out as the page goes (spec 7.4).
     window.addEventListener("beforeunload", (event) => {
-        if (!created.waiting()) return;
+        if (!created.unsaved()) return;
         event.preventDefault();
         event.returnValue = "";
     });
@@ -232,9 +232,9 @@ export function swapWorkspace(
 
 /**
  * Go on with `proceed` once nothing waits for a save (spec 7.5). While the
- * view's changes wait or a save has failed, a dialog offers "Save and
- * continue" and "Stay", and the page goes on only once the save succeeds;
- * the toolbar shows why one didn't.
+ * view's changes wait, a save is on its way or one has failed, a dialog
+ * offers "Save and continue" and "Stay", and the page goes on only once
+ * every save succeeds; the toolbar shows why one didn't.
  */
 export async function leave(
     engine: Engine,
@@ -242,7 +242,7 @@ export async function leave(
     proceed: () => void,
 ) {
     const edits = editSession();
-    if (!edits.waiting()) {
+    if (!edits.unsaved()) {
         proceed();
         return;
     }

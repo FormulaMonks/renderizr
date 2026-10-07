@@ -258,6 +258,14 @@ export class EditSession {
         return this.#pending.size > 0;
     }
 
+    /**
+     * Whether anything recorded isn't saved yet: changes waiting, a failed
+     * save or a save on its way (spec 7.4, 7.5).
+     */
+    unsaved(): boolean {
+        return this.waiting() || this.#inFlight !== null;
+    }
+
     status(): SaveStatus {
         const waiting = this.waiting();
         if (this.#inFlight) return { state: "saving", waiting };
