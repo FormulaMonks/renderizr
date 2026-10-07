@@ -26,7 +26,7 @@ import type { Graph } from "./graph";
 /** What "Calculate layout" needs of the dialog's options here. */
 export type CalculateOptions = { vertices: boolean };
 
-type Fields = {
+export type Fields = {
     elements: Record<string, Point>;
     relationships: Record<string, EditedRoute>;
     dimensions?: Dimensions;
@@ -71,7 +71,7 @@ export const isFirstChange = (graph: Graph, edited: EditedLayout | undefined) =>
     graph.elements.some((e) => !edited?.elements?.[e.id]);
 
 /** The fields every first change carries, before and after alike. */
-function firstFields(graph: Graph, edited: EditedLayout | undefined) {
+export function firstFields(graph: Graph, edited: EditedLayout | undefined) {
     const before: Fields = { elements: {}, relationships: {} };
     const after: Fields = { elements: {}, relationships: {} };
     if (!isFirstChange(graph, edited)) return { before, after };
@@ -85,7 +85,11 @@ function firstFields(graph: Graph, edited: EditedLayout | undefined) {
 }
 
 /** `fields` as an edited layout, without the empty maps. */
-function layoutOf({ elements, relationships, ...rest }: Fields): EditedLayout {
+export function layoutOf({
+    elements,
+    relationships,
+    ...rest
+}: Fields): EditedLayout {
     return {
         ...(Object.keys(elements).length > 0 && { elements }),
         ...(Object.keys(relationships).length > 0 && { relationships }),

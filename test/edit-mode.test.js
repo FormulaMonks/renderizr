@@ -388,3 +388,107 @@ test(
             assert.deepEqual(delta(id), { x: 0, y: 0 }, `${id} moved`);
     },
 );
+
+/** Relationship `id` of the Containers view in the `workspace.json` at `json`. */
+const containerRelationship = async (json, id) =>
+    JSON.parse(await readFile(json, "utf8"))
+        .views.containerViews.find((view) => view.key === "Containers")
+        .relationships.find((relationship) => relationship.id === id);
+
+test(
+    "editing an edge saves its routing mode, a vertex, a chosen side and its label position into workspace.json",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("big-bank-plc-stored.json");
+        const email = (await containerElements(json)).get("5");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await browser.open(
+                `${url}#?page=diagrams&view=Containers&mode=edit`,
+            );
+            await page.waitFor(
+                `!!document.querySelector('[data-ready="true"] .react-flow__edge[data-id="11"] [data-hit-stroke]')`,
+            );
+            // A point `fraction` along the line of "Sends e-mails to", on screen.
+            const along = (fraction) =>
+                page.evaluate(`(() => {
+                    const path = document.querySelector('.react-flow__edge[data-id="11"] [data-hit-stroke]');
+                    const point = path.getPointAtLength(path.getTotalLength() * ${fraction});
+                    const m = path.getScreenCTM();
+                    return { x: point.x * m.a + m.e, y: point.y * m.d + m.f };
+                })()`);
+            const center = (selector) =>
+                page.evaluate(`(() => {
+                    const r = document.querySelector('${selector}').getBoundingClientRect();
+                    return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top };
+                })()`);
+            const save = async () => {
+                await page.waitFor(
+                    `document.querySelector(".save-status")?.textContent === "Unsaved changes"`,
+                );
+                await page.press("s", "KeyS", 2);
+                await page.waitFor(
+                    `document.querySelector(".save-status")?.textContent === "Saved"`,
+                );
+            };
+
+            // A click on the line selects the edge (spec 12.1).
+            await page.click(await along(0.5));
+            await page.waitFor(
+                `!!document.querySelector('[data-selected-edge="11"]') && !document.querySelector(".routing-mode").hidden`,
+            );
+            assert.equal(
+                await page.evaluate(
+                    `document.querySelector(".routing-mode").getAttribute("aria-label")`,
+                ),
+                "Routing mode: Direct",
+            );
+            // The toolbar button cycles the routing mode (spec 12.2).
+            await page.evaluate(
+                `document.querySelector(".routing-mode").click()`,
+            );
+            await page.waitFor(
+                `document.querySelector(".routing-mode").getAttribute("aria-label") === "Routing mode: Orthogonal"`,
+            );
+            await save();
+
+            // A double-click on the line adds a vertex (spec 12.3).
+            await page.click(await along(0.7), 2);
+            await page.waitFor(
+                `!!document.querySelector('[data-vertex-handle="11:0"]')`,
+            );
+            await save();
+
+            // The source end goes to the E-mail System's top (spec 12.4).
+            const end = await center('[data-edge-end-handle="source"]');
+            const box = await center('.react-flow__node-box[data-id="5"]');
+            await page.drag(end, { x: box.x, y: box.top - 15 });
+            await page.waitFor(
+                `!!document.querySelector('[data-vertex-handle="11:1"]')`,
+            );
+            await save();
+
+            // The label slides along the route (spec 12.7).
+            const label = await center('[data-relationship-label="11"]');
+            await page.drag(label, { x: label.x - 40, y: label.y });
+            await save();
+        } finally {
+            await browser.close();
+        }
+
+        const relationship = await containerRelationship(json, "11");
+        assert.equal(relationship.routing, "Orthogonal");
+        assert.equal(relationship.vertices.length, 2, "a vertex went missing");
+        assert.equal(
+            relationship.vertices[0].y,
+            email.y - 20,
+            "the side vertex isn't 20 units above the E-mail System",
+        );
+        assert.ok(
+            Number.isInteger(relationship.position) &&
+                relationship.position >= 0 &&
+                relationship.position <= 100,
+            `position is ${relationship.position}`,
+        );
+    },
+);

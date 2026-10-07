@@ -1,12 +1,13 @@
 /**
  * The toolbar's way into and out of editing (spec 4.6, 17.1): a pencil that
- * opens the view's editing route, and in editing the edit toolbar, with
- * "Calculate layout", the three canvas commands, the save status, Save and
- * Done, which returns to reading. Only edit mode draws
- * them; builds compile this module out (ADR 15).
+ * opens the view's editing route, and in editing the edit toolbar, with the
+ * routing-mode button while an edge is selected, "Calculate layout", the
+ * three canvas commands, the save status, Save and Done, which returns to
+ * reading. Only edit mode draws them; builds compile this module out
+ * (ADR 15).
  */
 
-import type { CanvasCommand } from "../engine/contract";
+import type { CanvasCommand, SelectionState } from "../engine/contract";
 import type { ModelView, WorkspaceModel } from "../model";
 import { whyNotEditable } from "../model/editable";
 import type { SaveStatus } from "./edit-session";
@@ -16,6 +17,9 @@ import decreaseIcon from "bootstrap-icons/icons/arrows-angle-contract.svg?raw";
 import increaseIcon from "bootstrap-icons/icons/arrows-angle-expand.svg?raw";
 import autoIcon from "bootstrap-icons/icons/bounding-box.svg?raw";
 import calculateIcon from "bootstrap-icons/icons/diagram-3.svg?raw";
+import directIcon from "bootstrap-icons/icons/arrow-up-right.svg?raw";
+import orthogonalIcon from "bootstrap-icons/icons/arrow-90deg-right.svg?raw";
+import curvedIcon from "bootstrap-icons/icons/bezier2.svg?raw";
 
 /** What the toolbar needs from the editing route the page owns. */
 export type EditingRoute = {
@@ -43,7 +47,44 @@ export type EditingRoute = {
     resizeCanvas(command: CanvasCommand, recenter: boolean): void;
     /** Open the "Calculate layout" dialog (spec 15). */
     calculateLayout(): void;
+    /** The selected edge, or `null` (spec 12.1). */
+    edge(): SelectionState["edge"];
+    /** Set the selected edge's routing mode (spec 12.2). */
+    setRouting(mode: Routing): void;
 };
+
+/** A routing mode, as the selected edge reports it. */
+type Routing = NonNullable<SelectionState["edge"]>["routing"];
+
+/**
+ * Each routing mode's icon and the mode a click moves to: Direct,
+ * Orthogonal, Curved and round again (spec 12.2).
+ */
+const ROUTINGS: Record<Routing, { icon: string; next: Routing }> = {
+    Direct: { icon: directIcon, next: "Orthogonal" },
+    Orthogonal: { icon: orthogonalIcon, next: "Curved" },
+    Curved: { icon: curvedIcon, next: "Direct" },
+};
+
+/**
+ * Paint the routing-mode button on the edit toolbar under `root` for the
+ * selected `edge` (spec 12.2): hidden with no edge selected, otherwise the
+ * icon of the mode the edge is drawn in, named in its tooltip and its
+ * accessible label.
+ */
+export function paintRouting(root: ParentNode, edge: SelectionState["edge"]) {
+    const button = root.querySelector<HTMLButtonElement>(".routing-mode");
+    if (!button) return;
+    button.hidden = edge === null;
+    if (!edge) return;
+    const { icon, next } = ROUTINGS[edge.routing];
+    const label = `Routing mode: ${edge.routing}`;
+    button.dataset.routing = edge.routing;
+    button.dataset.next = next;
+    button.title = `${label} (click for ${next})`;
+    button.setAttribute("aria-label", label);
+    button.innerHTML = icon;
+}
 
 /** The canvas commands' buttons, each with what its tooltip says. */
 const CANVAS_BUTTONS: [CanvasCommand, string, string][] = [
@@ -115,6 +156,7 @@ export function editButtons(
         const save = `Save (${saveShortcut()})`;
         const calculate = "Calculate layout";
         group.innerHTML = `
+            <button type="button" class="routing-mode" hidden></button>
             <button type="button" class="calculate-layout" title="${calculate}" aria-label="${calculate}">${calculateIcon}</button>
             ${CANVAS_BUTTONS.map(
                 ([command, label, icon]) =>
@@ -124,6 +166,13 @@ export function editButtons(
             <button type="button" class="save-layout ${styles.done}" title="${save}" aria-label="${save}">Save</button>
             <button type="button" class="done-editing ${styles.done}">Done</button>
         `;
+        const routing = group.querySelector<HTMLElement>(".routing-mode");
+        // Every click stores the mode it moves to (spec 12.2).
+        routing?.addEventListener("click", () => {
+            const next = routing.dataset.next as Routing | undefined;
+            if (next) route.setRouting(next);
+        });
+        paintRouting(group, route.edge());
         group
             .querySelector(".calculate-layout")
             ?.addEventListener("click", () => route.calculateLayout());

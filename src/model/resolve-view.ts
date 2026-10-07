@@ -166,7 +166,9 @@ export function resolveView(
             edited?.relationships?.[relationshipKey(placement.id, repeat)];
         relationships.push({
             ...placement,
-            ...(route?.vertices && { vertices: [...route.vertices] }),
+            // Its vertices, routing mode and label position; nothing
+            // downstream changes the vertex list it is handed.
+            ...(route as RelationshipView | undefined),
             relationship,
         });
     }

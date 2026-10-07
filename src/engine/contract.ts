@@ -110,31 +110,11 @@ export type AnimationControls = {
     onAnimationChanged(callback: (state: AnimationState) => void): () => void;
 };
 
-/** The engine contract of spec section 5. */
-export type Engine = AnimationControls & {
-    showView(key: string): void;
-    setColorScheme(scheme: ColorScheme): void;
-    setLabels(labels: Labels): void;
-    getCurrentView(): ModelView;
-
-    fit(): void;
-    zoomIn(): void;
-    zoomOut(): void;
-
-    onViewShown(
-        callback: (view: ModelView, animation: AnimationState) => void,
-    ): () => void;
-    /**
-     * An element, or a boundary drawn for one, was activated. The engine
-     * never navigates: the page resolves its targets (spec 6.1).
-     */
-    onElementActivated(
-        callback: (elementId: string, anchor: Anchor) => void,
-    ): () => void;
-    onRelationshipActivated(
-        callback: (relationshipId: string, anchor: Anchor) => void,
-    ): () => void;
-
+/**
+ * The members only edit mode uses (spec 9.2). Builds, which never edit,
+ * leave them out (ADR 15).
+ */
+export type EditControls = {
     /**
      * Switch between reading and editing without a remount, keeping the
      * viewport (spec 9.2). Editing pauses an animation on the step shown
@@ -181,8 +161,42 @@ export type Engine = AnimationControls & {
      */
     calculateLayout(options: CalculateLayoutOptions): void;
 
-    unmount(): void;
+    /**
+     * Set the selected edge's routing mode (spec 12.2), stored as
+     * `routing` even when it matches the style's. Answers through
+     * `onLayoutChanged`.
+     */
+    setRouting(mode: RoutingMode): void;
 };
+
+/** The engine contract of spec section 5. */
+export type Engine = AnimationControls &
+    EditControls & {
+        showView(key: string): void;
+        setColorScheme(scheme: ColorScheme): void;
+        setLabels(labels: Labels): void;
+        getCurrentView(): ModelView;
+
+        fit(): void;
+        zoomIn(): void;
+        zoomOut(): void;
+
+        onViewShown(
+            callback: (view: ModelView, animation: AnimationState) => void,
+        ): () => void;
+        /**
+         * An element, or a boundary drawn for one, was activated. The engine
+         * never navigates: the page resolves its targets (spec 6.1).
+         */
+        onElementActivated(
+            callback: (elementId: string, anchor: Anchor) => void,
+        ): () => void;
+        onRelationshipActivated(
+            callback: (relationshipId: string, anchor: Anchor) => void,
+        ): () => void;
+
+        unmount(): void;
+    };
 
 /** The rejection an aborted `mountEngine` settles with; the page ignores it. */
 export const abortError = () =>

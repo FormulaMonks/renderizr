@@ -16,10 +16,14 @@ export type Dimensions = { width: number; height: number };
 
 /**
  * A relationship's edited route. An empty `vertices` clears the stored
- * ones, so the edge falls back to avoidance (ADR 7).
+ * ones, so the edge falls back to avoidance (ADR 7). `position` is the
+ * label's place in whole percent of the route from the source end (spec
+ * 12.7). Edit mode never sets `jump` (spec 12.8).
  */
 export type EditedRoute = {
     vertices?: readonly Vertex[];
+    routing?: "Direct" | "Orthogonal" | "Curved";
+    position?: number;
 };
 
 /** One view's edited layout. */

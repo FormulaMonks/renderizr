@@ -239,7 +239,11 @@ const stubEngine = () => ({
 /** The editing route as the toolbar sees it, recording every navigation. */
 function stubRoute(
     editing = false,
-    { status = { state: "saved", waiting: false }, notice = null } = {},
+    {
+        status = { state: "saved", waiting: false },
+        notice = null,
+        edge = null,
+    } = {},
 ) {
     const calls = [];
     return {
@@ -251,6 +255,8 @@ function stubRoute(
         status: () => status,
         save: () => calls.push(["save"]),
         notice: () => notice,
+        edge: () => edge,
+        setRouting: (mode) => calls.push(["setRouting", mode]),
     };
 }
 
@@ -359,7 +365,9 @@ test("with edit mode compiled out the toolbar shows no pencil, even given a rout
 
 /* ------------------------------------------------------ the edit toolbar */
 
-const { paintSaveStatus } = await importSrc("components/edit-buttons");
+const { paintRouting, paintSaveStatus } = await importSrc(
+    "components/edit-buttons",
+);
 const { layoutNotice } = await importSrc("components/editing-route");
 
 test("in editing the toolbar shows where saving stands and a Save that waits for changes", () => {
@@ -392,6 +400,45 @@ test("in editing the toolbar shows where saving stands and a Save that waits for
     assert.equal(status.dataset.state, "failed");
     assert.equal(save.disabled, false, "a failed save can be tried again");
     toolbar.clear();
+});
+
+test("while an edge is selected the toolbar shows its routing mode, and a click sets the next one", () => {
+    const { toolbar, route } = toolbarFor("Landscape", stubRoute(true));
+    const button = toolbar.element.querySelector(".routing-mode");
+    assert.ok(button, "the edit toolbar has no routing-mode button");
+    assert.equal(button.hidden, true, "the button shows with no edge selected");
+
+    paintRouting(toolbar.element, { id: "7", routing: "Direct" });
+    assert.equal(button.hidden, false);
+    assert.equal(button.getAttribute("aria-label"), "Routing mode: Direct");
+    assert.match(button.title, /Routing mode: Direct/);
+    assert.ok(button.querySelector("svg"), "the button shows no icon");
+    button.click();
+    assert.deepEqual(route.calls, [["setRouting", "Orthogonal"]]);
+
+    paintRouting(toolbar.element, { id: "7", routing: "Orthogonal" });
+    assert.equal(button.getAttribute("aria-label"), "Routing mode: Orthogonal");
+    button.click();
+    paintRouting(toolbar.element, { id: "7", routing: "Curved" });
+    button.click();
+    assert.deepEqual(route.calls.slice(1), [
+        ["setRouting", "Curved"],
+        ["setRouting", "Direct"],
+    ]);
+
+    paintRouting(toolbar.element, null);
+    assert.equal(button.hidden, true);
+    toolbar.clear();
+
+    // A toolbar drawn again keeps showing the selected edge.
+    const again = toolbarFor(
+        "Landscape",
+        stubRoute(true, { edge: { id: "7", routing: "Curved" } }),
+    );
+    const shown = again.toolbar.element.querySelector(".routing-mode");
+    assert.equal(shown.hidden, false);
+    assert.equal(shown.getAttribute("aria-label"), "Routing mode: Curved");
+    again.toolbar.clear();
 });
 
 test("the editing route of a view without coordinates says its first edit saves what it shows", () => {

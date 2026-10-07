@@ -11,7 +11,11 @@ import history from "history/hash";
 import { openCalculateLayout } from "../components/calculate-layout-dialog";
 import { version as workspaceVersion } from "virtual:renderizr/workspace";
 import type CurrentView from "../components/current-view";
-import { type EditingRoute, paintSaveStatus } from "../components/edit-buttons";
+import {
+    type EditingRoute,
+    paintRouting,
+    paintSaveStatus,
+} from "../components/edit-buttons";
 import { EditSession } from "../components/edit-session";
 import {
     editingSearch,
@@ -22,6 +26,7 @@ import {
 import { takeSessionToken } from "../components/session-token";
 import { confirmLeave } from "../components/unsaved-dialog";
 import type { Engine } from "../engine";
+import type { SelectionState } from "../engine/contract";
 import { resolveView, type WorkspaceModel } from "../model";
 
 /** Whether the page shows the editing route now (spec 4.6). */
@@ -73,6 +78,12 @@ export async function leave(
     if (await edits.save()) proceed();
 }
 
+/**
+ * The selected edge as the engine last reported it (spec 12.1), so a
+ * toolbar drawn again shows its routing mode.
+ */
+let selectedEdge: SelectionState["edge"] = null;
+
 /** The editing route as the toolbar drives it (spec 4.6, 17.1). */
 export function editingRoute(
     engine: Engine,
@@ -105,6 +116,8 @@ export function editingRoute(
                 calculate: (options) => engine.calculateLayout(options),
                 bringBack: () => engine.bringBack(),
             }),
+        edge: () => selectedEdge,
+        setRouting: (mode) => engine.setRouting(mode),
         notice: (key) => {
             if (edits.layoutOf(key)) return null;
             const view = resolveView(model, key);
@@ -164,6 +177,13 @@ export function startEditing(
             if (first) currentView.render(engine.getCurrentView());
         }),
         edits.onStatus((status) => paintSaveStatus(container, status)),
+        engine.onSelectionChanged(({ edge }) => {
+            selectedEdge = edge;
+            paintRouting(container, edge);
+        }),
+        () => {
+            selectedEdge = null;
+        },
         history.listen(() => {
             if (editing() === shown) return;
             shown = editing();
