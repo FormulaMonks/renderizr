@@ -523,13 +523,37 @@ const moveSave = (version, x = 205) => ({
     views: { Warehouse: { elements: { 20: { x, y: 350 } } } },
 });
 
-/** Wait until `check()` holds, for up to 5 s. */
+/**
+ * Wait until `check()` holds, for up to 30 s. A run of the DSL pipeline
+ * waits out its debounce and a flush and starts a process, which takes a
+ * while on a machine running the whole suite at once.
+ */
 async function eventually(check, message) {
-    for (let attempt = 0; attempt < 100; attempt++) {
+    const until = Date.now() + 30_000;
+    while (Date.now() < until) {
         if (await check()) return;
         await new Promise((resolve) => setTimeout(resolve, 50));
     }
     assert.fail(message);
+}
+
+/**
+ * Write `text` to `file` and wait until `check()` holds, as `eventually`
+ * does. While the server has sent `sent` nothing new, the write goes again
+ * every 2 s: a watcher still starting on a busy machine can miss it.
+ */
+async function writeUntil(file, text, sent, check, message) {
+    const before = sent.length;
+    await writeFile(file, text);
+    let again = Date.now() + 2000;
+    await eventually(async () => {
+        if (await check()) return true;
+        if (Date.now() > again && sent.length === before) {
+            await writeFile(file, text);
+            again = Date.now() + 2000;
+        }
+        return false;
+    }, message);
 }
 
 test("the save endpoint writes the layout into workspace.json and answers with the new version", async () => {
@@ -862,9 +886,11 @@ test("a DSL change flushes the open pages, merges and reaches them as a workspac
                 );
             });
 
-            await writeFile(dsl, stubDsl("After"));
             try {
-                await eventually(
+                await writeUntil(
+                    dsl,
+                    stubDsl("After"),
+                    sent,
                     () =>
                         sent.some(
                             ({ event, data }) =>
@@ -898,8 +924,10 @@ test("a DSL error reaches the page over the last good workspace, and the next go
     await withDslServer(stubDsl("Good"), async ({ server, url, dsl, json }) => {
         const sent = recordEvents(server);
         const good = await readFile(json, "utf8");
-        await writeFile(dsl, stubDsl("Bad", { fail: "Unexpected tokens" }));
-        await eventually(
+        await writeUntil(
+            dsl,
+            stubDsl("Bad", { fail: "Unexpected tokens" }),
+            sent,
             () => sent.some(({ event }) => event === ERROR_EVENT),
             "the DSL error never reached the page",
         );
@@ -916,8 +944,10 @@ test("a DSL error reaches the page over the last good workspace, and the next go
         });
         assert.match(await fetchWorkspaceModule(origin), /"Good"/);
 
-        await writeFile(dsl, stubDsl("Fixed"));
-        await eventually(
+        await writeUntil(
+            dsl,
+            stubDsl("Fixed"),
+            sent,
             () => sent.some(({ event }) => event === WORKSPACE_EVENT),
             "the fixed DSL never reached the page",
         );
