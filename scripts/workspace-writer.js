@@ -393,15 +393,9 @@ function carryStamps(before, after) {
 }
 
 /**
- * How many of its own writes the writer remembers: enough to cover every
- * watcher event still on its way while saves and runs follow each other.
- */
-const RECENT_WRITES = 16;
-
-/**
- * How long, in ms, the writer waits for the watcher to report one of its
- * writes. The watcher reports one within moments; past this, the same
- * content on disk came from someone else.
+ * How long, in ms, the writer counts the file as its own write. The watcher
+ * reports a write within moments, at times more than once; past this, the
+ * same content on disk came from someone else.
  */
 const UNHEARD_MS = 10_000;
 
@@ -433,11 +427,8 @@ export class WorkspaceWriter {
     #agent;
     #now;
     #queue = Promise.resolve();
-    /**
-     * The writes the watcher hasn't reported yet: when each version was
-     * written, in ms, oldest first, at most `RECENT_WRITES`.
-     */
-    #unheard = new Map();
+    /** The version of the writer's latest write and when it was, in ms. */
+    #latest = null;
     #clock;
 
     constructor(file, { agent, now = () => new Date(), clock = Date.now }) {
@@ -448,16 +439,19 @@ export class WorkspaceWriter {
     }
 
     /**
-     * Whether `text` is a write of this writer's that the watcher hasn't
-     * reported yet. It answers yes once per write: the same content back on
-     * disk later, such as a tool restoring an earlier file, is someone
-     * else's change.
+     * Whether `text`, the file as it is now, is the writer's latest write,
+     * made moments ago. The watcher's news of any write of its own reads the
+     * file as it is by then, so a late report of an earlier one finds the
+     * latest. An earlier file back on disk, as when a tool restores one, is
+     * someone else's change.
      */
     wrote(text) {
-        const version = versionOf(text);
-        const at = this.#unheard.get(version);
-        this.#unheard.delete(version);
-        return at !== undefined && this.#clock() - at < UNHEARD_MS;
+        const latest = this.#latest;
+        return (
+            latest !== null &&
+            latest.version === versionOf(text) &&
+            this.#clock() - latest.at < UNHEARD_MS
+        );
     }
 
     /**
@@ -542,10 +536,7 @@ export class WorkspaceWriter {
             throw error;
         }
         const version = versionOf(text);
-        this.#unheard.delete(version);
-        this.#unheard.set(version, this.#clock());
-        if (this.#unheard.size > RECENT_WRITES)
-            this.#unheard.delete(this.#unheard.keys().next().value);
+        this.#latest = { version, at: this.#clock() };
         return { version, written: true };
     }
 }

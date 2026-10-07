@@ -648,34 +648,7 @@ test("saves run one at a time, each against the file the last one wrote", async 
     });
 });
 
-test("the writer knows every recent write of its own, so a late watcher event for an earlier one is no outside change", async () => {
-    await withWorkspace(async ({ file, text }) => {
-        const writer = new WorkspaceWriter(file, {
-            agent: AGENT,
-            now: () => NOW,
-        });
-        const first = await writer.save({
-            version: versionOf(text),
-            view: "Landscape",
-            views: { Landscape: { elements: { 1: { x: 110, y: 200 } } } },
-        });
-        const firstText = await readFile(file, "utf8");
-        await writer.save({
-            version: first.version,
-            view: "Landscape",
-            views: { Landscape: { elements: { 2: { x: 610, y: 200 } } } },
-        });
-        const secondText = await readFile(file, "utf8");
-        assert.ok(writer.wrote(firstText), "the writer forgot its first write");
-        assert.ok(writer.wrote(secondText));
-        assert.ok(
-            !writer.wrote(text),
-            "the file it started from isn't its own",
-        );
-    });
-});
-
-test("the writer knows each write of its own once, so the same content back on disk later is someone else's change", async () => {
+test("the writer knows its latest write however often the watcher reports it, and an earlier file back on disk is someone else's change", async () => {
     await withWorkspace(async ({ file, text }) => {
         let clock = 0;
         const writer = new WorkspaceWriter(file, {
@@ -689,21 +662,30 @@ test("the writer knows each write of its own once, so the same content back on d
             views: { Landscape: { elements: { 1: { x: 110, y: 200 } } } },
         });
         const firstText = await readFile(file, "utf8");
-        assert.ok(writer.wrote(firstText), "the watcher's report of the write");
-        assert.ok(
-            !writer.wrote(firstText),
-            "a tool that writes the same content back is no write of the writer's",
-        );
-
         await writer.save({
             version: first.version,
             view: "Landscape",
             views: { Landscape: { elements: { 2: { x: 610, y: 200 } } } },
         });
+        const secondText = await readFile(file, "utf8");
+
+        // The watcher may report one write twice, and a late report of the
+        // first write reads the file as the second left it.
+        assert.ok(writer.wrote(secondText));
+        assert.ok(writer.wrote(secondText), "a second report of one write");
+        assert.ok(
+            !writer.wrote(firstText),
+            "a tool that puts the first file back is no write of the writer's",
+        );
+        assert.ok(
+            !writer.wrote(text),
+            "the file it started from isn't its own",
+        );
+
         clock = 10_000;
         assert.ok(
-            !writer.wrote(await readFile(file, "utf8")),
-            "a write the watcher never reported in time is forgotten",
+            !writer.wrote(secondText),
+            "the same content long after the write is someone else's",
         );
     });
 });
