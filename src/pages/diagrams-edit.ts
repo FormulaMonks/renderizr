@@ -378,6 +378,12 @@ export function startEditing(
             return;
         }
         if (removeBar) return;
+        // A save refused as stale holds edits the engine may no longer draw,
+        // once a workspace arrived while it was on its way (spec 6.2).
+        for (const held of edits.held()) {
+            const layout = edits.layoutOf(held);
+            if (layout) engine.setLayout(held, layout);
+        }
         const view = model.findViewByKey(key);
         const canvas = container.querySelector<HTMLElement>(
             "#structurizr-diagram-target",

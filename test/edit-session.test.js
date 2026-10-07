@@ -422,6 +422,43 @@ test("a save refused as stale holds its edits, drawn again, until the author kee
     assert.equal(stub.requests.at(-1).body.version, "disk");
 });
 
+test("a stale save's edits lie over a workspace that arrived while it was on its way, so Keep never writes back what the author left alone", async () => {
+    let release;
+    const answer = new Promise((resolve) => {
+        release = () =>
+            resolve({ status: 409, body: { error: "stale", version: "disk" } });
+    });
+    const stub = stubHost([answer]);
+    const edits = session(stub);
+    // A first change carries every element; the author moved only 1.
+    edits.record({
+        view: "A",
+        before: { elements: { 1: { x: 0, y: 0 }, 2: { x: 0, y: 0 } } },
+        after: { elements: { 1: { x: 10, y: 10 }, 2: { x: 0, y: 0 } } },
+    });
+    const saving = edits.save();
+    await Promise.resolve();
+    // Another page moved element 2; the workspace keeps only what the
+    // author changed from what the page drew before.
+    edits.takeWorkspace(
+        arrival("disk", {
+            hold: (_key, layout) => ({
+                elements: { 1: layout.elements[1] },
+            }),
+        }),
+    );
+    release();
+    assert.equal(await saving, false);
+    assert.deepEqual(edits.held(), ["A"]);
+    assert.deepEqual(edits.layoutOf("A"), {
+        elements: { 1: { x: 10, y: 10 } },
+    });
+    assert.equal(await edits.save(), true);
+    assert.deepEqual(stub.requests.at(-1).body.views, {
+        A: { elements: { 1: { x: 10, y: 10 } } },
+    });
+});
+
 test("a save refused as stale takes the version the server names, so Keep saves against it before any workspace arrives", async () => {
     const stub = stubHost([
         {
