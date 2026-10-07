@@ -172,6 +172,17 @@ export function mountEngine(
                 layouts.set(view, layout);
                 store.set({ layouts });
             },
+            resizeCanvas(command, { recenter }) {
+                if (__RENDERIZR_EDIT_MODE__)
+                    commands.resizeCanvas?.(command, recenter);
+            },
+            bringBack() {
+                if (__RENDERIZR_EDIT_MODE__) commands.bringBack?.();
+            },
+            calculateLayout(options) {
+                if (__RENDERIZR_EDIT_MODE__)
+                    commands.calculateLayout?.(options);
+            },
             onLayoutChanged(callback) {
                 layoutChanged.add(callback);
                 return () => {

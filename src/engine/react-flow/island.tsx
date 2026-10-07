@@ -65,11 +65,17 @@ import {
     type LayoutChange,
     type WorkspaceModel,
 } from "../../model";
-import type { Anchor, SelectionState } from "../contract";
+import type {
+    Anchor,
+    CalculateLayoutOptions,
+    CanvasCommand,
+    SelectionState,
+} from "../contract";
 import type { TextBlock } from "../geometry/boundary";
 import { boundsOf } from "../geometry/bounds";
 import type { Point } from "../geometry/shapes/types";
 import { type Guide, guideReach, snapBox } from "../geometry/snapping";
+import { bringBackChange, calculatedChange, canvasChange } from "./commands";
 import { dragLayout, dropChange } from "./drag";
 import {
     clickSelection,
@@ -115,6 +121,7 @@ import {
     type BoundaryBox,
     type Bounds,
     buildGraph,
+    calculatedGraph,
     type ColorScheme,
     type EdgeLine,
     type ElementBox,
@@ -177,6 +184,10 @@ export type IslandCommands = {
     fit(): void;
     zoomIn(): void;
     zoomOut(): void;
+    /** Edit mode's commands on the view shown (spec 9.2); no-ops in reading. */
+    resizeCanvas?(command: CanvasCommand, recenter: boolean): void;
+    bringBack?(): void;
+    calculateLayout?(options: CalculateLayoutOptions): void;
 };
 
 export type { ActivationType };
@@ -306,7 +317,7 @@ const PAN_KEYS: Partial<Record<string, { x: number; y: number }>> = {
 };
 
 /** `+` zooms in, `-` out and `0` fits; `=` is `+` without Shift. */
-const ZOOM_KEYS: Partial<Record<string, keyof IslandCommands>> = {
+const ZOOM_KEYS: Partial<Record<string, "fit" | "zoomIn" | "zoomOut">> = {
     "+": "zoomIn",
     "=": "zoomIn",
     "-": "zoomOut",
@@ -373,7 +384,13 @@ type BoxNode = Node<ElementBox, "box">;
 type BoundaryNode = Node<BoundaryBox, "boundary">;
 type ImageNode = Node<{ src: string; alt: string }, "image">;
 type PlaceholderNode = Node<{ color: string }, "placeholder">;
-type DiagramNode = BoxNode | BoundaryNode | ImageNode | PlaceholderNode;
+type CanvasNode = Node<Record<string, never>, "canvas">;
+type DiagramNode =
+    | BoxNode
+    | BoundaryNode
+    | ImageNode
+    | PlaceholderNode
+    | CanvasNode;
 type LineEdge = Edge<
     EdgeLine & { presence: Presence; transition: string | undefined },
     "line"
@@ -804,7 +821,7 @@ function TextLines({
  */
 function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
     const { band, accessibleName } = data;
-    const editing = useContext(Editing);
+    const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
     // Its label band is what activates the element it is drawn for.
     const target = useTargetProps(
         { type: "boundary", id: data.id },
@@ -1168,6 +1185,14 @@ function ImagePlaceholder({ data }: NodeProps<PlaceholderNode>) {
 }
 
 /**
+ * The canvas in editing (spec 14): a frame behind the view, the size its
+ * `dimensions` set, that lets every pointer event through.
+ */
+function CanvasFrame() {
+    return <div data-canvas-frame="" className={styles.canvasFrame} />;
+}
+
+/**
  * One loading state for every render, so the nodes and bounds memoized on
  * it stay put; a fresh object each time rebuilt every view's nodes on every
  * render, which is how a ResizeObserver loop reached the console.
@@ -1297,6 +1322,7 @@ const nodeTypes = {
     boundary: BoundaryElement,
     image: ImagePicture,
     placeholder: ImagePlaceholder,
+    canvas: CanvasFrame,
 };
 const edgeTypes = { line: RouteEdge };
 const proOptions = { hideAttribution: true };
@@ -1375,6 +1401,20 @@ function Guides({ guides }: { guides: Guide[] }) {
  */
 const BOUNDARY_Z = -1000;
 
+/** The canvas frame's node id, which no element id takes (ids are numbers). */
+const CANVAS_NODE = "canvas:frame";
+
+/** The canvas frame, behind every boundary (spec 14). */
+const canvasNode = ({ width, height }: Graph["canvas"]): CanvasNode => ({
+    ...STATIC_NODE_PROPS,
+    id: CANVAS_NODE,
+    type: "canvas",
+    width,
+    height,
+    zIndex: BOUNDARY_Z - 1,
+    data: {},
+});
+
 function toBoundaryNodes(graph: Graph): BoundaryNode[] {
     return graph.boundaries.map((boundary) => ({
         id: `boundary:${boundary.id}`,
@@ -1439,6 +1479,132 @@ function toEdges(
         },
         selectable: false,
     }));
+}
+
+/** The selection as the canvas uses it (spec 10.2). */
+type EditSelection = {
+    /** The selection of the view shown, the reference element first. */
+    selected: SelectionOrder;
+    /** What is drawn selected: the selection, or a marquee's while drawn. */
+    shown: SelectionOrder;
+    select(ids: SelectionOrder): void;
+    startMarquee(event: MouseEvent | globalThis.MouseEvent): void;
+    endMarquee(): void;
+};
+
+/** Reading selects nothing. */
+const READING_SELECTION: EditSelection = {
+    selected: NONE,
+    shown: NONE,
+    select: () => {},
+    startMarquee: () => {},
+    endMarquee: () => {},
+};
+
+/**
+ * The selection in editing, on the view it was made on (spec 10.2). It
+ * lives in the island and is never saved or undone (ADR 18). Only the view
+ * `drawn` shows while `editable` holds one: elements it no longer draws
+ * drop out. The page hears every committed change, the reference element
+ * first (spec 9.2).
+ *
+ * A marquee selects live, from `kept`, the selection a modifier held when
+ * it started, and its drop commits the last one. React Flow draws it in
+ * screen pixels with its starting corner in model units.
+ */
+function useEditSelection(
+    viewKey: string,
+    editable: boolean,
+    drawn: Graph | undefined,
+    stepState: StepState | undefined,
+    onSelectionChanged: IslandProps["onSelectionChanged"],
+): EditSelection {
+    const [selection, setSelection] = useState<{
+        key: string;
+        ids: SelectionOrder;
+    }>({ key: viewKey, ids: NONE });
+    const selected = useMemo(() => {
+        if (!editable || selection.key !== viewKey || !drawn) return NONE;
+        const ids = new Set(drawn.elements.map((element) => element.id));
+        const kept = selection.ids.filter((id) => ids.has(id));
+        return kept.length === selection.ids.length ? selection.ids : kept;
+    }, [editable, selection, viewKey, drawn]);
+    const select = useCallback(
+        (ids: SelectionOrder) => setSelection({ key: viewKey, ids }),
+        [viewKey],
+    );
+
+    const marquee = useStore((flowState) =>
+        flowState.userSelectionActive ? flowState.userSelectionRect : null,
+    );
+    const transform = useStore((flowState) => flowState.transform);
+    const kept = useRef<SelectionOrder>(NONE);
+    const marking = useCallback(
+        ({ rect: marked, transform: [x, y, zoom] }: MarqueeState) => {
+            if (!drawn) return NONE;
+            const rect = {
+                x: (marked.x - x) / zoom,
+                y: (marked.y - y) / zoom,
+                width: marked.width / zoom,
+                height: marked.height / zoom,
+            };
+            // A step's hidden elements aren't drawn, so a marquee can't
+            // take them.
+            const boxes = drawn.elements.filter(
+                (element) => stepState?.elements[element.id] !== "hidden",
+            );
+            return marqueeSelection(kept.current, boxes, rect, {
+                x: marked.startX,
+                y: marked.startY,
+            });
+        },
+        [drawn, stepState],
+    );
+    const marked = useMemo(
+        () =>
+            editable && marquee ? marking({ rect: marquee, transform }) : null,
+        [editable, marquee, transform, marking],
+    );
+
+    // The marquee as React Flow last drew it, read straight from its store:
+    // the drop can come before React draws the last pointer move.
+    const flowStore = useStoreApi();
+    const lastMarquee = useRef<MarqueeState | null>(null);
+    useEffect(
+        () =>
+            flowStore.subscribe(
+                ({ userSelectionActive, userSelectionRect, transform }) => {
+                    if (userSelectionActive && userSelectionRect)
+                        lastMarquee.current = {
+                            rect: userSelectionRect,
+                            transform,
+                        };
+                },
+            ),
+        [flowStore],
+    );
+
+    const reported = useRef("");
+    useEffect(() => {
+        const key = selected.join("\n");
+        if (key === reported.current) return;
+        reported.current = key;
+        onSelectionChanged({ elements: [...selected], edge: null });
+    }, [selected, onSelectionChanged]);
+
+    return {
+        selected,
+        shown: marked ?? selected,
+        select,
+        startMarquee: (event) => {
+            kept.current = modified(event) ? selected : NONE;
+        },
+        endMarquee: () => {
+            const last = lastMarquee.current;
+            lastMarquee.current = null;
+            select(last ? marking(last) : kept.current);
+        },
+    };
 }
 
 function Canvas({
@@ -1524,81 +1690,23 @@ function Canvas({
     // An image view is fitted to its picture once its size is known.
     const drawing = useMemo(() => drawingOf(graph, image), [graph, image]);
     const { bounds } = drawing;
-
-    /**
-     * The selection in editing, on the view it was made on (spec 10.2). It
-     * lives here, in the engine, and is never saved or undone (ADR 18).
-     */
-    const [selection, setSelection] = useState<{
-        key: string;
-        ids: SelectionOrder;
-    }>({ key: viewKey, ids: NONE });
-    /** The selection of the view shown, holding only elements it draws. */
-    const selected = useMemo(() => {
-        if (!__RENDERIZR_EDIT_MODE__ || !editable) return NONE;
-        if (selection.key !== viewKey || !drawn) return NONE;
-        const ids = new Set(drawn.elements.map((element) => element.id));
-        const kept = selection.ids.filter((id) => ids.has(id));
-        return kept.length === selection.ids.length ? selection.ids : kept;
-    }, [editable, selection, viewKey, drawn]);
-    const select = (ids: SelectionOrder) => setSelection({ key: viewKey, ids });
-
-    /**
-     * A marquee while it is drawn (spec 10.2): React Flow's rectangle in
-     * screen pixels and its starting corner in model units. The selection
-     * follows it live, from `kept`, the selection a modifier held when it
-     * started; the drop commits the last one.
-     */
-    const marquee = useStore((flowState) =>
-        flowState.userSelectionActive ? flowState.userSelectionRect : null,
-    );
-    const transform = useStore((flowState) => flowState.transform);
-    const kept = useRef<SelectionOrder>(NONE);
-    const marking = useCallback(
-        ({ rect: marked, transform: [x, y, zoom] }: MarqueeState) => {
-            if (!__RENDERIZR_EDIT_MODE__ || !drawn) return NONE;
-            const rect = {
-                x: (marked.x - x) / zoom,
-                y: (marked.y - y) / zoom,
-                width: marked.width / zoom,
-                height: marked.height / zoom,
-            };
-            // A step's hidden elements aren't drawn, so a marquee can't
-            // take them.
-            const boxes = drawn.elements.filter(
-                (element) => stepState?.elements[element.id] !== "hidden",
-            );
-            return marqueeSelection(kept.current, boxes, rect, {
-                x: marked.startX,
-                y: marked.startY,
-            });
-        },
-        [drawn, stepState],
-    );
-    const marked = useMemo(
-        () =>
-            editable && marquee ? marking({ rect: marquee, transform }) : null,
-        [editable, marquee, transform, marking],
-    );
-    const shownSelection = marked ?? selected;
-    /**
-     * The marquee as React Flow last drew it, read straight from its store:
-     * the drop can come before React draws the last pointer move.
-     */
-    const flowStore = useStoreApi();
-    const lastMarquee = useRef<MarqueeState | null>(null);
-    useEffect(() => {
-        if (!__RENDERIZR_EDIT_MODE__) return;
-        return flowStore.subscribe(
-            ({ userSelectionActive, userSelectionRect, transform }) => {
-                if (userSelectionActive && userSelectionRect)
-                    lastMarquee.current = {
-                        rect: userSelectionRect,
-                        transform,
-                    };
-            },
-        );
-    }, [flowStore]);
+    const {
+        selected,
+        shown: shownSelection,
+        select,
+        startMarquee,
+        endMarquee,
+    } = __RENDERIZR_EDIT_MODE__
+        ? // The flag is a build-time constant, so every render calls the
+          // same hooks, and builds call none (ADR 15).
+          useEditSelection(
+              viewKey,
+              editable,
+              drawn,
+              stepState,
+              onSelectionChanged,
+          )
+        : READING_SELECTION;
 
     const nodes = useMemo(() => {
         const shown = withPresence(drawing.nodes, stepState, transition);
@@ -1610,7 +1718,8 @@ function Canvas({
         // inside one (spec 10.1).
         const chosen = new Set(shownSelection);
         const reference = shownSelection[0];
-        return shown.map((node) =>
+        const canvas = graph && !graph.image ? [canvasNode(graph.canvas)] : [];
+        const editableNodes = shown.map((node) =>
             node.type === "box"
                 ? {
                       ...node,
@@ -1632,18 +1741,9 @@ function Canvas({
                     }
                   : node,
         );
-    }, [drawing, stepState, transition, editable, shownSelection]);
+        return [...canvas, ...editableNodes];
+    }, [drawing, stepState, transition, editable, shownSelection, graph]);
 
-    // The page hears every committed change of the selection, the reference
-    // element first (spec 9.2); a marquee commits once it is dropped.
-    const reported = useRef("");
-    useEffect(() => {
-        if (!__RENDERIZR_EDIT_MODE__) return;
-        const key = selected.join("\n");
-        if (key === reported.current) return;
-        reported.current = key;
-        onSelectionChanged({ elements: [...selected], edge: null });
-    }, [selected, onSelectionChanged]);
     const edges = useMemo(
         () => (graph ? toEdges(graph, stepState, transition) : []),
         [graph, stepState, transition],
@@ -1826,6 +1926,52 @@ function Canvas({
         });
     }, [step, zoomOnAnimation, fitted, stepFitted, flow, reducedMotion]);
 
+    /**
+     * Edit mode's commands on the whole view (spec 9.2, 14, 15), each one
+     * layout change for the page, as a drop is. Compiled out of builds
+     * (ADR 15); nothing happens in reading or on a view that can't be drawn.
+     */
+    useEffect(() => {
+        if (!__RENDERIZR_EDIT_MODE__) return;
+        const view =
+            editable && drawn && !drawn.error && !drawn.image ? drawn : null;
+        const run = (change: LayoutChange | null) => {
+            if (change) onLayoutChanged(change);
+        };
+        commands.resizeCanvas = (command, recenter) => {
+            if (view)
+                run(canvasChange(viewKey, view, edited, command, recenter));
+        };
+        commands.bringBack = () => {
+            if (view) run(bringBackChange(viewKey, view, edited));
+        };
+        commands.calculateLayout = (options) => {
+            if (!view) return;
+            const calculated = calculatedGraph(
+                model,
+                viewKey,
+                scheme,
+                labels,
+                measure,
+                edited,
+                options,
+            );
+            if (calculated)
+                run(calculatedChange(viewKey, view, calculated, options));
+        };
+    }, [
+        commands,
+        editable,
+        drawn,
+        edited,
+        model,
+        viewKey,
+        scheme,
+        labels,
+        measure,
+        onLayoutChanged,
+    ]);
+
     useEffect(() => {
         commands.fit = fit;
         commands.zoomIn = () => {
@@ -1945,7 +2091,7 @@ function Canvas({
         if (event.key === "Escape") {
             // Escape empties the selection first, then stops the animation
             // (spec 11, 18).
-            if (selected.length > 0) select(NONE);
+            if (__RENDERIZR_EDIT_MODE__ && selected.length > 0) select(NONE);
             else onEscape();
             return;
         }
@@ -2048,7 +2194,7 @@ function Canvas({
             className={styles.canvas}
             onKeyDown={onKeyDown}
             onPointerDownCapture={onPointerDown}
-            onDoubleClick={onDoubleClick}
+            onDoubleClick={editable ? onDoubleClick : undefined}
             onFocus={onFocus}
             style={
                 {
@@ -2058,7 +2204,7 @@ function Canvas({
                     fontFamily: family,
                     "--focus-ring": graph?.color,
                     // The selection outline keeps its width on screen.
-                    "--zoom": zoom,
+                    ...(editable && { "--zoom": zoom }),
                 } as CSSProperties
             }
         >
@@ -2093,26 +2239,10 @@ function Canvas({
                                 selectionOnDrag={editable}
                                 selectionKeyCode={editable ? null : undefined}
                                 onSelectionStart={
-                                    editable
-                                        ? (event) => {
-                                              kept.current = modified(event)
-                                                  ? selected
-                                                  : NONE;
-                                          }
-                                        : undefined
+                                    editable ? startMarquee : undefined
                                 }
                                 onSelectionEnd={
-                                    editable
-                                        ? () => {
-                                              const last = lastMarquee.current;
-                                              lastMarquee.current = null;
-                                              select(
-                                                  last
-                                                      ? marking(last)
-                                                      : kept.current,
-                                              );
-                                          }
-                                        : undefined
+                                    editable ? endMarquee : undefined
                                 }
                                 onPaneClick={
                                     editable ? () => select(NONE) : undefined

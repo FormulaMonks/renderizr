@@ -8,6 +8,7 @@
  */
 
 import history from "history/hash";
+import { openCalculateLayout } from "../components/calculate-layout-dialog";
 import { version as workspaceVersion } from "virtual:renderizr/workspace";
 import type CurrentView from "../components/current-view";
 import { type EditingRoute, paintSaveStatus } from "../components/edit-buttons";
@@ -97,6 +98,13 @@ export function editingRoute(
             }),
         status: () => edits.status(),
         save: () => void edits.save(),
+        resizeCanvas: (command, recenter) =>
+            engine.resizeCanvas(command, { recenter }),
+        calculateLayout: () =>
+            openCalculateLayout(document.body, {
+                calculate: (options) => engine.calculateLayout(options),
+                bringBack: () => engine.bringBack(),
+            }),
         notice: (key) => {
             if (edits.layoutOf(key)) return null;
             const view = resolveView(model, key);
@@ -111,7 +119,8 @@ export function editingRoute(
  * Wire the engine to the edit session while the page shows: the page hands
  * every layout change back at once (a change it didn't hand back would
  * revert, ADR 18), the toolbar shows where saving stands, Cmd/Ctrl+S saves,
- * and the toolbar, the engine and `<html data-editing>` follow the editing
+ * Cmd/Ctrl+Z undoes and Cmd/Ctrl+Shift+Z redoes on the view shown, and the
+ * toolbar, the engine and `<html data-editing>` follow the editing
  * route. The pencil, Done and Back change the route without changing the
  * view, so the engine shows nothing new and the page has to hear it from
  * history. Returns what stops each.
@@ -129,10 +138,19 @@ export function startEditing(
     const onKey = (event: KeyboardEvent) => {
         // By physical key, so Option's characters don't get in the way
         // (spec 17.2).
-        if (!editing() || event.code !== "KeyS") return;
-        if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+        if (!editing() || !(event.metaKey || event.ctrlKey) || event.altKey)
+            return;
+        if (event.code === "KeyS") {
+            event.preventDefault();
+            void edits.save();
+            return;
+        }
+        if (event.code !== "KeyZ") return;
         event.preventDefault();
-        void edits.save();
+        // One step of the view shown, back or forward (spec 16).
+        const key = engine.getCurrentView().key;
+        const layout = event.shiftKey ? edits.redo(key) : edits.undo(key);
+        if (layout) engine.setLayout(key, layout);
     };
     document.addEventListener("keydown", onKey);
 

@@ -42,8 +42,9 @@ const same = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
  *
  * `before` holds what the engine drew, computed positions included. The
  * first change to a view (one whose edited layout doesn't place every
- * element) carries every element, so the view looks the same after a reload
- * (spec 7.3); a later one carries only the elements that moved.
+ * element) carries every element and the canvas, so the view looks the same
+ * after a reload and its first save writes its canvas (spec 7.3, 14); a
+ * later one carries only the elements that moved.
  */
 export function dropChange(
     view: string,
@@ -71,5 +72,15 @@ export function dropChange(
         before[id] = drawn.get(id) as Point;
         after[id] = saved(point);
     }
-    return { view, before: { elements: before }, after: { elements: after } };
+    if (!first)
+        return {
+            view,
+            before: { elements: before },
+            after: { elements: after },
+        };
+    return {
+        view,
+        before: { elements: before, dimensions: graph.canvas },
+        after: { elements: after, dimensions: graph.canvas },
+    };
 }
