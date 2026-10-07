@@ -70,8 +70,15 @@ export function storedRoutes(graph: Graph): Map<string, readonly Point[]> {
 export const isFirstChange = (graph: Graph, edited: EditedLayout | undefined) =>
     graph.elements.some((e) => !edited?.elements?.[e.id]);
 
-/** The fields every first change carries, before and after alike. */
-export function firstFields(graph: Graph, edited: EditedLayout | undefined) {
+/**
+ * The before and after fields a change to the view drawn as `graph` starts
+ * from: every element and the canvas when it is the view's first change,
+ * empty otherwise.
+ */
+export function firstChangeFields(
+    graph: Graph,
+    edited: EditedLayout | undefined,
+) {
     const before: Fields = { elements: {}, relationships: {} };
     const after: Fields = { elements: {}, relationships: {} };
     if (!isFirstChange(graph, edited)) return { before, after };
@@ -85,7 +92,7 @@ export function firstFields(graph: Graph, edited: EditedLayout | undefined) {
 }
 
 /** `fields` as an edited layout, without the empty maps. */
-export function layoutOf({
+function editedLayoutOf({
     elements,
     relationships,
     ...rest
@@ -96,6 +103,17 @@ export function layoutOf({
         ...rest,
     };
 }
+
+/** The layout change to view `view` from fields `before` to `after`. */
+export const fieldsChange = (
+    view: string,
+    before: Fields,
+    after: Fields,
+): LayoutChange => ({
+    view,
+    before: editedLayoutOf(before),
+    after: editedLayoutOf(after),
+});
 
 /** Move every element and stored vertex of `graph` by `shift`. */
 function shiftAll(graph: Graph, shift: Point, before: Fields, after: Fields) {
@@ -126,7 +144,7 @@ export function canvasChange(
     command: CanvasCommand,
     recenter: boolean,
 ): LayoutChange | null {
-    const { before, after } = firstFields(graph, edited);
+    const { before, after } = firstChangeFields(graph, edited);
     const dimensions = resizedCanvas(command, graph.canvas, graph.bounds);
     const shift = recenter
         ? centeringShift(dimensions, graph.bounds)
@@ -152,7 +170,7 @@ export function canvasChange(
         after.paperSize = null;
     }
     shiftAll(graph, shift, before, after);
-    return { view, before: layoutOf(before), after: layoutOf(after) };
+    return fieldsChange(view, before, after);
 }
 
 /**
@@ -165,7 +183,7 @@ export function bringBackChange(
     graph: Graph,
     edited: EditedLayout | undefined,
 ): LayoutChange | null {
-    const { before, after } = firstFields(graph, edited);
+    const { before, after } = firstChangeFields(graph, edited);
     let changed = false;
     for (const { id, x, y, width, height } of graph.elements) {
         const to = saved(clampBox({ x, y }, { width, height }, graph.canvas));
@@ -182,7 +200,7 @@ export function bringBackChange(
         after.relationships[key] = { vertices: to };
     }
     if (!changed) return null;
-    return { view, before: layoutOf(before), after: layoutOf(after) };
+    return fieldsChange(view, before, after);
 }
 
 /**
@@ -230,5 +248,5 @@ export function calculatedChange(
                 : [],
         };
     }
-    return { view, before: layoutOf(before), after: layoutOf(after) };
+    return fieldsChange(view, before, after);
 }

@@ -19,7 +19,7 @@ import {
     vertexIndex,
 } from "../geometry/edge-editing";
 import type { Point, Rect } from "../geometry/shapes/types";
-import { firstFields, layoutOf } from "./commands";
+import { fieldsChange, firstChangeFields } from "./commands";
 import type { EdgeLine, Graph } from "./graph";
 
 const rounded = ({ x, y }: Point): Point => ({
@@ -61,10 +61,10 @@ export function routeChange(
         was.position === route.position
     )
         return null;
-    const { before, after } = firstFields(graph, edited);
+    const { before, after } = firstChangeFields(graph, edited);
     before.relationships[key] = was;
     after.relationships[key] = route;
-    return { view, before: layoutOf(before), after: layoutOf(after) };
+    return fieldsChange(view, before, after);
 }
 
 /**
