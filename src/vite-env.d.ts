@@ -22,3 +22,16 @@ declare const __RENDERIZR_VERSION__: string | null;
  * acceptance harness, through `RENDERIZR_ENGINE_REPORT=1`.
  */
 declare const __RENDERIZR_ENGINE_REPORT__: boolean;
+
+/**
+ * Whether edit mode's page code is compiled in (ADR 15). True only on the
+ * server `renderizr edit` starts; every build sets it to false, so no edit
+ * mode code reaches built output.
+ */
+declare const __RENDERIZR_EDIT_MODE__: boolean;
+
+/** The workspace the page renders: compiled in by a build, served from disk by edit mode. */
+declare module "virtual:renderizr/workspace" {
+    const workspace: Record<string, unknown>;
+    export default workspace;
+}

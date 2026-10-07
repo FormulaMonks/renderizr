@@ -1,8 +1,10 @@
+import workspaceData from "virtual:renderizr/workspace";
 import { initTheme } from "./components/theme.ts";
 import "./main.css";
 import Router from "./components/router.ts";
 import Navigation from "./components/navigation.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
+import { takeSessionToken } from "./components/session-token.ts";
 import { summarizeWorkspace } from "./engine/workspace-summary";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";
@@ -31,6 +33,10 @@ function trackHeaderHeight() {
 }
 
 async function init() {
+    // Edit mode's token leaves the address bar before the router writes its
+    // first route there (spec 4.5). Builds compile this out (ADR 15).
+    if (__RENDERIZR_EDIT_MODE__) takeSessionToken();
+
     // The inline script in index.html has already stamped `data-theme` so the
     // first paint is in the right scheme; this takes ownership of it and keeps
     // it in step with the OS while the reader is on "system".

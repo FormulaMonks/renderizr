@@ -1,5 +1,28 @@
 import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 
+/** The module the page imports its workspace from. */
+export const WORKSPACE_MODULE = "virtual:renderizr/workspace";
+
+/** The id Vite gives `WORKSPACE_MODULE` once a plugin resolves it. */
+export const RESOLVED_WORKSPACE_MODULE = `\0${WORKSPACE_MODULE}`;
+
+/**
+ * Compiles `workspace` into the page as `WORKSPACE_MODULE`. Builds and
+ * `pnpm dev` use this; edit mode serves the module from disk instead
+ * (ADR 15).
+ */
+export function workspaceModule(workspace) {
+    return {
+        name: "renderizr:workspace",
+        resolveId: (id) =>
+            id === WORKSPACE_MODULE ? RESOLVED_WORKSPACE_MODULE : null,
+        load: (id) =>
+            id === RESOLVED_WORKSPACE_MODULE
+                ? `export default ${JSON.stringify(workspace)};`
+                : null,
+    };
+}
+
 /** Injects the embedded font faces before first paint. */
 export function branding({ font }) {
     return {

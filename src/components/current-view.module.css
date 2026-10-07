@@ -208,3 +208,30 @@
         height: 1.15rem;
     }
 }
+
+/*
+ * Edit mode's way in and out (spec 4.6). Done is a word, so it takes the
+ * width it needs, and the primary color marks it as the way back to reading.
+ */
+.btnGroup button.done {
+    width: auto;
+    padding: 0 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+/* A pencil edit mode can't follow reads as unavailable; its tooltip says why. */
+.btnGroup button[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* A filtered view's way to the editing route of its base view. */
+.editBase {
+    align-self: center;
+    padding: 0 0.5rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    color: var(--color-primary);
+}

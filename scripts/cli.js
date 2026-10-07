@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { DEFAULT_PORT, resolveSession } from "./edit.js";
 
 export const OPTIONS = {
     logo: { type: "string" },
@@ -18,6 +19,8 @@ const USAGE = `
 Renderizr — render a Structurizr workspace as a static site.
 
   renderizr <workspace.json|url> [options]
+  renderizr edit [path] [options]   Edit the layout of the views in a browser;
+                                    renderizr edit --help lists its options
 
 Options
   -o, --out <dir>          Output directory (default: structurizr-output)
@@ -92,6 +95,13 @@ export function parseCliArgs(args = process.argv.slice(2)) {
         out: values.out,
         base: values.base,
         singleFile: values["single-file"],
+        ...branding(values),
+    };
+}
+
+/** The logo and font the branding flags ask for, each `null` when not asked. */
+function branding(values) {
+    return {
         logo: values.logo
             ? {
                   source: values.logo,
@@ -113,5 +123,145 @@ export function parseCliArgs(args = process.argv.slice(2)) {
                   italic: values["font-italic"],
               }
             : null,
+    };
+}
+
+/* -------------------------------------------------------------------- edit */
+
+/** The branding flags, which `renderizr edit` takes as the build does. */
+const BRANDING_OPTIONS = Object.fromEntries(
+    Object.entries(OPTIONS).filter(
+        ([name]) => name.startsWith("logo") || name.startsWith("font"),
+    ),
+);
+
+export const EDIT_OPTIONS = {
+    ...BRANDING_OPTIONS,
+    port: { type: "string", default: String(DEFAULT_PORT) },
+    "no-open": { type: "boolean", default: false },
+    help: { type: "boolean", short: "h", default: false },
+};
+
+/**
+ * The build's flags edit mode refuses, and why (spec 4.3): edit mode writes
+ * no output and always runs the React Flow engine.
+ */
+const REFUSED_BY_EDIT = new Map([
+    ["out", "edit mode writes no output"],
+    ["single-file", "edit mode writes no output"],
+    ["base", "edit mode writes no output"],
+    ["engine", "edit mode always runs the React Flow engine"],
+]);
+
+const EDIT_USAGE = `
+renderizr edit — edit the layout of a workspace's views in a browser.
+
+  renderizr edit [path] [options]
+
+The path is a workspace.json, under any name, or a folder holding one named
+workspace.json; without a path, edit mode opens the current folder. Edit mode
+serves the site on a local server only this machine reaches, and saves the
+layout into that workspace.json.
+
+Options
+      --port <n>           Port for the local server (default: ${DEFAULT_PORT}); the
+                           next free one when it is taken
+      --no-open            Print the URL without opening the browser
+
+  --logo <path|url>        Image shown top-left in the header
+  --logo-alt <text>        Alt text for the logo
+  --logo-href <url>        Wrap the logo in a link
+  --font <family>          Google Web Font family, e.g. "Inter"
+  --font-weights <list>    Comma-separated weights (default: 400,700)
+  --font-subsets <list>    Comma-separated subsets (default: latin)
+  --font-italic            Also embed the italic faces
+
+  -h, --help               Show this message
+
+Examples
+  renderizr edit
+  renderizr edit ./architecture --font Inter
+  renderizr edit ./big-bank.json --port 8080 --no-open
+`;
+
+export function editUsage(stream = process.stdout) {
+    stream.write(`${EDIT_USAGE.trimStart()}\n`);
+}
+
+/** Print `message` and the edit usage to stderr, and exit 1. */
+function editUsageError(message) {
+    process.stderr.write(`${message}\n\n`);
+    editUsage(process.stderr);
+    process.exit(1);
+}
+
+/** The refused build flag `arg` spells, or `undefined`. */
+function refusedFlag(arg) {
+    if (arg === "-o" || /^-o./.test(arg)) return "out";
+    const name = /^--([^=]+)/.exec(arg)?.[1];
+    return name && REFUSED_BY_EDIT.has(name) ? name : undefined;
+}
+
+/**
+ * Parse the arguments of `renderizr edit` (everything after `edit`) and
+ * resolve the session its path opens, against `cwd`. Exits the process on
+ * `--help` and on a usage error.
+ */
+export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
+    // Before `parseArgs`, which would only call these unknown.
+    for (const arg of args) {
+        if (arg === "--") break;
+        const refused = refusedFlag(arg);
+        if (refused) {
+            editUsageError(
+                `renderizr edit doesn't take --${refused}: ${REFUSED_BY_EDIT.get(refused)}.`,
+            );
+        }
+    }
+
+    let parsed;
+    try {
+        parsed = parseArgs({
+            args,
+            options: EDIT_OPTIONS,
+            allowPositionals: true,
+            strict: true,
+        });
+    } catch (error) {
+        editUsageError(error.message);
+    }
+
+    const { values, positionals } = parsed;
+
+    if (values.help) {
+        editUsage();
+        process.exit(0);
+    }
+
+    if (positionals.length > 1) {
+        editUsageError(
+            `Expected one path, got ${positionals.length}: ${positionals.join(", ")}`,
+        );
+    }
+
+    const port = Number(values.port);
+    if (!/^\d+$/.test(values.port) || port < 1 || port > 65535) {
+        editUsageError(
+            `--port takes a port number from 1 to 65535, got "${values.port}".`,
+        );
+    }
+
+    let session;
+    try {
+        session = resolveSession(positionals[0], { cwd });
+    } catch (error) {
+        editUsageError(error.message);
+    }
+
+    return {
+        session,
+        port,
+        open: !values["no-open"],
+        ...branding(values),
     };
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { branding, singleFile } from "./plugins.js";
+import { branding, singleFile, workspaceModule } from "./plugins.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -23,8 +23,13 @@ const version = (() => {
 })();
 
 /**
- * The one place the Vite config is described, shared by `scripts/build.js` and
- * the dev server so the two cannot drift.
+ * The one place the Vite config is described, shared by `scripts/build.js`,
+ * the dev server and edit mode so the three cannot drift.
+ *
+ * `editMode` is edit mode's Vite plugin (`scripts/edit-plugin.js`). It
+ * serves the workspace from disk in place of the compiled-in one and
+ * compiles edit mode's page code in; every other caller leaves it out, so no
+ * edit-mode code reaches built output (ADR 15).
  */
 export function createConfig({
     workspace,
@@ -35,17 +40,23 @@ export function createConfig({
     base = "",
     engineReport = false,
     mode = "build",
+    editMode = null,
 }) {
     const outDir = resolve(process.cwd(), out);
 
     return {
         root,
         base,
-        // scripts/build.js already holds the complete configuration; letting
-        // Vite also load vite.config.ts would re-parse argv in dev-server mode.
-        ...(mode === "build" ? { configFile: false } : {}),
+        // scripts/build.js and edit mode already hold the complete
+        // configuration; letting Vite also load vite.config.ts would re-parse
+        // argv in dev-server mode.
+        ...(mode === "build" || editMode ? { configFile: false } : {}),
         publicDir: asSingleFile ? false : resolve(root, "public"),
-        plugins: [branding({ font }), ...(asSingleFile ? [singleFile()] : [])],
+        plugins: [
+            branding({ font }),
+            editMode ?? workspaceModule(workspace),
+            ...(asSingleFile ? [singleFile()] : []),
+        ],
         build: {
             target: "esnext",
             outDir,
@@ -63,13 +74,14 @@ export function createConfig({
         // The React Flow island is the one place JSX is written.
         esbuild: { jsx: "automatic" },
         define: {
-            workspaceData: JSON.stringify(workspace),
             __RENDERIZR_LOGO__: JSON.stringify(logo),
             __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),
             __RENDERIZR_VERSION__: JSON.stringify(version),
             // The engine's geometry report, for the acceptance harness only
             // (spec 15.1); `false` compiles the writer out of the bundle.
             __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),
+            // `false` compiles edit mode's page code out of the bundle.
+            __RENDERIZR_EDIT_MODE__: JSON.stringify(Boolean(editMode)),
         },
         ...(mode === "serve" ? { server: { open: false } } : {}),
     };
