@@ -249,14 +249,18 @@ export default class CurrentView extends Component {
             this.element?.querySelector<HTMLElement>(".animation-buttons");
         if (!group) return;
         group.hidden = steps === 0;
+        // Editing holds the step shown, and the player waits (spec 18).
+        const editing =
+            __RENDERIZR_EDIT_MODE__ && this.#editingRoute?.isEditing() === true;
 
         for (const name of ["prev-step", "next-step"]) {
             const button = this.#button(name);
-            if (button) button.disabled = steps === 0;
+            if (button) button.disabled = steps === 0 || editing;
         }
 
         const play = this.#button("play-animation");
         if (!play) return;
+        play.disabled = editing;
         const label = playing ? "Pause animation" : "Play animation";
         play.innerHTML = playing ? pauseIcon : playIcon;
         play.dataset.playing = playing ? "true" : "";
@@ -420,6 +424,19 @@ export default class CurrentView extends Component {
                 }
             </div>
         `;
+
+        if (__RENDERIZR_EDIT_MODE__ && this.#editingRoute?.isEditing()) {
+            const notice = this.#editingRoute.notice(view.key);
+            if (notice) {
+                const line = document.createElement("p");
+                line.className = `edit-notice ${styles.editNotice}`;
+                line.setAttribute("role", "note");
+                line.textContent = notice;
+                this.element
+                    .querySelector(`.${styles.description}`)
+                    ?.appendChild(line);
+            }
+        }
 
         const controlButtonsContainer = document.createElement("div");
         controlButtonsContainer.classList.add(styles.controlButtons);

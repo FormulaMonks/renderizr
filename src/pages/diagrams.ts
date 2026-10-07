@@ -6,12 +6,7 @@ import CurrentView, {
     readLabelState,
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
-import type { EditingRoute } from "../components/edit-buttons";
-import {
-    editingSearch,
-    isEditingRoute,
-    readingSearch,
-} from "../components/editing-route";
+import { isEditingRoute, readingSearch } from "../components/editing-route";
 import TargetMenu from "../components/target-menu";
 import { type Engine, isAbortError, mountEngine } from "../engine";
 import {
@@ -22,6 +17,13 @@ import {
     WorkspaceModel,
 } from "../model";
 import Page from "./_page";
+import {
+    editingRoute,
+    editSession,
+    flushEdits,
+    leave,
+    startEditing,
+} from "./diagrams-edit";
 import styles from "./diagrams.module.css";
 
 /** Whether the page shows the editing route now (spec 4.6). */
@@ -29,34 +31,23 @@ const editing = () =>
     __RENDERIZR_EDIT_MODE__ && isEditingRoute(history.location.search);
 
 /**
- * The editing route as the toolbar drives it: the pencil pushes the view's
- * editing route and Done pushes its reading route, so Back undoes either.
- */
-const EDITING_ROUTE: EditingRoute = {
-    isEditing: editing,
-    edit: (key) =>
-        history.push({ search: editingSearch(history.location.search, key) }),
-    done: () =>
-        history.push({ search: readingSearch(history.location.search) }),
-    href: (key) =>
-        history.createHref({
-            search: `?${editingSearch(history.location.search, key)}`,
-        }),
-};
-
-/**
  * Go where `target` leads (spec 6.1): a view through the drawer's
  * `changeView`, the documentation or decisions through the hash router, and
- * anything else in a new tab.
+ * anything else in a new tab. Leaving the view goes through `guard` first,
+ * which edit mode holds while changes wait for a save (spec 7.5).
  */
-function follow(target: Target, changeView: (key: string) => void) {
+function follow(
+    target: Target,
+    changeView: (key: string) => void,
+    guard: (proceed: () => void) => void,
+) {
     switch (target.kind) {
         case "view":
-            changeView(target.key);
+            guard(() => changeView(target.key));
             return;
         case "documentation":
         case "decisions":
-            history.push({ search: target.search });
+            guard(() => history.push({ search: target.search }));
             return;
         case "link":
             window.open(target.url, "_blank", "noopener,noreferrer");
@@ -64,10 +55,14 @@ function follow(target: Target, changeView: (key: string) => void) {
     }
 }
 
+/** What a view switch goes through when nothing guards it: straight on. */
+const goOn = (proceed: () => void) => proceed();
+
 /**
  * The diagrams page: a full-viewport shell (ADR 6)
  * whose canvas is the island, reached only through `mountEngine` and the
- * `Engine` handle (ADR 3).
+ * `Engine` handle (ADR 3). Edit mode's part lives in `diagrams-edit.ts`,
+ * reached only behind `__RENDERIZR_EDIT_MODE__` (ADR 15).
  */
 export default class Diagrams extends Page {
     #engine: Engine | null = null;
@@ -130,6 +125,10 @@ export default class Diagrams extends Page {
                 view: first,
                 colorScheme: getDiagramTheme(),
                 labels: readLabelState(),
+                // The edit session's layouts, so a page render keeps them.
+                ...(__RENDERIZR_EDIT_MODE__
+                    ? { editing: editing(), layouts: editSession().layouts() }
+                    : {}),
             },
             abort.signal,
         ).then(
@@ -152,6 +151,10 @@ export default class Diagrams extends Page {
         model: WorkspaceModel,
         reachable: (key: string) => boolean,
     ) {
+        const guard = __RENDERIZR_EDIT_MODE__
+            ? (proceed: () => void) => void leave(engine, model, proceed)
+            : goOn;
+
         // The drawer is the one funnel for choosing a view: URL, highlight,
         // then `showView`.
         const navigation = this.addComponent(
@@ -165,6 +168,7 @@ export default class Diagrams extends Page {
                 },
                 model,
                 reachable,
+                guard,
             ),
         );
 
@@ -175,7 +179,7 @@ export default class Diagrams extends Page {
                 ) as HTMLElement,
                 engine,
                 model,
-                __RENDERIZR_EDIT_MODE__ ? EDITING_ROUTE : null,
+                __RENDERIZR_EDIT_MODE__ ? editingRoute(engine, model) : null,
             ),
         );
 
@@ -184,7 +188,7 @@ export default class Diagrams extends Page {
         // The engine reports activations; the page resolves where they lead
         // and follows one target or offers several (spec 6.1).
         const menu = new TargetMenu(this.container as HTMLElement, (target) =>
-            follow(target, (key) => navigation.changeView(key)),
+            follow(target, (key) => navigation.changeView(key), guard),
         );
         menu.render();
         this.#targetMenu = menu;
@@ -222,32 +226,17 @@ export default class Diagrams extends Page {
         ];
 
         if (__RENDERIZR_EDIT_MODE__)
-            this.#followEditingRoute(engine, currentView);
-    }
-
-    /**
-     * Keep the toolbar and `<html data-editing>` in step with the editing
-     * route. The pencil, Done and Back change the route without changing the
-     * view, so the engine shows nothing new and the toolbar has to hear it
-     * from history.
-     */
-    #followEditingRoute(engine: Engine, currentView: CurrentView) {
-        const root = document.documentElement;
-        let shown = editing();
-        root.toggleAttribute("data-editing", shown);
-
-        this.#unsubscribe.push(
-            history.listen(() => {
-                if (editing() === shown) return;
-                shown = editing();
-                root.toggleAttribute("data-editing", shown);
-                currentView.render(engine.getCurrentView());
-            }),
-            () => root.removeAttribute("data-editing"),
-        );
+            this.#unsubscribe.push(
+                ...startEditing(
+                    engine,
+                    currentView,
+                    this.container as HTMLElement,
+                ),
+            );
     }
 
     clear() {
+        if (__RENDERIZR_EDIT_MODE__) flushEdits();
         // The island goes before the router replaces the page.
         this.#abort?.abort();
         this.#abort = null;

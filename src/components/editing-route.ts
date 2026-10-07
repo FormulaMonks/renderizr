@@ -20,6 +20,22 @@ export function editingSearch(search: string, key: string): string {
     return params.toString();
 }
 
+/**
+ * What the editing route says about a view before its first edit (spec 8):
+ * a view without coordinates, or with unplaced elements, saves the positions
+ * the engine shows. `null` for a stored layout, which says nothing.
+ */
+export function layoutNotice(
+    layout: "automatic" | "stored" | "unplaced",
+    unplaced: number,
+): string | null {
+    if (layout === "automatic")
+        return "This view has no stored layout yet; your first edit saves the positions shown";
+    if (layout === "unplaced")
+        return `${unplaced} unplaced ${unplaced === 1 ? "element" : "elements"}; your first edit saves where they appear`;
+    return null;
+}
+
 /** `search` turned into the reading route of the same view. */
 export function readingSearch(search: string): string {
     const params = new URLSearchParams(search);

@@ -8,13 +8,13 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { BUILD_JS, REPO_ROOT } from "../scripts/__fixtures__/helpers.js";
-import { findChrome, renderPage } from "./support/browser.js";
+import { findChrome, openBrowser, renderPage } from "./support/browser.js";
 import { parseDocument } from "./support/dom.js";
 
 const CHROME = findChrome();
@@ -43,7 +43,8 @@ const freePort = () =>
 
 /**
  * Run `renderizr edit` on a copy of `fixture` and resolve with the URL it
- * prints once the server listens. The server stops when the suite ends.
+ * prints once the server listens and the copy's path, `json`. The server
+ * stops when the suite ends.
  */
 async function startEdit(fixture) {
     const dir = await mkdtemp(join(SCRATCH, "workspace-"));
@@ -93,7 +94,7 @@ async function startEdit(fixture) {
             )?.[1];
             if (!url) return;
             clearTimeout(timer);
-            resolve(url);
+            resolve({ url, json: join(dir, "workspace.json") });
         });
         child.once("exit", (code) => {
             clearTimeout(timer);
@@ -112,7 +113,7 @@ const session = () => {
 
 /** The document Chrome ends up with at `url` plus the hash route `route`. */
 const open = async (route) => {
-    const url = await session();
+    const { url } = await session();
     const { html } = await renderPage(CHROME, `${url}#?${route}`);
     return parseDocument(html);
 };
@@ -175,5 +176,57 @@ test(
         const document = await open("page=diagrams&view=NoExternal&mode=edit");
         assert.equal(document.querySelector(".done-editing"), null);
         assert.ok(!document.documentElement.hasAttribute("data-editing"));
+    },
+);
+
+/** Element 20's entry in the Warehouse view of the `workspace.json` at `json`. */
+const warehouseElement = async (json) =>
+    JSON.parse(await readFile(json, "utf8"))
+        .views.customViews.find((view) => view.key === "Warehouse")
+        .elements.find((element) => element.id === "20");
+
+test(
+    "dragging an element and saving writes its new position into workspace.json",
+    { skip: SKIP },
+    async () => {
+        // A session of its own, since this one writes the file.
+        const { url, json } = await startEdit("view-types.json");
+        const before = await warehouseElement(json);
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await browser.open(
+                `${url}#?page=diagrams&view=Warehouse&mode=edit`,
+            );
+            await page.waitFor(
+                `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="20"]')`,
+            );
+            const box = await page.evaluate(`(() => {
+                const r = document.querySelector('.react-flow__node[data-id="20"]').getBoundingClientRect();
+                return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+            })()`);
+            await page.drag(box, { x: box.x + 120, y: box.y + 60 });
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Unsaved changes"`,
+            );
+            // Ctrl+S, by physical key, saves at once (spec 7.4).
+            await page.press("s", "KeyS", 2);
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Saved"`,
+            );
+        } finally {
+            await browser.close();
+        }
+
+        const after = await warehouseElement(json);
+        assert.ok(after.x > before.x, `x went from ${before.x} to ${after.x}`);
+        assert.ok(after.y > before.y, `y went from ${before.y} to ${after.y}`);
+        assert.equal(after.x % 5, 0, "the drop is off the 5-unit grid");
+        assert.equal(after.y % 5, 0, "the drop is off the 5-unit grid");
+        const text = await readFile(json, "utf8");
+        assert.ok(
+            text.startsWith('{\n  "') && !text.endsWith("\n"),
+            "workspace.json isn't in Jackson's format",
+        );
+        assert.match(text, /"lastModifiedAgent" : "renderizr\//);
     },
 );
