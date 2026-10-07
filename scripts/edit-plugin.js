@@ -65,6 +65,15 @@ export const FLUSHED_EVENT = "renderizr:flushed";
 /** How long a flush waits for the pages' saves (spec 5.2). */
 export const FLUSH_TIMEOUT_MS = 1000;
 
+/**
+ * How long, in ms, `workspace.json` has to hold still after a change before
+ * the pages hear of it, and how many times edit mode looks again while it
+ * doesn't: a tool that writes in place can leave it half written for a
+ * moment, and the watcher may not report the rest.
+ */
+const SETTLE_MS = 200;
+const SETTLE_LOOKS = 5;
+
 let flushes = 0;
 
 /**
@@ -256,20 +265,36 @@ export function editMode({
     };
 
     const publishNow = async (server) => {
-        const text = await readFile(file, "utf8").catch(() => null);
+        const read = () => readFile(file, "utf8").catch(() => null);
+        let text = await read();
         // Gone for a moment, as some editors save; its return publishes.
         if (text === null) return;
+        let loaded;
+        for (let look = 1; ; look++) {
+            loaded = await loadWorkspace(file, { font }).then(
+                (workspace) => ({ workspace }),
+                (error) => ({ error }),
+            );
+            // A tool that writes the file in place can be caught halfway,
+            // and the watcher may never report the rest: the file counts
+            // once it holds still.
+            await new Promise((done) => setTimeout(done, SETTLE_MS));
+            const again = await read();
+            if (again === null || again === text || look === SETTLE_LOOKS)
+                break;
+            text = again;
+        }
         const version = versionOf(text);
-        try {
-            const workspace = await loadWorkspace(file, { font });
+        if (loaded.workspace)
             server.ws.send(WORKSPACE_EVENT, {
                 version,
-                workspace,
+                workspace: loaded.workspace,
                 ...(savers.has(version) && { source: savers.get(version) }),
             });
-        } catch (error) {
-            server.config.logger.error(`${file} won't load: ${error.message}`);
-            server.ws.send(ERROR_EVENT, { version, error: error.message });
+        else {
+            const { message } = loaded.error;
+            server.config.logger.error(`${file} won't load: ${message}`);
+            server.ws.send(ERROR_EVENT, { version, error: message });
         }
     };
 
