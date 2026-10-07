@@ -12,6 +12,8 @@ Referenced by [9. Derive boundaries from their children](0009-derive-boundaries-
 
 Referenced by [10. Place unplaced elements around a stored layout](0010-place-unplaced-elements-around-a-stored-layout.md).
 
+Referenced by [17. Save layout the way Structurizr reads and writes it](0017-save-layout-the-way-structurizr-reads-and-writes-it.md).
+
 ## Context
 
 Views without coordinates need a compound layout that nests elements inside boundaries. Five options were measured on Big Bank plc's views: Dagre 1.1.8 (already a dependency, MIT, 14 KB gzipped), elkjs 0.12.0 (EPL-2.0, 432 KB gzipped), Graphviz compiled to WebAssembly (617 KB gzipped), WebCola and d3-hierarchy. Dagre lands where today's renderer lands, because today's renderer uses it.

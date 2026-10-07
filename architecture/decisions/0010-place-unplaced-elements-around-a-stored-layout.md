@@ -10,6 +10,8 @@ References [4. Use Dagre for automatic layout](0004-use-dagre-for-automatic-layo
 
 References [9. Derive boundaries from their children](0009-derive-boundaries-from-their-children.md): placement avoids derived boundary boxes.
 
+Referenced by [17. Save layout the way Structurizr reads and writes it](0017-save-layout-the-way-structurizr-reads-and-writes-it.md).
+
 ## Context
 
 Structurizr writes a missing position as `x: 0, y: 0`. An element added to the DSL after a layout was saved, or one the layout merge fails to match, arrives at (0,0) while the rest of the view keeps its stored positions. Structurizr's renderer piles such elements in the top-left corner. Laying out the whole view instead would discard the author's layout for the sake of one element.

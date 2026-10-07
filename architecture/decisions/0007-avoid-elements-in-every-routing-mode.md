@@ -10,6 +10,10 @@ References [2. Draw diagrams from workspace semantics](0002-draw-diagrams-from-w
 
 Referenced by [8. Write our own router in TypeScript](0008-write-our-own-router-in-typescript.md).
 
+Referenced by [17. Save layout the way Structurizr reads and writes it](0017-save-layout-the-way-structurizr-reads-and-writes-it.md).
+
+Referenced by [19. Keep the edge ends of edges with vertices out of spreading](0019-keep-the-edge-ends-of-edges-with-vertices-out-of-spreading.md).
+
 ## Context
 
 Structurizr has three routing modes. Direct, the default and the mode every sample workspace uses, draws a straight line from center to center, across any element in the way. Authors fix crossings by dragging vertices in Structurizr's editor.
