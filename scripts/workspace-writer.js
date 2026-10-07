@@ -221,20 +221,31 @@ const pointOf = (at) => {
     return x === undefined || y === undefined ? undefined : { x, y };
 };
 
+/** `order` as an integer when it reads as one, as the page reads it. */
+const orderOf = ({ order }) => {
+    const text = String(order ?? "").trim();
+    return /^\d+$/.test(text) ? Number(text) : undefined;
+};
+
 /**
- * Each relationship view of `view` by its key: the relationship id for its
- * first listing, then `id#1`, `id#2` for repeats, as a dynamic view lists one
- * relationship at several orders. A repeat at an order already listed is the
- * same edge, and takes no key of its own (`relationshipKey` in `src/model`).
+ * Each relationship listing of `view` by its key: the relationship id for
+ * its first listing, then `id#1`, `id#2` for repeats, as a dynamic view
+ * lists one relationship at several orders. In a `dynamic` view a second
+ * listing at one order, read as an integer when it is one, is the same edge
+ * and takes no key. This is the page's rule (`relationshipKeys` in
+ * `src/model/edited-layout.ts`), and `test/edited-layout.test.js` holds the
+ * two to it.
  */
-function relationshipsByKey(view) {
+function relationshipsByKey(view, dynamic) {
     const byKey = new Map();
     const repeats = new Map();
     const listed = new Set();
     for (const relationship of view.relationships ?? []) {
-        const at = `${relationship.id}\n${relationship.order}`;
-        if (relationship.order !== undefined && listed.has(at)) continue;
-        listed.add(at);
+        if (dynamic) {
+            const at = `${relationship.id}\n${orderOf(relationship) ?? relationship.order}`;
+            if (listed.has(at)) continue;
+            listed.add(at);
+        }
         const repeat = repeats.get(relationship.id) ?? 0;
         repeats.set(relationship.id, repeat + 1);
         byKey.set(
@@ -274,7 +285,10 @@ export function applyLayout(workspace, views) {
             setInOrder(element, "x", point.x);
             setInOrder(element, "y", point.y);
         }
-        const relationships = relationshipsByKey(view);
+        const relationships = relationshipsByKey(
+            view,
+            workspace.views.dynamicViews?.includes(view) ?? false,
+        );
         for (const [id, route] of Object.entries(layout?.relationships ?? {})) {
             const relationship = relationships.get(id);
             if (!relationship) continue;

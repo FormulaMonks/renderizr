@@ -6,6 +6,7 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { applyLayout } from "../scripts/workspace-writer.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel, resolveView, mergeLayouts } =
@@ -96,6 +97,92 @@ test("merging layouts keeps every element and takes the later position", () => {
     assert.deepEqual(mergeLayouts(undefined, { elements: {} }), {
         elements: {},
     });
+});
+
+/* ------------------------------------------------------- relationship keys */
+
+/** A dynamic view listing `relationships` between two people. */
+const dynamicWorkspace = (relationships) => ({
+    model: {
+        people: [
+            {
+                id: "1",
+                name: "A",
+                relationships: [{ id: "3", sourceId: "1", destinationId: "2" }],
+            },
+            { id: "2", name: "B" },
+        ],
+    },
+    views: {
+        dynamicViews: [
+            {
+                key: "Dynamic",
+                elements: [
+                    { id: "1", x: 100, y: 100 },
+                    { id: "2", x: 600, y: 100 },
+                ],
+                relationships,
+            },
+        ],
+    },
+});
+
+/**
+ * The vertices each listing of view "Dynamic" in `workspace` ends up with,
+ * by its order, once `relationships` (key to vertices) is laid over it: by
+ * the page, which draws them, and by the writer, which saves them.
+ */
+function routesByOrder(workspace, relationships) {
+    const layout = {
+        relationships: Object.fromEntries(
+            Object.entries(relationships).map(([key, vertices]) => [
+                key,
+                { vertices },
+            ]),
+        ),
+    };
+    const drawn = resolveView(
+        new WorkspaceModel(structuredClone(workspace)),
+        "Dynamic",
+        layout,
+    );
+    const page = Object.fromEntries(
+        drawn.relationships.map((r) => [Number(r.order), r.vertices]),
+    );
+    const saved = structuredClone(workspace);
+    applyLayout(saved, { Dynamic: layout });
+    const writer = {};
+    for (const r of saved.views.dynamicViews[0].relationships)
+        if (r.vertices && r.id === "3") writer[Number(r.order)] = r.vertices;
+    return { page, writer };
+}
+
+test("the page and the writer key a dynamic view's repeats alike when orders read as one integer", () => {
+    const { page, writer } = routesByOrder(
+        dynamicWorkspace([
+            { id: "3", order: "1" },
+            // "01" is order 1 again: the same edge, with no key of its own.
+            { id: "3", order: "01" },
+            { id: "3", order: "2" },
+        ]),
+        { 3: [{ x: 1, y: 1 }], "3#1": [{ x: 2, y: 2 }] },
+    );
+    assert.deepEqual(page, { 1: [{ x: 1, y: 1 }], 2: [{ x: 2, y: 2 }] });
+    assert.deepEqual(writer, page);
+});
+
+test("the page and the writer key a dynamic view's repeats alike past a listing whose relationship is missing", () => {
+    const { page, writer } = routesByOrder(
+        dynamicWorkspace([
+            { id: "9", order: "1" },
+            { id: "3", order: "1" },
+            { id: "9", order: "2" },
+            { id: "3", order: "2" },
+        ]),
+        { 3: [{ x: 1, y: 1 }], "3#1": [{ x: 2, y: 2 }] },
+    );
+    assert.deepEqual(page, { 1: [{ x: 1, y: 1 }], 2: [{ x: 2, y: 2 }] });
+    assert.deepEqual(writer, page);
 });
 
 /* ---------------------------------------------------------------- geometry */
