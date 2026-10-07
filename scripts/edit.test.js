@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -283,6 +284,175 @@ test("the workspace module follows workspace.json on disk", async () => {
         assert.ok(
             module.includes(renamed),
             "the module kept the old workspace",
+        );
+    });
+});
+
+/* ------------------------------------------------------------- the endpoint */
+
+/**
+ * POST `body` to the save endpoint at `url`'s server with `headers` laid over
+ * the ones a page of edit mode's own sends. Resolves with `{ status, body }`.
+ * `node:http` rather than `fetch`, which won't send a `Host` of our choosing.
+ */
+function postSave(url, token, body, headers = {}) {
+    const { hostname, port, host } = new URL(url);
+    const text = typeof body === "string" ? body : JSON.stringify(body);
+    return new Promise((done, fail) => {
+        const request = httpRequest(
+            {
+                hostname,
+                port,
+                // A kept-alive socket would hold the test process open.
+                agent: false,
+                method: "POST",
+                path: "/__renderizr/save",
+                headers: {
+                    Host: host,
+                    Origin: `http://${host}`,
+                    "Content-Type": "application/json",
+                    "X-Renderizr-Token": token,
+                    ...headers,
+                },
+            },
+            (response) => {
+                let answer = "";
+                response.setEncoding("utf8");
+                response.on("data", (chunk) => {
+                    answer += chunk;
+                });
+                response.on("end", () => {
+                    // Vite answers a foreign Host itself, in plain text.
+                    let body;
+                    try {
+                        body = JSON.parse(answer);
+                    } catch {
+                        body = { error: answer };
+                    }
+                    done({ status: response.statusCode, body });
+                });
+            },
+        );
+        request.on("error", fail);
+        request.end(text);
+    });
+}
+
+/** The version the workspace module carries, as the page reads it. */
+const servedVersion = async (origin) =>
+    /export const version = "([^"]+)"/.exec(
+        await fetchWorkspaceModule(origin),
+    )?.[1];
+
+/** A save of the Warehouse view that moves element 20. */
+const moveSave = (version, x = 205) => ({
+    version,
+    view: "Warehouse",
+    views: { Warehouse: { elements: { 20: { x, y: 350 } } } },
+});
+
+/** Wait until `check()` holds, for up to 5 s. */
+async function eventually(check, message) {
+    for (let attempt = 0; attempt < 100; attempt++) {
+        if (await check()) return;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.fail(message);
+}
+
+test("the save endpoint writes the layout into workspace.json and answers with the new version", async () => {
+    await withEditServer({}, async ({ url, token, json }) => {
+        const { origin } = new URL(url);
+        const version = await servedVersion(origin);
+        assert.ok(version, "the workspace module carries no version");
+
+        const { status, body } = await postSave(url, token, moveSave(version));
+        assert.equal(status, 200, JSON.stringify(body));
+        const text = await readFile(json, "utf8");
+        const saved = JSON.parse(text);
+        assert.deepEqual(saved.views.customViews[0].elements[0], {
+            id: "20",
+            x: 205,
+            y: 350,
+        });
+        assert.match(saved.lastModifiedAgent, /^renderizr\//);
+        assert.equal(saved.views.configuration.lastSavedView, "Warehouse");
+        assert.ok(
+            text.startsWith('{\n  "'),
+            "the file isn't in Jackson's format",
+        );
+        assert.notEqual(body.version, version);
+        assert.equal(await servedVersion(origin), body.version);
+    });
+});
+
+test("the save endpoint refuses a save without the token, from a foreign host or origin, or that isn't JSON", async () => {
+    await withEditServer({}, async ({ url, token, json }) => {
+        const before = await readFile(json, "utf8");
+        const version = await servedVersion(new URL(url).origin);
+        const save = moveSave(version);
+        const { port } = new URL(url);
+        const refusals = [
+            [{ "X-Renderizr-Token": "" }, save, 403],
+            [{ "X-Renderizr-Token": "guess" }, save, 403],
+            [{ Host: `attacker.example:${port}` }, save, 403],
+            [{ Origin: "http://attacker.example" }, save, 403],
+            [{ Origin: "" }, save, 403],
+            [{ "Content-Type": "text/plain" }, save, 415],
+            [{}, "{ not json", 400],
+            [{}, { views: {} }, 400],
+        ];
+        for (const [headers, body, expected] of refusals) {
+            const answer = await postSave(url, token, body, headers);
+            assert.equal(
+                answer.status,
+                expected,
+                `${JSON.stringify(headers)} with ${JSON.stringify(body)} answered ${answer.status}`,
+            );
+            assert.equal(typeof answer.body.error, "string");
+        }
+        assert.equal(
+            await readFile(json, "utf8"),
+            before,
+            "a refused save wrote",
+        );
+    });
+});
+
+test("the save endpoint refuses a save against a version the file no longer has", async () => {
+    await withEditServer({}, async ({ url, token, json }) => {
+        const version = await servedVersion(new URL(url).origin);
+        const workspace = JSON.parse(await readFile(json, "utf8"));
+        workspace.description = "Changed outside edit mode";
+        await writeFile(json, JSON.stringify(workspace));
+        const { status, body } = await postSave(url, token, moveSave(version));
+        assert.equal(status, 409);
+        assert.match(body.error, /changed on disk/);
+        assert.ok(!(await readFile(json, "utf8")).includes('"x" : 205'));
+    });
+});
+
+test("a save of the page's own never comes back as a reload, and an outside change does", async () => {
+    await withEditServer({}, async ({ server, url, token, json }) => {
+        const sent = [];
+        const send = server.ws.send.bind(server.ws);
+        server.ws.send = (payload, ...rest) => {
+            sent.push(payload);
+            return send(payload, ...rest);
+        };
+        const version = await servedVersion(new URL(url).origin);
+        const { status } = await postSave(url, token, moveSave(version));
+        assert.equal(status, 200);
+        // Give the watcher time to report the write.
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        assert.deepEqual(sent, [], "the save reloaded the page");
+
+        const workspace = JSON.parse(await readFile(json, "utf8"));
+        workspace.description = "Changed outside edit mode";
+        await writeFile(json, JSON.stringify(workspace));
+        await eventually(
+            () => sent.some((payload) => payload?.type === "full-reload"),
+            "an outside change did not reload the page",
         );
     });
 });
