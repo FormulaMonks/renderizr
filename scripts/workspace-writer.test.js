@@ -291,6 +291,105 @@ test("a new x or y goes where Structurizr's writer puts it, and existing keys ke
     ]);
 });
 
+test("applying a layout saves dimensions where Structurizr's writer puts them, in whole units", () => {
+    const workspace = small();
+    applyLayout(workspace, {
+        Landscape: { dimensions: { width: 2100.7, height: 1800 } },
+    });
+    const view = workspace.views.systemLandscapeViews[0];
+    assert.deepEqual(view.dimensions, { height: 1800, width: 2100 });
+    assert.deepEqual(Object.keys(view.dimensions), ["height", "width"]);
+    assert.deepEqual(Object.keys(view), [
+        "dimensions",
+        "key",
+        "elements",
+        "relationships",
+    ]);
+});
+
+test("applying a layout deletes paperSize where a canvas command did, and restores one an undo brings back", () => {
+    const workspace = small();
+    const view = workspace.views.systemLandscapeViews[0];
+    view.paperSize = "A4_Landscape";
+    applyLayout(workspace, { Landscape: { paperSize: null } });
+    assert.equal(Object.hasOwn(view, "paperSize"), false);
+    applyLayout(workspace, { Landscape: { paperSize: "A3_Portrait" } });
+    assert.equal(view.paperSize, "A3_Portrait");
+    applyLayout(workspace, { Landscape: { paperSize: "Napkin" } });
+    assert.equal(
+        view.paperSize,
+        "A3_Portrait",
+        "an unknown paper size is ignored",
+    );
+});
+
+test("applying a layout saves vertices in whole units, deletes them when cleared, and keeps routing, position and jump", () => {
+    const workspace = small();
+    const [relationship] =
+        workspace.views.systemLandscapeViews[0].relationships;
+    applyLayout(workspace, {
+        Landscape: {
+            relationships: {
+                3: {
+                    vertices: [
+                        { x: 10.6, y: 20 },
+                        { x: 30, y: 40 },
+                    ],
+                },
+            },
+        },
+    });
+    assert.deepEqual(relationship.vertices, [
+        { x: 10, y: 20 },
+        { x: 30, y: 40 },
+    ]);
+    applyLayout(workspace, {
+        Landscape: {
+            relationships: { 3: { vertices: [] }, 99: { vertices: [] } },
+        },
+    });
+    assert.deepEqual(relationship, {
+        id: "3",
+        jump: true,
+        position: 40,
+        routing: "Curved",
+    });
+});
+
+test("vertices of a relationship a dynamic view lists twice go to the entry its key names", () => {
+    const workspace = {
+        views: {
+            dynamicViews: [
+                {
+                    key: "Dynamic",
+                    elements: [],
+                    relationships: [
+                        { id: "3", order: "1" },
+                        { id: "3", order: "2", response: true },
+                    ],
+                },
+            ],
+        },
+    };
+    applyLayout(workspace, {
+        Dynamic: {
+            relationships: {
+                3: { vertices: [{ x: 1, y: 2 }] },
+                "3#1": { vertices: [{ x: 3, y: 4 }] },
+            },
+        },
+    });
+    const [first, second] = workspace.views.dynamicViews[0].relationships;
+    assert.deepEqual(first.vertices, [{ x: 1, y: 2 }]);
+    assert.deepEqual(second.vertices, [{ x: 3, y: 4 }]);
+    assert.deepEqual(Object.keys(second), [
+        "id",
+        "order",
+        "response",
+        "vertices",
+    ]);
+});
+
 /* ------------------------------------------------------------------ stamps */
 
 test("stamps set the date to the second, the agent and the last saved view", () => {

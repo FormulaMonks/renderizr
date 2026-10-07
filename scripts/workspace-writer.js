@@ -208,13 +208,58 @@ const findView = (workspace, key) => {
     return undefined;
 };
 
+/** `value` as a whole number, as Structurizr reads it, or `undefined`. */
+const whole = (value) => {
+    const number = Math.trunc(Number(value));
+    return Number.isFinite(number) ? number : undefined;
+};
+
+/** `{ x, y }` in whole numbers, or `undefined` when either isn't a number. */
+const pointOf = (at) => {
+    const x = whole(at?.x);
+    const y = whole(at?.y);
+    return x === undefined || y === undefined ? undefined : { x, y };
+};
+
 /**
- * Lay the edited layouts in `views` (view key to `{ elements }`, each element
- * id to `{ x, y }`) over `workspace`, in place. Coordinates are whole numbers,
- * as Structurizr reads them, and an element landing on exactly (0,0), which
- * reads as unplaced (ADR 10), goes to (5,0) (spec 7.3). Views and elements
- * the workspace no longer has are skipped. Relationship fields, `jump`
- * included, stay as found.
+ * Each relationship view of `view` by its key: the relationship id for its
+ * first listing, then `id#1`, `id#2` for repeats, as a dynamic view lists one
+ * relationship at several orders. A repeat at an order already listed is the
+ * same edge, and takes no key of its own (`relationshipKey` in `src/model`).
+ */
+function relationshipsByKey(view) {
+    const byKey = new Map();
+    const repeats = new Map();
+    const listed = new Set();
+    for (const relationship of view.relationships ?? []) {
+        const at = `${relationship.id}\n${relationship.order}`;
+        if (relationship.order !== undefined && listed.has(at)) continue;
+        listed.add(at);
+        const repeat = repeats.get(relationship.id) ?? 0;
+        repeats.set(relationship.id, repeat + 1);
+        byKey.set(
+            repeat === 0 ? relationship.id : `${relationship.id}#${repeat}`,
+            relationship,
+        );
+    }
+    return byKey;
+}
+
+/**
+ * Lay the edited layouts in `views` (view key to edited layout) over
+ * `workspace`, in place:
+ *
+ * - `elements`, element id to `{ x, y }`. An element landing on exactly
+ *   (0,0), which reads as unplaced (ADR 10), goes to (5,0) (spec 7.3).
+ * - `relationships`, relationship key to `{ vertices }`; an empty list
+ *   deletes the stored vertices. `routing`, `position` and `jump` stay as
+ *   found.
+ * - `dimensions`, `{ width, height }`.
+ * - `paperSize`: `null` deletes it, as Decrease and Increase do (spec 14);
+ *   a known paper size, which undo brings back, is set.
+ *
+ * Numbers are whole, as Structurizr reads them. Views, elements and
+ * relationships the workspace no longer has are skipped.
  */
 export function applyLayout(workspace, views) {
     for (const [key, layout] of Object.entries(views ?? {})) {
@@ -222,14 +267,29 @@ export function applyLayout(workspace, views) {
         if (!view) continue;
         for (const [id, at] of Object.entries(layout?.elements ?? {})) {
             const element = view.elements?.find((e) => e.id === id);
-            if (!element) continue;
-            let x = Math.trunc(Number(at?.x));
-            const y = Math.trunc(Number(at?.y));
-            if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-            if (x === 0 && y === 0) x = 5;
-            setInOrder(element, "x", x);
-            setInOrder(element, "y", y);
+            const point = pointOf(at);
+            if (!element || !point) continue;
+            if (point.x === 0 && point.y === 0) point.x = 5;
+            setInOrder(element, "x", point.x);
+            setInOrder(element, "y", point.y);
         }
+        const relationships = relationshipsByKey(view);
+        for (const [id, route] of Object.entries(layout?.relationships ?? {})) {
+            const relationship = relationships.get(id);
+            if (!relationship || !Array.isArray(route?.vertices)) continue;
+            const vertices = route.vertices.map(pointOf).filter(Boolean);
+            if (vertices.length === 0)
+                Reflect.deleteProperty(relationship, "vertices");
+            else setInOrder(relationship, "vertices", vertices);
+        }
+        const width = whole(layout?.dimensions?.width);
+        const height = whole(layout?.dimensions?.height);
+        if (width >= 0 && height >= 0)
+            setInOrder(view, "dimensions", { height, width });
+        if (layout?.paperSize === null)
+            Reflect.deleteProperty(view, "paperSize");
+        else if (STRUCTURIZR_ENUMS.PaperSize.includes(layout?.paperSize))
+            setInOrder(view, "paperSize", layout.paperSize);
     }
     return workspace;
 }
