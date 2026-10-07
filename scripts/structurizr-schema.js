@@ -4,34 +4,35 @@
  * missing here is one Structurizr drops, so the writer drops it too.
  */
 
-// Structurizr workspace JSON schema, as seen by "a Structurizr read followed by a Structurizr write".
+// This schema describes the keys that survive a Structurizr read followed by a Structurizr write.
 //
 // Source: submodules/structurizr (structurizr/structurizr v6.2.2), modules structurizr-core and
-// structurizr-client. All paths below are relative to submodules/structurizr/.
+// structurizr-client. Every path below is relative to submodules/structurizr/.
 //   core = structurizr-core/src/main/java/com/structurizr
 //
-// How this was derived (not guessed):
-//   1. Read the Java classes and the Jackson config in
+// We derived it in three steps:
+//   1. We read the Java classes and the Jackson config in
 //      structurizr-client/src/main/java/com/structurizr/io/json/{AbstractJsonReader,AbstractJsonWriter}.java.
-//   2. Compiled the submodule's core sources plus io/json against the exact Jackson jars Structurizr
-//      2026.09.19 ships (jackson-databind 2.21.2, jackson-annotations 2.21) and asked Jackson itself for
-//      the BeanDeserializer properties (read) and BeanSerializer properties (write) of every reachable type.
-//   3. Round-tripped the repo fixtures plus a hand-made edge-case workspace through JsonReader + JsonWriter.
+//   2. We compiled the submodule's core sources plus io/json against the Jackson jars Structurizr
+//      2026.09.19 ships (jackson-databind 2.21.2, jackson-annotations 2.21) and asked Jackson for the
+//      BeanDeserializer properties (read) and BeanSerializer properties (write) of every reachable type.
+//   3. We round-tripped the repo fixtures plus a hand-made edge-case workspace through JsonReader and
+//      JsonWriter.
 //
-// STRUCTURIZR_TYPES lists only keys that are BOTH read and written (they survive a round trip).
-// Keys that are written but never read (computed) are in STRUCTURIZR_COMPUTED_KEYS; keys that are read
-// but never written (legacy aliases folded into another key) are in STRUCTURIZR_READ_ALIASES.
-// Any other key in the input is silently dropped (FAIL_ON_UNKNOWN_PROPERTIES=false).
+// STRUCTURIZR_TYPES lists the keys Structurizr both reads and writes, so they survive a round trip.
+// STRUCTURIZR_COMPUTED_KEYS lists the keys Structurizr writes and never reads (computed values), and
+// STRUCTURIZR_READ_ALIASES the keys it reads and never writes (legacy aliases it folds into another key).
+// Structurizr drops every other key in the input without a word (FAIL_ON_UNKNOWN_PROPERTIES=false).
 //
 // Kinds:
-//   "value"          string or boolean scalar (strings: Jackson coerces a JSON number/boolean to a string)
-//   "int"            Java int/long/Integer: a JSON fraction truncates toward zero (10.7 -> 10, -5.7 -> -5),
-//                    a numeric string ("20") is accepted. There are NO double-typed keys in the schema.
-//   "enum:<Name>"    see STRUCTURIZR_ENUMS; an unknown value reads as null and is then omitted
-//                    (READ_UNKNOWN_ENUM_VALUES_AS_NULL), except where a setter rejects null (see notes)
+//   "value"          string or boolean scalar (strings: Jackson coerces a JSON number or boolean to a string)
+//   "int"            Java int, long or Integer: Jackson truncates a JSON fraction toward zero (10.7 -> 10,
+//                    -5.7 -> -5) and accepts a numeric string ("20"). The schema holds no double-typed key.
+//   "enum:<Name>"    see STRUCTURIZR_ENUMS; Jackson reads an unknown value as null and the writer then omits
+//                    it (READ_UNKNOWN_ENUM_VALUES_AS_NULL), except where a setter rejects null (see the notes)
 //   "<Type>"         nested object
 //   ["<Type>"]       array of objects; ["value"] array of strings
-//   { map: "value" } string-keyed map of strings (values coerced to strings: 1 -> "1", true -> "true")
+//   { map: "value" } string-keyed map of strings (Jackson coerces values to strings: 1 -> "1", true -> "true")
 
 export const ROOT_TYPE = "Workspace";
 
@@ -595,9 +596,9 @@ export const STRUCTURIZR_TYPES = {
     // core/view/ElementStyle.java, core/view/AbstractStyle.java
     // All style fields are @JsonInclude(NON_NULL) (ElementStyle.java:12-52).
     ElementStyle: {
-        background: "value", // hex or HTML colour name in, lower-case hex out; invalid colour FAILS the read
+        background: "value", // hex or HTML color name in, lower-case hex out; invalid color FAILS the read
         border: "enum:Border",
-        color: "value", // same colour handling
+        color: "value", // same color handling
         colorScheme: "enum:ColorScheme",
         description: "value", // Boolean
         fontSize: "int",
@@ -608,7 +609,7 @@ export const STRUCTURIZR_TYPES = {
         opacity: "int", // clamped to 0..100
         properties: { map: "value" },
         shape: "enum:Shape",
-        stroke: "value", // same colour handling
+        stroke: "value", // same color handling
         strokeWidth: "int", // clamped to 1..10
         tag: "value",
         width: "int",
@@ -618,7 +619,7 @@ export const STRUCTURIZR_TYPES = {
     // core/view/RelationshipStyle.java, core/view/AbstractStyle.java
     // All style fields are @JsonInclude(NON_NULL) (RelationshipStyle.java:12-55).
     RelationshipStyle: {
-        color: "value", // hex or colour name in, lower-case hex out; invalid FAILS the read
+        color: "value", // hex or color name in, lower-case hex out; invalid FAILS the read
         colorScheme: "enum:ColorScheme",
         dashed: "value", // Boolean (legacy, alongside style)
         description: "value", // Boolean
@@ -898,7 +899,7 @@ STRUCTURIZR_TYPES.AutomaticLayout.applied = "value";
  *    - View.setOrder: Math.max(1, order) (core/view/View.java:92-94). Only runs when "order" is present: an
  *      absent order stays 0 and is written as "order" : 0, while an explicit 0 or negative becomes 1.
  *    - ElementStyle/RelationshipStyle opacity clamped to 0..100; ElementStyle.strokeWidth to 1..10;
- *      colours (background/stroke/color) lower-cased, HTML colour names converted to hex, anything else throws.
+ *      colors (background/stroke/color) lower-cased, HTML color names converted to hex, anything else throws.
  *    - View.setKey replaces "/" with "_"; View.setDescription(null) -> "" (then omitted).
  *    - DocumentationContent.setContent normalizes line endings to \n.
  *    - ModelItem.setUrl / RelationshipView.setUrl: "" -> null; otherwise must be a URL, "{workspace}..." or
