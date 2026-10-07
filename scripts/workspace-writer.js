@@ -351,6 +351,33 @@ export function renderWorkspace(text, { views, view, agent, now }) {
     return { text: printWorkspace(workspace, { newline }), changed: true };
 }
 
+/**
+ * Copy the stamps of `before` that `after` lacks onto `after` (spec 7.1):
+ * the id, the date, the agent, the user and the last saved view, which a run of
+ * Structurizr's tools leaves out.
+ */
+function carryStamps(before, after) {
+    for (const key of [
+        "id",
+        "lastModifiedDate",
+        "lastModifiedAgent",
+        "lastModifiedUser",
+    ]) {
+        if (before[key] !== undefined && after[key] === undefined)
+            setInOrder(after, key, before[key]);
+    }
+    const view = before.views?.configuration?.lastSavedView;
+    if (
+        view !== undefined &&
+        after.views?.configuration?.lastSavedView === undefined
+    ) {
+        if (!after.views) setInOrder(after, "views", {});
+        if (!after.views.configuration)
+            setInOrder(after.views, "configuration", {});
+        setInOrder(after.views.configuration, "lastSavedView", view);
+    }
+}
+
 /** The refusal of a save made against a file that has changed since (spec 7.4). */
 export class StaleVersionError extends Error {
     constructor(file) {
@@ -362,7 +389,8 @@ export class StaleVersionError extends Error {
 }
 
 /**
- * Saves edited layouts into one `workspace.json`, one write at a time, each
+ * Saves edited layouts, and the workspaces the DSL pipeline's runs produce
+ * (spec 5.2), into one `workspace.json`, one write at a time, each
  * through a temporary file in the same folder renamed over it. It remembers
  * what it wrote last, so edit mode's watcher can tell its own writes from
  * outside changes.
@@ -410,20 +438,64 @@ export class WorkspaceWriter {
             now: this.#now(),
         });
         if (!rendered.changed) return { version, written: false };
+        return this.#write(rendered.text);
+    }
 
+    /**
+     * Make `text`, the workspace a run of Structurizr's tools wrote, the
+     * file's content (spec 5.2), read the way Structurizr reads it, with no
+     * layout of the author's applied and stamped. It writes only when the
+     * workspace differs from the file's in more than the stamps, which the
+     * tools don't write, so a run on unchanged files writes nothing.
+     * Resolves as `save` does.
+     */
+    replace(text) {
+        const run = this.#queue.then(() => this.#replace(text));
+        this.#queue = run.catch(() => {});
+        return run;
+    }
+
+    async #replace(text) {
+        const { workspace } = readWorkspace(text);
+        const current = await readFile(this.#file, "utf8").catch((error) => {
+            if (error.code === "ENOENT") return null;
+            throw error;
+        });
+        let newline = "\n";
+        if (current !== null) {
+            newline = newlineOf(current);
+            const before = (() => {
+                try {
+                    return readWorkspace(current).workspace;
+                } catch {
+                    return null;
+                }
+            })();
+            if (before) {
+                carryStamps(before, workspace);
+                if (printWorkspace(workspace, { newline }) === current)
+                    return { version: versionOf(current), written: false };
+            }
+        }
+        stampWorkspace(workspace, { agent: this.#agent, now: this.#now() });
+        return this.#write(printWorkspace(workspace, { newline }));
+    }
+
+    /** Write `text` over the file through a temporary file beside it. */
+    async #write(text) {
         const temporary = join(
             dirname(this.#file),
             `.${basename(this.#file)}.${randomBytes(6).toString("hex")}.tmp`,
         );
         try {
-            await writeFile(temporary, rendered.text, "utf8");
-            this.#written = versionOf(rendered.text);
+            await writeFile(temporary, text, "utf8");
+            this.#written = versionOf(text);
             await rename(temporary, this.#file);
         } catch (error) {
             this.#written = null;
             await rm(temporary, { force: true });
             throw error;
         }
-        return { version: versionOf(rendered.text), written: true };
+        return { version: versionOf(text), written: true };
     }
 }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { OPTIONS, parseCliArgs, parseEditArgs, usage } from "./cli.js";
@@ -8,6 +9,7 @@ import {
     fixture,
     REPO_ROOT,
     runCli,
+    withTempDir,
 } from "./__fixtures__/helpers.js";
 
 /**
@@ -350,6 +352,31 @@ const editRejects = async (args, expected, cwd) => {
         `edit ${args.join(" ")} was accepted`,
     );
 };
+
+test("renderizr edit on a DSL without tools or workspace.json stops with the tools message alone", async () => {
+    await withTempDir(async (dir) => {
+        await writeFile(join(dir, "workspace.dsl"), "workspace {}");
+        await assert.rejects(
+            evalInChild(`
+                import { parseEditArgs } from "./scripts/cli.js";
+                process.env.STRUCTURIZR_CLI = "renderizr-no-such-structurizr";
+                parseEditArgs([], { cwd: ${JSON.stringify(dir)} });
+                process.stdout.write("NOT REACHED");
+            `),
+            (error) => {
+                assert.equal(error.code, 1);
+                assert.match(error.stderr, /renderizr-no-such-structurizr/);
+                assert.match(error.stderr, /Java 21 to 25/);
+                assert.doesNotMatch(
+                    error.stderr,
+                    /renderizr edit \[path\]/,
+                    "the tools message came with the usage",
+                );
+                return true;
+            },
+        );
+    });
+});
 
 test("renderizr edit refuses the flags of a build with a usage error", async () => {
     const REFUSED = [

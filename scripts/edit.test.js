@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, utimes, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
-import { join } from "node:path";
+import { basename, join } from "node:path";
+import { Writable } from "node:stream";
 import { test } from "node:test";
-import { resolveSession, sessionNotices, startEditServer } from "./edit.js";
+import {
+    resolveSession,
+    sessionNotices,
+    startEditServer,
+    ToolsError,
+} from "./edit.js";
 import {
     ERROR_EVENT,
     FLUSH_EVENT,
@@ -14,7 +20,8 @@ import {
     WORKSPACE_EVENT,
 } from "./edit-plugin.js";
 import { versionOf } from "./workspace-writer.js";
-import { withTempDir } from "./__fixtures__/helpers.js";
+import { shellCommand } from "./structurizr-tools.js";
+import { fixture, withTempDir } from "./__fixtures__/helpers.js";
 
 /**
  * `renderizr edit` (spec 4.1 to 4.5, ADR 15): which file a path opens, what
@@ -120,28 +127,182 @@ test("a JSON session with no workspace.dsl beside it prints no hint", async () =
     });
 });
 
-test("a workspace.dsl with no workspace.json is an error until DSL sessions land", async () => {
+/** Tools that answer the version check, or don't, recording each check. */
+const tools = (ok) => {
+    const checks = [];
+    const check = (command, options) => {
+        checks.push({ command, ...options });
+        return { ok, output: ok ? "structurizr: stub" : "not found" };
+    };
+    return { checks, check };
+};
+
+/** An environment that fails the test when anything reads it. */
+const untouchable = new Proxy(
+    {},
+    {
+        get: (_, key) => assert.fail(`the session read ${String(key)}`),
+        has: (_, key) => assert.fail(`the session read ${String(key)}`),
+    },
+);
+
+test("a DSL, or a folder with one, opens a DSL session when the tools answer, with or without workspace.json", async () => {
     await withTempDir(async (dir) => {
         await writeFiles(dir, { "workspace.dsl": "workspace {}" });
-        assert.throws(() => resolveSession(dir), /workspace\.dsl/);
-        assert.throws(
-            () => resolveSession(join(dir, "workspace.dsl")),
-            /workspace\.dsl/,
+        const env = { STRUCTURIZR_CLI: "java -jar structurizr.war" };
+        const expected = {
+            kind: "dsl",
+            dsl: join(dir, "workspace.dsl"),
+            json: join(dir, "workspace.json"),
+            command: "java -jar structurizr.war",
+        };
+        for (const path of [dir, join(dir, "workspace.dsl")]) {
+            const { checks, check } = tools(true);
+            assert.deepEqual(
+                resolveSession(path, { env, checkTools: check }),
+                expected,
+            );
+            assert.deepEqual(checks, [
+                { command: "java -jar structurizr.war", cwd: dir },
+            ]);
+        }
+
+        await writeFiles(dir, { "workspace.json": "{}" });
+        assert.deepEqual(
+            resolveSession(dir, { env, checkTools: tools(true).check }),
+            expected,
+        );
+        // Without the variable, the tools are structurizr-cli on the PATH.
+        assert.equal(
+            resolveSession(dir, { env: {}, checkTools: tools(true).check })
+                .command,
+            "structurizr-cli",
         );
     });
 });
 
-test("a folder holding both opens workspace.json, with the hint", async () => {
+test("a DSL of any name saves workspace.json beside it", async () => {
+    await withTempDir(async (dir) => {
+        await writeFiles(dir, { "big-bank.dsl": "workspace {}" });
+        const session = resolveSession("big-bank.dsl", {
+            cwd: dir,
+            env: {},
+            checkTools: tools(true).check,
+        });
+        assert.equal(session.kind, "dsl");
+        assert.equal(session.json, join(dir, "workspace.json"));
+    });
+});
+
+test("without the tools, a DSL with workspace.json beside it falls back to a JSON session with the notice", async () => {
+    await withTempDir(async (dir) => {
+        await writeFiles(dir, {
+            "workspace.dsl": "workspace {}",
+            "workspace.json": "{}",
+        });
+        // The DSL is older than the JSON.
+        const past = new Date(Date.now() - 60_000);
+        await utimes(join(dir, "workspace.dsl"), past, past);
+        for (const path of [dir, join(dir, "workspace.dsl")]) {
+            const session = resolveSession(path, {
+                env: {},
+                checkTools: tools(false).check,
+            });
+            assert.equal(session.kind, "json");
+            assert.equal(session.json, join(dir, "workspace.json"));
+            assert.equal(session.dsl, join(dir, "workspace.dsl"));
+            assert.equal(session.fallback, true);
+
+            const notices = sessionNotices(session).join("\n");
+            assert.match(notices, /opened .*workspace\.json/);
+            assert.match(notices, /STRUCTURIZR_CLI/);
+            assert.match(notices, /structurizr-cli/);
+            assert.match(notices, /github\.com\/FormulaMonks\/renderizr#/);
+            assert.doesNotMatch(notices, /may be out of date/);
+        }
+
+        const future = new Date(Date.now() + 60_000);
+        await utimes(join(dir, "workspace.dsl"), future, future);
+        const session = resolveSession(dir, {
+            env: {},
+            checkTools: tools(false).check,
+        });
+        assert.ok(
+            sessionNotices(session).includes(
+                "workspace.dsl changed after workspace.json; the model shown may be out of date.",
+            ),
+        );
+    });
+});
+
+test("without the tools, a DSL with no workspace.json stops with a message naming both ways to set them up", async () => {
+    await withTempDir(async (dir) => {
+        await writeFiles(dir, { "workspace.dsl": "workspace {}" });
+        for (const path of [dir, join(dir, "workspace.dsl")]) {
+            assert.throws(
+                () =>
+                    resolveSession(path, {
+                        env: { STRUCTURIZR_CLI: "broken-tools" },
+                        checkTools: tools(false).check,
+                    }),
+                (error) =>
+                    error instanceof ToolsError &&
+                    error.message.includes("STRUCTURIZR_CLI") &&
+                    error.message.includes("structurizr-cli") &&
+                    error.message.includes("broken-tools") &&
+                    error.message.includes("Java 21 to 25") &&
+                    error.message.includes(
+                        "github.com/FormulaMonks/renderizr#",
+                    ),
+            );
+        }
+    });
+});
+
+test("a JSON session never checks the tools nor reads STRUCTURIZR_CLI", async () => {
     await withTempDir(async (dir) => {
         await writeFiles(dir, {
             "workspace.json": "{}",
             "workspace.dsl": "workspace {}",
+            "only.json": "{}",
         });
-        const session = resolveSession(dir);
-        assert.equal(session.json, join(dir, "workspace.json"));
-        assert.equal(session.dsl, join(dir, "workspace.dsl"));
-        assert.notDeepEqual(sessionNotices(session), []);
+        const { checks, check } = tools(true);
+        const options = { env: untouchable, checkTools: check };
+        // A direct path to workspace.json opens it, even beside a DSL.
+        const direct = resolveSession(join(dir, "workspace.json"), options);
+        assert.equal(direct.kind, "json");
+        assert.equal(direct.fallback, undefined);
+        assert.equal(
+            resolveSession(join(dir, "only.json"), options).kind,
+            "json",
+        );
+        assert.deepEqual(checks, []);
     });
+});
+
+test("a folder holding only workspace.json opens it without checking the tools", async () => {
+    await withTempDir(async (dir) => {
+        await writeFiles(dir, { "workspace.json": "{}" });
+        const { checks, check } = tools(true);
+        const session = resolveSession(dir, {
+            env: untouchable,
+            checkTools: check,
+        });
+        assert.equal(session.kind, "json");
+        assert.deepEqual(checks, []);
+    });
+});
+
+test("a DSL session prints no notice", () => {
+    assert.deepEqual(
+        sessionNotices({
+            kind: "dsl",
+            dsl: "/w/workspace.dsl",
+            json: "/w/workspace.json",
+            command: "structurizr-cli",
+        }),
+        [],
+    );
 });
 
 /* ------------------------------------------------------------------ server */
@@ -568,4 +729,231 @@ test("a flush with no page open resolves at once and sends nothing", async () =>
     const pages = fakePages([]);
     assert.equal(await flushPages(pages.ws), true);
     assert.deepEqual(pages.sent, []);
+});
+
+/* ------------------------------------------------------------ DSL sessions */
+
+/** Structurizr's tools, stubbed, as a whole command (spec 5.1). */
+const STUB = shellCommand(process.execPath, [fixture("structurizr-stub.js")]);
+
+/** A workspace in the stub's DSL: JSON, with `stub` steering the stub. */
+const stubDsl = (name, stub) =>
+    JSON.stringify({
+        name,
+        model: {
+            softwareSystems: [{ id: "1", name: "Shop", tags: "Element" }],
+        },
+        views: {
+            systemLandscapeViews: [
+                { key: "Landscape", elements: [{ id: "1", x: 10, y: 10 }] },
+            ],
+        },
+        ...(stub ? { stub } : {}),
+    });
+
+/** A stream that drops the tools' output. */
+const quiet = new Writable({ write: (_chunk, _encoding, done) => done() });
+
+/**
+ * Start edit mode on a DSL session over `dsl` in a scratch folder, with the
+ * stub as the tools, hand it to `body`, and close it afterwards.
+ */
+const withDslServer = (dsl, body) =>
+    withTempDir(async (dir) => {
+        const file = join(dir, "workspace.dsl");
+        await writeFile(file, dsl);
+        const json = join(dir, "workspace.json");
+        const edit = await startEditServer({
+            session: { kind: "dsl", dsl: file, json, command: STUB },
+            port: await freePort(),
+            open: false,
+            logLevel: "silent",
+            output: quiet,
+            debounce: 50,
+        });
+        try {
+            return await body({ ...edit, dir, dsl: file, json });
+        } finally {
+            await edit.close();
+        }
+    });
+
+/** The pipeline's error the workspace module carries. */
+const servedError = async (origin) =>
+    JSON.parse(
+        /export const error = (.*);/.exec(
+            await fetchWorkspaceModule(origin),
+        )[1],
+    );
+
+test("a DSL session runs the tools before the server starts and serves what they wrote", async () => {
+    await withDslServer(stubDsl("From the DSL"), async ({ url, json }) => {
+        const saved = JSON.parse(await readFile(json, "utf8"));
+        assert.equal(saved.name, "From the DSL");
+        const { origin } = new URL(url);
+        assert.match(await fetchWorkspaceModule(origin), /"From the DSL"/);
+        assert.equal(await servedError(origin), null);
+        const html = await (await fetch(url)).text();
+        assert.match(html, /From the DSL \| Structurizr/);
+    });
+});
+
+test("a DSL change flushes the open pages, merges and reaches them as a workspace event", async (t) => {
+    if (typeof WebSocket !== "function")
+        return t.skip("this Node has no WebSocket client");
+    await withDslServer(
+        stubDsl("Before"),
+        async ({ server, url, token, dsl, json }) => {
+            const sent = recordEvents(server);
+            // A page, as far as Vite's websocket goes, that saves a move when
+            // asked to flush and then answers.
+            const { port } = new URL(url);
+            const socket = new WebSocket(
+                `ws://127.0.0.1:${port}/?token=${server.config.webSocketToken}`,
+                "vite-hmr",
+            );
+            await new Promise((done, fail) => {
+                socket.addEventListener("open", done);
+                socket.addEventListener("error", fail);
+            });
+            await eventually(
+                () => server.ws.clients.size === 1,
+                "the page never connected",
+            );
+            const flushed = [];
+            socket.addEventListener("message", async ({ data }) => {
+                const message = JSON.parse(data);
+                if (message.event !== FLUSH_EVENT) return;
+                const version = versionOf(await readFile(json, "utf8"));
+                const { status } = await postSave(url, token, {
+                    version,
+                    view: "Landscape",
+                    views: {
+                        Landscape: { elements: { 1: { x: 400, y: 300 } } },
+                    },
+                });
+                flushed.push(status);
+                socket.send(
+                    JSON.stringify({
+                        type: "custom",
+                        event: FLUSHED_EVENT,
+                        data: message.data,
+                    }),
+                );
+            });
+
+            await writeFile(dsl, stubDsl("After"));
+            try {
+                await eventually(
+                    () =>
+                        sent.some(
+                            ({ event, data }) =>
+                                event === WORKSPACE_EVENT &&
+                                data.workspace.name === "After",
+                        ),
+                    "the DSL change never reached the page",
+                );
+            } finally {
+                socket.close();
+            }
+            assert.deepEqual(flushed, [200], "the page saved once, on flush");
+            const merged = JSON.parse(await readFile(json, "utf8"));
+            assert.equal(merged.name, "After");
+            assert.deepEqual(
+                merged.views.systemLandscapeViews[0].elements[0],
+                { id: "1", x: 400, y: 300 },
+                "the merge lost the layout the flush saved",
+            );
+            const { data } = sent.find(
+                ({ event }) => event === WORKSPACE_EVENT,
+            );
+            assert.equal(data.version, versionOf(await readFile(json, "utf8")));
+        },
+    );
+});
+
+test("a DSL error reaches the page over the last good workspace, and the next good run clears it", async () => {
+    await withDslServer(stubDsl("Good"), async ({ server, url, dsl, json }) => {
+        const sent = recordEvents(server);
+        const good = await readFile(json, "utf8");
+        await writeFile(dsl, stubDsl("Bad", { fail: "Unexpected tokens" }));
+        await eventually(
+            () => sent.some(({ event }) => event === ERROR_EVENT),
+            "the DSL error never reached the page",
+        );
+        const { data } = sent.find(({ event }) => event === ERROR_EVENT);
+        assert.deepEqual(data, {
+            version: versionOf(good),
+            error: "Unexpected tokens",
+        });
+        assert.equal(await readFile(json, "utf8"), good);
+        const { origin } = new URL(url);
+        assert.deepEqual(await servedError(origin), {
+            message: "Unexpected tokens",
+            blank: false,
+        });
+        assert.match(await fetchWorkspaceModule(origin), /"Good"/);
+
+        await writeFile(dsl, stubDsl("Fixed"));
+        await eventually(
+            () => sent.some(({ event }) => event === WORKSPACE_EVENT),
+            "the fixed DSL never reached the page",
+        );
+        assert.equal(await servedError(origin), null);
+    });
+});
+
+test("a DSL that fails from the start still starts the server, with the error in place of a workspace", async () => {
+    await withDslServer(
+        stubDsl("Broken", { fail: "No model" }),
+        async ({ server, url, dsl, json, dir }) => {
+            await assert.rejects(readFile(json), { code: "ENOENT" });
+            const { origin } = new URL(url);
+            assert.deepEqual(await servedError(origin), {
+                message: "No model",
+                blank: true,
+            });
+            assert.match(
+                await fetchWorkspaceModule(origin),
+                new RegExp(`"name":"${basename(dir)}"`),
+            );
+
+            const sent = recordEvents(server);
+            await writeFile(dsl, stubDsl("Exported"));
+            await eventually(
+                () => sent.some(({ event }) => event === WORKSPACE_EVENT),
+                "the first good run never reached the page",
+            );
+            assert.equal(
+                JSON.parse(await readFile(json, "utf8")).name,
+                "Exported",
+            );
+        },
+    );
+});
+
+test("the pipeline ignores workspace.json, dot folders and node_modules", async () => {
+    await withDslServer(stubDsl("Watched"), async ({ dir, json, pipeline }) => {
+        const runs = async () =>
+            (await readFile(join(dir, ".stub-calls"), "utf8"))
+                .trim()
+                .split("\n")
+                .filter((line) => JSON.parse(line).at).length;
+        assert.equal(await runs(), 1);
+        await mkdir(join(dir, ".git"));
+        await mkdir(join(dir, "node_modules"));
+        await writeFiles(dir, { ".git/HEAD": "ref", "node_modules/x.js": "" });
+        const workspace = JSON.parse(await readFile(json, "utf8"));
+        workspace.description = "Changed by hand";
+        await writeFile(json, JSON.stringify(workspace));
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        assert.equal(await runs(), 1, "an ignored change ran the pipeline");
+
+        await writeFiles(dir, { "model.dsl": "!include" });
+        await eventually(
+            async () => (await runs()) === 2,
+            "a change under the DSL's folder never ran the pipeline",
+        );
+        assert.equal(pipeline.succeeded, true);
+    });
 });

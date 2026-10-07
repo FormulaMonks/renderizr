@@ -21,7 +21,7 @@
  * would.
  */
 
-import { execFileSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -30,16 +30,20 @@ import {
     peopleAndSoftwareSystems,
     writeFixture,
 } from "../../support/fixtures.js";
+import {
+    shellCommand,
+    toolsCommand,
+} from "../../../scripts/structurizr-tools.js";
 
 /** The enterprise the DSL's "Internal" elements belong to (spec 8). */
 export const ENTERPRISE = "Shop Ltd";
 
 /**
  * Write `folder`'s `workspace.json` again from its `workspace.dsl` with
- * `command`, the Structurizr tools as a whole command split on spaces.
+ * `command`, the Structurizr tools as a whole command, run through the shell
+ * as edit mode runs them (`scripts/structurizr-tools.js`).
  */
 export function regenerate(folder, command) {
-    const [program, ...prefix] = command.trim().split(/\s+/);
     const dsl = join(folder, "workspace.dsl");
     const layout = join(folder, "workspace.json");
     const out = mkdtempSync(join(tmpdir(), "renderizr-acceptance-export-"));
@@ -48,7 +52,7 @@ export function regenerate(folder, command) {
         const args = existsSync(layout)
             ? ["merge", "-workspace", dsl, "-layout", layout, "-output", result]
             : ["export", "-workspace", dsl, "-format", "json", "-output", out];
-        execFileSync(program, [...prefix, ...args], { stdio: "inherit" });
+        execSync(shellCommand(command, args), { stdio: "inherit" });
 
         const workspace = JSON.parse(readFileSync(result, "utf-8"));
         workspace.model.enterprise = { name: ENTERPRISE };
@@ -66,8 +70,5 @@ export function regenerate(folder, command) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    regenerate(
-        dirname(fileURLToPath(import.meta.url)),
-        process.env.STRUCTURIZR_CLI || "structurizr-cli",
-    );
+    regenerate(dirname(fileURLToPath(import.meta.url)), toolsCommand());
 }

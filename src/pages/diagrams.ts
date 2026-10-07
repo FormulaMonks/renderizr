@@ -24,6 +24,7 @@ import {
     leave,
     liveWorkspace,
     onWorkspace,
+    showBlank,
     startEditing,
     swapWorkspace,
 } from "./diagrams-edit";
@@ -121,6 +122,10 @@ export default class Diagrams extends Page {
         const target = this.container.querySelector<HTMLElement>(
             "#structurizr-diagram-target",
         ) as HTMLElement;
+
+        // Edit mode on a DSL that never parsed has nothing to draw but why
+        // (spec 5.3).
+        if (__RENDERIZR_EDIT_MODE__ && showBlank(target)) return;
 
         // A workspace of documentation and decisions only has nothing to
         // mount, so nothing would ever replace the loading message.

@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { DEFAULT_PORT, resolveSession } from "./edit.js";
+import { DEFAULT_PORT, resolveSession, ToolsError } from "./edit.js";
 
 export const OPTIONS = {
     logo: { type: "string" },
@@ -158,10 +158,16 @@ renderizr edit — edit the layout of a workspace's views in a browser.
 
   renderizr edit [path] [options]
 
-The path is a workspace.json, under any name, or a folder holding one named
-workspace.json; without a path, edit mode opens the current folder. Edit mode
-serves the site on a local server only this machine reaches, and saves the
-layout into that workspace.json.
+The path is a workspace.dsl or a workspace.json, under any name, or a folder
+holding one of them under exactly that name; without a path, edit mode opens
+the current folder. Edit mode serves the site on a local server only this
+machine reaches, and saves the layout into the workspace.json beside a DSL,
+or into the workspace.json it opened.
+
+A DSL runs through Structurizr's tools: the STRUCTURIZR_CLI environment
+variable as a whole command (such as "java -jar structurizr.war"), otherwise
+structurizr-cli on the PATH, with Java 21 to 25. Without them, edit mode opens
+the workspace.json beside the DSL.
 
 Options
       --port <n>           Port for the local server (default: ${DEFAULT_PORT}); the
@@ -181,6 +187,7 @@ Options
 Examples
   renderizr edit
   renderizr edit ./architecture --font Inter
+  STRUCTURIZR_CLI="java -jar structurizr.war" renderizr edit workspace.dsl
   renderizr edit ./big-bank.json --port 8080 --no-open
 `;
 
@@ -255,6 +262,11 @@ export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
     try {
         session = resolveSession(positionals[0], { cwd });
     } catch (error) {
+        // Missing tools aren't a mistake in the arguments.
+        if (error instanceof ToolsError) {
+            process.stderr.write(`${error.message}\n`);
+            process.exit(1);
+        }
         editUsageError(error.message);
     }
 

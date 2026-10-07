@@ -8,6 +8,7 @@ import {
     printWorkspace,
     readWorkspace,
     renderWorkspace,
+    setInOrder,
     StaleVersionError,
     stampWorkspace,
     versionOf,
@@ -644,5 +645,73 @@ test("saves run one at a time, each against the file the last one wrote", async 
         const saved = await readFile(file, "utf8");
         assert.match(saved, /"x" : 110/);
         assert.match(saved, /"x" : 610/);
+    });
+});
+
+/* ------------------------------------------------ a run of the DSL pipeline */
+
+test("a run's workspace replaces the file, read the way Structurizr reads it and stamped", async () => {
+    await withWorkspace(async ({ dir, file }) => {
+        const writer = new WorkspaceWriter(file, {
+            agent: AGENT,
+            now: () => NOW,
+        });
+        const merged = { ...small(), name: "Merged", unknown: true };
+        const { written, version } = await writer.replace(
+            JSON.stringify(merged),
+        );
+        assert.equal(written, true);
+        const text = await readFile(file, "utf8");
+        assert.equal(version, versionOf(text));
+        assert.ok(writer.wrote(text), "the writer forgot its own write");
+        const saved = JSON.parse(text);
+        assert.equal(saved.name, "Merged");
+        assert.equal(saved.unknown, undefined, "an unknown key survived");
+        assert.equal(saved.lastModifiedAgent, AGENT);
+        assert.equal(saved.lastModifiedDate, "2026-10-07T12:34:56Z");
+        assert.deepEqual(
+            (await readdir(dir)).filter((name) => name.endsWith(".tmp")),
+            [],
+        );
+    });
+});
+
+test("a run's workspace that matches the file but for its stamps writes nothing", async () => {
+    await withWorkspace(async ({ file }) => {
+        // The file as an earlier save left it: stamped, with a last saved view.
+        const saved = stampWorkspace(small(), {
+            agent: AGENT,
+            now: new Date("2026-01-01T00:00:00Z"),
+            view: "Landscape",
+        });
+        setInOrder(saved, "lastModifiedUser", "author");
+        const text = printWorkspace(saved);
+        await writeFile(file, text);
+        const { mtimeMs } = await stat(file);
+
+        const writer = new WorkspaceWriter(file, {
+            agent: AGENT,
+            now: () => NOW,
+        });
+        // Structurizr's merge writes none of these stamps.
+        const result = await writer.replace(JSON.stringify(small()));
+        assert.deepEqual(result, { version: versionOf(text), written: false });
+        assert.equal(await readFile(file, "utf8"), text);
+        assert.equal((await stat(file)).mtimeMs, mtimeMs);
+    });
+});
+
+test("a run's workspace creates workspace.json when there is none", async () => {
+    await withTempDir(async (dir) => {
+        const file = join(dir, "workspace.json");
+        const writer = new WorkspaceWriter(file, {
+            agent: AGENT,
+            now: () => NOW,
+        });
+        const { written } = await writer.replace(JSON.stringify(small()));
+        assert.equal(written, true);
+        const text = await readFile(file, "utf8");
+        assert.ok(text.startsWith('{\n  "'));
+        assert.ok(!text.includes("\r\n"), "a new file takes LF");
     });
 });
