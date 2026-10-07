@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { EditSession, AUTOSAVE_MS, SAVE_ENDPOINT, TOKEN_HEADER } =
+const { EditSession, ARRIVAL_MS, AUTOSAVE_MS, SAVE_ENDPOINT, TOKEN_HEADER } =
     await importSrc("components/edit-session");
 
 /**
@@ -496,7 +496,7 @@ test("a stale save's edits lie over a workspace that arrived while it was on its
     });
 });
 
-test("a save refused as stale takes the version the server names, so Keep saves against it before any workspace arrives", async () => {
+test("a save refused as stale takes the version the server names, so Keep saves against it even when that workspace never arrives", async () => {
     const stub = stubHost([
         {
             status: 409,
@@ -507,8 +507,48 @@ test("a save refused as stale takes the version the server names, so Keep saves 
     edits.record(change("A", "1", 10, 10));
     assert.equal(await edits.save(), false);
     assert.deepEqual(edits.held(), ["A"]);
-    assert.equal(await edits.save(), true, "Keep failed again");
+    const keeping = edits.save();
+    await new Promise((done) => setImmediate(done));
+    assert.equal(stub.requests.length, 1, "Keep didn't wait for v9");
+    assert.deepEqual(
+        [...stub.timers.values()].map(({ ms }) => ms),
+        [ARRIVAL_MS],
+    );
+    stub.runTimers();
+    assert.equal(await keeping, true, "Keep failed again");
     assert.equal(stub.requests.at(-1).body.version, "v9");
+});
+
+test("Keep after a stale save waits for the workspace the server named, so it never writes back what the author left alone", async () => {
+    const stub = stubHost([
+        { status: 409, body: { error: "stale", version: "v9" } },
+    ]);
+    const edits = session(stub);
+    // A first change carries every element; the author moved only 1.
+    edits.record({
+        view: "A",
+        before: { elements: { 1: { x: 0, y: 0 }, 2: { x: 0, y: 0 } } },
+        after: { elements: { 1: { x: 10, y: 10 }, 2: { x: 0, y: 0 } } },
+    });
+    assert.equal(await edits.save(), false);
+    const keeping = edits.save();
+    await new Promise((done) => setImmediate(done));
+    assert.equal(stub.requests.length, 1, "Keep didn't wait for v9");
+
+    // Another page's save of element 2 arrives; the held edits keep only
+    // what the author changed.
+    edits.takeWorkspace(
+        arrival("v9", {
+            hold: (_key, layout) => ({ elements: { 1: layout.elements[1] } }),
+        }),
+    );
+    assert.equal(await keeping, true);
+    assert.equal(stub.requests.at(-1).body.version, "v9");
+    assert.deepEqual(stub.requests.at(-1).body.views, {
+        A: { elements: { 1: { x: 10, y: 10 } } },
+    });
+    assert.deepEqual(edits.held(), []);
+    assert.equal(stub.timers.size, 0, "the wait for v9 outlived its arrival");
 });
 
 test("a save on its way counts as unsaved, so a view switch asks first", async () => {

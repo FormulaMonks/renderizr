@@ -31,6 +31,12 @@ export const TOKEN_HEADER = "X-Renderizr-Token";
 /** How long after the last change a save runs on its own (spec 7.4). */
 export const AUTOSAVE_MS = 5000;
 
+/**
+ * How long a save after a stale one waits for the workspace the server
+ * named before it goes ahead without it.
+ */
+export const ARRIVAL_MS = 2000;
+
 /** Where saving stands, as the edit toolbar shows it (spec 17.1). */
 export type SaveState = "saved" | "unsaved" | "saving" | "failed";
 
@@ -99,6 +105,11 @@ export class EditSession {
     #inFlight: Layouts | null = null;
     /** The version of the file the save on its way was made against. */
     #inFlightVersion: string | null = null;
+    /**
+     * The version a stale save's refusal named, until its workspace arrives,
+     * and what to call when it does.
+     */
+    #awaited: { version: string; arrived: () => void } | null = null;
     #failure: string | null = null;
     #savedAt: number | null;
     #timer: unknown = null;
@@ -260,6 +271,7 @@ export class EditSession {
      */
     takeWorkspace({ version, savedAt, hold, touched }: Arrival): string[] {
         this.#version = version;
+        if (this.#awaited?.version === version) this.#awaited.arrived();
         if (savedAt !== undefined) this.#savedAt = savedAt;
         if (this.#inFlight) this.#arrivedHold = hold;
         for (const key of [...this.#history.keys()])
@@ -348,8 +360,36 @@ export class EditSession {
         this.#cancel();
         // Saving held edits keeps them (spec 6.2).
         this.#held = false;
-        this.#queue = this.#queue.then(() => this.#send());
+        this.#queue = this.#queue.then(() => {
+            const send = () => {
+                this.#held = false;
+                return this.#send();
+            };
+            return this.#awaited ? this.#arrival().then(send) : send();
+        });
         return this.#queue;
+    }
+
+    /**
+     * Wait for the workspace a stale save's refusal named, or `ARRIVAL_MS`.
+     * Its arrival lays the held edits over it and drops what the author
+     * never moved, which a save before it would write back over the other
+     * page's (spec 6.2).
+     */
+    #arrival(): Promise<void> {
+        const awaited = this.#awaited;
+        if (!awaited) return Promise.resolve();
+        return new Promise((done) => {
+            const timer = this.#host.setTimeout(
+                () => awaited.arrived(),
+                ARRIVAL_MS,
+            );
+            awaited.arrived = () => {
+                this.#host.clearTimeout(timer);
+                if (this.#awaited === awaited) this.#awaited = null;
+                done();
+            };
+        });
     }
 
     /**
@@ -435,9 +475,21 @@ export class EditSession {
             } else {
                 stale = response.status === 409;
                 // The server names the file's version now, so Keep saves
-                // against it even before that workspace arrives (spec 6.2).
-                if (stale && typeof answer.version === "string")
+                // against it, once that workspace arrives or `ARRIVAL_MS`
+                // passes (spec 6.2); one that arrived already is taken.
+                if (
+                    stale &&
+                    typeof answer.version === "string" &&
+                    answer.version !== this.#version
+                ) {
                     this.#version = answer.version;
+                    this.#awaited = {
+                        version: answer.version,
+                        arrived: () => {
+                            this.#awaited = null;
+                        },
+                    };
+                }
                 failure =
                     typeof answer.error === "string"
                         ? answer.error
