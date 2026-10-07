@@ -378,6 +378,12 @@ function carryStamps(before, after) {
     }
 }
 
+/**
+ * How many of its own writes the writer remembers: enough to cover every
+ * watcher event still on its way while saves and runs follow each other.
+ */
+const RECENT_WRITES = 16;
+
 /** The refusal of a save made against a file that has changed since (spec 7.4). */
 export class StaleVersionError extends Error {
     constructor(file) {
@@ -392,15 +398,17 @@ export class StaleVersionError extends Error {
  * Saves edited layouts, and the workspaces the DSL pipeline's runs produce
  * (spec 5.2), into one `workspace.json`, one write at a time, each
  * through a temporary file in the same folder renamed over it. It remembers
- * what it wrote last, so edit mode's watcher can tell its own writes from
- * outside changes.
+ * the versions it wrote recently, each once its rename has landed, so edit
+ * mode's watcher can tell its own writes from outside changes, even when the
+ * event for an earlier write arrives after a later one.
  */
 export class WorkspaceWriter {
     #file;
     #agent;
     #now;
     #queue = Promise.resolve();
-    #written = null;
+    /** The versions this writer wrote, oldest first, at most `RECENT_WRITES`. */
+    #written = new Set();
 
     constructor(file, { agent, now = () => new Date() }) {
         this.#file = file;
@@ -408,9 +416,9 @@ export class WorkspaceWriter {
         this.#now = now;
     }
 
-    /** Whether `text` is what this writer last wrote. */
+    /** Whether `text` is one of the files this writer wrote recently. */
     wrote(text) {
-        return this.#written !== null && versionOf(text) === this.#written;
+        return this.#written.has(versionOf(text));
     }
 
     /**
@@ -489,13 +497,16 @@ export class WorkspaceWriter {
         );
         try {
             await writeFile(temporary, text, "utf8");
-            this.#written = versionOf(text);
             await rename(temporary, this.#file);
         } catch (error) {
-            this.#written = null;
             await rm(temporary, { force: true });
             throw error;
         }
-        return { version: versionOf(text), written: true };
+        const version = versionOf(text);
+        this.#written.delete(version);
+        this.#written.add(version);
+        if (this.#written.size > RECENT_WRITES)
+            this.#written.delete(this.#written.values().next().value);
+        return { version, written: true };
     }
 }
