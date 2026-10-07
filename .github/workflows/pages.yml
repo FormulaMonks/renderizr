@@ -132,11 +132,15 @@ jobs:
       # deliberately lacks.
       pages: read
     steps:
-      - name: Check out, with the structurizr submodule
+      - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: true
           persist-credentials: false
+
+      # `.gitmodules` sets `update = none` so `npx` skips the submodule, which
+      # makes `submodules: true` skip it as well. `--checkout` overrides that.
+      - name: Check out the structurizr submodule
+        run: git submodule update --init --checkout --depth=1 submodules/structurizr
 
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -171,10 +175,10 @@ jobs:
             *) base="$base/" ;;
           esac
           echo "Rendering with --base $base"
-          pnpm build "$BIG_BANK" --base "$base" --out dist-pages
+          pnpm render "$BIG_BANK" --base "$base" --out dist-pages
 
       - name: Render the same workspace as a single document
-        run: pnpm build "$BIG_BANK" --single-file --out dist-single
+        run: pnpm render "$BIG_BANK" --single-file --out dist-single
 
       - name: Assemble the site
         run: |

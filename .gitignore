@@ -13,7 +13,7 @@ dist-ssr
 *.local
 
 # Build output. `--out` takes an arbitrary directory, so these are the two
-# defaults only: `./structurizr-output` from `pnpm build` and `./output` from
+# defaults only: `./structurizr-output` from `pnpm render` and `./output` from
 # the older scripts. Anchored, and directories, on purpose — the pattern used
 # to be `*output`, which also swallows any file whose name happens to end in
 # "output" anywhere in the tree.

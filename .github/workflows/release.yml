@@ -167,14 +167,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # `pnpm build` is `tsc && node scripts/build.js`, so the typecheck runs
+      # `pnpm render` is `tsc && node scripts/build.js`, so the typecheck runs
       # here too. The example workspace is the fixture the test suite already
       # renders, which keeps this job offline.
       - name: Render the example site
-        run: pnpm build scripts/__fixtures__/workspace.json --out example-site
+        run: pnpm render scripts/__fixtures__/workspace.json --out example-site
 
       - name: Render the single-file example
-        run: pnpm build scripts/__fixtures__/workspace.json --single-file --out example-single
+        run: pnpm render scripts/__fixtures__/workspace.json --single-file --out example-single
 
       # The single-file promise is "no network requests". Assert it on the
       # artifact that is about to be attached, matching asset-bearing tags

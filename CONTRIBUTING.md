@@ -41,26 +41,25 @@ If you would rather not install mise, use any Node 20+ and pnpm you already have
 
 ## Get the code
 
-Clone with the submodule:
-
 ```bash
-git clone --recurse-submodules https://github.com/FormulaMonks/renderizr.git
+git clone https://github.com/FormulaMonks/renderizr.git
 cd renderizr
+git submodule update --init --checkout submodules/structurizr
 ```
 
-**If you already cloned without `--recurse-submodules`**, this fixes it in place — no need to re-clone:
-
-```bash
-git submodule update --init --recursive
-```
+The last command needs `--checkout`. `.gitmodules` sets `update = none` on the submodule, so `git clone --recurse-submodules` and a plain `git submodule update --init` both skip it. The section below explains why.
 
 ### About the submodule
 
 `submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr). It is **optional for day-to-day work**: install, dev, build, test and lint all pass on a clone with an empty `submodules/` directory. The acceptance harness and the end-to-end test read three workspaces from it (Big Bank plc, groups and Amazon Web Services) and skip them, with a reason, when it is absent. Check it out to run them:
 
 ```bash
-git submodule update --init submodules/structurizr
+git submodule update --init --checkout submodules/structurizr
 ```
+
+`.gitmodules` sets `update = none` because npm clones a git dependency with `--recurse-submodules`. Without it, every cold `npx github:FormulaMonks/renderizr` downloads the whole Structurizr repository before the CLI starts.
+
+The same setting means `git pull` and a plain `git submodule update` leave the submodule where it is when the gitlink moves. Run the `--checkout` command again after a change that bumps it.
 
 ## Install
 
@@ -85,7 +84,7 @@ Run every command below from the repository root.
 | --- | --- |
 | `pnpm dev` | Vite dev server on <http://localhost:5173>, rendering this repository's own workspace (`architecture/workspace.json`) |
 | `pnpm dev -- path/to/workspace.json` | Same, against a workspace of your choice — a local path or a URL |
-| `pnpm build <workspace> [flags]` | Type-checks with `tsc`, then runs the real production build into `./structurizr-output` |
+| `pnpm render <workspace> [flags]` | Type-checks with `tsc`, then runs the real production build into `./structurizr-output` |
 | `pnpm test` | `node --test` over `scripts/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own |
 | `pnpm exec biome check .` | Lint + format check, reports only |
 | `pnpm exec biome check --write .` | Lint + format, fixes in place |
@@ -118,15 +117,15 @@ Always put `--` before the arguments. Without it, Vite reads them itself and sto
 ### Build
 
 ```bash
-pnpm build architecture/workspace.json
-pnpm build architecture/workspace.json --single-file --font Inter
-pnpm build https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
+pnpm render architecture/workspace.json
+pnpm render architecture/workspace.json --single-file --font Inter
+pnpm render https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
 ```
 
-Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm build` runs `tsc` first, so a type error fails the build before Vite starts.
+Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm render` runs `tsc` first, so a type error fails the build before Vite starts.
 
 > [!IMPORTANT]
-> Do **not** write `pnpm build -- <workspace> --flag`. pnpm forwards the literal `--` to the script, and Node's `parseArgs` treats everything after a bare `--` as a positional — so `--single-file` arrives as a second workspace and the build exits 1 with `Expected one workspace, got 2: architecture/workspace.json, --single-file`. Pass the arguments without the `--` separator: `pnpm build <workspace> --single-file`. `pnpm dev` is the opposite: it *does* want the separator, `pnpm dev -- <workspace>`, because Vite would otherwise try to interpret the path itself.
+> Do **not** write `pnpm render -- <workspace> --flag`. pnpm forwards the literal `--` to the script, and Node's `parseArgs` treats everything after a bare `--` as a positional — so `--single-file` arrives as a second workspace and the build exits 1 with `Expected one workspace, got 2: architecture/workspace.json, --single-file`. Pass the arguments without the `--` separator: `pnpm render <workspace> --single-file`. `pnpm dev` is the opposite: it *does* want the separator, `pnpm dev -- <workspace>`, because Vite would otherwise try to interpret the path itself.
 
 ### Lint and format
 
@@ -355,7 +354,7 @@ pnpm test
 Then build something real and look at it. A docs or rendering change that only passes the tests is still untested:
 
 ```bash
-pnpm build architecture/workspace.json --single-file
+pnpm render architecture/workspace.json --single-file
 # then open structurizr-output/index.html in a browser — it needs no server
 ```
 
@@ -365,7 +364,7 @@ To check a change in the dev server, point it at a versioned fixture under `test
 pnpm dev -- test/__fixtures__/edge-routing.json
 ```
 
-Use the package scripts (`pnpm dev`, `pnpm build`, `pnpm test`) in anything you write down for someone else to run, never the `node scripts/…` they wrap.
+Use the package scripts (`pnpm dev`, `pnpm render`, `pnpm test`) in anything you write down for someone else to run, never the `node scripts/…` they wrap.
 
 What a good pull request looks like here:
 
