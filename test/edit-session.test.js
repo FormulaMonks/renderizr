@@ -214,6 +214,33 @@ test("leaving the page sends what waits with keepalive", () => {
     assert.equal(stub.timers.size, 0);
 });
 
+test("leaving the page during a save sends that save again, under what changed since, against the version it was made against", async () => {
+    let answer;
+    const stub = stubHost([
+        new Promise((done) => {
+            answer = done;
+        }),
+    ]);
+    const edits = session(stub, "v1");
+    edits.record(change("A", "1", 10, 20));
+    const saving = edits.save();
+    await new Promise((done) => setImmediate(done));
+    assert.equal(statusOf(edits).state, "saving");
+    edits.record(change("A", "2", 30, 40));
+    edits.saveOnLeave();
+
+    assert.equal(stub.requests.length, 2);
+    const [, leaving] = stub.requests;
+    assert.equal(leaving.init.keepalive, true);
+    assert.equal(leaving.body.version, "v1");
+    assert.deepEqual(leaving.body.views.A.elements, {
+        1: { x: 10, y: 20 },
+        2: { x: 30, y: 40 },
+    });
+    answer({ status: 200, body: { version: "v2" } });
+    await saving;
+});
+
 test("a canvas change alone counts as unsaved and saves", async () => {
     const stub = stubHost();
     const edits = session(stub);

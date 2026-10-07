@@ -97,6 +97,8 @@ export class EditSession {
     #pending: Layouts = new Map();
     /** What the save on its way holds, or null. */
     #inFlight: Layouts | null = null;
+    /** The version of the file the save on its way was made against. */
+    #inFlightVersion: string | null = null;
     #failure: string | null = null;
     #savedAt: number | null;
     #timer: unknown = null;
@@ -356,10 +358,17 @@ export class EditSession {
      * how it ends.
      */
     saveOnLeave() {
-        if (!this.waiting()) return;
+        if (!this.unsaved()) return;
         this.#cancel();
-        const views = new Map([...this.#pending]);
-        void this.#post(views, true).catch(() => {});
+        // The browser may cancel a save on its way as the page goes, so this
+        // one carries it too, under what changed since, against the version
+        // it was made against. Should that save land first after all, the
+        // server refuses this one as stale, and that save holds the rest.
+        const views = new Map(this.#inFlight ?? []);
+        for (const [key, layout] of this.#pending)
+            views.set(key, mergeLayouts(views.get(key), layout));
+        const version = this.#inFlight ? this.#inFlightVersion : this.#version;
+        void this.#post(views, { keepalive: true, version }).catch(() => {});
     }
 
     /** Stop the autosave countdown and forget every listener. */
@@ -389,7 +398,7 @@ export class EditSession {
         for (const listener of this.#listeners) listener(status);
     }
 
-    #post(views: Layouts, keepalive = false) {
+    #post(views: Layouts, { keepalive = false, version = this.#version } = {}) {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
         };
@@ -399,7 +408,7 @@ export class EditSession {
             headers,
             keepalive,
             body: JSON.stringify({
-                version: this.#version,
+                version,
                 view: this.#view,
                 views: Object.fromEntries(views),
                 source: this.source,
@@ -411,6 +420,7 @@ export class EditSession {
         if (this.#pending.size === 0) return this.#failure === null;
         const views = this.#pending;
         this.#inFlight = views;
+        this.#inFlightVersion = this.#version;
         this.#pending = new Map();
         this.#notify();
 
