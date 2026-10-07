@@ -574,7 +574,8 @@ test("RENDERIZR_ENGINE_REPORT=1 builds the engine report into the page", async (
  * Strings only edit mode's page code carries: the session token's storage
  * key, the pencil's reason on an automatic-layout view, the classes of Done
  * and of the link to a base view's editing route, the save endpoint and its
- * token header, the save status and the unsaved-changes dialog.
+ * token header, the save status, the unsaved-changes dialog and the
+ * alignment guides.
  */
 const EDIT_MODE_MARKERS = [
     "renderizr:session-token",
@@ -585,6 +586,7 @@ const EDIT_MODE_MARKERS = [
     "X-Renderizr-Token",
     "Unsaved changes",
     "Save and continue",
+    "data-alignment-guides",
 ];
 
 /** Every JavaScript and HTML file a build wrote under `out`, as one string. */
