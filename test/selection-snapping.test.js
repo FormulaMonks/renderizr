@@ -10,9 +10,8 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 const { GUIDE_REACH, guideReach, snapBox } = await importSrc(
     "engine/geometry/snapping",
 );
-const { clickSelection, insideMarquee, marqueeSelection } = await importSrc(
-    "engine/react-flow/selection",
-);
+const { clickSelection, insideMarquee, marqueeSelection, pressSelection } =
+    await importSrc("engine/react-flow/selection");
 
 const box = (x, y, width = 100, height = 50) => ({ x, y, width, height });
 
@@ -106,6 +105,31 @@ test("a click on a selected element keeps the selection and its order", () => {
 test("a modifier-click adds an element at the end or takes it out", () => {
     assert.deepEqual(clickSelection(["a", "b"], "c", true), ["a", "b", "c"]);
     assert.deepEqual(clickSelection(["a", "b", "c"], "a", true), ["b", "c"]);
+});
+
+test("a modifier-press adds an unselected element at once, so a drag carries it", () => {
+    assert.deepEqual(pressSelection(["a", "b"], "c", true), {
+        selection: ["a", "b", "c"],
+        toggleOnClick: false,
+    });
+});
+
+test("a modifier-press on a selected element keeps it until the release, so a drag moves the whole selection", () => {
+    const selection = ["a", "b"];
+    const pressed = pressSelection(selection, "a", true);
+    assert.equal(pressed.selection, selection);
+    assert.equal(pressed.toggleOnClick, true);
+});
+
+test("a plain press selects as a click does and never toggles on release", () => {
+    assert.deepEqual(pressSelection(["a", "b"], "c", false), {
+        selection: ["c"],
+        toggleOnClick: false,
+    });
+    assert.deepEqual(pressSelection(["a", "b"], "b", false), {
+        selection: ["a", "b"],
+        toggleOnClick: false,
+    });
 });
 
 const ELEMENTS = [

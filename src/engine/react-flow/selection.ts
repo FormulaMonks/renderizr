@@ -32,6 +32,29 @@ export function clickSelection(
     return selected ? selection : [id];
 }
 
+/**
+ * The selection a press on element `id` leaves, before any drag starts
+ * (spec 10.1, 10.2), and whether a release with no movement still has to
+ * take the element out. A press selects as a click does, so a drag moves
+ * what is selected. With Shift, Cmd or Ctrl (`modifier`) a press adds an
+ * unselected element at once, so a drag carries it along; a selected one
+ * stays until the release, so a modifier-drag moves the whole selection
+ * and only a modifier-click takes it out.
+ */
+export function pressSelection(
+    selection: SelectionOrder,
+    id: string,
+    modifier: boolean,
+): { selection: SelectionOrder; toggleOnClick: boolean } {
+    const toggleOnClick = modifier && selection.includes(id);
+    return {
+        selection: toggleOnClick
+            ? selection
+            : clickSelection(selection, id, modifier),
+        toggleOnClick,
+    };
+}
+
 /** The elements of `boxes` wholly inside `rect`. */
 export const insideMarquee = <Box extends Bounds>(
     boxes: readonly Box[],

@@ -98,6 +98,7 @@ import {
 import {
     clickSelection,
     marqueeSelection,
+    pressSelection,
     type SelectionOrder,
 } from "./selection";
 import {
@@ -2434,6 +2435,14 @@ function Canvas({
      * pointer (spec 6.2). A key press hands focus back to the keyboard.
      */
     const pointing = useRef(false);
+    /**
+     * Where a modifier-press on a selected element landed, which a release
+     * with no movement turns into a click that takes the element out (spec
+     * 10.2), or null.
+     */
+    const toggling = __RENDERIZR_EDIT_MODE__
+        ? useRef<{ id: string; x: number; y: number } | null>(null)
+        : null;
 
     const itemElement = (item: FocusRef | undefined) =>
         item
@@ -2528,14 +2537,35 @@ function Canvas({
      * A press on an element sets the selection before React Flow starts a
      * drag (spec 10.2), so the drag moves what is selected once the press
      * lands: the element alone, the whole selection when it is in it, or
-     * with Shift, Cmd or Ctrl the selection with the element toggled.
+     * with Shift, Cmd or Ctrl the selection with an unselected element
+     * added. A modifier-press on a selected element waits for the release.
      */
     const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
         pointing.current = true;
         if (!__RENDERIZR_EDIT_MODE__ || !editable || event.button !== 0) return;
         const id = elementNodeId(event.target);
+        if (toggling) toggling.current = null;
         if (id === undefined) return pressEdge(event);
-        select(clickSelection(selected, id, modified(event)));
+        const pressed = pressSelection(selected, id, modified(event));
+        select(pressed.selection);
+        if (toggling && pressed.toggleOnClick)
+            toggling.current = { id, x: event.clientX, y: event.clientY };
+    };
+
+    /**
+     * A release that ends a modifier-click on a selected element takes it
+     * out of the selection (spec 10.2); one that ends a drag, past React
+     * Flow's 1 px threshold, leaves the selection as it is.
+     */
+    const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+        const pressed = toggling?.current;
+        if (!toggling || !pressed) return;
+        toggling.current = null;
+        if (
+            Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 1
+        )
+            return;
+        select(clickSelection(selected, pressed.id, true));
     };
 
     /* ---------------- editing edges (spec 12) */
@@ -2781,6 +2811,9 @@ function Canvas({
             className={styles.canvas}
             onKeyDown={onKeyDown}
             onPointerDownCapture={onPointerDown}
+            onPointerUpCapture={
+                __RENDERIZR_EDIT_MODE__ && editable ? onPointerUp : undefined
+            }
             onDoubleClick={editable ? onDoubleClick : undefined}
             onFocus={onFocus}
             style={
