@@ -4,6 +4,9 @@
  */
 
 import assert from "node:assert/strict";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { keyboardMap, notation, pageCommand } = await importSrc(
@@ -190,4 +193,22 @@ test("the keyboard map on a Mac reads in its notation and leaves out Ctrl+Y", ()
     assert.ok(keys.includes("⇧⌘Z"));
     assert.ok(keys.includes("⌥⇧H"));
     assert.ok(!keys.includes("Ctrl+Y"));
+});
+
+/* --------------------------------------------------------- engine boundary */
+
+test("React stays in the island and its mount, so the edit keys stay pure", async () => {
+    const SRC = fileURLToPath(new URL("../src/", import.meta.url));
+    const REACT = /from "(react|react-dom(\/client)?|@xyflow\/react)"/;
+    const allowed = new Set([
+        "engine/react-flow/island.tsx",
+        "engine/react-flow/index.ts",
+    ]);
+    const offenders = [];
+    for (const path of await readdir(SRC, { recursive: true })) {
+        if (!/\.tsx?$/.test(path) || allowed.has(path)) continue;
+        if (REACT.test(await readFile(join(SRC, path), "utf8")))
+            offenders.push(path);
+    }
+    assert.deepEqual(offenders, [], "these modules import React");
 });
