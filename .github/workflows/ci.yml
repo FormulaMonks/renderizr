@@ -1,6 +1,6 @@
 # Validates every pull request and every push to main.
 #
-# Five jobs, in order of how fast they tell you something is wrong:
+# Six jobs, in order of how fast they tell you something is wrong:
 #
 #   title   the pull request title is a conventional commit (pull requests only)
 #   static  lint + typecheck, one Node, seconds
@@ -11,6 +11,8 @@
 #           engine's acceptance harness over every view of the acceptance set
 #   consumer  the >=20 floor, via npm and production dependencies only — what
 #             `npx github:FormulaMonks/renderizr` actually does
+#   structurizr  Structurizr's own tools, pinned: the committed acceptance
+#                fixture matches what `pnpm fixtures:acceptance` writes
 #   ci      one required status check that stands for all of the above
 #
 # Outside `ci`, and so never required: `contact sheet`, which screenshots
@@ -330,6 +332,77 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # Structurizr's own tools against what this repository commits (spec 19.3).
+  # The acceptance fixture keeps its layout in its committed workspace.json,
+  # and `pnpm fixtures:acceptance` merges the DSL into it; this job runs that
+  # with the pinned 2026 distribution and fails when the committed fixture is
+  # out of date. Renovate bumps STRUCTURIZR_VERSION through the comment above
+  # it (renovate.json, customManagers).
+  structurizr:
+    name: structurizr
+    runs-on: ubuntu-latest
+    env:
+      # renovate: datasource=github-releases depName=structurizr/structurizr
+      STRUCTURIZR_VERSION: "2026.09.19"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # The WAR needs Java 21. Groovy, bundled in it, fails some `!script`
+      # blocks on Java 26, so the job stays on the version Structurizr names.
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache structurizr.war
+        id: war-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/structurizr
+          key: structurizr-war-${{ env.STRUCTURIZR_VERSION }}
+
+      - name: Download structurizr.war
+        if: steps.war-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "${RUNNER_TEMP}/structurizr"
+          curl --fail --silent --show-error --location \
+            --output "${RUNNER_TEMP}/structurizr/structurizr.war" \
+            "https://download.structurizr.com/structurizr-${STRUCTURIZR_VERSION}.war"
+
+      - name: Point STRUCTURIZR_CLI at it
+        run: |
+          echo "STRUCTURIZR_CLI=java -jar ${RUNNER_TEMP}/structurizr/structurizr.war" >> "$GITHUB_ENV"
+
+      - name: Regenerate the acceptance fixture
+        run: pnpm fixtures:acceptance
+
+      - name: Check the committed acceptance fixture is up to date
+        run: |
+          if git diff --exit-code -- test/__fixtures__/acceptance; then
+            exit 0
+          fi
+          echo "::error title=Acceptance fixture out of date::pnpm fixtures:acceptance changed test/__fixtures__/acceptance. Run it with Structurizr ${STRUCTURIZR_VERSION} (STRUCTURIZR_CLI=\"java -jar structurizr.war\") and commit the result."
+          exit 1
+
   # Every acceptance view in one HTML page, for a person reviewing a change to
   # the engine to file an issue against any view that reads worse (ADR 11).
   # Only on pull requests that touch `src/engine/` or `src/model/` (spec 16).
@@ -451,11 +524,11 @@ jobs:
     name: ci
     if: always()
     runs-on: ubuntu-latest
-    needs: [pr_title, static, test, e2e, consumer]
+    needs: [pr_title, static, test, e2e, consumer, structurizr]
     steps:
       - name: Check the results
         env:
-          RESULTS: ${{ needs.static.result }} ${{ needs.test.result }} ${{ needs.e2e.result }} ${{ needs.consumer.result }}
+          RESULTS: ${{ needs.static.result }} ${{ needs.test.result }} ${{ needs.e2e.result }} ${{ needs.consumer.result }} ${{ needs.structurizr.result }}
           # `pr_title` is the one job that legitimately does not run on a push
           # to main — there is no pull request to read a title from. That is
           # the only case in which a non-success is accepted, and it is matched
@@ -463,7 +536,7 @@ jobs:
           PR_TITLE_RESULT: ${{ needs.pr_title.result }}
           EVENT: ${{ github.event_name }}
         run: |
-          echo "static/test/e2e/consumer: $RESULTS"
+          echo "static/test/e2e/consumer/structurizr: $RESULTS"
           echo "pr title: $PR_TITLE_RESULT (event: $EVENT)"
           failed=0
           for result in $RESULTS; do
