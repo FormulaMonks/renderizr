@@ -318,6 +318,17 @@ export async function openBrowser(chrome) {
             else waiting.resolve(message.result);
         }
     });
+    // Chrome closes its end of the pipe as it exits, killed by `close` or
+    // not, and a read or write still on its way then fails with ECONNRESET
+    // or EPIPE: the calls still waiting fail with it, and nothing throws
+    // past the test.
+    const fail = (error) => {
+        for (const { reject } of pending.values()) reject(error);
+        pending.clear();
+    };
+    toChrome.on("error", fail);
+    fromChrome.on("error", fail);
+    child.once("exit", () => fail(new Error("Chrome exited")));
     const send = (method, params = {}, sessionId = undefined) =>
         new Promise((resolve, reject) => {
             const id = ++next;
