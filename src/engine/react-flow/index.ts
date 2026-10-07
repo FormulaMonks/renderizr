@@ -12,6 +12,7 @@ import {
     type Anchor,
     type Engine,
     type EngineOptions,
+    type SelectionState,
     whenMeasurable,
 } from "../contract";
 import { AnimationPlayer } from "./animation";
@@ -68,6 +69,7 @@ export function mountEngine(
             layouts: new Map(Object.entries(options.layouts ?? {})),
         });
         const layoutChanged = new Set<(change: LayoutChange) => void>();
+        const selectionChanged = new Set<(selection: SelectionState) => void>();
         const commands: IslandCommands = {
             fit: () => {},
             zoomIn: () => {},
@@ -187,6 +189,12 @@ export function mountEngine(
                     layoutChanged.delete(callback);
                 };
             },
+            onSelectionChanged(callback) {
+                selectionChanged.add(callback);
+                return () => {
+                    selectionChanged.delete(callback);
+                };
+            },
             unmount() {
                 stopWaiting();
                 shown.clear();
@@ -195,6 +203,7 @@ export function mountEngine(
                 activated.element.clear();
                 activated.relationship.clear();
                 layoutChanged.clear();
+                selectionChanged.clear();
                 root?.unmount();
                 root = null;
                 if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
@@ -237,6 +246,10 @@ export function mountEngine(
                     onActivate,
                     onLayoutChanged: (change) => {
                         for (const callback of layoutChanged) callback(change);
+                    },
+                    onSelectionChanged: (selection) => {
+                        for (const callback of selectionChanged)
+                            callback(selection);
                     },
                 }),
             );

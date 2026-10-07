@@ -10,6 +10,7 @@ import type {
     LayoutChange,
     ModelView,
 } from "../model";
+import type { RoutingMode } from "./geometry/routing/path";
 
 export type { EditedLayout, LayoutChange };
 
@@ -82,6 +83,17 @@ export const NOT_ANIMATING: Readonly<AnimationState> = {
     playing: false,
 };
 
+/**
+ * What edit mode has selected (spec 9.2, 10.2): element ids in selection
+ * order, the reference element first, and the selected edge, or null, with
+ * the routing mode it is drawn in now. The two never share: selecting one
+ * clears the other.
+ */
+export type SelectionState = {
+    elements: string[];
+    edge: { id: string; routing: RoutingMode } | null;
+};
+
 /** The animation members of the engine, which the toolbar drives. */
 export type AnimationControls = {
     /** Advance every 2 s from the step shown, or from step 1. */
@@ -142,6 +154,13 @@ export type Engine = AnimationControls & {
      * change to a view with no edited layout carries every element.
      */
     onLayoutChanged(callback: (change: LayoutChange) => void): () => void;
+    /**
+     * Every change of the selection in editing (spec 9.2). The selection
+     * lives in the engine and is never saved or undone (ADR 18).
+     */
+    onSelectionChanged(
+        callback: (selection: SelectionState) => void,
+    ): () => void;
     /**
      * Resize the canvas of the view being edited (spec 14): Decrease and
      * Increase by 100 each way, deleting `paperSize`, or Auto, the content

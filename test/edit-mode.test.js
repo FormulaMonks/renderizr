@@ -300,3 +300,91 @@ test(
         assert.equal(undone.automaticLayout, undefined);
     },
 );
+
+/** Each element of the Containers view in the `workspace.json` at `json`, by id. */
+const containerElements = async (json) =>
+    new Map(
+        JSON.parse(await readFile(json, "utf8"))
+            .views.containerViews.find((view) => view.key === "Containers")
+            .elements.map((element) => [element.id, element]),
+    );
+
+test(
+    "a marquee drawn inside a boundary selects the elements in it, and a drag moves and saves them all",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("big-bank-plc-stored.json");
+        const before = await containerElements(json);
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await browser.open(
+                `${url}#?page=diagrams&view=Containers&mode=edit`,
+            );
+            await page.waitFor(
+                `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="17"]')`,
+            );
+            const rects = await page.evaluate(`(() => {
+                const rect = (id) => {
+                    const r = document.querySelector('.react-flow__node[data-id="' + id + '"]').getBoundingClientRect();
+                    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+                };
+                return { web: rect("19"), spa: rect("17"), mobile: rect("18"), boundary: rect("boundary:7") };
+            })()`);
+            // From the empty boundary between the Web Application and the
+            // Single-Page Application, round the Single-Page Application and
+            // the Mobile App.
+            const start = {
+                x: (rects.web.right + rects.spa.left) / 2,
+                y: rects.spa.top - 2,
+            };
+            assert.ok(
+                start.x > rects.boundary.left && start.y > rects.boundary.top,
+                "the marquee starts outside the boundary",
+            );
+            await page.drag(start, {
+                x: rects.mobile.right + 10,
+                y: rects.mobile.bottom + 10,
+            });
+            const selected = await page.evaluate(
+                `[...document.querySelectorAll(".react-flow__node.selected")].map((node) => node.dataset.id).sort()`,
+            );
+            assert.deepEqual(selected, ["17", "18"]);
+            assert.equal(
+                await page.evaluate(
+                    `document.querySelector(".react-flow__node[data-reference]")?.dataset.id`,
+                ),
+                "17",
+                "the element nearest the marquee's starting corner isn't the reference element",
+            );
+
+            // Drag the selection by the Mobile App.
+            const from = {
+                x: (rects.mobile.left + rects.mobile.right) / 2,
+                y: (rects.mobile.top + rects.mobile.bottom) / 2,
+            };
+            await page.drag(from, { x: from.x + 90, y: from.y + 45 });
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Unsaved changes"`,
+            );
+            await page.press("s", "KeyS", 2);
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Saved"`,
+            );
+        } finally {
+            await browser.close();
+        }
+
+        const after = await containerElements(json);
+        const delta = (id) => ({
+            x: after.get(id).x - before.get(id).x,
+            y: after.get(id).y - before.get(id).y,
+        });
+        assert.ok(
+            delta("17").x > 0 && delta("17").y > 0,
+            `the Single-Page Application moved by ${JSON.stringify(delta("17"))}`,
+        );
+        assert.deepEqual(delta("18"), delta("17"), "the selection split up");
+        for (const id of ["1", "19", "20", "27"])
+            assert.deepEqual(delta(id), { x: 0, y: 0 }, `${id} moved`);
+    },
+);
