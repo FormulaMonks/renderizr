@@ -242,8 +242,20 @@ export function editMode({
      * Send the workspace on disk to every open page (spec 6.1), with the
      * build's transforms applied, or the reason it won't load. When a page's
      * save wrote that version, the event names the page as its `source`.
+     *
+     * One at a time, in the order the changes came: loading a workspace
+     * takes longer for some files than others, so two changes close together
+     * could otherwise reach the pages newest first, and the older one would
+     * stay on the page.
      */
-    const publish = async (server) => {
+    let publishing = Promise.resolve();
+    const publish = (server) => {
+        const run = publishing.then(() => publishNow(server));
+        publishing = run.catch(() => {});
+        return run;
+    };
+
+    const publishNow = async (server) => {
         const text = await readFile(file, "utf8").catch(() => null);
         // Gone for a moment, as some editors save; its return publishes.
         if (text === null) return;
