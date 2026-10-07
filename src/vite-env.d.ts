@@ -34,4 +34,6 @@ declare const __RENDERIZR_EDIT_MODE__: boolean;
 declare module "virtual:renderizr/workspace" {
     const workspace: Record<string, unknown>;
     export default workspace;
+    /** The version of `workspace.json` edit mode served; `null` in a build. */
+    export const version: string | null;
 }

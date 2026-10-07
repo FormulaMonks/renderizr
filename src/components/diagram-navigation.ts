@@ -99,18 +99,26 @@ export default class DiagramNavigation extends Component {
      * hides that base, and edit mode still edits it.
      */
     #reachable: (key: string) => boolean;
+    /**
+     * What a click on a view goes through first. Edit mode holds it while
+     * the view's changes wait for a save (spec 7.5); otherwise it goes at
+     * once.
+     */
+    #guard: (proceed: () => void) => void;
 
     constructor(
         element: HTMLElement,
         diagram: ViewSwitcher,
         model: WorkspaceModel,
         reachable: (key: string) => boolean = () => false,
+        guard: (proceed: () => void) => void = (proceed) => proceed(),
     ) {
         super(element);
         this.#diagram = diagram;
         this.#model = model;
         this.#navElements = model.getViews();
         this.#reachable = reachable;
+        this.#guard = guard;
     }
 
     /** Whether the URL may open the view `key`. */
@@ -135,7 +143,8 @@ export default class DiagramNavigation extends Component {
 
             const callback = (event: Event) => {
                 event.preventDefault();
-                this.changeView(key);
+                if (key === this.#shown) this.changeView(key);
+                else this.#guard(() => this.changeView(key));
             };
 
             this.#eventListeners.set(key, callback);

@@ -1,0 +1,1105 @@
+{
+  "configuration" : { },
+  "description" : "Every drawing rule of the renderer spec in one workspace",
+  "documentation" : { },
+  "id" : 0,
+  "model" : {
+    "customElements" : [ {
+      "description" : "A thick dotted stroke",
+      "id" : "57",
+      "metadata" : "Style",
+      "name" : "Dotted border",
+      "properties" : {
+        "structurizr.dsl.identifier" : "dotted"
+      },
+      "tags" : "Element,Dotted"
+    }, {
+      "description" : "A thick dashed stroke",
+      "id" : "56",
+      "metadata" : "Style",
+      "name" : "Dashed border",
+      "properties" : {
+        "structurizr.dsl.identifier" : "dashed"
+      },
+      "tags" : "Element,Dashed"
+    }, {
+      "description" : "Fill and stroke at 40% opacity, text and icon opaque",
+      "id" : "55",
+      "metadata" : "Style",
+      "name" : "Faded",
+      "properties" : {
+        "structurizr.dsl.identifier" : "faded"
+      },
+      "tags" : "Element,Faded"
+    }, {
+      "description" : "The icon sits left of the text",
+      "id" : "54",
+      "metadata" : "Style",
+      "name" : "Icon on the left",
+      "properties" : {
+        "structurizr.dsl.identifier" : "iconLeft"
+      },
+      "tags" : "Element,Icon,Icon:Left"
+    }, {
+      "description" : "The icon sits below the description",
+      "id" : "53",
+      "metadata" : "Style",
+      "name" : "Icon at the bottom",
+      "properties" : {
+        "structurizr.dsl.identifier" : "iconBottom"
+      },
+      "tags" : "Element,Icon"
+    }, {
+      "description" : "The icon sits above the name",
+      "id" : "52",
+      "metadata" : "Style",
+      "name" : "Icon on top",
+      "properties" : {
+        "structurizr.dsl.identifier" : "iconTop"
+      },
+      "tags" : "Element,Icon,Icon:Top"
+    }, {
+      "id" : "51",
+      "metadata" : "Shape",
+      "name" : "Terminal",
+      "properties" : {
+        "structurizr.dsl.identifier" : "terminal"
+      },
+      "tags" : "Element,Shape,Shape:Terminal"
+    }, {
+      "id" : "50",
+      "metadata" : "Shape",
+      "name" : "Shell",
+      "properties" : {
+        "structurizr.dsl.identifier" : "shell"
+      },
+      "tags" : "Element,Shape,Shape:Shell"
+    }, {
+      "id" : "49",
+      "metadata" : "Shape",
+      "name" : "Component",
+      "properties" : {
+        "structurizr.dsl.identifier" : "component"
+      },
+      "tags" : "Element,Shape,Shape:Component"
+    }, {
+      "id" : "48",
+      "metadata" : "Shape",
+      "name" : "Mobile device\nlandscape",
+      "properties" : {
+        "structurizr.dsl.identifier" : "landscape"
+      },
+      "tags" : "Element,Shape,Shape:MobileDeviceLandscape"
+    }, {
+      "id" : "47",
+      "metadata" : "Shape",
+      "name" : "Mobile device\nportrait",
+      "properties" : {
+        "structurizr.dsl.identifier" : "portrait"
+      },
+      "tags" : "Element,Shape,Shape:MobileDevicePortrait"
+    }, {
+      "id" : "46",
+      "metadata" : "Shape",
+      "name" : "Window",
+      "properties" : {
+        "structurizr.dsl.identifier" : "window"
+      },
+      "tags" : "Element,Shape,Shape:Window"
+    }, {
+      "id" : "45",
+      "metadata" : "Shape",
+      "name" : "WebBrowser",
+      "properties" : {
+        "structurizr.dsl.identifier" : "webBrowser"
+      },
+      "tags" : "Element,Shape,Shape:WebBrowser"
+    }, {
+      "id" : "44",
+      "metadata" : "Shape",
+      "name" : "Folder",
+      "properties" : {
+        "structurizr.dsl.identifier" : "folder"
+      },
+      "tags" : "Element,Shape,Shape:Folder"
+    }, {
+      "id" : "43",
+      "metadata" : "Shape",
+      "name" : "Robot",
+      "properties" : {
+        "structurizr.dsl.identifier" : "robot"
+      },
+      "tags" : "Element,Shape,Shape:Robot"
+    }, {
+      "id" : "42",
+      "metadata" : "Shape",
+      "name" : "Person",
+      "properties" : {
+        "structurizr.dsl.identifier" : "personShape"
+      },
+      "tags" : "Element,Shape,Shape:Person"
+    }, {
+      "id" : "41",
+      "metadata" : "Shape",
+      "name" : "Pipe",
+      "properties" : {
+        "structurizr.dsl.identifier" : "pipe"
+      },
+      "tags" : "Element,Shape,Shape:Pipe"
+    }, {
+      "id" : "40",
+      "metadata" : "Shape",
+      "name" : "Bucket",
+      "properties" : {
+        "structurizr.dsl.identifier" : "bucket"
+      },
+      "tags" : "Element,Shape,Shape:Bucket"
+    }, {
+      "id" : "39",
+      "metadata" : "Shape",
+      "name" : "Cylinder",
+      "properties" : {
+        "structurizr.dsl.identifier" : "cylinder"
+      },
+      "tags" : "Element,Shape,Shape:Cylinder"
+    }, {
+      "id" : "38",
+      "metadata" : "Shape",
+      "name" : "Diamond",
+      "properties" : {
+        "structurizr.dsl.identifier" : "diamond"
+      },
+      "tags" : "Element,Shape,Shape:Diamond"
+    }, {
+      "id" : "37",
+      "metadata" : "Shape",
+      "name" : "Hexagon",
+      "properties" : {
+        "structurizr.dsl.identifier" : "hexagon"
+      },
+      "tags" : "Element,Shape,Shape:Hexagon"
+    }, {
+      "id" : "36",
+      "metadata" : "Shape",
+      "name" : "Ellipse",
+      "properties" : {
+        "structurizr.dsl.identifier" : "ellipse"
+      },
+      "tags" : "Element,Shape,Shape:Ellipse"
+    }, {
+      "id" : "35",
+      "metadata" : "Shape",
+      "name" : "Circle",
+      "properties" : {
+        "structurizr.dsl.identifier" : "circle"
+      },
+      "tags" : "Element,Shape,Shape:Circle"
+    }, {
+      "id" : "34",
+      "metadata" : "Shape",
+      "name" : "RoundedBox",
+      "properties" : {
+        "structurizr.dsl.identifier" : "roundedBox"
+      },
+      "tags" : "Element,Shape,Shape:RoundedBox"
+    }, {
+      "id" : "33",
+      "metadata" : "Shape",
+      "name" : "Box",
+      "properties" : {
+        "structurizr.dsl.identifier" : "box"
+      },
+      "tags" : "Element,Shape,Shape:Box"
+    } ],
+    "deploymentNodes" : [ {
+      "children" : [ {
+        "containerInstances" : [ {
+          "containerId" : "4",
+          "deploymentGroups" : [ "Default" ],
+          "environment" : "Live",
+          "id" : "25",
+          "instanceId" : 1,
+          "properties" : {
+            "structurizr.dsl.identifier" : "webInstance"
+          },
+          "relationships" : [ {
+            "description" : "Places orders using",
+            "destinationId" : "27",
+            "id" : "28",
+            "linkedRelationshipId" : "18",
+            "sourceId" : "25",
+            "technology" : "JSON/HTTPS"
+          } ],
+          "tags" : "Container Instance"
+        } ],
+        "environment" : "Live",
+        "id" : "24",
+        "instances" : "1",
+        "name" : "Web server",
+        "properties" : {
+          "structurizr.dsl.identifier" : "webServer"
+        },
+        "tags" : "Element,Deployment Node",
+        "technology" : "nginx"
+      }, {
+        "containerInstances" : [ {
+          "containerId" : "5",
+          "deploymentGroups" : [ "Default" ],
+          "environment" : "Live",
+          "id" : "27",
+          "instanceId" : 1,
+          "properties" : {
+            "structurizr.dsl.identifier" : "apiInstance"
+          },
+          "relationships" : [ {
+            "description" : "Reads from and writes to",
+            "destinationId" : "30",
+            "id" : "31",
+            "linkedRelationshipId" : "19",
+            "sourceId" : "27",
+            "technology" : "SQL"
+          } ],
+          "tags" : "Container Instance"
+        } ],
+        "environment" : "Live",
+        "id" : "26",
+        "instances" : "2",
+        "name" : "API server",
+        "properties" : {
+          "structurizr.dsl.identifier" : "apiServer"
+        },
+        "tags" : "Element,Deployment Node,",
+        "technology" : "Node.js"
+      }, {
+        "containerInstances" : [ {
+          "containerId" : "6",
+          "deploymentGroups" : [ "Default" ],
+          "environment" : "Live",
+          "id" : "30",
+          "instanceId" : 1,
+          "properties" : {
+            "structurizr.dsl.identifier" : "dbInstance"
+          },
+          "tags" : "Container Instance"
+        } ],
+        "environment" : "Live",
+        "id" : "29",
+        "instances" : "1",
+        "name" : "Database server",
+        "properties" : {
+          "structurizr.dsl.identifier" : "dbServer"
+        },
+        "tags" : "Element,Deployment Node",
+        "technology" : "PostgreSQL"
+      }, {
+        "description" : "Kept empty for failover",
+        "environment" : "Live",
+        "id" : "32",
+        "instances" : "1",
+        "name" : "Spare server",
+        "properties" : {
+          "structurizr.dsl.identifier" : "spare"
+        },
+        "tags" : "Element,Deployment Node",
+        "technology" : "Ubuntu"
+      } ],
+      "environment" : "Live",
+      "id" : "23",
+      "instances" : "1",
+      "name" : "Cloud",
+      "properties" : {
+        "structurizr.dsl.identifier" : "cloud"
+      },
+      "tags" : "Element,Deployment Node",
+      "technology" : "Hosting provider"
+    } ],
+    "people" : [ {
+      "description" : "Buys things online",
+      "id" : "1",
+      "name" : "Customer",
+      "properties" : {
+        "structurizr.dsl.identifier" : "customer"
+      },
+      "relationships" : [ {
+        "description" : "Places orders with",
+        "destinationId" : "3",
+        "id" : "11",
+        "sourceId" : "1",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      }, {
+        "description" : "Checks out using",
+        "destinationId" : "4",
+        "id" : "17",
+        "sourceId" : "1",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Person"
+    }, {
+      "description" : "Packs and ships the orders customers place",
+      "id" : "2",
+      "name" : "Shop\nclerk",
+      "properties" : {
+        "structurizr.dsl.identifier" : "clerk"
+      },
+      "relationships" : [ {
+        "description" : "Packs orders in",
+        "destinationId" : "8",
+        "id" : "12",
+        "sourceId" : "2",
+        "tags" : "Relationship,Orthogonal"
+      } ],
+      "tags" : "Element,Person,Internal"
+    } ],
+    "softwareSystems" : [ {
+      "containers" : [ {
+        "description" : "Serves the storefront",
+        "documentation" : { },
+        "id" : "4",
+        "name" : "Web App",
+        "properties" : {
+          "structurizr.dsl.identifier" : "web"
+        },
+        "relationships" : [ {
+          "description" : "Places orders using",
+          "destinationId" : "5",
+          "id" : "18",
+          "sourceId" : "4",
+          "tags" : "Relationship",
+          "technology" : "JSON/HTTPS"
+        } ],
+        "tags" : "Element,Container",
+        "technology" : "React"
+      }, {
+        "description" : "Handles orders and payments",
+        "documentation" : { },
+        "id" : "5",
+        "name" : "API",
+        "properties" : {
+          "structurizr.dsl.identifier" : "api"
+        },
+        "relationships" : [ {
+          "description" : "Reads from and writes to",
+          "destinationId" : "6",
+          "id" : "19",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "SQL"
+        }, {
+          "description" : "Charges cards using",
+          "destinationId" : "9",
+          "id" : "20",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS"
+        }, {
+          "description" : "Publishes orders to",
+          "destinationId" : "7",
+          "id" : "21",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "AMQP"
+        } ],
+        "tags" : "Element,Container",
+        "technology" : "Node.js"
+      }, {
+        "description" : "Stores orders",
+        "documentation" : { },
+        "id" : "6",
+        "name" : "Database",
+        "properties" : {
+          "structurizr.dsl.identifier" : "db"
+        },
+        "tags" : "Element,Container,Database",
+        "technology" : "PostgreSQL"
+      }, {
+        "description" : "Holds orders until the warehouse takes them",
+        "documentation" : { },
+        "id" : "7",
+        "name" : "Queue",
+        "properties" : {
+          "structurizr.dsl.identifier" : "queue"
+        },
+        "relationships" : [ {
+          "description" : "Delivers orders to",
+          "destinationId" : "8",
+          "id" : "22",
+          "sourceId" : "7",
+          "tags" : "Relationship",
+          "technology" : "AMQP"
+        } ],
+        "tags" : "Element,Container,Queue",
+        "technology" : "RabbitMQ"
+      } ],
+      "description" : "Takes orders, charges cards and hands parcels to couriers",
+      "documentation" : { },
+      "id" : "3",
+      "name" : "Shop",
+      "properties" : {
+        "structurizr.dsl.identifier" : "shop",
+        "Runbook" : "https://runbooks.example.com/shop"
+      },
+      "relationships" : [ {
+        "description" : "Charges cards with",
+        "destinationId" : "9",
+        "id" : "13",
+        "sourceId" : "3",
+        "tags" : "Relationship,Curved",
+        "technology" : "HTTPS"
+      }, {
+        "description" : "Sends orders to",
+        "destinationId" : "8",
+        "id" : "14",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "AMQP"
+      } ],
+      "tags" : "Element,Software System,Internal",
+      "url" : "https://github.com/example/shop"
+    }, {
+      "description" : "Keeps the stock, picks every item of an order off the shelves, packs it into a parcel sized to fit, prints the label and keeps the parcel until the courier collects it, then tells the shop the order has left",
+      "documentation" : { },
+      "id" : "8",
+      "name" : "Warehouse",
+      "properties" : {
+        "structurizr.dsl.identifier" : "warehouse"
+      },
+      "relationships" : [ {
+        "description" : "Books deliveries with",
+        "destinationId" : "10",
+        "id" : "15",
+        "sourceId" : "8",
+        "tags" : "Relationship,Orthogonal",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Software System,Internal"
+    }, {
+      "description" : "Charges cards",
+      "documentation" : { },
+      "id" : "9",
+      "name" : "Card\ngateway",
+      "properties" : {
+        "structurizr.dsl.identifier" : "payments"
+      },
+      "relationships" : [ {
+        "description" : "Emails receipts to",
+        "destinationId" : "1",
+        "id" : "16",
+        "sourceId" : "9",
+        "tags" : "Relationship,Curved",
+        "technology" : "SMTP"
+      } ],
+      "tags" : "Element,Software System,External"
+    }, {
+      "description" : "Delivers parcels",
+      "documentation" : { },
+      "id" : "10",
+      "name" : "Courier",
+      "properties" : {
+        "structurizr.dsl.identifier" : "courier"
+      },
+      "tags" : "Element,Software System,External"
+    } ]
+  },
+  "name" : "Acceptance",
+  "properties" : {
+    "structurizr.inspection.error" : "34",
+    "structurizr.inspection.info" : "0",
+    "structurizr.inspection.ignore" : "0",
+    "structurizr.inspection.warning" : "0"
+  },
+  "views" : {
+    "configuration" : {
+      "branding" : { },
+      "styles" : {
+        "elements" : [ {
+          "background" : "#438dd5",
+          "tag" : "Container"
+        }, {
+          "border" : "Dashed",
+          "stroke" : "#f59e0b",
+          "strokeWidth" : 6,
+          "tag" : "Dashed"
+        }, {
+          "shape" : "Cylinder",
+          "tag" : "Database"
+        }, {
+          "background" : "#ffffff",
+          "color" : "#000000",
+          "tag" : "Deployment Node"
+        }, {
+          "border" : "Dotted",
+          "stroke" : "#f59e0b",
+          "strokeWidth" : 6,
+          "tag" : "Dotted"
+        }, {
+          "background" : "#1168bd",
+          "color" : "#ffffff",
+          "tag" : "Element"
+        }, {
+          "background" : "#999999",
+          "tag" : "External"
+        }, {
+          "icon" : "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjgiIGZpbGw9IiNmNTllMGIiLz48cGF0aCBkPSJNMjAgMzNsOCA4IDE2LTE4IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+",
+          "opacity" : 40,
+          "tag" : "Faded"
+        }, {
+          "icon" : "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMjgiIGZpbGw9IiNmNTllMGIiLz48cGF0aCBkPSJNMjAgMzNsOCA4IDE2LTE4IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+",
+          "tag" : "Icon"
+        }, {
+          "iconPosition" : "Left",
+          "tag" : "Icon:Left"
+        }, {
+          "iconPosition" : "Top",
+          "tag" : "Icon:Top"
+        }, {
+          "background" : "#08427b",
+          "shape" : "Person",
+          "tag" : "Person"
+        }, {
+          "shape" : "Pipe",
+          "tag" : "Queue"
+        }, {
+          "shape" : "Box",
+          "tag" : "Shape:Box"
+        }, {
+          "shape" : "Bucket",
+          "tag" : "Shape:Bucket"
+        }, {
+          "shape" : "Circle",
+          "tag" : "Shape:Circle"
+        }, {
+          "shape" : "Component",
+          "tag" : "Shape:Component"
+        }, {
+          "shape" : "Cylinder",
+          "tag" : "Shape:Cylinder"
+        }, {
+          "shape" : "Diamond",
+          "tag" : "Shape:Diamond"
+        }, {
+          "shape" : "Ellipse",
+          "tag" : "Shape:Ellipse"
+        }, {
+          "shape" : "Folder",
+          "tag" : "Shape:Folder"
+        }, {
+          "shape" : "Hexagon",
+          "tag" : "Shape:Hexagon"
+        }, {
+          "shape" : "MobileDeviceLandscape",
+          "tag" : "Shape:MobileDeviceLandscape"
+        }, {
+          "shape" : "MobileDevicePortrait",
+          "tag" : "Shape:MobileDevicePortrait"
+        }, {
+          "shape" : "Person",
+          "tag" : "Shape:Person"
+        }, {
+          "shape" : "Pipe",
+          "tag" : "Shape:Pipe"
+        }, {
+          "shape" : "Robot",
+          "tag" : "Shape:Robot"
+        }, {
+          "shape" : "RoundedBox",
+          "tag" : "Shape:RoundedBox"
+        }, {
+          "shape" : "Shell",
+          "tag" : "Shape:Shell"
+        }, {
+          "shape" : "Terminal",
+          "tag" : "Shape:Terminal"
+        }, {
+          "shape" : "WebBrowser",
+          "tag" : "Shape:WebBrowser"
+        }, {
+          "shape" : "Window",
+          "tag" : "Shape:Window"
+        }, {
+          "background" : "#0b3d6e",
+          "color" : "#e0e0e0",
+          "colorScheme" : "Dark",
+          "tag" : "Element"
+        }, {
+          "background" : "#1e3a5f",
+          "color" : "#dbeafe",
+          "colorScheme" : "Dark",
+          "stroke" : "#dbeafe",
+          "tag" : "Shape"
+        }, {
+          "background" : "#dbeafe",
+          "color" : "#1e3a5f",
+          "colorScheme" : "Light",
+          "stroke" : "#1e3a5f",
+          "tag" : "Shape"
+        } ],
+        "relationships" : [ {
+          "routing" : "Curved",
+          "tag" : "Curved"
+        }, {
+          "routing" : "Orthogonal",
+          "tag" : "Orthogonal"
+        }, {
+          "color" : "#707070",
+          "tag" : "Relationship"
+        }, {
+          "color" : "#a0a0a0",
+          "colorScheme" : "Dark",
+          "tag" : "Relationship"
+        } ]
+      },
+      "terminology" : { }
+    },
+    "containerViews" : [ {
+      "description" : "A stored layout that leaves the queue unplaced",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 900,
+        "y" : 100
+      }, {
+        "id" : "4",
+        "x" : 900,
+        "y" : 700
+      }, {
+        "id" : "5",
+        "x" : 900,
+        "y" : 1300
+      }, {
+        "id" : "6",
+        "x" : 900,
+        "y" : 1900
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 1900,
+        "y" : 1900
+      }, {
+        "id" : "9",
+        "x" : 1900,
+        "y" : 1300
+      } ],
+      "externalSoftwareSystemBoundariesVisible" : false,
+      "key" : "Containers",
+      "name" : "Container View: Shop",
+      "order" : 5,
+      "relationships" : [ {
+        "id" : "16"
+      }, {
+        "id" : "17"
+      }, {
+        "id" : "18"
+      }, {
+        "id" : "19"
+      }, {
+        "id" : "20"
+      }, {
+        "id" : "21"
+      }, {
+        "id" : "22"
+      } ],
+      "softwareSystemId" : "3"
+    } ],
+    "customViews" : [ {
+      "description" : "All 19 shapes, in light and dark styles",
+      "elements" : [ {
+        "id" : "33",
+        "x" : 100,
+        "y" : 100
+      }, {
+        "id" : "34",
+        "x" : 750,
+        "y" : 100
+      }, {
+        "id" : "35",
+        "x" : 1400,
+        "y" : 100
+      }, {
+        "id" : "36",
+        "x" : 2050,
+        "y" : 100
+      }, {
+        "id" : "37",
+        "x" : 2700,
+        "y" : 100
+      }, {
+        "id" : "38",
+        "x" : 100,
+        "y" : 600
+      }, {
+        "id" : "39",
+        "x" : 750,
+        "y" : 600
+      }, {
+        "id" : "40",
+        "x" : 1400,
+        "y" : 600
+      }, {
+        "id" : "41",
+        "x" : 2050,
+        "y" : 600
+      }, {
+        "id" : "42",
+        "x" : 2700,
+        "y" : 600
+      }, {
+        "id" : "43",
+        "x" : 100,
+        "y" : 1100
+      }, {
+        "id" : "44",
+        "x" : 750,
+        "y" : 1100
+      }, {
+        "id" : "45",
+        "x" : 1400,
+        "y" : 1100
+      }, {
+        "id" : "46",
+        "x" : 2050,
+        "y" : 1100
+      }, {
+        "id" : "47",
+        "x" : 2700,
+        "y" : 1100
+      }, {
+        "id" : "48",
+        "x" : 100,
+        "y" : 1600
+      }, {
+        "id" : "49",
+        "x" : 750,
+        "y" : 1600
+      }, {
+        "id" : "50",
+        "x" : 1400,
+        "y" : 1600
+      }, {
+        "id" : "51",
+        "x" : 2050,
+        "y" : 1600
+      } ],
+      "key" : "Shapes",
+      "name" : "Custom View: Shapes",
+      "order" : 8,
+      "title" : "Shapes"
+    }, {
+      "description" : "Icon positions, opacity and borders",
+      "elements" : [ {
+        "id" : "52",
+        "x" : 100,
+        "y" : 100
+      }, {
+        "id" : "53",
+        "x" : 750,
+        "y" : 100
+      }, {
+        "id" : "54",
+        "x" : 1400,
+        "y" : 100
+      }, {
+        "id" : "55",
+        "x" : 100,
+        "y" : 600
+      }, {
+        "id" : "56",
+        "x" : 750,
+        "y" : 600
+      }, {
+        "id" : "57",
+        "x" : 1400,
+        "y" : 600
+      } ],
+      "key" : "Styles",
+      "name" : "Custom View: Styles",
+      "order" : 9,
+      "title" : "Styles"
+    } ],
+    "deploymentViews" : [ {
+      "description" : "Live, with a spare server that holds nothing",
+      "elements" : [ {
+        "id" : "23",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "24",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "25",
+        "x" : 200,
+        "y" : 200
+      }, {
+        "id" : "26",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "27",
+        "x" : 1000,
+        "y" : 200
+      }, {
+        "id" : "29",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "30",
+        "x" : 1800,
+        "y" : 200
+      }, {
+        "id" : "32",
+        "x" : 1000,
+        "y" : 1000
+      } ],
+      "environment" : "Live",
+      "key" : "Deployment",
+      "name" : "Deployment View: Shop - Live",
+      "order" : 7,
+      "relationships" : [ {
+        "id" : "28"
+      }, {
+        "id" : "31"
+      } ],
+      "softwareSystemId" : "3"
+    } ],
+    "dynamicViews" : [ {
+      "automaticLayout" : {
+        "applied" : false,
+        "edgeSeparation" : 0,
+        "implementation" : "Graphviz",
+        "nodeSeparation" : 300,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 300,
+        "vertices" : false
+      },
+      "description" : "Charging the card and saving the order run in parallel",
+      "elementId" : "3",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "6",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalBoundariesVisible" : false,
+      "key" : "Checkout",
+      "name" : "Dynamic View: Shop",
+      "order" : 6,
+      "relationships" : [ {
+        "description" : "Checks out using",
+        "id" : "17",
+        "order" : "1",
+        "response" : false
+      }, {
+        "description" : "Places the order using",
+        "id" : "18",
+        "order" : "2",
+        "response" : false
+      }, {
+        "description" : "Saves the order in",
+        "id" : "19",
+        "order" : "3",
+        "response" : false
+      }, {
+        "description" : "Charges the card with",
+        "id" : "20",
+        "order" : "3",
+        "response" : false
+      }, {
+        "description" : "Publishes the order to",
+        "id" : "21",
+        "order" : "4",
+        "response" : false
+      } ]
+    } ],
+    "filteredViews" : [ {
+      "baseViewKey" : "Context",
+      "description" : "The context without the External elements",
+      "key" : "ContextInternal",
+      "mode" : "Exclude",
+      "name" : "Filtered: System Context View: Shop",
+      "order" : 4,
+      "tags" : [ "External" ]
+    } ],
+    "systemContextViews" : [ {
+      "automaticLayout" : {
+        "applied" : false,
+        "edgeSeparation" : 0,
+        "implementation" : "Graphviz",
+        "nodeSeparation" : 300,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 300,
+        "vertices" : false
+      },
+      "description" : "The shop and its neighbors, laid out automatically",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "key" : "Context",
+      "name" : "System Context View: Shop",
+      "order" : 3,
+      "relationships" : [ {
+        "id" : "11"
+      }, {
+        "id" : "13"
+      }, {
+        "id" : "14"
+      }, {
+        "id" : "16"
+      } ],
+      "softwareSystemId" : "3"
+    } ],
+    "systemLandscapeViews" : [ {
+      "description" : "Every routing mode, with and without vertices, inside and across the enterprise boundary",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 100,
+        "y" : 800
+      }, {
+        "id" : "2",
+        "x" : 1000,
+        "y" : 100
+      }, {
+        "id" : "3",
+        "x" : 1000,
+        "y" : 800
+      }, {
+        "id" : "8",
+        "x" : 1800,
+        "y" : 100
+      }, {
+        "id" : "9",
+        "x" : 2700,
+        "y" : 800
+      }, {
+        "id" : "10",
+        "x" : 2700,
+        "y" : 100
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "key" : "Landscape",
+      "name" : "System Landscape View",
+      "order" : 1,
+      "relationships" : [ {
+        "id" : "11"
+      }, {
+        "id" : "12"
+      }, {
+        "id" : "13"
+      }, {
+        "id" : "14",
+        "vertices" : [ {
+          "x" : 2025,
+          "y" : 600
+        } ]
+      }, {
+        "id" : "15",
+        "vertices" : [ {
+          "x" : 2025,
+          "y" : 0
+        }, {
+          "x" : 2925,
+          "y" : 0
+        } ]
+      }, {
+        "id" : "16",
+        "vertices" : [ {
+          "x" : 2925,
+          "y" : 1600
+        }, {
+          "x" : 325,
+          "y" : 1600
+        } ]
+      } ]
+    }, {
+      "automaticLayout" : {
+        "applied" : false,
+        "edgeSeparation" : 0,
+        "implementation" : "Graphviz",
+        "nodeSeparation" : 300,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 300,
+        "vertices" : false
+      },
+      "description" : "The landscape laid out automatically, with the enterprise boundary around the shop's own people and systems",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "2",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "key" : "LandscapeAutomatic",
+      "name" : "System Landscape View",
+      "order" : 2,
+      "relationships" : [ {
+        "id" : "11"
+      }, {
+        "id" : "12"
+      }, {
+        "id" : "13"
+      }, {
+        "id" : "14"
+      }, {
+        "id" : "15"
+      }, {
+        "id" : "16"
+      } ]
+    } ]
+  }
+}

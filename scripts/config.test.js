@@ -50,12 +50,13 @@ test("the workspace is compiled in as the page's workspace module", () => {
         (candidate) => candidate.name === "renderizr:workspace",
     );
 
-    const source = workspaceModuleSource(plugin);
-    assert.ok(source.startsWith("export default "));
+    const [workspace, version] = workspaceModuleSource(plugin).split("\n");
+    assert.ok(workspace.startsWith("export default "));
     assert.deepEqual(
-        JSON.parse(source.slice("export default ".length, -1)),
+        JSON.parse(workspace.slice("export default ".length, -1)),
         WORKSPACE,
     );
+    assert.equal(version, "export const version = null;");
     assert.ok(!("workspaceData" in config.define));
 });
 

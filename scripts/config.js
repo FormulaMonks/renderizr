@@ -13,7 +13,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
  * load: every build in a process renders the same version, and a missing or
  * unreadable manifest is a footer without a version, never a failed build.
  */
-const version = (() => {
+export const version = (() => {
     try {
         const manifest = readFileSync(resolve(root, "package.json"), "utf8");
         return JSON.parse(manifest).version ?? null;

@@ -3,7 +3,7 @@ import { statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { createServer } from "vite";
 import { loadWorkspace } from "./assets.js";
-import { createConfig } from "./config.js";
+import { createConfig, version } from "./config.js";
 import { editMode } from "./edit-plugin.js";
 
 /**
@@ -112,7 +112,13 @@ export async function startEditServer({
             logo,
             font,
             mode: "edit",
-            editMode: editMode({ workspace: session.json, font }),
+            editMode: editMode({
+                workspace: session.json,
+                font,
+                token,
+                // Structurizr Local names itself the same way (spec 7.1).
+                agent: `renderizr/${version ?? "unknown"}`,
+            }),
         }),
         logLevel,
         // The terminal keeps the hints printed before the server started.

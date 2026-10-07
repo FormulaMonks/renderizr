@@ -31,6 +31,7 @@ import {
     getViewportForBounds,
     Handle,
     type Node,
+    type NodeChange,
     type NodeProps,
     Position,
     ReactFlow,
@@ -55,9 +56,17 @@ import {
     useState,
     useSyncExternalStore,
 } from "react";
-import type { WorkspaceModel } from "../../model";
+import {
+    type EditedLayout,
+    isEditable,
+    type LayoutChange,
+    type WorkspaceModel,
+} from "../../model";
 import type { Anchor } from "../contract";
 import type { TextBlock } from "../geometry/boundary";
+import type { Point } from "../geometry/shapes/types";
+import { snapToGrid } from "../geometry/snapping";
+import { dragLayout, dropChange } from "./drag";
 import {
     INDICATOR_GAP,
     INDICATOR_INSET,
@@ -122,6 +131,14 @@ export type IslandState = {
     labels: Labels;
     /** The step of the animation shown, or null for the full view (spec 11). */
     step: number | null;
+    /** Whether edit mode edits the view shown, when `isEditable` accepts it. */
+    editing: boolean;
+    /**
+     * The page's edited layout of each view, by key (ADR 18). A view keeps
+     * its object until the page hands it a new one, so the graph of the view
+     * shown is built again only when its own layout changes.
+     */
+    layouts: ReadonlyMap<string, EditedLayout>;
 };
 
 /** A tiny external store: the handle writes, the island reads. */
@@ -169,6 +186,11 @@ export type IslandProps = {
     onEscape(): void;
     /** An item with targets was clicked, or Enter or Space pressed on it. */
     onActivate(type: ActivationType, id: string, anchor: Anchor): void;
+    /**
+     * A drag ended and moved something (spec 9.2). The handle hands it to
+     * the page, which draws it through `setLayout` or lets it revert.
+     */
+    onLayoutChanged(change: LayoutChange): void;
 };
 
 /** Fraction of the container left around a fitted view. */
@@ -284,6 +306,12 @@ const ZOOM_KEYS: Partial<Record<string, keyof IslandCommands>> = {
 /** Reports an activation to the handle; the island never navigates. */
 const Activate = createContext<IslandProps["onActivate"]>(() => {});
 
+/**
+ * Whether the view shown is being edited. In editing a click never
+ * activates (spec 10.3): pressing an element starts a drag.
+ */
+const Editing = createContext(false);
+
 /** An item as the focus order and the DOM find it. */
 type FocusRef = Pick<FocusItem, "type" | "id">;
 
@@ -308,6 +336,7 @@ function useTargetProps(
         : undefined,
 ) {
     const activate = useContext(Activate);
+    const editing = useContext(Editing);
     if (targets.length === 0 || !activation) return INERT;
     return {
         className: styles.target,
@@ -317,13 +346,15 @@ function useTargetProps(
         "aria-haspopup": targets.length > 1 ? ("menu" as const) : undefined,
         "data-focus-item": focusKey(item),
         "data-targets": targets.join(" "),
-        onClick: (event: MouseEvent) => {
-            event.stopPropagation();
-            activate(activation.type, activation.id, {
-                x: event.clientX,
-                y: event.clientY,
-            });
-        },
+        onClick: editing
+            ? undefined
+            : (event: MouseEvent) => {
+                  event.stopPropagation();
+                  activate(activation.type, activation.id, {
+                      x: event.clientX,
+                      y: event.clientY,
+                  });
+              },
     };
 }
 
@@ -1337,6 +1368,7 @@ function Canvas({
     onRedrawn,
     onEscape,
     onActivate,
+    onLayoutChanged,
 }: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
     const family = diagramFontFamily(font);
@@ -1353,11 +1385,46 @@ function Canvas({
         [family, fontsLoaded],
     );
     const { key: viewKey, scheme, labels, step } = state;
+    // Compiled out of builds, which never edit (ADR 15).
+    const edited = __RENDERIZR_EDIT_MODE__
+        ? state.layouts.get(viewKey)
+        : undefined;
+    const editable = useMemo(() => {
+        if (!__RENDERIZR_EDIT_MODE__ || !state.editing) return false;
+        const view = model.findViewByKey(viewKey);
+        return view !== undefined && isEditable(view);
+    }, [model, viewKey, state.editing]);
     // A new step is not a new graph: nothing is laid out again (spec 11).
-    const graph = useMemo(
-        () => buildGraph(model, viewKey, scheme, labels, measure),
-        [model, viewKey, scheme, labels, measure],
+    const drawn = useMemo(
+        () => buildGraph(model, viewKey, scheme, labels, measure, edited),
+        [model, viewKey, scheme, labels, measure, edited],
     );
+    /**
+     * The elements a drag is moving and where, snapped, on the view it
+     * started on (spec 10.1). Frame by frame it lays the view out again
+     * here, inside the island; only the drop reaches the page (ADR 18).
+     */
+    const [drag, setDrag] = useState<{
+        key: string;
+        positions: ReadonlyMap<string, Point>;
+    } | null>(null);
+    const dragging = useRef(drag);
+    dragging.current = drag;
+    const framed = useMemo(
+        () =>
+            __RENDERIZR_EDIT_MODE__ && drag && drawn && drag.key === viewKey
+                ? buildGraph(
+                      model,
+                      viewKey,
+                      scheme,
+                      labels,
+                      measure,
+                      dragLayout(drawn, drag.positions),
+                  )
+                : undefined,
+        [model, viewKey, scheme, labels, measure, drawn, drag],
+    );
+    const graph = framed ?? drawn;
     const image = useImage(viewKey, graph?.image);
     const reducedMotion = useReducedMotion();
     const transition = opacityTransition(reducedMotion);
@@ -1368,10 +1435,16 @@ function Canvas({
     // An image view is fitted to its picture once its size is known.
     const drawing = useMemo(() => drawingOf(graph, image), [graph, image]);
     const { bounds } = drawing;
-    const nodes = useMemo(
-        () => withPresence(drawing.nodes, stepState, transition),
-        [drawing, stepState, transition],
-    );
+    const nodes = useMemo(() => {
+        const shown = withPresence(drawing.nodes, stepState, transition);
+        // In editing every element drags, faded ones included (spec 18);
+        // boundaries never do (spec 8).
+        return editable
+            ? shown.map((node) =>
+                  node.type === "box" ? { ...node, draggable: true } : node,
+              )
+            : shown;
+    }, [drawing, stepState, transition, editable]);
     const edges = useMemo(
         () => (graph ? toEdges(graph, stepState, transition) : []),
         [graph, stepState, transition],
@@ -1397,6 +1470,49 @@ function Canvas({
     /** Set once the reader zooms or pans; refits on resize stop until `fit()`. */
     const moved = useRef(false);
     const painted = useRef<string | null>(null);
+
+    /**
+     * React Flow reports a drag as position changes; the nodes are
+     * controlled, so nothing moves until the drag state draws it. Each frame
+     * snaps to the grid (spec 11) and the drop turns into one layout change
+     * for the page (spec 9.2). A drop the page doesn't hand back through
+     * `setLayout` reverts, since the drag state goes either way. Builds,
+     * which never edit, compile it out (ADR 15).
+     */
+    const onNodesChange = (changes: NodeChange<DiagramNode>[]) => {
+        if (!__RENDERIZR_EDIT_MODE__) return;
+        const current = dragging.current;
+        const positions = new Map(
+            current?.key === viewKey ? current.positions : [],
+        );
+        let moving = false;
+        let dropped = false;
+        for (const change of changes) {
+            if (change.type !== "position") continue;
+            if (change.dragging && change.position) {
+                positions.set(change.id, snapToGrid(change.position));
+                moving = true;
+            } else if (change.dragging === false) {
+                dropped = true;
+            }
+        }
+        if (dropped) {
+            dragging.current = null;
+            setDrag(null);
+            const change =
+                drawn && positions.size > 0
+                    ? dropChange(viewKey, drawn, edited, positions)
+                    : null;
+            if (change) onLayoutChanged(change);
+            return;
+        }
+        if (!moving) return;
+        // A drag never refits the canvas (spec 10.1).
+        moved.current = true;
+        const next = { key: viewKey, positions };
+        dragging.current = next;
+        setDrag(next);
+    };
 
     useEffect(() => {
         const element = wrapper.current;
@@ -1682,44 +1798,49 @@ function Canvas({
             }
         >
             <Activate.Provider value={onActivate}>
-                <CanvasBackground.Provider
-                    value={graph?.background ?? "#ffffff"}
-                >
-                    {graph?.error ? (
-                        <ViewError graph={graph} />
-                    ) : (
-                        <ReactFlow
-                            nodes={nodes}
-                            edges={edges}
-                            nodeTypes={nodeTypes}
-                            edgeTypes={edgeTypes}
-                            nodeOrigin={nodeOrigin}
-                            connectionMode={ConnectionMode.Loose}
-                            nodesDraggable={false}
-                            nodesConnectable={false}
-                            nodesFocusable={false}
-                            edgesFocusable={false}
-                            elementsSelectable={false}
-                            // The canvas owns the keys (spec 6.2).
-                            disableKeyboardA11y
-                            panOnDrag
-                            panOnScroll
-                            zoomOnScroll={false}
-                            zoomOnPinch
-                            zoomOnDoubleClick={false}
-                            zoomActivationKeyCode={zoomKeys}
-                            minZoom={floor}
-                            maxZoom={ceiling}
-                            colorMode={state.scheme}
-                            proOptions={proOptions}
-                            onMoveStart={(event) => {
-                                // Programmatic moves carry no event; only
-                                // the reader's do.
-                                if (event) moved.current = true;
-                            }}
-                        />
-                    )}
-                </CanvasBackground.Provider>
+                <Editing.Provider value={editable}>
+                    <CanvasBackground.Provider
+                        value={graph?.background ?? "#ffffff"}
+                    >
+                        {graph?.error ? (
+                            <ViewError graph={graph} />
+                        ) : (
+                            <ReactFlow
+                                nodes={nodes}
+                                edges={edges}
+                                nodeTypes={nodeTypes}
+                                edgeTypes={edgeTypes}
+                                nodeOrigin={nodeOrigin}
+                                connectionMode={ConnectionMode.Loose}
+                                nodesDraggable={editable}
+                                onNodesChange={
+                                    editable ? onNodesChange : undefined
+                                }
+                                nodesConnectable={false}
+                                nodesFocusable={false}
+                                edgesFocusable={false}
+                                elementsSelectable={false}
+                                // The canvas owns the keys (spec 6.2).
+                                disableKeyboardA11y
+                                panOnDrag
+                                panOnScroll
+                                zoomOnScroll={false}
+                                zoomOnPinch
+                                zoomOnDoubleClick={false}
+                                zoomActivationKeyCode={zoomKeys}
+                                minZoom={floor}
+                                maxZoom={ceiling}
+                                colorMode={state.scheme}
+                                proOptions={proOptions}
+                                onMoveStart={(event) => {
+                                    // Programmatic moves carry no event; only
+                                    // the reader's do.
+                                    if (event) moved.current = true;
+                                }}
+                            />
+                        )}
+                    </CanvasBackground.Provider>
+                </Editing.Provider>
             </Activate.Provider>
         </div>
     );

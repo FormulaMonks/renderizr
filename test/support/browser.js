@@ -267,6 +267,150 @@ export async function screenshot(
     });
 }
 
+/**
+ * Start Chrome with the DevTools protocol on a pipe, for the few tests that
+ * have to drive a page: drag with the mouse, press keys and read state back.
+ * `--remote-debugging-pipe` talks NUL-separated JSON over file descriptors 3
+ * (to Chrome) and 4 (from Chrome), so it needs no WebSocket and no new
+ * dependency either.
+ *
+ * Resolves with `open(url)`, which opens a tab and hands back a `page` to
+ * drive, and `close()`, which ends Chrome.
+ */
+export async function openBrowser(chrome) {
+    const profile = mkdtempSync(join(tmpdir(), "renderizr-chrome-"));
+    const flags = FLAGS.filter(
+        // Virtual time would run the page's timers ahead of the pointer.
+        (flag) => !flag.startsWith("--virtual-time-budget"),
+    );
+    const child = spawn(
+        chrome,
+        [
+            ...flags,
+            "--remote-debugging-pipe",
+            `--user-data-dir=${profile}`,
+            "about:blank",
+        ],
+        { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
+    );
+    const [, , , toChrome, fromChrome] = child.stdio;
+
+    let next = 0;
+    let buffer = "";
+    const pending = new Map();
+    fromChrome.setEncoding("utf8");
+    fromChrome.on("data", (chunk) => {
+        buffer += chunk;
+        for (let end = buffer.indexOf("\0"); end >= 0; ) {
+            const message = JSON.parse(buffer.slice(0, end));
+            buffer = buffer.slice(end + 1);
+            end = buffer.indexOf("\0");
+            const waiting = pending.get(message.id);
+            if (!waiting) continue;
+            pending.delete(message.id);
+            if (message.error) waiting.reject(new Error(message.error.message));
+            else waiting.resolve(message.result);
+        }
+    });
+    const send = (method, params = {}, sessionId = undefined) =>
+        new Promise((resolve, reject) => {
+            const id = ++next;
+            pending.set(id, { resolve, reject });
+            toChrome.write(
+                `${JSON.stringify({ id, method, params, sessionId })}\0`,
+            );
+        });
+
+    return {
+        async open(url) {
+            const { targetId } = await send("Target.createTarget", { url });
+            const { sessionId } = await send("Target.attachToTarget", {
+                targetId,
+                flatten: true,
+            });
+            const call = (method, params) => send(method, params, sessionId);
+            const evaluate = async (expression) => {
+                const { result, exceptionDetails } = await call(
+                    "Runtime.evaluate",
+                    { expression, awaitPromise: true, returnByValue: true },
+                );
+                if (exceptionDetails)
+                    throw new Error(
+                        exceptionDetails.exception?.description ??
+                            exceptionDetails.text,
+                    );
+                return result.value;
+            };
+            return {
+                evaluate,
+                /** Wait until `expression` is truthy in the page, then return it. */
+                async waitFor(expression, timeout = 30_000) {
+                    const until = Date.now() + timeout;
+                    while (Date.now() < until) {
+                        // A call sent while the tab navigates may never be
+                        // answered, so each try gives up after a second.
+                        const value = await Promise.race([
+                            evaluate(expression).catch(() => null),
+                            new Promise((done) =>
+                                setTimeout(() => done(null), 1000),
+                            ),
+                        ]);
+                        if (value) return value;
+                        await new Promise((done) => setTimeout(done, 100));
+                    }
+                    throw new Error(`The page never got to ${expression}`);
+                },
+                /** Press at `from`, move in `steps` to `to` and release. */
+                async drag(from, to, steps = 10) {
+                    const mouse = (type, { x, y }, buttons) =>
+                        call("Input.dispatchMouseEvent", {
+                            type,
+                            x,
+                            y,
+                            button: "left",
+                            buttons,
+                            clickCount: 1,
+                        });
+                    await mouse("mouseMoved", from, 0);
+                    await mouse("mousePressed", from, 1);
+                    for (let step = 1; step <= steps; step++) {
+                        await mouse(
+                            "mouseMoved",
+                            {
+                                x: from.x + ((to.x - from.x) * step) / steps,
+                                y: from.y + ((to.y - from.y) * step) / steps,
+                            },
+                            1,
+                        );
+                    }
+                    await mouse("mouseReleased", to, 0);
+                },
+                /** Press a key by its physical `code`, with `modifiers` (DevTools bits). */
+                async press(key, code, modifiers = 0) {
+                    for (const type of ["rawKeyDown", "keyUp"])
+                        await call("Input.dispatchKeyEvent", {
+                            type,
+                            key,
+                            code,
+                            modifiers,
+                        });
+                },
+            };
+        },
+        async close() {
+            const exited = new Promise((done) => child.once("exit", done));
+            child.kill();
+            await exited;
+            rmSync(profile, {
+                recursive: true,
+                force: true,
+                maxRetries: 5,
+                retryDelay: 100,
+            });
+        },
+    };
+}
+
 const CONTENT_TYPES = {
     ".html": "text/html",
     ".js": "text/javascript",

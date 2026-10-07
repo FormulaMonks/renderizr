@@ -4,7 +4,9 @@
  * reached only through `mountEngine` and the `Engine` handle (ADR 3).
  */
 
-import type { ModelView } from "../model";
+import type { EditedLayout, LayoutChange, ModelView } from "../model";
+
+export type { EditedLayout, LayoutChange };
 
 export type ColorScheme = "light" | "dark";
 
@@ -21,6 +23,14 @@ export type EngineOptions = {
     view: string;
     colorScheme: ColorScheme;
     labels: Labels;
+    /** Mount in editing (spec 9.2). Only edit mode sets it. */
+    editing?: boolean;
+    /**
+     * The edited layout of each view to draw from mount, by view key, so a
+     * reload of the editing route keeps what the page's edit session holds
+     * (spec 9.2, ADR 18).
+     */
+    layouts?: Readonly<Record<string, EditedLayout>>;
 };
 
 /**
@@ -91,6 +101,26 @@ export type Engine = AnimationControls & {
     onRelationshipActivated(
         callback: (relationshipId: string, anchor: Anchor) => void,
     ): () => void;
+
+    /**
+     * Switch between reading and editing without a remount, keeping the
+     * viewport (spec 9.2). Editing pauses an animation on the step shown
+     * (spec 18). Turning editing on does nothing on a view `isEditable`
+     * rejects.
+     */
+    setEditing(on: boolean): void;
+    /**
+     * Draw `layout` as the edited layout of view `view`, in place of the one
+     * it had. The page calls it synchronously in its `onLayoutChanged`
+     * handler; a change it doesn't hand back reverts (ADR 18).
+     */
+    setLayout(view: string, layout: EditedLayout): void;
+    /**
+     * Once per finished gesture: the fields it changed by element id, with
+     * `before` as the engine drew them, computed values included. The first
+     * change to a view with no edited layout carries every element.
+     */
+    onLayoutChanged(callback: (change: LayoutChange) => void): () => void;
 
     unmount(): void;
 };

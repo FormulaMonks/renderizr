@@ -7,6 +7,14 @@ export const WORKSPACE_MODULE = "virtual:renderizr/workspace";
 export const RESOLVED_WORKSPACE_MODULE = `\0${WORKSPACE_MODULE}`;
 
 /**
+ * The source of `WORKSPACE_MODULE`: the workspace as its default export, and
+ * as `version` the version of `workspace.json` edit mode loaded it from
+ * (spec 7.4), `null` anywhere else.
+ */
+export const workspaceModuleSource = (workspace, version = null) =>
+    `export default ${JSON.stringify(workspace)};\nexport const version = ${JSON.stringify(version)};`;
+
+/**
  * Compiles `workspace` into the page as `WORKSPACE_MODULE`. Builds and
  * `pnpm dev` use this; edit mode serves the module from disk instead
  * (ADR 15).
@@ -18,7 +26,7 @@ export function workspaceModule(workspace) {
             id === WORKSPACE_MODULE ? RESOLVED_WORKSPACE_MODULE : null,
         load: (id) =>
             id === RESOLVED_WORKSPACE_MODULE
-                ? `export default ${JSON.stringify(workspace)};`
+                ? workspaceModuleSource(workspace)
                 : null,
     };
 }

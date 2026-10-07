@@ -237,7 +237,10 @@ const stubEngine = () => ({
 });
 
 /** The editing route as the toolbar sees it, recording every navigation. */
-function stubRoute(editing = false) {
+function stubRoute(
+    editing = false,
+    { status = { state: "saved", waiting: false }, notice = null } = {},
+) {
     const calls = [];
     return {
         calls,
@@ -245,6 +248,9 @@ function stubRoute(editing = false) {
         edit: (key) => calls.push(["edit", key]),
         done: () => calls.push(["done"]),
         href: (key) => `#?page=diagrams&view=${key}&mode=edit`,
+        status: () => status,
+        save: () => calls.push(["save"]),
+        notice: () => notice,
     };
 }
 
@@ -351,7 +357,162 @@ test("with edit mode compiled out the toolbar shows no pencil, even given a rout
     }
 });
 
+/* ------------------------------------------------------ the edit toolbar */
+
+const { paintSaveStatus } = await importSrc("components/edit-buttons");
+const { layoutNotice } = await importSrc("components/editing-route");
+
+test("in editing the toolbar shows where saving stands and a Save that waits for changes", () => {
+    const { toolbar, route } = toolbarFor("Landscape", stubRoute(true));
+    const status = toolbar.element.querySelector(".save-status");
+    const save = toolbar.element.querySelector(".save-layout");
+    assert.equal(status.textContent, "Saved");
+    assert.equal(save.disabled, true, "Save is enabled with nothing waiting");
+    assert.match(save.title, /Save \((⌘S|Ctrl\+S)\)/);
+
+    paintSaveStatus(toolbar.element, { state: "unsaved", waiting: true });
+    assert.equal(status.textContent, "Unsaved changes");
+    assert.equal(save.disabled, false);
+    save.click();
+    assert.deepEqual(route.calls, [["save"]]);
+
+    paintSaveStatus(toolbar.element, { state: "saving", waiting: true });
+    assert.equal(status.textContent, "Saving…");
+    assert.equal(save.disabled, true, "Save is enabled while saving");
+
+    paintSaveStatus(toolbar.element, {
+        state: "failed",
+        reason: "workspace.json changed on disk",
+        waiting: true,
+    });
+    assert.equal(
+        status.textContent,
+        "Save failed: workspace.json changed on disk",
+    );
+    assert.equal(status.dataset.state, "failed");
+    assert.equal(save.disabled, false, "a failed save can be tried again");
+    toolbar.clear();
+});
+
+test("the editing route of a view without coordinates says its first edit saves what it shows", () => {
+    assert.equal(
+        layoutNotice("automatic", 0),
+        "This view has no stored layout yet; your first edit saves the positions shown",
+    );
+    assert.equal(
+        layoutNotice("unplaced", 2),
+        "2 unplaced elements; your first edit saves where they appear",
+    );
+    assert.equal(
+        layoutNotice("unplaced", 1),
+        "1 unplaced element; your first edit saves where they appear",
+    );
+    assert.equal(layoutNotice("stored", 0), null);
+
+    const notice =
+        "2 unplaced elements; your first edit saves where they appear";
+    const editing = toolbarFor("Landscape", stubRoute(true, { notice }));
+    assert.equal(
+        editing.toolbar.element.querySelector(".edit-notice").textContent,
+        notice,
+    );
+    editing.toolbar.clear();
+    const reading = toolbarFor("Landscape", stubRoute(false, { notice }));
+    assert.equal(reading.toolbar.element.querySelector(".edit-notice"), null);
+    reading.toolbar.clear();
+});
+
+test("editing disables the player buttons", () => {
+    const element = document.createElement("section");
+    const engine = {
+        ...stubEngine(),
+        onAnimationChanged(callback) {
+            callback({ steps: 3, step: 2, playing: false });
+            return () => {};
+        },
+    };
+    const editing = new CurrentView(element, engine, model, stubRoute(true));
+    editing.render(model.findViewByKey("Landscape"));
+    for (const name of ["prev-step", "play-animation", "next-step"])
+        assert.equal(
+            element.querySelector(`.${name}`).disabled,
+            true,
+            `${name} plays while editing`,
+        );
+    editing.clear();
+
+    const reading = new CurrentView(element, engine, model, stubRoute(false));
+    reading.render(model.findViewByKey("Landscape"));
+    for (const name of ["prev-step", "play-animation", "next-step"])
+        assert.equal(element.querySelector(`.${name}`).disabled, false);
+    reading.clear();
+});
+
+/* ---------------------------------------------- the unsaved-changes dialog */
+
+const { confirmLeave } = await importSrc("components/unsaved-dialog");
+const { DOMEvent } = await import("./support/dom.js");
+
+test("the unsaved-changes dialog offers Save and continue and Stay, and Escape stays", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const dialog = () => host.querySelector("[data-unsaved-dialog]");
+
+    const saving = confirmLeave(host, "Warehouse");
+    assert.match(dialog().textContent, /Warehouse aren't saved yet/);
+    assert.equal(
+        document.activeElement,
+        dialog().querySelector(".save-and-continue"),
+    );
+    dialog().querySelector(".save-and-continue").click();
+    assert.equal(await saving, true);
+    assert.equal(dialog(), null, "the dialog stayed open");
+
+    const staying = confirmLeave(host, "Warehouse");
+    dialog().querySelector(".stay").click();
+    assert.equal(await staying, false);
+
+    const escaping = confirmLeave(host, "Warehouse");
+    const press = new DOMEvent("keydown", { bubbles: true });
+    press.key = "Escape";
+    document.body.dispatchEvent(press);
+    assert.equal(await escaping, false);
+    assert.equal(dialog(), null);
+    assert.equal(document.listenersFor("keydown").length, 0);
+    host.remove();
+});
+
 /* ------------------------------------------- the drawer and the base view */
+
+test("a click on another view in the drawer goes through the page's guard", async () => {
+    const { default: history } = await import("./support/history.js");
+    const { default: DiagramNavigation } = await importSrc(
+        "components/diagram-navigation",
+    );
+    history.replace({ search: "?page=diagrams&view=Warehouse" });
+    const shown = [];
+    const held = [];
+    const navigation = new DiagramNavigation(
+        document.createElement("nav"),
+        { changeView: (key) => shown.push(key), getCurrentView: () => null },
+        model,
+        () => false,
+        (proceed) => held.push(proceed),
+    );
+    navigation.render();
+    assert.deepEqual(
+        shown,
+        ["Warehouse"],
+        "the drawer opens its first view at once",
+    );
+    const other = model.getViews().find((v) => v.key !== "Warehouse").key;
+    navigation.element.querySelector(`li[data-viewkey="${other}"]`).click();
+    assert.deepEqual(shown, ["Warehouse"], "the click went past the guard");
+    held[0]();
+    assert.deepEqual(shown, ["Warehouse", other]);
+    navigation.clear();
+    history.replace({ search: "" });
+});
 
 test("the drawer opens a view it doesn't list when the page can show it", async () => {
     const { default: history } = await import("./support/history.js");

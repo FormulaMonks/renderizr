@@ -227,6 +227,37 @@
     cursor: not-allowed;
 }
 
+/* Where saving stands in editing (spec 17.1); a failure says why. */
+.saveStatus {
+    align-self: center;
+    max-width: 18rem;
+    padding: 0 0.5rem;
+    overflow: hidden;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    &[data-state="unsaved"] {
+        color: var(--color-foreground);
+    }
+
+    &[data-state="failed"] {
+        color: var(--color-alert-caution);
+    }
+}
+
+.btnGroup button.done:disabled {
+    color: var(--color-muted);
+}
+
+/* What the editing route of a view without coordinates says (spec 8). */
+.editNotice {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
 /* A filtered view's way to the editing route of its base view. */
 .editBase {
     align-self: center;
