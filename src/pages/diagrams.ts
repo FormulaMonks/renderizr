@@ -174,10 +174,15 @@ export default class Diagrams extends Page {
         const swap = __RENDERIZR_EDIT_MODE__
             ? onWorkspace((arrival) => {
                   const after = new WorkspaceModel(arrival.workspace);
+                  // What changed is measured from what the file held last,
+                  // this page's own saves included (spec 6.3).
+                  const before = arrival.previous
+                      ? new WorkspaceModel(arrival.previous)
+                      : model;
                   this.#stop();
                   swapWorkspace(
                       engine,
-                      model,
+                      before,
                       after,
                       arrival,
                       document.getElementById(

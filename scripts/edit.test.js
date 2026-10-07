@@ -733,6 +733,33 @@ test("a workspace.json that won't load reaches the page as an error event, and t
     });
 });
 
+test("a workspace.json caught halfway through a write reaches the page once the write ends, with no error", async () => {
+    await withEditServer({}, async ({ server, json }) => {
+        const sent = recordEvents(server);
+        const workspace = JSON.parse(await readFile(json, "utf8"));
+        workspace.description = "Written in two goes";
+        const text = JSON.stringify(workspace, null, 2);
+        // An editor that saves in place: half the file, then the rest.
+        await writeFile(json, text.slice(0, text.length / 2));
+        await new Promise((done) => setTimeout(done, 50));
+        await writeFile(json, text);
+        await eventually(
+            () =>
+                sent.some(
+                    ({ event, data }) =>
+                        event === WORKSPACE_EVENT &&
+                        data.workspace.description === "Written in two goes",
+                ),
+            "the finished workspace.json never reached the page",
+        );
+        assert.equal(
+            sent.some(({ event }) => event === ERROR_EVENT),
+            false,
+            "the half-written file reached the page as an error",
+        );
+    });
+});
+
 /**
  * A stand-in for Vite's websocket server with one open page per entry of
  * `delays`, each answering a flush after that many ms, or never for `null`.

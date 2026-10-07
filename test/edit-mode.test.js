@@ -719,10 +719,18 @@ test(
             await page.waitFor(`${NODE("21")}.classList.contains("selected")`);
             const viewport = await page.evaluate(VIEWPORT);
 
-            // Another view changes: the Warehouse keeps its history.
+            // Other views change: the Warehouse keeps its history. The view
+            // drawer names the renamed view once the change has landed, so
+            // the next write never races this one in the file watcher.
             await changeOnDisk(json, (workspace) => {
                 workspace.views.systemLandscapeViews[0].elements[0].x += 100;
+                workspace.views.imageViews.find(
+                    (view) => view.key === "NoPicture",
+                ).title = "Image: changed on disk";
             });
+            await page.waitFor(
+                `!!document.querySelector('[aria-label*="Image: changed on disk"]')`,
+            );
             await page.waitFor(
                 `document.querySelector(".undo-layout")?.disabled === false && ${NODE("21")}.classList.contains("selected")`,
             );

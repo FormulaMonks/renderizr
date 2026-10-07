@@ -100,7 +100,19 @@ type Arrived = {
     version: string;
     workspace: Record<string, unknown>;
     source?: string;
+    /**
+     * The workspace the file held before this one, as the server last sent
+     * it, this page's own saves included; `undefined` before any arrived.
+     */
+    previous?: Record<string, unknown>;
 };
+
+/**
+ * The last workspace the server sent, this page's own saves included: what
+ * the next one changed is measured from it, not from the workspace the page
+ * shows, which a save of this page's own leaves as it was (spec 6.3).
+ */
+let lastSent: Record<string, unknown> | undefined;
 
 /** The last workspace that arrived from disk, or `null` before one does. */
 let arrived: Record<string, unknown> | null = null;
@@ -171,7 +183,9 @@ export function onWorkspace(handler: (arrival: Arrived) => void) {
 export function startLiveReload() {
     const hot = import.meta.hot;
     if (!hot) return;
-    hot.on(WORKSPACE_EVENT, (arrival: Arrived) => {
+    hot.on(WORKSPACE_EVENT, (sent: Arrived) => {
+        const arrival = { ...sent, previous: lastSent };
+        lastSent = sent.workspace;
         if (session && arrival.source === session.source) return;
         arrived = arrival.workspace;
         failure = null;
