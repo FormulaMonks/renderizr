@@ -3,6 +3,9 @@
  * token in the URL it prints and opens; the page keeps it for the tab in
  * session storage and drops it from the address bar, so it never lands in a
  * bookmark or a screenshot. Every save carries it in a header.
+ *
+ * The page takes the token once, as it starts, and keeps it in memory, so a
+ * page without session storage still saves.
  */
 
 /** Where the tab keeps the token. */
@@ -25,6 +28,9 @@ const pageWindow = (): TokenWindow => ({
         window.history.replaceState(window.history.state, "", url),
 });
 
+/** The token the page took as it started, or `undefined` before then. */
+let taken: string | null | undefined;
+
 /**
  * The session token: taken from the URL when it carries one, which also
  * stores it and drops it from the address bar, otherwise the one the tab
@@ -39,6 +45,7 @@ export function takeSessionToken(
     const fromUrl = search.get(TOKEN_PARAM);
 
     if (fromUrl) {
+        taken = fromUrl;
         try {
             storage.setItem(SESSION_TOKEN_KEY, fromUrl);
         } catch {
@@ -53,8 +60,13 @@ export function takeSessionToken(
     }
 
     try {
-        return storage.getItem(SESSION_TOKEN_KEY);
+        taken = storage.getItem(SESSION_TOKEN_KEY);
     } catch {
-        return null;
+        taken = null;
     }
+    return taken;
 }
+
+/** The token the page took as it started, taking it now if it hasn't. */
+export const sessionToken = () =>
+    taken === undefined ? takeSessionToken() : taken;

@@ -38,7 +38,7 @@ import {
     layoutNotice,
     readingSearch,
 } from "../components/editing-route";
-import { takeSessionToken } from "../components/session-token";
+import { sessionToken } from "../components/session-token";
 import { confirmLeave } from "../components/unsaved-dialog";
 import type { Engine } from "../engine";
 import type { SelectionState } from "../engine/contract";
@@ -58,7 +58,7 @@ export function editSession(): EditSession {
     if (session) return session;
     const created = new EditSession({
         version: workspaceVersion,
-        token: takeSessionToken(),
+        token: sessionToken(),
     });
     // The browser asks before a tab with unsaved changes closes or reloads,
     // and whatever still waits goes out as the page goes (spec 7.4).
