@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { test } from "node:test";
-import { OPTIONS, parseCliArgs, usage } from "./cli.js";
-import { evalInChild } from "./__fixtures__/helpers.js";
+import { OPTIONS, parseCliArgs, parseEditArgs, usage } from "./cli.js";
+import {
+    evalInChild,
+    FIXTURES,
+    fixture,
+    REPO_ROOT,
+    runCli,
+} from "./__fixtures__/helpers.js";
 
 /**
  * `parseCliArgs` exits the process on `--help` and on bad input, so those paths
@@ -248,4 +255,151 @@ test("--engine is gone with the vendored renderer (2.0) and is a usage error", a
         ["w.json", "--engine", "react-flow"],
         /Unknown option '--engine'/,
     );
+});
+
+/* -------------------------------------------------------------------- edit */
+
+test("the usage text lists the edit subcommand", () => {
+    const chunks = [];
+    usage({ write: (text) => chunks.push(text) });
+    assert.match(chunks.join(""), /renderizr edit \[path\]/);
+});
+
+test("renderizr edit opens the current folder on port 5173 and opens the browser", () => {
+    const options = parseEditArgs([], { cwd: FIXTURES });
+    assert.deepEqual(options, {
+        session: {
+            kind: "json",
+            json: fixture("workspace.json"),
+            dsl: null,
+        },
+        port: 5173,
+        open: true,
+        logo: null,
+        font: null,
+    });
+});
+
+test("renderizr edit takes a path, --port and --no-open", () => {
+    const options = parseEditArgs(
+        [fixture("workspace.json"), "--port", "8123", "--no-open"],
+        { cwd: REPO_ROOT },
+    );
+    assert.equal(options.session.json, fixture("workspace.json"));
+    assert.equal(options.port, 8123);
+    assert.equal(options.open, false);
+});
+
+test("renderizr edit takes the branding flags the build takes", () => {
+    const { logo, font } = parseEditArgs(
+        [
+            "--logo",
+            "./logo.svg",
+            "--logo-alt",
+            "Acme",
+            "--logo-href",
+            "https://example.test",
+            "--font",
+            "Inter",
+            "--font-weights",
+            "300,600",
+            "--font-subsets",
+            "latin-ext",
+            "--font-italic",
+        ],
+        { cwd: FIXTURES },
+    );
+    assert.deepEqual(logo, {
+        source: "./logo.svg",
+        alt: "Acme",
+        href: "https://example.test",
+    });
+    assert.deepEqual(font, {
+        family: "Inter",
+        weights: ["300", "600"],
+        subsets: ["latin-ext"],
+        italic: true,
+    });
+});
+
+/** Run `parseEditArgs(args)` in a child rooted at `cwd`, which may exit. */
+const parseEditInChild = (args, cwd = FIXTURES) =>
+    evalInChild(`
+        import { parseEditArgs } from "./scripts/cli.js";
+        parseEditArgs(${JSON.stringify(args)}, { cwd: ${JSON.stringify(cwd)} });
+        process.stdout.write("NOT REACHED");
+    `);
+
+const editRejects = async (args, expected, cwd) => {
+    await assert.rejects(
+        parseEditInChild(args, cwd),
+        (error) => {
+            assert.equal(
+                error.code,
+                1,
+                `edit ${args.join(" ")} did not exit 1`,
+            );
+            assert.match(error.stderr, expected);
+            assert.match(
+                error.stderr,
+                /renderizr edit \[path\]/,
+                "the edit usage was not printed on the error path",
+            );
+            return true;
+        },
+        `edit ${args.join(" ")} was accepted`,
+    );
+};
+
+test("renderizr edit refuses the flags of a build with a usage error", async () => {
+    const REFUSED = [
+        [["--out", "dist"], /--out.*writes no output/],
+        [["-o", "dist"], /--out.*writes no output/],
+        [["--out=dist"], /--out.*writes no output/],
+        [["--single-file"], /--single-file.*writes no output/],
+        [["--base", "/docs/"], /--base.*writes no output/],
+        [["--engine", "react-flow"], /--engine.*React Flow engine/],
+    ];
+    for (const [args, expected] of REFUSED) await editRejects(args, expected);
+});
+
+test("renderizr edit refuses a port that isn't one", async () => {
+    for (const port of ["abc", "0", "65536", "80.5"]) {
+        await editRejects(["--port", port], /--port takes a port number/);
+    }
+});
+
+test("renderizr edit refuses more than one path", async () => {
+    await editRejects(["a.json", "b.json"], /Expected one path, got 2/);
+});
+
+test("renderizr edit on a folder holding neither file is a usage error naming both", async () => {
+    await editRejects(
+        [join(REPO_ROOT, "src")],
+        /neither workspace\.dsl nor workspace\.json/,
+        REPO_ROOT,
+    );
+});
+
+test("renderizr edit --help prints the edit usage and exits 0", async () => {
+    const { stdout } = await parseEditInChild(["--help"]);
+    assert.match(stdout, /renderizr edit \[path\]/);
+    for (const flag of ["--port", "--no-open", "--logo", "--font"]) {
+        assert.ok(
+            stdout.includes(flag),
+            `the edit usage never mentions ${flag}`,
+        );
+    }
+    assert.ok(!stdout.includes("NOT REACHED"));
+});
+
+test("the binary dispatches edit to edit mode and keeps a bare workspace a build", async () => {
+    const edit = await runCli(["edit", "--help"]);
+    assert.equal(edit.code, 0);
+    assert.match(edit.stdout, /^renderizr edit — /);
+    assert.match(edit.stdout, /--no-open/);
+
+    const build = await runCli(["--help"]);
+    assert.equal(build.code, 0);
+    assert.match(build.stdout, /renderizr <workspace\.json\|url>/);
 });

@@ -1,20 +1,48 @@
 import history from "history/hash";
+import workspaceData from "virtual:renderizr/workspace";
 import CurrentView, {
     applyDiagramTheme,
     getDiagramTheme,
     readLabelState,
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
+import type { EditingRoute } from "../components/edit-buttons";
+import {
+    editingSearch,
+    isEditingRoute,
+    readingSearch,
+} from "../components/editing-route";
 import TargetMenu from "../components/target-menu";
 import { type Engine, isAbortError, mountEngine } from "../engine";
 import {
     elementTargets,
+    isEditable,
     relationshipTargets,
     type Target,
     WorkspaceModel,
 } from "../model";
 import Page from "./_page";
 import styles from "./diagrams.module.css";
+
+/** Whether the page shows the editing route now (spec 4.6). */
+const editing = () =>
+    __RENDERIZR_EDIT_MODE__ && isEditingRoute(history.location.search);
+
+/**
+ * The editing route as the toolbar drives it: the pencil pushes the view's
+ * editing route and Done pushes its reading route, so Back undoes either.
+ */
+const EDITING_ROUTE: EditingRoute = {
+    isEditing: editing,
+    edit: (key) =>
+        history.push({ search: editingSearch(history.location.search, key) }),
+    done: () =>
+        history.push({ search: readingSearch(history.location.search) }),
+    href: (key) =>
+        history.createHref({
+            search: `?${editingSearch(history.location.search, key)}`,
+        }),
+};
 
 /**
  * Go where `target` leads (spec 6.1): a view through the drawer's
@@ -59,8 +87,15 @@ export default class Diagrams extends Page {
         const requested = new URLSearchParams(history.location.search).get(
             "view",
         );
+        const reachable = (key: string | null) => {
+            if (!key || !editing()) return false;
+            const view = model.findViewByKey(key);
+            return view ? isEditable(view) : false;
+        };
         const first =
-            views.find((view) => view.key === requested)?.key ?? views[0]?.key;
+            views.find((view) => view.key === requested)?.key ??
+            (requested && reachable(requested) ? requested : undefined) ??
+            views[0]?.key;
 
         this.container.classList.add(styles.pageContent);
         this.container.innerHTML = `
@@ -104,7 +139,7 @@ export default class Diagrams extends Page {
                     return;
                 }
                 this.#engine = engine;
-                this.#start(engine, model);
+                this.#start(engine, model, reachable);
             },
             (error) => {
                 if (!isAbortError(error)) throw error;
@@ -112,7 +147,11 @@ export default class Diagrams extends Page {
         );
     }
 
-    #start(engine: Engine, model: WorkspaceModel) {
+    #start(
+        engine: Engine,
+        model: WorkspaceModel,
+        reachable: (key: string) => boolean,
+    ) {
         // The drawer is the one funnel for choosing a view: URL, highlight,
         // then `showView`.
         const navigation = this.addComponent(
@@ -125,6 +164,7 @@ export default class Diagrams extends Page {
                     changeView: (key) => engine.showView(key),
                 },
                 model,
+                reachable,
             ),
         );
 
@@ -135,6 +175,7 @@ export default class Diagrams extends Page {
                 ) as HTMLElement,
                 engine,
                 model,
+                __RENDERIZR_EDIT_MODE__ ? EDITING_ROUTE : null,
             ),
         );
 
@@ -152,7 +193,16 @@ export default class Diagrams extends Page {
         // The toolbar follows what the engine has painted, not what was asked;
         // subscribing replays the view already on screen.
         this.#unsubscribe = [
-            engine.onViewShown((view) => currentView.render(view)),
+            engine.onViewShown((view) => {
+                // A view edit mode can't edit has no editing route: the page
+                // drops to reading (spec 7.5).
+                if (editing() && !isEditable(view)) {
+                    history.replace({
+                        search: readingSearch(history.location.search),
+                    });
+                }
+                currentView.render(view);
+            }),
             engine.onElementActivated((id, anchor) => {
                 const element = model.findElementById(id);
                 if (!element) return;
@@ -170,6 +220,31 @@ export default class Diagrams extends Page {
                 );
             }),
         ];
+
+        if (__RENDERIZR_EDIT_MODE__)
+            this.#followEditingRoute(engine, currentView);
+    }
+
+    /**
+     * Keep the toolbar and `<html data-editing>` in step with the editing
+     * route. The pencil, Done and Back change the route without changing the
+     * view, so the engine shows nothing new and the toolbar has to hear it
+     * from history.
+     */
+    #followEditingRoute(engine: Engine, currentView: CurrentView) {
+        const root = document.documentElement;
+        let shown = editing();
+        root.toggleAttribute("data-editing", shown);
+
+        this.#unsubscribe.push(
+            history.listen(() => {
+                if (editing() === shown) return;
+                shown = editing();
+                root.toggleAttribute("data-editing", shown);
+                currentView.render(engine.getCurrentView());
+            }),
+            () => root.removeAttribute("data-editing"),
+        );
     }
 
     clear() {

@@ -65,6 +65,12 @@ export const srcTest = UNSUPPORTED
 export const dom = installDOM();
 
 /**
+ * The build-time flag that compiles edit mode in or out (ADR 15), as a
+ * build defines it. A test of edit mode's page code sets it to true.
+ */
+globalThis.__RENDERIZR_EDIT_MODE__ ??= false;
+
+/**
  * A detached `<div>` for a component to render into.
  *
  * A real element, not a stand-in: the same one the page tests use, so a
