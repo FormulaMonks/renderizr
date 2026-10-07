@@ -86,9 +86,9 @@ import {
 import type { Point } from "../geometry/shapes/types";
 import { type Guide, guideReach, snapBox } from "../geometry/snapping";
 import { bringBackChange, calculatedChange, canvasChange } from "./commands";
-import { moveChange } from "./arrange";
+import { type Arrangement, arrangeChange, moveChange } from "./arrange";
 import { dragLayout } from "./drag";
-import { useEditKeys, useKeepViewport } from "./edit-keys";
+import { type EditKeyCommands, editKey } from "./edit-keys";
 import {
     routeChange,
     sideChange,
@@ -98,6 +98,7 @@ import {
 import {
     clickSelection,
     marqueeSelection,
+    pressSelection,
     type SelectionOrder,
 } from "./selection";
 import {
@@ -1685,6 +1686,151 @@ const READING_SELECTION: EditSelection = {
     endMarquee: () => {},
 };
 
+/** The element a focus item names, as `data-focus-item` holds it. */
+const focusedElement = (target: EventTarget | null) => {
+    const item =
+        target instanceof HTMLElement ? target.dataset.focusItem : undefined;
+    return item?.startsWith("element:") ? item.slice(8) : undefined;
+};
+
+/** What the island hands its arranging commands and keys. */
+export type EditKeysOptions = {
+    wrapper: RefObject<HTMLElement | null>;
+    /** Where the engine's handle finds `align` and `distribute`. */
+    commands: EditKeyCommands;
+    /** The view being edited as drawn, or null when nothing can be. */
+    view: Graph | null;
+    viewKey: string;
+    edited: EditedLayout | undefined;
+    selected: SelectionOrder;
+    select(ids: SelectionOrder): void;
+    /** The animation step shown, whose hidden elements select all skips. */
+    stepState: StepState | undefined;
+    onLayoutChanged?(change: LayoutChange): void;
+};
+
+/**
+ * Align, distribute, nudge and select all on the view being edited, for
+ * the engine's handle and the island's keys, and the keys themselves as a
+ * key-down handler that says whether it took the key. Each arranging
+ * command measures the selection as drawn, the reference element first,
+ * and is one layout change (spec 13). A nudge with nothing selected is
+ * left to pan (spec 13.3). A tap on Space, a press and release with no
+ * pointer press between, adds the focused element to the selection or
+ * takes it out; held while dragging, Space still pans.
+ */
+export function useEditKeys({
+    wrapper,
+    commands,
+    view,
+    viewKey,
+    edited,
+    selected,
+    select,
+    stepState,
+    onLayoutChanged,
+}: EditKeysOptions): (event: KeyboardEvent) => boolean {
+    const tap = useRef<string | undefined>(undefined);
+    const latest = useRef({ selected, select });
+    latest.current = { selected, select };
+
+    useEffect(() => {
+        const arrange = (arrangement: Arrangement) => {
+            const change =
+                view &&
+                arrangeChange(viewKey, view, edited, selected, arrangement);
+            if (change) onLayoutChanged?.(change);
+        };
+        commands.align = (edge) => arrange({ align: edge });
+        commands.distribute = (axis) => arrange({ distribute: axis });
+        commands.nudge = (step) => arrange({ nudge: step });
+        // Every element the view draws now: a step's hidden ones aren't.
+        commands.selectAll = () => {
+            if (!view) return;
+            select(
+                view.elements
+                    .filter(({ id }) => stepState?.elements[id] !== "hidden")
+                    .map(({ id }) => id),
+            );
+        };
+    }, [
+        commands,
+        view,
+        viewKey,
+        edited,
+        selected,
+        select,
+        stepState,
+        onLayoutChanged,
+    ]);
+
+    useEffect(() => {
+        const element = wrapper.current;
+        if (!element) return;
+        const cancel = () => {
+            tap.current = undefined;
+        };
+        const onKeyUp = (event: globalThis.KeyboardEvent) => {
+            const id = tap.current;
+            tap.current = undefined;
+            if (event.code !== "Space" || id === undefined) return;
+            const { selected, select } = latest.current;
+            select(clickSelection(selected, id, true));
+        };
+        element.addEventListener("pointerdown", cancel, true);
+        element.addEventListener("keyup", onKeyUp);
+        return () => {
+            element.removeEventListener("pointerdown", cancel, true);
+            element.removeEventListener("keyup", onKeyUp);
+        };
+    }, [wrapper]);
+
+    return (event) => {
+        if (event.code === "Space") {
+            const id = focusedElement(event.target);
+            if (id === undefined) return false;
+            event.preventDefault();
+            if (!event.repeat) tap.current = id;
+            return true;
+        }
+        const key = editKey(event);
+        if (!key) return false;
+        if (key.command === "nudge") {
+            if (selected.length === 0) return false;
+            commands.nudge?.(key.step);
+        } else if (key.command === "align") commands.align?.(key.edge);
+        else if (key.command === "distribute") commands.distribute?.(key.axis);
+        else commands.selectAll?.();
+        event.preventDefault();
+        return true;
+    };
+}
+
+/**
+ * Keep the viewport where it is when the edited layout of the view shown
+ * changes (spec 10.1): a drop, a command, undo and redo draw through
+ * `setLayout` and never refit the canvas. A workspace swapped in keeps it
+ * too (spec 6.3), and paints the view again, so the page hears it from the
+ * new workspace. A new view still fits.
+ */
+export function useKeepViewport(
+    viewKey: string,
+    edited: unknown,
+    model: unknown,
+    moved: { current: boolean },
+    painted: { current: string | null },
+) {
+    const last = useRef({ viewKey, edited, model });
+    useEffect(() => {
+        const before = last.current;
+        last.current = { viewKey, edited, model };
+        if (before.viewKey !== viewKey) return;
+        if (before.edited !== edited || before.model !== model)
+            moved.current = true;
+        if (before.model !== model) painted.current = null;
+    }, [viewKey, edited, model, moved, painted]);
+}
+
 /**
  * The selection in editing, on the view it was made on (spec 10.2). It
  * lives in the island and is never saved or undone (ADR 18). Only the view
@@ -2256,24 +2402,37 @@ function Canvas({
         if (key === undefined || (!fitted && !empty)) return;
         const viewport = refitTo.current;
         if (viewport && !moved.current) flow.setViewport(viewport);
-        if (painted.current === key) return;
         // The next frame is when the view is on screen. A hidden tab, or a
         // headless browser on virtual time, may never produce one; the
-        // timer stands in for it there, so mounting cannot hang.
+        // timer stands in for it there, so mounting cannot hang. The page
+        // mounts its chrome once the view is painted, which resizes the
+        // canvas, so the view is ready only a frame later, with the canvas
+        // at the size it was fitted to. Otherwise it takes the canvas's
+        // size, without waiting for a resize observer that virtual time may
+        // never run, and fits to it first.
         const done = () => {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
+            if (painted.current === key) {
+                const { clientWidth: width = 0, clientHeight: height = 0 } =
+                    wrapper.current ?? {};
+                if (width === size.width && height === size.height)
+                    setReadyKey(key);
+                else setSize({ width, height });
+                return;
+            }
             painted.current = key;
-            setReadyKey(key);
             if (graph) onPainted(key, graph);
+            frame = requestAnimationFrame(done);
+            timer = setTimeout(done, 100);
         };
-        const frame = requestAnimationFrame(done);
-        const timer = setTimeout(done, 100);
+        let frame = requestAnimationFrame(done);
+        let timer = setTimeout(done, 100);
         return () => {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
         };
-    }, [fitted, empty, key, flow, onPainted, graph]);
+    }, [fitted, empty, key, flow, onPainted, graph, size]);
 
     /** Each item with targets by its focus key. */
     const focusable = useMemo(
@@ -2289,6 +2448,14 @@ function Canvas({
      * pointer (spec 6.2). A key press hands focus back to the keyboard.
      */
     const pointing = useRef(false);
+    /**
+     * Where a modifier-press on a selected element landed, which a release
+     * with no movement turns into a click that takes the element out (spec
+     * 10.2), or null.
+     */
+    const toggling = __RENDERIZR_EDIT_MODE__
+        ? useRef<{ id: string; x: number; y: number } | null>(null)
+        : null;
 
     const itemElement = (item: FocusRef | undefined) =>
         item
@@ -2383,14 +2550,35 @@ function Canvas({
      * A press on an element sets the selection before React Flow starts a
      * drag (spec 10.2), so the drag moves what is selected once the press
      * lands: the element alone, the whole selection when it is in it, or
-     * with Shift, Cmd or Ctrl the selection with the element toggled.
+     * with Shift, Cmd or Ctrl the selection with an unselected element
+     * added. A modifier-press on a selected element waits for the release.
      */
     const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
         pointing.current = true;
         if (!__RENDERIZR_EDIT_MODE__ || !editable || event.button !== 0) return;
         const id = elementNodeId(event.target);
+        if (toggling) toggling.current = null;
         if (id === undefined) return pressEdge(event);
-        select(clickSelection(selected, id, modified(event)));
+        const pressed = pressSelection(selected, id, modified(event));
+        select(pressed.selection);
+        if (toggling && pressed.toggleOnClick)
+            toggling.current = { id, x: event.clientX, y: event.clientY };
+    };
+
+    /**
+     * A release that ends a modifier-click on a selected element takes it
+     * out of the selection (spec 10.2); one that ends a drag, past React
+     * Flow's 1 px threshold, leaves the selection as it is.
+     */
+    const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+        const pressed = toggling?.current;
+        if (!toggling || !pressed) return;
+        toggling.current = null;
+        if (
+            Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 1
+        )
+            return;
+        select(clickSelection(selected, pressed.id, true));
     };
 
     /* ---------------- editing edges (spec 12) */
@@ -2636,6 +2824,9 @@ function Canvas({
             className={styles.canvas}
             onKeyDown={onKeyDown}
             onPointerDownCapture={onPointerDown}
+            onPointerUpCapture={
+                __RENDERIZR_EDIT_MODE__ && editable ? onPointerUp : undefined
+            }
             onDoubleClick={editable ? onDoubleClick : undefined}
             onFocus={onFocus}
             style={

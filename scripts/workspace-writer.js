@@ -221,20 +221,31 @@ const pointOf = (at) => {
     return x === undefined || y === undefined ? undefined : { x, y };
 };
 
+/** `order` as an integer when it reads as one, as the page reads it. */
+const orderOf = ({ order }) => {
+    const text = String(order ?? "").trim();
+    return /^\d+$/.test(text) ? Number(text) : undefined;
+};
+
 /**
- * Each relationship view of `view` by its key: the relationship id for its
- * first listing, then `id#1`, `id#2` for repeats, as a dynamic view lists one
- * relationship at several orders. A repeat at an order already listed is the
- * same edge, and takes no key of its own (`relationshipKey` in `src/model`).
+ * Each relationship listing of `view` by its key: the relationship id for
+ * its first listing, then `id#1`, `id#2` for repeats, as a dynamic view
+ * lists one relationship at several orders. In a `dynamic` view a second
+ * listing at one order, read as an integer when it is one, is the same edge
+ * and takes no key. This is the page's rule (`relationshipKeys` in
+ * `src/model/edited-layout.ts`), and `test/edited-layout.test.js` holds the
+ * two to it.
  */
-function relationshipsByKey(view) {
+function relationshipsByKey(view, dynamic) {
     const byKey = new Map();
     const repeats = new Map();
     const listed = new Set();
     for (const relationship of view.relationships ?? []) {
-        const at = `${relationship.id}\n${relationship.order}`;
-        if (relationship.order !== undefined && listed.has(at)) continue;
-        listed.add(at);
+        if (dynamic) {
+            const at = `${relationship.id}\n${orderOf(relationship) ?? relationship.order}`;
+            if (listed.has(at)) continue;
+            listed.add(at);
+        }
         const repeat = repeats.get(relationship.id) ?? 0;
         repeats.set(relationship.id, repeat + 1);
         byKey.set(
@@ -274,7 +285,10 @@ export function applyLayout(workspace, views) {
             setInOrder(element, "x", point.x);
             setInOrder(element, "y", point.y);
         }
-        const relationships = relationshipsByKey(view);
+        const relationships = relationshipsByKey(
+            view,
+            workspace.views.dynamicViews?.includes(view) ?? false,
+        );
         for (const [id, route] of Object.entries(layout?.relationships ?? {})) {
             const relationship = relationships.get(id);
             if (!relationship) continue;
@@ -378,13 +392,24 @@ function carryStamps(before, after) {
     }
 }
 
-/** The refusal of a save made against a file that has changed since (spec 7.4). */
+/**
+ * How many of its own writes the writer remembers: enough to cover every
+ * watcher event still on its way while saves and runs follow each other.
+ */
+const RECENT_WRITES = 16;
+
+/**
+ * The refusal of a save made against a file that has changed since (spec
+ * 7.4). It carries `version`, the file's version now, so the page can save
+ * against it once the author keeps the edits (spec 6.2).
+ */
 export class StaleVersionError extends Error {
-    constructor(file) {
+    constructor(file, version) {
         super(
-            `${basename(file)} changed on disk since this page loaded it. Reload the page to edit the file as it is now.`,
+            `${basename(file)} changed on disk since this page last read it.`,
         );
         this.name = "StaleVersionError";
+        this.version = version;
     }
 }
 
@@ -392,15 +417,17 @@ export class StaleVersionError extends Error {
  * Saves edited layouts, and the workspaces the DSL pipeline's runs produce
  * (spec 5.2), into one `workspace.json`, one write at a time, each
  * through a temporary file in the same folder renamed over it. It remembers
- * what it wrote last, so edit mode's watcher can tell its own writes from
- * outside changes.
+ * the versions it wrote recently, each once its rename has landed, so edit
+ * mode's watcher can tell its own writes from outside changes, even when the
+ * event for an earlier write arrives after a later one.
  */
 export class WorkspaceWriter {
     #file;
     #agent;
     #now;
     #queue = Promise.resolve();
-    #written = null;
+    /** The versions this writer wrote, oldest first, at most `RECENT_WRITES`. */
+    #written = new Set();
 
     constructor(file, { agent, now = () => new Date() }) {
         this.#file = file;
@@ -408,9 +435,9 @@ export class WorkspaceWriter {
         this.#now = now;
     }
 
-    /** Whether `text` is what this writer last wrote. */
+    /** Whether `text` is one of the files this writer wrote recently. */
     wrote(text) {
-        return this.#written !== null && versionOf(text) === this.#written;
+        return this.#written.has(versionOf(text));
     }
 
     /**
@@ -430,7 +457,7 @@ export class WorkspaceWriter {
     async #save({ version, view, views }) {
         const text = await readFile(this.#file, "utf8");
         if (versionOf(text) !== version)
-            throw new StaleVersionError(this.#file);
+            throw new StaleVersionError(this.#file, versionOf(text));
         const rendered = renderWorkspace(text, {
             views,
             view,
@@ -489,13 +516,16 @@ export class WorkspaceWriter {
         );
         try {
             await writeFile(temporary, text, "utf8");
-            this.#written = versionOf(text);
             await rename(temporary, this.#file);
         } catch (error) {
-            this.#written = null;
             await rm(temporary, { force: true });
             throw error;
         }
-        return { version: versionOf(text), written: true };
+        const version = versionOf(text);
+        this.#written.delete(version);
+        this.#written.add(version);
+        if (this.#written.size > RECENT_WRITES)
+            this.#written.delete(this.#written.values().next().value);
+        return { version, written: true };
     }
 }

@@ -38,7 +38,7 @@ import {
     layoutNotice,
     readingSearch,
 } from "../components/editing-route";
-import { takeSessionToken } from "../components/session-token";
+import { sessionToken } from "../components/session-token";
 import { confirmLeave } from "../components/unsaved-dialog";
 import type { Engine } from "../engine";
 import type { SelectionState } from "../engine/contract";
@@ -58,12 +58,12 @@ export function editSession(): EditSession {
     if (session) return session;
     const created = new EditSession({
         version: workspaceVersion,
-        token: takeSessionToken(),
+        token: sessionToken(),
     });
     // The browser asks before a tab with unsaved changes closes or reloads,
     // and whatever still waits goes out as the page goes (spec 7.4).
     window.addEventListener("beforeunload", (event) => {
-        if (!created.waiting()) return;
+        if (!created.unsaved()) return;
         event.preventDefault();
         event.returnValue = "";
     });
@@ -81,8 +81,15 @@ const ERROR_EVENT = "renderizr:error";
 const FLUSH_EVENT = "renderizr:flush";
 const FLUSHED_EVENT = "renderizr:flushed";
 
-/** A workspace from disk, as the server sends it. */
-type Arrived = { version: string; workspace: Record<string, unknown> };
+/**
+ * A workspace from disk, as the server sends it, with the `source` of the
+ * page whose save wrote it.
+ */
+type Arrived = {
+    version: string;
+    workspace: Record<string, unknown>;
+    source?: string;
+};
 
 /** The last workspace that arrived from disk, or `null` before one does. */
 let arrived: Record<string, unknown> | null = null;
@@ -141,7 +148,9 @@ export function onWorkspace(handler: (arrival: Arrived) => void) {
 
 /**
  * Hear edit mode's server for the life of the page (spec 6.1). A workspace
- * from disk goes to the diagrams page, which swaps it in place; any other
+ * from disk goes to the diagrams page, which swaps it in place, unless this
+ * page's own save wrote it: another page's save arrives as any change on
+ * disk does (spec 6.2). Any other
  * page reloads in full, as does a later trip from the diagrams page to the
  * documentation or decisions, whose pages hold the workspace they loaded
  * with. A flush saves what waits, unless the author still has to keep or
@@ -152,6 +161,7 @@ export function startLiveReload() {
     const hot = import.meta.hot;
     if (!hot) return;
     hot.on(WORKSPACE_EVENT, (arrival: Arrived) => {
+        if (session && arrival.source === session.source) return;
         arrived = arrival.workspace;
         failure = null;
         if (!swapIn) {
@@ -222,9 +232,9 @@ export function swapWorkspace(
 
 /**
  * Go on with `proceed` once nothing waits for a save (spec 7.5). While the
- * view's changes wait or a save has failed, a dialog offers "Save and
- * continue" and "Stay", and the page goes on only once the save succeeds;
- * the toolbar shows why one didn't.
+ * view's changes wait, a save is on its way or one has failed, a dialog
+ * offers "Save and continue" and "Stay", and the page goes on only once
+ * every save succeeds; the toolbar shows why one didn't.
  */
 export async function leave(
     engine: Engine,
@@ -232,7 +242,7 @@ export async function leave(
     proceed: () => void,
 ) {
     const edits = editSession();
-    if (!edits.waiting()) {
+    if (!edits.unsaved()) {
         proceed();
         return;
     }
@@ -368,6 +378,12 @@ export function startEditing(
             return;
         }
         if (removeBar) return;
+        // A save refused as stale holds edits the engine may no longer draw,
+        // once a workspace arrived while it was on its way (spec 6.2).
+        for (const held of edits.held()) {
+            const layout = edits.layoutOf(held);
+            if (layout) engine.setLayout(held, layout);
+        }
         const view = model.findViewByKey(key);
         const canvas = container.querySelector<HTMLElement>(
             "#structurizr-diagram-target",

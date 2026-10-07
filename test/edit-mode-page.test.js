@@ -23,7 +23,7 @@ const { WorkspaceModel, isEditable, whyNotEditable } =
 const { editingSearch, isEditingRoute, readingSearch } = await importSrc(
     "components/editing-route",
 );
-const { takeSessionToken, SESSION_TOKEN_KEY } = await importSrc(
+const { sessionToken, takeSessionToken, SESSION_TOKEN_KEY } = await importSrc(
     "components/session-token",
 );
 const { default: CurrentView } = await importSrc("components/current-view");
@@ -197,6 +197,21 @@ test("a page without session storage still reads the token from the URL", () => 
     };
     assert.equal(takeSessionToken(page), "s3cret");
     assert.deepEqual(page.replaced, ["/"]);
+});
+
+test("the page keeps the token it took in memory, so a later read works without session storage", () => {
+    const page = stubWindow("http://127.0.0.1:5173/?token=s3cret");
+    page.storage = {
+        getItem() {
+            throw new Error("storage is unavailable");
+        },
+        setItem() {
+            throw new Error("storage is unavailable");
+        },
+    };
+    takeSessionToken(page);
+    // The address bar has lost the token by now, and storage never had it.
+    assert.equal(sessionToken(), "s3cret");
 });
 
 /* ------------------------------------------------------ pencil and Done */

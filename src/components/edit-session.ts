@@ -75,6 +75,12 @@ export type Arrival = {
 };
 
 export class EditSession {
+    /**
+     * What this page calls itself in its saves. The server names the saving
+     * page in the workspace event each save makes, so the page knows its own
+     * save when it comes back (spec 6.2).
+     */
+    readonly source = Math.random().toString(36).slice(2);
     readonly #host: SessionHost;
     readonly #token: string | null;
     #version: string | null;
@@ -94,6 +100,11 @@ export class EditSession {
     readonly #history = new Map<string, History>();
     /** Whether edits that couldn't be saved wait for Keep or Discard. */
     #held = false;
+    /**
+     * How the last workspace that arrived while a save was on its way lays
+     * edits over itself, or null: a failed save's edits lie over it too.
+     */
+    #arrivedHold: Arrival["hold"] | null = null;
 
     constructor({
         version,
@@ -205,6 +216,7 @@ export class EditSession {
      */
     takeWorkspace({ version, hold, touched }: Arrival): string[] {
         this.#version = version;
+        if (this.#inFlight) this.#arrivedHold = hold;
         for (const key of [...this.#history.keys()])
             if (touched(key)) this.#history.delete(key);
         this.#layouts.clear();
@@ -250,6 +262,14 @@ export class EditSession {
     /** Whether changes wait for a save, a failed one included. */
     waiting(): boolean {
         return this.#pending.size > 0;
+    }
+
+    /**
+     * Whether anything recorded isn't saved yet: changes waiting, a failed
+     * save or a save on its way (spec 7.4, 7.5).
+     */
+    unsaved(): boolean {
+        return this.waiting() || this.#inFlight !== null;
     }
 
     status(): SaveStatus {
@@ -332,6 +352,7 @@ export class EditSession {
                 version: this.#version,
                 view: this.#view,
                 views: Object.fromEntries(views),
+                source: this.source,
             }),
         });
     }
@@ -352,6 +373,10 @@ export class EditSession {
                 this.#version = answer.version;
             } else {
                 stale = response.status === 409;
+                // The server names the file's version now, so Keep saves
+                // against it even before that workspace arrives (spec 6.2).
+                if (stale && typeof answer.version === "string")
+                    this.#version = answer.version;
                 failure =
                     typeof answer.error === "string"
                         ? answer.error
@@ -361,9 +386,14 @@ export class EditSession {
             failure = `edit mode's server can't be reached (${error instanceof Error ? error.message : String(error)})`;
         }
 
+        const arrived = this.#arrivedHold;
+        this.#arrivedHold = null;
         if (failure !== null) {
-            // What failed waits again, under anything changed since.
-            for (const [key, layout] of views) {
+            // What failed waits again, under anything changed since, laid
+            // over a workspace that arrived meanwhile as its edits were.
+            for (const [key, sent] of views) {
+                const layout = arrived ? arrived(key, sent) : sent;
+                if (isEmptyLayout(layout)) continue;
                 const later = this.#pending.get(key);
                 this.#pending.set(
                     key,
@@ -380,8 +410,10 @@ export class EditSession {
             if (isEmptyLayout(layout)) this.#pending.delete(key);
         this.#failure = failure;
         this.#inFlight = null;
-        // A stale save's edits wait for Keep or Discard (spec 6.2).
-        if (stale && this.#pending.size > 0) this.#held = true;
+        // A stale save's edits wait for Keep or Discard (spec 6.2), as do
+        // a failed save's once a workspace arrived meanwhile.
+        if ((stale || (arrived && failure !== null)) && this.#pending.size > 0)
+            this.#held = true;
         this.#notify();
         return failure === null && this.#pending.size === 0;
     }

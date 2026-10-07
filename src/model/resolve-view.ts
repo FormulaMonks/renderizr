@@ -1,6 +1,5 @@
-import { orderOf } from "./animation";
 import { type ResolvedBoundary, resolveBoundaries } from "./boundaries";
-import { type EditedLayout, relationshipKey } from "./edited-layout";
+import { type EditedLayout, relationshipKeys } from "./edited-layout";
 import {
     elementPasses,
     filterOf,
@@ -138,20 +137,17 @@ export function resolveView(
     const relationships: ResolvedRelationship[] = [];
     /**
      * A dynamic view draws one edge per relationship per order, read as an
-     * integer, so "1" and "01" are one edge (spec 11). An order that isn't
-     * an integer keeps its text; `findViewError` refuses the view anyway.
+     * integer, so "1" and "01" are one edge (spec 11); a repeat takes no
+     * key. An order that isn't an integer keeps its text; `findViewError`
+     * refuses the view anyway.
      */
-    const listed = new Set<string>();
-    /** How often each relationship is listed so far, for its key. */
-    const repeats = new Map<string, number>();
-    for (const placement of view.relationships ?? []) {
+    const listings = view.relationships ?? [];
+    const keys = relationshipKeys(listings, view.type === "Dynamic");
+    for (const [index, placement] of listings.entries()) {
+        const key = keys[index];
+        if (key === null) continue;
         const relationship = model.findRelationshipById(placement.id);
         if (!relationship) continue;
-        if (view.type === "Dynamic") {
-            const at = `${placement.id}\n${orderOf(placement) ?? placement.order}`;
-            if (listed.has(at)) continue;
-            listed.add(at);
-        }
         if (
             filter &&
             (!relationshipPasses(model, filter, relationship) ||
@@ -160,10 +156,7 @@ export function resolveView(
         ) {
             continue;
         }
-        const repeat = repeats.get(placement.id) ?? 0;
-        repeats.set(placement.id, repeat + 1);
-        const route =
-            edited?.relationships?.[relationshipKey(placement.id, repeat)];
+        const route = edited?.relationships?.[key];
         relationships.push({
             ...placement,
             // Its vertices, routing mode and label position; nothing

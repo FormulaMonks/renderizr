@@ -12,7 +12,7 @@ import type {
 } from "../../model/index";
 import { offOrigin } from "../geometry/snapping";
 import type { Point } from "../geometry/shapes/types";
-import { storedRoutes } from "./commands";
+import { fieldsChange, firstChangeFields, storedRoutes } from "./commands";
 import type { Graph } from "./graph";
 
 const same = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
@@ -100,28 +100,10 @@ export function dropChange(
     });
     if (moved.length === 0) return null;
 
-    const first = graph.elements.some((e) => !edited?.elements?.[e.id]);
-    const before: Record<string, Point> = {};
-    const after: Record<string, Point> = {};
-    if (first) {
-        for (const [id, point] of drawn) {
-            before[id] = point;
-            after[id] = saved(point);
-        }
-    }
+    const { before, after } = firstChangeFields(graph, edited);
     for (const [id, point] of moved) {
-        before[id] = drawn.get(id) as Point;
-        after[id] = saved(point);
+        before.elements[id] = drawn.get(id) as Point;
+        after.elements[id] = saved(point);
     }
-    if (!first)
-        return {
-            view,
-            before: { elements: before },
-            after: { elements: after },
-        };
-    return {
-        view,
-        before: { elements: before, dimensions: graph.canvas },
-        after: { elements: after, dimensions: graph.canvas },
-    };
+    return fieldsChange(view, before, after);
 }

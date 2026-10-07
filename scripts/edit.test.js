@@ -252,6 +252,9 @@ test("without the tools, a DSL with no workspace.json stops with a message namin
                     error.message.includes("broken-tools") &&
                     error.message.includes("Java 21 to 25") &&
                     error.message.includes(
+                        "Groovy !script blocks fail on Java 26",
+                    ) &&
+                    error.message.includes(
                         "github.com/FormulaMonks/renderizr#",
                     ),
             );
@@ -520,13 +523,37 @@ const moveSave = (version, x = 205) => ({
     views: { Warehouse: { elements: { 20: { x, y: 350 } } } },
 });
 
-/** Wait until `check()` holds, for up to 5 s. */
+/**
+ * Wait until `check()` holds, for up to 30 s. A run of the DSL pipeline
+ * waits out its debounce and a flush and starts a process, which takes a
+ * while on a machine running the whole suite at once.
+ */
 async function eventually(check, message) {
-    for (let attempt = 0; attempt < 100; attempt++) {
+    const until = Date.now() + 30_000;
+    while (Date.now() < until) {
         if (await check()) return;
         await new Promise((resolve) => setTimeout(resolve, 50));
     }
     assert.fail(message);
+}
+
+/**
+ * Write `text` to `file` and wait until `check()` holds, as `eventually`
+ * does. While the server has sent `sent` nothing new, the write goes again
+ * every 2 s: a watcher still starting on a busy machine can miss it.
+ */
+async function writeUntil(file, text, sent, check, message) {
+    const before = sent.length;
+    await writeFile(file, text);
+    let again = Date.now() + 2000;
+    await eventually(async () => {
+        if (await check()) return true;
+        if (Date.now() > again && sent.length === before) {
+            await writeFile(file, text);
+            again = Date.now() + 2000;
+        }
+        return false;
+    }, message);
 }
 
 test("the save endpoint writes the layout into workspace.json and answers with the new version", async () => {
@@ -597,6 +624,11 @@ test("the save endpoint refuses a save against a version the file no longer has"
         const { status, body } = await postSave(url, token, moveSave(version));
         assert.equal(status, 409);
         assert.match(body.error, /changed on disk/);
+        assert.equal(
+            body.version,
+            versionOf(await readFile(json, "utf8")),
+            "the refusal doesn't name the file's version",
+        );
         assert.ok(!(await readFile(json, "utf8")).includes('"x" : 205'));
     });
 });
@@ -614,16 +646,27 @@ function recordEvents(server) {
     return sent;
 }
 
-test("a save of the page's own never reaches the page, and an outside change arrives as a workspace event with its version and the build's transforms", async () => {
+test("a save reaches every page once, as a workspace event naming the page that saved, and an outside change arrives as one with its version and the build's transforms", async () => {
     const font = { family: "Fixture Sans", css: "@font-face{}" };
     await withEditServer({ font }, async ({ server, url, token, json }) => {
         const sent = recordEvents(server);
         const version = await servedVersion(new URL(url).origin);
-        const { status } = await postSave(url, token, moveSave(version));
+        const { status, body } = await postSave(url, token, {
+            ...moveSave(version),
+            source: "tab-1",
+        });
         assert.equal(status, 200);
         // Give the watcher time to report the write.
         await new Promise((resolve) => setTimeout(resolve, 600));
-        assert.deepEqual(sent, [], "the save came back to the page");
+        assert.equal(sent.length, 1, "the save reached the pages twice");
+        assert.equal(sent[0].event, WORKSPACE_EVENT);
+        assert.equal(sent[0].data.source, "tab-1");
+        assert.equal(sent[0].data.version, body.version);
+        assert.equal(
+            sent[0].data.workspace.views.customViews[0].elements[0].x,
+            205,
+        );
+        sent.length = 0;
 
         const workspace = JSON.parse(await readFile(json, "utf8"));
         workspace.description = "Changed outside edit mode";
@@ -634,6 +677,7 @@ test("a save of the page's own never reaches the page, and an outside change arr
         );
         const { data } = sent.find(({ event }) => event === WORKSPACE_EVENT);
         assert.equal(data.version, versionOf(await readFile(json, "utf8")));
+        assert.equal(data.source, undefined);
         assert.equal(data.workspace.description, "Changed outside edit mode");
         assert.match(
             JSON.stringify(data.workspace),
@@ -842,9 +886,11 @@ test("a DSL change flushes the open pages, merges and reaches them as a workspac
                 );
             });
 
-            await writeFile(dsl, stubDsl("After"));
             try {
-                await eventually(
+                await writeUntil(
+                    dsl,
+                    stubDsl("After"),
+                    sent,
                     () =>
                         sent.some(
                             ({ event, data }) =>
@@ -865,7 +911,9 @@ test("a DSL change flushes the open pages, merges and reaches them as a workspac
                 "the merge lost the layout the flush saved",
             );
             const { data } = sent.find(
-                ({ event }) => event === WORKSPACE_EVENT,
+                ({ event, data }) =>
+                    event === WORKSPACE_EVENT &&
+                    data.workspace.name === "After",
             );
             assert.equal(data.version, versionOf(await readFile(json, "utf8")));
         },
@@ -876,8 +924,10 @@ test("a DSL error reaches the page over the last good workspace, and the next go
     await withDslServer(stubDsl("Good"), async ({ server, url, dsl, json }) => {
         const sent = recordEvents(server);
         const good = await readFile(json, "utf8");
-        await writeFile(dsl, stubDsl("Bad", { fail: "Unexpected tokens" }));
-        await eventually(
+        await writeUntil(
+            dsl,
+            stubDsl("Bad", { fail: "Unexpected tokens" }),
+            sent,
             () => sent.some(({ event }) => event === ERROR_EVENT),
             "the DSL error never reached the page",
         );
@@ -894,8 +944,10 @@ test("a DSL error reaches the page over the last good workspace, and the next go
         });
         assert.match(await fetchWorkspaceModule(origin), /"Good"/);
 
-        await writeFile(dsl, stubDsl("Fixed"));
-        await eventually(
+        await writeUntil(
+            dsl,
+            stubDsl("Fixed"),
+            sent,
             () => sent.some(({ event }) => event === WORKSPACE_EVENT),
             "the fixed DSL never reached the page",
         );

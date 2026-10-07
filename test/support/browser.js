@@ -199,7 +199,8 @@ export function consoleMessages(stderr) {
  * Load `url` and resolve with the serialized DOM, every console message the
  * page wrote while it loaded, and `elapsed`: the wall-clock milliseconds from
  * launching Chrome to the document arriving. Rejects if Chrome fails or takes
- * longer than `timeout`. `flags` are extra Chrome switches for this run, such
+ * longer than `timeout`: two minutes by default, since a full run of the
+ * suite starts many Chromes side by side. `flags` are extra Chrome switches for this run, such
  * as `--force-prefers-reduced-motion`.
  *
  * The page cannot time itself here. `--virtual-time-budget` fakes every clock
@@ -213,7 +214,7 @@ export function consoleMessages(stderr) {
 export async function renderPage(
     chrome,
     url,
-    { timeout = 60_000, offline = false, flags = [] } = {},
+    { timeout = 120_000, offline = false, flags = [] } = {},
 ) {
     const launched = performance.now();
     const { out, err } = await runChrome(
@@ -360,6 +361,41 @@ export async function openBrowser(chrome) {
                     }
                     throw new Error(`The page never got to ${expression}`);
                 },
+                /**
+                 * Wait until the ready canvas holds still: its box on screen
+                 * and the viewport's transform the same across two frames,
+                 * so a gesture lands where it was measured.
+                 */
+                async settle(timeout = 30_000) {
+                    // A tab in the background gets no frames: bring it up.
+                    await call("Page.bringToFront");
+                    return this.waitFor(
+                        `new Promise((done) => {
+                            const read = () => {
+                                const canvas = document.querySelector('[data-ready="true"]');
+                                const viewport = canvas?.querySelector(".react-flow__viewport");
+                                if (!viewport) return null;
+                                const r = canvas.getBoundingClientRect();
+                                return [r.left, r.top, r.width, r.height, viewport.style.transform].join();
+                            };
+                            // A tab in the background may get no frames; a
+                            // timer stands in for them there.
+                            const nextFrame = (then) => {
+                                let ran = false;
+                                const once = () => {
+                                    if (!ran) then((ran = true));
+                                };
+                                requestAnimationFrame(once);
+                                setTimeout(once, 100);
+                            };
+                            const first = read();
+                            nextFrame(() =>
+                                nextFrame(() => done(first !== null && first === read())),
+                            );
+                        })`,
+                        timeout,
+                    );
+                },
                 /** Click at `at` with `modifiers` held (DevTools bits). */
                 async click(at, modifiers = 0) {
                     for (const [type, buttons] of [
@@ -376,8 +412,11 @@ export async function openBrowser(chrome) {
                             modifiers,
                         });
                 },
-                /** Press at `from`, move in `steps` to `to` and release. */
-                async drag(from, to, steps = 10) {
+                /**
+                 * Press at `from`, move in `steps` to `to` and release, with
+                 * `modifiers` held (DevTools bits).
+                 */
+                async drag(from, to, steps = 10, modifiers = 0) {
                     const mouse = (type, { x, y }, buttons) =>
                         call("Input.dispatchMouseEvent", {
                             type,
@@ -386,6 +425,7 @@ export async function openBrowser(chrome) {
                             button: "left",
                             buttons,
                             clickCount: 1,
+                            modifiers,
                         });
                     await mouse("mouseMoved", from, 0);
                     await mouse("mousePressed", from, 1);

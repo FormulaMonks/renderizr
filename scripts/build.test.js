@@ -518,7 +518,7 @@ test("the binary prints its usage and exits 0 for --help", async () => {
     const { code, stdout } = await runCli(["--help"]);
 
     assert.equal(code, 0);
-    assert.match(stdout, /Renderizr — render a Structurizr workspace/);
+    assert.match(stdout, /Renderizr: render a Structurizr workspace/);
     // The usage line has to name the binary package.json actually installs —
     // `bin` declares only `renderizr`, so `build` would send the reader to a
     // command that is not on their PATH.

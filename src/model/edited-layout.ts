@@ -9,6 +9,7 @@
  * `paperSize` once a canvas command deletes it (spec 14).
  */
 
+import { orderOf } from "./animation";
 import type { Vertex } from "./types";
 
 /** The size of a view's canvas, in model units (spec 14). */
@@ -46,6 +47,37 @@ export type EditedLayout = {
  */
 export const relationshipKey = (id: string, repeat: number) =>
     repeat === 0 ? id : `${id}#${repeat}`;
+
+/**
+ * The key each of a view's relationship listings goes by, in order, or
+ * `null` for a listing that takes none. In a dynamic view, a second listing
+ * of one relationship at one order is the same edge and takes no key; an
+ * order reads as an integer when it is one, so "1" and "01" are one order
+ * (spec 11). Every other listing takes `relationshipKey` with the number of
+ * earlier listings of the same relationship that took one, whether or not
+ * the model still has the relationship.
+ *
+ * Edit mode's writer keys the listings it saves into with the same rule
+ * (`relationshipsByKey` in `scripts/workspace-writer.js`), and
+ * `test/edited-layout.test.js` holds the two to it.
+ */
+export function relationshipKeys(
+    listings: readonly { id: string; order?: unknown }[],
+    dynamic: boolean,
+): (string | null)[] {
+    const listed = new Set<string>();
+    const repeats = new Map<string, number>();
+    return listings.map((listing) => {
+        if (dynamic) {
+            const at = `${listing.id}\n${orderOf(listing) ?? listing.order}`;
+            if (listed.has(at)) return null;
+            listed.add(at);
+        }
+        const repeat = repeats.get(listing.id) ?? 0;
+        repeats.set(listing.id, repeat + 1);
+        return relationshipKey(listing.id, repeat);
+    });
+}
 
 /**
  * One finished gesture or command on a view (spec 9.2): the fields it

@@ -648,6 +648,33 @@ test("saves run one at a time, each against the file the last one wrote", async 
     });
 });
 
+test("the writer knows every recent write of its own, so a late watcher event for an earlier one is no outside change", async () => {
+    await withWorkspace(async ({ file, text }) => {
+        const writer = new WorkspaceWriter(file, {
+            agent: AGENT,
+            now: () => NOW,
+        });
+        const first = await writer.save({
+            version: versionOf(text),
+            view: "Landscape",
+            views: { Landscape: { elements: { 1: { x: 110, y: 200 } } } },
+        });
+        const firstText = await readFile(file, "utf8");
+        await writer.save({
+            version: first.version,
+            view: "Landscape",
+            views: { Landscape: { elements: { 2: { x: 610, y: 200 } } } },
+        });
+        const secondText = await readFile(file, "utf8");
+        assert.ok(writer.wrote(firstText), "the writer forgot its first write");
+        assert.ok(writer.wrote(secondText));
+        assert.ok(
+            !writer.wrote(text),
+            "the file it started from isn't its own",
+        );
+    });
+});
+
 /* ------------------------------------------------ a run of the DSL pipeline */
 
 test("a run's workspace replaces the file, read the way Structurizr reads it and stamped", async () => {

@@ -109,7 +109,14 @@ test("a save sends the token, JSON, the loaded version, the open view and only w
         version: "first",
         view: "B",
         views: { A: { elements: { 1: { x: 10, y: 20 } } } },
+        source: edits.source,
     });
+    assert.equal(typeof edits.source, "string");
+    assert.notEqual(
+        edits.source,
+        session(stubHost()).source,
+        "two pages name themselves alike",
+    );
     assert.deepEqual(edits.status(), { state: "saved", waiting: false });
     assert.equal(stub.timers.size, 0, "a save at once cancels the autosave");
 
@@ -365,6 +372,7 @@ test("edits waiting when a workspace arrives lie over it by id, hold the autosav
         version: "disk",
         view: null,
         views: { A: { elements: { 2: { x: 25, y: 25 } } } },
+        source: edits.source,
     });
     edits.record(change("A", "2", 30, 30));
     assert.equal(stub.timers.size, 1, "Keep left the autosave held");
@@ -412,4 +420,82 @@ test("a save refused as stale holds its edits, drawn again, until the author kee
     assert.equal(stub.timers.size, 0, "the autosave still runs");
     assert.equal(await edits.save(), true);
     assert.equal(stub.requests.at(-1).body.version, "disk");
+});
+
+test("a stale save's edits lie over a workspace that arrived while it was on its way, so Keep never writes back what the author left alone", async () => {
+    let release;
+    const answer = new Promise((resolve) => {
+        release = () =>
+            resolve({ status: 409, body: { error: "stale", version: "disk" } });
+    });
+    const stub = stubHost([answer]);
+    const edits = session(stub);
+    // A first change carries every element; the author moved only 1.
+    edits.record({
+        view: "A",
+        before: { elements: { 1: { x: 0, y: 0 }, 2: { x: 0, y: 0 } } },
+        after: { elements: { 1: { x: 10, y: 10 }, 2: { x: 0, y: 0 } } },
+    });
+    const saving = edits.save();
+    await Promise.resolve();
+    // Another page moved element 2; the workspace keeps only what the
+    // author changed from what the page drew before.
+    edits.takeWorkspace(
+        arrival("disk", {
+            hold: (_key, layout) => ({
+                elements: { 1: layout.elements[1] },
+            }),
+        }),
+    );
+    release();
+    assert.equal(await saving, false);
+    assert.deepEqual(edits.held(), ["A"]);
+    assert.deepEqual(edits.layoutOf("A"), {
+        elements: { 1: { x: 10, y: 10 } },
+    });
+    assert.equal(await edits.save(), true);
+    assert.deepEqual(stub.requests.at(-1).body.views, {
+        A: { elements: { 1: { x: 10, y: 10 } } },
+    });
+});
+
+test("a save refused as stale takes the version the server names, so Keep saves against it before any workspace arrives", async () => {
+    const stub = stubHost([
+        {
+            status: 409,
+            body: { error: "workspace.json changed on disk", version: "v9" },
+        },
+    ]);
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 10));
+    assert.equal(await edits.save(), false);
+    assert.deepEqual(edits.held(), ["A"]);
+    assert.equal(await edits.save(), true, "Keep failed again");
+    assert.equal(stub.requests.at(-1).body.version, "v9");
+});
+
+test("a save on its way counts as unsaved, so a view switch asks first", async () => {
+    let release;
+    const held = new Promise((resolve) => {
+        release = () => resolve({ status: 200, body: { version: "v2" } });
+    });
+    const stub = stubHost([held]);
+    const edits = session(stub);
+    assert.equal(edits.unsaved(), false);
+    edits.record(change("A", "1", 10, 20));
+    const saving = edits.save();
+    await Promise.resolve();
+    assert.equal(edits.waiting(), false, "the Save button stays off");
+    assert.equal(edits.unsaved(), true);
+    release();
+    await saving;
+    assert.equal(edits.unsaved(), false);
+});
+
+test("a failed save counts as unsaved", async () => {
+    const stub = stubHost([{ status: 500, body: { error: "disk full" } }]);
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 20));
+    await edits.save();
+    assert.equal(edits.unsaved(), true);
 });
