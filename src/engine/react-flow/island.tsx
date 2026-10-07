@@ -83,6 +83,7 @@ import {
     type RoutingMode,
     sidePoint,
 } from "../geometry/routing/path";
+import { resizedCanvas } from "../geometry/canvas";
 import type { Point } from "../geometry/shapes/types";
 import { type Guide, guideReach, snapBox } from "../geometry/snapping";
 import { bringBackChange, calculatedChange, canvasChange } from "./commands";
@@ -247,6 +248,12 @@ export type IslandProps = {
 
 /** Fraction of the container left around a fitted view. */
 const FIT_PADDING = 0.05;
+
+/**
+ * How far below the scale that fits the whole canvas zooming out may go in
+ * editing, so the canvas shows with room around it.
+ */
+const EDIT_ZOOM_OUT = 0.8;
 
 /**
  * Tell the workspace author about a problem in what they wrote: an element
@@ -2251,11 +2258,21 @@ function Canvas({
         [graph, bounds, size],
     );
     const zoom = useStore((flowState) => flowState.transform[2]);
-    const { floor, ceiling } = zoomLimits(
-        fitted?.zoom ?? null,
-        zoom,
-        moved.current,
-    );
+    const limits = zoomLimits(fitted?.zoom ?? null, zoom, moved.current);
+    const { ceiling } = limits;
+    // In editing, zooming out goes a little past the whole canvas, so the
+    // author can see the view sits on it (spec 14). Reading keeps its floor.
+    const floor =
+        __RENDERIZR_EDIT_MODE__ && editable && graph && size.width > 0
+            ? Math.min(
+                  limits.floor,
+                  EDIT_ZOOM_OUT *
+                      Math.min(
+                          size.width / graph.canvas.width,
+                          size.height / graph.canvas.height,
+                      ),
+              )
+            : limits.floor;
 
     // With structurizr.zoomOnAnimation, a step is fitted to its elements
     // (spec 11), however far in that takes the canvas.
@@ -2319,8 +2336,24 @@ function Canvas({
             if (change) onLayoutChanged?.(change);
         };
         commands.resizeCanvas = (command, recenter) => {
-            if (view)
-                run(canvasChange(viewKey, view, edited, command, recenter));
+            if (!view) return;
+            run(canvasChange(viewKey, view, edited, command, recenter));
+            // "Fit the canvas to the diagram" also brings the whole canvas
+            // on screen, where the view stays until the author moves it.
+            const { clientWidth = 0, clientHeight = 0 } = wrapper.current ?? {};
+            if (command !== "auto" || !clientWidth || !clientHeight) return;
+            const canvas = resizedCanvas("auto", view.canvas, view.bounds);
+            moved.current = true;
+            flow.setViewport(
+                getViewportForBounds(
+                    { x: 0, y: 0, ...canvas },
+                    clientWidth,
+                    clientHeight,
+                    0,
+                    fitMaxZoom(view),
+                    FIT_PADDING,
+                ),
+            );
         };
         commands.bringBack = () => {
             if (view) run(bringBackChange(viewKey, view, edited));
@@ -2360,6 +2393,7 @@ function Canvas({
         measure,
         onLayoutChanged,
         selection.edge,
+        flow,
     ]);
 
     useEffect(() => {
@@ -2836,8 +2870,16 @@ function Canvas({
                     background: graph?.background,
                     fontFamily: family,
                     "--focus-ring": graph?.color,
-                    // The selection outline keeps its width on screen.
-                    ...(editable && { "--zoom": zoom }),
+                    // In editing, the selection outline keeps its width on
+                    // screen, and what lies off the canvas is shaded toward
+                    // the scheme's text color: darker on a light scheme,
+                    // lighter on a dark one (spec 14).
+                    ...(__RENDERIZR_EDIT_MODE__ &&
+                        editable && {
+                            "--zoom": zoom,
+                            "--canvas-background": graph?.background,
+                            background: `color-mix(in srgb, ${graph?.color} 15%, ${graph?.background})`,
+                        }),
                 } as CSSProperties
             }
         >

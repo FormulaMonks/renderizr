@@ -129,7 +129,7 @@ The elements the author has picked to move or arrange together in edit mode. A b
 _Avoid_: highlight, focus (keyboard focus is another thing)
 
 **Reference element**:
-The selected element that align measures from: the first one the author selected.
+The selected element that aligning centers measures from: the first one the author selected. Aligning edges measures from the outermost element on that side instead.
 _Avoid_: anchor, key object
 
 **Selected edge**:

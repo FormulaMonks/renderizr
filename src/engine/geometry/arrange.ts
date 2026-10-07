@@ -1,8 +1,8 @@
 /**
  * Arranging a selection in edit mode (spec 13): align, distribute and
  * nudge, as pure geometry over the selected elements' boxes in selection
- * order, the reference element first. Each answers with the new top-left of
- * every element it moves, in whole units, and leaves the rest out.
+ * order, the reference element first. Each answers with the new top-left
+ * of every element it moves, in whole units, and leaves the rest out.
  */
 
 import type { Bounds } from "./bounds";
@@ -56,9 +56,10 @@ function place(
 }
 
 /**
- * Align `boxes` on `edge` of the first, the reference element (spec 13.1):
- * left, horizontal center or right; top, vertical center or bottom. Nothing
- * moves below `ALIGN_MINIMUM`.
+ * Align `boxes` on `edge` (spec 13.1). Left, right, top and bottom line the
+ * selection up with its outermost element on that side, whichever it is;
+ * the horizontal and vertical centers line it up with the first, the
+ * reference element. Nothing moves below `ALIGN_MINIMUM`.
  */
 export function align(
     boxes: readonly ArrangedBox[],
@@ -67,9 +68,15 @@ export function align(
     const positions: Positions = new Map();
     if (boxes.length < ALIGN_MINIMUM) return positions;
     const [axis, along] = EDGES[edge];
-    const [reference, ...others] = boxes;
-    const line = reference[axis] + reference[size(axis)] * along;
-    for (const box of others)
+    const at = (box: ArrangedBox) => box[axis] + box[size(axis)] * along;
+    const sides = boxes.map(at);
+    const line =
+        along === 0
+            ? Math.min(...sides)
+            : along === 1
+              ? Math.max(...sides)
+              : sides[0];
+    for (const box of boxes)
         place(positions, box, axis, line - box[size(axis)] * along);
     return positions;
 }

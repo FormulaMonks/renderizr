@@ -34,24 +34,36 @@ const SELECTION = [
 ];
 
 const ALIGNMENTS = [
-    ["left", { b: { x: 100, y: 220 }, c: { x: 100, y: 400 } }],
+    // Left edges on the leftmost, c's, at x = 50.
+    ["left", { ref: { x: 50, y: 100 }, b: { x: 50, y: 220 } }],
     // Centers on the reference's, at x = 150.
     ["center", { b: { x: 110, y: 220 }, c: { x: 90, y: 400 } }],
-    // Right edges on the reference's, at x = 200.
-    ["right", { b: { x: 120, y: 220 }, c: { x: 80, y: 400 } }],
+    // Right edges on the rightmost, b's, at x = 380.
+    ["right", { ref: { x: 280, y: 100 }, c: { x: 260, y: 400 } }],
+    // Top edges on the topmost, the reference's, at y = 100.
     ["top", { b: { x: 300, y: 100 }, c: { x: 50, y: 100 } }],
     // Middles on the reference's, at y = 125.
     ["middle", { b: { x: 300, y: 105 }, c: { x: 50, y: 95 } }],
-    // Bottoms on the reference's, at y = 150.
-    ["bottom", { b: { x: 300, y: 110 }, c: { x: 50, y: 90 } }],
+    // Bottom edges on the bottommost, c's, at y = 460.
+    ["bottom", { ref: { x: 100, y: 410 }, b: { x: 300, y: 420 } }],
 ];
 
 for (const [edge, expected] of ALIGNMENTS)
-    test(`align ${edge} lines the selection up with the reference element`, () => {
+    test(`align ${edge} lines the selection up as spec 13.1 asks`, () => {
         assert.deepEqual(moved(align(SELECTION, edge)), expected);
     });
 
-test("align leaves the reference element and the elements already in line where they are", () => {
+test("align left, right, top and bottom go by the outermost element, whichever is the reference", () => {
+    const reversed = [...SELECTION].reverse();
+    for (const edge of ["left", "right", "top", "bottom"])
+        assert.deepEqual(
+            moved(align(reversed, edge)),
+            moved(align(SELECTION, edge)),
+            edge,
+        );
+});
+
+test("align leaves the elements already in line where they are", () => {
     const positions = align(
         [box("ref", 100, 100), box("same", 100, 300), box("off", 140, 500)],
         "left",
@@ -256,7 +268,7 @@ test("an arranging command measures the selection as drawn, the reference elemen
     const edited = placed(elements);
 
     const aligned = arrangeChange("View", view, edited, ["b", "a", "c"], {
-        align: "left",
+        align: "center",
     });
     assert.deepEqual(aligned.after.elements, {
         a: { x: 300, y: 100 },

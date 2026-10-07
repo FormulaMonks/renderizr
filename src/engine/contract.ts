@@ -162,8 +162,9 @@ export type EditControls = {
      */
     calculateLayout(options: CalculateLayoutOptions): void;
     /**
-     * Align the selection on `edge` of the reference element (spec 13.1):
-     * `left`, `center`, `right`, `top`, `middle` or `bottom`. Does nothing
+     * Align the selection (spec 13.1): `left`, `right`, `top` or `bottom`
+     * on its outermost element on that side, `center` or `middle` on the
+     * reference element. Does nothing
      * with fewer than two elements selected. Answers through
      * `onLayoutChanged`, as one change.
      */

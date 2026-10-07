@@ -54,14 +54,7 @@ async function startEdit(fixture) {
     );
     const child = spawn(
         process.execPath,
-        [
-            BUILD_JS,
-            "edit",
-            dir,
-            "--no-open",
-            "--port",
-            String(await freePort()),
-        ],
+        [BUILD_JS, "edit", dir, "--port", String(await freePort())],
         { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "pipe"] },
     );
     stops.push(
@@ -303,6 +296,68 @@ test(
     },
 );
 
+test(
+    "Fit the canvas to the diagram brings the whole canvas on screen, shaded apart from the space around it, and zooming out goes past it",
+    { skip: SKIP },
+    async () => {
+        const { url } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await browser.open(
+                `${url}#?page=diagrams&view=Warehouse&mode=edit`,
+            );
+            await page.waitFor(
+                `!!document.querySelector('[data-ready="true"] [data-canvas-frame]')`,
+            );
+            await page.settle();
+            for (let step = 0; step < 4; step++)
+                await page.evaluate(
+                    `document.querySelector(".zoom-in").click()`,
+                );
+            const box = `(() => {
+                const frame = document.querySelector("[data-canvas-frame]");
+                const canvas = frame.closest('[tabindex="0"]');
+                const f = frame.getBoundingClientRect();
+                const c = canvas.getBoundingClientRect();
+                return f.left >= c.left - 1 && f.right <= c.right + 1 &&
+                    f.top >= c.top - 1 && f.bottom <= c.bottom + 1;
+            })()`;
+            await page.waitFor(`!${box}`);
+            await page.evaluate(
+                `document.querySelector('.resize-canvas[data-command="auto"]').click()`,
+            );
+            await page.waitFor(box);
+
+            // The canvas keeps the scheme's background; the space around it
+            // is shaded (spec 14).
+            const [canvas, outside] = await page.evaluate(`(() => {
+                const frame = document.querySelector("[data-canvas-frame]");
+                return [
+                    getComputedStyle(frame).backgroundColor,
+                    getComputedStyle(frame.closest('[tabindex="0"]')).backgroundColor,
+                ];
+            })()`);
+            assert.notEqual(canvas, outside);
+
+            // Zooming out goes past the whole canvas, so it shows with room
+            // around it.
+            for (let step = 0; step < 6; step++)
+                await page.evaluate(
+                    `document.querySelector(".zoom-out").click()`,
+                );
+            await page.waitFor(`(() => {
+                const frame = document.querySelector("[data-canvas-frame]");
+                const canvas = frame.closest('[tabindex="0"]');
+                const f = frame.getBoundingClientRect();
+                const c = canvas.getBoundingClientRect();
+                return f.width < c.width * 0.85 && f.height < c.height * 0.85;
+            })()`);
+        } finally {
+            await browser.close();
+        }
+    },
+);
+
 /** Each element of the Containers view in the `workspace.json` at `json`, by id. */
 const containerElements = async (json) =>
     new Map(
@@ -402,7 +457,7 @@ const CTRL = 2;
 const SHIFT = 8;
 
 test(
-    "Alt+A aligns the selection left of the reference element, undo and redo step through it, and a save keeps the history",
+    "Alt+A aligns the selection on its leftmost element, whichever was selected first, undo and redo step through it, and a save keeps the history",
     { skip: SKIP },
     async () => {
         const { url, json } = await startEdit("big-bank-plc-stored.json");
@@ -424,7 +479,7 @@ test(
                     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
                 })()`);
             // The Mobile App first, so it is the reference element, then
-            // the API Application.
+            // the API Application, which lies further left.
             await page.click(await center("18"));
             await page.click(await center("20"), SHIFT);
             await page.waitFor(
@@ -448,8 +503,11 @@ test(
                 `document.querySelector(".save-status")?.textContent === "Saved"`,
             );
             const aligned = await containerElements(json);
-            assert.equal(aligned.get("20").x, before.get("18").x);
-            assert.equal(aligned.get("20").y, before.get("20").y);
+            const leftmost = Math.min(before.get("18").x, before.get("20").x);
+            assert.equal(before.get("20").x, leftmost);
+            assert.equal(aligned.get("18").x, leftmost);
+            assert.equal(aligned.get("20").x, leftmost);
+            assert.equal(aligned.get("18").y, before.get("18").y);
 
             // The save kept the history: undo, then redo, one step each.
             await page.press("z", "KeyZ", CTRL);
