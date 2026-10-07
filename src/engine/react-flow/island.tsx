@@ -2402,24 +2402,37 @@ function Canvas({
         if (key === undefined || (!fitted && !empty)) return;
         const viewport = refitTo.current;
         if (viewport && !moved.current) flow.setViewport(viewport);
-        if (painted.current === key) return;
         // The next frame is when the view is on screen. A hidden tab, or a
         // headless browser on virtual time, may never produce one; the
-        // timer stands in for it there, so mounting cannot hang.
+        // timer stands in for it there, so mounting cannot hang. The page
+        // mounts its chrome once the view is painted, which resizes the
+        // canvas, so the view is ready only a frame later, with the canvas
+        // at the size it was fitted to. Otherwise it takes the canvas's
+        // size, without waiting for a resize observer that virtual time may
+        // never run, and fits to it first.
         const done = () => {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
+            if (painted.current === key) {
+                const { clientWidth: width = 0, clientHeight: height = 0 } =
+                    wrapper.current ?? {};
+                if (width === size.width && height === size.height)
+                    setReadyKey(key);
+                else setSize({ width, height });
+                return;
+            }
             painted.current = key;
-            setReadyKey(key);
             if (graph) onPainted(key, graph);
+            frame = requestAnimationFrame(done);
+            timer = setTimeout(done, 100);
         };
-        const frame = requestAnimationFrame(done);
-        const timer = setTimeout(done, 100);
+        let frame = requestAnimationFrame(done);
+        let timer = setTimeout(done, 100);
         return () => {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
         };
-    }, [fitted, empty, key, flow, onPainted, graph]);
+    }, [fitted, empty, key, flow, onPainted, graph, size]);
 
     /** Each item with targets by its focus key. */
     const focusable = useMemo(
