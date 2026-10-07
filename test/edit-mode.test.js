@@ -388,3 +388,80 @@ test(
             assert.deepEqual(delta(id), { x: 0, y: 0 }, `${id} moved`);
     },
 );
+
+/** DevTools' modifier bits. */
+const ALT = 1;
+const CTRL = 2;
+const SHIFT = 8;
+
+test(
+    "Alt+A aligns the selection left of the reference element, undo and redo step through it, and a save keeps the history",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("big-bank-plc-stored.json");
+        const before = await containerElements(json);
+        const browser = await openBrowser(CHROME);
+        const toolbar = (name) =>
+            `document.querySelector(".${name}")?.disabled`;
+        try {
+            const page = await browser.open(
+                `${url}#?page=diagrams&view=Containers&mode=edit`,
+            );
+            await page.waitFor(
+                `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="20"]')`,
+            );
+            const center = (id) =>
+                page.evaluate(`(() => {
+                    const r = document.querySelector('.react-flow__node[data-id="${id}"]').getBoundingClientRect();
+                    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                })()`);
+            // The Mobile App first, so it is the reference element, then
+            // the API Application.
+            await page.click(await center("18"));
+            await page.click(await center("20"), SHIFT);
+            await page.waitFor(
+                `document.querySelectorAll(".react-flow__node.selected").length === 2`,
+            );
+            assert.equal(
+                await page.evaluate(toolbar("align-selection")),
+                false,
+                "align is disabled with two elements selected",
+            );
+            assert.equal(
+                await page.evaluate(toolbar("distribute-selection")),
+                true,
+                "distribute is enabled with two elements selected",
+            );
+
+            await page.press("å", "KeyA", ALT);
+            await page.waitFor(`${toolbar("undo-layout")} === false`);
+            await page.press("s", "KeyS", CTRL);
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Saved"`,
+            );
+            const aligned = await containerElements(json);
+            assert.equal(aligned.get("20").x, before.get("18").x);
+            assert.equal(aligned.get("20").y, before.get("20").y);
+
+            // The save kept the history: undo, then redo, one step each.
+            await page.press("z", "KeyZ", CTRL);
+            await page.waitFor(
+                `${toolbar("undo-layout")} === true && ${toolbar("redo-layout")} === false`,
+            );
+            await page.press("z", "KeyZ", CTRL | SHIFT);
+            await page.waitFor(`${toolbar("redo-layout")} === true`);
+            await page.press("z", "KeyZ", CTRL);
+            await page.waitFor(`${toolbar("redo-layout")} === false`);
+            await page.press("s", "KeyS", CTRL);
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Saved"`,
+            );
+        } finally {
+            await browser.close();
+        }
+
+        const undone = await containerElements(json);
+        assert.equal(undone.get("20").x, before.get("20").x);
+        assert.equal(undone.get("18").x, before.get("18").x);
+    },
+);

@@ -10,9 +10,10 @@ import type {
     LayoutChange,
     ModelView,
 } from "../model";
+import type { AlignEdge, DistributeAxis } from "./geometry/arrange";
 import type { RoutingMode } from "./geometry/routing/path";
 
-export type { EditedLayout, LayoutChange };
+export type { AlignEdge, DistributeAxis, EditedLayout, LayoutChange };
 
 /**
  * The options of the "Calculate layout" dialog (spec 15): Structurizr
@@ -180,6 +181,20 @@ export type Engine = AnimationControls & {
      * `onLayoutChanged`, as one change.
      */
     calculateLayout(options: CalculateLayoutOptions): void;
+    /**
+     * Align the selection on `edge` of the reference element (spec 13.1):
+     * `left`, `center`, `right`, `top`, `middle` or `bottom`. Does nothing
+     * with fewer than two elements selected. Answers through
+     * `onLayoutChanged`, as one change.
+     */
+    align(edge: AlignEdge): void;
+    /**
+     * Distribute the selection `horizontal`ly or `vertical`ly (spec 13.2),
+     * keeping the outermost two in place. Does nothing with fewer than
+     * three elements selected. Answers through `onLayoutChanged`, as one
+     * change.
+     */
+    distribute(axis: DistributeAxis): void;
 
     unmount(): void;
 };
