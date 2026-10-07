@@ -200,6 +200,7 @@ test(
             await page.waitFor(
                 `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="20"]')`,
             );
+            await page.settle();
             const box = await page.evaluate(`(() => {
                 const r = document.querySelector('.react-flow__node[data-id="20"]').getBoundingClientRect();
                 return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -252,6 +253,7 @@ test(
             await page.waitFor(
                 `!!document.querySelector('[data-ready="true"] [data-canvas-frame]')`,
             );
+            await page.settle();
             await page.evaluate(
                 `document.querySelector(".calculate-layout").click()`,
             );
@@ -323,6 +325,7 @@ test(
             await page.waitFor(
                 `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="17"]')`,
             );
+            await page.settle();
             const rects = await page.evaluate(`(() => {
                 const rect = (id) => {
                     const r = document.querySelector('.react-flow__node[data-id="' + id + '"]').getBoundingClientRect();
@@ -345,6 +348,9 @@ test(
                 x: rects.mobile.right + 10,
                 y: rects.mobile.bottom + 10,
             });
+            await page.waitFor(
+                `document.querySelectorAll(".react-flow__node.selected").length === 2`,
+            );
             const selected = await page.evaluate(
                 `[...document.querySelectorAll(".react-flow__node.selected")].map((node) => node.dataset.id).sort()`,
             );
@@ -357,11 +363,12 @@ test(
                 "the element nearest the marquee's starting corner isn't the reference element",
             );
 
-            // Drag the selection by the Mobile App.
-            const from = {
-                x: (rects.mobile.left + rects.mobile.right) / 2,
-                y: (rects.mobile.top + rects.mobile.bottom) / 2,
-            };
+            // Drag the selection by the Mobile App, measured again now.
+            await page.settle();
+            const from = await page.evaluate(`(() => {
+                const r = document.querySelector('.react-flow__node[data-id="18"]').getBoundingClientRect();
+                return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+            })()`);
             await page.drag(from, { x: from.x + 90, y: from.y + 45 });
             await page.waitFor(
                 `document.querySelector(".save-status")?.textContent === "Unsaved changes"`,
@@ -410,6 +417,7 @@ test(
             await page.waitFor(
                 `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="20"]')`,
             );
+            await page.settle();
             const center = (id) =>
                 page.evaluate(`(() => {
                     const r = document.querySelector('.react-flow__node[data-id="${id}"]').getBoundingClientRect();
@@ -473,12 +481,14 @@ const containerRelationship = async (json, id) =>
         .relationships.find((relationship) => relationship.id === id);
 
 test(
-    "editing an edge saves its routing mode, a vertex, a chosen side and its label position into workspace.json",
+    "editing an edge saves its routing mode, a vertex and where it is dragged, a chosen side and its label position into workspace.json",
     { skip: SKIP },
     async () => {
         const { url, json } = await startEdit("big-bank-plc-stored.json");
         const email = (await containerElements(json)).get("5");
         const browser = await openBrowser(CHROME);
+        let added;
+        let dragged;
         try {
             const page = await browser.open(
                 `${url}#?page=diagrams&view=Containers&mode=edit`,
@@ -486,6 +496,7 @@ test(
             await page.waitFor(
                 `!!document.querySelector('[data-ready="true"] .react-flow__edge[data-id="11"] [data-hit-stroke]')`,
             );
+            await page.settle();
             // A point `fraction` along the line of "Sends e-mails to", on screen.
             const along = (fraction) =>
                 page.evaluate(`(() => {
@@ -535,6 +546,17 @@ test(
                 `!!document.querySelector('[data-vertex-handle="11:0"]')`,
             );
             await save();
+            [added] = (await containerRelationship(json, "11")).vertices;
+
+            // A drag on its handle moves the vertex (spec 12.3).
+            const vertex = await center('[data-vertex-handle="11:0"]');
+            await page.drag(vertex, { x: vertex.x + 40, y: vertex.y + 30 });
+            await save();
+            [dragged] = (await containerRelationship(json, "11")).vertices;
+            assert.ok(
+                dragged.x > added.x && dragged.y > added.y,
+                `the vertex went from ${JSON.stringify(added)} to ${JSON.stringify(dragged)}`,
+            );
 
             // The source end goes to the E-mail System's top (spec 12.4).
             const end = await center('[data-edge-end-handle="source"]');
@@ -556,6 +578,11 @@ test(
         const relationship = await containerRelationship(json, "11");
         assert.equal(relationship.routing, "Orthogonal");
         assert.equal(relationship.vertices.length, 2, "a vertex went missing");
+        assert.deepEqual(
+            relationship.vertices[1],
+            dragged,
+            "the side moved the dragged vertex",
+        );
         assert.equal(
             relationship.vertices[0].y,
             email.y - 20,
@@ -606,6 +633,7 @@ async function openWarehouse(browser, url) {
     await page.waitFor(
         `!!document.querySelector('[data-ready="true"] .react-flow__node[data-id="20"]')`,
     );
+    await page.settle();
     return page;
 }
 
@@ -828,6 +856,232 @@ test(
                     `new URLSearchParams(location.hash.slice(2)).get("view")`,
                 ),
                 "Warehouse",
+            );
+        } finally {
+            await browser.close();
+        }
+    },
+);
+
+/* ------------------------------------------------- two pages, one file */
+
+/** Drag element `id` of the page's view by (`dx`, `dy`) on screen. */
+async function dragElement(page, id, dx, dy) {
+    await page.settle();
+    const from = await centerOf(page, id);
+    await page.drag(from, { x: from.x + dx, y: from.y + dy });
+}
+
+test(
+    "another page's save reaches a page with unsaved changes as a change on disk, and Keep saves against it",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const first = await openWarehouse(browser, url);
+            const second = await openWarehouse(browser, url);
+            await dragElement(second, "21", 60, 30);
+            await second.waitFor(`${SAVE_STATUS} === "Unsaved changes"`);
+            const moved20 = await second.evaluate(NODE_TRANSFORM("20"));
+
+            await dragElement(first, "20", 60, 30);
+            await first.press("s", "KeyS", CTRL);
+            await first.waitFor(`${SAVE_STATUS} === "Saved"`);
+
+            // The second page hears of the first one's save (spec 6.2).
+            await second.waitFor(`!!${HELD_BAR}`);
+            await second.waitFor(
+                `${NODE_TRANSFORM("20")} !== ${JSON.stringify(moved20)}`,
+            );
+            const before21 = await first.evaluate(NODE_TRANSFORM("21"));
+            await second.evaluate(
+                `${HELD_BAR}.querySelector(".keep-changes").click()`,
+            );
+            await second.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+
+            // And the first page hears of the second one's.
+            await first.waitFor(
+                `${NODE_TRANSFORM("21")} !== ${JSON.stringify(before21)}`,
+            );
+            assert.equal(await first.evaluate(HELD_BAR), null);
+        } finally {
+            await browser.close();
+        }
+
+        const saved = JSON.parse(await readFile(json, "utf8"));
+        const fixture = JSON.parse(
+            await readFile(
+                join(REPO_ROOT, "test/__fixtures__/view-types.json"),
+                "utf8",
+            ),
+        );
+        for (const id of ["20", "21"])
+            assert.ok(
+                placementOf(saved, id).x > placementOf(fixture, id).x,
+                `element ${id} lost its move`,
+            );
+    },
+);
+
+test(
+    "of two pages saving at once, the one the server refuses as stale shows the bar, and Keep saves against the version on disk",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const pages = [
+                await openWarehouse(browser, url),
+                await openWarehouse(browser, url),
+            ];
+            await dragElement(pages[0], "20", 60, 30);
+            await dragElement(pages[1], "21", 60, 30);
+            for (const page of pages)
+                await page.waitFor(`${SAVE_STATUS} === "Unsaved changes"`);
+
+            // Both save from the version they loaded: one wins and the
+            // other's save comes back refused as stale (spec 7.4).
+            await Promise.all(
+                pages.map((page) => page.press("s", "KeyS", CTRL)),
+            );
+            const stale = await Promise.race(
+                pages.map((page) =>
+                    page.waitFor(`!!${HELD_BAR}`).then(() => page),
+                ),
+            );
+            assert.match(await stale.evaluate(SAVE_STATUS), /Save failed/);
+            await stale.evaluate(
+                `${HELD_BAR}.querySelector(".keep-changes").click()`,
+            );
+            await stale.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+        } finally {
+            await browser.close();
+        }
+
+        const saved = JSON.parse(await readFile(json, "utf8"));
+        const fixture = JSON.parse(
+            await readFile(
+                join(REPO_ROOT, "test/__fixtures__/view-types.json"),
+                "utf8",
+            ),
+        );
+        for (const id of ["20", "21"])
+            assert.ok(
+                placementOf(saved, id).x > placementOf(fixture, id).x,
+                `element ${id} lost its move`,
+            );
+    },
+);
+
+/* ------------------------------------------------------ unsaved changes */
+
+/** The key of a view the drawer lists other than `key`. */
+const otherView = (page, key) =>
+    page.evaluate(
+        `[...document.querySelectorAll("li[data-viewkey]")].map((item) => item.dataset.viewkey).find((each) => each !== ${JSON.stringify(key)})`,
+    );
+
+test(
+    "a view switch with changes waiting asks first: Stay keeps the view, and Save and continue saves and switches",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        const DIALOG = `document.querySelector("[data-unsaved-dialog]")`;
+        const VIEW = `new URLSearchParams(location.hash.slice(2)).get("view")`;
+        try {
+            const page = await openWarehouse(browser, url);
+            await dragElement(page, "20", 60, 30);
+            await page.waitFor(`${SAVE_STATUS} === "Unsaved changes"`);
+            const other = await otherView(page, "Warehouse");
+            // A click on the view in the drawer, as a person makes it.
+            const choose = async () => {
+                await page.settle();
+                await page.click(
+                    await page.evaluate(`(() => {
+                        const r = document.querySelector('li[data-viewkey="${other}"] button').getBoundingClientRect();
+                        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                    })()`),
+                );
+            };
+
+            await choose();
+            await page.waitFor(`!!${DIALOG}`);
+            assert.match(
+                await page.evaluate(`${DIALOG}.textContent`),
+                /aren't saved yet/,
+            );
+            await page.evaluate(`${DIALOG}.querySelector(".stay").click()`);
+            await page.waitFor(`!${DIALOG}`);
+            assert.equal(await page.evaluate(VIEW), "Warehouse");
+            assert.equal(await page.evaluate(SAVE_STATUS), "Unsaved changes");
+
+            await choose();
+            await page.waitFor(`!!${DIALOG}`);
+            await page.evaluate(
+                `${DIALOG}.querySelector(".save-and-continue").click()`,
+            );
+            await page.waitFor(`${VIEW} === ${JSON.stringify(other)}`);
+        } finally {
+            await browser.close();
+        }
+
+        const fixture = JSON.parse(
+            await readFile(
+                join(REPO_ROOT, "test/__fixtures__/view-types.json"),
+                "utf8",
+            ),
+        );
+        assert.ok(
+            placementOf(JSON.parse(await readFile(json, "utf8")), "20").x >
+                placementOf(fixture, "20").x,
+            "Save and continue didn't save the drag",
+        );
+    },
+);
+
+test(
+    "a Shift-drag on a selected element moves the whole selection, and a Shift-click takes it out",
+    { skip: SKIP },
+    async () => {
+        const { url } = await startEdit("view-types.json");
+        const browser = await openBrowser(CHROME);
+        try {
+            const page = await openWarehouse(browser, url);
+            await page.settle();
+            await page.click(await centerOf(page, "20"));
+            await page.click(await centerOf(page, "21"), SHIFT);
+            await page.waitFor(
+                `document.querySelectorAll(".react-flow__node.selected").length === 2`,
+            );
+            const before = await page.evaluate(NODE_TRANSFORM("21"));
+
+            // A drag with Shift held on a selected element (spec 10.2).
+            const from = await centerOf(page, "20");
+            await page.drag(
+                from,
+                { x: from.x + 60, y: from.y + 30 },
+                10,
+                SHIFT,
+            );
+            await page.waitFor(`${SAVE_STATUS} === "Unsaved changes"`);
+            assert.equal(
+                await page.evaluate(
+                    `document.querySelectorAll(".react-flow__node.selected").length`,
+                ),
+                2,
+                "the Shift-drag took the element out of the selection",
+            );
+            assert.notEqual(
+                await page.evaluate(NODE_TRANSFORM("21")),
+                before,
+                "the rest of the selection stayed behind",
+            );
+
+            await page.click(await centerOf(page, "20"), SHIFT);
+            await page.waitFor(
+                `document.querySelectorAll(".react-flow__node.selected").length === 1 && ${NODE("21")}.classList.contains("selected")`,
             );
         } finally {
             await browser.close();
