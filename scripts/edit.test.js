@@ -691,6 +691,27 @@ test("a save reaches every page once, as a workspace event naming the page that 
     });
 });
 
+test("two outside changes close together reach the page in order, the last one last", async () => {
+    await withEditServer({}, async ({ server, json }) => {
+        const sent = recordEvents(server);
+        const workspace = JSON.parse(await readFile(json, "utf8"));
+        workspace.description = "First change";
+        await writeFile(json, JSON.stringify(workspace));
+        workspace.description = "Second change";
+        await writeFile(json, JSON.stringify(workspace));
+        const last = versionOf(await readFile(json, "utf8"));
+        await eventually(
+            () => sent.some(({ data }) => data?.version === last),
+            "the second change never reached the page",
+        );
+        // Give a slower, older publish the time to arrive after it.
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        const events = sent.filter(({ event }) => event === WORKSPACE_EVENT);
+        assert.equal(events.at(-1).data.version, last);
+        assert.equal(events.at(-1).data.workspace.description, "Second change");
+    });
+});
+
 test("a workspace.json that won't load reaches the page as an error event, and the next good one as a workspace", async () => {
     await withEditServer({}, async ({ server, json }) => {
         const sent = recordEvents(server);

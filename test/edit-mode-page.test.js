@@ -10,13 +10,14 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { after } from "node:test";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
+// No root `after` puts the flag back. This file awaits imports between its
+// tests, and node:test runs a root `after` hook as soon as the tests queued
+// so far finish, before the ones below the next `await`: the flag went false
+// under the edit toolbar's tests. `node --test` runs each file in its own
+// process, so nothing else sees the flag.
 globalThis.__RENDERIZR_EDIT_MODE__ = true;
-after(() => {
-    globalThis.__RENDERIZR_EDIT_MODE__ = false;
-});
 
 const { WorkspaceModel, isEditable, whyNotEditable } =
     await importSrc("model/index");
