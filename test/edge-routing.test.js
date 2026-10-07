@@ -456,19 +456,115 @@ test("A→B and B→A become two parallel lanes", () => {
     assert.equal(ba[0].x, ba.at(-1).x);
 });
 
-test("an edge with vertices takes part in the ordering of its side", () => {
-    const routes = routeView(
-        [element("a", 0, 0), element("b", -400, 400), element("c", 100, 400)],
+test("an edge end routed by its vertices sits right under a vertex straight out from its side", () => {
+    const box = { x: 0, y: 0, width: 200, height: 100 };
+    const spans = { bottom: { from: 10, to: 190 }, right: { from: 5, to: 95 } };
+    const along = spreadEnds(
         [
-            edge("ac", "a", "c"),
-            edge("ab", "a", "b", { vertices: [{ x: -300, y: 300 }] }),
+            {
+                id: "down",
+                side: "bottom",
+                far: { x: 40, y: 300 },
+                order: 0,
+                routed: true,
+            },
+            {
+                id: "out",
+                side: "right",
+                far: { x: 220, y: 30 },
+                order: 1,
+                routed: true,
+            },
         ],
+        spans,
+        box,
     );
+    assert.equal(along.get("down"), 40, "a stub straight down to the vertex");
+    assert.equal(along.get("out"), 30, "a stub straight out to the vertex");
+});
+
+test("an edge end routed by its vertices aims from the center when no vertex lies straight out, within the span", () => {
+    const box = { x: 0, y: 0, width: 200, height: 100 };
+    const spans = { bottom: { from: 10, to: 190 } };
+    const along = spreadEnds(
+        [
+            {
+                id: "wide",
+                side: "bottom",
+                far: { x: 300, y: 250 },
+                order: 0,
+                routed: true,
+            },
+            {
+                id: "past",
+                side: "bottom",
+                far: { x: 900, y: 120 },
+                order: 1,
+                routed: true,
+            },
+        ],
+        spans,
+        box,
+    );
+    assert.equal(
+        along.get("wide"),
+        aimAlong(box, "bottom", { x: 300, y: 250 }),
+    );
+    assert.equal(along.get("past"), 190, "aimed past the span, it stops there");
+});
+
+test("edge ends routed by their vertices never spread and never move another edge end", () => {
+    const box = { x: 0, y: 0, width: 200, height: 100 };
+    const spans = { bottom: { from: 0, to: 200 } };
+    const along = spreadEnds(
+        [
+            { id: "free", side: "bottom", far: { x: 100, y: 500 }, order: 0 },
+            {
+                id: "one",
+                side: "bottom",
+                far: { x: 100, y: 300 },
+                order: 1,
+                routed: true,
+            },
+            {
+                id: "two",
+                side: "bottom",
+                far: { x: 100, y: 400 },
+                order: 2,
+                routed: true,
+            },
+        ],
+        spans,
+        box,
+    );
+    assert.equal(along.get("free"), 100, "the free end keeps its aim");
+    assert.equal(along.get("one"), 100, "routed ends may overlap");
+    assert.equal(along.get("two"), 100, "routed ends may overlap");
+});
+
+test("routeView puts an edge with vertices under its nearest vertex and leaves the other ends on the side alone", () => {
+    const elements = [
+        element("a", 0, 0),
+        element("b", -400, 400),
+        element("c", 0, 400),
+    ];
+    const free = routeView(elements, [edge("ac", "a", "c")]);
+    const routes = routeView(elements, [
+        edge("ac", "a", "c"),
+        edge("ab", "a", "b", {
+            vertices: [
+                { x: 30, y: 200 },
+                { x: -300, y: 200 },
+            ],
+        }),
+    ]);
     const [ac, ab] = routes.map((r) => r.route);
-    // Both leave A's bottom: the one heading left sits left of the other.
-    assert.equal(ac[0].y, 100);
-    assert.equal(ab[0].y, 100);
-    assert.ok(ab[0].x < ac[0].x, `${fmt(ab)} vs ${fmt(ac)}`);
+    assert.deepEqual(ab[0], { x: 30, y: 100 }, fmt(ab));
+    assert.deepEqual(
+        ac,
+        free[0].route,
+        "the edge without vertices draws as if the other were not there",
+    );
 });
 
 /* ---------------- obstacles */
