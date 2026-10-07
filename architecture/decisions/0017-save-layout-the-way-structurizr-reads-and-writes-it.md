@@ -18,7 +18,7 @@ References [16. Open workspace.dsl through Structurizr's merge](0016-open-worksp
 
 ## Context
 
-A workspace has to open the same way in Structurizr and in Renderizr, so edit mode saves only the layout fields Structurizr defines: element `x` and `y`; relationship `vertices`, `routing`, `position` and `jump`; view `dimensions` and `paperSize`. Structurizr Local rewrites the whole workspace on every DSL parse and every save, through Jackson, and builds read the model from `workspace.json`. Local also writes when the author edits nothing: opening a view stores default `dimensions`, random positions and Dagre layouts. And a Local page loaded before a DSL edit can autosave later and hide that edit.
+A workspace has to open the same way in Structurizr and in Renderizr, so edit mode saves only the layout fields Structurizr defines: element `x` and `y`; relationship `vertices`, `routing`, `position` and `jump`; view `dimensions` and `paperSize`. Structurizr Local rewrites the whole workspace on every DSL parse and every save, through Jackson, the Java JSON library behind Structurizr's writer, and builds read the model from `workspace.json`. Local also writes when the author edits nothing: opening a view stores default `dimensions`, random positions and Dagre layouts. And a Local page loaded before a DSL edit can autosave later and hide that edit.
 
 ## Decision
 
@@ -42,3 +42,8 @@ Tag every save with the version of the file the page loaded, and refuse it when 
 - Saving the page's copy of the workspace: the build has changed it.
 - Writing on open, as Structurizr Local does: diffs appear for views nobody touched.
 - The last save wins, as in Structurizr Local: a stale page silently undoes a DSL edit.
+
+## Reference links
+
+- [Jackson](https://github.com/FasterXML/jackson)
+- [Structurizr's JSON writer](https://github.com/structurizr/structurizr/blob/v2026.09.19/structurizr-client/src/main/java/com/structurizr/io/json/AbstractJsonWriter.java#L16-L33)
