@@ -392,6 +392,12 @@ jobs:
         run: |
           echo "STRUCTURIZR_CLI=java -jar ${RUNNER_TEMP}/structurizr/structurizr.war" >> "$GITHUB_ENV"
 
+      # Edit mode's DSL pipeline against the real tools: export, a layout
+      # save, a DSL change and a merge that keeps the layout, with every
+      # workspace.json the writer produced validated (spec 19.3).
+      - name: Run the DSL pipeline against the tools
+        run: pnpm test:structurizr
+
       - name: Regenerate the acceptance fixture
         run: pnpm fixtures:acceptance
 

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { loadWorkspace } from "./assets.js";
+import { triggersRun } from "./dsl-pipeline.js";
 import {
     RESOLVED_WORKSPACE_MODULE,
     WORKSPACE_MODULE,
@@ -31,6 +32,11 @@ import {
  * open page as a custom event over Vite's websocket, `{ version, workspace }`
  * with the build's transforms applied, or `{ version, error }` when it won't
  * load. The plugin's own writes drop the module and send nothing.
+ *
+ * In a DSL session it also drives the DSL pipeline (spec 5, ADR 16): a
+ * change under the DSL's folder runs it, each good run reaches the pages as
+ * a workspace event and each failed one as an error event, and the module
+ * carries the error while the last run failed.
  *
  * Pages read the events with `import.meta.hot.on`. `flushPages` asks them to
  * save what waits before something else writes the file, and waits for
@@ -162,9 +168,55 @@ const answer = (response, status, body) => {
     response.end(JSON.stringify(body));
 };
 
-export function editMode({ workspace, font = null, token = null, agent }) {
+/**
+ * What the page draws while no run of the DSL pipeline has succeeded and
+ * there is no `workspace.json`: nothing, named after the DSL's folder.
+ */
+const emptyWorkspace = (folder) => ({
+    name: basename(folder),
+    model: {},
+    views: {},
+    documentation: {},
+});
+
+/**
+ * The plugin for edit mode on `workspace`, the `workspace.json` it serves and
+ * saves. In a DSL session, `pipeline` is the session's `DslPipeline`: the
+ * plugin runs it on changes under the DSL's folder, gives it the pages to
+ * flush and tells them what each run made, and serves its error with the
+ * workspace module (spec 5.3). `writer` writes the file, one made here when
+ * left out.
+ */
+export function editMode({
+    workspace,
+    font = null,
+    token = null,
+    agent,
+    writer = new WorkspaceWriter(resolve(workspace), { agent }),
+    pipeline = null,
+}) {
     const file = resolve(workspace);
-    const writer = new WorkspaceWriter(file, { agent });
+
+    /**
+     * The pipeline's error as the page takes it with the workspace module:
+     * its message, and whether no run has succeeded yet, so the page has no
+     * workspace to draw. `null` when the last run succeeded.
+     */
+    const pipelineError = () =>
+        pipeline?.error
+            ? { message: pipeline.error, blank: !pipeline.succeeded }
+            : null;
+
+    /** The workspace module's workspace in a DSL session that has none. */
+    const loadOrEmpty = async () => {
+        try {
+            return await loadWorkspace(file, { font });
+        } catch (error) {
+            if (pipeline && !pipeline.succeeded)
+                return emptyWorkspace(pipeline.folder);
+            throw error;
+        }
+    };
 
     const dropModule = (server) => {
         const module = server.moduleGraph.getModuleById(
@@ -223,14 +275,50 @@ export function editMode({ workspace, font = null, token = null, agent }) {
             id === WORKSPACE_MODULE ? RESOLVED_WORKSPACE_MODULE : null,
         async load(id) {
             if (id !== RESOLVED_WORKSPACE_MODULE) return null;
-            const version = versionOf(await readFile(file, "utf8"));
-            const transformed = await loadWorkspace(file, { font });
-            return workspaceModuleSource(transformed, version);
+            const text = await readFile(file, "utf8").catch((error) => {
+                // A DSL whose first run failed has no workspace.json yet.
+                if (pipeline && !pipeline.succeeded) return null;
+                throw error;
+            });
+            return workspaceModuleSource(
+                text === null
+                    ? emptyWorkspace(pipeline.folder)
+                    : await loadOrEmpty(),
+                text === null ? null : versionOf(text),
+                pipelineError(),
+            );
         },
         configureServer(server) {
             // The file usually sits outside Vite's root, the package, so
             // Vite's watcher would never look at it on its own.
             server.watcher.add(file);
+            if (pipeline) {
+                const { folder } = pipeline;
+                server.watcher.add(folder);
+                server.watcher.on("all", (_event, path) => {
+                    if (triggersRun(resolve(path), { folder, json: file }))
+                        pipeline.changed();
+                });
+                pipeline.connect({
+                    flush: () => flushPages(server.ws),
+                    // The writer's writes never reach `handleHotUpdate` as
+                    // news, so each run tells the pages itself.
+                    published: () => {
+                        dropModule(server);
+                        return publish(server);
+                    },
+                    failed: async (error) => {
+                        dropModule(server);
+                        const text = await readFile(file, "utf8").catch(
+                            () => null,
+                        );
+                        server.ws.send(ERROR_EVENT, {
+                            version: text === null ? null : versionOf(text),
+                            error,
+                        });
+                    },
+                });
+            }
             server.middlewares.use(SAVE_PATH, (request, response) => {
                 save(request, response, server).catch((error) =>
                     answer(response, 500, { error: error.message }),
@@ -238,6 +326,16 @@ export function editMode({ workspace, font = null, token = null, agent }) {
             });
         },
         async handleHotUpdate({ file: changed, server }) {
+            // The DSL's folder belongs to the pipeline, never to Vite's own
+            // reloads.
+            if (
+                pipeline &&
+                triggersRun(resolve(changed), {
+                    folder: pipeline.folder,
+                    json: file,
+                })
+            )
+                return [];
             if (resolve(changed) !== file) return;
             dropModule(server);
             // A save of the page's own comes back here as a change on disk,

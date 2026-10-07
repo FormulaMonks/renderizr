@@ -10,7 +10,10 @@
 
 import history from "history/hash";
 import { openCalculateLayout } from "../components/calculate-layout-dialog";
-import { version as workspaceVersion } from "virtual:renderizr/workspace";
+import {
+    error as servedError,
+    version as workspaceVersion,
+} from "virtual:renderizr/workspace";
 import type CurrentView from "../components/current-view";
 import {
     type EditingRoute,
@@ -21,7 +24,12 @@ import {
 } from "../components/edit-buttons";
 import { EditSession } from "../components/edit-session";
 import { heldEdits, viewSignature } from "../components/live-reload";
-import { showHeldBar, showReloadNotice } from "../components/reload-bar";
+import {
+    showFailure,
+    showFailureBanner,
+    showHeldBar,
+    showReloadNotice,
+} from "../components/reload-bar";
 import { pageCommand } from "../components/shortcuts";
 import { openShortcuts } from "../components/shortcuts-dialog";
 import {
@@ -69,6 +77,7 @@ export function editSession(): EditSession {
  * 6.1). `scripts/edit-plugin.js` names them too.
  */
 const WORKSPACE_EVENT = "renderizr:workspace";
+const ERROR_EVENT = "renderizr:error";
 const FLUSH_EVENT = "renderizr:flush";
 const FLUSHED_EVENT = "renderizr:flushed";
 
@@ -83,6 +92,34 @@ let swapped = false;
 
 /** What the diagrams page does with a workspace that arrives while it shows. */
 let swapIn: ((arrival: Arrived) => void) | null = null;
+
+/**
+ * Why the workspace didn't load, as the server last said (spec 5.3, 6.1): the
+ * DSL pipeline's error, or a `workspace.json` that won't load. `null` once a
+ * workspace arrives.
+ */
+let failure: string | null = servedError?.message ?? null;
+
+/**
+ * Whether the page loaded before any run of the DSL pipeline succeeded, so it
+ * has no workspace to draw. The first workspace that arrives reloads it.
+ */
+const blank = servedError?.blank ?? false;
+
+/** Shows `failure` where the diagrams page has it, while it shows. */
+let paintFailure: (() => void) | null = null;
+
+/**
+ * Show the error in place of the canvas in `target` when the page has no
+ * workspace to draw yet (spec 5.3), and say whether it did.
+ */
+export function showBlank(target: HTMLElement): boolean {
+    if (!blank) return false;
+    const paint = () => showFailure(target, failure ?? "");
+    paint();
+    paintFailure = paint;
+    return true;
+}
 
 /**
  * The workspace the diagrams page draws: the last one from disk, else
@@ -108,19 +145,28 @@ export function onWorkspace(handler: (arrival: Arrived) => void) {
  * page reloads in full, as does a later trip from the diagrams page to the
  * documentation or decisions, whose pages hold the workspace they loaded
  * with. A flush saves what waits, unless the author still has to keep or
- * discard it, and answers once the save is done.
+ * discard it, and answers once the save is done. An error shows on the
+ * diagrams page until the next workspace arrives (spec 5.3).
  */
 export function startLiveReload() {
     const hot = import.meta.hot;
     if (!hot) return;
     hot.on(WORKSPACE_EVENT, (arrival: Arrived) => {
         arrived = arrival.workspace;
+        failure = null;
         if (!swapIn) {
             window.location.reload();
             return;
         }
         swapped = true;
         swapIn(arrival);
+        paintFailure?.();
+    });
+    // The banner shows over the last workspace that loaded, which stays
+    // editable, until the next one arrives (spec 5.3).
+    hot.on(ERROR_EVENT, ({ error }: { error: string }) => {
+        failure = error;
+        paintFailure?.();
     });
     hot.on(FLUSH_EVENT, async ({ id }: { id: number }) => {
         if (session && session.held().length === 0) await session.save();
@@ -342,6 +388,20 @@ export function startEditing(
     };
     paintHeld();
 
+    // Why the workspace didn't load, over the canvas (spec 5.3).
+    let removeFailure: (() => void) | null = null;
+    const paintBanner = () => {
+        removeFailure?.();
+        removeFailure = null;
+        const canvas = container.querySelector<HTMLElement>(
+            "#structurizr-diagram-target",
+        );
+        if (failure && canvas)
+            removeFailure = showFailureBanner(canvas, failure);
+    };
+    paintBanner();
+    paintFailure = paintBanner;
+
     return [
         engine.onViewShown((view) => edits.setView(view.key)),
         engine.onLayoutChanged((change) => {
@@ -375,6 +435,10 @@ export function startEditing(
         }),
         () => document.removeEventListener("keydown", onKey),
         () => removeBar?.(),
+        () => {
+            removeFailure?.();
+            if (paintFailure === paintBanner) paintFailure = null;
+        },
         () => root.removeAttribute("data-editing"),
     ];
 }

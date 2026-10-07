@@ -38,3 +38,17 @@
   background: var(--color-surface);
   color: var(--color-foreground);
 }
+
+/* Why the workspace didn't load: the DSL pipeline's error (spec 5.3). */
+.failure {
+  border-color: var(--color-alert-caution);
+
+  & pre {
+    flex-basis: 100%;
+    max-height: 12rem;
+    margin: 0;
+    overflow: auto;
+    font-size: 0.8125rem;
+    white-space: pre-wrap;
+  }
+}

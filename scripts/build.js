@@ -69,16 +69,27 @@ async function startEditMode(args) {
         loadFont(options.font),
         loadLogo(options.logo),
     ]);
-    const { url } = await startEditServer({
-        session: options.session,
+    const { session } = options;
+    const { url, pipeline } = await startEditServer({
+        session,
         logo,
         font,
         port: options.port,
         open: options.open,
     });
 
+    // A DSL session saves workspace.json beside the DSL (spec 4.2).
+    const opened =
+        session.kind === "dsl"
+            ? `${session.dsl}, saving the layout into ${session.json}`
+            : session.json;
+    // A DSL error keeps the server up; the page shows it until a run
+    // succeeds (spec 5.3).
+    const failed = pipeline?.error
+        ? `Structurizr's tools couldn't read ${session.dsl}; the page shows why until you fix it.\n`
+        : "";
     process.stdout.write(
-        `Edit mode opened ${options.session.json}\nOpen ${url}\nTo come back to edit mode later, use this URL. Press Ctrl+C to stop.\n`,
+        `Edit mode opened ${opened}\n${failed}Open ${url}\nTo come back to edit mode later, use this URL. Press Ctrl+C to stop.\n`,
     );
 }
 

@@ -36,4 +36,9 @@ declare module "virtual:renderizr/workspace" {
     export default workspace;
     /** The version of `workspace.json` edit mode served; `null` in a build. */
     export const version: string | null;
+    /**
+     * The DSL pipeline's error while its last run failed, and whether no run
+     * has succeeded yet, so there is no workspace to draw; `null` in a build.
+     */
+    export const error: { message: string; blank: boolean } | null;
 }
