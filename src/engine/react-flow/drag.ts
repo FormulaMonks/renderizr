@@ -5,10 +5,17 @@
  * for the page, which hands the layout back or lets the drop revert.
  */
 
-import type { EditedLayout, LayoutChange } from "../../model/index";
+import type {
+    EditedLayout,
+    EditedRoute,
+    LayoutChange,
+} from "../../model/index";
 import { offOrigin } from "../geometry/snapping";
 import type { Point } from "../geometry/shapes/types";
+import { storedRoutes } from "./commands";
 import type { Graph } from "./graph";
+
+const same = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
 
 /** Where each dragged element is now, by element id. */
 export type DragPositions = ReadonlyMap<string, Point>;
@@ -26,14 +33,48 @@ export function dragLayout(
     const elements: Record<string, Point> = {};
     for (const { id, x, y } of graph.elements)
         elements[id] = positions.get(id) ?? { x, y };
-    return { elements };
+    const relationships = carriedRoutes(graph, positions);
+    return relationships ? { elements, relationships } : { elements };
+}
+
+/**
+ * The stored vertices of every relationship of `graph` whose two ends
+ * `positions` moves by the same amount, moved along with them, by
+ * relationship key; `undefined` when there are none. Other vertices stay
+ * (spec 12.3).
+ */
+export function carriedRoutes(
+    graph: Graph,
+    positions: DragPositions,
+): Record<string, EditedRoute> | undefined {
+    const drawn = new Map(graph.elements.map((e) => [e.id, e]));
+    const shiftOf = (id: string) => {
+        const to = positions.get(id);
+        const from = drawn.get(id);
+        return to && from && { x: to.x - from.x, y: to.y - from.y };
+    };
+    const routes = storedRoutes(graph);
+    let carried: Record<string, EditedRoute> | undefined;
+    for (const { key, sourceId, targetId } of graph.edges) {
+        const vertices = routes.get(key);
+        const shift = shiftOf(sourceId);
+        const other = shiftOf(targetId);
+        if (!vertices || !shift || !other) continue;
+        if (!same(shift, other) || same(shift, { x: 0, y: 0 })) continue;
+        carried ??= {};
+        carried[key] = {
+            vertices: vertices.map((v) => ({
+                x: v.x + shift.x,
+                y: v.y + shift.y,
+            })),
+        };
+    }
+    return carried;
 }
 
 /** `point` as it would be saved: whole units, never on (0,0). */
 const saved = ({ x, y }: Point) =>
     offOrigin({ x: Math.round(x) || 0, y: Math.round(y) || 0 });
-
-const same = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
 
 /**
  * The layout change a drop on view `view` makes, or `null` when nothing

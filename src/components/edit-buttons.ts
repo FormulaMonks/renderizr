@@ -1,7 +1,8 @@
 /**
  * The toolbar's way into and out of editing (spec 4.6, 17.1): a pencil that
  * opens the view's editing route, and in editing the edit toolbar, in
- * groups: align and distribute; undo and redo; "Calculate layout" and the
+ * groups: align and distribute; the routing-mode button while an edge is
+ * selected; undo and redo; "Calculate layout" and the
  * three canvas commands; the keyboard button, the save status, Save and
  * Done, which returns to reading. Every button with a shortcut names it in
  * its tooltip. Only edit mode draws them; builds compile this module out
@@ -12,6 +13,7 @@ import type {
     AlignEdge,
     CanvasCommand,
     DistributeAxis,
+    SelectionState,
 } from "../engine/contract";
 import { ALIGN_MINIMUM, DISTRIBUTE_MINIMUM } from "../engine/geometry/arrange";
 import type { ModelView, WorkspaceModel } from "../model";
@@ -35,6 +37,9 @@ import distributeVerticalIcon from "bootstrap-icons/icons/distribute-vertical.sv
 import undoIcon from "bootstrap-icons/icons/arrow-counterclockwise.svg?raw";
 import redoIcon from "bootstrap-icons/icons/arrow-clockwise.svg?raw";
 import keyboardIcon from "bootstrap-icons/icons/keyboard.svg?raw";
+import directIcon from "bootstrap-icons/icons/arrow-up-right.svg?raw";
+import orthogonalIcon from "bootstrap-icons/icons/arrow-90deg-right.svg?raw";
+import curvedIcon from "bootstrap-icons/icons/bezier2.svg?raw";
 
 /** What the toolbar needs from the editing route the page owns. */
 export type EditingRoute = {
@@ -74,7 +79,43 @@ export type EditingRoute = {
     showShortcuts(): void;
     /** What the edit toolbar enables its buttons from, now. */
     editState(): EditState;
+    /** The selected edge, or `null` (spec 12.1). */
+    edge(): SelectionState["edge"];
+    /** Set the selected edge's routing mode (spec 12.2). */
+    setRouting(mode: Routing): void;
 };
+
+/** A routing mode, as the selected edge reports it. */
+type Routing = NonNullable<SelectionState["edge"]>["routing"];
+
+/**
+ * Each routing mode's icon and the mode a click moves to: Direct,
+ * Orthogonal, Curved and round again (spec 12.2).
+ */
+const ROUTINGS: Record<Routing, { icon: string; next: Routing }> = {
+    Direct: { icon: directIcon, next: "Orthogonal" },
+    Orthogonal: { icon: orthogonalIcon, next: "Curved" },
+    Curved: { icon: curvedIcon, next: "Direct" },
+};
+
+/**
+ * Paint the routing-mode button on the edit toolbar under `root` for the
+ * selected `edge` (spec 12.2): hidden with no edge selected, otherwise the
+ * icon of the mode the edge is drawn in, named in its tooltip and its
+ * accessible label. It has no shortcut (spec 12.2).
+ */
+export function paintRouting(root: ParentNode, edge: SelectionState["edge"]) {
+    const button = root.querySelector<HTMLButtonElement>(".routing-mode");
+    if (!button) return;
+    button.hidden = edge === null;
+    if (!edge) return;
+    const { icon, next } = ROUTINGS[edge.routing];
+    const label = `Routing mode: ${edge.routing}`;
+    button.dataset.next = next;
+    button.title = `${label} (click for ${next})`;
+    button.setAttribute("aria-label", label);
+    button.innerHTML = icon;
+}
 
 /**
  * What the edit toolbar enables its buttons from: how many elements are
@@ -183,6 +224,7 @@ function editToolbar(group: HTMLElement, route: EditingRoute) {
                 ([axis, name, icon]) =>
                     `<button type="button" class="distribute-selection" data-axis="${axis}" ${named(name, SHORTCUTS[axis])}>${icon}</button>`,
             ).join("")}
+            <button type="button" class="routing-mode" hidden></button>
         </div>
         <div class="history-buttons ${styles.btnGroup}" role="group" aria-label="History">
             <button type="button" class="undo-layout" ${named("Undo", SHORTCUTS.undo)}>${undoIcon}</button>
@@ -215,6 +257,11 @@ function editToolbar(group: HTMLElement, route: EditingRoute) {
     on(".distribute-selection", (button) =>
         route.distribute(button.dataset.axis as DistributeAxis),
     );
+    // Every click stores the mode it moves to (spec 12.2).
+    on(".routing-mode", (button) => {
+        if (button.dataset.next)
+            route.setRouting(button.dataset.next as Routing);
+    });
     on(".undo-layout", () => route.undo());
     on(".redo-layout", () => route.redo());
     on(".calculate-layout", () => route.calculateLayout());
@@ -230,6 +277,7 @@ function editToolbar(group: HTMLElement, route: EditingRoute) {
     on(".done-editing", () => route.done());
     paintSaveStatus(group, route.status());
     paintEditState(group, route.editState());
+    paintRouting(group, route.edge());
 }
 
 /**

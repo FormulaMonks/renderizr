@@ -401,6 +401,22 @@ export async function openBrowser(chrome) {
                     }
                     await mouse("mouseReleased", to, 0);
                 },
+                /** Double-click at `at`. */
+                async doubleClick(at) {
+                    const mouse = (type, clickCount, buttons) =>
+                        call("Input.dispatchMouseEvent", {
+                            type,
+                            ...at,
+                            button: "left",
+                            buttons,
+                            clickCount,
+                        });
+                    await mouse("mouseMoved", 0, 0);
+                    for (const clickCount of [1, 2]) {
+                        await mouse("mousePressed", clickCount, 1);
+                        await mouse("mouseReleased", clickCount, 0);
+                    }
+                },
                 /** Press a key by its physical `code`, with `modifiers` (DevTools bits). */
                 async press(key, code, modifiers = 0) {
                     for (const type of ["rawKeyDown", "keyUp"])

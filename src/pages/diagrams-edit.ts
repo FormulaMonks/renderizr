@@ -13,6 +13,7 @@ import { version as workspaceVersion } from "virtual:renderizr/workspace";
 import type CurrentView from "../components/current-view";
 import {
     type EditingRoute,
+    paintRouting,
     type EditState,
     paintEditState,
     paintSaveStatus,
@@ -29,6 +30,7 @@ import {
 import { takeSessionToken } from "../components/session-token";
 import { confirmLeave } from "../components/unsaved-dialog";
 import type { Engine } from "../engine";
+import type { SelectionState } from "../engine/contract";
 import { resolveView, type WorkspaceModel } from "../model";
 
 /** Whether the page shows the editing route now (spec 4.6). */
@@ -80,6 +82,11 @@ export async function leave(
     if (await edits.save()) proceed();
 }
 
+/**
+ * The selected edge as the engine last reported it (spec 12.1), so a
+ * toolbar drawn again shows its routing mode.
+ */
+let selectedEdge: SelectionState["edge"] = null;
 /** How many elements the engine has selected, as it last said. */
 let selected = 0;
 
@@ -132,6 +139,8 @@ export function editingRoute(
                 calculate: (options) => engine.calculateLayout(options),
                 bringBack: () => engine.bringBack(),
             }),
+        edge: () => selectedEdge,
+        setRouting: (mode) => engine.setRouting(mode),
         notice: (key) => {
             if (edits.layoutOf(key)) return null;
             const view = resolveView(model, key);
@@ -202,10 +211,15 @@ export function startEditing(
             paintSaveStatus(container, status);
             paintState();
         }),
-        engine.onSelectionChanged(({ elements }) => {
+        engine.onSelectionChanged(({ elements, edge }) => {
             selected = elements.length;
+            selectedEdge = edge;
             paintState();
+            paintRouting(container, edge);
         }),
+        () => {
+            selectedEdge = null;
+        },
         history.listen(() => {
             if (editing() === shown) return;
             shown = editing();

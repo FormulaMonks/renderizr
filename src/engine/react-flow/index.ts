@@ -10,6 +10,7 @@ import {
 import {
     abortError,
     type Anchor,
+    type EditControls,
     type Engine,
     type EngineOptions,
     type SelectionState,
@@ -115,6 +116,50 @@ export function mountEngine(
             for (const callback of activated[type]) callback(id, anchor);
         };
 
+        const editControls = (): EditControls => ({
+            setEditing(on) {
+                if (on && !editableKey(store.get().key)) return;
+                // Editing holds the step shown and stops playback (spec 18).
+                if (on) player.pause();
+                if (on !== store.get().editing) store.set({ editing: on });
+            },
+            setLayout(view: string, layout: EditedLayout) {
+                const layouts = new Map(store.get().layouts);
+                layouts.set(view, layout);
+                store.set({ layouts });
+            },
+            resizeCanvas(command, { recenter }) {
+                commands.resizeCanvas?.(command, recenter);
+            },
+            bringBack() {
+                commands.bringBack?.();
+            },
+            calculateLayout(options) {
+                commands.calculateLayout?.(options);
+            },
+            align(edge) {
+                commands.align?.(edge);
+            },
+            distribute(axis) {
+                commands.distribute?.(axis);
+            },
+            setRouting(mode) {
+                commands.setRouting?.(mode);
+            },
+            onLayoutChanged(callback) {
+                layoutChanged.add(callback);
+                return () => {
+                    layoutChanged.delete(callback);
+                };
+            },
+            onSelectionChanged(callback) {
+                selectionChanged.add(callback);
+                return () => {
+                    selectionChanged.delete(callback);
+                };
+            },
+        });
+
         const engine: Engine = {
             showView(key) {
                 if (key === store.get().key) return;
@@ -159,48 +204,10 @@ export function mountEngine(
                 listen(activated.element, callback),
             onRelationshipActivated: (callback) =>
                 listen(activated.relationship, callback),
-            setEditing(on) {
-                if (!__RENDERIZR_EDIT_MODE__) return;
-                if (on && !editableKey(store.get().key)) return;
-                // Editing holds the step shown and stops playback (spec 18).
-                if (on) player.pause();
-                if (on !== store.get().editing) store.set({ editing: on });
-            },
-            setLayout(view: string, layout: EditedLayout) {
-                if (!__RENDERIZR_EDIT_MODE__) return;
-                const layouts = new Map(store.get().layouts);
-                layouts.set(view, layout);
-                store.set({ layouts });
-            },
-            resizeCanvas(command, { recenter }) {
-                if (__RENDERIZR_EDIT_MODE__)
-                    commands.resizeCanvas?.(command, recenter);
-            },
-            bringBack() {
-                if (__RENDERIZR_EDIT_MODE__) commands.bringBack?.();
-            },
-            calculateLayout(options) {
-                if (__RENDERIZR_EDIT_MODE__)
-                    commands.calculateLayout?.(options);
-            },
-            align(edge) {
-                if (__RENDERIZR_EDIT_MODE__) commands.align?.(edge);
-            },
-            distribute(axis) {
-                if (__RENDERIZR_EDIT_MODE__) commands.distribute?.(axis);
-            },
-            onLayoutChanged(callback) {
-                layoutChanged.add(callback);
-                return () => {
-                    layoutChanged.delete(callback);
-                };
-            },
-            onSelectionChanged(callback) {
-                selectionChanged.add(callback);
-                return () => {
-                    selectionChanged.delete(callback);
-                };
-            },
+            // Builds, which never edit, leave these out (ADR 15).
+            ...(__RENDERIZR_EDIT_MODE__
+                ? editControls()
+                : ({} as EditControls)),
             unmount() {
                 stopWaiting();
                 shown.clear();
@@ -208,8 +215,10 @@ export function mountEngine(
                 document.removeEventListener("visibilitychange", onVisibility);
                 activated.element.clear();
                 activated.relationship.clear();
-                layoutChanged.clear();
-                selectionChanged.clear();
+                if (__RENDERIZR_EDIT_MODE__) {
+                    layoutChanged.clear();
+                    selectionChanged.clear();
+                }
                 root?.unmount();
                 root = null;
                 if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
@@ -250,13 +259,16 @@ export function mountEngine(
                     onRedrawn,
                     onEscape: () => player.stop(),
                     onActivate,
-                    onLayoutChanged: (change) => {
-                        for (const callback of layoutChanged) callback(change);
-                    },
-                    onSelectionChanged: (selection) => {
-                        for (const callback of selectionChanged)
-                            callback(selection);
-                    },
+                    ...(__RENDERIZR_EDIT_MODE__ && {
+                        onLayoutChanged: (change: LayoutChange) => {
+                            for (const callback of layoutChanged)
+                                callback(change);
+                        },
+                        onSelectionChanged: (selection: SelectionState) => {
+                            for (const callback of selectionChanged)
+                                callback(selection);
+                        },
+                    }),
                 }),
             );
         });

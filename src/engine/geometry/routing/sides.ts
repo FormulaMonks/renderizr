@@ -158,6 +158,12 @@ export type EdgeEnd = {
      * other end on the side, the innermost loop nearest (spec 10.7).
      */
     toward?: "from" | "to";
+    /**
+     * Set on the ends of an edge with vertices, which the author routes all
+     * the way to its edge ends: such an end takes no part in spreading
+     * (ADR 19).
+     */
+    routed?: boolean;
 };
 
 /** Where an end sorts on its side: loop ends at either extreme. */
@@ -230,8 +236,30 @@ function keepApart(wanted: number[], gap: number, span: Span): number[] {
 }
 
 /**
+ * Where on `side` of `box` the end of an edge with vertices sits: right
+ * under `far`, its nearest vertex, when that lies straight out from the side
+ * within `span`, so a chosen side draws a perpendicular stub; otherwise where
+ * the line from the center toward it crosses the side, within `span`
+ * (ADR 19).
+ */
+export function routedAlong(
+    box: Rect,
+    side: Side,
+    far: Point,
+    span: Span,
+): number {
+    const under = isHorizontal(side) ? far.x - box.x : far.y - box.y;
+    const along =
+        under >= span.from && under <= span.to
+            ? under
+            : aimAlong(box, side, far);
+    return Math.min(Math.max(along, span.from), span.to);
+}
+
+/**
  * Where each of one element's edge ends sits along its side, keyed by end
- * id. Each end aims where the line from the element's center toward its far
+ * id. The ends of edges with vertices sit where `routedAlong` puts them and
+ * leave the rest alone. Each other end aims where the line from the element's center toward its far
  * end crosses the side (`aimAlong`), so an edge leaves already heading its
  * way, as Structurizr's do. The ends sharing a side are sorted by that aim,
  * then by view order, and kept at least `1 / (n + 1)` of the side's usable
@@ -249,7 +277,13 @@ export function spreadEnds(
     for (const side of SIDES) {
         const span = spans[side];
         if (!span) continue;
-        const onSide = ends.filter((end) => end.side === side);
+        const onSide: EdgeEnd[] = [];
+        for (const end of ends) {
+            if (end.side !== side) continue;
+            if (end.routed) {
+                along.set(end.id, routedAlong(box, side, end.far, span));
+            } else onSide.push(end);
+        }
         const aims = new Map(
             onSide.map((end) => [end, aimAlong(box, side, end.far)]),
         );

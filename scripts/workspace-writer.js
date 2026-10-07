@@ -251,9 +251,10 @@ function relationshipsByKey(view) {
  *
  * - `elements`, element id to `{ x, y }`. An element landing on exactly
  *   (0,0), which reads as unplaced (ADR 10), goes to (5,0) (spec 7.3).
- * - `relationships`, relationship key to `{ vertices }`; an empty list
- *   deletes the stored vertices. `routing`, `position` and `jump` stay as
- *   found.
+ * - `relationships`, relationship key to `{ vertices, routing, position }`,
+ *   each optional; an empty list deletes the stored vertices, an unknown
+ *   routing mode is ignored and `position` stops at 0 and 100. A stored
+ *   `jump` stays as found (spec 7.3, 12.8).
  * - `dimensions`, `{ width, height }`.
  * - `paperSize`: `null` deletes it, as Decrease and Increase do (spec 14);
  *   a known paper size, which undo brings back, is set.
@@ -276,11 +277,22 @@ export function applyLayout(workspace, views) {
         const relationships = relationshipsByKey(view);
         for (const [id, route] of Object.entries(layout?.relationships ?? {})) {
             const relationship = relationships.get(id);
-            if (!relationship || !Array.isArray(route?.vertices)) continue;
-            const vertices = route.vertices.map(pointOf).filter(Boolean);
-            if (vertices.length === 0)
-                Reflect.deleteProperty(relationship, "vertices");
-            else setInOrder(relationship, "vertices", vertices);
+            if (!relationship) continue;
+            if (Array.isArray(route?.vertices)) {
+                const vertices = route.vertices.map(pointOf).filter(Boolean);
+                if (vertices.length === 0)
+                    Reflect.deleteProperty(relationship, "vertices");
+                else setInOrder(relationship, "vertices", vertices);
+            }
+            if (STRUCTURIZR_ENUMS.Routing.includes(route?.routing))
+                setInOrder(relationship, "routing", route.routing);
+            const position = whole(route?.position);
+            if (position !== undefined)
+                setInOrder(
+                    relationship,
+                    "position",
+                    Math.min(100, Math.max(0, position)),
+                );
         }
         const width = whole(layout?.dimensions?.width);
         const height = whole(layout?.dimensions?.height);

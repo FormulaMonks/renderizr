@@ -323,7 +323,7 @@ test("applying a layout deletes paperSize where a canvas command did, and restor
     );
 });
 
-test("applying a layout saves vertices in whole units, deletes them when cleared, and keeps routing, position and jump", () => {
+test("applying a layout saves vertices in whole units, deletes them when cleared, and keeps the routing, position and jump it doesn't name", () => {
     const workspace = small();
     const [relationship] =
         workspace.views.systemLandscapeViews[0].relationships;
@@ -354,6 +354,45 @@ test("applying a layout saves vertices in whole units, deletes them when cleared
         position: 40,
         routing: "Curved",
     });
+});
+
+test("applying a layout saves routing and position, position whole and within 0 to 100, and keeps jump as found", () => {
+    const workspace = small();
+    const [relationship] =
+        workspace.views.systemLandscapeViews[0].relationships;
+    Reflect.deleteProperty(relationship, "routing");
+    Reflect.deleteProperty(relationship, "position");
+    applyLayout(workspace, {
+        Landscape: {
+            relationships: { 3: { routing: "Orthogonal", position: 62.7 } },
+        },
+    });
+    assert.deepEqual(Object.keys(relationship), [
+        "id",
+        "jump",
+        "position",
+        "routing",
+        "vertices",
+    ]);
+    assert.equal(relationship.routing, "Orthogonal");
+    assert.equal(relationship.position, 62);
+    applyLayout(workspace, {
+        Landscape: {
+            relationships: { 3: { routing: "Sideways", position: 140 } },
+        },
+    });
+    assert.equal(
+        relationship.routing,
+        "Orthogonal",
+        "an unknown mode is ignored",
+    );
+    assert.equal(relationship.position, 100, "position stops at 100");
+    applyLayout(workspace, {
+        Landscape: { relationships: { 3: { position: -3 } } },
+    });
+    assert.equal(relationship.position, 0, "position stops at 0");
+    assert.equal(relationship.jump, true, "jump stays as found");
+    assert.deepEqual(relationship.vertices, [{ x: 400, y: 100 }]);
 });
 
 test("vertices of a relationship a dynamic view lists twice go to the entry its key names", () => {

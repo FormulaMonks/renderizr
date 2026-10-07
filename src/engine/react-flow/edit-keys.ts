@@ -113,7 +113,7 @@ export type EditKeysOptions = {
     select(ids: SelectionOrder): void;
     /** The animation step shown, whose hidden elements select all skips. */
     stepState: StepState | undefined;
-    onLayoutChanged(change: LayoutChange): void;
+    onLayoutChanged?(change: LayoutChange): void;
 };
 
 /**
@@ -146,7 +146,7 @@ export function useEditKeys({
             const change =
                 view &&
                 arrangeChange(viewKey, view, edited, selected, arrangement);
-            if (change) onLayoutChanged(change);
+            if (change) onLayoutChanged?.(change);
         };
         commands.align = (edge) => arrange({ align: edge });
         commands.distribute = (axis) => arrange({ distribute: axis });
