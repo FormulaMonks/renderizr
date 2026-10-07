@@ -268,9 +268,9 @@ function stubRoute(
         isEditing: () => editing,
         edit: (key) => calls.push(["edit", key]),
         done: () => calls.push(["done"]),
+        discard: () => calls.push(["discard"]),
         href: (key) => `#?page=diagrams&view=${key}&mode=edit`,
         status: () => status,
-        save: () => calls.push(["save"]),
         notice: () => notice,
         edge: () => edge,
         setRouting: (mode) => calls.push(["setRouting", mode]),
@@ -296,6 +296,7 @@ function toolbarFor(key, route = stubRoute()) {
         route,
         pencil: element.querySelector(".edit-view"),
         done: element.querySelector(".done-editing"),
+        discard: element.querySelector(".discard-editing"),
     };
 }
 
@@ -354,17 +355,25 @@ test("an image view shows no pencil", () => {
     toolbar.clear();
 });
 
-test("in editing the toolbar shows Done in place of the pencil, and Done returns to reading", () => {
-    const { toolbar, route, pencil, done } = toolbarFor(
+test("in editing the toolbar shows Save and close and Discard in place of the pencil, each returning to reading", () => {
+    const { toolbar, route, pencil, done, discard } = toolbarFor(
         "Landscape",
         stubRoute(true),
     );
     assert.equal(pencil, null, "editing shows no pencil");
-    assert.ok(done, "editing shows Done");
-    assert.equal(done.textContent.trim(), "Done");
+    assert.ok(done, "editing shows Save and close");
+    assert.equal(done.getAttribute("aria-label"), "Save and close");
+    assert.ok(done.querySelector("svg"), "Save and close is an icon");
+    assert.ok(discard, "editing shows Discard");
+    assert.equal(
+        discard.getAttribute("aria-label"),
+        "Discard changes and close",
+    );
+    assert.ok(discard.querySelector("svg"), "Discard is an icon");
 
     done.click();
-    assert.deepEqual(route.calls, [["done"]]);
+    discard.click();
+    assert.deepEqual(route.calls, [["done"], ["discard"]]);
     toolbar.clear();
 });
 
@@ -396,23 +405,34 @@ const { paintRouting, paintSaveStatus } = await importSrc(
 );
 const { layoutNotice } = await importSrc("components/editing-route");
 
-test("in editing the toolbar shows where saving stands and a Save that waits for changes", () => {
-    const { toolbar, route } = toolbarFor("Landscape", stubRoute(true));
+test("in editing the toolbar shows where saving stands as a dot whose tooltip says it", () => {
+    const { toolbar } = toolbarFor("Landscape", stubRoute(true));
     const status = toolbar.element.querySelector(".save-status");
-    const save = toolbar.element.querySelector(".save-layout");
     assert.equal(status.textContent, "Saved");
-    assert.equal(save.disabled, true, "Save is enabled with nothing waiting");
-    assert.match(save.title, /Save \((⌘S|Ctrl\+S)\)/);
+    assert.equal(status.title, "Saved");
+    assert.equal(status.dataset.state, "saved");
+    assert.equal(toolbar.element.querySelector(".save-layout"), null);
+
+    const savedAt = Date.UTC(2026, 9, 7, 17, 30);
+    paintSaveStatus(toolbar.element, {
+        state: "saved",
+        waiting: false,
+        savedAt,
+    });
+    assert.equal(status.textContent, "Saved");
+    assert.equal(
+        status.title,
+        `Last saved at ${new Date(savedAt).toLocaleString()}`,
+    );
 
     paintSaveStatus(toolbar.element, { state: "unsaved", waiting: true });
     assert.equal(status.textContent, "Unsaved changes");
-    assert.equal(save.disabled, false);
-    save.click();
-    assert.deepEqual(route.calls, [["save"]]);
+    assert.equal(status.title, "Unsaved changes");
+    assert.equal(status.dataset.state, "unsaved");
 
     paintSaveStatus(toolbar.element, { state: "saving", waiting: true });
     assert.equal(status.textContent, "Saving…");
-    assert.equal(save.disabled, true, "Save is enabled while saving");
+    assert.equal(status.dataset.state, "saving");
 
     paintSaveStatus(toolbar.element, {
         state: "failed",
@@ -423,8 +443,8 @@ test("in editing the toolbar shows where saving stands and a Save that waits for
         status.textContent,
         "Save failed: workspace.json changed on disk",
     );
+    assert.equal(status.title, "Save failed: workspace.json changed on disk");
     assert.equal(status.dataset.state, "failed");
-    assert.equal(save.disabled, false, "a failed save can be tried again");
     toolbar.clear();
 });
 

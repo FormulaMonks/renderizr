@@ -232,14 +232,10 @@
 }
 
 /*
- * Edit mode's way in and out (spec 4.6). Done is a word, so it takes the
- * width it needs, and the primary color marks it as the way back to reading.
+ * Edit mode's ways out (spec 4.6): discard, and save and close. The primary
+ * color marks them as the ways back to reading.
  */
 .btnGroup button.done {
-    width: auto;
-    padding: 0 0.65rem;
-    font-size: 0.8rem;
-    font-weight: 600;
     color: var(--color-primary);
 }
 
@@ -249,29 +245,43 @@
     cursor: not-allowed;
 }
 
-/* Where saving stands in editing (spec 17.1); a failure says why. */
+/*
+ * Where saving stands in editing (spec 17.1), as a dot: yellow while changes
+ * wait, gray and pulsing while a save is on its way, green once saved and
+ * red when a save failed. Its tooltip and its text, pushed out of sight but
+ * read by assistive technology, say the state, and a failure says why.
+ */
 .saveStatus {
     align-self: center;
-    min-width: 7.5rem;
-    max-width: 18rem;
-    padding: 0 0.5rem;
+    flex: none;
+    width: 0.65rem;
+    height: 0.65rem;
+    margin: 0 0.5rem;
     overflow: hidden;
-    font-size: 0.8rem;
-    color: var(--color-muted);
+    border-radius: 50%;
+    background: var(--color-alert-tip);
+    text-indent: 100%;
     white-space: nowrap;
-    text-overflow: ellipsis;
 
     &[data-state="unsaved"] {
-        color: var(--color-foreground);
+        background: var(--color-alert-warning);
+    }
+
+    &[data-state="saving"] {
+        background: var(--color-muted);
+        animation: savePulse 1s ease-in-out infinite alternate;
     }
 
     &[data-state="failed"] {
-        color: var(--color-alert-caution);
+        background: var(--color-alert-caution);
     }
 }
 
-.btnGroup button.done:disabled {
-    color: var(--color-muted);
+@keyframes savePulse {
+    to {
+        opacity: 0.3;
+        transform: scale(0.75);
+    }
 }
 
 /* What the editing route of a view without coordinates says (spec 8). */

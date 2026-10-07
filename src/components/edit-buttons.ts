@@ -2,10 +2,11 @@
  * The toolbar's way into and out of editing (spec 4.6, 17.1): a pencil that
  * opens the view's editing route, and in editing the edit toolbar, in
  * groups: align and distribute; the routing-mode button while an edge is
- * selected; undo and redo; "Calculate layout" and the
- * three canvas commands; the keyboard button, the save status, Save and
- * Done, which returns to reading. Every button with a shortcut names it in
- * its tooltip. Only edit mode draws them; builds compile this module out
+ * selected; undo and redo; "Calculate layout" and the three canvas
+ * commands; the keyboard button, the save status as a colored dot, and two
+ * ways back to reading: discard the changes made since entering editing,
+ * or save them and close. Every button with a shortcut names it in its
+ * tooltip. Only edit mode draws them; builds compile this module out
  * (ADR 15).
  */
 
@@ -40,6 +41,8 @@ import keyboardIcon from "bootstrap-icons/icons/keyboard.svg?raw";
 import directIcon from "bootstrap-icons/icons/arrow-up-right.svg?raw";
 import orthogonalIcon from "bootstrap-icons/icons/arrow-90deg-right.svg?raw";
 import curvedIcon from "bootstrap-icons/icons/bezier2.svg?raw";
+import discardIcon from "bootstrap-icons/icons/x-circle.svg?raw";
+import doneIcon from "bootstrap-icons/icons/check-circle.svg?raw";
 
 /** What the toolbar needs from the editing route the page owns. */
 export type EditingRoute = {
@@ -47,14 +50,17 @@ export type EditingRoute = {
     isEditing(): boolean;
     /** Open the editing route of the view `key`. */
     edit(key: string): void;
-    /** Return to the reading route of the view shown. */
+    /** Save what waits, then return to the reading route of the view shown. */
     done(): void;
+    /**
+     * Put every view back as it was when the author entered editing, save
+     * that, then return to the reading route of the view shown.
+     */
+    discard(): void;
     /** The link to the editing route of the view `key`. */
     href(key: string): string;
     /** Where saving stands (spec 7.4). */
     status(): SaveStatus;
-    /** Save what waits, now. */
-    save(): void;
     /**
      * What the editing route of view `key` says before its first edit, or
      * `null`: a view without coordinates saves the positions shown (spec 8).
@@ -168,19 +174,22 @@ const STATUS_TEXT: Record<SaveStatus["state"], string> = {
 };
 
 /**
- * Paint `status` on the edit toolbar under `root`: the status text, with
- * the reason a save failed, and Save, enabled while changes wait.
+ * Paint `status` on the edit toolbar under `root`: a dot in the color of
+ * its state, whose text says it, with the reason a save failed. The text is
+ * hidden from sight but not from assistive technology, and the tooltip
+ * says it too, or, once saved, when that was, in the reader's locale.
  */
 export function paintSaveStatus(root: ParentNode, status: SaveStatus) {
-    const label = root.querySelector<HTMLElement>(".save-status");
-    if (label) {
-        const text = STATUS_TEXT[status.state];
-        label.textContent = status.reason ? `${text}: ${status.reason}` : text;
-        label.title = status.reason ?? "";
-        label.dataset.state = status.state;
-    }
-    const save = root.querySelector<HTMLButtonElement>(".save-layout");
-    if (save) save.disabled = !status.waiting || status.state === "saving";
+    const dot = root.querySelector<HTMLElement>(".save-status");
+    if (!dot) return;
+    const name = STATUS_TEXT[status.state];
+    const text = status.reason ? `${name}: ${status.reason}` : name;
+    dot.textContent = text;
+    dot.title =
+        status.state === "saved" && status.savedAt !== undefined
+            ? `Last saved at ${new Date(status.savedAt).toLocaleString()}`
+            : text;
+    dot.dataset.state = status.state;
 }
 
 /**
@@ -240,8 +249,8 @@ function editToolbar(group: HTMLElement, route: EditingRoute) {
         <div class="edit-buttons ${styles.btnGroup}">
             <button type="button" class="show-shortcuts" ${named("Keyboard shortcuts", SHORTCUTS.shortcuts)}>${keyboardIcon}</button>
             <span class="save-status ${styles.saveStatus}" role="status" aria-live="polite"></span>
-            <button type="button" class="save-layout ${styles.done}" ${named("Save", SHORTCUTS.save)}>Save</button>
-            <button type="button" class="done-editing ${styles.done}">Done</button>
+            <button type="button" class="discard-editing ${styles.done}" ${named("Discard changes and close")}>${discardIcon}</button>
+            <button type="button" class="done-editing ${styles.done}" ${named("Save and close")}>${doneIcon}</button>
         </div>
     `;
     const on = (
@@ -273,7 +282,7 @@ function editToolbar(group: HTMLElement, route: EditingRoute) {
         ),
     );
     on(".show-shortcuts", () => route.showShortcuts());
-    on(".save-layout", () => route.save());
+    on(".discard-editing", () => route.discard());
     on(".done-editing", () => route.done());
     paintSaveStatus(group, route.status());
     paintEditState(group, route.editState());

@@ -38,6 +38,8 @@ export type SaveStatus = {
     state: SaveState;
     /** Why the last save failed, when it did. */
     reason?: string;
+    /** When `workspace.json` was last saved, in ms since the epoch, if known. */
+    savedAt?: number;
     /** Whether changes wait for a save: the Save button's enabled state. */
     waiting: boolean;
 };
@@ -47,10 +49,13 @@ export type SessionHost = {
     fetch: typeof fetch;
     setTimeout(callback: () => void, ms: number): unknown;
     clearTimeout(timer: unknown): void;
+    /** The time now, in ms since the epoch. */
+    now(): number;
 };
 
 const browserHost = (): SessionHost => ({
     fetch: (...args) => window.fetch(...args),
+    now: () => Date.now(),
     setTimeout: (callback, ms) => window.setTimeout(callback, ms),
     clearTimeout: (timer) => window.clearTimeout(timer as number),
 });
@@ -65,6 +70,8 @@ type History = { done: LayoutChange[]; undone: LayoutChange[] };
 export type Arrival = {
     /** The version of `workspace.json` it came from. */
     version: string;
+    /** When that file was last saved, in ms since the epoch, if it says. */
+    savedAt?: number;
     /**
      * The edits of view `key` laid over the workspace by id: `layout`
      * without what the view no longer has, empty when nothing is left.
@@ -91,6 +98,7 @@ export class EditSession {
     /** What the save on its way holds, or null. */
     #inFlight: Layouts | null = null;
     #failure: string | null = null;
+    #savedAt: number | null;
     #timer: unknown = null;
     /** The view the author opened last, which a save stamps (spec 7.1). */
     #view: string | null = null;
@@ -98,6 +106,11 @@ export class EditSession {
     readonly #listeners = new Set<(status: SaveStatus) => void>();
     /** Each view's undo and redo history this session, by key. */
     readonly #history = new Map<string, History>();
+    /**
+     * How many steps each view's history held when the author last entered
+     * editing, by key; a view missing here held none.
+     */
+    readonly #entered = new Map<string, number>();
     /** Whether edits that couldn't be saved wait for Keep or Discard. */
     #held = false;
     /**
@@ -109,13 +122,17 @@ export class EditSession {
     constructor({
         version,
         token,
+        savedAt = null,
         host = browserHost(),
     }: {
         version: string | null;
         token: string | null;
+        /** When the workspace the page loaded was last saved, if known. */
+        savedAt?: number | null;
         host?: SessionHost;
     }) {
         this.#version = version;
+        this.#savedAt = savedAt;
         this.#token = token;
         this.#host = host;
     }
@@ -184,8 +201,33 @@ export class EditSession {
      * as when its layout comes again from disk (spec 6.2, 16).
      */
     clearHistory(key: string) {
+        this.#entered.delete(key);
         if (!this.#history.delete(key)) return;
         this.#notify();
+    }
+
+    /** Note where every view's history stands as the author enters editing. */
+    enter() {
+        this.#entered.clear();
+        for (const [key, { done }] of this.#history)
+            this.#entered.set(key, done.length);
+    }
+
+    /**
+     * Undo every view back to where it stood when the author entered
+     * editing, each step waiting for a save like any undo; a view whose
+     * history a change on disk cleared goes back to that change. Returns the
+     * keys of the views it changed, for the engine.
+     */
+    revert(): string[] {
+        const reverted: string[] = [];
+        for (const [key, history] of this.#history) {
+            const entered = this.#entered.get(key) ?? 0;
+            if (history.done.length <= entered) continue;
+            while (history.done.length > entered) this.undo(key);
+            reverted.push(key);
+        }
+        return reverted;
     }
 
     #historyOf(key: string): History {
@@ -214,8 +256,9 @@ export class EditSession {
      * stored layout changed loses its history. Returns the keys of the
      * views with held edits, for the engine's `setLayout`.
      */
-    takeWorkspace({ version, hold, touched }: Arrival): string[] {
+    takeWorkspace({ version, savedAt, hold, touched }: Arrival): string[] {
         this.#version = version;
+        if (savedAt !== undefined) this.#savedAt = savedAt;
         if (this.#inFlight) this.#arrivedHold = hold;
         for (const key of [...this.#history.keys()])
             if (touched(key)) this.#history.delete(key);
@@ -247,6 +290,7 @@ export class EditSession {
             this.#layouts.delete(key);
             this.#pending.delete(key);
             this.#history.delete(key);
+            this.#entered.delete(key);
         }
         this.#failure = null;
         this.#hold(false);
@@ -274,10 +318,16 @@ export class EditSession {
 
     status(): SaveStatus {
         const waiting = this.waiting();
+
         if (this.#inFlight) return { state: "saving", waiting };
         if (this.#failure !== null)
             return { state: "failed", reason: this.#failure, waiting };
-        return { state: waiting ? "unsaved" : "saved", waiting };
+        const status: SaveStatus = {
+            state: waiting ? "unsaved" : "saved",
+            waiting,
+        };
+        if (this.#savedAt !== null) status.savedAt = this.#savedAt;
+        return status;
     }
 
     /** Hear every change of `status()`. Returns a way to stop. */
@@ -371,6 +421,7 @@ export class EditSession {
             const answer = await response.json().catch(() => ({}));
             if (response.ok && typeof answer.version === "string") {
                 this.#version = answer.version;
+                this.#savedAt = this.#host.now();
             } else {
                 stale = response.status === 409;
                 // The server names the file's version now, so Keep saves

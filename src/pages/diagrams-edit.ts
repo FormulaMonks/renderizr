@@ -10,7 +10,7 @@
 
 import history from "history/hash";
 import { openCalculateLayout } from "../components/calculate-layout-dialog";
-import {
+import servedWorkspace, {
     error as servedError,
     version as workspaceVersion,
 } from "virtual:renderizr/workspace";
@@ -54,11 +54,22 @@ export const editing = () => isEditingRoute(history.location.search);
  */
 let session: EditSession | null = null;
 
+/**
+ * When `workspace` was last saved, from the `lastModifiedDate` every
+ * Structurizr writer stamps (spec 7.1), or undefined when it has none.
+ */
+function savedAt(workspace: Record<string, unknown>): number | undefined {
+    const stamp = workspace.lastModifiedDate;
+    const time = typeof stamp === "string" ? Date.parse(stamp) : Number.NaN;
+    return Number.isNaN(time) ? undefined : time;
+}
+
 export function editSession(): EditSession {
     if (session) return session;
     const created = new EditSession({
         version: workspaceVersion,
         token: sessionToken(),
+        savedAt: savedAt(servedWorkspace),
     });
     // The browser asks before a tab with unsaved changes closes or reloads,
     // and whatever still waits goes out as the page goes (spec 7.4).
@@ -206,6 +217,7 @@ export function swapWorkspace(
     const shown = engine.getCurrentView();
     const held = edits.takeWorkspace({
         version: arrival.version,
+        savedAt: savedAt(arrival.workspace),
         hold: (key, layout) => heldEdits(before, after, key, layout),
         touched: (key) =>
             viewSignature(before, key) !== viewSignature(after, key),
@@ -282,6 +294,12 @@ export function editingRoute(
     model: WorkspaceModel,
 ): EditingRoute {
     const edits = editSession();
+    // Both ways out save what waits and go to reading only once it is
+    // saved; a failure keeps the page in editing, and the toolbar says why.
+    const close = async () => {
+        if (await edits.save())
+            history.push({ search: readingSearch(history.location.search) });
+    };
     return {
         isEditing: editing,
         // The pencil and Done push, so Back undoes either.
@@ -289,18 +307,17 @@ export function editingRoute(
             history.push({
                 search: editingSearch(history.location.search, key),
             }),
-        done: () =>
-            void leave(engine, model, () =>
-                history.push({
-                    search: readingSearch(history.location.search),
-                }),
-            ),
+        done: () => void close(),
+        discard: () => {
+            for (const key of edits.revert())
+                engine.setLayout(key, edits.layoutOf(key) ?? {});
+            void close();
+        },
         href: (key) =>
             history.createHref({
                 search: `?${editingSearch(history.location.search, key)}`,
             }),
         status: () => edits.status(),
-        save: () => void edits.save(),
         resizeCanvas: (command, recenter) =>
             engine.resizeCanvas(command, { recenter }),
         calculateLayout: () =>
@@ -445,6 +462,8 @@ export function startEditing(
         history.listen(() => {
             if (editing() === shown) return;
             shown = editing();
+            // Discard goes back to here (spec 4.6).
+            if (shown) edits.enter();
             root.toggleAttribute("data-editing", shown);
             engine.setEditing(shown);
             currentView.render(engine.getCurrentView());

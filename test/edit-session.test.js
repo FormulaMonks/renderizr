@@ -14,6 +14,15 @@ const { EditSession, AUTOSAVE_MS, SAVE_ENDPOINT, TOKEN_HEADER } =
  * `answers` in turn: `{ status, body }`, or an `Error` to throw. A promise in
  * place of an answer holds that request until it settles.
  */
+/** The time the stub host's clock always reads. */
+const SAVED_AT = Date.UTC(2026, 9, 7, 17, 30);
+
+/** Where saving stands, without when the file was last saved. */
+const statusOf = (edits) => {
+    const { savedAt, ...status } = edits.status();
+    return status;
+};
+
 function stubHost(answers = []) {
     const requests = [];
     const timers = new Map();
@@ -28,6 +37,7 @@ function stubHost(answers = []) {
             }
         },
         host: {
+            now: () => SAVED_AT,
             setTimeout(callback, ms) {
                 const id = next++;
                 timers.set(id, { callback, ms });
@@ -65,7 +75,7 @@ const session = (stub, version = "v1") =>
 test("a change lays its after over the view's edited layout and waits for a save", () => {
     const stub = stubHost();
     const edits = session(stub);
-    assert.deepEqual(edits.status(), { state: "saved", waiting: false });
+    assert.deepEqual(statusOf(edits), { state: "saved", waiting: false });
     edits.record(change("A", "1", 10, 20));
     const layout = edits.record(change("A", "2", 30, 40));
     assert.deepEqual(layout, {
@@ -74,7 +84,7 @@ test("a change lays its after over the view's edited layout and waits for a save
     assert.deepEqual(edits.layoutOf("A"), layout);
     assert.deepEqual(edits.layouts(), { A: layout });
     assert.equal(edits.layoutOf("B"), undefined);
-    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+    assert.deepEqual(statusOf(edits), { state: "unsaved", waiting: true });
 });
 
 test("autosave runs 5 s after the last change", async () => {
@@ -117,7 +127,7 @@ test("a save sends the token, JSON, the loaded version, the open view and only w
         session(stubHost()).source,
         "two pages name themselves alike",
     );
-    assert.deepEqual(edits.status(), { state: "saved", waiting: false });
+    assert.deepEqual(statusOf(edits), { state: "saved", waiting: false });
     assert.equal(stub.timers.size, 0, "a save at once cancels the autosave");
 
     edits.record(change("A", "2", 1, 2));
@@ -147,7 +157,7 @@ test("a refused save shows the reason and keeps its changes for the next one", a
     edits.onStatus((status) => statuses.push(status.state));
     edits.record(change("A", "1", 10, 20));
     assert.equal(await edits.save(), false);
-    assert.deepEqual(edits.status(), {
+    assert.deepEqual(statusOf(edits), {
         state: "failed",
         reason: "workspace.json changed on disk",
         waiting: true,
@@ -159,7 +169,7 @@ test("a refused save shows the reason and keeps its changes for the next one", a
     assert.deepEqual(stub.requests[1].body.views, {
         A: { elements: { 1: { x: 10, y: 20 }, 2: { x: 5, y: 5 } } },
     });
-    assert.deepEqual(edits.status(), { state: "saved", waiting: false });
+    assert.deepEqual(statusOf(edits), { state: "saved", waiting: false });
 });
 
 test("a server out of reach is a failed save that says so", async () => {
@@ -185,7 +195,7 @@ test("a change made while a save is on its way waits for the next one", async ()
     edits.record(change("A", "1", 50, 20));
     release();
     assert.equal(await first, false, "the later change is not saved yet");
-    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+    assert.deepEqual(statusOf(edits), { state: "unsaved", waiting: true });
     await edits.save();
     assert.deepEqual(stub.requests[1].body.views, {
         A: { elements: { 1: { x: 50, y: 20 } } },
@@ -212,7 +222,7 @@ test("a canvas change alone counts as unsaved and saves", async () => {
         before: { dimensions: { width: 2000, height: 2000 } },
         after: { dimensions: { width: 2100, height: 2100 }, paperSize: null },
     });
-    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+    assert.deepEqual(statusOf(edits), { state: "unsaved", waiting: true });
     assert.equal(await edits.save(), true);
     assert.deepEqual(stub.requests[0].body.views, {
         A: { dimensions: { width: 2100, height: 2100 }, paperSize: null },
@@ -244,7 +254,7 @@ test("undo lays a change's before back, redo its after, one change per step and 
         relationships: { 9: { vertices: [] } },
         dimensions: { width: 2000, height: 2000 },
     });
-    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+    assert.deepEqual(statusOf(edits), { state: "unsaved", waiting: true });
     assert.equal(edits.undo("A"), null, "one step per change");
     assert.deepEqual(edits.layoutOf("B"), {
         elements: { 2: { x: 30, y: 40 } },
@@ -324,7 +334,7 @@ test("a workspace from disk drops saved edited layouts, keeps untouched historie
     assert.equal(edits.layoutOf("B"), undefined);
     assert.deepEqual(edits.history("A"), { undo: true, redo: false });
     assert.deepEqual(edits.history("B"), { undo: false, redo: false });
-    assert.deepEqual(edits.status(), { state: "saved", waiting: false });
+    assert.deepEqual(statusOf(edits), { state: "saved", waiting: false });
 
     edits.record(change("A", "1", 30, 30));
     await edits.save();
@@ -363,7 +373,7 @@ test("edits waiting when a workspace arrives lie over it by id, hold the autosav
     assert.equal(stub.timers.size, 0, "the autosave still runs");
     edits.record(change("A", "2", 25, 25));
     assert.equal(stub.timers.size, 0, "a change started the autosave again");
-    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+    assert.deepEqual(statusOf(edits), { state: "unsaved", waiting: true });
 
     // Keep my changes: save them against the new version.
     assert.equal(await edits.save(), true);
@@ -390,7 +400,7 @@ test("discarding held edits takes the file and clears those views' histories", (
     assert.equal(edits.layoutOf("A"), undefined);
     assert.deepEqual(edits.history("A"), { undo: false, redo: false });
     assert.deepEqual(edits.history("B"), { undo: false, redo: false });
-    assert.deepEqual(edits.status(), { state: "saved", waiting: false });
+    assert.deepEqual(statusOf(edits), { state: "saved", waiting: false });
 });
 
 test("a save refused as stale holds its edits, drawn again, until the author keeps or discards them", async () => {
@@ -498,4 +508,56 @@ test("a failed save counts as unsaved", async () => {
     edits.record(change("A", "1", 10, 20));
     await edits.save();
     assert.equal(edits.unsaved(), true);
+});
+
+test("the session knows when the file was last saved: from the workspace it loaded, then from each save that succeeds", async () => {
+    const stub = stubHost();
+    const loaded = Date.UTC(2026, 0, 1);
+    const edits = new EditSession({
+        version: "v1",
+        token: "secret",
+        savedAt: loaded,
+        host: stub.host,
+    });
+    assert.equal(edits.status().savedAt, loaded);
+    edits.record(change("View", "1", 10, 20));
+    assert.equal(await edits.save(), true);
+    assert.equal(edits.status().savedAt, SAVED_AT);
+});
+
+test("a session that doesn't know when the file was saved says nothing about it", () => {
+    assert.equal("savedAt" in session(stubHost()).status(), false);
+});
+
+test("revert undoes every view back to where it stood when the author entered editing, and waits for a save", async () => {
+    const stub = stubHost();
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 10));
+    await edits.save();
+    edits.enter();
+    edits.record({
+        view: "A",
+        before: { elements: { 1: { x: 10, y: 10 } } },
+        after: { elements: { 1: { x: 20, y: 20 } } },
+    });
+    edits.record(change("B", "2", 30, 30));
+    edits.record(change("B", "2", 40, 40));
+    await edits.save();
+
+    assert.deepEqual(edits.revert().sort(), ["A", "B"]);
+    assert.deepEqual(edits.layoutOf("A").elements["1"], { x: 10, y: 10 });
+    assert.deepEqual(edits.layoutOf("B").elements["2"], { x: 0, y: 0 });
+    assert.equal(statusOf(edits).state, "unsaved");
+    assert.deepEqual(edits.history("A"), { undo: true, redo: true });
+    assert.deepEqual(edits.revert(), [], "a second revert has nothing left");
+});
+
+test("revert goes back no further than a change on disk that cleared a view's history", () => {
+    const edits = session(stubHost());
+    edits.enter();
+    edits.record(change("A", "1", 10, 10));
+    edits.clearHistory("A");
+    edits.record(change("A", "1", 20, 20));
+    assert.deepEqual(edits.revert(), ["A"]);
+    assert.deepEqual(edits.layoutOf("A").elements["1"], { x: 0, y: 0 });
 });
