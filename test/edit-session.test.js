@@ -292,3 +292,124 @@ test("a save keeps every view's history", async () => {
     assert.equal(await edits.save(), true);
     assert.deepEqual(edits.history("A"), { undo: true, redo: false });
 });
+
+/* ------------------------------------------------------------ live reload */
+
+/** A workspace from disk at `version`, where every view keeps what it had. */
+const arrival = (
+    version,
+    { hold = (_key, layout) => layout, touched = () => false } = {},
+) => ({ version, hold, touched });
+
+test("a workspace from disk drops saved edited layouts, keeps untouched histories and takes the new version, saying nothing", async () => {
+    const stub = stubHost();
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 10));
+    edits.record(change("B", "2", 20, 20));
+    await edits.save();
+
+    const held = edits.takeWorkspace(
+        arrival("disk", { touched: (key) => key === "B" }),
+    );
+    assert.deepEqual(held, []);
+    assert.deepEqual(edits.held(), []);
+    assert.equal(edits.layoutOf("A"), undefined);
+    assert.equal(edits.layoutOf("B"), undefined);
+    assert.deepEqual(edits.history("A"), { undo: true, redo: false });
+    assert.deepEqual(edits.history("B"), { undo: false, redo: false });
+    assert.deepEqual(edits.status(), { state: "saved", waiting: false });
+
+    edits.record(change("A", "1", 30, 30));
+    await edits.save();
+    assert.equal(stub.requests.at(-1).body.version, "disk");
+});
+
+test("edits waiting when a workspace arrives lie over it by id, hold the autosave and wait for Keep", async () => {
+    const stub = stubHost();
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 10));
+    await edits.save();
+    edits.record(change("A", "2", 20, 20));
+    edits.record(change("A", "gone", 30, 30));
+    let heard = 0;
+    edits.onStatus(() => heard++);
+
+    const held = edits.takeWorkspace(
+        arrival("disk", {
+            hold: (_key, layout) => ({
+                elements: Object.fromEntries(
+                    Object.entries(layout.elements).filter(
+                        ([id]) => id !== "gone",
+                    ),
+                ),
+            }),
+        }),
+    );
+    assert.deepEqual(held, ["A"]);
+    assert.deepEqual(edits.held(), ["A"]);
+    assert.ok(heard > 0, "the listeners never heard of the held edits");
+    assert.deepEqual(
+        edits.layoutOf("A"),
+        { elements: { 2: { x: 20, y: 20 } } },
+        "the saved edit stayed, or the lost element came along",
+    );
+    assert.equal(stub.timers.size, 0, "the autosave still runs");
+    edits.record(change("A", "2", 25, 25));
+    assert.equal(stub.timers.size, 0, "a change started the autosave again");
+    assert.deepEqual(edits.status(), { state: "unsaved", waiting: true });
+
+    // Keep my changes: save them against the new version.
+    assert.equal(await edits.save(), true);
+    assert.deepEqual(edits.held(), []);
+    assert.deepEqual(stub.requests.at(-1).body, {
+        version: "disk",
+        view: null,
+        views: { A: { elements: { 2: { x: 25, y: 25 } } } },
+    });
+    edits.record(change("A", "2", 30, 30));
+    assert.equal(stub.timers.size, 1, "Keep left the autosave held");
+});
+
+test("discarding held edits takes the file and clears those views' histories", () => {
+    const edits = session(stubHost());
+    edits.record(change("A", "1", 10, 10));
+    edits.record(change("B", "2", 20, 20));
+    edits.takeWorkspace(arrival("disk"));
+    assert.deepEqual(edits.held(), ["A", "B"]);
+
+    assert.deepEqual(edits.discard(), ["A", "B"]);
+    assert.deepEqual(edits.held(), []);
+    assert.equal(edits.layoutOf("A"), undefined);
+    assert.deepEqual(edits.history("A"), { undo: false, redo: false });
+    assert.deepEqual(edits.history("B"), { undo: false, redo: false });
+    assert.deepEqual(edits.status(), { state: "saved", waiting: false });
+});
+
+test("a save refused as stale holds its edits, drawn again, until the author keeps or discards them", async () => {
+    let release;
+    const answer = new Promise((resolve) => {
+        release = () =>
+            resolve({
+                status: 409,
+                body: { error: "workspace.json changed on disk" },
+            });
+    });
+    const stub = stubHost([answer]);
+    const edits = session(stub);
+    edits.record(change("A", "1", 10, 10));
+    const saving = edits.save();
+    await Promise.resolve();
+    // The workspace arrives while the save is on its way.
+    edits.takeWorkspace(arrival("disk"));
+    assert.equal(edits.layoutOf("A"), undefined);
+    release();
+    assert.equal(await saving, false);
+
+    assert.deepEqual(edits.held(), ["A"]);
+    assert.deepEqual(edits.layoutOf("A"), {
+        elements: { 1: { x: 10, y: 10 } },
+    });
+    assert.equal(stub.timers.size, 0, "the autosave still runs");
+    assert.equal(await edits.save(), true);
+    assert.equal(stub.requests.at(-1).body.version, "disk");
+});

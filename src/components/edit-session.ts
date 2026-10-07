@@ -7,6 +7,12 @@
  * Undo and redo, and live reload, build on the same layouts: each records
  * through `record` and draws through the engine's `setLayout`. Each view
  * keeps its own history, one step per layout change (spec 16).
+ *
+ * When `workspace.json` changes on disk (spec 6.2), `takeWorkspace` drops
+ * the edited layouts the file already holds and lays the edits still waiting
+ * over the new workspace. Those, and the edits of a save the server refuses
+ * as stale, are held: the autosave stops until the author keeps them, with
+ * any save, or discards them.
  */
 
 import {
@@ -55,6 +61,19 @@ type Layouts = Map<string, EditedLayout>;
 /** A view's history: the changes undo walks back, and those redo replays. */
 type History = { done: LayoutChange[]; undone: LayoutChange[] };
 
+/** A workspace that arrived from disk, as `takeWorkspace` takes it. */
+export type Arrival = {
+    /** The version of `workspace.json` it came from. */
+    version: string;
+    /**
+     * The edits of view `key` laid over the workspace by id: `layout`
+     * without what the view no longer has, empty when nothing is left.
+     */
+    hold(key: string, layout: EditedLayout): EditedLayout;
+    /** Whether the workspace changed view `key`'s members or stored layout. */
+    touched(key: string): boolean;
+};
+
 export class EditSession {
     readonly #host: SessionHost;
     readonly #token: string | null;
@@ -73,6 +92,8 @@ export class EditSession {
     readonly #listeners = new Set<(status: SaveStatus) => void>();
     /** Each view's undo and redo history this session, by key. */
     readonly #history = new Map<string, History>();
+    /** Whether edits that couldn't be saved wait for Keep or Discard. */
+    #held = false;
 
     constructor({
         version,
@@ -175,6 +196,57 @@ export class EditSession {
         return layout;
     }
 
+    /**
+     * Take a workspace that arrived from disk (spec 6.2, 6.3). An edited
+     * layout already saved is part of it now, so it goes; the edits still
+     * waiting lie over it by id and are held. A view whose members or
+     * stored layout changed loses its history. Returns the keys of the
+     * views with held edits, for the engine's `setLayout`.
+     */
+    takeWorkspace({ version, hold, touched }: Arrival): string[] {
+        this.#version = version;
+        for (const key of [...this.#history.keys()])
+            if (touched(key)) this.#history.delete(key);
+        this.#layouts.clear();
+        const pending: Layouts = new Map();
+        for (const [key, layout] of this.#pending) {
+            const kept = hold(key, layout);
+            if (isEmptyLayout(kept)) continue;
+            pending.set(key, kept);
+            this.#layouts.set(key, kept);
+        }
+        this.#pending = pending;
+        this.#hold(pending.size > 0);
+        return [...pending.keys()];
+    }
+
+    /** The views whose edits wait for Keep or Discard, or none. */
+    held(): string[] {
+        return this.#held ? [...this.#pending.keys()] : [];
+    }
+
+    /**
+     * Discard the held edits (spec 6.2): their views take the file's layout
+     * and lose their history. Returns their keys, for the engine.
+     */
+    discard(): string[] {
+        const keys = this.held();
+        for (const key of keys) {
+            this.#layouts.delete(key);
+            this.#pending.delete(key);
+            this.#history.delete(key);
+        }
+        this.#failure = null;
+        this.#hold(false);
+        return keys;
+    }
+
+    #hold(held: boolean) {
+        this.#held = held;
+        this.#cancel();
+        this.#notify();
+    }
+
     /** Whether changes wait for a save, a failed one included. */
     waiting(): boolean {
         return this.#pending.size > 0;
@@ -202,6 +274,8 @@ export class EditSession {
      */
     save(): Promise<boolean> {
         this.#cancel();
+        // Saving held edits keeps them (spec 6.2).
+        this.#held = false;
         this.#queue = this.#queue.then(() => this.#send());
         return this.#queue;
     }
@@ -226,6 +300,8 @@ export class EditSession {
 
     #schedule() {
         this.#cancel();
+        // Held edits wait for the author (spec 6.2).
+        if (this.#held) return;
         this.#timer = this.#host.setTimeout(() => {
             this.#timer = null;
             void this.save();
@@ -268,12 +344,14 @@ export class EditSession {
         this.#notify();
 
         let failure: string | null = null;
+        let stale = false;
         try {
             const response = await this.#post(views);
             const answer = await response.json().catch(() => ({}));
             if (response.ok && typeof answer.version === "string") {
                 this.#version = answer.version;
             } else {
+                stale = response.status === 409;
                 failure =
                     typeof answer.error === "string"
                         ? answer.error
@@ -291,12 +369,19 @@ export class EditSession {
                     key,
                     later ? mergeLayouts(layout, later) : layout,
                 );
+                // A workspace taken meanwhile dropped them from the view.
+                this.#layouts.set(
+                    key,
+                    mergeLayouts(layout, this.#layouts.get(key) ?? {}),
+                );
             }
         }
         for (const [key, layout] of this.#pending)
             if (isEmptyLayout(layout)) this.#pending.delete(key);
         this.#failure = failure;
         this.#inFlight = null;
+        // A stale save's edits wait for Keep or Discard (spec 6.2).
+        if (stale && this.#pending.size > 0) this.#held = true;
         this.#notify();
         return failure === null && this.#pending.size === 0;
     }

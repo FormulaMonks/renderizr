@@ -6,6 +6,14 @@ import { createServer as createNetServer } from "node:net";
 import { join } from "node:path";
 import { test } from "node:test";
 import { resolveSession, sessionNotices, startEditServer } from "./edit.js";
+import {
+    ERROR_EVENT,
+    FLUSH_EVENT,
+    FLUSHED_EVENT,
+    flushPages,
+    WORKSPACE_EVENT,
+} from "./edit-plugin.js";
+import { versionOf } from "./workspace-writer.js";
 import { withTempDir } from "./__fixtures__/helpers.js";
 
 /**
@@ -432,27 +440,132 @@ test("the save endpoint refuses a save against a version the file no longer has"
     });
 });
 
-test("a save of the page's own never comes back as a reload, and an outside change does", async () => {
-    await withEditServer({}, async ({ server, url, token, json }) => {
-        const sent = [];
-        const send = server.ws.send.bind(server.ws);
-        server.ws.send = (payload, ...rest) => {
-            sent.push(payload);
-            return send(payload, ...rest);
-        };
+/* ------------------------------------------------------------ live reload */
+
+/** Every event `server` sends its pages from now on, as `{ event, data }`. */
+function recordEvents(server) {
+    const sent = [];
+    const send = server.ws.send.bind(server.ws);
+    server.ws.send = (event, data, ...rest) => {
+        sent.push(typeof event === "string" ? { event, data } : event);
+        return send(event, data, ...rest);
+    };
+    return sent;
+}
+
+test("a save of the page's own never reaches the page, and an outside change arrives as a workspace event with its version and the build's transforms", async () => {
+    const font = { family: "Fixture Sans", css: "@font-face{}" };
+    await withEditServer({ font }, async ({ server, url, token, json }) => {
+        const sent = recordEvents(server);
         const version = await servedVersion(new URL(url).origin);
         const { status } = await postSave(url, token, moveSave(version));
         assert.equal(status, 200);
         // Give the watcher time to report the write.
         await new Promise((resolve) => setTimeout(resolve, 600));
-        assert.deepEqual(sent, [], "the save reloaded the page");
+        assert.deepEqual(sent, [], "the save came back to the page");
 
         const workspace = JSON.parse(await readFile(json, "utf8"));
         workspace.description = "Changed outside edit mode";
         await writeFile(json, JSON.stringify(workspace));
         await eventually(
-            () => sent.some((payload) => payload?.type === "full-reload"),
-            "an outside change did not reload the page",
+            () => sent.some(({ event }) => event === WORKSPACE_EVENT),
+            "an outside change never reached the page",
+        );
+        const { data } = sent.find(({ event }) => event === WORKSPACE_EVENT);
+        assert.equal(data.version, versionOf(await readFile(json, "utf8")));
+        assert.equal(data.workspace.description, "Changed outside edit mode");
+        assert.match(
+            JSON.stringify(data.workspace),
+            /"font":\{"name":"Fixture Sans"\}/,
+            "the build's font transform did not reach the event",
+        );
+        assert.ok(
+            !sent.some(({ type }) => type === "full-reload"),
+            "the page reloaded in full",
         );
     });
+});
+
+test("a workspace.json that won't load reaches the page as an error event, and the next good one as a workspace", async () => {
+    await withEditServer({}, async ({ server, json }) => {
+        const sent = recordEvents(server);
+        const text = await readFile(json, "utf8");
+        await writeFile(json, "{ not json");
+        await eventually(
+            () => sent.some(({ event }) => event === ERROR_EVENT),
+            "a broken workspace.json sent no error",
+        );
+        const { data } = sent.find(({ event }) => event === ERROR_EVENT);
+        assert.equal(data.version, versionOf("{ not json"));
+        assert.equal(typeof data.error, "string");
+
+        await writeFile(json, text);
+        await eventually(
+            () => sent.some(({ event }) => event === WORKSPACE_EVENT),
+            "the next good workspace.json never reached the page",
+        );
+    });
+});
+
+/**
+ * A stand-in for Vite's websocket server with one open page per entry of
+ * `delays`, each answering a flush after that many ms, or never for `null`.
+ */
+function fakePages(delays) {
+    const listeners = new Map();
+    const clients = delays.map((delay) => ({ delay }));
+    const sent = [];
+    const heard = (event) => listeners.get(event) ?? [];
+    return {
+        sent,
+        listening: () => heard(FLUSHED_EVENT).length,
+        ws: {
+            clients: new Set(clients),
+            on(event, listener) {
+                listeners.set(event, [...heard(event), listener]);
+            },
+            off(event, listener) {
+                listeners.set(
+                    event,
+                    heard(event).filter((each) => each !== listener),
+                );
+            },
+            send(event, data) {
+                sent.push({ event, data });
+                for (const client of clients) {
+                    if (client.delay === null) continue;
+                    setTimeout(() => {
+                        for (const listener of heard(FLUSHED_EVENT))
+                            listener({ id: data.id }, client);
+                    }, client.delay);
+                }
+            },
+        },
+    };
+}
+
+test("a flush asks every open page to save and resolves once each has answered", async () => {
+    const pages = fakePages([10, 30]);
+    const started = Date.now();
+    assert.equal(await flushPages(pages.ws, { timeout: 2000 }), true);
+    assert.ok(Date.now() - started < 1000, "the flush waited past the answers");
+    assert.deepEqual(
+        pages.sent.map(({ event }) => event),
+        [FLUSH_EVENT],
+    );
+    assert.equal(pages.listening(), 0, "the flush kept listening");
+});
+
+test("a flush stops waiting for a page that never answers once its timeout passes", async () => {
+    const pages = fakePages([10, null]);
+    const started = Date.now();
+    assert.equal(await flushPages(pages.ws, { timeout: 200 }), false);
+    assert.ok(Date.now() - started >= 190, "the flush stopped too soon");
+    assert.equal(pages.listening(), 0, "the flush kept listening");
+});
+
+test("a flush with no page open resolves at once and sends nothing", async () => {
+    const pages = fakePages([]);
+    assert.equal(await flushPages(pages.ws), true);
+    assert.deepEqual(pages.sent, []);
 });

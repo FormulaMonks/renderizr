@@ -53,7 +53,8 @@ export function mountEngine(
             return;
         }
 
-        const model = new WorkspaceModel(options.workspace);
+        // Edit mode swaps the workspace in place (`setWorkspace`).
+        let model = new WorkspaceModel(options.workspace);
         const editableKey = (key: string) => {
             const view = model.findViewByKey(key);
             return view !== undefined && isEditable(view);
@@ -86,6 +87,11 @@ export function mountEngine(
          * before another one paints takes its steps back from here.
          */
         let painted: { key: string; steps: number } | null = null;
+        /**
+         * Set by `setWorkspace` while the view it kept waits to be painted
+         * again, which keeps the step shown when the view still has it.
+         */
+        let reloading = false;
         player.onChanged(({ step }) => {
             if (step !== store.get().step) store.set({ step });
         });
@@ -145,6 +151,22 @@ export function mountEngine(
             },
             setRouting(mode) {
                 commands.setRouting?.(mode);
+            },
+            setWorkspace(workspace) {
+                model = new WorkspaceModel(workspace);
+                const { key, editing } = store.get();
+                const kept = model.findViewByKey(key) !== undefined;
+                const shownKey = kept ? key : model.getViews()[0]?.key ?? key;
+                reloading = kept;
+                // One store change, so the island never draws the new
+                // workspace with the view or edited layouts of the old one.
+                store.set({
+                    model,
+                    key: shownKey,
+                    ...(!kept && { step: null }),
+                    editing: editing && editableKey(shownKey),
+                    layouts: new Map(),
+                });
             },
             onLayoutChanged(callback) {
                 layoutChanged.add(callback);
@@ -231,7 +253,19 @@ export function mountEngine(
                 writeReport(document, engineReport(graph));
             }
             painted = { key, steps: graph.animation?.steps.length ?? 0 };
-            player.load(painted.steps);
+            if (__RENDERIZR_EDIT_MODE__ && reloading) {
+                // The same view from a workspace swapped in: the step shown
+                // stays while the view still has it (spec 6.3).
+                reloading = false;
+                const { steps, step } = player.state;
+                const kept = step !== null && step <= painted.steps;
+                if (steps !== painted.steps || !kept) {
+                    // A step that's gone falls back to the full view.
+                    player.load(painted.steps);
+                    while (kept && (player.state.step ?? 0) < (step ?? 0))
+                        player.stepForward();
+                }
+            } else player.load(painted.steps);
             const view = model.findViewByKey(key);
             if (view) shown.paint(view);
             if (!mounted) {
