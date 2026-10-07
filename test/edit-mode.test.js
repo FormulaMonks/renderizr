@@ -230,3 +230,73 @@ test(
         assert.match(text, /"lastModifiedAgent" : "renderizr\//);
     },
 );
+
+/** The Warehouse view of the `workspace.json` at `json`. */
+const warehouseView = async (json) =>
+    JSON.parse(await readFile(json, "utf8")).views.customViews.find(
+        (view) => view.key === "Warehouse",
+    );
+
+test(
+    "Calculate layout saves a calculated layout, and undoing it saves the layout back",
+    { skip: SKIP },
+    async () => {
+        const { url, json } = await startEdit("view-types.json");
+        const stored = await warehouseView(json);
+        const browser = await openBrowser(CHROME);
+        let calculated;
+        try {
+            const page = await browser.open(
+                `${url}#?page=diagrams&view=Warehouse&mode=edit`,
+            );
+            await page.waitFor(
+                `!!document.querySelector('[data-ready="true"] [data-canvas-frame]')`,
+            );
+            await page.evaluate(
+                `document.querySelector(".calculate-layout").click()`,
+            );
+            await page.waitFor(
+                `!!document.querySelector("[data-calculate-layout-dialog] .calculate")`,
+            );
+            await page.evaluate(
+                `document.querySelector("[data-calculate-layout-dialog] .calculate").click()`,
+            );
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Unsaved changes"`,
+            );
+            await page.press("s", "KeyS", 2);
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Saved"`,
+            );
+            calculated = await warehouseView(json);
+
+            // Ctrl+Z undoes the whole run as one step (spec 15, 16).
+            await page.press("z", "KeyZ", 2);
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Unsaved changes"`,
+            );
+            await page.press("s", "KeyS", 2);
+            await page.waitFor(
+                `document.querySelector(".save-status")?.textContent === "Saved"`,
+            );
+        } finally {
+            await browser.close();
+        }
+
+        assert.notDeepEqual(
+            calculated.elements,
+            stored.elements,
+            "Calculate layout moved nothing",
+        );
+        assert.ok(calculated.dimensions, "the run saved no dimensions");
+        assert.equal(
+            calculated.automaticLayout,
+            undefined,
+            "the run wrote automaticLayout",
+        );
+        const undone = await warehouseView(json);
+        assert.deepEqual(undone.elements, stored.elements);
+        assert.deepEqual(undone.dimensions, { height: 2000, width: 2000 });
+        assert.equal(undone.automaticLayout, undefined);
+    },
+);

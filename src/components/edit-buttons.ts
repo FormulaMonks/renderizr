@@ -1,15 +1,21 @@
 /**
  * The toolbar's way into and out of editing (spec 4.6, 17.1): a pencil that
- * opens the view's editing route, and in editing the edit toolbar, with the
- * save status, Save and Done, which returns to reading. Only edit mode draws
+ * opens the view's editing route, and in editing the edit toolbar, with
+ * "Calculate layout", the three canvas commands, the save status, Save and
+ * Done, which returns to reading. Only edit mode draws
  * them; builds compile this module out (ADR 15).
  */
 
+import type { CanvasCommand } from "../engine/contract";
 import type { ModelView, WorkspaceModel } from "../model";
 import { whyNotEditable } from "../model/editable";
 import type { SaveStatus } from "./edit-session";
 import styles from "./current-view.module.css";
 import pencilIcon from "bootstrap-icons/icons/pencil.svg?raw";
+import decreaseIcon from "bootstrap-icons/icons/arrows-angle-contract.svg?raw";
+import increaseIcon from "bootstrap-icons/icons/arrows-angle-expand.svg?raw";
+import autoIcon from "bootstrap-icons/icons/bounding-box.svg?raw";
+import calculateIcon from "bootstrap-icons/icons/diagram-3.svg?raw";
 
 /** What the toolbar needs from the editing route the page owns. */
 export type EditingRoute = {
@@ -30,7 +36,24 @@ export type EditingRoute = {
      * `null`: a view without coordinates saves the positions shown (spec 8).
      */
     notice(key: string): string | null;
+    /**
+     * Run a canvas command on the view shown (spec 14), re-centering the
+     * content unless `recenter` is false.
+     */
+    resizeCanvas(command: CanvasCommand, recenter: boolean): void;
+    /** Open the "Calculate layout" dialog (spec 15). */
+    calculateLayout(): void;
 };
+
+/** The canvas commands' buttons, each with what its tooltip says. */
+const CANVAS_BUTTONS: [CanvasCommand, string, string][] = [
+    ["decrease", "Decrease the canvas size", decreaseIcon],
+    ["increase", "Increase the canvas size", increaseIcon],
+    ["auto", "Fit the canvas to the diagram", autoIcon],
+];
+
+/** What every canvas button's tooltip adds: Alt keeps the content in place. */
+const RECENTER_HINT = "hold Alt to keep the diagram where it is";
 
 /** Whether shortcuts read the macOS way (spec 17.1). */
 const isMac = () =>
@@ -90,11 +113,31 @@ export function editButtons(
 
     if (route.isEditing() && reason === null) {
         const save = `Save (${saveShortcut()})`;
+        const calculate = "Calculate layout";
         group.innerHTML = `
+            <button type="button" class="calculate-layout" title="${calculate}" aria-label="${calculate}">${calculateIcon}</button>
+            ${CANVAS_BUTTONS.map(
+                ([command, label, icon]) =>
+                    `<button type="button" class="resize-canvas" data-command="${command}" title="${label} (${RECENTER_HINT})" aria-label="${label}">${icon}</button>`,
+            ).join("")}
             <span class="save-status ${styles.saveStatus}" role="status" aria-live="polite"></span>
             <button type="button" class="save-layout ${styles.done}" title="${save}" aria-label="${save}">Save</button>
             <button type="button" class="done-editing ${styles.done}">Done</button>
         `;
+        group
+            .querySelector(".calculate-layout")
+            ?.addEventListener("click", () => route.calculateLayout());
+        for (const button of group.querySelectorAll<HTMLButtonElement>(
+            ".resize-canvas",
+        )) {
+            // Alt held keeps the content where it is (spec 14).
+            button.addEventListener("click", (event) =>
+                route.resizeCanvas(
+                    button.dataset.command as CanvasCommand,
+                    !event.altKey,
+                ),
+            );
+        }
         group
             .querySelector(".save-layout")
             ?.addEventListener("click", () => route.save());
