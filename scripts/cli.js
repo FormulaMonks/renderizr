@@ -16,11 +16,10 @@ export const OPTIONS = {
 };
 
 const USAGE = `
-Renderizr — render a Structurizr workspace as a static site.
+Renderizr: render a Structurizr workspace as a static site.
 
   renderizr <workspace.json|url> [options]
-  renderizr edit [path] [options]   Edit the layout of the views in a browser;
-                                    renderizr edit --help lists its options
+  renderizr edit [path] [options]   Edit the layout of the views in a browser
 
 Options
   -o, --out <dir>          Output directory (default: structurizr-output)
@@ -42,10 +41,17 @@ Options
 
   -h, --help               Show this message
 
+Edit options (renderizr edit [path]; renderizr edit --help says more)
+      --port <n>           Port for the local server (default: ${DEFAULT_PORT})
+      --no-open            Print the URL without opening the browser
+  Edit mode takes the --logo and --font options above, and refuses --out,
+  --single-file and --base.
+
 Examples
   renderizr ./workspace.json
   renderizr https://example.com/workspace.json --single-file
   renderizr ./workspace.json --single-file --font Inter --logo ./logo.svg
+  renderizr edit ./workspace.dsl --font Inter
 
 In a clone of this repository the same thing is: pnpm render <workspace> [options]
 `;
@@ -154,7 +160,7 @@ const REFUSED_BY_EDIT = new Map([
 ]);
 
 const EDIT_USAGE = `
-renderizr edit — edit the layout of a workspace's views in a browser.
+renderizr edit: edit the layout of a workspace's views in a browser.
 
   renderizr edit [path] [options]
 

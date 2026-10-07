@@ -192,12 +192,32 @@ test("--help prints the usage and exits 0", async () => {
             process.stdout.write("NOT REACHED");
         `);
 
-        assert.ok(
-            stdout.includes("Renderizr — render a Structurizr workspace"),
-        );
+        assert.ok(stdout.includes("Renderizr: render a Structurizr workspace"));
         assert.ok(stdout.includes("--single-file"));
         assert.ok(!stdout.includes("NOT REACHED"), `${flag} kept going`);
     }
+});
+
+test("--help lists the edit subcommand and its flags", async () => {
+    const { stdout } = await evalInChild(`
+        import { parseCliArgs } from "./scripts/cli.js";
+        parseCliArgs(["--help"]);
+    `);
+
+    assert.match(stdout, /renderizr edit \[path\]/);
+    for (const flag of ["--port <n>", "--no-open"]) {
+        assert.ok(
+            stdout.includes(flag),
+            `the main usage never mentions edit's ${flag}`,
+        );
+    }
+});
+
+test("neither usage carries an em dash", async () => {
+    const build = await runCli(["--help"]);
+    const edit = await runCli(["edit", "--help"]);
+    assert.ok(!build.stdout.includes("\u2014"), "the build usage has one");
+    assert.ok(!edit.stdout.includes("\u2014"), "the edit usage has one");
 });
 
 test("--help wins even when the workspace is missing", async () => {
@@ -216,7 +236,7 @@ const rejects = async (args, expected) => {
             assert.match(error.stderr, expected);
             assert.match(
                 error.stderr,
-                /Renderizr — render a Structurizr workspace/,
+                /Renderizr: render a Structurizr workspace/,
                 "the usage text was not printed on the error path",
             );
             return true;
@@ -423,7 +443,7 @@ test("renderizr edit --help prints the edit usage and exits 0", async () => {
 test("the binary dispatches edit to edit mode and keeps a bare workspace a build", async () => {
     const edit = await runCli(["edit", "--help"]);
     assert.equal(edit.code, 0);
-    assert.match(edit.stdout, /^renderizr edit — /);
+    assert.match(edit.stdout, /^renderizr edit: /);
     assert.match(edit.stdout, /--no-open/);
 
     const build = await runCli(["--help"]);
