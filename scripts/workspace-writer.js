@@ -399,6 +399,13 @@ function carryStamps(before, after) {
 const RECENT_WRITES = 16;
 
 /**
+ * How long, in ms, the writer waits for the watcher to report one of its
+ * writes. The watcher reports one within moments; past this, the same
+ * content on disk came from someone else.
+ */
+const UNHEARD_MS = 10_000;
+
+/**
  * The refusal of a save made against a file that has changed since (spec
  * 7.4). It carries `version`, the file's version now, so the page can save
  * against it once the author keeps the edits (spec 6.2).
@@ -426,18 +433,31 @@ export class WorkspaceWriter {
     #agent;
     #now;
     #queue = Promise.resolve();
-    /** The versions this writer wrote, oldest first, at most `RECENT_WRITES`. */
-    #written = new Set();
+    /**
+     * The writes the watcher hasn't reported yet: when each version was
+     * written, in ms, oldest first, at most `RECENT_WRITES`.
+     */
+    #unheard = new Map();
+    #clock;
 
-    constructor(file, { agent, now = () => new Date() }) {
+    constructor(file, { agent, now = () => new Date(), clock = Date.now }) {
         this.#file = file;
         this.#agent = agent;
         this.#now = now;
+        this.#clock = clock;
     }
 
-    /** Whether `text` is one of the files this writer wrote recently. */
+    /**
+     * Whether `text` is a write of this writer's that the watcher hasn't
+     * reported yet. It answers yes once per write: the same content back on
+     * disk later, such as a tool restoring an earlier file, is someone
+     * else's change.
+     */
     wrote(text) {
-        return this.#written.has(versionOf(text));
+        const version = versionOf(text);
+        const at = this.#unheard.get(version);
+        this.#unheard.delete(version);
+        return at !== undefined && this.#clock() - at < UNHEARD_MS;
     }
 
     /**
@@ -522,10 +542,10 @@ export class WorkspaceWriter {
             throw error;
         }
         const version = versionOf(text);
-        this.#written.delete(version);
-        this.#written.add(version);
-        if (this.#written.size > RECENT_WRITES)
-            this.#written.delete(this.#written.values().next().value);
+        this.#unheard.delete(version);
+        this.#unheard.set(version, this.#clock());
+        if (this.#unheard.size > RECENT_WRITES)
+            this.#unheard.delete(this.#unheard.keys().next().value);
         return { version, written: true };
     }
 }

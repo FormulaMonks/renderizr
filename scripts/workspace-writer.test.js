@@ -675,6 +675,39 @@ test("the writer knows every recent write of its own, so a late watcher event fo
     });
 });
 
+test("the writer knows each write of its own once, so the same content back on disk later is someone else's change", async () => {
+    await withWorkspace(async ({ file, text }) => {
+        let clock = 0;
+        const writer = new WorkspaceWriter(file, {
+            agent: AGENT,
+            now: () => NOW,
+            clock: () => clock,
+        });
+        const first = await writer.save({
+            version: versionOf(text),
+            view: "Landscape",
+            views: { Landscape: { elements: { 1: { x: 110, y: 200 } } } },
+        });
+        const firstText = await readFile(file, "utf8");
+        assert.ok(writer.wrote(firstText), "the watcher's report of the write");
+        assert.ok(
+            !writer.wrote(firstText),
+            "a tool that writes the same content back is no write of the writer's",
+        );
+
+        await writer.save({
+            version: first.version,
+            view: "Landscape",
+            views: { Landscape: { elements: { 2: { x: 610, y: 200 } } } },
+        });
+        clock = 10_000;
+        assert.ok(
+            !writer.wrote(await readFile(file, "utf8")),
+            "a write the watcher never reported in time is forgotten",
+        );
+    });
+});
+
 /* ------------------------------------------------ a run of the DSL pipeline */
 
 test("a run's workspace replaces the file, read the way Structurizr reads it and stamped", async () => {
