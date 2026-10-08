@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import { exportWorkspace } from "../architecture/scripts/export.js";
 import { shellCommand } from "../scripts/structurizr-tools.js";
 
+/** The DSL pipeline's stand-in for Structurizr's tools, as a whole command. */
 const STUB = shellCommand(process.execPath, [
     fileURLToPath(
         new URL("../scripts/__fixtures__/structurizr-stub.js", import.meta.url),
@@ -29,6 +30,9 @@ const STUB = shellCommand(process.execPath, [
 
 const scratch = mkdtempSync(join(tmpdir(), "renderizr-architecture-export-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
+
+/** Options that keep the tools' output out of the test report. */
+const QUIET = { output: { write() {} } };
 
 /** The stub's "DSL": a workspace in JSON, with an optional `stub` key. */
 const dsl = (description, stub) =>
@@ -54,7 +58,7 @@ async function exported(name) {
     rmSync(folder, { recursive: true, force: true });
     mkdirSync(folder);
     writeFileSync(join(folder, "workspace.dsl"), dsl("Before"));
-    await exportWorkspace(folder, STUB, { output: { write() {} } });
+    await exportWorkspace(folder, STUB, QUIET);
     return folder;
 }
 
@@ -64,18 +68,26 @@ test("an export of a workspace that matches its DSL leaves workspace.json byte f
     const folder = await exported("unchanged");
     const before = read(folder);
 
-    await exportWorkspace(folder, STUB, { output: { write() {} } });
+    await exportWorkspace(folder, STUB, QUIET);
 
-    assert.equal(read(folder), before);
+    assert.equal(
+        read(folder),
+        before,
+        "an export with nothing to change rewrote workspace.json",
+    );
 });
 
 test("an export after a DSL change writes the change into workspace.json", async () => {
     const folder = await exported("changed");
     writeFileSync(join(folder, "workspace.dsl"), dsl("After"));
 
-    await exportWorkspace(folder, STUB, { output: { write() {} } });
+    await exportWorkspace(folder, STUB, QUIET);
 
-    assert.equal(JSON.parse(read(folder)).description, "After");
+    assert.equal(
+        JSON.parse(read(folder)).description,
+        "After",
+        "the DSL's change didn't reach workspace.json",
+    );
 });
 
 test("an export fails on a DSL error and leaves workspace.json as it was", async () => {
@@ -87,8 +99,13 @@ test("an export fails on a DSL error and leaves workspace.json as it was", async
     );
 
     await assert.rejects(
-        exportWorkspace(folder, STUB, { output: { write() {} } }),
+        exportWorkspace(folder, STUB, QUIET),
         /Unexpected tokens at line 3/,
+        "the export didn't fail with the tools' error",
     );
-    assert.equal(read(folder), before);
+    assert.equal(
+        read(folder),
+        before,
+        "a failed export changed workspace.json",
+    );
 });

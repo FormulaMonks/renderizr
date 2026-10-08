@@ -38,6 +38,8 @@ export async function exportWorkspace(
         dsl: join(folder, "workspace.dsl"),
         json,
         command,
+        // Edit mode names itself the same way, as Structurizr Local does
+        // (spec 7.1).
         writer: new WorkspaceWriter(json, {
             agent: `renderizr/${version ?? "unknown"}`,
         }),

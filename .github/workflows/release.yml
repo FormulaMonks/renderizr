@@ -216,8 +216,8 @@ jobs:
         run: gh release upload "$TAG" artifacts/* --clobber --repo "$GITHUB_REPOSITORY"
 
   # Publishes Renderizr's own architecture documentation, rendered from the
-  # release's tag, to GitHub Pages. See pages.yml for why this is a call and
-  # not a `release` trigger there.
+  # release's tag, to GitHub Pages. pages.yml's header says why release.yml
+  # calls it.
   pages:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'

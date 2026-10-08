@@ -21,7 +21,7 @@ And you get this:
 
     https://formulamonks.github.io/renderizr/
 
-  .github/workflows/pages.yml publishes it on each release, rendered from the release's tag, but no deployment has happened yet and one manual step stands in the way: an admin has to set Settings → Pages → Build and deployment → Source to "GitHub Actions". Today `gh api repos/FormulaMonks/renderizr/pages` reports `build_type: legacy` ("Deploy from a branch"), so the workflow's preflight job skips the build and deploy jobs: the run reports success, having published nothing. Add the link in the same pull request as the first green pages deployment, not before. Tracked in MAINTAINERS.md → "Repository setup still to be done". -->
+  .github/workflows/pages.yml publishes it on each release, rendered from the release's tag, but no deployment has happened yet and one manual step stands in the way: an admin has to set Settings → Pages → Build and deployment → Source to "GitHub Actions". Today `gh api repos/FormulaMonks/renderizr/pages` reports `build_type: legacy` ("Deploy from a branch"), so the workflow's preflight job skips the build and deploy jobs: the run reports success, having published nothing. Add the link in the same pull request as the first green pages deployment. Tracked in MAINTAINERS.md → "Repository setup still to be done". -->
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">

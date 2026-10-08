@@ -128,11 +128,11 @@ jobs:
               ;;
             "")
               echo "enabled=false" >> "$GITHUB_OUTPUT"
-              echo "::notice title=GitHub Pages is not enabled, so the build and deploy jobs were skipped::Enable it once, by hand: Settings → Pages → Build and deployment → Source = \"GitHub Actions\". This workflow cannot do it for you — turning Pages on needs administration:write, which the Actions token cannot hold. Re-run this workflow afterwards and it will build and deploy. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
+              echo "::notice title=GitHub Pages is not enabled, so the build and deploy jobs were skipped::Enable it once, by hand: Settings → Pages → Build and deployment → Source = \"GitHub Actions\". This workflow cannot do it for you — turning Pages on needs administration:write, which the Actions token cannot hold. Afterwards, run this workflow from main with the latest release tag and it will build and deploy. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
               ;;
             *)
               echo "enabled=false" >> "$GITHUB_OUTPUT"
-              echo "::notice title=GitHub Pages is on but its Source is not GitHub Actions, so the build and deploy jobs were skipped::The API reports build_type=\"${build_type}\", which means Settings → Pages → Build and deployment → Source is set to \"Deploy from a branch\". actions/deploy-pages cannot deploy to that kind of site. Change Source to \"GitHub Actions\" and re-run. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
+              echo "::notice title=GitHub Pages is on but its Source is not GitHub Actions, so the build and deploy jobs were skipped::The API reports build_type=\"${build_type}\", which means Settings → Pages → Build and deployment → Source is set to \"Deploy from a branch\". actions/deploy-pages cannot deploy to that kind of site. Change Source to \"GitHub Actions\", then run this workflow from main with the latest release tag. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
               ;;
           esac
 
