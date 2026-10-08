@@ -1,15 +1,29 @@
-# The live demo.
+# Renderizr's own architecture documentation, rendered by Renderizr.
 #
-# Renders the Big Bank plc example with this tool, on every push to main, and
-# publishes it to GitHub Pages:
+# Each release publishes the workspace in architecture/ to GitHub Pages:
 #
-#   https://formulamonks.github.io/renderizr/                  the browsable site
-#   https://formulamonks.github.io/renderizr/single-file.html  the same workspace
-#                                                              as one document
+#   https://formulamonks.github.io/renderizr/
 #
-# The workspace is the copy committed in the structurizr submodule
-# (structurizr-export/src/test/resources/big-bank-plc.json), so what is
-# published is pinned by the gitlink and nothing is fetched at build time.
+# The site is what `pnpm render architecture/workspace.json --base <path>`
+# writes, built from the release's tag, so the page always shows the
+# architecture of the latest release and nothing else.
+#
+# Two ways in, both with the tag to publish:
+#
+#   workflow_call       release.yml calls this once release-please has
+#                       created the Release.
+#   workflow_dispatch   the first deployment, or a redeploy of any release.
+#                       Run it from main.
+#
+# release.yml calls this workflow rather than this workflow listening for the
+# `release` event. A `release` run's ref is the tag, and the `github-pages`
+# environment that GitHub creates for a Pages site lets only the default
+# branch deploy. A call from release.yml runs on its push to main, and a
+# dispatch from main does too, so both pass that rule with no change to the
+# environment.
+#
+# The site renders the committed architecture/workspace.json. The `structurizr`
+# CI job checks that it matches workspace.dsl, so what ships matches the DSL.
 #
 # The build is a project-site build, not a root-site build: assets have to
 # resolve under /renderizr/, which is what `--base` is for (scripts/cli.js →
@@ -50,22 +64,35 @@
 name: pages
 
 on:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      tag:
+        description: "The release tag to publish, e.g. v2.1.0"
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release tag to publish, e.g. v2.1.0"
+        required: true
+        type: string
 
 permissions:
   contents: read
 
-# One deployment at a time, and never cancel one in flight — a half-finished
-# deploy is a broken public page.
+# One run at a time, build and deploy together, and never cancel one in flight:
+# a half-finished deploy is a broken public page. Runs then deploy in the order
+# they start, so an older tag built alongside a newer one can't land last. The
+# group holds whether release.yml calls this or someone dispatches it, and its
+# name differs from release.yml's own group, so the two never wait on each
+# other.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 env:
-  BIG_BANK: submodules/structurizr/structurizr-export/src/test/resources/big-bank-plc.json
   PNPM_VERSION: "11"
+  TAG: ${{ inputs.tag }}
 
 jobs:
   # Is there a Pages site to deploy to, and is it the kind this workflow can
@@ -111,16 +138,16 @@ jobs:
               ;;
             "")
               echo "enabled=false" >> "$GITHUB_OUTPUT"
-              echo "::notice title=GitHub Pages is not enabled, so the build and deploy jobs were skipped::Enable it once, by hand: Settings → Pages → Build and deployment → Source = \"GitHub Actions\". This workflow cannot do it for you — turning Pages on needs administration:write, which the Actions token cannot hold. Re-run this workflow afterwards and it will build and deploy. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
+              echo "::notice title=GitHub Pages is not enabled, so the build and deploy jobs were skipped::Enable it once, by hand: Settings → Pages → Build and deployment → Source = \"GitHub Actions\". This workflow cannot do it for you — turning Pages on needs administration:write, which the Actions token cannot hold. Afterwards, run this workflow from main with the latest release tag and it will build and deploy. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
               ;;
             *)
               echo "enabled=false" >> "$GITHUB_OUTPUT"
-              echo "::notice title=GitHub Pages is on but its Source is not GitHub Actions, so the build and deploy jobs were skipped::The API reports build_type=\"${build_type}\", which means Settings → Pages → Build and deployment → Source is set to \"Deploy from a branch\". actions/deploy-pages cannot deploy to that kind of site. Change Source to \"GitHub Actions\" and re-run. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
+              echo "::notice title=GitHub Pages is on but its Source is not GitHub Actions, so the build and deploy jobs were skipped::The API reports build_type=\"${build_type}\", which means Settings → Pages → Build and deployment → Source is set to \"Deploy from a branch\". actions/deploy-pages cannot deploy to that kind of site. Change Source to \"GitHub Actions\", then run this workflow from main with the latest release tag. Nothing was published by this run. See MAINTAINERS.md, \"Repository setup still to be done\"."
               ;;
           esac
 
   build:
-    name: render the example
+    name: render the architecture documentation
     needs: preflight
     if: needs.preflight.outputs.enabled == 'true'
     runs-on: ubuntu-latest
@@ -132,15 +159,18 @@ jobs:
       # deliberately lacks.
       pages: read
     steps:
-      - name: Check out
+      - name: Check the tag before building anything
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$TAG' is not a release tag. Expected vMAJOR.MINOR.PATCH, e.g. v2.1.0."
+            exit 1
+          fi
+
+      - name: Check out the release
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/${{ env.TAG }}
           persist-credentials: false
-
-      # `.gitmodules` sets `update = none` so `npx` skips the submodule, which
-      # makes `submodules: true` skip it as well. `--checkout` overrides that.
-      - name: Check out the structurizr submodule
-        run: git submodule update --init --checkout --depth=1 submodules/structurizr
 
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -164,7 +194,7 @@ jobs:
         # all this step does is read `base_path` off it.
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
-      - name: Render Big Bank plc for the Pages path
+      - name: Render the architecture documentation for the Pages path
         env:
           # "/renderizr" for a project site, "" for a user or organization site.
           BASE_PATH: ${{ steps.pages.outputs.base_path }}
@@ -174,20 +204,10 @@ jobs:
             */) ;;
             *) base="$base/" ;;
           esac
-          echo "Rendering with --base $base"
-          pnpm render "$BIG_BANK" --base "$base" --out dist-pages
-
-      - name: Render the same workspace as a single document
-        run: pnpm render "$BIG_BANK" --single-file --out dist-single
-
-      - name: Assemble the site
-        run: |
-          cp dist-single/index.html dist-pages/single-file.html
-          # Pages runs Jekyll over the artifact unless told not to.
-          touch dist-pages/.nojekyll
+          echo "Rendering ${TAG} with --base $base"
+          pnpm render architecture/workspace.json --base "$base" --out dist-pages
           test -f dist-pages/index.html
-          test -f dist-pages/single-file.html
-          grep -q 'Big Bank plc' dist-pages/index.html
+          grep -q '<title>Renderizr' dist-pages/index.html
 
       - name: Upload the Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

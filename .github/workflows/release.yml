@@ -8,7 +8,9 @@
 #                       "chore(release): X.Y.Z" pull request.
 #   merge that PR       release-please tags vX.Y.Z, publishes the GitHub Release
 #                       with the generated notes, and this workflow attaches the
-#                       build artifacts to it.
+#                       build artifacts to it and calls pages.yml, which
+#                       publishes the release's architecture documentation to
+#                       GitHub Pages.
 #   workflow_dispatch   attach the build artifacts to a tag and Release that
 #                       already exist. For a release cut by hand with
 #                       `pnpm release:tag`, which would otherwise carry no
@@ -212,3 +214,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$TAG" artifacts/* --clobber --repo "$GITHUB_REPOSITORY"
+
+  # Publishes Renderizr's own architecture documentation, rendered from the
+  # release's tag, to GitHub Pages. pages.yml's header says why release.yml
+  # calls it.
+  pages:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    name: publish the architecture documentation
+    # A called workflow's jobs get no more than this job grants: pages.yml's
+    # preflight and build read Pages, and its deploy job writes it with an
+    # OIDC token.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
