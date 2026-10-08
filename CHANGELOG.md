@@ -21,6 +21,26 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.1.0](https://github.com/FormulaMonks/renderizr/compare/v2.0.0...v2.1.0) (2026-10-08)
+
+
+### Added
+
+* add edit mode ([#127](https://github.com/FormulaMonks/renderizr/issues/127)) ([76cfb99](https://github.com/FormulaMonks/renderizr/commit/76cfb99b0b221d519b1392658a6cae604ce45377))
+* **engine:** draw each edge end of an edge with vertices under its nearest vertex, out of spreading ([#127](https://github.com/FormulaMonks/renderizr/issues/127)) ([76cfb99](https://github.com/FormulaMonks/renderizr/commit/76cfb99b0b221d519b1392658a6cae604ce45377))
+* publish the architecture documentation to GitHub Pages on each release ([#136](https://github.com/FormulaMonks/renderizr/issues/136)) ([d4817ac](https://github.com/FormulaMonks/renderizr/commit/d4817ace1988335fdb08a3c26e00ab801240ef90)), closes [#135](https://github.com/FormulaMonks/renderizr/issues/135)
+* **routing:** keep routes 64 units from the elements they go around ([#111](https://github.com/FormulaMonks/renderizr/issues/111)) ([b739a15](https://github.com/FormulaMonks/renderizr/commit/b739a1598bcfc45271289eadaa5b943ac47be723)), closes [#110](https://github.com/FormulaMonks/renderizr/issues/110)
+
+
+### Fixed
+
+* keep npx from installing dev tools and the submodule ([#116](https://github.com/FormulaMonks/renderizr/issues/116)) ([33b4f95](https://github.com/FormulaMonks/renderizr/commit/33b4f95dd831816bc24c5c05003e7e2accab9d93))
+
+
+### Documentation
+
+* add the edit-mode ADRs and glossary terms ([#115](https://github.com/FormulaMonks/renderizr/issues/115)) ([6b2d045](https://github.com/FormulaMonks/renderizr/commit/6b2d045d3b68f4bd9acf1a54d7adfee338e68c7b))
+
 ## [2.0.0](https://github.com/FormulaMonks/renderizr/compare/v1.1.1...v2.0.0) (2026-10-05)
 
 Renderizr draws every diagram with its own React Flow engine, built to the [React Flow engine spec](https://github.com/FormulaMonks/renderizr/issues/39).
