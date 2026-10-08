@@ -52,11 +52,13 @@ aside { flex: none; display: flex; border-right: 1px solid var(--color-border); 
 #scroller::-webkit-scrollbar { display: none; }
 #pin { position: absolute; top: 0; right: 0; overflow: hidden; pointer-events: none; }
 #pan { position: sticky; top: calc(var(--header-height, 6rem) + 1.9rem); z-index: 1; display: flex; justify-content: center; gap: 2px; margin-bottom: 0.25rem; }
+#pan[hidden] { display: none; }
 #pan button { position: static; margin: 0; width: 1.2rem; height: 1.2rem; }
 
 .gutter button { position: sticky; top: calc(var(--header-height, 6rem) + 0.4rem); z-index: 1; display: block; margin: 0 auto 0.25rem; width: 1.4rem; height: 1.4rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; font-size: 0.75rem; line-height: 1; }
 .gutter button:hover { color: var(--color-foreground); }
-nav { width: 17rem; flex: none; }
+/* The expand button sits above the first entry rather than over its dot. */
+nav { width: 17rem; flex: none; padding-top: 1.65rem; }
 nav ul { list-style: none; display: flex; flex-direction: column; gap: 0.1rem; }
 nav a { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; font-size: 0.85rem; line-height: 1.35; color: var(--color-muted); padding: 0.3rem 0.5rem; border-radius: 4px; text-decoration: none; cursor: pointer; }
 nav a:hover { color: var(--color-foreground); background: var(--color-surface); }
