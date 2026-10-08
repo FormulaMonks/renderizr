@@ -80,6 +80,16 @@ on:
 permissions:
   contents: read
 
+# One run at a time, build and deploy together, and never cancel one in flight:
+# a half-finished deploy is a broken public page. Runs then deploy in the order
+# they start, so an older tag built alongside a newer one can't land last. The
+# group holds whether release.yml calls this or someone dispatches it, and its
+# name differs from release.yml's own group, so the two never wait on each
+# other.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 env:
   PNPM_VERSION: "11"
   TAG: ${{ inputs.tag }}
@@ -208,12 +218,6 @@ jobs:
     name: deploy
     needs: build
     runs-on: ubuntu-latest
-    # One deployment at a time, and never cancel one in flight: a half-finished
-    # deploy is a broken public page. On the job rather than the workflow, so it
-    # holds the same way whether release.yml calls this or someone dispatches it.
-    concurrency:
-      group: pages
-      cancel-in-progress: false
     # The only `id-token: write` in the repository, and it lives here,
     # in a job that runs no project code and builds nothing.
     permissions:
