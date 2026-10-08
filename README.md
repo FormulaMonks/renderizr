@@ -166,6 +166,7 @@ Keys match by physical key, so Option's characters on macOS don't get in the way
 | Align left, horizontal centers, right | Alt+A, Alt+H, Alt+D |
 | Align top, vertical centers, bottom | Alt+W, Alt+V, Alt+S |
 | Distribute horizontally, vertically | Alt+Shift+H, Alt+Shift+V |
+| Cycle routing modes for selected relationship | Alt+R |
 | Nudge the selection by 5, by 50 | Arrow keys, Shift+arrow keys |
 | Pan, with nothing selected | Arrow keys |
 | Select every element in the view | Cmd/Ctrl+A |
@@ -179,7 +180,7 @@ Keys match by physical key, so Option's characters on macOS don't get in the way
 | Save now | Cmd/Ctrl+S |
 | Open the keyboard shortcuts | `?` |
 
-With the pointer, a drag moves an element or the selection, and a drag on empty canvas draws a marquee. A double-click on an edge adds a vertex, and a double-click on a vertex removes it. A selected edge shows a handle on each edge end: drag one onto a side of its element to choose that side. A drag on an edge's label slides it along the route. The edit toolbar also holds the routing mode of the selected edge, the canvas size (Decrease, Increase and Auto) and **Calculate layout**, which lays out the whole view once, the way an automatic layout would, and stores the result as the view's layout. Undo covers all of it.
+With the pointer, a drag moves an element or the selection, and a drag on empty canvas draws a marquee. A double-click on an edge adds a vertex, and a double-click on a vertex removes it. A selected edge shows a handle on each edge end: drag one onto a side of its element to choose that side. A drag on an edge's label slides it along the route. The edit toolbar also holds the routing mode of the selected edge, which Alt+R cycles too, the canvas size (Decrease, Increase and Auto) and **Calculate layout**, which lays out the whole view once, the way an automatic layout would, and stores the result as the view's layout. Undo covers all of it.
 
 ### What edit mode writes
 

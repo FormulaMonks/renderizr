@@ -21,6 +21,7 @@ import {
     type EditState,
     paintEditState,
     paintSaveStatus,
+    nextRouting,
 } from "../components/edit-buttons";
 import { EditSession } from "../components/edit-session";
 import { heldEdits, viewSignature } from "../components/live-reload";
@@ -257,24 +258,33 @@ export function swapWorkspace(
 }
 
 /**
- * Go on with `proceed` once nothing waits for a save (spec 7.5). While the
- * view's changes wait, a save is on its way or one has failed, a dialog
- * offers "Save and continue" and "Stay", and the page goes on only once
- * every save succeeds; the toolbar shows why one didn't.
+ * Go on with `proceed`, a switch to another view or page, in reading. In
+ * editing, when the author changed anything since entering it, a dialog says
+ * those changes will be lost and offers "Discard and continue" and "Stay".
+ * Discarding puts every view back as it was when the author entered editing
+ * and saves that, then leaves editing and goes on; a save that fails keeps
+ * the page where it is, and the toolbar says why.
  */
 export async function leave(
     engine: Engine,
     model: WorkspaceModel,
     proceed: () => void,
 ) {
-    const edits = editSession();
-    if (!edits.unsaved()) {
+    if (!editing()) {
         proceed();
         return;
     }
-    const title = model.getTitleForView(engine.getCurrentView());
-    if (!(await confirmLeave(document.body, title))) return;
-    if (await edits.save()) proceed();
+    const edits = editSession();
+    if (edits.changedSinceEntering()) {
+        const title = model.getTitleForView(engine.getCurrentView());
+        if (!(await confirmLeave(document.body, title))) return;
+        for (const key of edits.revert())
+            engine.setLayout(key, edits.layoutOf(key) ?? {});
+        if (!(await edits.save())) return;
+    }
+    // The next view opens in reading: the switch copies the route it leaves.
+    history.replace({ search: readingSearch(history.location.search) });
+    proceed();
 }
 
 /**
@@ -393,7 +403,10 @@ export function startEditing(
         event.preventDefault();
         if (command === "save") void edits.save();
         else if (command === "shortcuts") openShortcuts(document.body);
-        else step(engine, command);
+        else if (command === "routing") {
+            if (selectedEdge)
+                engine.setRouting(nextRouting(selectedEdge.routing));
+        } else step(engine, command);
     };
     document.addEventListener("keydown", onKey);
     const paintState = () => paintEditState(container, editState(engine));

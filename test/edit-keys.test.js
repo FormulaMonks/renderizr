@@ -84,6 +84,32 @@ test("? opens the keyboard shortcuts, and bare letters do nothing", () => {
     );
 });
 
+test("Alt+R moves the selected edge to its next routing mode, whatever character Option types, and Cmd/Ctrl+R stays the browser's", () => {
+    assert.equal(
+        pageCommand(press("KeyR", "®", { altKey: true }), true),
+        "routing",
+    );
+    assert.equal(
+        pageCommand(press("KeyR", "r", { altKey: true }), false),
+        "routing",
+    );
+    assert.equal(
+        pageCommand(
+            press("KeyR", "R", { altKey: true, shiftKey: true }),
+            false,
+        ),
+        null,
+    );
+    assert.equal(
+        pageCommand(press("KeyR", "r", { metaKey: true }), true),
+        null,
+    );
+    assert.equal(
+        pageCommand(press("KeyR", "r", { ctrlKey: true }), false),
+        null,
+    );
+});
+
 /* ------------------------------------------------------------ island keys */
 
 const ALIGN_KEYS = [
@@ -174,6 +200,7 @@ test("the keyboard map groups every key into selection, moving, arranging, histo
         "Alt+S",
         "Alt+Shift+H",
         "Alt+Shift+V",
+        "Alt+R",
         "Ctrl+Z",
         "Ctrl+Shift+Z",
         "Ctrl+Y",

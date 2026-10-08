@@ -227,6 +227,17 @@ export class EditSession {
     }
 
     /**
+     * Whether the author changed anything since entering editing: a step
+     * past where any view's history stood then, or a change not saved yet.
+     */
+    changedSinceEntering(): boolean {
+        if (this.unsaved()) return true;
+        for (const [key, { done }] of this.#history)
+            if (done.length > (this.#entered.get(key) ?? 0)) return true;
+        return false;
+    }
+
+    /**
      * Undo every view back to where it stood when the author entered
      * editing, each step waiting for a save like any undo; a view whose
      * history a change on disk cleared goes back to that change. Returns the

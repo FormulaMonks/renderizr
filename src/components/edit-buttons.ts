@@ -104,11 +104,14 @@ const ROUTINGS: Record<Routing, { icon: string; next: Routing }> = {
     Curved: { icon: curvedIcon, next: "Direct" },
 };
 
+/** The routing mode after `mode`: Direct, Orthogonal, Curved and round. */
+export const nextRouting = (mode: Routing): Routing => ROUTINGS[mode].next;
+
 /**
  * Paint the routing-mode button on the edit toolbar under `root` for the
  * selected `edge` (spec 12.2): hidden with no edge selected, otherwise the
  * icon of the mode the edge is drawn in, named in its tooltip and its
- * accessible label. It has no shortcut (spec 12.2).
+ * accessible label. Its tooltip names the mode a click or Alt+R moves to.
  */
 export function paintRouting(root: ParentNode, edge: SelectionState["edge"]) {
     const button = root.querySelector<HTMLButtonElement>(".routing-mode");
@@ -118,8 +121,9 @@ export function paintRouting(root: ParentNode, edge: SelectionState["edge"]) {
     const { icon, next } = ROUTINGS[edge.routing];
     const label = `Routing mode: ${edge.routing}`;
     button.dataset.next = next;
-    button.title = `${label} (click for ${next})`;
+    button.title = `${label} (click or ${notation(SHORTCUTS.routing)} for ${next})`;
     button.setAttribute("aria-label", label);
+    button.setAttribute("aria-keyshortcuts", SHORTCUTS.routing);
     button.innerHTML = icon;
 }
 

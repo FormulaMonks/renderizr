@@ -49,6 +49,7 @@ export const SHORTCUTS = {
     bottom: "Alt+S",
     horizontal: "Alt+Shift+H",
     vertical: "Alt+Shift+V",
+    routing: "Alt+R",
     undo: "Mod+Z",
     redo: "Mod+Shift+Z",
     save: "Mod+S",
@@ -56,7 +57,7 @@ export const SHORTCUTS = {
 } as const;
 
 /** What a page key does (spec 17.2). */
-export type PageCommand = "undo" | "redo" | "save" | "shortcuts";
+export type PageCommand = "undo" | "redo" | "save" | "shortcuts" | "routing";
 
 /** The parts of a key press the keyboard map reads. */
 export type KeyPress = Pick<
@@ -66,15 +67,20 @@ export type KeyPress = Pick<
 
 /**
  * The page key `event` presses, or `null`: Cmd/Ctrl+Z undoes, with Shift
- * redoes, as does Ctrl+Y on Windows and Linux; Cmd/Ctrl+S saves; `?`, the
- * one bare key, opens "Keyboard shortcuts".
+ * redoes, as does Ctrl+Y on Windows and Linux; Cmd/Ctrl+S saves; Alt+R
+ * moves the selected edge to its next routing mode, by physical key, so
+ * Option's character on macOS doesn't get in the way; `?`, the one bare
+ * key, opens "Keyboard shortcuts". Cmd/Ctrl+R stays the browser's reload.
  */
 export function pageCommand(
     event: KeyPress,
     mac = isMac(),
 ): PageCommand | null {
     const mod = event.metaKey || event.ctrlKey;
-    if (event.altKey) return null;
+    if (event.altKey)
+        return event.code === "KeyR" && !mod && !event.shiftKey
+            ? "routing"
+            : null;
     if (mod) {
         if (event.code === "KeyS") return "save";
         if (event.code === "KeyZ") return event.shiftKey ? "redo" : "undo";
@@ -139,6 +145,10 @@ export function keyboardMap(mac = isMac()): ShortcutGroup[] {
                 line("Align bottom", SHORTCUTS.bottom),
                 line("Distribute horizontally", SHORTCUTS.horizontal),
                 line("Distribute vertically", SHORTCUTS.vertical),
+                line(
+                    "Cycle routing modes for selected relationship",
+                    SHORTCUTS.routing,
+                ),
             ],
         },
         {

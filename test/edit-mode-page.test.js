@@ -583,7 +583,11 @@ test("while an edge is selected the toolbar shows its routing mode, and a click 
     paintRouting(toolbar.element, { id: "7", routing: "Direct" });
     assert.equal(button.hidden, false);
     assert.equal(button.getAttribute("aria-label"), "Routing mode: Direct");
-    assert.match(button.title, /Routing mode: Direct/);
+    assert.match(
+        button.title,
+        /^Routing mode: Direct \(click or (⌥R|Alt\+R) for Orthogonal\)$/,
+    );
+    assert.equal(button.getAttribute("aria-keyshortcuts"), "Alt+R");
     assert.ok(button.querySelector("svg"), "the button shows no icon");
     button.click();
     assert.deepEqual(route.calls, [["setRouting", "Orthogonal"]]);
@@ -672,19 +676,20 @@ test("editing disables the player buttons", () => {
 const { confirmLeave } = await importSrc("components/unsaved-dialog");
 const { DOMEvent } = await import("./support/dom.js");
 
-test("the unsaved-changes dialog offers Save and continue and Stay, and Escape stays", async () => {
+test("the leave dialog warns that changes will be lost, offers Discard and continue and Stay, and Escape stays", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const dialog = () => host.querySelector("[data-unsaved-dialog]");
 
-    const saving = confirmLeave(host, "Warehouse");
-    assert.match(dialog().textContent, /Warehouse aren't saved yet/);
+    const discarding = confirmLeave(host, "Warehouse");
+    assert.match(dialog().textContent, /Leave Warehouse\? .* will be lost/);
     assert.equal(
         document.activeElement,
-        dialog().querySelector(".save-and-continue"),
+        dialog().querySelector(".stay"),
+        "Stay, which loses nothing, takes the focus",
     );
-    dialog().querySelector(".save-and-continue").click();
-    assert.equal(await saving, true);
+    dialog().querySelector(".discard-and-continue").click();
+    assert.equal(await discarding, true);
     assert.equal(dialog(), null, "the dialog stayed open");
 
     const staying = confirmLeave(host, "Warehouse");

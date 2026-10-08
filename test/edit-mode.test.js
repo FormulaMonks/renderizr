@@ -596,6 +596,14 @@ test(
             await page.waitFor(
                 `document.querySelector(".routing-mode").getAttribute("aria-label") === "Routing mode: Orthogonal"`,
             );
+            // Alt+R does the same, round the three modes and back.
+            const ROUTING = `document.querySelector(".routing-mode").getAttribute("aria-label")`;
+            for (const mode of ["Curved", "Direct", "Orthogonal"]) {
+                await page.press("®", "KeyR", ALT);
+                await page.waitFor(
+                    `${ROUTING} === ${JSON.stringify(`Routing mode: ${mode}`)}`,
+                );
+            }
             await save();
 
             // A double-click on the line adds a vertex (spec 12.3).
@@ -1049,46 +1057,80 @@ const otherView = (page, key) =>
     );
 
 test(
-    "a view switch with changes waiting asks first: Stay keeps the view, and Save and continue saves and switches",
+    "a view switch in editing warns that changes will be lost: Stay keeps them, and Discard and continue reverts them and opens the next view for reading",
     { skip: SKIP },
     async () => {
         const { url, json } = await startEdit("view-types.json");
         const browser = await openBrowser(CHROME);
         const DIALOG = `document.querySelector("[data-unsaved-dialog]")`;
         const VIEW = `new URLSearchParams(location.hash.slice(2)).get("view")`;
+        const EDITING = `document.documentElement.hasAttribute("data-editing")`;
         try {
             const page = await openWarehouse(browser, url);
-            await dragElement(page, "20", 60, 30);
-            await page.waitFor(`${SAVE_STATUS} === "Unsaved changes"`);
             const other = await otherView(page, "Warehouse");
-            // A click on the view in the drawer, as a person makes it.
-            const choose = async () => {
+            // A click on a view in the drawer, as a person makes it.
+            const choose = async (key) => {
                 await page.settle();
                 await page.click(
                     await page.evaluate(`(() => {
-                        const r = document.querySelector('li[data-viewkey="${other}"] button').getBoundingClientRect();
+                        const r = document.querySelector('li[data-viewkey="${key}"] button').getBoundingClientRect();
                         return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
                     })()`),
                 );
             };
 
-            await choose();
+            // With nothing changed, the switch asks nothing and reads.
+            await choose(other);
+            await page.waitFor(`${VIEW} === ${JSON.stringify(other)}`);
+            assert.equal(await page.evaluate(DIALOG), null);
+            assert.equal(await page.evaluate(EDITING), false);
+
+            // A drag, saved, then a switch.
+            await choose("Warehouse");
+            await page.waitFor(
+                `${VIEW} === "Warehouse" && !!document.querySelector('.edit-view:not([aria-disabled])')`,
+            );
+            await page.evaluate(`document.querySelector(".edit-view").click()`);
+            await page.waitFor(
+                `${EDITING} && !!document.querySelector('[data-ready="true"]')`,
+            );
+            await dragElement(page, "20", 60, 30);
+            await page.press("s", "KeyS", CTRL);
+            await page.waitFor(`${SAVE_STATUS} === "Saved"`);
+            const dragged = placementOf(
+                JSON.parse(await readFile(json, "utf8")),
+                "20",
+            ).x;
+
+            await choose(other);
             await page.waitFor(`!!${DIALOG}`);
             assert.match(
                 await page.evaluate(`${DIALOG}.textContent`),
-                /aren't saved yet/,
+                /will be lost/,
             );
             await page.evaluate(`${DIALOG}.querySelector(".stay").click()`);
             await page.waitFor(`!${DIALOG}`);
             assert.equal(await page.evaluate(VIEW), "Warehouse");
-            assert.equal(await page.evaluate(SAVE_STATUS), "Unsaved changes");
+            assert.equal(await page.evaluate(EDITING), true);
 
-            await choose();
+            await choose(other);
             await page.waitFor(`!!${DIALOG}`);
             await page.evaluate(
-                `${DIALOG}.querySelector(".save-and-continue").click()`,
+                `${DIALOG}.querySelector(".discard-and-continue").click()`,
             );
             await page.waitFor(`${VIEW} === ${JSON.stringify(other)}`);
+            assert.equal(await page.evaluate(EDITING), false);
+            assert.equal(
+                new URLSearchParams(
+                    (await page.evaluate("location.hash")).slice(2),
+                ).get("mode"),
+                null,
+            );
+            assert.notEqual(
+                placementOf(JSON.parse(await readFile(json, "utf8")), "20").x,
+                dragged,
+                "Discard and continue kept the drag in the file",
+            );
         } finally {
             await browser.close();
         }
@@ -1099,10 +1141,10 @@ test(
                 "utf8",
             ),
         );
-        assert.ok(
-            placementOf(JSON.parse(await readFile(json, "utf8")), "20").x >
-                placementOf(fixture, "20").x,
-            "Save and continue didn't save the drag",
+        assert.equal(
+            placementOf(JSON.parse(await readFile(json, "utf8")), "20").x,
+            placementOf(fixture, "20").x,
+            "Discard and continue didn't put element 20 back",
         );
     },
 );
