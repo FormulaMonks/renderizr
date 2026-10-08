@@ -55,7 +55,8 @@ nav a { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 
 nav a:hover { color: var(--color-foreground); background: var(--color-surface); }
 nav a.active { color: var(--color-foreground); background: var(--color-primary-soft); font-weight: 650; }
 nav a.related { color: var(--color-foreground); }
-main { padding: 1.5rem 2rem; max-width: 46rem; min-width: 0; }
+/* The body stays in view while the reader scrolls a long menu. */
+main { position: sticky; top: var(--header-height, 6rem); max-height: calc(100dvh - var(--header-height, 6rem)); overflow-y: auto; padding: 1.5rem 2rem; max-width: 46rem; min-width: 0; }
 main h2 { font-size: 1.4rem; line-height: 1.3; }
 .pill { display: inline-block; margin: 0.75rem 0 1rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; border: 1px solid currentcolor; border-radius: 999px; padding: 0.2rem 0.65rem; }
 main dl { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; font-size: 0.9rem; }
@@ -475,6 +476,7 @@ document.addEventListener("keydown", (e) => {
 });
 const scrollToSel = () => $("menu").children[selected]?.scrollIntoView({ block: "nearest" });
 new ResizeObserver(() => model && draw()).observe($("menu"));
+new ResizeObserver(() => document.documentElement.style.setProperty("--header-height", `${document.querySelector("header").offsetHeight}px`)).observe(document.querySelector("header"));
 if (matchMedia("(prefers-color-scheme: dark)").matches) $("theme").value = "dark";
 rebuild(false);
 </script>
