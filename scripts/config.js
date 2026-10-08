@@ -74,6 +74,12 @@ export function createConfig({
         },
         // The React Flow island is the one place JSX is written.
         esbuild: { jsx: "automatic" },
+        // esbuild injects the JSX runtime, so Vite's scan never sees it and
+        // finds it only on first request. Vite skips that late discovery for
+        // an importer under node_modules, which is where `src` sits when
+        // `npx` installs the package, and would serve React's CommonJS file
+        // as is. Naming it here pre-bundles it wherever the package lives.
+        optimizeDeps: { include: ["react/jsx-dev-runtime"] },
         define: {
             __RENDERIZR_LOGO__: JSON.stringify(logo),
             __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),
