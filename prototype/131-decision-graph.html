@@ -46,8 +46,15 @@ header select { font: inherit; color: var(--color-foreground); background: var(-
 .layout { display: flex; align-items: flex-start; }
 aside { flex: none; display: flex; border-right: 1px solid var(--color-border); padding: 1rem 0.5rem 2rem 0.5rem; transition: width 0.15s; }
 .gutter { flex: none; position: relative; }
-.gutter svg { position: absolute; top: 0; left: 0; overflow: visible; }
-.gutter button { position: sticky; top: 3.6rem; z-index: 1; display: block; margin: 0 auto 0.25rem; width: 1.4rem; height: 1.4rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; font-size: 0.75rem; line-height: 1; }
+.gutter svg { overflow: visible; }
+/* Past the cap the lanes scroll sideways; the column next to the titles stays pinned. */
+#scroller { position: absolute; top: 0; left: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+#scroller::-webkit-scrollbar { display: none; }
+#pin { position: absolute; top: 0; right: 0; overflow: hidden; }
+#pan { position: sticky; top: calc(var(--header-height, 6rem) + 1.9rem); z-index: 1; display: flex; justify-content: center; gap: 2px; margin-bottom: 0.25rem; }
+#pan button { position: static; margin: 0; width: 1.2rem; height: 1.2rem; }
+#caption { font-size: 0.72rem; line-height: 1.35; color: var(--color-muted); padding: 0 0.5rem 0.5rem; margin-bottom: 0.25rem; border-bottom: 1px solid var(--color-border); }
+.gutter button { position: sticky; top: calc(var(--header-height, 6rem) + 0.4rem); z-index: 1; display: block; margin: 0 auto 0.25rem; width: 1.4rem; height: 1.4rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; font-size: 0.75rem; line-height: 1; }
 .gutter button:hover { color: var(--color-foreground); }
 nav { width: 17rem; flex: none; }
 nav ul { list-style: none; display: flex; flex-direction: column; gap: 0.1rem; }
@@ -76,6 +83,7 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
     <option value="s100">Synthetic 100, sparse</option>
     <option value="s300">Synthetic 300, sparse</option>
     <option value="d100">Synthetic 100, dense like ours</option>
+    <option value="s1000">Synthetic 1000, sparse</option>
   </select></label>
   <label>State <select id="state">
     <option value="collapsed">Collapsed</option>
@@ -103,6 +111,18 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
     <option value="arcs">Arcs to related dots</option>
     <option value="rings">Ring related dots only</option>
   </select></label>
+  <label>Cap <select id="cap">
+    <option value="10">10 columns</option>
+    <option value="8">8 columns</option>
+    <option value="12">12 columns</option>
+    <option value="none">None</option>
+  </select></label>
+  <label>Hidden references notice <select id="notice">
+    <option value="caption">Caption above the menu</option>
+    <option value="label">Expand button label (hover)</option>
+    <option value="legend">Legend in the body</option>
+    <option value="none">None</option>
+  </select></label>
   <label>Scheme <select id="theme">
     <option value="light">Light</option>
     <option value="dark">Dark</option>
@@ -113,9 +133,11 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
   <aside>
     <div class="gutter" id="gutter">
       <button id="toggle" type="button" title="Expand the decision graph" aria-expanded="false">›</button>
-      <svg id="graph" aria-hidden="true"></svg>
+      <span id="pan" hidden><button type="button" id="panLeft" title="Scroll the lanes left">‹</button><button type="button" id="panRight" title="Scroll the lanes right">›</button></span>
+      <div id="scroller"><svg id="graph" aria-hidden="true"></svg></div>
+      <svg id="pin" aria-hidden="true"></svg>
     </div>
-    <nav><ul id="menu"></ul></nav>
+    <nav><p id="caption" hidden>Lanes show supersede and amend. References show for the selected decision.</p><ul id="menu"></ul></nav>
   </aside>
   <main id="body"></main>
 </div>
@@ -203,10 +225,11 @@ function dataset(key) {
   if (key === "s100") return synthetic(100, 0.2, 7);
   if (key === "s300") return synthetic(300, 0.2, 11);
   if (key === "d100") return synthetic(100, 1.2, 5);
+  if (key === "s1000") return synthetic(1000, 0.2, 13);
 }
 
 /* ---------- Model: rows, edges, lineages, lanes, columns ---------- */
-function build(decisions, opts) {
+function build(decisions, opts, refLanes = true) {
   const rows = decisions.toSorted((a, b) => (b.date.localeCompare(a.date)) || Number(b.id) - Number(a.id));
   const rowOf = new Map(rows.map((d, i) => [d.id, i]));
   // One edge per pair; direction from decision order; the stronger kind wins.
@@ -232,7 +255,8 @@ function build(decisions, opts) {
     if (!lineages.has(root)) lineages.set(root, { members: [], linkers: [], lineage: lineages.size });
     lineages.get(root).members.push(i);
   });
-  for (const e of edges) if (!takes(e.kind) || find(e.from) !== find(e.to)) lineages.get(find(e.to)).linkers.push(e.from);
+  // Without reference lanes, a reference opens nothing; it shows only for the selected decision.
+  if (refLanes) for (const e of edges) if (!takes(e.kind) || find(e.from) !== find(e.to)) lineages.get(find(e.to)).linkers.push(e.from);
   // A lane runs from the oldest member up to the newest member or linker.
   const lanes = [];
   for (const [root, l] of lineages) {
@@ -262,13 +286,13 @@ function build(decisions, opts) {
   let peak = 0;
   for (let i = 0; i < rows.length; i++) peak = Math.max(peak, lanes.filter((l) => l.top <= i && i <= l.bottom).length);
   const columns = Math.max(0, ...intervals.map((i) => i.col + 1), base);
-  return { rows, rowOf, edges, lanes, lineageOfRow, columns, peak, takes, find };
+  return { rows, rowOf, edges, lanes, lineageOfRow, columns, peak, takes, find, refLanes };
 }
 
 /* ---------- Rendering ---------- */
 const $ = (id) => document.getElementById(id);
 const opts = {};
-let model, selected = 0;
+let model, selected = 0, firstScroll = true;
 const COL = 12, PAD = 9, COLLAPSED = 22;
 const STATUS_VAR = { accepted: "accepted", amended: "amended", proposed: "proposed", draft: "draft", superseded: "superseded-strong", deprecated: "superseded", rejected: "rejected" };
 const statusColor = (s) => `var(--color-${STATUS_VAR[(s || "").toLowerCase()] ?? "draft"})`;
@@ -278,7 +302,7 @@ const NS = "http://www.w3.org/2000/svg";
 const el = (name, attrs, parent) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
 
 function readOpts() {
-  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "theme"]) opts[k] = $(k).value;
+  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "cap", "notice", "theme"]) opts[k] = $(k).value;
 }
 
 function renderMenu() {
@@ -322,12 +346,23 @@ function draw() {
   svg.innerHTML = "";
   const ys = rowY();
   const expanded = opts.state === "expanded";
-  const width = expanded ? PAD * 2 + Math.max(1, model.columns - 1) * COL : COLLAPSED;
+  const fullWidth = expanded ? PAD * 2 + Math.max(1, model.columns - 1) * COL : COLLAPSED;
+  const scrolling = expanded && model.fallback === "scroll";
+  const width = scrolling ? PAD * 2 + (model.cap - 1) * COL : fullWidth;
   $("gutter").style.width = `${width}px`;
-  const height = $("menu").getBoundingClientRect().height + 40;
-  svg.setAttribute("width", width);
+  const height = $("menu").getBoundingClientRect().bottom - svg.getBoundingClientRect().top + 20;
+  svg.setAttribute("width", fullWidth);
   svg.setAttribute("height", height);
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("viewBox", `0 0 ${fullWidth} ${height}`);
+  $("scroller").style.width = `${width}px`;
+  $("scroller").style.height = `${height}px`;
+  $("pan").hidden = !scrolling;
+  $("pin").style.display = scrolling ? "" : "none";
+  const refsHidden = expanded && model.fallback !== "none";
+  $("caption").hidden = !(refsHidden && opts.notice === "caption");
+  $("toggle").title = expanded ? `Collapse the decision graph${refsHidden && opts.notice === "label" ? ". Lanes show supersede and amend; references show for the selected decision" : ""}` : "Expand the decision graph";
+  svg.appendChild(document.createElementNS(NS, "g")).id = "content";
+  const root = svg.lastChild;
   const sel = selected;
   const near = new Set(related(sel).flatMap((e) => [e.from, e.to]));
   const selLineage = model.lineageOfRow[sel];
@@ -340,7 +375,7 @@ function draw() {
 
   if (!expanded) {
     const x = COLLAPSED - 8;
-    const g = el("g", {}, svg);
+    const g = el("g", {}, root);
     if (opts.arcs === "arcs") {
       for (const e of related(sel)) {
         const y1 = ys[e.from], y2 = ys[e.to];
@@ -359,8 +394,8 @@ function draw() {
   }
 
   // Column 0 sits next to the titles; the graph grows to the left.
-  const X = (c) => width - PAD - c * COL;
-  const gLanes = el("g", {}, svg), gEdges = el("g", {}, svg), gDots = el("g", {}, svg);
+  const X = (c) => fullWidth - PAD - c * COL;
+  const gLanes = el("g", {}, root), gEdges = el("g", {}, root), gDots = el("g", {}, root);
   // Lanes: segments between consecutive stops; a segment between members carries the lineage's kind, one above the newest member only carries references.
   for (const l of model.lanes) {
     const x = X(l.col);
@@ -403,6 +438,35 @@ function draw() {
     el("circle", { cx: x, cy: y, r, fill: statusColor(d.status), stroke: "var(--color-background)", "stroke-width": 1.5, opacity: fade(hot) }, gDots);
     if (i === sel) el("circle", { cx: x, cy: y, r: r + 3, fill: "none", stroke: "var(--color-foreground)", "stroke-width": 1.2 }, gDots);
   });
+  // Without reference lanes, the selected decision's references show as elbows on a track beside the lone dots, as in the collapsed gutter.
+  if (!model.refLanes) {
+    const xt = X(0) - 6, rr = 3;
+    for (const e of related(sel)) {
+      if (e.kind !== "reference") continue;
+      const x1 = X(model.lineageOfRow[e.from].col), y1 = ys[e.from];
+      const x2 = X(model.lineageOfRow[e.to].col), y2 = ys[e.to];
+      const s1 = Math.sign(xt - x1), s2 = Math.sign(xt - x2), dir = Math.sign(y2 - y1);
+      el("path", { d: `M${x1},${y1} H${xt - s1 * rr} Q${xt},${y1} ${xt},${y1 + dir * rr} V${y2 - dir * rr} Q${xt},${y2} ${xt - s2 * rr},${y2} H${x2}`, ...edgeStyle("reference", "var(--color-muted)", true) }, gEdges);
+    }
+  }
+  // The pinned strip repeats the column next to the titles over the scrolling lanes.
+  const pin = $("pin");
+  pin.innerHTML = "";
+  if (scrolling) {
+    const pinW = PAD + 8;
+    pin.setAttribute("width", pinW);
+    pin.setAttribute("height", height);
+    el("rect", { x: 0, y: 0, width: pinW, height, fill: "var(--color-background)" }, pin);
+    el("line", { x1: 0.5, y1: 0, x2: 0.5, y2: height, stroke: "var(--color-border)" }, pin);
+    el("use", { href: "#content", x: -(fullWidth - pinW) }, pin);
+    const sc = $("scroller");
+    if (firstScroll) { sc.scrollLeft = sc.scrollWidth; firstScroll = false; }
+    // Follow the selection: bring its lane into view.
+    const xs = X(model.lineageOfRow[sel].col);
+    const view = width - pinW;
+    if (xs < sc.scrollLeft + 8) sc.scrollLeft = xs - 14;
+    else if (xs > sc.scrollLeft + view - 8) sc.scrollLeft = xs - view + 14;
+  }
 }
 
 function renderBody() {
@@ -422,14 +486,14 @@ function renderBody() {
     <div class="legend">
       <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="2.5"/></svg>Supersede (also an override)</div>
       <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/></svg>Amend</div>
-      <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="1" stroke-dasharray="1.5 2.5"/></svg>Reference (any other wording)</div>
+      <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="1" stroke-dasharray="1.5 2.5"/></svg>Reference (any other wording)${opts.state === "expanded" && model.fallback !== "none" && opts.notice === "legend" ? ": this workspace has too many to draw as lanes, so they show for the selected decision only" : ""}</div>
     </div>`;
 }
 
 function stats() {
   const by = { supersede: 0, amend: 0, reference: 0 };
   for (const e of model.edges) by[e.kind]++;
-  $("stats").textContent = `${model.rows.length} decisions · ${by.supersede} supersede, ${by.amend} amend, ${by.reference} reference · ${model.lanes.length} lanes · peak ${model.peak} open · ${model.columns} columns`;
+  $("stats").textContent = `${model.rows.length} decisions · ${by.supersede} supersede, ${by.amend} amend, ${by.reference} reference · ${model.lanes.length} lanes · peak ${model.peak} open · ${model.columns} columns · fallback: ${{ none: "none", lineage: "supersede and amend lanes only", scroll: "supersede and amend lanes, scrolling" }[model.fallback]}`;
 }
 
 function select(i) {
@@ -442,7 +506,17 @@ function rebuild(keepSelection) {
   readOpts();
   document.documentElement.dataset.theme = opts.theme;
   const prevId = model?.rows[selected]?.id;
-  model = build(dataset(opts.data), opts);
+  // Fallbacks past the cap: drop reference lanes first, then scroll sideways.
+  const decisions = dataset(opts.data);
+  const cap = opts.cap === "none" ? Infinity : Number(opts.cap);
+  model = build(decisions, opts);
+  model.fallback = "none";
+  if (model.columns > cap) {
+    model = build(decisions, opts, false);
+    model.fallback = model.columns > cap ? "scroll" : "lineage";
+  }
+  model.cap = cap;
+  firstScroll = true;
   renderMenu();
   stats();
   selected = keepSelection && model.rowOf.has(prevId) ? model.rowOf.get(prevId) : 0;
@@ -454,12 +528,13 @@ function rebuild(keepSelection) {
 function syncToggle() {
   const expanded = opts.state === "expanded";
   $("toggle").textContent = expanded ? "‹" : "›";
-  $("toggle").title = expanded ? "Collapse the decision graph" : "Expand the decision graph";
   $("toggle").setAttribute("aria-expanded", String(expanded));
 }
 
 // The page remembers the state per viewer.
 try { const s = localStorage.getItem("decision-graph-state"); if (s) $("state").value = s; } catch {}
+$("panLeft").onclick = () => $("scroller").scrollBy({ left: -COL * 4, behavior: "smooth" });
+$("panRight").onclick = () => $("scroller").scrollBy({ left: COL * 4, behavior: "smooth" });
 $("toggle").onclick = () => {
   $("state").value = opts.state === "expanded" ? "collapsed" : "expanded";
   try { localStorage.setItem("decision-graph-state", $("state").value); } catch {}
