@@ -58,7 +58,11 @@ aside { flex: none; display: flex; border-right: 1px solid var(--color-border); 
 .gutter button { position: sticky; top: calc(var(--header-height, 6rem) + 0.4rem); z-index: 1; display: block; margin: 0 auto 0.25rem; width: 1.4rem; height: 1.4rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; font-size: 0.75rem; line-height: 1; }
 .gutter button:hover { color: var(--color-foreground); }
 /* The expand button sits above the first entry rather than over its dot. */
-nav { width: 17rem; flex: none; padding-top: 1.65rem; }
+nav { width: 17rem; flex: none; }
+/* The filter sits above the first entry, level with the expand button. */
+nav .tools { height: 1.65rem; display: flex; align-items: flex-start; padding-left: 0.5rem; }
+nav .tools button { font: inherit; font-size: 0.72rem; line-height: 1; color: var(--color-muted); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px; padding: 0.25rem 0.6rem; cursor: pointer; }
+nav .tools button[aria-pressed="true"] { color: var(--color-primary-soft-foreground, var(--color-foreground)); background: var(--color-primary-soft); border-color: var(--color-primary); font-weight: 650; }
 nav ul { list-style: none; display: flex; flex-direction: column; gap: 0.1rem; }
 nav a { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; font-size: 0.85rem; line-height: 1.35; color: var(--color-muted); padding: 0.3rem 0.5rem; border-radius: 4px; text-decoration: none; cursor: pointer; }
 nav a:hover { color: var(--color-foreground); background: var(--color-surface); }
@@ -124,6 +128,10 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
     <option value="edges">The selected decision's edges only</option>
     <option value="lane">The whole lane and its joins</option>
   </select></label>
+  <label>Related means <select id="related">
+    <option value="lineage">Its lineage (supersede and amend, any distance)</option>
+    <option value="links">Its lineage and its direct references</option>
+  </select></label>
   <label>Scheme <select id="theme">
     <option value="light">Light</option>
     <option value="dark">Dark</option>
@@ -138,7 +146,7 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
       <div id="scroller"><svg id="graph" aria-hidden="true"></svg></div>
       <svg id="pin" aria-hidden="true"></svg>
     </div>
-    <nav><ul id="menu"></ul></nav>
+    <nav><div class="tools"><button type="button" id="filter" aria-pressed="false" title="Show only the decisions related to the selected one">Related only</button></div><ul id="menu"></ul></nav>
   </aside>
   <main id="body"></main>
 </div>
@@ -295,7 +303,7 @@ function build(decisions, opts, refLanes = true) {
 /* ---------- Rendering ---------- */
 const $ = (id) => document.getElementById(id);
 const opts = {};
-let model, selected = 0, firstScroll = true;
+let model, fullModel, selected = 0, firstScroll = true, filterId = null;
 const COL = 12, PAD = 9, COLLAPSED = 34;
 const STATUS_VAR = { accepted: "accepted", amended: "amended", proposed: "proposed", draft: "draft", superseded: "superseded-strong", deprecated: "superseded", rejected: "rejected" };
 const statusColor = (s) => `var(--color-${STATUS_VAR[(s || "").toLowerCase()] ?? "draft"})`;
@@ -305,7 +313,7 @@ const NS = "http://www.w3.org/2000/svg";
 const el = (name, attrs, parent) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
 
 function readOpts() {
-  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "cap", "hl", "theme"]) opts[k] = $(k).value;
+  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "cap", "hl", "related", "theme"]) opts[k] = $(k).value;
 }
 
 function renderMenu() {
@@ -414,7 +422,8 @@ function draw() {
       const older = members[k], newer = members[k + 1];
       const direct = model.edges.find((e) => e.from === newer && e.to === older);
       const kind = direct ? direct.kind : "supersede";
-      el("line", { x1: x, y1: ys[older], x2: x, y2: ys[newer], ...edgeStyle(kind, color, hot), opacity: fade(hot) }, gLanes);
+      // A supersede or amend stretch takes the older decision's status color: superseded amber, amended blue.
+      el("line", { x1: x, y1: ys[older], x2: x, y2: ys[newer], ...edgeStyle(kind, statusColor(model.rows[older].status), hot), opacity: fade(hot) }, gLanes);
     }
     const newest = members[members.length - 1];
     if (l.top < newest) {
@@ -439,7 +448,8 @@ function draw() {
       const xf = X(model.lineageOfRow[from].col), y = ys[from];
       // An elbow, like the collapsed links: across to the lane, then down into it.
       const r = 3, s = Math.sign(xf - x);
-      el("path", { d: `M${xf},${y} H${x + s * r} Q${x},${y} ${x},${y + r}`, ...edgeStyle(kind, color, hot), opacity: fade(hot) }, gEdges);
+      const joinColor = kind === "reference" ? color : statusColor(model.rows[e.to].status);
+      el("path", { d: `M${xf},${y} H${x + s * r} Q${x},${y} ${x},${y + r}`, ...edgeStyle(kind, joinColor, hot), opacity: fade(hot) }, gEdges);
     }
   }
   // Dots.
@@ -493,10 +503,11 @@ function draw() {
 
 function renderBody() {
   const d = model.rows[selected];
-  const rel = related(selected).map((e) => {
-    const other = e.from === selected ? e.to : e.from;
-    const dir = e.from === selected ? { supersede: "Supersedes", amend: "Amends", reference: "References" } : { supersede: "Superseded by", amend: "Amended by", reference: "Referenced by" };
-    return `<dt>${dir[e.kind]}</dt><dd>${model.rows[other].id}. ${model.rows[other].title}</dd>`;
+  const fi = fullModel.rowOf.get(d.id);
+  const rel = fullModel.edges.filter((e) => e.from === fi || e.to === fi).map((e) => {
+    const other = e.from === fi ? e.to : e.from;
+    const dir = e.from === fi ? { supersede: "Supersedes", amend: "Amends", reference: "References" } : { supersede: "Superseded by", amend: "Amended by", reference: "Referenced by" };
+    return `<dt>${dir[e.kind]}</dt><dd>${fullModel.rows[other].id}. ${fullModel.rows[other].title}</dd>`;
   });
   const l = model.lineageOfRow[selected];
   $("body").innerHTML = `
@@ -529,8 +540,18 @@ function rebuild(keepSelection) {
   document.documentElement.dataset.theme = opts.theme;
   const prevId = model?.rows[selected]?.id;
   // Fallbacks past the cap: drop reference lanes first, then scroll sideways.
-  const decisions = dataset(opts.data);
+  let decisions = dataset(opts.data);
   const cap = opts.cap === "none" ? Infinity : Number(opts.cap);
+  fullModel = build(decisions, opts);
+  // The filter keeps the decisions related to the one selected when it was turned on.
+  if (filterId && fullModel.rowOf.has(filterId)) {
+    const fm = fullModel, a = fm.rowOf.get(filterId);
+    const keep = new Set(fm.rows.map((_, i) => i).filter((i) => fm.find(i) === fm.find(a)));
+    if (opts.related === "links") for (const e of fm.edges) if (e.from === a || e.to === a) keep.add(e.from).add(e.to);
+    const ids = new Set([...keep].map((i) => fm.rows[i].id));
+    decisions = decisions.filter((d) => ids.has(d.id));
+  } else filterId = null;
+  $("filter").setAttribute("aria-pressed", String(!!filterId));
   model = build(decisions, opts);
   model.fallback = "none";
   if (model.columns > cap) {
@@ -555,6 +576,10 @@ function syncToggle() {
 
 // The page remembers the state per viewer.
 try { const s = localStorage.getItem("decision-graph-state"); if (s) $("state").value = s; } catch {}
+$("filter").onclick = () => {
+  filterId = filterId ? null : model.rows[selected].id;
+  rebuild(true);
+};
 $("panLeft").onclick = () => $("scroller").scrollBy({ left: -COL * 4, behavior: "smooth" });
 $("panRight").onclick = () => $("scroller").scrollBy({ left: COL * 4, behavior: "smooth" });
 $("toggle").onclick = () => {
@@ -564,6 +589,7 @@ $("toggle").onclick = () => {
 };
 document.querySelectorAll("header select").forEach((s) => (s.onchange = () => {
   if (s.id === "state") try { localStorage.setItem("decision-graph-state", s.value); } catch {}
+  if (s.id === "data") filterId = null;
   rebuild(s.id !== "data");
 }));
 document.addEventListener("keydown", (e) => {
