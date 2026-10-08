@@ -294,7 +294,7 @@ function build(decisions, opts, refLanes = true) {
 const $ = (id) => document.getElementById(id);
 const opts = {};
 let model, selected = 0, firstScroll = true;
-const COL = 12, PAD = 9, COLLAPSED = 22;
+const COL = 12, PAD = 9, COLLAPSED = 34;
 const STATUS_VAR = { accepted: "accepted", amended: "amended", proposed: "proposed", draft: "draft", superseded: "superseded-strong", deprecated: "superseded", rejected: "rejected" };
 const statusColor = (s) => `var(--color-${STATUS_VAR[(s || "").toLowerCase()] ?? "draft"})`;
 // Lanes carry no color of their own: status lives on the dots.
@@ -377,13 +377,14 @@ function draw() {
   });
 
   if (!expanded) {
-    const x = COLLAPSED - 8;
+    // Room on the left so the elbow reads as one.
+    const x = COLLAPSED - 10;
     const g = el("g", {}, root);
     if (opts.arcs === "arcs") {
       for (const e of related(sel)) {
         const y1 = ys[e.from], y2 = ys[e.to];
         // A small elbow: out to the left, along, and back into the other dot.
-        const out = 7, r = 3, dir = Math.sign(y2 - y1);
+        const out = 12, r = 4, dir = Math.sign(y2 - y1);
         const color = e.kind === "reference" ? "var(--color-muted)" : statusColor(model.rows[e.to].status);
         el("path", { d: `M${x},${y1} H${x - out + r} Q${x - out},${y1} ${x - out},${y1 + dir * r} V${y2 - dir * r} Q${x - out},${y2} ${x - out + r},${y2} H${x}`, ...edgeStyle(e.kind, color, true) }, g);
       }
