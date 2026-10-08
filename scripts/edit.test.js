@@ -716,8 +716,10 @@ test("a workspace.json that won't load reaches the page as an error event, and t
     await withEditServer({}, async ({ server, json }) => {
         const sent = recordEvents(server);
         const text = await readFile(json, "utf8");
-        await writeFile(json, "{ not json");
-        await eventually(
+        await writeUntil(
+            json,
+            "{ not json",
+            sent,
             () => sent.some(({ event }) => event === ERROR_EVENT),
             "a broken workspace.json sent no error",
         );
@@ -725,8 +727,10 @@ test("a workspace.json that won't load reaches the page as an error event, and t
         assert.equal(data.version, versionOf("{ not json"));
         assert.equal(typeof data.error, "string");
 
-        await writeFile(json, text);
-        await eventually(
+        await writeUntil(
+            json,
+            text,
+            sent,
             () => sent.some(({ event }) => event === WORKSPACE_EVENT),
             "the next good workspace.json never reached the page",
         );
