@@ -5,7 +5,15 @@
 #
 #   push to main        release-please recomputes the pending version from the
 #                       commits since the last tag and opens (or updates) a
-#                       "chore(release): X.Y.Z" pull request.
+#                       "chore(main): release X.Y.Z" pull request.
+#
+#                       release-please-config.json sets
+#                       `separate-pull-requests: true` for the one package. The
+#                       pull request's branch then names the component
+#                       (release-please--branches--main--components--renderizr),
+#                       which release-please checks against the package when
+#                       the pull request merges. With `false` the branch names
+#                       none, so release-please tags no release on the merge.
 #   merge that PR       release-please tags vX.Y.Z, publishes the GitHub Release
 #                       with the generated notes, and this workflow attaches the
 #                       build artifacts to it and calls pages.yml, which
