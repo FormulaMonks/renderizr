@@ -21,40 +21,56 @@
  * would.
  */
 
-import { execSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runTools, toolsCommand } from "../../../scripts/structurizr-tools.js";
 import {
     peopleAndSoftwareSystems,
     writeFixture,
 } from "../../support/fixtures.js";
-import {
-    shellCommand,
-    toolsCommand,
-} from "../../../scripts/structurizr-tools.js";
 
 /** The enterprise the DSL's "Internal" elements belong to (spec 8). */
 export const ENTERPRISE = "Shop Ltd";
 
 /**
  * Write `folder`'s `workspace.json` again from its `workspace.dsl` with
- * `command`, the Structurizr tools as a whole command, run through the shell
- * as edit mode runs them (`scripts/structurizr-tools.js`).
+ * `command`, the Structurizr tools as a whole command, run as edit mode
+ * runs them (`scripts/structurizr-tools.js`): from `folder`, with paths
+ * relative to it and the output in a temporary folder inside it, so the
+ * Docker form of the command, which mounts only `folder`, works too.
  */
-export function regenerate(folder, command) {
-    const dsl = join(folder, "workspace.dsl");
+export async function regenerate(folder, command) {
     const layout = join(folder, "workspace.json");
-    const out = mkdtempSync(join(tmpdir(), "renderizr-acceptance-export-"));
+    const out = mkdtempSync(join(folder, ".renderizr-"));
     try {
-        const result = join(out, "workspace.json");
+        const output = basename(out);
         const args = existsSync(layout)
-            ? ["merge", "-workspace", dsl, "-layout", layout, "-output", result]
-            : ["export", "-workspace", dsl, "-format", "json", "-output", out];
-        execSync(shellCommand(command, args), { stdio: "inherit" });
+            ? [
+                  "merge",
+                  "-workspace",
+                  "workspace.dsl",
+                  "-layout",
+                  "workspace.json",
+                  "-output",
+                  join(output, "workspace.json"),
+              ]
+            : [
+                  "export",
+                  "-workspace",
+                  "workspace.dsl",
+                  "-format",
+                  "json",
+                  "-output",
+                  output,
+              ];
+        const { code } = await runTools(command, args, { cwd: folder });
+        if (code !== 0)
+            throw new Error(`Structurizr's tools exited with code ${code}.`);
 
-        const workspace = JSON.parse(readFileSync(result, "utf-8"));
+        const workspace = JSON.parse(
+            readFileSync(join(out, "workspace.json"), "utf-8"),
+        );
         workspace.model.enterprise = { name: ENTERPRISE };
         for (const element of peopleAndSoftwareSystems(workspace)) {
             const tags = element.tags.split(",").map((tag) => tag.trim());
@@ -70,5 +86,5 @@ export function regenerate(folder, command) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    regenerate(dirname(fileURLToPath(import.meta.url)), toolsCommand());
+    await regenerate(dirname(fileURLToPath(import.meta.url)), toolsCommand());
 }

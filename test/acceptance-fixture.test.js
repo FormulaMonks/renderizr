@@ -10,6 +10,7 @@ import {
     copyFileSync,
     mkdirSync,
     mkdtempSync,
+    readdirSync,
     readFileSync,
     rmSync,
     writeFileSync,
@@ -80,9 +81,9 @@ function folder(name, { withWorkspace }) {
 }
 
 /** Run `regenerate` on `dir` with the stub, and what the stub was asked. */
-function run(dir) {
+async function run(dir) {
     process.env.STUB_LOG = dir;
-    regenerate(dir, `${process.execPath} ${STUB}`);
+    await regenerate(dir, `${process.execPath} ${STUB}`);
     const calls = JSON.parse(readFileSync(join(dir, "calls.json"), "utf-8"));
     const workspace = JSON.parse(
         readFileSync(join(dir, "workspace.json"), "utf-8"),
@@ -90,45 +91,43 @@ function run(dir) {
     return { calls, workspace };
 }
 
-test("a regeneration merges the committed workspace.json as the layout", () => {
+test("a regeneration merges the committed workspace.json as the layout, from the fixture's folder", async () => {
     const dir = folder("merge", { withWorkspace: true });
-    const { calls } = run(dir);
+    const { calls } = await run(dir);
 
     assert.equal(calls.length, 1);
     const [command, ...args] = calls[0];
     assert.equal(command, "merge");
-    assert.equal(
-        args[args.indexOf("-workspace") + 1],
-        join(dir, "workspace.dsl"),
-    );
-    assert.equal(
-        args[args.indexOf("-layout") + 1],
-        join(dir, "workspace.json"),
-    );
-    assert.notEqual(
+    assert.equal(args[args.indexOf("-workspace") + 1], "workspace.dsl");
+    assert.equal(args[args.indexOf("-layout") + 1], "workspace.json");
+    assert.match(
         args[args.indexOf("-output") + 1],
-        join(dir, "workspace.json"),
-        "merge writes to a temporary file first",
+        /^\.renderizr-[^/\\]+[/\\]workspace\.json$/,
+        "merge writes to a temporary file inside the folder first",
+    );
+    assert.deepEqual(
+        readdirSync(dir).filter((name) => name.startsWith(".renderizr-")),
+        [],
+        "the temporary folder stayed",
     );
 });
 
-test("a regeneration with no workspace.json exports the DSL", () => {
+test("a regeneration with no workspace.json exports the DSL", async () => {
     const dir = folder("export", { withWorkspace: false });
-    const { calls } = run(dir);
+    const { calls } = await run(dir);
 
     assert.equal(calls.length, 1);
     const [command, ...args] = calls[0];
     assert.equal(command, "export");
-    assert.equal(
-        args[args.indexOf("-workspace") + 1],
-        join(dir, "workspace.dsl"),
-    );
+    assert.equal(args[args.indexOf("-workspace") + 1], "workspace.dsl");
     assert.equal(args[args.indexOf("-format") + 1], "json");
-    assert.notEqual(args[args.indexOf("-output") + 1], dir);
+    assert.match(args[args.indexOf("-output") + 1], /^\.renderizr-/);
 });
 
-test("a regeneration adds the enterprise and every location again", () => {
-    const { workspace } = run(folder("locations", { withWorkspace: true }));
+test("a regeneration adds the enterprise and every location again", async () => {
+    const { workspace } = await run(
+        folder("locations", { withWorkspace: true }),
+    );
 
     assert.deepEqual(workspace.model.enterprise, { name: ENTERPRISE });
     assert.equal(workspace.model.people[0].location, "External");
