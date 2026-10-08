@@ -49,6 +49,18 @@ aside { flex: none; border-right: 1px solid var(--color-border); padding: 0 0.5r
 .controls button { width: 1.4rem; height: 1.4rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; font-size: 0.75rem; line-height: 1; }
 .controls button:hover { color: var(--color-foreground); }
 .rows { display: flex; }
+#indexHead { display: none; }
+.controls #all { margin-left: 0; }
+/* The index: no decision open, so the menu, enlarged, takes the page and shows every lane. */
+body.index main, body.index #all, body.index #toggle, body.index #filter { display: none; }
+body.index aside { flex: 1; max-width: 70rem; margin: 0 auto; border-right: none; padding: 0 2rem 3rem; }
+body.index #indexHead { display: block; padding: 2rem 0 0.5rem; }
+body.index #indexHead h2 { font-size: 1.9rem; letter-spacing: -0.02em; }
+body.index #indexHead p { color: var(--color-muted); }
+body.index .controls { min-height: 0.5rem; padding: 0.25rem 0; }
+body.index nav { flex: 1; width: auto; }
+body.index nav ul { gap: 0.25rem; }
+body.index nav a { font-size: 1rem; line-height: 1.45; padding: 0.55rem 0.75rem; -webkit-line-clamp: unset; line-clamp: none; color: var(--color-foreground); }
 .gutter { flex: none; position: relative; }
 .gutter svg { overflow: visible; }
 /* Past the cap the lanes scroll sideways; the column next to the titles stays pinned. */
@@ -139,7 +151,9 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
 <div class="layout">
   <aside>
     <!-- The controls stay in view above the menu, outside the graph and the list. -->
+    <div id="indexHead"><h2>Decisions</h2><p id="indexInfo"></p></div>
     <div class="controls">
+      <button type="button" id="all" class="pill-button" title="Show every decision with the whole decision graph">All decisions</button>
       <button id="toggle" type="button" title="Expand the decision graph" aria-expanded="false">›</button>
       <span id="pan" hidden><button type="button" id="panLeft" title="Scroll the lanes left. A trackpad swipe, or Shift with the mouse wheel, scrolls them too.">‹</button><button type="button" id="panRight" title="Scroll the lanes right. A trackpad swipe, or Shift with the mouse wheel, scrolls them too.">›</button></span>
       <button type="button" id="filter" class="pill-button" aria-pressed="false" title="Show only the decisions related to the selected one">Related only</button>
@@ -308,7 +322,10 @@ function build(decisions, opts, refLanes = true) {
 const $ = (id) => document.getElementById(id);
 const opts = {};
 let model, fullModel, selected = 0, firstScroll = true, filterId = null;
-const COL = 12, PAD = 9, COLLAPSED = 34;
+let COL = 12;
+const PAD = 9, COLLAPSED = 34;
+// "index" when no decision is open: the menu, enlarged, takes the page.
+let page = "index", hover = -1;
 const STATUS_VAR = { accepted: "accepted", amended: "amended", proposed: "proposed", draft: "draft", superseded: "superseded-strong", deprecated: "superseded", rejected: "rejected" };
 const statusColor = (s) => `var(--color-${STATUS_VAR[(s || "").toLowerCase()] ?? "draft"})`;
 // Lanes carry no color of their own: status lives on the dots.
@@ -328,7 +345,9 @@ function renderMenu() {
     const a = document.createElement("a");
     a.textContent = `${d.id}. ${d.title}`;
     a.tabIndex = 0;
-    a.onclick = () => select(i);
+    a.onclick = () => (page === "index" ? openDecision(i) : select(i));
+    a.onmouseenter = a.onfocus = () => { if (page === "index") { hover = i; draw(); } };
+    a.onmouseleave = a.onblur = () => { if (page === "index" && hover === i) { hover = -1; draw(); } };
     li.appendChild(a);
     ul.appendChild(li);
   });
@@ -338,8 +357,9 @@ function rowY() {
   // Center of each entry's first line, so a dot sits beside the title's start.
   const svgTop = $("graph").getBoundingClientRect().top;
   return [...$("menu").children].map((li) => {
-    const a = li.firstChild.getBoundingClientRect();
-    return a.top - svgTop + 4.8 + 0.85 * 15 * 1.35 / 2;
+    const a = li.firstChild;
+    const cs = getComputedStyle(a);
+    return a.getBoundingClientRect().top - svgTop + parseFloat(cs.paddingTop) + parseFloat(cs.lineHeight) / 2;
   });
 }
 
@@ -362,7 +382,7 @@ function draw() {
   const svg = $("graph");
   svg.innerHTML = "";
   const ys = rowY();
-  const expanded = opts.state === "expanded";
+  const expanded = page === "index" || opts.state === "expanded";
   const scrolling = expanded && model.fallback === "scroll";
   // While the lanes scroll, a gap after the pinned column keeps the first lane clear of the strip.
   const GAP = scrolling ? 8 : 0;
@@ -380,11 +400,12 @@ function draw() {
   $("toggle").title = expanded ? "Collapse the decision graph" : "Expand the decision graph";
   svg.appendChild(document.createElementNS(NS, "g")).id = "content";
   const root = svg.lastChild;
-  const sel = selected;
+  // On the index nothing is selected; hovering or focusing a row stands in for a selection.
+  const sel = page === "index" ? hover : selected;
   const near = new Set(related(sel).flatMap((e) => [e.from, e.to]));
   const selLineage = model.lineageOfRow[sel];
   const isHot = (rowsInvolved) => rowsInvolved.includes(sel);
-  const fade = (hot) => (opts.dim === "dim" && !hot ? 0.3 : 1);
+  const fade = (hot) => (opts.dim === "dim" && sel >= 0 && !hot ? 0.3 : 1);
   document.querySelectorAll("#menu a").forEach((a, i) => {
     a.classList.toggle("active", i === sel);
     a.classList.toggle("related", near.has(i));
@@ -491,9 +512,9 @@ function draw() {
     if (firstScroll) { sc.scrollLeft = sc.scrollWidth; firstScroll = false; }
     // Follow the selection: bring its lane and every lane its edges reach into view, its own lane first.
     const view = width - pinW;
-    const own = model.lineageOfRow[sel].col;
+    const own = sel >= 0 ? model.lineageOfRow[sel].col : 0;
     const cols = [own, ...related(sel).map((e) => model.lineageOfRow[e.from === sel ? e.to : e.from].col)].filter((c) => c > pinned);
-    if (cols.length) {
+    if (sel >= 0 && cols.length) {
       const xs = cols.map(X);
       let lo = Math.min(...xs), hi = Math.max(...xs);
       // Too wide to show at once: keep the selection's own lane, or the lane nearest the titles.
@@ -533,6 +554,19 @@ function stats() {
   $("stats").textContent = `${model.rows.length} decisions · ${by.supersede} supersede, ${by.amend} amend, ${by.reference} reference · ${model.lanes.length} lanes · peak ${model.peak} open · ${model.columns} columns · fallback: ${{ none: "none", lineage: "supersede and amend lanes only", scroll: "supersede and amend lanes, scrolling" }[model.fallback]}`;
 }
 
+function openDecision(i) {
+  const id = model.rows[i].id;
+  page = "decision";
+  hover = -1;
+  rebuild(true, id);
+}
+
+function openIndex() {
+  page = "index";
+  filterId = null;
+  rebuild(true);
+}
+
 function select(i) {
   selected = Math.max(0, Math.min(model.rows.length - 1, i));
   // The filter follows the selection; decision order keeps every entry where it was.
@@ -544,13 +578,16 @@ function select(i) {
   renderBody();
 }
 
-function rebuild(keepSelection) {
+function rebuild(keepSelection, openRow) {
   readOpts();
+  document.body.classList.toggle("index", page === "index");
+  COL = page === "index" ? 16 : 12;
   document.documentElement.dataset.theme = opts.theme;
   const prevId = model?.rows[selected]?.id;
   // Fallbacks past the cap: drop reference lanes first, then scroll sideways.
   let decisions = dataset(opts.data);
-  const cap = opts.cap === "none" ? Infinity : Number(opts.cap);
+  // The index has the content's width: its cap is half of it.
+  const cap = page === "index" ? Math.floor((Math.min(innerWidth, 1100) - 64) / 2 / 16) : opts.cap === "none" ? Infinity : Number(opts.cap);
   fullModel = build(decisions, opts);
   // The filter keeps the decisions related to the selected one.
   if (filterId && fullModel.rowOf.has(filterId)) {
@@ -571,7 +608,11 @@ function rebuild(keepSelection) {
   firstScroll = true;
   renderMenu();
   stats();
-  selected = keepSelection && model.rowOf.has(prevId) ? model.rowOf.get(prevId) : 0;
+  const wanted = openRow ?? prevId;
+  selected = keepSelection && model.rowOf.has(wanted) ? model.rowOf.get(wanted) : 0;
+  const inForce = fullModel.rows.filter((d) => /^(accepted|amended)$/i.test(d.status)).length;
+  $("indexInfo").textContent = `${fullModel.rows.length} recorded, ${inForce} in force`;
+  window.scrollTo({ top: 0 });
   draw();
   renderBody();
   syncToggle();
@@ -585,6 +626,7 @@ function syncToggle() {
 
 // The page remembers the state per viewer.
 try { const s = localStorage.getItem("decision-graph-state"); if (s) $("state").value = s; } catch {}
+$("all").onclick = openIndex;
 $("filter").onclick = () => {
   filterId = filterId ? null : model.rows[selected].id;
   rebuild(true);
@@ -602,7 +644,7 @@ document.querySelectorAll("header select").forEach((s) => (s.onchange = () => {
   rebuild(s.id !== "data");
 }));
 document.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "SELECT") return;
+  if (e.target.tagName === "SELECT" || page === "index") return;
   if (e.key === "ArrowDown") { e.preventDefault(); select(selected + 1); scrollToSel(); }
   if (e.key === "ArrowUp") { e.preventDefault(); select(selected - 1); scrollToSel(); }
 });
