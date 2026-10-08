@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
-import { gzipSync } from "node:zlib";
 import { build as viteBuild } from "vite";
 import { createConfig } from "./config.js";
 import { findUnspellable } from "./escapes.js";
@@ -641,90 +640,43 @@ test("the edit-mode markers are in the page when edit mode is compiled in", asyn
 /* -------------------------------------------------------- the bundle budget */
 
 /**
- * The React Flow island as #26 measured it: React, react-dom and
- * `@xyflow/react` drawing a flow, minified and gzipped, without the rest of
- * the page (spec 15.2).
+ * The single file as the fixture workspace renders it, in bytes: `index.html`
+ * with every asset inlined, the larger of the two files `--single-file`
+ * writes, measured once the React Flow engine became the only renderer. The
+ * application makes up nearly all of it; the fixture workspace adds a few
+ * kilobytes.
  */
-const ISLAND_GZIPPED_BYTES = 129_325;
+const SINGLE_FILE_BYTES = 838_627;
 
 /**
- * Dagre 1.1.8 and graphlib 2.2.4 as `src/engine/layout/automatic.ts` bundles
- * them on its own, minified and gzipped: the automatic layout ADR 4 adds,
- * which #26's figure predates.
+ * The most a Claude artifact page may weigh. People upload `artifact.html`
+ * there, and the limit counts the page as written, uncompressed.
  */
-const DAGRE_GZIPPED_BYTES = 15_976;
+const ARTIFACT_LIMIT_BYTES = 16_000_000;
 
 /**
- * The edge router (spec 10, ADR 8), about 4.8 KB gzipped when it landed.
- * The shapes, labels and boundaries had already used nearly all of the
- * margin, so the router gets an allowance of its own, named here so that the
- * budget's overrun stays visible until the budget is decided again.
+ * The single file's measured size plus 10%: past it, the application has
+ * grown more than planned.
  */
-const ROUTER_GZIPPED_BYTES = 5_000;
+const SINGLE_FILE_BUDGET_BYTES = Math.floor(SINGLE_FILE_BYTES * 1.1);
 
-/**
- * Activation (spec 6.1, 6.2): target resolution, indicators and keyboard
- * access, about 3.3 KB gzipped when it landed (#48). Named for the same
- * reason as the router's: the margin was already spent.
- */
-const ACTIVATION_GZIPPED_BYTES = 3_500;
-
-/**
- * Animation (spec 11), about 2.3 KB gzipped when it landed: the steps, the
- * player and how a step fades and fits the view. Named for the same reason
- * as the router's: the margin was already spent.
- */
-const ANIMATION_GZIPPED_BYTES = 2_500;
-
-/**
- * #26's figure and Dagre's, plus 15%, plus the router's, activation's and
- * animation's allowances: past it, the engine has grown more than planned.
- * Dagre is a measured library the spec added after #26, so it joins the
- * measured figure and takes the same margin; the router, activation and
- * animation are overruns of that margin, so their allowances sit on top,
- * unscaled. The margin was raised from 10% while both renderers shipped side
- * by side, and stays there until #64 decides it again.
- */
-const ISLAND_BUDGET_BYTES =
-    Math.floor((ISLAND_GZIPPED_BYTES + DAGRE_GZIPPED_BYTES) * 1.15) +
-    ROUTER_GZIPPED_BYTES +
-    ACTIVATION_GZIPPED_BYTES +
-    ANIMATION_GZIPPED_BYTES;
-
-test("the React Flow island's gzipped JS stays within #26's figure and Dagre's, plus 15% and the router's, activation's and animation's allowances", async () => {
-    // Bundled on its own, from the module the page mounts it through, so the
-    // markdown, highlighting and workspace the page also carries do not count
-    // against the engine.
-    const result = await viteBuild({
-        root: REPO_ROOT,
-        configFile: false,
-        logLevel: "silent",
-        esbuild: { jsx: "automatic" },
-        define: {
-            __RENDERIZR_ENGINE_REPORT__: "false",
-            __RENDERIZR_EDIT_MODE__: "false",
-        },
-        build: {
-            write: false,
-            target: "esnext",
-            rollupOptions: {
-                input: join(REPO_ROOT, "src/engine/react-flow/index.ts"),
-                // Keep `mountEngine`, or the island is shaken away.
-                preserveEntrySignatures: "strict",
-            },
-        },
-    });
-    const js = [result]
-        .flat()
-        .flatMap((bundle) => bundle.output)
-        .filter((output) => output.type === "chunk")
-        .map((chunk) => chunk.code)
-        .join("\n");
-    const gzipped = gzipSync(js).length;
-
-    assert.ok(js.includes("react-flow__"), "React Flow is not in the island");
+test("the single-file budget stays within a tenth of a Claude artifact's limit", () => {
+    // The rest of the limit belongs to the workspace: its documentation,
+    // decisions and any imagery they embed.
     assert.ok(
-        gzipped <= ISLAND_BUDGET_BYTES,
-        `the island is ${gzipped} bytes gzipped, over the ${ISLAND_BUDGET_BYTES}-byte budget`,
+        SINGLE_FILE_BUDGET_BYTES * 10 <= ARTIFACT_LIMIT_BYTES,
+        `the ${SINGLE_FILE_BUDGET_BYTES}-byte budget leaves the workspace less than nine tenths of the ${ARTIFACT_LIMIT_BYTES}-byte limit`,
     );
+});
+
+test("each single-file output stays within its measured size plus 10%", async () => {
+    const { out } = await singleFile();
+
+    for (const name of ["index.html", "artifact.html"]) {
+        const { length } = await readFile(join(out, name));
+        assert.ok(
+            length <= SINGLE_FILE_BUDGET_BYTES,
+            `${name} is ${length} bytes, over the ${SINGLE_FILE_BUDGET_BYTES}-byte budget`,
+        );
+    }
 });
