@@ -350,9 +350,10 @@ function draw() {
     if (opts.arcs === "arcs") {
       for (const e of related(sel)) {
         const y1 = ys[e.from], y2 = ys[e.to];
-        const bulge = Math.min(x - 2, 5 + Math.abs(y2 - y1) * 0.04);
+        // A small elbow: out to the left, along, and back into the other dot.
+        const out = 7, r = 3, dir = Math.sign(y2 - y1);
         const color = e.kind === "reference" ? "var(--color-muted)" : statusColor(model.rows[e.to].status);
-        el("path", { d: `M${x},${y1} C${x - bulge * 1.33},${y1} ${x - bulge * 1.33},${y2} ${x},${y2}`, ...edgeStyle(e.kind, color, true) }, g);
+        el("path", { d: `M${x},${y1} H${x - out + r} Q${x - out},${y1} ${x - out},${y1 + dir * r} V${y2 - dir * r} Q${x - out},${y2} ${x - out + r},${y2} H${x}`, ...edgeStyle(e.kind, color, true) }, g);
       }
     }
     model.rows.forEach((d, i) => {
@@ -363,7 +364,8 @@ function draw() {
     return;
   }
 
-  const X = (c) => PAD + c * COL;
+  // Column 0 sits next to the titles; the graph grows to the left.
+  const X = (c) => width - PAD - c * COL;
   const gLanes = el("g", {}, svg), gEdges = el("g", {}, svg), gDots = el("g", {}, svg);
   // Lanes: segments between consecutive stops; a segment between members carries the lineage's kind, one above the newest member only carries references.
   for (const l of model.lanes) {
