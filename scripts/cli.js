@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { DEFAULT_PORT, resolveSession, ToolsError } from "./edit.js";
 
 export const OPTIONS = {
     logo: { type: "string" },
@@ -8,6 +9,7 @@ export const OPTIONS = {
     "font-weights": { type: "string", default: "400,700" },
     "font-subsets": { type: "string", default: "latin" },
     "font-italic": { type: "boolean", default: false },
+    "primary-color": { type: "string" },
     "single-file": { type: "boolean", default: false },
     out: { type: "string", short: "o", default: "structurizr-output" },
     base: { type: "string", default: "" },
@@ -15,9 +17,10 @@ export const OPTIONS = {
 };
 
 const USAGE = `
-Renderizr — render a Structurizr workspace as a static site.
+Renderizr: render a Structurizr workspace as a static site.
 
   renderizr <workspace.json|url> [options]
+  renderizr edit [path] [options]   Edit the layout of the views in a browser
 
 Options
   -o, --out <dir>          Output directory (default: structurizr-output)
@@ -37,12 +40,22 @@ Options
   --font-subsets <list>    Comma-separated subsets (default: latin)
   --font-italic            Also embed the italic faces (roughly doubles font weight)
 
+  --primary-color <color>  CSS color for links, active items and edit mode's
+                           marks, e.g. "#e4572e" (default: Renderizr's blue)
+
   -h, --help               Show this message
+
+Edit options (renderizr edit [path]; renderizr edit --help says more)
+      --port <n>           Port for the local server (default: ${DEFAULT_PORT})
+      --open               Also open the URL in the browser
+  Edit mode takes the --logo and --font options above, and refuses --out,
+  --single-file and --base.
 
 Examples
   renderizr ./workspace.json
   renderizr https://example.com/workspace.json --single-file
   renderizr ./workspace.json --single-file --font Inter --logo ./logo.svg
+  renderizr edit ./workspace.dsl --font Inter
 
 In a clone of this repository the same thing is: pnpm render <workspace> [options]
 `;
@@ -54,7 +67,15 @@ export function usage(stream = process.stdout) {
 /**
  * Parse the CLI arguments. Exits the process on `--help` or a usage error.
  */
-export function parseCliArgs(args = process.argv.slice(2)) {
+/**
+ * `args` without a leading `--`: `pnpm render -- <workspace> --flag`
+ * forwards the separator, and `parseArgs` would read every flag after it as
+ * one more workspace.
+ */
+export const withoutSeparator = (args) =>
+    args[0] === "--" ? args.slice(1) : args;
+
+export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
     let parsed;
 
     try {
@@ -77,6 +98,13 @@ export function parseCliArgs(args = process.argv.slice(2)) {
         process.exit(0);
     }
 
+    const wrongColor = colorError(values["primary-color"]);
+    if (wrongColor) {
+        process.stderr.write(`${wrongColor}\n\n`);
+        usage(process.stderr);
+        process.exit(1);
+    }
+
     if (positionals.length !== 1) {
         process.stderr.write(
             positionals.length
@@ -92,6 +120,38 @@ export function parseCliArgs(args = process.argv.slice(2)) {
         out: values.out,
         base: values.base,
         singleFile: values["single-file"],
+        ...branding(values),
+    };
+}
+
+/**
+ * Whether `value` reads as one CSS color: a hex color, a color function such
+ * as `rgb()`, `hsl()` or `oklch()`, or a color keyword. Anything else could
+ * close the rule the page sets it in, so it never reaches the page.
+ */
+export function isCssColor(value) {
+    return (
+        /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(value) ||
+        /^(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\([\w\s.,%/+-]+\)$/i.test(
+            value,
+        ) ||
+        /^[a-z]+$/i.test(value)
+    );
+}
+
+/** What is wrong with `--primary-color <value>`, or `null` when nothing is. */
+const colorError = (value) =>
+    value === undefined || isCssColor(value)
+        ? null
+        : `--primary-color takes a CSS color, such as "#e4572e" or "rgb(228 87 46)"; got "${value}".`;
+
+/**
+ * The logo, font and primary color the branding flags ask for, each `null`
+ * when not asked.
+ */
+function branding(values) {
+    return {
+        primaryColor: values["primary-color"] ?? null,
         logo: values.logo
             ? {
                   source: values.logo,
@@ -113,5 +173,165 @@ export function parseCliArgs(args = process.argv.slice(2)) {
                   italic: values["font-italic"],
               }
             : null,
+    };
+}
+
+/* -------------------------------------------------------------------- edit */
+
+/** The branding flags, which `renderizr edit` takes as the build does. */
+const BRANDING_OPTIONS = Object.fromEntries(
+    Object.entries(OPTIONS).filter(
+        ([name]) =>
+            name.startsWith("logo") ||
+            name.startsWith("font") ||
+            name === "primary-color",
+    ),
+);
+
+export const EDIT_OPTIONS = {
+    ...BRANDING_OPTIONS,
+    port: { type: "string", default: String(DEFAULT_PORT) },
+    open: { type: "boolean", default: false },
+    help: { type: "boolean", short: "h", default: false },
+};
+
+/**
+ * The build's flags edit mode refuses, and why (spec 4.3): edit mode writes
+ * no output and always runs the React Flow engine.
+ */
+const REFUSED_BY_EDIT = new Map([
+    ["out", "edit mode writes no output"],
+    ["single-file", "edit mode writes no output"],
+    ["base", "edit mode writes no output"],
+    ["engine", "edit mode always runs the React Flow engine"],
+]);
+
+const EDIT_USAGE = `
+renderizr edit: edit the layout of a workspace's views in a browser.
+
+  renderizr edit [path] [options]
+
+The path is a workspace.dsl or a workspace.json, under any name, or a folder
+holding one of them under exactly that name; without a path, edit mode opens
+the current folder. Edit mode serves the site on a local server only this
+machine reaches, and saves the layout into the workspace.json beside a DSL,
+or into the workspace.json it opened.
+
+A DSL runs through Structurizr's tools: the STRUCTURIZR_CLI environment
+variable as a whole command (such as "java -jar structurizr.war"), otherwise
+structurizr-cli on the PATH, with Java 21 to 25. Without them, edit mode opens
+the workspace.json beside the DSL.
+
+Options
+      --port <n>           Port for the local server (default: ${DEFAULT_PORT}); the
+                           next free one when it is taken
+      --open               Also open the URL in the browser; edit mode
+                           otherwise only prints it
+
+  --logo <path|url>        Image shown top-left in the header
+  --logo-alt <text>        Alt text for the logo
+  --logo-href <url>        Wrap the logo in a link
+  --font <family>          Google Web Font family, e.g. "Inter"
+  --font-weights <list>    Comma-separated weights (default: 400,700)
+  --font-subsets <list>    Comma-separated subsets (default: latin)
+  --font-italic            Also embed the italic faces
+  --primary-color <color>  CSS color for links, active items and edit marks
+
+  -h, --help               Show this message
+
+Examples
+  renderizr edit
+  renderizr edit ./architecture --font Inter
+  STRUCTURIZR_CLI="java -jar structurizr.war" renderizr edit workspace.dsl
+  renderizr edit ./big-bank.json --port 8123 --open
+`;
+
+export function editUsage(stream = process.stdout) {
+    stream.write(`${EDIT_USAGE.trimStart()}\n`);
+}
+
+/** Print `message` and the edit usage to stderr, and exit 1. */
+function editUsageError(message) {
+    process.stderr.write(`${message}\n\n`);
+    editUsage(process.stderr);
+    process.exit(1);
+}
+
+/** The refused build flag `arg` spells, or `undefined`. */
+function refusedFlag(arg) {
+    if (arg === "-o" || /^-o./.test(arg)) return "out";
+    const name = /^--([^=]+)/.exec(arg)?.[1];
+    return name && REFUSED_BY_EDIT.has(name) ? name : undefined;
+}
+
+/**
+ * Parse the arguments of `renderizr edit` (everything after `edit`) and
+ * resolve the session its path opens, against `cwd`. Exits the process on
+ * `--help` and on a usage error.
+ */
+export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
+    // Before `parseArgs`, which would only call these unknown.
+    for (const arg of args) {
+        if (arg === "--") break;
+        const refused = refusedFlag(arg);
+        if (refused) {
+            editUsageError(
+                `renderizr edit doesn't take --${refused}: ${REFUSED_BY_EDIT.get(refused)}.`,
+            );
+        }
+    }
+
+    let parsed;
+    try {
+        parsed = parseArgs({
+            args,
+            options: EDIT_OPTIONS,
+            allowPositionals: true,
+            strict: true,
+        });
+    } catch (error) {
+        editUsageError(error.message);
+    }
+
+    const { values, positionals } = parsed;
+
+    if (values.help) {
+        editUsage();
+        process.exit(0);
+    }
+
+    const wrongColor = colorError(values["primary-color"]);
+    if (wrongColor) editUsageError(wrongColor);
+
+    if (positionals.length > 1) {
+        editUsageError(
+            `Expected one path, got ${positionals.length}: ${positionals.join(", ")}`,
+        );
+    }
+
+    const port = Number(values.port);
+    if (!/^\d+$/.test(values.port) || port < 1 || port > 65535) {
+        editUsageError(
+            `--port takes a port number from 1 to 65535, got "${values.port}".`,
+        );
+    }
+
+    let session;
+    try {
+        session = resolveSession(positionals[0], { cwd });
+    } catch (error) {
+        // Missing tools aren't a mistake in the arguments.
+        if (error instanceof ToolsError) {
+            process.stderr.write(`${error.message}\n`);
+            process.exit(1);
+        }
+        editUsageError(error.message);
+    }
+
+    return {
+        session,
+        port,
+        open: values.open,
+        ...branding(values),
     };
 }

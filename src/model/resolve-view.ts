@@ -1,5 +1,5 @@
-import { orderOf } from "./animation";
 import { type ResolvedBoundary, resolveBoundaries } from "./boundaries";
+import { type EditedLayout, relationshipKeys } from "./edited-layout";
 import {
     elementPasses,
     filterOf,
@@ -100,12 +100,17 @@ export type ResolvedView = {
  * stored base keeps their coordinates and an automatic one lays out what is
  * left.
  *
+ * An `edited` layout (ADR 18) is laid over the view's own coordinates and
+ * vertices before any of that is worked out, so the layout mode follows the
+ * coordinates the author sees.
+ *
  * `undefined` when the workspace has no view with that key, or a filtered
  * view's base is missing or itself filtered (`findViewError` says why).
  */
 export function resolveView(
     model: WorkspaceModel,
     key: string,
+    edited?: EditedLayout,
 ): ResolvedView | undefined {
     const requested = model.findViewByKey(key);
     if (!requested) return undefined;
@@ -119,10 +124,11 @@ export function resolveView(
         const element = model.findElementById(placement.id);
         if (!element) continue;
         if (filter && !elementPasses(model, filter, element)) continue;
+        const at = edited?.elements?.[placement.id] ?? placement;
         elements.push({
             id: placement.id,
-            x: placement.x ?? 0,
-            y: placement.y ?? 0,
+            x: at.x ?? 0,
+            y: at.y ?? 0,
             element,
         });
     }
@@ -131,18 +137,17 @@ export function resolveView(
     const relationships: ResolvedRelationship[] = [];
     /**
      * A dynamic view draws one edge per relationship per order, read as an
-     * integer, so "1" and "01" are one edge (spec 11). An order that isn't
-     * an integer keeps its text; `findViewError` refuses the view anyway.
+     * integer, so "1" and "01" are one edge (spec 11); a repeat takes no
+     * key. An order that isn't an integer keeps its text; `findViewError`
+     * refuses the view anyway.
      */
-    const listed = new Set<string>();
-    for (const placement of view.relationships ?? []) {
+    const listings = view.relationships ?? [];
+    const keys = relationshipKeys(listings, view.type === "Dynamic");
+    for (const [index, placement] of listings.entries()) {
+        const key = keys[index];
+        if (key === null) continue;
         const relationship = model.findRelationshipById(placement.id);
         if (!relationship) continue;
-        if (view.type === "Dynamic") {
-            const at = `${placement.id}\n${orderOf(placement) ?? placement.order}`;
-            if (listed.has(at)) continue;
-            listed.add(at);
-        }
         if (
             filter &&
             (!relationshipPasses(model, filter, relationship) ||
@@ -151,7 +156,14 @@ export function resolveView(
         ) {
             continue;
         }
-        relationships.push({ ...placement, relationship });
+        const route = edited?.relationships?.[key];
+        relationships.push({
+            ...placement,
+            // Its vertices, routing mode and label position; nothing
+            // downstream changes the vertex list it is handed.
+            ...(route as RelationshipView | undefined),
+            relationship,
+        });
     }
 
     const boundaries = resolveBoundaries(

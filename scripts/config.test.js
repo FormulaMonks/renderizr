@@ -40,11 +40,53 @@ test("the output directory is resolved against the working directory", () => {
     );
 });
 
-test("the workspace is embedded as a compile-time constant", () => {
-    const config = createConfig({ workspace: WORKSPACE });
+/** What `plugin` loads for the page's workspace module, through its own hooks. */
+const workspaceModuleSource = (plugin) =>
+    plugin.load(plugin.resolveId("virtual:renderizr/workspace"));
 
-    assert.equal(typeof config.define.workspaceData, "string");
-    assert.deepEqual(JSON.parse(config.define.workspaceData), WORKSPACE);
+test("the workspace is compiled in as the page's workspace module", () => {
+    const config = createConfig({ workspace: WORKSPACE });
+    const plugin = config.plugins.find(
+        (candidate) => candidate.name === "renderizr:workspace",
+    );
+
+    const [workspace, version, error] =
+        workspaceModuleSource(plugin).split("\n");
+    assert.ok(workspace.startsWith("export default "));
+    assert.deepEqual(
+        JSON.parse(workspace.slice("export default ".length, -1)),
+        WORKSPACE,
+    );
+    assert.equal(version, "export const version = null;");
+    assert.equal(error, "export const error = null;");
+    assert.ok(!("workspaceData" in config.define));
+});
+
+/* ---------------------------------------------------------------- edit mode */
+
+/** A stand-in for edit mode's plugin; the config only places it. */
+const EDIT_MODE = { name: "renderizr:edit-mode" };
+
+test("builds and the dev server compile edit mode out", () => {
+    for (const mode of ["build", "serve"]) {
+        assert.equal(
+            createConfig({ workspace: WORKSPACE, mode }).define
+                .__RENDERIZR_EDIT_MODE__,
+            "false",
+            `${mode} compiles edit mode in`,
+        );
+    }
+});
+
+test("edit mode compiles its page code in and serves the workspace in place of the compiled-in one", () => {
+    const config = createConfig({ editMode: EDIT_MODE, mode: "edit" });
+
+    assert.equal(config.define.__RENDERIZR_EDIT_MODE__, "true");
+    assert.deepEqual(pluginNames(config), [
+        "renderizr:branding",
+        "renderizr:edit-mode",
+    ]);
+    assert.equal(config.configFile, false, "edit mode re-reads vite.config.ts");
 });
 
 test("no logo and no font are embedded as nulls, not as undefined", () => {
@@ -87,7 +129,10 @@ test("the multi-file build serves the public directory and splits assets", () =>
         config.build.rollupOptions.output.inlineDynamicImports,
         undefined,
     );
-    assert.deepEqual(pluginNames(config), ["renderizr:branding"]);
+    assert.deepEqual(pluginNames(config), [
+        "renderizr:branding",
+        "renderizr:workspace",
+    ]);
 });
 
 test("the single-file build inlines everything and drops the public directory", () => {

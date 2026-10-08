@@ -31,12 +31,15 @@ import {
     getViewportForBounds,
     Handle,
     type Node,
+    type NodeChange,
     type NodeProps,
     Position,
     ReactFlow,
     ReactFlowProvider,
     useReactFlow,
     useStore,
+    useStoreApi,
+    ViewportPortal,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -45,6 +48,7 @@ import {
     type FocusEvent,
     type KeyboardEvent,
     type MouseEvent,
+    type PointerEvent,
     type RefObject,
     useCallback,
     useContext,
@@ -55,9 +59,49 @@ import {
     useState,
     useSyncExternalStore,
 } from "react";
-import type { WorkspaceModel } from "../../model";
-import type { Anchor } from "../contract";
+import {
+    type EditedLayout,
+    type EditedRoute,
+    isEditable,
+    type LayoutChange,
+    mergeLayouts,
+    type WorkspaceModel,
+} from "../../model";
+import type {
+    AlignEdge,
+    Anchor,
+    CalculateLayoutOptions,
+    CanvasCommand,
+    DistributeAxis,
+    SelectionState,
+} from "../contract";
 import type { TextBlock } from "../geometry/boundary";
+import { boundsOf } from "../geometry/bounds";
+import { labelPositionAt, nearestSide } from "../geometry/edge-editing";
+import {
+    isHorizontal,
+    type RoutingMode,
+    sidePoint,
+} from "../geometry/routing/path";
+import { resizedCanvas } from "../geometry/canvas";
+import type { Point } from "../geometry/shapes/types";
+import { type Guide, guideReach, snapBox } from "../geometry/snapping";
+import { bringBackChange, calculatedChange, canvasChange } from "./commands";
+import { type Arrangement, arrangeChange, moveChange } from "./arrange";
+import { dragLayout } from "./drag";
+import { type EditKeyCommands, editKey } from "./edit-keys";
+import {
+    routeChange,
+    sideChange,
+    vertexTargets,
+    withVertex,
+} from "./edge-edits";
+import {
+    clickSelection,
+    marqueeSelection,
+    pressSelection,
+    type SelectionOrder,
+} from "./selection";
 import {
     INDICATOR_GAP,
     INDICATOR_INSET,
@@ -97,6 +141,7 @@ import {
     type BoundaryBox,
     type Bounds,
     buildGraph,
+    calculatedGraph,
     type ColorScheme,
     type EdgeLine,
     type ElementBox,
@@ -122,6 +167,19 @@ export type IslandState = {
     labels: Labels;
     /** The step of the animation shown, or null for the full view (spec 11). */
     step: number | null;
+    /** Whether edit mode edits the view shown, when `isEditable` accepts it. */
+    editing: boolean;
+    /**
+     * The page's edited layout of each view, by key (ADR 18). A view keeps
+     * its object until the page hands it a new one, so the graph of the view
+     * shown is built again only when its own layout changes.
+     */
+    layouts: ReadonlyMap<string, EditedLayout>;
+    /**
+     * The workspace edit mode swapped in after mount (spec 6), drawn in
+     * place of the `model` prop. Builds never set it.
+     */
+    model?: WorkspaceModel;
 };
 
 /** A tiny external store: the handle writes, the island reads. */
@@ -151,6 +209,16 @@ export type IslandCommands = {
     fit(): void;
     zoomIn(): void;
     zoomOut(): void;
+    /** Edit mode's commands on the view shown (spec 9.2); no-ops in reading. */
+    resizeCanvas?(command: CanvasCommand, recenter: boolean): void;
+    bringBack?(): void;
+    calculateLayout?(options: CalculateLayoutOptions): void;
+    setRouting?(mode: RoutingMode): void;
+    align?(edge: AlignEdge): void;
+    distribute?(axis: DistributeAxis): void;
+    /** The island's own keys, which no button calls (spec 9.2). */
+    nudge?(step: Point): void;
+    selectAll?(): void;
 };
 
 export type { ActivationType };
@@ -169,10 +237,23 @@ export type IslandProps = {
     onEscape(): void;
     /** An item with targets was clicked, or Enter or Space pressed on it. */
     onActivate(type: ActivationType, id: string, anchor: Anchor): void;
+    /**
+     * A drag ended and moved something (spec 9.2). The handle hands it to
+     * the page, which draws it through `setLayout` or lets it revert.
+     */
+    onLayoutChanged?(change: LayoutChange): void;
+    /** The selection changed in editing (spec 9.2, 10.2). */
+    onSelectionChanged?(selection: SelectionState): void;
 };
 
 /** Fraction of the container left around a fitted view. */
 const FIT_PADDING = 0.05;
+
+/**
+ * How far below the scale that fits the whole canvas zooming out may go in
+ * editing, so the canvas shows with room around it.
+ */
+const EDIT_ZOOM_OUT = 0.8;
 
 /**
  * Tell the workspace author about a problem in what they wrote: an element
@@ -273,7 +354,7 @@ const PAN_KEYS: Partial<Record<string, { x: number; y: number }>> = {
 };
 
 /** `+` zooms in, `-` out and `0` fits; `=` is `+` without Shift. */
-const ZOOM_KEYS: Partial<Record<string, keyof IslandCommands>> = {
+const ZOOM_KEYS: Partial<Record<string, "fit" | "zoomIn" | "zoomOut">> = {
     "+": "zoomIn",
     "=": "zoomIn",
     "-": "zoomOut",
@@ -283,6 +364,12 @@ const ZOOM_KEYS: Partial<Record<string, keyof IslandCommands>> = {
 
 /** Reports an activation to the handle; the island never navigates. */
 const Activate = createContext<IslandProps["onActivate"]>(() => {});
+
+/**
+ * Whether the view shown is being edited. In editing a click never
+ * activates (spec 10.3): pressing an element starts a drag.
+ */
+const Editing = createContext(false);
 
 /** An item as the focus order and the DOM find it. */
 type FocusRef = Pick<FocusItem, "type" | "id">;
@@ -308,6 +395,7 @@ function useTargetProps(
         : undefined,
 ) {
     const activate = useContext(Activate);
+    const editing = useContext(Editing);
     if (targets.length === 0 || !activation) return INERT;
     return {
         className: styles.target,
@@ -317,13 +405,15 @@ function useTargetProps(
         "aria-haspopup": targets.length > 1 ? ("menu" as const) : undefined,
         "data-focus-item": focusKey(item),
         "data-targets": targets.join(" "),
-        onClick: (event: MouseEvent) => {
-            event.stopPropagation();
-            activate(activation.type, activation.id, {
-                x: event.clientX,
-                y: event.clientY,
-            });
-        },
+        onClick: editing
+            ? undefined
+            : (event: MouseEvent) => {
+                  event.stopPropagation();
+                  activate(activation.type, activation.id, {
+                      x: event.clientX,
+                      y: event.clientY,
+                  });
+              },
     };
 }
 
@@ -331,7 +421,13 @@ type BoxNode = Node<ElementBox, "box">;
 type BoundaryNode = Node<BoundaryBox, "boundary">;
 type ImageNode = Node<{ src: string; alt: string }, "image">;
 type PlaceholderNode = Node<{ color: string }, "placeholder">;
-type DiagramNode = BoxNode | BoundaryNode | ImageNode | PlaceholderNode;
+type CanvasNode = Node<Record<string, never>, "canvas">;
+type DiagramNode =
+    | BoxNode
+    | BoundaryNode
+    | ImageNode
+    | PlaceholderNode
+    | CanvasNode;
 type LineEdge = Edge<
     EdgeLine & { presence: Presence; transition: string | undefined },
     "line"
@@ -755,13 +851,18 @@ function TextLines({
  * bottom (spec 8). Only the band takes pointer events; empty boundary area
  * lets a drag through to pan. Opacity is real alpha on fill and stroke; the
  * label and icon stay opaque, as on elements.
+ *
+ * In editing a boundary is never selected, dragged or activated (spec 10.2):
+ * the band takes no pointer events either, so a drag anywhere on a boundary
+ * draws a marquee.
  */
 function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
     const { band, accessibleName } = data;
+    const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
     // Its label band is what activates the element it is drawn for.
     const target = useTargetProps(
         { type: "boundary", id: data.id },
-        data.targets,
+        editing ? [] : data.targets,
         accessibleName,
         data.elementId === undefined
             ? undefined
@@ -809,7 +910,7 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
                     top: band.y,
                     width: band.width,
                     height: band.height,
-                    pointerEvents: "auto",
+                    pointerEvents: editing ? "none" : "auto",
                 }}
             >
                 {data.icon && data.iconBox && (
@@ -946,6 +1047,9 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
         data?.name ?? "",
         data && { type: "relationship", id: data.id },
     );
+    // In editing every edge takes the pointer, to be selected, to take a
+    // vertex and to have its label dragged (spec 12.1, 12.3, 12.7).
+    const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
     if (!data) return null;
     const {
         thickness,
@@ -956,7 +1060,8 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
         transition,
     } = data;
     const hidden = presence === "hidden";
-    const active = data.targets.length > 0;
+    const active =
+        data.targets.length > 0 || (__RENDERIZR_EDIT_MODE__ ? editing : false);
 
     return (
         <g
@@ -1121,6 +1226,14 @@ function ImagePlaceholder({ data }: NodeProps<PlaceholderNode>) {
 }
 
 /**
+ * The canvas in editing (spec 14): a frame behind the view, the size its
+ * `dimensions` set, that lets every pointer event through.
+ */
+function CanvasFrame() {
+    return <div data-canvas-frame="" className={styles.canvasFrame} />;
+}
+
+/**
  * One loading state for every render, so the nodes and bounds memoized on
  * it stay put; a fresh object each time rebuilt every view's nodes on every
  * render, which is how a ResizeObserver loop reached the console.
@@ -1250,17 +1363,242 @@ const nodeTypes = {
     boundary: BoundaryElement,
     image: ImagePicture,
     placeholder: ImagePlaceholder,
+    canvas: CanvasFrame,
 };
 const edgeTypes = { line: RouteEdge };
 const proOptions = { hideAttribution: true };
 const nodeOrigin: [number, number] = [0, 0];
 const zoomKeys = ["Meta", "Control"];
+/**
+ * A marquee as React Flow draws it: its rectangle in screen pixels inside
+ * the canvas, its starting corner in model units, and the viewport then.
+ */
+type MarqueeState = {
+    rect: Bounds & { startX: number; startY: number };
+    transform: [number, number, number];
+};
+
+/**
+ * One frame of a gesture in editing (spec 10.1, 12): the edited layout it
+ * draws, the alignment guides snapping draws (spec 11) and, while an edge
+ * end is dragged, the side it would take (spec 12.4). An element drag also
+ * keeps where the pointer has the elements (`raw`) and where they come to
+ * rest once snapped (`positions`); an edge gesture keeps the change its
+ * drop makes.
+ */
+type Frame = {
+    key: string;
+    layout: EditedLayout;
+    guides: Guide[];
+    raw?: ReadonlyMap<string, Point>;
+    positions?: ReadonlyMap<string, Point>;
+    change?: LayoutChange | null;
+    side?: Guide;
+};
+
+/** The empty selection, one object so an empty selection never redraws. */
+const NONE: SelectionOrder = [];
+/** Above every node React Flow draws, which sit at 0 and up. */
+const GUIDES_Z = 1000;
+/** In editing the middle and the right button pan (spec 10.1). */
+const EDIT_PAN_BUTTONS = [1, 2];
+
+/** Whether Shift, Cmd or Ctrl is held: a click toggles, a marquee adds. */
+const modified = (event: {
+    shiftKey: boolean;
+    metaKey: boolean;
+    ctrlKey: boolean;
+}) => event.shiftKey || event.metaKey || event.ctrlKey;
+
+/** The id of the element node `target` is in, if any. */
+const elementNodeId = (target: EventTarget) =>
+    target instanceof Element
+        ? target.closest<HTMLElement>(".react-flow__node-box")?.dataset.id
+        : undefined;
+
+/**
+ * The alignment guides of a drag (spec 11): dashed lines in model units,
+ * one screen pixel wide at any zoom, in `--color-primary` (spec 10.4).
+ */
+function Guides({ guides }: { guides: Guide[] }) {
+    return (
+        <ViewportPortal>
+            <svg
+                aria-hidden="true"
+                data-alignment-guides=""
+                width={1}
+                height={1}
+                // Above the elements, so a guide shows along their sides.
+                style={{
+                    position: "absolute",
+                    overflow: "visible",
+                    pointerEvents: "none",
+                    zIndex: GUIDES_Z,
+                }}
+            >
+                {guides.map(({ from, to }) => (
+                    <line
+                        key={`${from.x},${from.y},${to.x},${to.y}`}
+                        x1={from.x}
+                        y1={from.y}
+                        x2={to.x}
+                        y2={to.y}
+                        stroke="var(--color-primary)"
+                        strokeWidth={1}
+                        strokeDasharray="4 3"
+                        vectorEffect="non-scaling-stroke"
+                    />
+                ))}
+            </svg>
+        </ViewportPortal>
+    );
+}
+
+/** How wide a vertex or edge-end handle is on screen, in pixels (spec 12.3). */
+const HANDLE_SIZE = 10;
+
+type EdgeMarksProps = {
+    graph: Graph;
+    stepState: StepState | undefined;
+    /** The selected edge's key. */
+    selected: string | undefined;
+    /** The side an edge-end drag would take, while one runs. */
+    side: Guide | undefined;
+    zoom: number;
+    onVertex(event: PointerEvent<Element>, edge: EdgeLine, index: number): void;
+    onRemove(edge: EdgeLine, index: number): void;
+    onEnd(
+        event: PointerEvent<Element>,
+        edge: EdgeLine,
+        end: "source" | "target",
+    ): void;
+};
+
+/**
+ * The marks of editing edges, in `--color-primary` over `--color-surface`
+ * (spec 10.4): the selected edge's highlight and its square edge-end
+ * handles (spec 12.1, 12.4), a handle on every vertex (spec 12.3), and
+ * the side an edge-end drag would take. Handles keep their size on screen
+ * at any zoom.
+ */
+function EdgeMarks({
+    graph,
+    stepState,
+    selected,
+    side,
+    zoom,
+    onVertex,
+    onRemove,
+    onEnd,
+}: EdgeMarksProps) {
+    const size = HANDLE_SIZE / zoom;
+    const handle = {
+        className: "nodrag nopan",
+        fill: "var(--color-surface)",
+        stroke: "var(--color-primary)",
+        strokeWidth: 2 / zoom,
+        style: { pointerEvents: "all" as const, cursor: "move" },
+    };
+    const shown = graph.edges.filter(
+        (edge) => stepState?.edges[edge.key] !== "hidden",
+    );
+    const edge = shown.find((each) => each.key === selected);
+    return (
+        <ViewportPortal>
+            <svg
+                aria-hidden="true"
+                data-edge-marks=""
+                width={1}
+                height={1}
+                style={{
+                    position: "absolute",
+                    overflow: "visible",
+                    pointerEvents: "none",
+                    zIndex: GUIDES_Z,
+                }}
+            >
+                {edge && (
+                    <path
+                        data-selected-edge={edge.key}
+                        d={edge.path}
+                        fill="none"
+                        stroke="var(--color-primary)"
+                        strokeOpacity={0.35}
+                        strokeWidth={edge.thickness + 8}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                )}
+                {side && (
+                    <line
+                        data-chosen-side=""
+                        x1={side.from.x}
+                        y1={side.from.y}
+                        x2={side.to.x}
+                        y2={side.to.y}
+                        stroke="var(--color-primary)"
+                        strokeWidth={4 / zoom}
+                    />
+                )}
+                {shown.flatMap((line) =>
+                    line.vertices.map((vertex, index) => (
+                        <circle
+                            key={`${line.key}:${index}`}
+                            data-vertex-handle={`${line.key}:${index}`}
+                            cx={vertex.x}
+                            cy={vertex.y}
+                            r={size / 2}
+                            {...handle}
+                            onPointerDown={(event) => {
+                                if (event.button === 0)
+                                    onVertex(event, line, index);
+                            }}
+                            onDoubleClick={(event) => {
+                                event.stopPropagation();
+                                onRemove(line, index);
+                            }}
+                        />
+                    )),
+                )}
+                {edge &&
+                    (["source", "target"] as const).map((end) => (
+                        <rect
+                            key={end}
+                            data-edge-end-handle={end}
+                            x={edge[end].x - size / 2}
+                            y={edge[end].y - size / 2}
+                            width={size}
+                            height={size}
+                            {...handle}
+                            onPointerDown={(event) => {
+                                if (event.button === 0) onEnd(event, edge, end);
+                            }}
+                        />
+                    ))}
+            </svg>
+        </ViewportPortal>
+    );
+}
 
 /**
  * Below the edges, which sit at 0, so an edge crossing a boundary is never
  * hidden by its fill; each level of nesting one higher.
  */
 const BOUNDARY_Z = -1000;
+
+/** The canvas frame's node id, which no element id takes (ids are numbers). */
+const CANVAS_NODE = "canvas:frame";
+
+/** The canvas frame, behind every boundary (spec 14). */
+const canvasNode = ({ width, height }: Graph["canvas"]): CanvasNode => ({
+    ...STATIC_NODE_PROPS,
+    id: CANVAS_NODE,
+    type: "canvas",
+    width,
+    height,
+    zIndex: BOUNDARY_Z - 1,
+    data: {},
+});
 
 function toBoundaryNodes(graph: Graph): BoundaryNode[] {
     return graph.boundaries.map((boundary) => ({
@@ -1328,8 +1666,303 @@ function toEdges(
     }));
 }
 
+/** The selection as the canvas uses it (spec 10.2). */
+type EditSelection = {
+    /** The selection of the view shown, the reference element first. */
+    selected: SelectionOrder;
+    /** What is drawn selected: the selection, or a marquee's while drawn. */
+    shown: SelectionOrder;
+    select(ids: SelectionOrder): void;
+    startMarquee(event: MouseEvent | globalThis.MouseEvent): void;
+    endMarquee(): void;
+    /**
+     * The selected edge as drawn (spec 12.1), never with elements selected;
+     * reading has none, and builds never read it (ADR 15).
+     */
+    edge?: EdgeLine;
+    /** Select the edge with key `key` alone, clearing the elements. */
+    selectEdge?(key: string): void;
+};
+
+/** Reading selects nothing. */
+const READING_SELECTION: EditSelection = {
+    selected: NONE,
+    shown: NONE,
+    select: () => {},
+    startMarquee: () => {},
+    endMarquee: () => {},
+};
+
+/** The element a focus item names, as `data-focus-item` holds it. */
+const focusedElement = (target: EventTarget | null) => {
+    const item =
+        target instanceof HTMLElement ? target.dataset.focusItem : undefined;
+    return item?.startsWith("element:") ? item.slice(8) : undefined;
+};
+
+/** What the island hands its arranging commands and keys. */
+export type EditKeysOptions = {
+    wrapper: RefObject<HTMLElement | null>;
+    /** Where the engine's handle finds `align` and `distribute`. */
+    commands: EditKeyCommands;
+    /** The view being edited as drawn, or null when nothing can be. */
+    view: Graph | null;
+    viewKey: string;
+    edited: EditedLayout | undefined;
+    selected: SelectionOrder;
+    select(ids: SelectionOrder): void;
+    /** The animation step shown, whose hidden elements select all skips. */
+    stepState: StepState | undefined;
+    onLayoutChanged?(change: LayoutChange): void;
+};
+
+/**
+ * Align, distribute, nudge and select all on the view being edited, for
+ * the engine's handle and the island's keys, and the keys themselves as a
+ * key-down handler that says whether it took the key. Each arranging
+ * command measures the selection as drawn, the reference element first,
+ * and is one layout change (spec 13). A nudge with nothing selected is
+ * left to pan (spec 13.3). A tap on Space, a press and release with no
+ * pointer press between, adds the focused element to the selection or
+ * takes it out; held while dragging, Space still pans.
+ */
+export function useEditKeys({
+    wrapper,
+    commands,
+    view,
+    viewKey,
+    edited,
+    selected,
+    select,
+    stepState,
+    onLayoutChanged,
+}: EditKeysOptions): (event: KeyboardEvent) => boolean {
+    const tap = useRef<string | undefined>(undefined);
+    const latest = useRef({ selected, select });
+    latest.current = { selected, select };
+
+    useEffect(() => {
+        const arrange = (arrangement: Arrangement) => {
+            const change =
+                view &&
+                arrangeChange(viewKey, view, edited, selected, arrangement);
+            if (change) onLayoutChanged?.(change);
+        };
+        commands.align = (edge) => arrange({ align: edge });
+        commands.distribute = (axis) => arrange({ distribute: axis });
+        commands.nudge = (step) => arrange({ nudge: step });
+        // Every element the view draws now: a step's hidden ones aren't.
+        commands.selectAll = () => {
+            if (!view) return;
+            select(
+                view.elements
+                    .filter(({ id }) => stepState?.elements[id] !== "hidden")
+                    .map(({ id }) => id),
+            );
+        };
+    }, [
+        commands,
+        view,
+        viewKey,
+        edited,
+        selected,
+        select,
+        stepState,
+        onLayoutChanged,
+    ]);
+
+    useEffect(() => {
+        const element = wrapper.current;
+        if (!element) return;
+        const cancel = () => {
+            tap.current = undefined;
+        };
+        const onKeyUp = (event: globalThis.KeyboardEvent) => {
+            const id = tap.current;
+            tap.current = undefined;
+            if (event.code !== "Space" || id === undefined) return;
+            const { selected, select } = latest.current;
+            select(clickSelection(selected, id, true));
+        };
+        element.addEventListener("pointerdown", cancel, true);
+        element.addEventListener("keyup", onKeyUp);
+        return () => {
+            element.removeEventListener("pointerdown", cancel, true);
+            element.removeEventListener("keyup", onKeyUp);
+        };
+    }, [wrapper]);
+
+    return (event) => {
+        if (event.code === "Space") {
+            const id = focusedElement(event.target);
+            if (id === undefined) return false;
+            event.preventDefault();
+            if (!event.repeat) tap.current = id;
+            return true;
+        }
+        const key = editKey(event);
+        if (!key) return false;
+        if (key.command === "nudge") {
+            if (selected.length === 0) return false;
+            commands.nudge?.(key.step);
+        } else if (key.command === "align") commands.align?.(key.edge);
+        else if (key.command === "distribute") commands.distribute?.(key.axis);
+        else commands.selectAll?.();
+        event.preventDefault();
+        return true;
+    };
+}
+
+/**
+ * Keep the viewport where it is when the edited layout of the view shown
+ * changes (spec 10.1): a drop, a command, undo and redo draw through
+ * `setLayout` and never refit the canvas. A workspace swapped in keeps it
+ * too (spec 6.3), and paints the view again, so the page hears it from the
+ * new workspace. A new view still fits.
+ */
+export function useKeepViewport(
+    viewKey: string,
+    edited: unknown,
+    model: unknown,
+    moved: { current: boolean },
+    painted: { current: string | null },
+) {
+    const last = useRef({ viewKey, edited, model });
+    useEffect(() => {
+        const before = last.current;
+        last.current = { viewKey, edited, model };
+        if (before.viewKey !== viewKey) return;
+        if (before.edited !== edited || before.model !== model)
+            moved.current = true;
+        if (before.model !== model) painted.current = null;
+    }, [viewKey, edited, model, moved, painted]);
+}
+
+/**
+ * The selection in editing, on the view it was made on (spec 10.2). It
+ * lives in the island and is never saved or undone (ADR 18). Only the view
+ * `drawn` shows while `editable` holds one: elements it no longer draws
+ * drop out. The page hears every committed change, the reference element
+ * first (spec 9.2).
+ *
+ * A marquee selects live, from `kept`, the selection a modifier held when
+ * it started, and its drop commits the last one. React Flow draws it in
+ * screen pixels with its starting corner in model units.
+ *
+ * The selected edge shares nothing with the elements: selecting either
+ * clears the other (spec 10.2, 12.1). The page hears its relationship id and
+ * the routing mode it is drawn in now (spec 9.2).
+ */
+function useEditSelection(
+    viewKey: string,
+    editable: boolean,
+    drawn: Graph | undefined,
+    stepState: StepState | undefined,
+    onSelectionChanged: IslandProps["onSelectionChanged"],
+): EditSelection {
+    const [selection, setSelection] = useState<{
+        key: string;
+        ids: SelectionOrder;
+        edge?: string;
+    }>({ key: viewKey, ids: NONE });
+    const selected = useMemo(() => {
+        if (!editable || selection.key !== viewKey || !drawn) return NONE;
+        const ids = new Set(drawn.elements.map((element) => element.id));
+        const kept = selection.ids.filter((id) => ids.has(id));
+        return kept.length === selection.ids.length ? selection.ids : kept;
+    }, [editable, selection, viewKey, drawn]);
+    const select = useCallback(
+        (ids: SelectionOrder) => setSelection({ key: viewKey, ids }),
+        [viewKey],
+    );
+    const edge =
+        editable && selection.key === viewKey && selection.edge !== undefined
+            ? drawn?.edges.find((each) => each.key === selection.edge)
+            : undefined;
+
+    const marquee = useStore((flowState) =>
+        flowState.userSelectionActive ? flowState.userSelectionRect : null,
+    );
+    const transform = useStore((flowState) => flowState.transform);
+    const kept = useRef<SelectionOrder>(NONE);
+    const marking = useCallback(
+        ({ rect: marked, transform: [x, y, zoom] }: MarqueeState) => {
+            if (!drawn) return NONE;
+            const rect = {
+                x: (marked.x - x) / zoom,
+                y: (marked.y - y) / zoom,
+                width: marked.width / zoom,
+                height: marked.height / zoom,
+            };
+            // A step's hidden elements aren't drawn, so a marquee can't
+            // take them.
+            const boxes = drawn.elements.filter(
+                (element) => stepState?.elements[element.id] !== "hidden",
+            );
+            return marqueeSelection(kept.current, boxes, rect, {
+                x: marked.startX,
+                y: marked.startY,
+            });
+        },
+        [drawn, stepState],
+    );
+    const marked = useMemo(
+        () =>
+            editable && marquee ? marking({ rect: marquee, transform }) : null,
+        [editable, marquee, transform, marking],
+    );
+
+    // The marquee as React Flow last drew it, read straight from its store:
+    // the drop can come before React draws the last pointer move.
+    const flowStore = useStoreApi();
+    const lastMarquee = useRef<MarqueeState | null>(null);
+    useEffect(
+        () =>
+            flowStore.subscribe(
+                ({ userSelectionActive, userSelectionRect, transform }) => {
+                    if (userSelectionActive && userSelectionRect)
+                        lastMarquee.current = {
+                            rect: userSelectionRect,
+                            transform,
+                        };
+                },
+            ),
+        [flowStore],
+    );
+
+    const reported = useRef("");
+    const id = edge?.id;
+    const routing = edge?.routing;
+    useEffect(() => {
+        const key = `${selected.join("\n")}\t${id}\t${routing}`;
+        if (key === reported.current) return;
+        reported.current = key;
+        onSelectionChanged?.({
+            elements: [...selected],
+            edge: id !== undefined && routing ? { id, routing } : null,
+        });
+    }, [selected, id, routing, onSelectionChanged]);
+
+    return {
+        selected,
+        shown: marked ?? selected,
+        select,
+        edge,
+        selectEdge: (key) =>
+            setSelection({ key: viewKey, ids: NONE, edge: key }),
+        startMarquee: (event) => {
+            kept.current = modified(event) ? selected : NONE;
+        },
+        endMarquee: () => {
+            const last = lastMarquee.current;
+            lastMarquee.current = null;
+            select(last ? marking(last) : kept.current);
+        },
+    };
+}
+
 function Canvas({
-    model,
+    model: mounted,
     store,
     commands,
     font,
@@ -1337,8 +1970,11 @@ function Canvas({
     onRedrawn,
     onEscape,
     onActivate,
+    onLayoutChanged,
+    onSelectionChanged,
 }: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
+    const model = (__RENDERIZR_EDIT_MODE__ && state.model) || mounted;
     const family = diagramFontFamily(font);
     // Set once the --font faces load; a new measure re-derives the
     // boundaries with them (spec 9.5).
@@ -1353,11 +1989,55 @@ function Canvas({
         [family, fontsLoaded],
     );
     const { key: viewKey, scheme, labels, step } = state;
+    // Compiled out of builds, which never edit (ADR 15).
+    const edited = __RENDERIZR_EDIT_MODE__
+        ? state.layouts.get(viewKey)
+        : undefined;
+    // False at build time in builds, so every editing branch compiles out.
+    // The flag is a build-time constant, so every render calls the same
+    // hooks, and builds call none of edit mode's (ADR 15).
+    const editable =
+        __RENDERIZR_EDIT_MODE__ &&
+        useMemo(() => {
+            if (!state.editing) return false;
+            const view = model.findViewByKey(viewKey);
+            return view !== undefined && isEditable(view);
+        }, [model, viewKey, state.editing]);
     // A new step is not a new graph: nothing is laid out again (spec 11).
-    const graph = useMemo(
-        () => buildGraph(model, viewKey, scheme, labels, measure),
-        [model, viewKey, scheme, labels, measure],
+    const drawn = useMemo(
+        () => buildGraph(model, viewKey, scheme, labels, measure, edited),
+        [model, viewKey, scheme, labels, measure, edited],
     );
+    /**
+     * What a gesture in editing shows on the view it started on, frame by
+     * frame, laid out again here inside the island; only its drop reaches
+     * the page (spec 10.1, ADR 18). The flag is a build-time constant, so
+     * every render calls the same hooks, and builds call none (ADR 15).
+     */
+    const [drag, setDrag] = __RENDERIZR_EDIT_MODE__
+        ? useState<Frame | null>(null)
+        : [null, () => {}];
+    const dragging = __RENDERIZR_EDIT_MODE__
+        ? useRef(drag)
+        : { current: null as Frame | null };
+    if (__RENDERIZR_EDIT_MODE__) dragging.current = drag;
+    const framed = __RENDERIZR_EDIT_MODE__
+        ? useMemo(
+              () =>
+                  drag && drag.key === viewKey
+                      ? buildGraph(
+                            model,
+                            viewKey,
+                            scheme,
+                            labels,
+                            measure,
+                            drag.layout,
+                        )
+                      : undefined,
+              [model, viewKey, scheme, labels, measure, drag],
+          )
+        : undefined;
+    const graph = framed ?? drawn;
     const image = useImage(viewKey, graph?.image);
     const reducedMotion = useReducedMotion();
     const transition = opacityTransition(reducedMotion);
@@ -1368,10 +2048,61 @@ function Canvas({
     // An image view is fitted to its picture once its size is known.
     const drawing = useMemo(() => drawingOf(graph, image), [graph, image]);
     const { bounds } = drawing;
-    const nodes = useMemo(
-        () => withPresence(drawing.nodes, stepState, transition),
-        [drawing, stepState, transition],
-    );
+    const selection = __RENDERIZR_EDIT_MODE__
+        ? // The flag is a build-time constant, so every render calls the
+          // same hooks, and builds call none (ADR 15).
+          useEditSelection(
+              viewKey,
+              editable,
+              drawn,
+              stepState,
+              onSelectionChanged,
+          )
+        : READING_SELECTION;
+    const {
+        selected,
+        shown: shownSelection,
+        select,
+        startMarquee,
+        endMarquee,
+    } = selection;
+
+    const nodes = useMemo(() => {
+        const shown = withPresence(drawing.nodes, stepState, transition);
+        if (!__RENDERIZR_EDIT_MODE__ || !editable) return shown;
+        // In editing every element drags, faded ones included (spec 18);
+        // boundaries never do (spec 8). Every node is a new object, since
+        // React Flow keeps selection flags on objects it has seen.
+        // A press on a boundary reaches the canvas, so a marquee can start
+        // inside one (spec 10.1).
+        const chosen = new Set(shownSelection);
+        const reference = shownSelection[0];
+        const canvas = graph && !graph.image ? [canvasNode(graph.canvas)] : [];
+        const editableNodes = shown.map((node) =>
+            node.type === "box"
+                ? {
+                      ...node,
+                      draggable: true,
+                      selected: chosen.has(node.id),
+                      domAttributes: {
+                          ...node.domAttributes,
+                          "data-reference":
+                              node.id === reference ? "" : undefined,
+                      },
+                  }
+                : node.type === "boundary"
+                  ? {
+                        ...node,
+                        style: {
+                            ...node.style,
+                            pointerEvents: "none" as const,
+                        },
+                    }
+                  : node,
+        );
+        return [...canvas, ...editableNodes];
+    }, [drawing, stepState, transition, editable, shownSelection, graph]);
+
     const edges = useMemo(
         () => (graph ? toEdges(graph, stepState, transition) : []),
         [graph, stepState, transition],
@@ -1397,6 +2128,96 @@ function Canvas({
     /** Set once the reader zooms or pans; refits on resize stop until `fit()`. */
     const moved = useRef(false);
     const painted = useRef<string | null>(null);
+    // A change to the edited layout never refits, and align, distribute,
+    // nudge and select all arrange the selection, by command or by key
+    // (spec 10.1, 13, 17.2). The flag is a build-time constant, so builds
+    // call neither hook (ADR 15).
+    if (__RENDERIZR_EDIT_MODE__)
+        useKeepViewport(viewKey, edited, model, moved, painted);
+    const editKey = __RENDERIZR_EDIT_MODE__
+        ? useEditKeys({
+              wrapper,
+              commands,
+              view:
+                  editable && drawn && !drawn.error && !drawn.image
+                      ? drawn
+                      : null,
+              viewKey,
+              edited,
+              selected,
+              select,
+              stepState,
+              onLayoutChanged,
+          })
+        : undefined;
+
+    /**
+     * React Flow reports a drag as position changes, for every selected
+     * element when the one pressed is selected; the nodes are controlled,
+     * so nothing moves until the drag state draws it. Each frame snaps the
+     * box around the moving elements to another element's alignment guide
+     * or to the grid (spec 11), and the drop turns into one layout change
+     * for the page (spec 9.2). A drop the page doesn't hand back through
+     * `setLayout` reverts, since the drag state goes either way. React
+     * Flow's own selection changes are ignored: the selection is the
+     * island's. Builds, which never edit, compile it out (ADR 15).
+     */
+    const onNodesChange = (changes: NodeChange<DiagramNode>[]) => {
+        if (!__RENDERIZR_EDIT_MODE__ || !drawn) return;
+        const current =
+            dragging.current?.key === viewKey ? dragging.current : null;
+        const raw = new Map(current?.raw ?? []);
+        let moving = false;
+        let dropped = false;
+        for (const change of changes) {
+            if (change.type !== "position") continue;
+            if (change.dragging && change.position) {
+                raw.set(change.id, change.position);
+                moving = true;
+            } else if (change.dragging === false) {
+                dropped = true;
+            }
+        }
+        if (dropped) {
+            dragging.current = null;
+            setDrag(null);
+            const change = current?.positions
+                ? moveChange(viewKey, drawn, edited, current.positions)
+                : null;
+            if (change) onLayoutChanged?.(change);
+            return;
+        }
+        if (!moving) return;
+        // A drag never refits the canvas (spec 10.1).
+        moved.current = true;
+        const box = boundsOf(
+            drawn.elements.flatMap((element) => {
+                const at = raw.get(element.id);
+                return at ? [{ ...element, ...at }] : [];
+            }),
+        );
+        if (!box) return;
+        const { offset, guides } = snapBox(
+            box,
+            drawn.elements.filter((element) => !raw.has(element.id)),
+            guideReach(flow.getZoom()),
+        );
+        const positions = new Map(
+            [...raw].map(([id, { x, y }]) => [
+                id,
+                { x: x + offset.x, y: y + offset.y },
+            ]),
+        );
+        const next = {
+            key: viewKey,
+            raw,
+            positions,
+            guides,
+            layout: mergeLayouts(edited, dragLayout(drawn, positions)),
+        };
+        dragging.current = next;
+        setDrag(next);
+    };
 
     useEffect(() => {
         const element = wrapper.current;
@@ -1437,11 +2258,21 @@ function Canvas({
         [graph, bounds, size],
     );
     const zoom = useStore((flowState) => flowState.transform[2]);
-    const { floor, ceiling } = zoomLimits(
-        fitted?.zoom ?? null,
-        zoom,
-        moved.current,
-    );
+    const limits = zoomLimits(fitted?.zoom ?? null, zoom, moved.current);
+    const { ceiling } = limits;
+    // In editing, zooming out goes a little past the whole canvas, so the
+    // author can see the view sits on it (spec 14). Reading keeps its floor.
+    const floor =
+        __RENDERIZR_EDIT_MODE__ && editable && graph && size.width > 0
+            ? Math.min(
+                  limits.floor,
+                  EDIT_ZOOM_OUT *
+                      Math.min(
+                          size.width / graph.canvas.width,
+                          size.height / graph.canvas.height,
+                      ),
+              )
+            : limits.floor;
 
     // With structurizr.zoomOnAnimation, a step is fitted to its elements
     // (spec 11), however far in that takes the canvas.
@@ -1492,6 +2323,79 @@ function Canvas({
         });
     }, [step, zoomOnAnimation, fitted, stepFitted, flow, reducedMotion]);
 
+    /**
+     * Edit mode's commands on the whole view (spec 9.2, 14, 15), each one
+     * layout change for the page, as a drop is. Compiled out of builds
+     * (ADR 15); nothing happens in reading or on a view that can't be drawn.
+     */
+    useEffect(() => {
+        if (!__RENDERIZR_EDIT_MODE__) return;
+        const view =
+            editable && drawn && !drawn.error && !drawn.image ? drawn : null;
+        const run = (change: LayoutChange | null) => {
+            if (change) onLayoutChanged?.(change);
+        };
+        commands.resizeCanvas = (command, recenter) => {
+            if (!view) return;
+            run(canvasChange(viewKey, view, edited, command, recenter));
+            // "Fit the canvas to the diagram" also brings the whole canvas
+            // on screen, where the view stays until the author moves it.
+            const { clientWidth = 0, clientHeight = 0 } = wrapper.current ?? {};
+            if (command !== "auto" || !clientWidth || !clientHeight) return;
+            const canvas = resizedCanvas("auto", view.canvas, view.bounds);
+            moved.current = true;
+            flow.setViewport(
+                getViewportForBounds(
+                    { x: 0, y: 0, ...canvas },
+                    clientWidth,
+                    clientHeight,
+                    0,
+                    fitMaxZoom(view),
+                    FIT_PADDING,
+                ),
+            );
+        };
+        commands.bringBack = () => {
+            if (view) run(bringBackChange(viewKey, view, edited));
+        };
+        commands.setRouting = (mode) => {
+            const edge = selection.edge;
+            if (view && edge)
+                run(
+                    routeChange(viewKey, view, edited, edge.key, {
+                        routing: mode,
+                    }),
+                );
+        };
+        commands.calculateLayout = (options) => {
+            if (!view) return;
+            const calculated = calculatedGraph(
+                model,
+                viewKey,
+                scheme,
+                labels,
+                measure,
+                edited,
+                options,
+            );
+            if (calculated)
+                run(calculatedChange(viewKey, view, calculated, options));
+        };
+    }, [
+        commands,
+        editable,
+        drawn,
+        edited,
+        model,
+        viewKey,
+        scheme,
+        labels,
+        measure,
+        onLayoutChanged,
+        selection.edge,
+        flow,
+    ]);
+
     useEffect(() => {
         commands.fit = fit;
         commands.zoomIn = () => {
@@ -1532,24 +2436,37 @@ function Canvas({
         if (key === undefined || (!fitted && !empty)) return;
         const viewport = refitTo.current;
         if (viewport && !moved.current) flow.setViewport(viewport);
-        if (painted.current === key) return;
         // The next frame is when the view is on screen. A hidden tab, or a
         // headless browser on virtual time, may never produce one; the
-        // timer stands in for it there, so mounting cannot hang.
+        // timer stands in for it there, so mounting cannot hang. The page
+        // mounts its chrome once the view is painted, which resizes the
+        // canvas, so the view is ready only a frame later, with the canvas
+        // at the size it was fitted to. Otherwise it takes the canvas's
+        // size, without waiting for a resize observer that virtual time may
+        // never run, and fits to it first.
         const done = () => {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
+            if (painted.current === key) {
+                const { clientWidth: width = 0, clientHeight: height = 0 } =
+                    wrapper.current ?? {};
+                if (width === size.width && height === size.height)
+                    setReadyKey(key);
+                else setSize({ width, height });
+                return;
+            }
             painted.current = key;
-            setReadyKey(key);
             if (graph) onPainted(key, graph);
+            frame = requestAnimationFrame(done);
+            timer = setTimeout(done, 100);
         };
-        const frame = requestAnimationFrame(done);
-        const timer = setTimeout(done, 100);
+        let frame = requestAnimationFrame(done);
+        let timer = setTimeout(done, 100);
         return () => {
             cancelAnimationFrame(frame);
             clearTimeout(timer);
         };
-    }, [fitted, empty, key, flow, onPainted, graph]);
+    }, [fitted, empty, key, flow, onPainted, graph, size]);
 
     /** Each item with targets by its focus key. */
     const focusable = useMemo(
@@ -1565,6 +2482,14 @@ function Canvas({
      * pointer (spec 6.2). A key press hands focus back to the keyboard.
      */
     const pointing = useRef(false);
+    /**
+     * Where a modifier-press on a selected element landed, which a release
+     * with no movement turns into a click that takes the element out (spec
+     * 10.2), or null.
+     */
+    const toggling = __RENDERIZR_EDIT_MODE__
+        ? useRef<{ id: string; x: number; y: number } | null>(null)
+        : null;
 
     const itemElement = (item: FocusRef | undefined) =>
         item
@@ -1579,10 +2504,13 @@ function Canvas({
      * order, so the canvas is one stop on the way through the page.
      */
     const onTab = (event: KeyboardEvent<HTMLDivElement>) => {
-        // A step's hidden items are inert, so they leave the walk (spec 11).
-        const order = (graph?.focusOrder ?? []).filter(
-            (item) => !itemElement(item)?.closest("[inert]"),
-        );
+        // A step's hidden items are inert, so they leave the walk (spec 11),
+        // and so do boundaries in editing, which take no activation (spec
+        // 10.2).
+        const order = (graph?.focusOrder ?? []).filter((item) => {
+            const element = itemElement(item);
+            return element && !element.closest("[inert]");
+        });
         const current = (document.activeElement as HTMLElement | null)?.dataset
             ?.focusItem;
         const index = order.findIndex((item) => focusKey(item) === current);
@@ -1603,17 +2531,27 @@ function Canvas({
 
     const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         pointing.current = false;
+        if (__RENDERIZR_EDIT_MODE__ && editable && editKey?.(event)) return;
         if (event.altKey || event.ctrlKey || event.metaKey) return;
         if (event.key === "Tab") return onTab(event);
         if (event.key === "Escape") {
-            // Escape on the canvas stops the animation (spec 11).
-            onEscape();
+            // Escape empties the selection first, then stops the animation
+            // (spec 11, 18).
+            if (
+                __RENDERIZR_EDIT_MODE__ &&
+                (selected.length > 0 || selection.edge)
+            )
+                select(NONE);
+            else onEscape();
             return;
         }
 
         const item = (event.target as HTMLElement).dataset?.focusItem;
         const activation = item ? focusable.get(item)?.activation : undefined;
-        if (activation && (event.key === "Enter" || event.key === " ")) {
+        // In editing only Enter activates: Space pans (spec 10.3, 17.2).
+        const activates =
+            event.key === "Enter" || (!editable && event.key === " ");
+        if (activation && activates) {
             event.preventDefault();
             const box = (event.target as HTMLElement).getBoundingClientRect();
             onActivate(activation.type, activation.id, {
@@ -1642,6 +2580,258 @@ function Canvas({
         }
     };
 
+    /**
+     * A press on an element sets the selection before React Flow starts a
+     * drag (spec 10.2), so the drag moves what is selected once the press
+     * lands: the element alone, the whole selection when it is in it, or
+     * with Shift, Cmd or Ctrl the selection with an unselected element
+     * added. A modifier-press on a selected element waits for the release.
+     */
+    const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+        pointing.current = true;
+        if (!__RENDERIZR_EDIT_MODE__ || !editable || event.button !== 0) return;
+        const id = elementNodeId(event.target);
+        if (toggling) toggling.current = null;
+        if (id === undefined) return pressEdge(event);
+        const pressed = pressSelection(selected, id, modified(event));
+        select(pressed.selection);
+        if (toggling && pressed.toggleOnClick)
+            toggling.current = { id, x: event.clientX, y: event.clientY };
+    };
+
+    /**
+     * A release that ends a modifier-click on a selected element takes it
+     * out of the selection (spec 10.2); one that ends a drag, past React
+     * Flow's 1 px threshold, leaves the selection as it is.
+     */
+    const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+        const pressed = toggling?.current;
+        if (!toggling || !pressed) return;
+        toggling.current = null;
+        if (
+            Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 1
+        )
+            return;
+        select(clickSelection(selected, pressed.id, true));
+    };
+
+    /* ---------------- editing edges (spec 12) */
+
+    /**
+     * The edge under `event`'s target, by its line's hit stroke or its
+     * label, and whether it was the label. A label names its relationship,
+     * which a dynamic view may list more than once, so the pointer picks
+     * among those by the label box it is in.
+     */
+    const edgeAt = (event: MouseEvent<Element>) => {
+        if (!drawn || !(event.target instanceof Element)) return undefined;
+        const stroke = event.target
+            .closest("[data-hit-stroke]")
+            ?.closest<HTMLElement>(".react-flow__edge")?.dataset.id;
+        if (stroke !== undefined) {
+            const edge = drawn.edges.find((each) => each.key === stroke);
+            return edge && { edge, label: false };
+        }
+        const label = event.target.closest<HTMLElement>(
+            "[data-relationship-label]",
+        )?.dataset.relationshipLabel;
+        const at = flow.screenToFlowPosition({
+            x: event.clientX,
+            y: event.clientY,
+        });
+        const listed = drawn.edges.filter((each) => each.id === label);
+        const edge =
+            listed.find(
+                ({ labelBox: box }) =>
+                    box &&
+                    at.x >= box.x &&
+                    at.x <= box.x + box.width &&
+                    at.y >= box.y &&
+                    at.y <= box.y + box.height,
+            ) ?? listed[0];
+        return edge && { edge, label: true };
+    };
+
+    /**
+     * Run one pointer gesture in editing from `event` (spec 12.3, 12.4,
+     * 12.7): each move hands the pointer, in model units, to `frame`, which
+     * says what the frame draws and what change a drop there makes, and
+     * the release hands that change to the page (ADR 18).
+     */
+    const gesture = (
+        event: PointerEvent<Element>,
+        frame: (at: Point) => Pick<Frame, "change" | "guides" | "side">,
+    ) => {
+        event.stopPropagation();
+        // A drag selects no text on the way.
+        event.preventDefault();
+        const move = (moving: globalThis.PointerEvent) => {
+            // A gesture never refits the canvas (spec 10.1).
+            moved.current = true;
+            const next = frame(
+                flow.screenToFlowPosition({
+                    x: moving.clientX,
+                    y: moving.clientY,
+                }),
+            );
+            const shown: Frame = {
+                key: viewKey,
+                layout: next.change
+                    ? mergeLayouts(edited, next.change.after)
+                    : edited ?? {},
+                ...next,
+            };
+            dragging.current = shown;
+            setDrag(shown);
+        };
+        const up = () => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            const change = dragging.current?.change;
+            dragging.current = null;
+            setDrag(null);
+            if (change) onLayoutChanged?.(change);
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+    };
+
+    /** The change that sets `route` on edge `key` of the view drawn. */
+    const changeRoute = (key: string, route: EditedRoute) =>
+        drawn ? routeChange(viewKey, drawn, edited, key, route) : null;
+
+    /**
+     * Where a vertex of edge `key` at `index` (-1 for a vertex not there
+     * yet) comes to rest with the pointer at `at`, in whole units, snapped
+     * like an element (spec 11), and the alignment guides it draws.
+     */
+    const snapVertex = (key: string, index: number, at: Point) => {
+        const { offset, guides } = snapBox(
+            { ...at, width: 0, height: 0 },
+            drawn ? vertexTargets(drawn, key, index) : [],
+            guideReach(flow.getZoom()),
+        );
+        const point = {
+            x: Math.round(at.x + offset.x),
+            y: Math.round(at.y + offset.y),
+        };
+        return { point, guides };
+    };
+
+    /**
+     * A press on an edge's line or label selects that edge alone (spec
+     * 12.1); on its label it also starts sliding the label along the
+     * route (spec 12.7), which starts neither a marquee nor an element
+     * drag.
+     */
+    const pressEdge = (event: PointerEvent<HTMLDivElement>) => {
+        const found = edgeAt(event);
+        if (!found) return;
+        const { edge, label } = found;
+        selection.selectEdge?.(edge.key);
+        if (!label) return;
+        gesture(event, (at) => ({
+            guides: [],
+            change: changeRoute(edge.key, {
+                position: labelPositionAt(edge.route, at),
+            }),
+        }));
+    };
+
+    /** A drag on vertex `index` of `edge` moves it, snapped (spec 12.3). */
+    const dragVertex = (
+        event: PointerEvent<Element>,
+        edge: EdgeLine,
+        index: number,
+    ) =>
+        gesture(event, (at) => {
+            const { point, guides } = snapVertex(edge.key, index, at);
+            const vertices = edge.vertices.map((vertex, i) =>
+                i === index ? point : vertex,
+            );
+            return { guides, change: changeRoute(edge.key, { vertices }) };
+        });
+
+    /** A double-click on a vertex's handle removes it (spec 12.3). */
+    const removeVertex = (edge: EdgeLine, index: number) => {
+        const vertices = edge.vertices.filter((__, i) => i !== index);
+        const change = changeRoute(edge.key, { vertices });
+        if (change) onLayoutChanged?.(change);
+    };
+
+    /**
+     * A drag on the selected edge's `end` handle highlights the side of its
+     * element nearest the pointer, and the drop saves the vertex that holds
+     * that side (spec 12.4).
+     */
+    const dragEnd = (
+        event: PointerEvent<Element>,
+        edge: EdgeLine,
+        end: "source" | "target",
+    ) => {
+        const id = end === "source" ? edge.sourceId : edge.targetId;
+        const box = drawn?.elements.find((element) => element.id === id);
+        if (!box) return;
+        gesture(event, (at) => {
+            const side = nearestSide(box, at);
+            const length = isHorizontal(side) ? box.width : box.height;
+            const vertices = sideChange(
+                edge,
+                box,
+                end,
+                at,
+                guideReach(flow.getZoom()),
+            );
+            return {
+                guides: [],
+                side: {
+                    from: sidePoint(box, side, 0),
+                    to: sidePoint(box, side, length),
+                },
+                change: changeRoute(edge.key, { vertices }),
+            };
+        });
+    };
+
+    /**
+     * In editing a double-click on an element or on an edge's label offers
+     * its activation targets, as a click does when reading (spec 10.3).
+     */
+    const onDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+        if (!__RENDERIZR_EDIT_MODE__ || !editable || !graph) return;
+        const anchor = { x: event.clientX, y: event.clientY };
+        const id = elementNodeId(event.target);
+        const element = graph.elements.find((each) => each.id === id);
+        if (element) {
+            if (element.targets.length > 0)
+                onActivate("element", element.id, anchor);
+            return;
+        }
+        // A double-click on a line adds a vertex there, snapped (spec 12.3).
+        const found = edgeAt(event);
+        if (found && !found.label) {
+            const { edge } = found;
+            const { point } = snapVertex(
+                edge.key,
+                -1,
+                flow.screenToFlowPosition(anchor),
+            );
+            const change = changeRoute(edge.key, {
+                vertices: withVertex(edge, point),
+            });
+            if (change) onLayoutChanged?.(change);
+            return;
+        }
+        const label =
+            event.target instanceof Element
+                ? event.target.closest<HTMLElement>("[data-relationship-label]")
+                      ?.dataset.relationshipLabel
+                : undefined;
+        const edge = graph.edges.find((each) => each.id === label);
+        if (edge && edge.targets.length > 0)
+            onActivate("relationship", edge.id, anchor);
+    };
+
     // An item the keyboard focuses off screen is panned into view, zoom
     // unchanged. One the pointer focuses is already where the reader is.
     const onFocus = (event: FocusEvent<HTMLDivElement>) => {
@@ -1667,9 +2857,11 @@ function Canvas({
             tabIndex={0}
             className={styles.canvas}
             onKeyDown={onKeyDown}
-            onPointerDownCapture={() => {
-                pointing.current = true;
-            }}
+            onPointerDownCapture={onPointerDown}
+            onPointerUpCapture={
+                __RENDERIZR_EDIT_MODE__ && editable ? onPointerUp : undefined
+            }
+            onDoubleClick={editable ? onDoubleClick : undefined}
             onFocus={onFocus}
             style={
                 {
@@ -1678,48 +2870,95 @@ function Canvas({
                     background: graph?.background,
                     fontFamily: family,
                     "--focus-ring": graph?.color,
+                    // In editing, the selection outline keeps its width on
+                    // screen, and what lies off the canvas is shaded toward
+                    // the scheme's text color: darker on a light scheme,
+                    // lighter on a dark one (spec 14).
+                    ...(__RENDERIZR_EDIT_MODE__ &&
+                        editable && {
+                            "--zoom": zoom,
+                            "--canvas-background": graph?.background,
+                            background: `color-mix(in srgb, ${graph?.color} 15%, ${graph?.background})`,
+                        }),
                 } as CSSProperties
             }
         >
             <Activate.Provider value={onActivate}>
-                <CanvasBackground.Provider
-                    value={graph?.background ?? "#ffffff"}
-                >
-                    {graph?.error ? (
-                        <ViewError graph={graph} />
-                    ) : (
-                        <ReactFlow
-                            nodes={nodes}
-                            edges={edges}
-                            nodeTypes={nodeTypes}
-                            edgeTypes={edgeTypes}
-                            nodeOrigin={nodeOrigin}
-                            connectionMode={ConnectionMode.Loose}
-                            nodesDraggable={false}
-                            nodesConnectable={false}
-                            nodesFocusable={false}
-                            edgesFocusable={false}
-                            elementsSelectable={false}
-                            // The canvas owns the keys (spec 6.2).
-                            disableKeyboardA11y
-                            panOnDrag
-                            panOnScroll
-                            zoomOnScroll={false}
-                            zoomOnPinch
-                            zoomOnDoubleClick={false}
-                            zoomActivationKeyCode={zoomKeys}
-                            minZoom={floor}
-                            maxZoom={ceiling}
-                            colorMode={state.scheme}
-                            proOptions={proOptions}
-                            onMoveStart={(event) => {
-                                // Programmatic moves carry no event; only
-                                // the reader's do.
-                                if (event) moved.current = true;
-                            }}
-                        />
-                    )}
-                </CanvasBackground.Provider>
+                <Editing.Provider value={editable}>
+                    <CanvasBackground.Provider
+                        value={graph?.background ?? "#ffffff"}
+                    >
+                        {graph?.error ? (
+                            <ViewError graph={graph} />
+                        ) : (
+                            <ReactFlow
+                                nodes={nodes}
+                                edges={edges}
+                                nodeTypes={nodeTypes}
+                                edgeTypes={edgeTypes}
+                                nodeOrigin={nodeOrigin}
+                                connectionMode={ConnectionMode.Loose}
+                                nodesDraggable={editable}
+                                onNodesChange={
+                                    editable ? onNodesChange : undefined
+                                }
+                                nodesConnectable={false}
+                                nodesFocusable={false}
+                                edgesFocusable={false}
+                                // In editing a plain drag on the canvas or a
+                                // boundary draws a marquee, and Space, the
+                                // middle or the right button pans (spec 10.1).
+                                // React Flow's own selection key would turn
+                                // a Shift-click into a marquee.
+                                elementsSelectable={editable}
+                                selectionOnDrag={editable}
+                                selectionKeyCode={editable ? null : undefined}
+                                onSelectionStart={
+                                    editable ? startMarquee : undefined
+                                }
+                                onSelectionEnd={
+                                    editable ? endMarquee : undefined
+                                }
+                                onPaneClick={
+                                    editable ? () => select(NONE) : undefined
+                                }
+                                // The canvas owns the keys (spec 6.2).
+                                disableKeyboardA11y
+                                panOnDrag={editable ? EDIT_PAN_BUTTONS : true}
+                                panOnScroll
+                                zoomOnScroll={false}
+                                zoomOnPinch
+                                zoomOnDoubleClick={false}
+                                zoomActivationKeyCode={zoomKeys}
+                                minZoom={floor}
+                                maxZoom={ceiling}
+                                colorMode={state.scheme}
+                                proOptions={proOptions}
+                                onMoveStart={(event) => {
+                                    // Programmatic moves carry no event; only
+                                    // the reader's do.
+                                    if (event) moved.current = true;
+                                }}
+                            >
+                                {editable && drag && drag.key === viewKey && (
+                                    <Guides guides={drag.guides} />
+                                )}
+                                {editable && graph && (
+                                    <EdgeMarks
+                                        graph={graph}
+                                        stepState={stepState}
+                                        selected={selection.edge?.key}
+                                        side={drag?.side}
+                                        zoom={zoom}
+                                        onVertex={dragVertex}
+                                        onRemove={removeVertex}
+                                        onEnd={dragEnd}
+                                    />
+                                )}
+                            </ReactFlow>
+                        )}
+                    </CanvasBackground.Provider>
+                </Editing.Provider>
             </Activate.Provider>
         </div>
     );

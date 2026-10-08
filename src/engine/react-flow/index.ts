@@ -1,11 +1,19 @@
 import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { type ModelView, WorkspaceModel } from "../../model";
+import {
+    type EditedLayout,
+    isEditable,
+    type LayoutChange,
+    type ModelView,
+    WorkspaceModel,
+} from "../../model";
 import {
     abortError,
     type Anchor,
+    type EditControls,
     type Engine,
     type EngineOptions,
+    type SelectionState,
     whenMeasurable,
 } from "../contract";
 import { AnimationPlayer } from "./animation";
@@ -45,13 +53,25 @@ export function mountEngine(
             return;
         }
 
-        const model = new WorkspaceModel(options.workspace);
+        // Edit mode swaps the workspace in place (`setWorkspace`).
+        let model = new WorkspaceModel(options.workspace);
+        const editableKey = (key: string) => {
+            const view = model.findViewByKey(key);
+            return view !== undefined && isEditable(view);
+        };
         const store = new IslandStore({
             key: options.view,
             scheme: options.colorScheme,
             labels: { ...options.labels },
             step: null,
+            editing:
+                __RENDERIZR_EDIT_MODE__ &&
+                options.editing === true &&
+                editableKey(options.view),
+            layouts: new Map(Object.entries(options.layouts ?? {})),
         });
+        const layoutChanged = new Set<(change: LayoutChange) => void>();
+        const selectionChanged = new Set<(selection: SelectionState) => void>();
         const commands: IslandCommands = {
             fit: () => {},
             zoomIn: () => {},
@@ -67,6 +87,11 @@ export function mountEngine(
          * before another one paints takes its steps back from here.
          */
         let painted: { key: string; steps: number } | null = null;
+        /**
+         * Set by `setWorkspace` while the view it kept waits to be painted
+         * again, which keeps the step shown when the view still has it.
+         */
+        let reloading = false;
         player.onChanged(({ step }) => {
             if (step !== store.get().step) store.set({ step });
         });
@@ -96,6 +121,66 @@ export function mountEngine(
         const onActivate: IslandProps["onActivate"] = (type, id, anchor) => {
             for (const callback of activated[type]) callback(id, anchor);
         };
+
+        const editControls = (): EditControls => ({
+            setEditing(on) {
+                if (on && !editableKey(store.get().key)) return;
+                // Editing holds the step shown and stops playback (spec 18).
+                if (on) player.pause();
+                if (on !== store.get().editing) store.set({ editing: on });
+            },
+            setLayout(view: string, layout: EditedLayout) {
+                const layouts = new Map(store.get().layouts);
+                layouts.set(view, layout);
+                store.set({ layouts });
+            },
+            resizeCanvas(command, { recenter }) {
+                commands.resizeCanvas?.(command, recenter);
+            },
+            bringBack() {
+                commands.bringBack?.();
+            },
+            calculateLayout(options) {
+                commands.calculateLayout?.(options);
+            },
+            align(edge) {
+                commands.align?.(edge);
+            },
+            distribute(axis) {
+                commands.distribute?.(axis);
+            },
+            setRouting(mode) {
+                commands.setRouting?.(mode);
+            },
+            setWorkspace(workspace) {
+                model = new WorkspaceModel(workspace);
+                const { key, editing } = store.get();
+                const kept = model.findViewByKey(key) !== undefined;
+                const shownKey = kept ? key : model.getViews()[0]?.key ?? key;
+                reloading = kept;
+                // One store change, so the island never draws the new
+                // workspace with the view or edited layouts of the old one.
+                store.set({
+                    model,
+                    key: shownKey,
+                    ...(!kept && { step: null }),
+                    editing: editing && editableKey(shownKey),
+                    layouts: new Map(),
+                });
+            },
+            onLayoutChanged(callback) {
+                layoutChanged.add(callback);
+                return () => {
+                    layoutChanged.delete(callback);
+                };
+            },
+            onSelectionChanged(callback) {
+                selectionChanged.add(callback);
+                return () => {
+                    selectionChanged.delete(callback);
+                };
+            },
+        });
 
         const engine: Engine = {
             showView(key) {
@@ -141,6 +226,10 @@ export function mountEngine(
                 listen(activated.element, callback),
             onRelationshipActivated: (callback) =>
                 listen(activated.relationship, callback),
+            // Builds, which never edit, leave these out (ADR 15).
+            ...(__RENDERIZR_EDIT_MODE__
+                ? editControls()
+                : ({} as EditControls)),
             unmount() {
                 stopWaiting();
                 shown.clear();
@@ -148,6 +237,10 @@ export function mountEngine(
                 document.removeEventListener("visibilitychange", onVisibility);
                 activated.element.clear();
                 activated.relationship.clear();
+                if (__RENDERIZR_EDIT_MODE__) {
+                    layoutChanged.clear();
+                    selectionChanged.clear();
+                }
                 root?.unmount();
                 root = null;
                 if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
@@ -160,7 +253,19 @@ export function mountEngine(
                 writeReport(document, engineReport(graph));
             }
             painted = { key, steps: graph.animation?.steps.length ?? 0 };
-            player.load(painted.steps);
+            if (__RENDERIZR_EDIT_MODE__ && reloading) {
+                // The same view from a workspace swapped in: the step shown
+                // stays while the view still has it (spec 6.3).
+                reloading = false;
+                const { steps, step } = player.state;
+                const kept = step !== null && step <= painted.steps;
+                if (steps !== painted.steps || !kept) {
+                    // A step that's gone falls back to the full view.
+                    player.load(painted.steps);
+                    while (kept && (player.state.step ?? 0) < (step ?? 0))
+                        player.stepForward();
+                }
+            } else player.load(painted.steps);
             const view = model.findViewByKey(key);
             if (view) shown.paint(view);
             if (!mounted) {
@@ -188,6 +293,16 @@ export function mountEngine(
                     onRedrawn,
                     onEscape: () => player.stop(),
                     onActivate,
+                    ...(__RENDERIZR_EDIT_MODE__ && {
+                        onLayoutChanged: (change: LayoutChange) => {
+                            for (const callback of layoutChanged)
+                                callback(change);
+                        },
+                        onSelectionChanged: (selection: SelectionState) => {
+                            for (const callback of selectionChanged)
+                                callback(selection);
+                        },
+                    }),
                 }),
             );
         });

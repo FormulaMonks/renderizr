@@ -8,6 +8,7 @@ import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build as viteBuild } from "vite";
+import { createConfig } from "./config.js";
 import { findUnspellable } from "./escapes.js";
 import {
     assetReferences,
@@ -517,7 +518,7 @@ test("the binary prints its usage and exits 0 for --help", async () => {
     const { code, stdout } = await runCli(["--help"]);
 
     assert.equal(code, 0);
-    assert.match(stdout, /Renderizr — render a Structurizr workspace/);
+    assert.match(stdout, /Renderizr: render a Structurizr workspace/);
     // The usage line has to name the binary package.json actually installs —
     // `bin` declares only `renderizr`, so `build` would send the reader to a
     // command that is not on their PATH.
@@ -565,6 +566,76 @@ test("RENDERIZR_ENGINE_REPORT=1 builds the engine report into the page", async (
         (await entryChunk(out)).includes("engine-report"),
         "the report writer is missing from the bundle",
     );
+});
+
+/* ---------------------------------------------------- no edit-mode code */
+
+/**
+ * Strings only edit mode's page code carries: the session token's storage
+ * key, the pencil's reason on an automatic-layout view, the classes of Done
+ * and of the link to a base view's editing route, the save endpoint and its
+ * token header, the save status, the leave dialog, the
+ * alignment guides, the align buttons and the "Keyboard shortcuts" dialog.
+ */
+const EDIT_MODE_MARKERS = [
+    "renderizr:session-token",
+    "This view uses automatic layout",
+    "done-editing",
+    "edit-base-view",
+    "/__renderizr/save",
+    "X-Renderizr-Token",
+    "Unsaved changes",
+    "Discard and continue",
+    "data-alignment-guides",
+    "align-selection",
+    "close-shortcuts",
+];
+
+/** Every JavaScript and HTML file a build wrote under `out`, as one string. */
+const builtOutput = async (out) => {
+    const files = await readdir(out, { recursive: true });
+    const texts = await Promise.all(
+        files
+            .filter((file) => /\.(js|html)$/.test(file))
+            .map((file) => readFile(join(out, file), "utf-8")),
+    );
+    return texts.join("\n");
+};
+
+test("no edit-mode code reaches a build's output", async () => {
+    for (const { out } of [await multiFile(), await singleFile()]) {
+        const output = await builtOutput(out);
+        for (const marker of EDIT_MODE_MARKERS) {
+            assert.ok(
+                !output.includes(marker),
+                `${out} carries edit-mode code: ${marker}`,
+            );
+        }
+    }
+});
+
+test("the edit-mode markers are in the page when edit mode is compiled in", async () => {
+    // The control for the test above: compiled with the flag on, the same
+    // page carries every marker, so their absence there means something.
+    const config = createConfig({
+        workspace: readJsonFixture("workspace.json"),
+        out: join(SCRATCH, "edit-mode-control"),
+    });
+    const result = await viteBuild({
+        ...config,
+        logLevel: "silent",
+        define: { ...config.define, __RENDERIZR_EDIT_MODE__: "true" },
+        build: { ...config.build, write: false },
+    });
+    const code = [result]
+        .flat()
+        .flatMap((bundle) => bundle.output)
+        .filter((output) => output.type === "chunk")
+        .map((chunk) => chunk.code)
+        .join("\n");
+    for (const marker of EDIT_MODE_MARKERS) {
+        assert.ok(code.includes(marker), `the page never carries ${marker}`);
+    }
 });
 
 /* -------------------------------------------------------- the bundle budget */
@@ -629,7 +700,10 @@ test("the React Flow island's gzipped JS stays within #26's figure and Dagre's, 
         configFile: false,
         logLevel: "silent",
         esbuild: { jsx: "automatic" },
-        define: { __RENDERIZR_ENGINE_REPORT__: "false" },
+        define: {
+            __RENDERIZR_ENGINE_REPORT__: "false",
+            __RENDERIZR_EDIT_MODE__: "false",
+        },
         build: {
             write: false,
             target: "esnext",

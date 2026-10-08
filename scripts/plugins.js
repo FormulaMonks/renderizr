@@ -1,22 +1,65 @@
 import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 
-/** Injects the embedded font faces before first paint. */
-export function branding({ font }) {
+/** The module the page imports its workspace from. */
+export const WORKSPACE_MODULE = "virtual:renderizr/workspace";
+
+/** The id Vite gives `WORKSPACE_MODULE` once a plugin resolves it. */
+export const RESOLVED_WORKSPACE_MODULE = `\0${WORKSPACE_MODULE}`;
+
+/**
+ * The source of `WORKSPACE_MODULE`: the workspace as its default export, and
+ * as `version` the version of `workspace.json` edit mode loaded it from
+ * (spec 7.4), `null` anywhere else. In a DSL session, `error` is the DSL
+ * pipeline's error, `{ message, blank }`, while the last run failed (spec
+ * 5.3); `null` anywhere else.
+ */
+export const workspaceModuleSource = (
+    workspace,
+    version = null,
+    error = null,
+) =>
+    `export default ${JSON.stringify(workspace)};\nexport const version = ${JSON.stringify(version)};\nexport const error = ${JSON.stringify(error)};`;
+
+/**
+ * Compiles `workspace` into the page as `WORKSPACE_MODULE`. Builds and
+ * `pnpm dev` use this; edit mode serves the module from disk instead
+ * (ADR 15).
+ */
+export function workspaceModule(workspace) {
+    return {
+        name: "renderizr:workspace",
+        resolveId: (id) =>
+            id === WORKSPACE_MODULE ? RESOLVED_WORKSPACE_MODULE : null,
+        load: (id) =>
+            id === RESOLVED_WORKSPACE_MODULE
+                ? workspaceModuleSource(workspace)
+                : null,
+    };
+}
+
+/**
+ * Injects the embedded font faces, and the primary color when one is set,
+ * before first paint. The color's selector outweighs both color schemes'
+ * blocks in `main.css`, so it holds in light and dark alike, and the colors
+ * `main.css` derives from it follow.
+ */
+export function branding({ font, primaryColor = null }) {
+    const css = [
+        font?.css,
+        primaryColor &&
+            `html:root, html:root[data-theme] { --color-primary: ${primaryColor}; }`,
+    ].filter(Boolean);
     return {
         name: "renderizr:branding",
         transformIndexHtml: {
             order: "pre",
             handler: (html) => ({
                 html,
-                tags: font
-                    ? [
-                          {
-                              tag: "style",
-                              children: font.css,
-                              injectTo: "head",
-                          },
-                      ]
-                    : [],
+                tags: css.map((children) => ({
+                    tag: "style",
+                    children,
+                    injectTo: "head",
+                })),
             }),
         },
     };

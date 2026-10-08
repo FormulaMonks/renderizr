@@ -93,16 +93,40 @@ export default class DiagramNavigation extends Component {
      * filtered view's base as current, cannot show the same view endlessly.
      */
     #shown: string | null = null;
+    /**
+     * Whether the URL may open a view the drawer doesn't list. The editing
+     * route of a filtered view's base view is one (spec 4.6): the drawer
+     * hides that base, and edit mode still edits it.
+     */
+    #reachable: (key: string) => boolean;
+    /**
+     * What a click on a view goes through first. Edit mode holds it while
+     * the view's changes wait for a save (spec 7.5); otherwise it goes at
+     * once.
+     */
+    #guard: (proceed: () => void) => void;
 
     constructor(
         element: HTMLElement,
         diagram: ViewSwitcher,
         model: WorkspaceModel,
+        reachable: (key: string) => boolean = () => false,
+        guard: (proceed: () => void) => void = (proceed) => proceed(),
     ) {
         super(element);
         this.#diagram = diagram;
         this.#model = model;
         this.#navElements = model.getViews();
+        this.#reachable = reachable;
+        this.#guard = guard;
+    }
+
+    /** Whether the URL may open the view `key`. */
+    #canOpen(key: string) {
+        return (
+            this.#navElements.some((el) => el.key === key) ||
+            this.#reachable(key)
+        );
     }
 
     #items() {
@@ -119,7 +143,8 @@ export default class DiagramNavigation extends Component {
 
             const callback = (event: Event) => {
                 event.preventDefault();
-                this.changeView(key);
+                if (key === this.#shown) this.changeView(key);
+                else this.#guard(() => this.changeView(key));
             };
 
             this.#eventListeners.set(key, callback);
@@ -157,14 +182,14 @@ export default class DiagramNavigation extends Component {
         const viewKey = new URLSearchParams(search).get("view");
         if (!viewKey) return;
         if (this.#diagram.getCurrentView()?.key === viewKey) return;
-        if (!this.#navElements.some((el) => el.key === viewKey)) return;
+        if (!this.#canOpen(viewKey)) return;
 
         this.changeView(viewKey, true);
     };
 
     #getViewFromUrl() {
         const view = new URLSearchParams(history.location.search).get("view");
-        return this.#navElements.find((el) => el.key === view)?.key;
+        return view && this.#canOpen(view) ? view : undefined;
     }
 
     /** The drawer's scroll position, kept across view changes and reloads. */

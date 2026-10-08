@@ -40,3 +40,40 @@
     cursor: pointer;
     pointer-events: stroke;
 }
+
+/*
+ * React Flow's box over a marquee's selection would catch the clicks meant
+ * for the elements under it (spec 10.2); the selected elements drag the
+ * selection themselves.
+ */
+.canvas :global(.react-flow__nodesselection) {
+    display: none;
+}
+
+/*
+ * A selected element in editing: a 2 px outline in the brand color, 4 px
+ * clear of its box on screen at any zoom (`--zoom` is the canvas's zoom).
+ * The reference element's is thicker (spec 10.2, 10.4).
+ */
+.canvas :global(.react-flow__node-box.selected) {
+    outline: calc(2px / var(--zoom, 1)) solid var(--color-primary);
+    outline-offset: calc(4px / var(--zoom, 1));
+}
+
+.canvas :global(.react-flow__node-box.selected[data-reference]) {
+    outline-width: calc(4px / var(--zoom, 1));
+}
+
+/*
+ * The canvas in editing (spec 14): the scheme's background, set apart from
+ * the shaded space around it, inside a faint frame in the scheme's text
+ * color, so the view stays in front. It takes no pointer events.
+ */
+.canvasFrame {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background: var(--canvas-background);
+    border: 2px dashed color-mix(in srgb, var(--focus-ring) 35%, transparent);
+    pointer-events: none;
+}

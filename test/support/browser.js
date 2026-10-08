@@ -102,6 +102,29 @@ const OFFLINE_FLAGS = [
 ];
 
 /**
+ * Remove the Chrome profile at `profile`, never throwing.
+ *
+ * Chrome's helper processes go on writing into the profile for a moment after
+ * the browser process exits, whether it was killed or closed, so a recursive
+ * remove races them and throws ENOTEMPTY on `<profile>/Default`. Node 22's
+ * `rmSync` loses that race often on Linux, where it failed the browser tests
+ * at the end of each one. Retry a few times, and never let cleanup fail a
+ * run: a leftover directory under the OS temp root is not worth a red build.
+ */
+function removeProfile(profile) {
+    try {
+        rmSync(profile, {
+            recursive: true,
+            force: true,
+            maxRetries: 10,
+            retryDelay: 50,
+        });
+    } catch {
+        // Left for the OS to reap.
+    }
+}
+
+/**
  * Run Chrome on `url` with `FLAGS` plus `extra`, and resolve with its stdout
  * and stderr once `isDone(stdout, stderr)` says the output is complete or
  * Chrome exits. Rejects if Chrome fails or takes longer than `timeout`.
@@ -125,25 +148,7 @@ function runChrome(chrome, url, extra, { timeout, isDone }) {
             settled = true;
             clearTimeout(timer);
             child.kill("SIGKILL");
-            // SIGKILL is not synchronous, and Chrome's helper processes go on
-            // writing into the profile for a moment after the parent is gone —
-            // so this raced and threw ENOTEMPTY on `<profile>/Default`. Because
-            // `finish` runs from a socket handler, that surfaced as an uncaught
-            // exception and failed whichever test happened to be in flight.
-            //
-            // Retry a few times, and never let cleanup fail a run: a leftover
-            // directory under the OS temp root is not worth a red build, and
-            // the suite removes its scratch root on `after` regardless.
-            try {
-                rmSync(profile, {
-                    recursive: true,
-                    force: true,
-                    maxRetries: 10,
-                    retryDelay: 50,
-                });
-            } catch {
-                // Left for the OS to reap.
-            }
+            removeProfile(profile);
             if (error) reject(error);
             else resolve(value);
         };
@@ -199,7 +204,8 @@ export function consoleMessages(stderr) {
  * Load `url` and resolve with the serialized DOM, every console message the
  * page wrote while it loaded, and `elapsed`: the wall-clock milliseconds from
  * launching Chrome to the document arriving. Rejects if Chrome fails or takes
- * longer than `timeout`. `flags` are extra Chrome switches for this run, such
+ * longer than `timeout`: two minutes by default, since a full run of the
+ * suite starts many Chromes side by side. `flags` are extra Chrome switches for this run, such
  * as `--force-prefers-reduced-motion`.
  *
  * The page cannot time itself here. `--virtual-time-budget` fakes every clock
@@ -213,7 +219,7 @@ export function consoleMessages(stderr) {
 export async function renderPage(
     chrome,
     url,
-    { timeout = 60_000, offline = false, flags = [] } = {},
+    { timeout = 120_000, offline = false, flags = [] } = {},
 ) {
     const launched = performance.now();
     const { out, err } = await runChrome(
@@ -265,6 +271,227 @@ export async function screenshot(
         // linger like it does after `--dump-dom`.
         isDone: (out, err) => /bytes written to file/.test(`${out}${err}`),
     });
+}
+
+/**
+ * Start Chrome with the DevTools protocol on a pipe, for the few tests that
+ * have to drive a page: drag with the mouse, press keys and read state back.
+ * `--remote-debugging-pipe` talks NUL-separated JSON over file descriptors 3
+ * (to Chrome) and 4 (from Chrome), so it needs no WebSocket and no new
+ * dependency either.
+ *
+ * Resolves with `open(url)`, which opens a tab and hands back a `page` to
+ * drive, and `close()`, which ends Chrome.
+ */
+export async function openBrowser(chrome) {
+    const profile = mkdtempSync(join(tmpdir(), "renderizr-chrome-"));
+    const flags = FLAGS.filter(
+        // Virtual time would run the page's timers ahead of the pointer.
+        (flag) => !flag.startsWith("--virtual-time-budget"),
+    );
+    const child = spawn(
+        chrome,
+        [
+            ...flags,
+            "--remote-debugging-pipe",
+            `--user-data-dir=${profile}`,
+            "about:blank",
+        ],
+        { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
+    );
+    const [, , , toChrome, fromChrome] = child.stdio;
+
+    let next = 0;
+    let buffer = "";
+    const pending = new Map();
+    fromChrome.setEncoding("utf8");
+    fromChrome.on("data", (chunk) => {
+        buffer += chunk;
+        for (let end = buffer.indexOf("\0"); end >= 0; ) {
+            const message = JSON.parse(buffer.slice(0, end));
+            buffer = buffer.slice(end + 1);
+            end = buffer.indexOf("\0");
+            const waiting = pending.get(message.id);
+            if (!waiting) continue;
+            pending.delete(message.id);
+            if (message.error) waiting.reject(new Error(message.error.message));
+            else waiting.resolve(message.result);
+        }
+    });
+    // Chrome closes its end of the pipe as it exits, killed by `close` or
+    // not, and a read or write still on its way then fails with ECONNRESET
+    // or EPIPE: the calls still waiting fail with it, and nothing throws
+    // past the test.
+    const fail = (error) => {
+        for (const { reject } of pending.values()) reject(error);
+        pending.clear();
+    };
+    toChrome.on("error", fail);
+    fromChrome.on("error", fail);
+    child.once("exit", () => fail(new Error("Chrome exited")));
+    const send = (method, params = {}, sessionId = undefined) =>
+        new Promise((resolve, reject) => {
+            const id = ++next;
+            pending.set(id, { resolve, reject });
+            toChrome.write(
+                `${JSON.stringify({ id, method, params, sessionId })}\0`,
+            );
+        });
+
+    return {
+        async open(url) {
+            const { targetId } = await send("Target.createTarget", { url });
+            const { sessionId } = await send("Target.attachToTarget", {
+                targetId,
+                flatten: true,
+            });
+            const call = (method, params) => send(method, params, sessionId);
+            const evaluate = async (expression) => {
+                const { result, exceptionDetails } = await call(
+                    "Runtime.evaluate",
+                    { expression, awaitPromise: true, returnByValue: true },
+                );
+                if (exceptionDetails)
+                    throw new Error(
+                        exceptionDetails.exception?.description ??
+                            exceptionDetails.text,
+                    );
+                return result.value;
+            };
+            return {
+                evaluate,
+                /** Wait until `expression` is truthy in the page, then return it. */
+                async waitFor(expression, timeout = 30_000) {
+                    const until = Date.now() + timeout;
+                    while (Date.now() < until) {
+                        // A call sent while the tab navigates may never be
+                        // answered, so each try gives up after a second.
+                        const value = await Promise.race([
+                            evaluate(expression).catch(() => null),
+                            new Promise((done) =>
+                                setTimeout(() => done(null), 1000),
+                            ),
+                        ]);
+                        if (value) return value;
+                        await new Promise((done) => setTimeout(done, 100));
+                    }
+                    throw new Error(`The page never got to ${expression}`);
+                },
+                /**
+                 * Wait until the ready canvas holds still: its box on screen
+                 * and the viewport's transform the same across two frames,
+                 * so a gesture lands where it was measured.
+                 */
+                async settle(timeout = 30_000) {
+                    // A tab in the background gets no frames: bring it up.
+                    await call("Page.bringToFront");
+                    return this.waitFor(
+                        `new Promise((done) => {
+                            const read = () => {
+                                const canvas = document.querySelector('[data-ready="true"]');
+                                const viewport = canvas?.querySelector(".react-flow__viewport");
+                                if (!viewport) return null;
+                                const r = canvas.getBoundingClientRect();
+                                return [r.left, r.top, r.width, r.height, viewport.style.transform].join();
+                            };
+                            // A tab in the background may get no frames; a
+                            // timer stands in for them there.
+                            const nextFrame = (then) => {
+                                let ran = false;
+                                const once = () => {
+                                    if (!ran) then((ran = true));
+                                };
+                                requestAnimationFrame(once);
+                                setTimeout(once, 100);
+                            };
+                            const first = read();
+                            nextFrame(() =>
+                                nextFrame(() => done(first !== null && first === read())),
+                            );
+                        })`,
+                        timeout,
+                    );
+                },
+                /** Click at `at` with `modifiers` held (DevTools bits). */
+                async click(at, modifiers = 0) {
+                    for (const [type, buttons] of [
+                        ["mouseMoved", 0],
+                        ["mousePressed", 1],
+                        ["mouseReleased", 0],
+                    ])
+                        await call("Input.dispatchMouseEvent", {
+                            type,
+                            ...at,
+                            button: "left",
+                            buttons,
+                            clickCount: 1,
+                            modifiers,
+                        });
+                },
+                /**
+                 * Press at `from`, move in `steps` to `to` and release, with
+                 * `modifiers` held (DevTools bits).
+                 */
+                async drag(from, to, steps = 10, modifiers = 0) {
+                    const mouse = (type, { x, y }, buttons) =>
+                        call("Input.dispatchMouseEvent", {
+                            type,
+                            x,
+                            y,
+                            button: "left",
+                            buttons,
+                            clickCount: 1,
+                            modifiers,
+                        });
+                    await mouse("mouseMoved", from, 0);
+                    await mouse("mousePressed", from, 1);
+                    for (let step = 1; step <= steps; step++) {
+                        await mouse(
+                            "mouseMoved",
+                            {
+                                x: from.x + ((to.x - from.x) * step) / steps,
+                                y: from.y + ((to.y - from.y) * step) / steps,
+                            },
+                            1,
+                        );
+                    }
+                    await mouse("mouseReleased", to, 0);
+                },
+                /** Double-click at `at`. */
+                async doubleClick(at) {
+                    const mouse = (type, clickCount, buttons) =>
+                        call("Input.dispatchMouseEvent", {
+                            type,
+                            ...at,
+                            button: "left",
+                            buttons,
+                            clickCount,
+                        });
+                    await mouse("mouseMoved", 0, 0);
+                    for (const clickCount of [1, 2]) {
+                        await mouse("mousePressed", clickCount, 1);
+                        await mouse("mouseReleased", clickCount, 0);
+                    }
+                },
+                /** Press a key by its physical `code`, with `modifiers` (DevTools bits). */
+                async press(key, code, modifiers = 0) {
+                    for (const type of ["rawKeyDown", "keyUp"])
+                        await call("Input.dispatchKeyEvent", {
+                            type,
+                            key,
+                            code,
+                            modifiers,
+                        });
+                },
+            };
+        },
+        async close() {
+            const exited = new Promise((done) => child.once("exit", done));
+            child.kill();
+            await exited;
+            removeProfile(profile);
+        },
+    };
 }
 
 const CONTENT_TYPES = {

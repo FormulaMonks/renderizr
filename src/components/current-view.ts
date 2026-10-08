@@ -5,7 +5,7 @@ import {
     type Labels,
     NOT_ANIMATING,
 } from "../engine/contract";
-import type { WorkspaceModel } from "../model";
+import type { ModelView, WorkspaceModel } from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
 import styles from "./current-view.module.css";
 import lightModeIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
@@ -20,6 +20,7 @@ import pauseIcon from "bootstrap-icons/icons/pause-fill.svg?raw";
 import prevStepIcon from "bootstrap-icons/icons/skip-start-fill.svg?raw";
 import nextStepIcon from "bootstrap-icons/icons/skip-end-fill.svg?raw";
 import Component from "./_component";
+import { type EditingRoute, editButtons } from "./edit-buttons";
 
 /** The part of the engine the toolbar drives. */
 export type ToolbarEngine = Pick<
@@ -133,6 +134,8 @@ function writeLabelState(state: Labels): void {
 export default class CurrentView extends Component {
     #engine: ToolbarEngine;
     #model: WorkspaceModel;
+    /** The page's editing route, in edit mode only (spec 4.6). */
+    #editingRoute: EditingRoute | null;
 
     /**
      * The engine's animation state, which the animation buttons render from;
@@ -189,10 +192,12 @@ export default class CurrentView extends Component {
         element: HTMLElement,
         engine: ToolbarEngine,
         model: WorkspaceModel,
+        editingRoute: EditingRoute | null = null,
     ) {
         super(element);
         this.#engine = engine;
         this.#model = model;
+        this.#editingRoute = editingRoute;
 
         // Seed the engine from the persisted preferences. Both setters are
         // idempotent, so this costs nothing when the engine was mounted with
@@ -244,14 +249,18 @@ export default class CurrentView extends Component {
             this.element?.querySelector<HTMLElement>(".animation-buttons");
         if (!group) return;
         group.hidden = steps === 0;
+        // Editing holds the step shown, and the player waits (spec 18).
+        const editing =
+            __RENDERIZR_EDIT_MODE__ && this.#editingRoute?.isEditing() === true;
 
         for (const name of ["prev-step", "next-step"]) {
             const button = this.#button(name);
-            if (button) button.disabled = steps === 0;
+            if (button) button.disabled = steps === 0 || editing;
         }
 
         const play = this.#button("play-animation");
         if (!play) return;
+        play.disabled = editing;
         const label = playing ? "Pause animation" : "Play animation";
         play.innerHTML = playing ? pauseIcon : playIcon;
         play.dataset.playing = playing ? "true" : "";
@@ -330,7 +339,7 @@ export default class CurrentView extends Component {
         );
     }
 
-    #addControlButtons(container: HTMLElement) {
+    #addControlButtons(container: HTMLElement, view: ModelView) {
         container.innerHTML = `
             <div class="actions ${styles.btnGroup}">
                 <button class="zoom-out" title="Zoom out" aria-label="Zoom out">${zoomOutIcon}</button>
@@ -346,6 +355,12 @@ export default class CurrentView extends Component {
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
             </div>
         `;
+
+        // Builds compile edit mode out, so no pencil reaches them (ADR 15).
+        if (__RENDERIZR_EDIT_MODE__ && this.#editingRoute) {
+            const group = editButtons(view, this.#model, this.#editingRoute);
+            if (group) container.appendChild(group);
+        }
 
         this.#paintControlButtons();
         this.#paintAnimationButtons();
@@ -410,11 +425,24 @@ export default class CurrentView extends Component {
             </div>
         `;
 
+        if (__RENDERIZR_EDIT_MODE__ && this.#editingRoute?.isEditing()) {
+            const notice = this.#editingRoute.notice(view.key);
+            if (notice) {
+                const line = document.createElement("p");
+                line.className = `edit-notice ${styles.editNotice}`;
+                line.setAttribute("role", "note");
+                line.textContent = notice;
+                this.element
+                    .querySelector(`.${styles.description}`)
+                    ?.appendChild(line);
+            }
+        }
+
         const controlButtonsContainer = document.createElement("div");
         controlButtonsContainer.classList.add(styles.controlButtons);
         // Attached first: the paint helpers look the buttons up through
         // `this.element`, so the container has to be in the tree already.
         this.element.appendChild(controlButtonsContainer);
-        this.#addControlButtons(controlButtonsContainer);
+        this.#addControlButtons(controlButtonsContainer, view);
     }
 }

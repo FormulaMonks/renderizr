@@ -23,7 +23,7 @@ Renderizr draws the diagrams with its own engine from everything the workspace s
 - The user asks for an **artifact**, a **preview**, or "publish the diagrams".
 - The user works in a repository that has an `./architecture` folder — often one created by [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/) — and wants output from it.
 
-Do **not** use this skill to author or edit a model. Renderizr renders; it does not parse DSL and never writes to the workspace. Editing the model is Scaffoldizr's job.
+Do **not** use this skill to author or edit a model: that is Scaffoldizr's job. Renderizr renders a workspace, and its edit mode (`npx renderizr edit`) lets a person arrange the layout of its views in a browser; the agent never drives edit mode.
 
 ## The one command
 
@@ -58,11 +58,11 @@ Renderizr takes **JSON**, either a local path or a URL. It does not parse DSL.
     --single-file --out /tmp/big-bank
   ```
 
-`workspace.json` is a **compiled output** in a Scaffoldizr repository. Render it, but never edit it: the next export overwrites it.
+In a Scaffoldizr repository `workspace.json` holds the views' layout as well as the exported model: Renderizr's edit mode and Structurizr Local save layout into it, and Structurizr's `merge` keeps that layout when the DSL changes. Render it, and never edit it by hand.
 
 ## Recommended flow
 
-1. **Find the workspace.** Look for `./architecture/workspace.json`. If only `workspace.dsl` exists, export it first and say so; do not silently render a stale JSON.
+1. **Find the workspace.** Look for `./architecture/workspace.json`. If only `workspace.dsl` exists, export it first and say so; do not silently render a stale JSON. An export that overwrites a `workspace.json` holding layout loses it: when one exists, export with `merge -layout workspace.json`.
 2. **Render it**, into a temporary directory rather than the repository, unless the user asked you to keep the output:
 
    ```bash

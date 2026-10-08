@@ -4,7 +4,32 @@
  * reached only through `mountEngine` and the `Engine` handle (ADR 3).
  */
 
-import type { ModelView } from "../model";
+import type {
+    AutomaticLayoutSettings,
+    EditedLayout,
+    LayoutChange,
+    ModelView,
+} from "../model";
+import type { AlignEdge, DistributeAxis } from "./geometry/arrange";
+import type { RoutingMode } from "./geometry/routing/path";
+
+export type { AlignEdge, DistributeAxis, EditedLayout, LayoutChange };
+
+/**
+ * The options of the "Calculate layout" dialog (spec 15): Structurizr
+ * Local's five, with no ranker and no Graphviz.
+ */
+export type CalculateLayoutOptions = Pick<
+    AutomaticLayoutSettings,
+    | "rankDirection"
+    | "rankSeparation"
+    | "nodeSeparation"
+    | "edgeSeparation"
+    | "vertices"
+>;
+
+/** The three canvas commands (spec 14). */
+export type CanvasCommand = "decrease" | "increase" | "auto";
 
 export type ColorScheme = "light" | "dark";
 
@@ -21,6 +46,14 @@ export type EngineOptions = {
     view: string;
     colorScheme: ColorScheme;
     labels: Labels;
+    /** Mount in editing (spec 9.2). Only edit mode sets it. */
+    editing?: boolean;
+    /**
+     * The edited layout of each view to draw from mount, by view key, so a
+     * reload of the editing route keeps what the page's edit session holds
+     * (spec 9.2, ADR 18).
+     */
+    layouts?: Readonly<Record<string, EditedLayout>>;
 };
 
 /**
@@ -51,6 +84,17 @@ export const NOT_ANIMATING: Readonly<AnimationState> = {
     playing: false,
 };
 
+/**
+ * What edit mode has selected (spec 9.2, 10.2): element ids in selection
+ * order, the reference element first, and the selected edge, or null, with
+ * the routing mode it is drawn in now. The two never share: selecting one
+ * clears the other.
+ */
+export type SelectionState = {
+    elements: string[];
+    edge: { id: string; routing: RoutingMode } | null;
+};
+
 /** The animation members of the engine, which the toolbar drives. */
 export type AnimationControls = {
     /** Advance every 2 s from the step shown, or from step 1. */
@@ -67,33 +111,119 @@ export type AnimationControls = {
     onAnimationChanged(callback: (state: AnimationState) => void): () => void;
 };
 
-/** The engine contract of spec section 5. */
-export type Engine = AnimationControls & {
-    showView(key: string): void;
-    setColorScheme(scheme: ColorScheme): void;
-    setLabels(labels: Labels): void;
-    getCurrentView(): ModelView;
-
-    fit(): void;
-    zoomIn(): void;
-    zoomOut(): void;
-
-    onViewShown(
-        callback: (view: ModelView, animation: AnimationState) => void,
+/**
+ * The members only edit mode uses (spec 9.2). Builds, which never edit,
+ * leave them out (ADR 15).
+ */
+export type EditControls = {
+    /**
+     * Switch between reading and editing without a remount, keeping the
+     * viewport (spec 9.2). Editing pauses an animation on the step shown
+     * (spec 18). Turning editing on does nothing on a view `isEditable`
+     * rejects.
+     */
+    setEditing(on: boolean): void;
+    /**
+     * Draw `layout` as the edited layout of view `view`, in place of the one
+     * it had. The page calls it synchronously in its `onLayoutChanged`
+     * handler; a change it doesn't hand back reverts (ADR 18).
+     */
+    setLayout(view: string, layout: EditedLayout): void;
+    /**
+     * Once per finished gesture: the fields it changed by element id, with
+     * `before` as the engine drew them, computed values included. The first
+     * change to a view with no edited layout carries every element.
+     */
+    onLayoutChanged(callback: (change: LayoutChange) => void): () => void;
+    /**
+     * Every change of the selection in editing (spec 9.2). The selection
+     * lives in the engine and is never saved or undone (ADR 18).
+     */
+    onSelectionChanged(
+        callback: (selection: SelectionState) => void,
     ): () => void;
     /**
-     * An element, or a boundary drawn for one, was activated. The engine
-     * never navigates: the page resolves its targets (spec 6.1).
+     * Resize the canvas of the view being edited (spec 14): Decrease and
+     * Increase by 100 each way, deleting `paperSize`, or Auto, the content
+     * plus 400. With `recenter` the content moves to the middle of the new
+     * canvas. Answers through `onLayoutChanged`.
      */
-    onElementActivated(
-        callback: (elementId: string, anchor: Anchor) => void,
-    ): () => void;
-    onRelationshipActivated(
-        callback: (relationshipId: string, anchor: Anchor) => void,
-    ): () => void;
+    resizeCanvas(command: CanvasCommand, options: { recenter: boolean }): void;
+    /**
+     * "Bring elements back onto the diagram" (spec 15): clamp every element
+     * and vertex into the canvas. Answers through `onLayoutChanged`.
+     */
+    bringBack(): void;
+    /**
+     * "Calculate layout" (spec 15): lay the whole view out once as an
+     * automatic layout would with `options`, and store it as a calculated
+     * layout with the canvas fitted by Auto's rule. Answers through
+     * `onLayoutChanged`, as one change.
+     */
+    calculateLayout(options: CalculateLayoutOptions): void;
+    /**
+     * Align the selection (spec 13.1): `left`, `right`, `top` or `bottom`
+     * on its outermost element on that side, `center` or `middle` on the
+     * reference element. Does nothing
+     * with fewer than two elements selected. Answers through
+     * `onLayoutChanged`, as one change.
+     */
+    align(edge: AlignEdge): void;
+    /**
+     * Distribute the selection `horizontal`ly or `vertical`ly (spec 13.2),
+     * keeping the outermost two in place. Does nothing with fewer than
+     * three elements selected. Answers through `onLayoutChanged`, as one
+     * change.
+     */
+    distribute(axis: DistributeAxis): void;
 
-    unmount(): void;
+    /**
+     * Set the selected edge's routing mode (spec 12.2), stored as
+     * `routing` even when it matches the style's. Answers through
+     * `onLayoutChanged`.
+     */
+    setRouting(mode: RoutingMode): void;
+    /**
+     * Swap in `workspace` in place, as edit mode does when `workspace.json`
+     * changes on disk (spec 6). The view shown stays by key, with its
+     * viewport, selection and animation step where they still exist. A view
+     * the workspace no longer has gives way to its first view, and a view
+     * `isEditable` now rejects drops to reading. Every edited layout goes,
+     * since each was laid over the workspace before: the page hands back
+     * the ones that still hold through `setLayout`. `onViewShown` hears the
+     * view again once it is painted.
+     */
+    setWorkspace(workspace: Record<string, unknown>): void;
 };
+
+/** The engine contract of spec section 5. */
+export type Engine = AnimationControls &
+    EditControls & {
+        showView(key: string): void;
+        setColorScheme(scheme: ColorScheme): void;
+        setLabels(labels: Labels): void;
+        getCurrentView(): ModelView;
+
+        fit(): void;
+        zoomIn(): void;
+        zoomOut(): void;
+
+        onViewShown(
+            callback: (view: ModelView, animation: AnimationState) => void,
+        ): () => void;
+        /**
+         * An element, or a boundary drawn for one, was activated. The engine
+         * never navigates: the page resolves its targets (spec 6.1).
+         */
+        onElementActivated(
+            callback: (elementId: string, anchor: Anchor) => void,
+        ): () => void;
+        onRelationshipActivated(
+            callback: (relationshipId: string, anchor: Anchor) => void,
+        ): () => void;
+
+        unmount(): void;
+    };
 
 /** The rejection an aborted `mountEngine` settles with; the page ignores it. */
 export const abortError = () =>

@@ -87,16 +87,6 @@
     }
 }
 
-/*
- * The diagram is the page. Every row of shared header above it comes straight
- * off the height the diagram is drawn at, so on the diagrams page the workspace
- * blurb steps aside — the reader has the documentation pages for it, and what
- * they want here is the picture.
- */
-:global([data-page="diagrams"]) .titleAndDesc section {
-    display: none;
-}
-
 .navigationActive {
     font-weight: 700;
     color: var(--color-foreground);

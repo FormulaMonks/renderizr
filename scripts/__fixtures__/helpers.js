@@ -6,7 +6,7 @@
 
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +28,21 @@ export const BUILD_JS = resolve(REPO_ROOT, "scripts/build.js");
  * Make a scratch directory and hand it to `body`, removing it afterwards even
  * when the body throws.
  */
+/**
+ * The text of the file at `path` and when it was last modified, read
+ * through one handle, so both describe the same file: a test compares two
+ * of them to show a write left the file alone.
+ */
+export async function fileState(path) {
+    const handle = await open(path);
+    try {
+        const { mtimeMs } = await handle.stat();
+        return { text: await handle.readFile("utf8"), mtimeMs };
+    } finally {
+        await handle.close();
+    }
+}
+
 export async function withTempDir(body) {
     const dir = await mkdtemp(join(tmpdir(), "renderizr-test-"));
     try {

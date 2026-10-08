@@ -1,0 +1,59 @@
+/* What edit mode says above the canvas when workspace.json changes on disk (spec 6.2, 6.3). */
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font-size: 0.875rem;
+
+  & p {
+    flex: 1;
+    min-width: 12rem;
+    margin: 0;
+  }
+
+  & button {
+    padding: 0.3rem 0.75rem;
+    border-radius: 7px;
+    font: inherit;
+    cursor: pointer;
+  }
+}
+
+/*
+ * White reads on the default blues in both schemes; where the browser can
+ * pick the color that reads best on any primary color, it does.
+ */
+.primary {
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+  color: contrast-color(var(--color-primary));
+}
+
+.secondary {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+}
+
+/* Why the workspace didn't load: the DSL pipeline's error (spec 5.3). */
+.failure {
+  border-color: var(--color-alert-caution);
+
+  & pre {
+    flex-basis: 100%;
+    max-height: 12rem;
+    margin: 0;
+    overflow: auto;
+    font-size: 0.8125rem;
+    white-space: pre-wrap;
+  }
+}

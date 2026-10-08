@@ -56,4 +56,4 @@ Adding `--font` costs another 45–70 KB gzipped, and `--font-italic` roughly do
 
 ## What it is not
 
-Renderizr renders a workspace; it does not edit one. There is no authoring UI, and Renderizr writes nothing back to `workspace.json`. Diagram layout comes from the workspace: if a diagram's layout looks wrong, fix it in the model, then re-render.
+A build renders a workspace and writes nothing back to `workspace.json`. Layout comes from the workspace: if a diagram's layout looks wrong, a person fixes it with `npx renderizr edit` or in Structurizr, then you render again.

@@ -1,0 +1,511 @@
+/**
+ * Edit mode's part of the diagrams page (spec 4.6, 6, 7.4, 7.5, 9, ADR 18):
+ * the edit session, the editing route the toolbar drives, the dialog that
+ * guards unsaved changes, the wiring between the session and the engine,
+ * and live reload of `workspace.json`.
+ *
+ * `diagrams.ts` reaches every function here only behind
+ * `__RENDERIZR_EDIT_MODE__`, so builds compile this module out (ADR 15).
+ */
+
+import history from "history/hash";
+import { openCalculateLayout } from "../components/calculate-layout-dialog";
+import servedWorkspace, {
+    error as servedError,
+    version as workspaceVersion,
+} from "virtual:renderizr/workspace";
+import type CurrentView from "../components/current-view";
+import {
+    type EditingRoute,
+    paintRouting,
+    type EditState,
+    paintEditState,
+    paintSaveStatus,
+    nextRouting,
+} from "../components/edit-buttons";
+import { EditSession } from "../components/edit-session";
+import { heldEdits, viewSignature } from "../components/live-reload";
+import {
+    showFailure,
+    showFailureBanner,
+    showHeldBar,
+    showReloadNotice,
+} from "../components/reload-bar";
+import { pageCommand } from "../components/shortcuts";
+import { openShortcuts } from "../components/shortcuts-dialog";
+import {
+    editingSearch,
+    isEditingRoute,
+    layoutNotice,
+    readingSearch,
+} from "../components/editing-route";
+import { sessionToken } from "../components/session-token";
+import { confirmLeave } from "../components/unsaved-dialog";
+import type { Engine } from "../engine";
+import type { SelectionState } from "../engine/contract";
+import { isEditable, resolveView, type WorkspaceModel } from "../model";
+
+/** Whether the page shows the editing route now (spec 4.6). */
+export const editing = () => isEditingRoute(history.location.search);
+
+/**
+ * The edit session of this page load (spec 9.1, ADR 18). It outlives the
+ * diagrams page's renders, so a trip to the documentation and back keeps
+ * every edited layout.
+ */
+let session: EditSession | null = null;
+
+/**
+ * When `workspace` was last saved, from the `lastModifiedDate` every
+ * Structurizr writer stamps (spec 7.1), or undefined when it has none.
+ */
+function savedAt(workspace: Record<string, unknown>): number | undefined {
+    const stamp = workspace.lastModifiedDate;
+    const time = typeof stamp === "string" ? Date.parse(stamp) : Number.NaN;
+    return Number.isNaN(time) ? undefined : time;
+}
+
+export function editSession(): EditSession {
+    if (session) return session;
+    const created = new EditSession({
+        version: workspaceVersion,
+        token: sessionToken(),
+        savedAt: savedAt(servedWorkspace),
+    });
+    // The browser asks before a tab with unsaved changes closes or reloads,
+    // and whatever still waits goes out as the page goes (spec 7.4).
+    window.addEventListener("beforeunload", (event) => {
+        if (!created.unsaved()) return;
+        event.preventDefault();
+        event.returnValue = "";
+    });
+    window.addEventListener("pagehide", () => created.saveOnLeave());
+    session = created;
+    return created;
+}
+
+/**
+ * The custom events edit mode's server sends over Vite's websocket (spec
+ * 6.1). `scripts/edit-plugin.js` names them too.
+ */
+const WORKSPACE_EVENT = "renderizr:workspace";
+const ERROR_EVENT = "renderizr:error";
+const FLUSH_EVENT = "renderizr:flush";
+const FLUSHED_EVENT = "renderizr:flushed";
+
+/**
+ * A workspace from disk, as the server sends it, with the `source` of the
+ * page whose save wrote it.
+ */
+type Arrived = {
+    version: string;
+    workspace: Record<string, unknown>;
+    source?: string;
+    /**
+     * The workspace the file held before this one, as the server last sent
+     * it, this page's own saves included; `undefined` before any arrived.
+     */
+    previous?: Record<string, unknown>;
+};
+
+/**
+ * The last workspace the server sent, this page's own saves included: what
+ * the next one changed is measured from it, not from the workspace the page
+ * shows, which a save of this page's own leaves as it was (spec 6.3).
+ */
+let lastSent: Record<string, unknown> | undefined;
+
+/** The last workspace that arrived from disk, or `null` before one does. */
+let arrived: Record<string, unknown> | null = null;
+
+/** Whether the diagrams page swapped a workspace in since the page loaded. */
+let swapped = false;
+
+/** What the diagrams page does with a workspace that arrives while it shows. */
+let swapIn: ((arrival: Arrived) => void) | null = null;
+
+/**
+ * Why the workspace didn't load, as the server last said (spec 5.3, 6.1): the
+ * DSL pipeline's error, or a `workspace.json` that won't load. `null` once a
+ * workspace arrives.
+ */
+let failure: string | null = servedError?.message ?? null;
+
+/**
+ * Whether the page loaded before any run of the DSL pipeline succeeded, so it
+ * has no workspace to draw. The first workspace that arrives reloads it.
+ */
+const blank = servedError?.blank ?? false;
+
+/** Shows `failure` where the diagrams page has it, while it shows. */
+let paintFailure: (() => void) | null = null;
+
+/**
+ * Show the error in place of the canvas in `target` when the page has no
+ * workspace to draw yet (spec 5.3), and say whether it did.
+ */
+export function showBlank(target: HTMLElement): boolean {
+    if (!blank) return false;
+    const paint = () => showFailure(target, failure ?? "");
+    paint();
+    paintFailure = paint;
+    return true;
+}
+
+/**
+ * The workspace the diagrams page draws: the last one from disk, else
+ * `served`, the one the page loaded with.
+ */
+export const liveWorkspace = (served: Record<string, unknown>) =>
+    arrived ?? served;
+
+/**
+ * Take each workspace that arrives while the diagrams page shows with
+ * `handler`. Returns a way to stop.
+ */
+export function onWorkspace(handler: (arrival: Arrived) => void) {
+    swapIn = handler;
+    return () => {
+        if (swapIn === handler) swapIn = null;
+    };
+}
+
+/**
+ * Hear edit mode's server for the life of the page (spec 6.1). A workspace
+ * from disk goes to the diagrams page, which swaps it in place, unless this
+ * page's own save wrote it: another page's save arrives as any change on
+ * disk does (spec 6.2). Any other
+ * page reloads in full, as does a later trip from the diagrams page to the
+ * documentation or decisions, whose pages hold the workspace they loaded
+ * with. A flush saves what waits, unless the author still has to keep or
+ * discard it, and answers once the save is done. An error shows on the
+ * diagrams page until the next workspace arrives (spec 5.3).
+ */
+export function startLiveReload() {
+    const hot = import.meta.hot;
+    if (!hot) return;
+    hot.on(WORKSPACE_EVENT, (sent: Arrived) => {
+        const arrival = { ...sent, previous: lastSent };
+        lastSent = sent.workspace;
+        if (session && arrival.source === session.source) return;
+        arrived = arrival.workspace;
+        failure = null;
+        if (!swapIn) {
+            window.location.reload();
+            return;
+        }
+        swapped = true;
+        swapIn(arrival);
+        paintFailure?.();
+    });
+    // The banner shows over the last workspace that loaded, which stays
+    // editable, until the next one arrives (spec 5.3).
+    hot.on(ERROR_EVENT, ({ error }: { error: string }) => {
+        failure = error;
+        paintFailure?.();
+    });
+    hot.on(FLUSH_EVENT, async ({ id }: { id: number }) => {
+        if (session && session.held().length === 0) await session.save();
+        hot.send(FLUSHED_EVENT, { id });
+    });
+    history.listen(({ location }) => {
+        const page = new URLSearchParams(location.search).get("page");
+        if (swapped && page !== "diagrams") window.location.reload();
+    });
+}
+
+/**
+ * Swap `arrival` in for `before`, the workspace the page shows (spec 6.2,
+ * 6.3). The edit session drops what the file now holds and lays the edits
+ * still waiting over `after`; the engine keeps the view, its viewport and
+ * its selection where it can. The page says so when the view is gone, or
+ * can no longer be edited. `canvas` is where the notice goes.
+ */
+export function swapWorkspace(
+    engine: Engine,
+    before: WorkspaceModel,
+    after: WorkspaceModel,
+    arrival: Arrived,
+    canvas: HTMLElement,
+) {
+    const edits = editSession();
+    const shown = engine.getCurrentView();
+    const held = edits.takeWorkspace({
+        version: arrival.version,
+        savedAt: savedAt(arrival.workspace),
+        hold: (key, layout) => heldEdits(before, after, key, layout),
+        touched: (key) =>
+            viewSignature(before, key) !== viewSignature(after, key),
+    });
+    engine.setWorkspace(arrival.workspace);
+    for (const key of held) {
+        const layout = edits.layoutOf(key);
+        if (layout) engine.setLayout(key, layout);
+    }
+
+    const view = after.findViewByKey(shown.key);
+    const first = after.getViews()[0];
+    if (!view && first)
+        showReloadNotice(
+            canvas,
+            `workspace.json no longer has ${before.getTitleForView(shown)}, so the page shows ${after.getTitleForView(first)}.`,
+        );
+    else if (view && editing() && !isEditable(view))
+        showReloadNotice(
+            canvas,
+            `${after.getTitleForView(view)} can no longer be edited, so the page shows it for reading.`,
+        );
+}
+
+/**
+ * Go on with `proceed`, a switch to another view or page, in reading. In
+ * editing, when the author changed anything since entering it, a dialog says
+ * those changes will be lost and offers "Discard and continue" and "Stay".
+ * Discarding puts every view back as it was when the author entered editing
+ * and saves that, then leaves editing and goes on; a save that fails keeps
+ * the page where it is, and the toolbar says why.
+ */
+export async function leave(
+    engine: Engine,
+    model: WorkspaceModel,
+    proceed: () => void,
+) {
+    if (!editing()) {
+        proceed();
+        return;
+    }
+    const edits = editSession();
+    if (edits.changedSinceEntering()) {
+        const title = model.getTitleForView(engine.getCurrentView());
+        if (!(await confirmLeave(document.body, title))) return;
+        for (const key of edits.revert())
+            engine.setLayout(key, edits.layoutOf(key) ?? {});
+        if (!(await edits.save())) return;
+    }
+    // The next view opens in reading: the switch copies the route it leaves.
+    history.replace({ search: readingSearch(history.location.search) });
+    proceed();
+}
+
+/**
+ * The selected edge as the engine last reported it (spec 12.1), so a
+ * toolbar drawn again shows its routing mode.
+ */
+let selectedEdge: SelectionState["edge"] = null;
+/** How many elements the engine has selected, as it last said. */
+let selected = 0;
+
+/**
+ * Undo or redo one step of the view shown (spec 16). The engine draws the
+ * layout back through `setLayout`, and keeps its viewport.
+ */
+function step(engine: Engine, direction: "undo" | "redo") {
+    const edits = editSession();
+    const key = engine.getCurrentView().key;
+    const layout = direction === "undo" ? edits.undo(key) : edits.redo(key);
+    if (layout) engine.setLayout(key, layout);
+}
+
+/** What the edit toolbar enables its buttons from (spec 13.4, 16). */
+const editState = (engine: Engine): EditState => ({
+    selected,
+    ...editSession().history(engine.getCurrentView().key),
+});
+
+/** The editing route as the toolbar drives it (spec 4.6, 17.1). */
+export function editingRoute(
+    engine: Engine,
+    model: WorkspaceModel,
+): EditingRoute {
+    const edits = editSession();
+    // Both ways out save what waits and go to reading only once it is
+    // saved; a failure keeps the page in editing, and the toolbar says why.
+    const close = async () => {
+        if (await edits.save())
+            history.push({ search: readingSearch(history.location.search) });
+    };
+    return {
+        isEditing: editing,
+        // The pencil and Done push, so Back undoes either.
+        edit: (key) =>
+            history.push({
+                search: editingSearch(history.location.search, key),
+            }),
+        done: () => void close(),
+        discard: () => {
+            for (const key of edits.revert())
+                engine.setLayout(key, edits.layoutOf(key) ?? {});
+            void close();
+        },
+        href: (key) =>
+            history.createHref({
+                search: `?${editingSearch(history.location.search, key)}`,
+            }),
+        status: () => edits.status(),
+        resizeCanvas: (command, recenter) =>
+            engine.resizeCanvas(command, { recenter }),
+        calculateLayout: () =>
+            openCalculateLayout(document.body, {
+                calculate: (options) => engine.calculateLayout(options),
+                bringBack: () => engine.bringBack(),
+            }),
+        edge: () => selectedEdge,
+        setRouting: (mode) => engine.setRouting(mode),
+        notice: (key) => {
+            if (edits.layoutOf(key)) return null;
+            const view = resolveView(model, key);
+            return view
+                ? layoutNotice(view.layout, view.unplaced.length)
+                : null;
+        },
+        align: (edge) => engine.align(edge),
+        distribute: (axis) => engine.distribute(axis),
+        undo: () => step(engine, "undo"),
+        redo: () => step(engine, "redo"),
+        showShortcuts: () => openShortcuts(document.body),
+        editState: () => editState(engine),
+    };
+}
+
+/** Whether `target` takes typing, where the page leaves keys alone. */
+const typesText = (target: EventTarget | null) =>
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.matches("input, textarea, select"));
+
+/**
+ * Wire the engine to the edit session while the page shows: the page hands
+ * every layout change back at once (a change it didn't hand back would
+ * revert, ADR 18), the toolbar shows where saving stands and enables what
+ * the selection and the view's history allow, the page keys save, undo and
+ * redo on the view shown and open "Keyboard shortcuts" (spec 17.2), and the
+ * toolbar, the engine and `<html data-editing>` follow the editing
+ * route. The pencil, Done and Back change the route without changing the
+ * view, so the engine shows nothing new and the page has to hear it from
+ * history. Returns what stops each.
+ */
+export function startEditing(
+    engine: Engine,
+    currentView: CurrentView,
+    container: HTMLElement,
+    model: WorkspaceModel,
+): (() => void)[] {
+    const edits = editSession();
+    const root = document.documentElement;
+    let shown = editing();
+    root.toggleAttribute("data-editing", shown);
+
+    // The page's keys work with focus anywhere in the page, by physical key
+    // (spec 17.2), and leave a field that takes typing alone.
+    const onKey = (event: KeyboardEvent) => {
+        if (!editing() || typesText(event.target)) return;
+        const command = pageCommand(event);
+        if (!command) return;
+        event.preventDefault();
+        if (command === "save") void edits.save();
+        else if (command === "shortcuts") openShortcuts(document.body);
+        else if (command === "routing") {
+            if (selectedEdge)
+                engine.setRouting(nextRouting(selectedEdge.routing));
+        } else step(engine, command);
+    };
+    document.addEventListener("keydown", onKey);
+    const paintState = () => paintEditState(container, editState(engine));
+
+    // Edits that couldn't be saved wait behind a bar for the author (spec
+    // 6.2); any save keeps them, so the bar goes with it.
+    let removeBar: (() => void) | null = null;
+    const paintHeld = () => {
+        const [key] = edits.held();
+        if (!key) {
+            removeBar?.();
+            removeBar = null;
+            return;
+        }
+        if (removeBar) return;
+        // A save refused as stale holds edits the engine may no longer draw,
+        // once a workspace arrived while it was on its way (spec 6.2).
+        for (const held of edits.held()) {
+            const layout = edits.layoutOf(held);
+            if (layout) engine.setLayout(held, layout);
+        }
+        const view = model.findViewByKey(key);
+        const canvas = container.querySelector<HTMLElement>(
+            "#structurizr-diagram-target",
+        );
+        if (!canvas) return;
+        removeBar = showHeldBar(
+            canvas,
+            view ? model.getTitleForView(view) : key,
+            {
+                keep: () => void edits.save(),
+                discard: () => {
+                    for (const discarded of edits.discard())
+                        engine.setLayout(discarded, {});
+                    currentView.render(engine.getCurrentView());
+                },
+            },
+        );
+    };
+    paintHeld();
+
+    // Why the workspace didn't load, over the canvas (spec 5.3).
+    let removeFailure: (() => void) | null = null;
+    const paintBanner = () => {
+        removeFailure?.();
+        removeFailure = null;
+        const canvas = container.querySelector<HTMLElement>(
+            "#structurizr-diagram-target",
+        );
+        if (failure && canvas)
+            removeFailure = showFailureBanner(canvas, failure);
+    };
+    paintBanner();
+    paintFailure = paintBanner;
+
+    return [
+        engine.onViewShown((view) => edits.setView(view.key)),
+        engine.onLayoutChanged((change) => {
+            const first = !edits.layoutOf(change.view);
+            engine.setLayout(change.view, edits.record(change));
+            // The notice about a view without coordinates goes once the view
+            // holds its first edit.
+            if (first) currentView.render(engine.getCurrentView());
+        }),
+        // Undo and redo, like every change, tell the session's listeners.
+        edits.onStatus((status) => {
+            paintSaveStatus(container, status);
+            paintState();
+            paintHeld();
+        }),
+        engine.onSelectionChanged(({ elements, edge }) => {
+            selected = elements.length;
+            selectedEdge = edge;
+            paintState();
+            paintRouting(container, edge);
+        }),
+        () => {
+            selectedEdge = null;
+        },
+        history.listen(() => {
+            if (editing() === shown) return;
+            shown = editing();
+            // Discard goes back to here (spec 4.6).
+            if (shown) edits.enter();
+            root.toggleAttribute("data-editing", shown);
+            engine.setEditing(shown);
+            currentView.render(engine.getCurrentView());
+        }),
+        () => document.removeEventListener("keydown", onKey),
+        () => removeBar?.(),
+        () => {
+            removeFailure?.();
+            if (paintFailure === paintBanner) paintFailure = null;
+        },
+        () => root.removeAttribute("data-editing"),
+    ];
+}
+
+/** Send what waits now, as the page goes, rather than in 5 s. */
+export function flushEdits() {
+    if (session?.waiting()) void session.save();
+}
