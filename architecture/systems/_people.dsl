@@ -1,1 +1,1 @@
-Developer = person "Developer" "Develops a solution"
+Architect = person "Architect" "Develops a solution"

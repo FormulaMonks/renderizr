@@ -17,9 +17,17 @@ workspace "Renderizr" {
     }
 
     views {
-        themes "https://static.structurizr.com/themes/default/theme.json"
-        !const AUTHOR "Author: Andrés Zorro <andres.zorro@formula.co>"
+        themes "https://formulamonks.github.io/scaffoldizr/assets/scaffoldizr-default.json" "https://formulamonks.github.io/scaffoldizr/assets/scaffoldizr-shapes.json" "https://formulamonks.github.io/scaffoldizr/assets/scaffoldizr-status.json"
+
+        !const AUTHOR "Author: Andrés Zorro <andres.zorro@monks.com>"
 
         !include views
+
+        styles {
+            relationship "Relationship" {
+                routing Orthogonal
+                jump true
+            }
+        }
     }
 }
