@@ -92,7 +92,7 @@ Run every command below from the repository root.
 | `pnpm exec tsc --noEmit` | Type-check `src/` on its own |
 | `pnpm fixtures:large` | Write `test/__fixtures__/large-landscape.json` again from its generator, `test/support/large-landscape.js` |
 | `pnpm fixtures:acceptance` | Merge `test/__fixtures__/acceptance/workspace.dsl` into the `workspace.json` beside it, which holds the fixture's layout, with Structurizr's tools (`STRUCTURIZR_CLI` as a whole command, such as `java -jar structurizr.war`, or `structurizr-cli` on the `PATH`), then format it. CI runs it with the pinned `structurizr.war` and fails when the committed fixture differs |
-| `pnpm architecture:export` | Write `architecture/workspace.json` again from `architecture/workspace.dsl` the way a DSL session of `renderizr edit` writes it: `merge` with the committed file as the layout, through the same writer, so a file that matches its DSL stays byte for byte. It takes `STRUCTURIZR_CLI` as `pnpm fixtures:acceptance` does. CI runs it with the pinned `structurizr.war` and fails when the committed workspace differs, because GitHub Pages publishes it |
+| `pnpm architecture:merge` | Write `architecture/workspace.json` again from `architecture/workspace.dsl` the way a DSL session of `renderizr edit` writes it: `merge` with the committed file as the layout, through the same writer, so a file that matches its DSL stays byte for byte. It takes `STRUCTURIZR_CLI` as `pnpm fixtures:acceptance` does. CI runs it with the pinned `structurizr.war` and fails when the committed workspace differs, because GitHub Pages publishes it |
 
 ### Dev server
 

@@ -2,7 +2,7 @@
  * Write `workspace.json` again from `workspace.dsl` beside it with
  * Structurizr's tools, the way a DSL session of edit mode writes it:
  *
- *     pnpm architecture:export
+ *     pnpm architecture:merge
  *
  * `STRUCTURIZR_CLI` names the tools as a whole command, such as
  * `java -jar structurizr.war`; without it the script runs `structurizr-cli`
@@ -11,7 +11,7 @@
  * One run of edit mode's DSL pipeline does the work (ADR 16): `merge` with
  * the committed `workspace.json` as the layout, then the writer, which
  * leaves the file byte for byte when nothing but its stamps would change.
- * So `git diff` after an export shows whether the committed workspace
+ * So `git diff` after a merge shows whether the committed workspace
  * matches its DSL, and the `structurizr` CI job fails when it doesn't.
  */
 
@@ -28,7 +28,7 @@ import { WorkspaceWriter } from "../../scripts/workspace-writer.js";
  * to `output`. Rejects with the tools' error when the DSL doesn't parse,
  * and leaves `workspace.json` as it was.
  */
-export async function exportWorkspace(
+export async function mergeWorkspace(
     folder,
     command,
     { output = process.stdout } = {},
@@ -53,7 +53,7 @@ export async function exportWorkspace(
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-    await exportWorkspace(
+    await mergeWorkspace(
         dirname(dirname(fileURLToPath(import.meta.url))),
         toolsCommand(),
     );

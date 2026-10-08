@@ -14,7 +14,7 @@
 #   structurizr  Structurizr's own tools, pinned: the committed acceptance
 #                fixture matches what `pnpm fixtures:acceptance` writes, and
 #                architecture/workspace.json matches what
-#                `pnpm architecture:export` writes
+#                `pnpm architecture:merge` writes
 #   ci      one required status check that stands for all of the above
 #
 # Outside `ci`, and so never required: `contact sheet`, which screenshots
@@ -414,15 +414,15 @@ jobs:
       # GitHub Pages publishes Renderizr's own architecture documentation from
       # the committed architecture/workspace.json, so it has to match
       # workspace.dsl and the folders it imports.
-      - name: Export the architecture workspace
-        run: pnpm architecture:export
+      - name: Merge the architecture DSL into its workspace
+        run: pnpm architecture:merge
 
       - name: Check the committed architecture workspace is up to date
         run: |
           if git diff --exit-code -- architecture; then
             exit 0
           fi
-          echo "::error title=Architecture workspace out of date::pnpm architecture:export changed architecture/workspace.json. Run it with Structurizr ${STRUCTURIZR_VERSION} (STRUCTURIZR_CLI=\"java -jar structurizr.war\"), or save from renderizr edit on architecture/, and commit the result."
+          echo "::error title=Architecture workspace out of date::pnpm architecture:merge changed architecture/workspace.json. Run it with Structurizr ${STRUCTURIZR_VERSION} (STRUCTURIZR_CLI=\"java -jar structurizr.war\"), or save from renderizr edit on architecture/, and commit the result."
           exit 1
 
   # Every acceptance view in one HTML page, for a person reviewing a change to

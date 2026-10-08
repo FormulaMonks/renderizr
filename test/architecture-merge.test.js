@@ -1,8 +1,8 @@
 /**
- * `architecture/scripts/export.js`: it writes `workspace.json` again from
+ * `architecture/scripts/merge.js`: it writes `workspace.json` again from
  * `workspace.dsl` the way edit mode's DSL pipeline does, so a committed
  * workspace that matches its DSL stays byte for byte, and a DSL error fails
- * the export. The DSL pipeline's stub stands in for Structurizr's tools
+ * the merge. The DSL pipeline's stub stands in for Structurizr's tools
  * here; the `structurizr` CI job runs the real ones on `architecture/`.
  */
 
@@ -18,7 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { exportWorkspace } from "../architecture/scripts/export.js";
+import { mergeWorkspace } from "../architecture/scripts/merge.js";
 import { shellCommand } from "../scripts/structurizr-tools.js";
 
 /** The DSL pipeline's stand-in for Structurizr's tools, as a whole command. */
@@ -28,7 +28,7 @@ const STUB = shellCommand(process.execPath, [
     ),
 ]);
 
-const scratch = mkdtempSync(join(tmpdir(), "renderizr-architecture-export-"));
+const scratch = mkdtempSync(join(tmpdir(), "renderizr-architecture-merge-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 
 /** Options that keep the tools' output out of the test report. */
@@ -58,30 +58,30 @@ async function exported(name) {
     rmSync(folder, { recursive: true, force: true });
     mkdirSync(folder);
     writeFileSync(join(folder, "workspace.dsl"), dsl("Before"));
-    await exportWorkspace(folder, STUB, QUIET);
+    await mergeWorkspace(folder, STUB, QUIET);
     return folder;
 }
 
 const read = (folder) => readFileSync(join(folder, "workspace.json"), "utf8");
 
-test("an export of a workspace that matches its DSL leaves workspace.json byte for byte", async () => {
+test("a merge of a workspace that matches its DSL leaves workspace.json byte for byte", async () => {
     const folder = await exported("unchanged");
     const before = read(folder);
 
-    await exportWorkspace(folder, STUB, QUIET);
+    await mergeWorkspace(folder, STUB, QUIET);
 
     assert.equal(
         read(folder),
         before,
-        "an export with nothing to change rewrote workspace.json",
+        "a merge with nothing to change rewrote workspace.json",
     );
 });
 
-test("an export after a DSL change writes the change into workspace.json", async () => {
+test("a merge after a DSL change writes the change into workspace.json", async () => {
     const folder = await exported("changed");
     writeFileSync(join(folder, "workspace.dsl"), dsl("After"));
 
-    await exportWorkspace(folder, STUB, QUIET);
+    await mergeWorkspace(folder, STUB, QUIET);
 
     assert.equal(
         JSON.parse(read(folder)).description,
@@ -90,7 +90,7 @@ test("an export after a DSL change writes the change into workspace.json", async
     );
 });
 
-test("an export fails on a DSL error and leaves workspace.json as it was", async () => {
+test("a merge fails on a DSL error and leaves workspace.json as it was", async () => {
     const folder = await exported("broken");
     const before = read(folder);
     writeFileSync(
@@ -99,13 +99,9 @@ test("an export fails on a DSL error and leaves workspace.json as it was", async
     );
 
     await assert.rejects(
-        exportWorkspace(folder, STUB, QUIET),
+        mergeWorkspace(folder, STUB, QUIET),
         /Unexpected tokens at line 3/,
-        "the export didn't fail with the tools' error",
+        "the merge didn't fail with the tools' error",
     );
-    assert.equal(
-        read(folder),
-        before,
-        "a failed export changed workspace.json",
-    );
+    assert.equal(read(folder), before, "a failed merge changed workspace.json");
 });
