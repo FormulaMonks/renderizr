@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision graph prototype</title>
+<style>
+:root {
+  --color-foreground: rgb(24, 27, 31);
+  --color-background: rgb(248, 249, 251);
+  --color-muted: rgb(96, 105, 118);
+  --color-surface: rgb(255, 255, 255);
+  --color-border: rgb(219, 224, 230);
+  --color-primary: rgb(20, 91, 158);
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  --color-accepted: rgb(30 116 46);
+  --color-amended: rgb(44 105 168);
+  --color-draft: rgb(100 106 116);
+  --color-proposed: rgb(140 108 12);
+  --color-superseded: rgb(110, 116, 126);
+  --color-superseded-strong: rgb(154, 103, 0);
+  --color-rejected: rgb(175 64 64);
+  --lineage-0: #2f6fb3; --lineage-1: #c2410c; --lineage-2: #15803d; --lineage-3: #9333ea;
+  --lineage-4: #be185d; --lineage-5: #0e7490; --lineage-6: #a16207; --lineage-7: #4d7c0f;
+}
+:root[data-theme="dark"] {
+  --color-foreground: rgb(233, 237, 243);
+  --color-background: rgb(20, 20, 20);
+  --color-muted: rgb(150, 158, 168);
+  --color-surface: rgb(30, 30, 30);
+  --color-border: rgb(58, 58, 58);
+  --color-primary: rgb(17, 104, 189);
+  --color-accepted: rgb(94 185 93);
+  --color-amended: rgb(120 168 220);
+  --color-draft: rgb(168 168 176);
+  --color-proposed: rgb(214 180 70);
+  --color-superseded: rgb(153, 153, 153);
+  --color-superseded-strong: rgb(214, 160, 62);
+  --color-rejected: rgb(226 112 112);
+  --lineage-0: #6ea8ec; --lineage-1: #f0915a; --lineage-2: #5cc983; --lineage-3: #c08cf5;
+  --lineage-4: #ee7fb4; --lineage-5: #4cc4d9; --lineage-6: #e0b64a; --lineage-7: #a3cc5a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font: 15px/1.5 system-ui, sans-serif; color: var(--color-foreground); background: var(--color-background); }
+header { position: sticky; top: 0; z-index: 2; background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 0.6rem 1rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; align-items: center; font-size: 0.8rem; }
+header strong { font-size: 0.9rem; margin-right: 0.5rem; }
+header label { display: inline-flex; gap: 0.3rem; align-items: center; color: var(--color-muted); }
+header select { font: inherit; color: var(--color-foreground); background: var(--color-background); border: 1px solid var(--color-border); border-radius: 4px; padding: 0.1rem 0.3rem; }
+#stats { color: var(--color-muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.layout { display: flex; align-items: flex-start; }
+aside { flex: none; display: flex; border-right: 1px solid var(--color-border); padding: 1rem 0.5rem 2rem 0.5rem; transition: width 0.15s; }
+.gutter { flex: none; position: relative; }
+.gutter svg { position: absolute; top: 0; left: 0; overflow: visible; }
+.gutter button { position: sticky; top: 3.6rem; z-index: 1; display: block; margin: 0 auto 0.25rem; width: 1.4rem; height: 1.4rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; font-size: 0.75rem; line-height: 1; }
+.gutter button:hover { color: var(--color-foreground); }
+nav { width: 17rem; flex: none; }
+nav ul { list-style: none; display: flex; flex-direction: column; gap: 0.1rem; }
+nav a { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; font-size: 0.85rem; line-height: 1.35; color: var(--color-muted); padding: 0.3rem 0.5rem; border-radius: 4px; text-decoration: none; cursor: pointer; }
+nav a:hover { color: var(--color-foreground); background: var(--color-surface); }
+nav a.active { color: var(--color-foreground); background: var(--color-primary-soft); font-weight: 650; }
+nav a.related { color: var(--color-foreground); }
+main { padding: 1.5rem 2rem; max-width: 46rem; min-width: 0; }
+main h2 { font-size: 1.4rem; line-height: 1.3; }
+.pill { display: inline-block; margin: 0.75rem 0 1rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; border: 1px solid currentcolor; border-radius: 999px; padding: 0.2rem 0.65rem; }
+main dl { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; font-size: 0.9rem; }
+main dt { color: var(--color-muted); }
+main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted); }
+.legend { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--color-border); font-size: 0.8rem; color: var(--color-muted); }
+.legend svg { vertical-align: middle; margin-right: 0.3rem; }
+.legend div { margin: 0.2rem 0; }
+</style>
+</head>
+<body>
+<header>
+  <strong>Decision graph prototype</strong>
+  <label>Data <select id="data">
+    <option value="ours">Ours (19)</option>
+    <option value="ours+">Ours + the 3 lost links</option>
+    <option value="s100">Synthetic 100, sparse</option>
+    <option value="s300">Synthetic 300, sparse</option>
+    <option value="d100">Synthetic 100, dense like ours</option>
+  </select></label>
+  <label>State <select id="state">
+    <option value="collapsed">Collapsed</option>
+    <option value="expanded">Expanded</option>
+  </select></label>
+  <label>Takeover <select id="takeover">
+    <option value="on">Supersede and amend take over the lane</option>
+    <option value="supersede">Only supersede takes over</option>
+    <option value="off">Off: every decision keeps its own lane</option>
+  </select></label>
+  <label>Lone dots <select id="lone">
+    <option value="trunk">In a column of their own</option>
+    <option value="packed">In any free column</option>
+  </select></label>
+  <label>Dot color <select id="dot">
+    <option value="status">Status</option>
+    <option value="lineage">Lineage, status as ring</option>
+  </select></label>
+  <label>References <select id="refs">
+    <option value="quiet">Quiet</option>
+    <option value="selected">Only for the selected decision</option>
+    <option value="loud">Same weight as the rest</option>
+  </select></label>
+  <label>Others when one is selected <select id="dim">
+    <option value="dim">Dimmed</option>
+    <option value="keep">Unchanged</option>
+  </select></label>
+  <label>Collapsed edges <select id="arcs">
+    <option value="arcs">Arcs to related dots</option>
+    <option value="rings">Ring related dots only</option>
+  </select></label>
+  <label>Scheme <select id="theme">
+    <option value="light">Light</option>
+    <option value="dark">Dark</option>
+  </select></label>
+  <span id="stats"></span>
+</header>
+<div class="layout">
+  <aside>
+    <div class="gutter" id="gutter">
+      <button id="toggle" type="button" title="Expand the decision graph" aria-expanded="false">›</button>
+      <svg id="graph" aria-hidden="true"></svg>
+    </div>
+    <nav><ul id="menu"></ul></nav>
+  </aside>
+  <main id="body"></main>
+</div>
+<script>
+const OURS = [{"id":"1","title":"Record architecture decisions","date":"2026-10-02","status":"Accepted","links":[]},{"id":"10","title":"Place unplaced elements around a stored layout","date":"2026-10-02","status":"Accepted","links":[{"id":"17","description":"Referenced by"},{"id":"9","description":"References"}]},{"id":"11","title":"Accept the engine by human sign-off","date":"2026-10-02","status":"Accepted","links":[{"id":"12","description":"Referenced by"},{"id":"2","description":"References"}]},{"id":"12","title":"Ship behind a flag, then cut over in one release","date":"2026-10-02","status":"Accepted","links":[{"id":"11","description":"References"},{"id":"2","description":"References"}]},{"id":"13","title":"Scope the label toggles to element text","date":"2026-10-04","status":"Accepted","links":[{"id":"2","description":"References"}]},{"id":"14","title":"Rank large views with tight-tree","date":"2026-10-04","status":"Accepted","links":[{"id":"4","description":"Amends"}]},{"id":"15","title":"Run edit mode as a local Vite server","date":"2026-10-06","status":"Accepted","links":[{"id":"16","description":"Referenced by"},{"id":"3","description":"References"}]},{"id":"16","title":"Open workspace.dsl through Structurizr's merge","date":"2026-10-06","status":"Accepted","links":[{"id":"15","description":"References"},{"id":"17","description":"Referenced by"}]},{"id":"17","title":"Save layout the way Structurizr reads and writes it","date":"2026-10-06","status":"Accepted","links":[{"id":"16","description":"References"},{"id":"7","description":"References"},{"id":"9","description":"References"}]},{"id":"18","title":"Let the page own edited layouts and drive a controlled engine","date":"2026-10-06","status":"Accepted","links":[{"id":"3","description":"References"}]},{"id":"19","title":"Keep the edge ends of edges with vertices out of spreading","date":"2026-10-06","status":"Accepted","links":[{"id":"7","description":"References"}]},{"id":"2","title":"Draw diagrams from workspace semantics","date":"2026-10-02","status":"Accepted","links":[{"id":"11","description":"Referenced by"},{"id":"12","description":"Referenced by"},{"id":"13","description":"Referenced by"},{"id":"3","description":"Referenced by"},{"id":"5","description":"Referenced by"},{"id":"7","description":"Referenced by"},{"id":"9","description":"Referenced by"}]},{"id":"3","title":"Mount React Flow as an island behind the engine contract","date":"2026-10-02","status":"Accepted","links":[{"id":"15","description":"Referenced by"},{"id":"18","description":"Referenced by"},{"id":"2","description":"References"},{"id":"6","description":"Referenced by"}]},{"id":"4","title":"Use Dagre for automatic layout","date":"2026-10-02","status":"Amended","links":[{"id":"10","description":"Referenced by"},{"id":"14","description":"Amended by"},{"id":"17","description":"Referenced by"},{"id":"9","description":"Referenced by"}]},{"id":"5","title":"Port the workspace model and style resolution","date":"2026-10-02","status":"Accepted","links":[{"id":"2","description":"References"}]},{"id":"6","title":"Fill the viewport with the diagrams page","date":"2026-10-02","status":"Accepted","links":[{"id":"3","description":"References"}]},{"id":"7","title":"Avoid elements in every routing mode","date":"2026-10-02","status":"Accepted","links":[{"id":"17","description":"Referenced by"},{"id":"19","description":"Referenced by"},{"id":"2","description":"References"},{"id":"8","description":"Referenced by"}]},{"id":"8","title":"Write our own router in TypeScript","date":"2026-10-02","status":"Accepted","links":[{"id":"7","description":"References"}]},{"id":"9","title":"Derive boundaries from their children","date":"2026-10-02","status":"Accepted","links":[{"id":"10","description":"Referenced by"},{"id":"17","description":"Referenced by"},{"id":"2","description":"References"},{"id":"4","description":"References"}]}];
+
+// The three links the importer drops (see the research on wordings).
+const LOST = [["10", "4"], ["17", "4"], ["17", "10"]];
+
+const KIND_RANK = { reference: 0, amend: 1, supersede: 2 };
+const classify = (wording) => {
+  const w = wording.trim().toLowerCase();
+  if (/super[sc]ed|overrid/.test(w)) return "supersede";
+  if (/amend/.test(w)) return "amend";
+  return "reference";
+};
+
+/* ---------- Synthetic data ---------- */
+function rng(seed) {
+  return () => {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const VERBS = ["Use", "Adopt", "Keep", "Drop", "Store", "Route", "Cache", "Split", "Version", "Sign", "Log", "Retry", "Queue", "Expose", "Encrypt", "Pin", "Mirror", "Throttle"];
+const NOUNS = ["events", "the gateway", "tenant data", "feature flags", "audit logs", "the read model", "webhooks", "secrets", "the CDN", "schema changes", "background jobs", "search indexes", "session tokens", "build artifacts", "the message bus", "rate limits", "config", "service accounts"];
+const HOW = ["in Postgres", "behind a flag", "per region", "with OpenTelemetry", "in one release", "through Kafka", "at the edge", "by hand", "with Terraform", "in S3", "on every deploy", "for thirty days", ""];
+
+function synthetic(n, refMean, seed) {
+  const r = rng(seed);
+  const pick = (a) => a[Math.floor(r() * a.length)];
+  const ds = [];
+  const start = Date.UTC(2019, 0, 1);
+  const hubs = [];
+  for (let i = 1; i <= n; i++) {
+    const date = new Date(start + i * 9 * 864e5 + Math.floor(r() * 5) * 864e5).toISOString().slice(0, 10);
+    const d = { id: String(i), title: `${pick(VERBS)} ${pick(NOUNS)} ${pick(HOW)}`.trim(), date, status: "Accepted", links: [] };
+    const add = (target, mine, theirs) => {
+      if (target === d || d.links.some((l) => l.id === target.id)) return;
+      const both = r() < 0.5;
+      const side = both ? "both" : r() < 0.5 ? "mine" : "theirs";
+      if (side !== "theirs") d.links.push({ id: target.id, description: mine });
+      if (side !== "mine") target.links.push({ id: d.id, description: theirs });
+    };
+    if (ds.length > 3) {
+      const roll = r();
+      const live = ds.slice(-50).filter((x) => x.status === "Accepted" || x.status === "Amended");
+      if (live.length && roll < 0.09) {
+        const t = pick(live);
+        t.status = "Superseded";
+        const w = pick([["Supercedes", "Superceded by"], ["Supersedes", "Superseded by"], ["Overrides", "Overridden by"], ["supersedes", "superseded by"]]);
+        add(t, w[0], w[1]);
+      } else if (live.length && roll < 0.14) {
+        const t = pick(live);
+        if (t.status === "Accepted") t.status = "Amended";
+        add(t, "Amends", "Amended by");
+      }
+      let k = 0;
+      let x = r();
+      while (x > Math.exp(-refMean) && k < 8) { k++; x *= r(); }
+      for (let j = 0; j < k; j++) {
+        const t = hubs.length && r() < 0.35 ? pick(hubs) : ds[Math.max(0, ds.length - 1 - Math.floor(r() * r() * ds.length))];
+        const w = pick([["References", "Referenced by"], ["Relates to", "Relates to"], ["Requires", "Required by"], ["Links to", "Links to"], ["Complements", "Complemented by"]]);
+        add(t, w[0], w[1]);
+      }
+    }
+    if (r() < 0.06) hubs.push(d);
+    ds.push(d);
+  }
+  for (const d of ds.slice(-4)) d.status = pick(["Proposed", "Proposed", "Accepted"]);
+  if (ds.length > 20) { ds[ds.length - 12].status = "Rejected"; ds[ds.length - 15].status = "Deprecated"; }
+  return ds;
+}
+
+function dataset(key) {
+  if (key === "ours") return structuredClone(OURS);
+  if (key === "ours+") {
+    const ds = structuredClone(OURS);
+    const byId = new Map(ds.map((d) => [d.id, d]));
+    for (const [from, to] of LOST) byId.get(from).links.push({ id: to, description: "References" });
+    return ds;
+  }
+  if (key === "s100") return synthetic(100, 0.2, 7);
+  if (key === "s300") return synthetic(300, 0.2, 11);
+  if (key === "d100") return synthetic(100, 1.2, 5);
+}
+
+/* ---------- Model: rows, edges, lineages, lanes, columns ---------- */
+function build(decisions, opts) {
+  const rows = decisions.toSorted((a, b) => (b.date.localeCompare(a.date)) || Number(b.id) - Number(a.id));
+  const rowOf = new Map(rows.map((d, i) => [d.id, i]));
+  // One edge per pair; direction from decision order; the stronger kind wins.
+  const pairs = new Map();
+  for (const d of rows) for (const l of d.links ?? []) {
+    if (!rowOf.has(l.id) || l.id === d.id) continue;
+    const a = rowOf.get(d.id), b = rowOf.get(l.id);
+    const from = Math.min(a, b), to = Math.max(a, b);
+    const key = `${from}:${to}`;
+    const kind = classify(l.description);
+    const prev = pairs.get(key);
+    if (!prev || KIND_RANK[kind] > KIND_RANK[prev.kind]) pairs.set(key, { from, to, kind });
+  }
+  const edges = [...pairs.values()];
+  // Lineages: union-find over the kinds that take over a lane.
+  const takes = (k) => opts.takeover === "on" ? k !== "reference" : opts.takeover === "supersede" ? k === "supersede" : false;
+  const parent = rows.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  for (const e of edges) if (takes(e.kind)) parent[find(e.from)] = find(e.to);
+  const lineages = new Map();
+  rows.forEach((_, i) => {
+    const root = find(i);
+    if (!lineages.has(root)) lineages.set(root, { members: [], linkers: [], lineage: lineages.size });
+    lineages.get(root).members.push(i);
+  });
+  for (const e of edges) if (!takes(e.kind) || find(e.from) !== find(e.to)) lineages.get(find(e.to)).linkers.push(e.from);
+  // A lane runs from the oldest member up to the newest member or linker.
+  const lanes = [];
+  for (const [root, l] of lineages) {
+    const bottom = Math.max(...l.members);
+    const top = Math.min(...l.members, ...l.linkers);
+    l.hasLane = l.members.length > 1 || l.linkers.length > 0;
+    l.top = top; l.bottom = bottom; l.root = root;
+    if (l.hasLane) lanes.push(l);
+  }
+  // Lanes colored in order of their oldest decision, so colors stay put as decisions arrive.
+  lanes.toSorted((a, b) => b.bottom - a.bottom).forEach((l, i) => (l.color = i % 8));
+  // Greedy column assignment, newest first.
+  const intervals = [...lanes];
+  if (opts.lone === "packed") for (const l of lineages.values()) if (!l.hasLane) intervals.push(l);
+  intervals.sort((a, b) => a.top - b.top || b.bottom - a.bottom);
+  const base = opts.lone === "trunk" ? 1 : 0;
+  const colEnd = [];
+  for (const iv of intervals) {
+    let c = 0;
+    while (colEnd[c] !== undefined && colEnd[c] >= iv.top) c++;
+    colEnd[c] = iv.bottom;
+    iv.col = c + base;
+  }
+  for (const l of lineages.values()) if (!l.hasLane && opts.lone === "trunk") l.col = 0;
+  const lineageOfRow = rows.map((_, i) => lineages.get(find(i)));
+  // Peak number of lanes open at once.
+  let peak = 0;
+  for (let i = 0; i < rows.length; i++) peak = Math.max(peak, lanes.filter((l) => l.top <= i && i <= l.bottom).length);
+  const columns = Math.max(0, ...intervals.map((i) => i.col + 1), base);
+  return { rows, rowOf, edges, lanes, lineageOfRow, columns, peak, takes, find };
+}
+
+/* ---------- Rendering ---------- */
+const $ = (id) => document.getElementById(id);
+const opts = {};
+let model, selected = 0;
+const COL = 12, PAD = 9, COLLAPSED = 22;
+const STATUS_VAR = { accepted: "accepted", amended: "amended", proposed: "proposed", draft: "draft", superseded: "superseded-strong", deprecated: "superseded", rejected: "rejected" };
+const statusColor = (s) => `var(--color-${STATUS_VAR[(s || "").toLowerCase()] ?? "draft"})`;
+const lineColor = (l) => `var(--lineage-${l.color})`;
+const NS = "http://www.w3.org/2000/svg";
+const el = (name, attrs, parent) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
+
+function readOpts() {
+  for (const k of ["data", "state", "takeover", "lone", "dot", "refs", "dim", "arcs", "theme"]) opts[k] = $(k).value;
+}
+
+function renderMenu() {
+  const ul = $("menu");
+  ul.innerHTML = "";
+  model.rows.forEach((d, i) => {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.textContent = `${d.id}. ${d.title}`;
+    a.tabIndex = 0;
+    a.onclick = () => select(i);
+    li.appendChild(a);
+    ul.appendChild(li);
+  });
+}
+
+function rowY() {
+  // Center of each entry's first line, so a dot sits beside the title's start.
+  const svgTop = $("graph").getBoundingClientRect().top;
+  return [...$("menu").children].map((li) => {
+    const a = li.firstChild.getBoundingClientRect();
+    return a.top - svgTop + 4.8 + 0.85 * 15 * 1.35 / 2;
+  });
+}
+
+function related(i) {
+  return model.edges.filter((e) => e.from === i || e.to === i);
+}
+
+function edgeStyle(kind, color, emphasis) {
+  const loud = opts.refs === "loud";
+  if (kind === "supersede") return { stroke: color, "stroke-width": 2.5, fill: "none" };
+  if (kind === "amend") return { stroke: color, "stroke-width": 2, "stroke-dasharray": "5 3", fill: "none" };
+  return loud || emphasis
+    ? { stroke: color, "stroke-width": 1.5, fill: "none" }
+    : { stroke: color, "stroke-width": 1, "stroke-dasharray": "1.5 2.5", "stroke-opacity": 0.9, fill: "none" };
+}
+
+function draw() {
+  const svg = $("graph");
+  svg.innerHTML = "";
+  const ys = rowY();
+  const expanded = opts.state === "expanded";
+  const width = expanded ? PAD * 2 + Math.max(1, model.columns - 1) * COL : COLLAPSED;
+  $("gutter").style.width = `${width}px`;
+  const height = $("menu").getBoundingClientRect().height + 40;
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const sel = selected;
+  const near = new Set(related(sel).flatMap((e) => [e.from, e.to]));
+  const selLineage = model.lineageOfRow[sel];
+  const isHot = (rowsInvolved) => rowsInvolved.includes(sel);
+  const fade = (hot) => (opts.dim === "dim" && near.size && !hot ? 0.3 : 1);
+  document.querySelectorAll("#menu a").forEach((a, i) => {
+    a.classList.toggle("active", i === sel);
+    a.classList.toggle("related", near.has(i));
+  });
+
+  if (!expanded) {
+    const x = COLLAPSED - 8;
+    const g = el("g", {}, svg);
+    if (opts.arcs === "arcs") {
+      for (const e of related(sel)) {
+        const y1 = ys[e.from], y2 = ys[e.to];
+        const bulge = Math.min(x - 2, 5 + Math.abs(y2 - y1) * 0.04);
+        const color = e.kind === "reference" ? "var(--color-muted)" : statusColor(model.rows[e.to].status);
+        el("path", { d: `M${x},${y1} C${x - bulge * 1.33},${y1} ${x - bulge * 1.33},${y2} ${x},${y2}`, ...edgeStyle(e.kind, color, true) }, g);
+      }
+    }
+    model.rows.forEach((d, i) => {
+      const r = i === sel ? 4.5 : 3.5;
+      el("circle", { cx: x, cy: ys[i], r, fill: statusColor(d.status), "fill-opacity": i === sel || near.has(i) || opts.dim === "keep" ? 1 : 0.55 }, g);
+      if (i === sel || (opts.arcs === "rings" && near.has(i))) el("circle", { cx: x, cy: ys[i], r: r + 2.5, fill: "none", stroke: "var(--color-foreground)", "stroke-width": 1.2 }, g);
+    });
+    return;
+  }
+
+  const X = (c) => PAD + c * COL;
+  const gLanes = el("g", {}, svg), gEdges = el("g", {}, svg), gDots = el("g", {}, svg);
+  // Lanes: segments between consecutive stops; a segment between members carries the lineage's kind, one above the newest member only carries references.
+  for (const l of model.lanes) {
+    const x = X(l.col);
+    const hot = l === selLineage || l.linkers.includes(sel);
+    const members = [...l.members].sort((a, b) => b - a);
+    const color = lineColor(l);
+    for (let k = 0; k < members.length - 1; k++) {
+      const older = members[k], newer = members[k + 1];
+      const direct = model.edges.find((e) => e.from === newer && e.to === older);
+      const kind = direct ? direct.kind : "supersede";
+      el("line", { x1: x, y1: ys[older], x2: x, y2: ys[newer], ...edgeStyle(kind, color, hot), opacity: fade(hot) }, gLanes);
+    }
+    const newest = members[members.length - 1];
+    if (l.top < newest) {
+      const showRefs = opts.refs !== "selected" || hot;
+      if (showRefs) el("line", { x1: x, y1: ys[newest], x2: x, y2: ys[l.top] + 10, ...edgeStyle("reference", color, hot), opacity: fade(hot) }, gLanes);
+    }
+  }
+  // Joins: each linker that sits outside the lineage curves into the lane at its own row.
+  for (const l of model.lanes) {
+    const x = X(l.col);
+    const color = lineColor(l);
+    for (const from of l.linkers) {
+      const e = model.edges.find((e) => e.from === from && model.find(e.to) === l.root);
+      const kind = e ? e.kind : "reference";
+      const hot = from === sel || l === selLineage;
+      if (kind === "reference" && opts.refs === "selected" && !hot) continue;
+      const xf = X(model.lineageOfRow[from].col), y = ys[from];
+      const y2 = y + 10;
+      el("path", { d: `M${xf},${y} C${x},${y} ${x},${y} ${x},${y2}`, ...edgeStyle(kind, color, hot), opacity: fade(hot) }, gEdges);
+    }
+  }
+  // Dots.
+  model.rows.forEach((d, i) => {
+    const l = model.lineageOfRow[i];
+    const x = X(l.col), y = ys[i];
+    const hot = i === sel || near.has(i) || l === selLineage;
+    const r = i === sel ? 4.5 : l.hasLane ? 3.5 : 3;
+    if (opts.dot === "lineage" && l.hasLane) {
+      el("circle", { cx: x, cy: y, r: r + 0.5, fill: lineColor(l), stroke: statusColor(d.status), "stroke-width": 2, opacity: fade(hot) }, gDots);
+    } else {
+      el("circle", { cx: x, cy: y, r, fill: statusColor(d.status), stroke: "var(--color-background)", "stroke-width": 1.5, opacity: fade(hot) }, gDots);
+    }
+    if (i === sel) el("circle", { cx: x, cy: y, r: r + 3, fill: "none", stroke: "var(--color-foreground)", "stroke-width": 1.2 }, gDots);
+  });
+}
+
+function renderBody() {
+  const d = model.rows[selected];
+  const rel = related(selected).map((e) => {
+    const other = e.from === selected ? e.to : e.from;
+    const dir = e.from === selected ? { supersede: "Supersedes", amend: "Amends", reference: "References" } : { supersede: "Superseded by", amend: "Amended by", reference: "Referenced by" };
+    return `<dt>${dir[e.kind]}</dt><dd>${model.rows[other].id}. ${model.rows[other].title}</dd>`;
+  });
+  const l = model.lineageOfRow[selected];
+  $("body").innerHTML = `
+    <h2>${d.id}. ${d.title}</h2>
+    <span class="pill" style="color:${statusColor(d.status)}">${d.status}</span>
+    <dl>${rel.join("") || "<dt>Links</dt><dd>None</dd>"}</dl>
+    <p class="note">Lane: ${l.hasLane ? `column ${l.col}, ${l.members.length} decision${l.members.length > 1 ? "s" : ""} in the lineage, ${l.linkers.length} linker${l.linkers.length === 1 ? "" : "s"}` : "none (lone dot)"}. Wordings as stored: ${(d.links ?? []).map((x) => `“${x.description} ${x.id}”`).join(", ") || "none"}.</p>
+    <p class="note">Click a menu entry, or use the up and down arrow keys, to move the selection.</p>
+    <div class="legend">
+      <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="2.5"/></svg>Supersede (also an override)</div>
+      <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/></svg>Amend</div>
+      <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="1" stroke-dasharray="1.5 2.5"/></svg>Reference (any other wording)</div>
+    </div>`;
+}
+
+function stats() {
+  const by = { supersede: 0, amend: 0, reference: 0 };
+  for (const e of model.edges) by[e.kind]++;
+  $("stats").textContent = `${model.rows.length} decisions · ${by.supersede} supersede, ${by.amend} amend, ${by.reference} reference · ${model.lanes.length} lanes · peak ${model.peak} open · ${model.columns} columns`;
+}
+
+function select(i) {
+  selected = Math.max(0, Math.min(model.rows.length - 1, i));
+  draw();
+  renderBody();
+}
+
+function rebuild(keepSelection) {
+  readOpts();
+  document.documentElement.dataset.theme = opts.theme;
+  const prevId = model?.rows[selected]?.id;
+  model = build(dataset(opts.data), opts);
+  renderMenu();
+  stats();
+  selected = keepSelection && model.rowOf.has(prevId) ? model.rowOf.get(prevId) : 0;
+  draw();
+  renderBody();
+  syncToggle();
+}
+
+function syncToggle() {
+  const expanded = opts.state === "expanded";
+  $("toggle").textContent = expanded ? "‹" : "›";
+  $("toggle").title = expanded ? "Collapse the decision graph" : "Expand the decision graph";
+  $("toggle").setAttribute("aria-expanded", String(expanded));
+}
+
+// The page remembers the state per viewer.
+try { const s = localStorage.getItem("decision-graph-state"); if (s) $("state").value = s; } catch {}
+$("toggle").onclick = () => {
+  $("state").value = opts.state === "expanded" ? "collapsed" : "expanded";
+  try { localStorage.setItem("decision-graph-state", $("state").value); } catch {}
+  rebuild(true);
+};
+document.querySelectorAll("header select").forEach((s) => (s.onchange = () => {
+  if (s.id === "state") try { localStorage.setItem("decision-graph-state", s.value); } catch {}
+  rebuild(s.id !== "data");
+}));
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowDown") { e.preventDefault(); select(selected + 1); scrollToSel(); }
+  if (e.key === "ArrowUp") { e.preventDefault(); select(selected - 1); scrollToSel(); }
+});
+const scrollToSel = () => $("menu").children[selected]?.scrollIntoView({ block: "nearest" });
+new ResizeObserver(() => model && draw()).observe($("menu"));
+if (matchMedia("(prefers-color-scheme: dark)").matches) $("theme").value = "dark";
+rebuild(false);
+</script>
+</body>
+</html>
