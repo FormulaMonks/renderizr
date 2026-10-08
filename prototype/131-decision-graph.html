@@ -50,7 +50,7 @@ aside { flex: none; display: flex; border-right: 1px solid var(--color-border); 
 /* Past the cap the lanes scroll sideways; the column next to the titles stays pinned. */
 #scroller { position: absolute; top: 0; left: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 #scroller::-webkit-scrollbar { display: none; }
-#pin { position: absolute; top: 0; right: 0; overflow: hidden; }
+#pin { position: absolute; top: 0; right: 0; overflow: hidden; pointer-events: none; }
 #pan { position: sticky; top: calc(var(--header-height, 6rem) + 1.9rem); z-index: 1; display: flex; justify-content: center; gap: 2px; margin-bottom: 0.25rem; }
 #pan button { position: static; margin: 0; width: 1.2rem; height: 1.2rem; }
 
@@ -112,11 +112,19 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
     <option value="rings">Ring related dots only</option>
   </select></label>
   <label>Cap <select id="cap">
-    <option value="20">20 columns</option>
     <option value="30">30 columns</option>
+    <option value="20">20 columns</option>
     <option value="10">10 columns</option>
     <option value="8">8 columns (to see scrolling)</option>
     <option value="none">None</option>
+  </select></label>
+  <label>Highlight <select id="hl">
+    <option value="edges">The selected decision's edges only</option>
+    <option value="lane">The whole lane and its joins</option>
+  </select></label>
+  <label>Far references <select id="far">
+    <option value="stub">Stubs with a chevron</option>
+    <option value="full">Drawn in full</option>
   </select></label>
   <label>Scheme <select id="theme">
     <option value="light">Light</option>
@@ -297,7 +305,7 @@ const NS = "http://www.w3.org/2000/svg";
 const el = (name, attrs, parent) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
 
 function readOpts() {
-  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "cap", "theme"]) opts[k] = $(k).value;
+  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "cap", "hl", "far", "theme"]) opts[k] = $(k).value;
 }
 
 function renderMenu() {
@@ -331,6 +339,8 @@ function edgeStyle(kind, color, emphasis) {
   const loud = opts.refs === "loud";
   if (kind === "supersede") return { stroke: color, "stroke-width": 2.5, fill: "none" };
   if (kind === "amend") return { stroke: color, "stroke-width": 2, "stroke-dasharray": "5 3", fill: "none" };
+  // Expanded, a highlighted reference stays dotted so it never reads as a lane.
+  if (emphasis && opts.state === "expanded") return { stroke: color, "stroke-width": 1.5, "stroke-dasharray": "1.5 2.5", fill: "none" };
   return loud || emphasis
     ? { stroke: color, "stroke-width": 1.5, fill: "none" }
     : { stroke: color, "stroke-width": 1, "stroke-dasharray": "1.5 2.5", "stroke-opacity": 0.9, fill: "none" };
@@ -394,7 +404,7 @@ function draw() {
   // Lanes: segments between consecutive stops; a segment between members carries the lineage's kind, one above the newest member only carries references.
   for (const l of model.lanes) {
     const x = X(l.col);
-    const hot = l === selLineage || l.linkers.includes(sel);
+    const hot = l === selLineage || (opts.hl === "lane" && l.linkers.includes(sel));
     const members = [...l.members].sort((a, b) => b - a);
     const color = lineColor(l);
     for (let k = 0; k < members.length - 1; k++) {
@@ -408,6 +418,11 @@ function draw() {
       const showRefs = opts.refs !== "selected" || hot;
       if (showRefs) el("line", { x1: x, y1: ys[newest], x2: x, y2: ys[l.top] + 3, ...edgeStyle("reference", color, hot), opacity: fade(hot) }, gLanes);
     }
+    // Highlighting edges only: light just the stretch the selected decision's reference travels, from its join down to the decision it links to.
+    if (!hot && l.linkers.includes(sel)) {
+      const target = Math.max(...model.edges.filter((e) => e.from === sel && model.find(e.to) === l.root).map((e) => e.to));
+      el("line", { x1: x, y1: ys[sel] + 3, x2: x, y2: ys[target], ...edgeStyle("reference", color, true) }, gLanes);
+    }
   }
   // Joins: each linker that sits outside the lineage curves into the lane at its own row.
   for (const l of model.lanes) {
@@ -416,7 +431,7 @@ function draw() {
     for (const from of l.linkers) {
       const e = model.edges.find((e) => e.from === from && model.find(e.to) === l.root);
       const kind = e ? e.kind : "reference";
-      const hot = from === sel || l === selLineage;
+      const hot = from === sel || l === selLineage || (opts.hl === "lane" && l.linkers.includes(sel));
       if (kind === "reference" && opts.refs === "selected" && !hot) continue;
       const xf = X(model.lineageOfRow[from].col), y = ys[from];
       // An elbow, like the collapsed links: across to the lane, then down into it.
@@ -441,7 +456,21 @@ function draw() {
       const x1 = X(model.lineageOfRow[e.from].col), y1 = ys[e.from];
       const x2 = X(model.lineageOfRow[e.to].col), y2 = ys[e.to];
       const s1 = Math.sign(xt - x1), s2 = Math.sign(xt - x2), dir = Math.sign(y2 - y1);
-      el("path", { d: `M${x1},${y1} H${xt - s1 * rr} Q${xt},${y1} ${xt},${y1 + dir * rr} V${y2 - dir * rr} Q${xt},${y2} ${xt - s2 * rr},${y2} H${x2}`, ...edgeStyle("reference", "var(--color-muted)", true) }, gEdges);
+      const style = edgeStyle("reference", "var(--color-foreground)", true);
+      if (opts.far === "stub" && Math.abs(y2 - y1) > innerHeight / 2) {
+        // Too far to follow: a short stub at each end, with a chevron toward the other decision.
+        const STUB = 16;
+        for (const [xa, ya, sa, d, other] of [[x1, y1, s1, dir, e.to], [x2, y2, s2, -dir, e.from]]) {
+          const g = el("g", { style: "cursor: pointer" }, gEdges);
+          el("title", {}, g).textContent = `${d > 0 ? "References" : "Referenced by"} ${model.rows[other].id}. ${model.rows[other].title}`;
+          el("path", { d: `M${xa},${ya} H${xt - sa * rr} Q${xt},${ya} ${xt},${ya + d * rr} V${ya + d * STUB}`, ...style }, g);
+          el("path", { d: `M${xt - 3},${ya + d * (STUB - 3)} L${xt},${ya + d * STUB} L${xt + 3},${ya + d * (STUB - 3)}`, stroke: "var(--color-foreground)", "stroke-width": 1.5, fill: "none" }, g);
+          el("rect", { x: xt - 5, y: Math.min(ya, ya + d * STUB) - 2, width: 10, height: STUB + 4, fill: "transparent" }, g);
+          g.onclick = () => $("menu").children[other].scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      } else {
+        el("path", { d: `M${x1},${y1} H${xt - s1 * rr} Q${xt},${y1} ${xt},${y1 + dir * rr} V${y2 - dir * rr} Q${xt},${y2} ${xt - s2 * rr},${y2} H${x2}`, ...style }, gEdges);
+      }
     }
   }
   // The pinned strip repeats the column next to the titles over the scrolling lanes.
