@@ -32,18 +32,16 @@ That is a checkable claim, not a promise. See [verifying](./verifying.md).
 
 ## Size
 
-A real model lands around **1 MB**, roughly 320 KB gzipped. Measured:
+Weigh a render against the page Renderizr ships. The page (the diagram engine, React, the styles and the documentation pages) makes up nearly all of a render, so size stays close to constant as a model grows.
 
-| Workspace | `artifact.html` | gzipped |
+| What you add | Raw | Gzipped |
 |---|---|---|
-| Big Bank plc (the Structurizr example) | 920 KB | ~300 KB |
-| A small fixture workspace | 1.02 MB | ~320 KB |
+| A small workspace | the page | the page, about a third of raw |
+| A landscape of 300 elements and 600 relationships | +15% | +5% |
+| `--font` | +8% | +20% |
+| `--font` and `--font-italic` | +15% | +35% |
 
-Most of that is the diagram engine itself, so size is close to constant: a bigger model is not a proportionally bigger file. The floor is about 840 KB no matter how small the workspace.
-
-Claude artifacts allow up to 16 MB, so an ordinary workspace is nowhere near the limit. If a render ever approaches it, the cause is embedded imagery in the workspace or its documentation, not the number of elements.
-
-Adding `--font` costs another 45–70 KB gzipped, and `--font-italic` roughly doubles that.
+The page weighs about a twentieth of the 16 MB a Claude artifact allows, and the build's tests keep it under a tenth. The rest belongs to the workspace. If a render ever approaches the limit, look for embedded imagery in the workspace or its documentation: the number of elements barely moves the size.
 
 ## What the reader gets
 
