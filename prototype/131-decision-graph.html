@@ -53,7 +53,7 @@ aside { flex: none; display: flex; border-right: 1px solid var(--color-border); 
 #pin { position: absolute; top: 0; right: 0; overflow: hidden; }
 #pan { position: sticky; top: calc(var(--header-height, 6rem) + 1.9rem); z-index: 1; display: flex; justify-content: center; gap: 2px; margin-bottom: 0.25rem; }
 #pan button { position: static; margin: 0; width: 1.2rem; height: 1.2rem; }
-#caption { font-size: 0.72rem; line-height: 1.35; color: var(--color-muted); padding: 0 0.5rem 0.5rem; margin-bottom: 0.25rem; border-bottom: 1px solid var(--color-border); }
+
 .gutter button { position: sticky; top: calc(var(--header-height, 6rem) + 0.4rem); z-index: 1; display: block; margin: 0 auto 0.25rem; width: 1.4rem; height: 1.4rem; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface); color: var(--color-muted); cursor: pointer; font-size: 0.75rem; line-height: 1; }
 .gutter button:hover { color: var(--color-foreground); }
 nav { width: 17rem; flex: none; }
@@ -112,15 +112,10 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
     <option value="rings">Ring related dots only</option>
   </select></label>
   <label>Cap <select id="cap">
+    <option value="20">20 columns</option>
+    <option value="30">30 columns</option>
     <option value="10">10 columns</option>
-    <option value="8">8 columns</option>
-    <option value="12">12 columns</option>
-    <option value="none">None</option>
-  </select></label>
-  <label>Hidden references notice <select id="notice">
-    <option value="caption">Caption above the menu</option>
-    <option value="label">Expand button label (hover)</option>
-    <option value="legend">Legend in the body</option>
+    <option value="8">8 columns (to see scrolling)</option>
     <option value="none">None</option>
   </select></label>
   <label>Scheme <select id="theme">
@@ -133,11 +128,11 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
   <aside>
     <div class="gutter" id="gutter">
       <button id="toggle" type="button" title="Expand the decision graph" aria-expanded="false">›</button>
-      <span id="pan" hidden><button type="button" id="panLeft" title="Scroll the lanes left">‹</button><button type="button" id="panRight" title="Scroll the lanes right">›</button></span>
+      <span id="pan" hidden><button type="button" id="panLeft" title="Scroll the lanes left. A trackpad swipe, or Shift with the mouse wheel, scrolls them too.">‹</button><button type="button" id="panRight" title="Scroll the lanes right. A trackpad swipe, or Shift with the mouse wheel, scrolls them too.">›</button></span>
       <div id="scroller"><svg id="graph" aria-hidden="true"></svg></div>
       <svg id="pin" aria-hidden="true"></svg>
     </div>
-    <nav><p id="caption" hidden>Lanes show supersede and amend. References show for the selected decision.</p><ul id="menu"></ul></nav>
+    <nav><ul id="menu"></ul></nav>
   </aside>
   <main id="body"></main>
 </div>
@@ -302,7 +297,7 @@ const NS = "http://www.w3.org/2000/svg";
 const el = (name, attrs, parent) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
 
 function readOpts() {
-  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "cap", "notice", "theme"]) opts[k] = $(k).value;
+  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "cap", "theme"]) opts[k] = $(k).value;
 }
 
 function renderMenu() {
@@ -346,8 +341,10 @@ function draw() {
   svg.innerHTML = "";
   const ys = rowY();
   const expanded = opts.state === "expanded";
-  const fullWidth = expanded ? PAD * 2 + Math.max(1, model.columns - 1) * COL : COLLAPSED;
   const scrolling = expanded && model.fallback === "scroll";
+  // While the lanes scroll, a gap after the pinned column keeps the first lane clear of the strip.
+  const GAP = scrolling ? 8 : 0;
+  const fullWidth = expanded ? PAD * 2 + GAP + Math.max(1, model.columns - 1) * COL : COLLAPSED;
   const width = scrolling ? PAD * 2 + (model.cap - 1) * COL : fullWidth;
   $("gutter").style.width = `${width}px`;
   const height = $("menu").getBoundingClientRect().bottom - svg.getBoundingClientRect().top + 20;
@@ -358,9 +355,7 @@ function draw() {
   $("scroller").style.height = `${height}px`;
   $("pan").hidden = !scrolling;
   $("pin").style.display = scrolling ? "" : "none";
-  const refsHidden = expanded && model.fallback !== "none";
-  $("caption").hidden = !(refsHidden && opts.notice === "caption");
-  $("toggle").title = expanded ? `Collapse the decision graph${refsHidden && opts.notice === "label" ? ". Lanes show supersede and amend; references show for the selected decision" : ""}` : "Expand the decision graph";
+  $("toggle").title = expanded ? "Collapse the decision graph" : "Expand the decision graph";
   svg.appendChild(document.createElementNS(NS, "g")).id = "content";
   const root = svg.lastChild;
   const sel = selected;
@@ -394,7 +389,7 @@ function draw() {
   }
 
   // Column 0 sits next to the titles; the graph grows to the left.
-  const X = (c) => fullWidth - PAD - c * COL;
+  const X = (c) => fullWidth - PAD - (c > 0 ? GAP : 0) - c * COL;
   const gLanes = el("g", {}, root), gEdges = el("g", {}, root), gDots = el("g", {}, root);
   // Lanes: segments between consecutive stops; a segment between members carries the lineage's kind, one above the newest member only carries references.
   for (const l of model.lanes) {
@@ -453,19 +448,27 @@ function draw() {
   const pin = $("pin");
   pin.innerHTML = "";
   if (scrolling) {
-    const pinW = PAD + 8;
+    // Wide enough to hold the elbow track, so no line sits on the strip's edge.
+    const pinW = PAD + 12;
     pin.setAttribute("width", pinW);
     pin.setAttribute("height", height);
     el("rect", { x: 0, y: 0, width: pinW, height, fill: "var(--color-background)" }, pin);
-    el("line", { x1: 0.5, y1: 0, x2: 0.5, y2: height, stroke: "var(--color-border)" }, pin);
     el("use", { href: "#content", x: -(fullWidth - pinW) }, pin);
     const sc = $("scroller");
     if (firstScroll) { sc.scrollLeft = sc.scrollWidth; firstScroll = false; }
-    // Follow the selection: bring its lane into view.
-    const xs = X(model.lineageOfRow[sel].col);
+    // Follow the selection: bring its lane and every lane its edges reach into view, its own lane first.
     const view = width - pinW;
-    if (xs < sc.scrollLeft + 8) sc.scrollLeft = xs - 14;
-    else if (xs > sc.scrollLeft + view - 8) sc.scrollLeft = xs - view + 14;
+    const own = model.lineageOfRow[sel].col;
+    const cols = [own, ...related(sel).map((e) => model.lineageOfRow[e.from === sel ? e.to : e.from].col)].filter((c) => c > 0);
+    if (cols.length) {
+      const xs = cols.map(X);
+      let lo = Math.min(...xs), hi = Math.max(...xs);
+      // Too wide to show at once: keep the selection's own lane, or the lane nearest the titles.
+      if (hi - lo > view - 28) lo = hi = own > 0 ? X(own) : hi;
+      // Any scroll position in [hi - view + 14, lo - 14] shows the span; move as little as possible.
+      const min = hi - view + 14, max = lo - 14;
+      sc.scrollLeft = Math.min(Math.max(sc.scrollLeft, min), max);
+    }
   }
 }
 
@@ -486,7 +489,7 @@ function renderBody() {
     <div class="legend">
       <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="2.5"/></svg>Supersede (also an override)</div>
       <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="5 3"/></svg>Amend</div>
-      <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="1" stroke-dasharray="1.5 2.5"/></svg>Reference (any other wording)${opts.state === "expanded" && model.fallback !== "none" && opts.notice === "legend" ? ": this workspace has too many to draw as lanes, so they show for the selected decision only" : ""}</div>
+      <div><svg width="40" height="10"><line x1="0" y1="5" x2="40" y2="5" stroke="currentColor" stroke-width="1" stroke-dasharray="1.5 2.5"/></svg>Reference (any other wording)</div>
     </div>`;
 }
 
