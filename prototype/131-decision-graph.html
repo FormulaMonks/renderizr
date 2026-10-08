@@ -60,6 +60,11 @@ body.index #indexHead p { color: var(--color-muted); }
 body.index .controls { min-height: 0.5rem; padding: 0.25rem 0; }
 body.index nav { flex: 1; width: auto; }
 body.index nav ul { gap: 0.25rem; }
+body.index nav li.year { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; color: var(--color-muted); padding: 1.5rem 0.75rem 0.25rem; border-bottom: 1px solid var(--color-border); margin-bottom: 0.25rem; }
+body.index nav li.year:first-child { padding-top: 0.5rem; }
+body.index nav a { display: grid; grid-template-columns: 3.2rem 7.5rem 1fr; align-items: baseline; }
+body.index nav a .num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9rem; color: var(--color-muted); }
+body.index nav a .st { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 body.index nav a { font-size: 1rem; line-height: 1.45; padding: 0.55rem 0.75rem; -webkit-line-clamp: unset; line-clamp: none; color: var(--color-foreground); }
 .gutter { flex: none; position: relative; }
 .gutter svg { overflow: visible; }
@@ -340,10 +345,25 @@ function readOpts() {
 function renderMenu() {
   const ul = $("menu");
   ul.innerHTML = "";
+  let year = null;
   model.rows.forEach((d, i) => {
+    // The index keeps the year headings; lanes run straight through the gaps they leave.
+    if (page === "index" && d.date.slice(0, 4) !== year) {
+      year = d.date.slice(0, 4);
+      const h = document.createElement("li");
+      h.className = "year";
+      h.textContent = year;
+      ul.appendChild(h);
+    }
     const li = document.createElement("li");
+    li.className = "row";
     const a = document.createElement("a");
-    a.textContent = `${d.id}. ${d.title}`;
+    if (page === "index") {
+      // Four-digit numbers and a fixed status column keep every title on one edge.
+      a.innerHTML = `<span class="num">${d.id.padStart(4, "0")}</span><span class="st" style="color:${statusColor(d.status)}">${d.status}</span><span class="tt"></span>`;
+      a.querySelector(".tt").textContent = d.title;
+      a.title = d.date;
+    } else a.textContent = `${d.id}. ${d.title}`;
     a.tabIndex = 0;
     a.onclick = () => (page === "index" ? openDecision(i) : select(i));
     a.onmouseenter = a.onfocus = () => { if (page === "index") { hover = i; draw(); } };
@@ -356,7 +376,7 @@ function renderMenu() {
 function rowY() {
   // Center of each entry's first line, so a dot sits beside the title's start.
   const svgTop = $("graph").getBoundingClientRect().top;
-  return [...$("menu").children].map((li) => {
+  return [...$("menu").querySelectorAll("li.row")].map((li) => {
     const a = li.firstChild;
     const cs = getComputedStyle(a);
     return a.getBoundingClientRect().top - svgTop + parseFloat(cs.paddingTop) + parseFloat(cs.lineHeight) / 2;
@@ -648,7 +668,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowDown") { e.preventDefault(); select(selected + 1); scrollToSel(); }
   if (e.key === "ArrowUp") { e.preventDefault(); select(selected - 1); scrollToSel(); }
 });
-const scrollToSel = () => $("menu").children[selected]?.scrollIntoView({ block: "nearest" });
+const scrollToSel = () => $("menu").querySelectorAll("li.row")[selected]?.scrollIntoView({ block: "nearest" });
 new ResizeObserver(() => model && draw()).observe($("menu"));
 new ResizeObserver(() => document.documentElement.style.setProperty("--header-height", `${document.querySelector("header").offsetHeight}px`)).observe(document.querySelector("header"));
 if (matchMedia("(prefers-color-scheme: dark)").matches) $("theme").value = "dark";
