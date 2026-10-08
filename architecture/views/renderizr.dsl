@@ -1,7 +1,7 @@
 systemContext Renderizr "Renderizr" {
     description "Static Architecture Page Generator. ${AUTHOR}" 
     include *
-    autoLayout tb
+    autoLayout tb 300 300
 }
 
 container Renderizr {

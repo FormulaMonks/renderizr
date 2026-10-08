@@ -53,6 +53,11 @@ export async function mergeWorkspace(
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    // Structurizr reads an ADR's `Date:` as midnight in the JVM's time zone,
+    // so the same DSL writes different dates on different machines. Run the
+    // tools in UTC, as CI does, so every machine writes the same file. The
+    // Docker image runs in UTC already.
+    process.env.TZ = "UTC";
     await mergeWorkspace(
         dirname(dirname(fileURLToPath(import.meta.url))),
         toolsCommand(),
