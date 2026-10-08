@@ -20,8 +20,6 @@
   --color-superseded: rgb(110, 116, 126);
   --color-superseded-strong: rgb(154, 103, 0);
   --color-rejected: rgb(175 64 64);
-  --lineage-0: #2f6fb3; --lineage-1: #c2410c; --lineage-2: #15803d; --lineage-3: #9333ea;
-  --lineage-4: #be185d; --lineage-5: #0e7490; --lineage-6: #a16207; --lineage-7: #4d7c0f;
 }
 :root[data-theme="dark"] {
   --color-foreground: rgb(233, 237, 243);
@@ -37,8 +35,6 @@
   --color-superseded: rgb(153, 153, 153);
   --color-superseded-strong: rgb(214, 160, 62);
   --color-rejected: rgb(226 112 112);
-  --lineage-0: #6ea8ec; --lineage-1: #f0915a; --lineage-2: #5cc983; --lineage-3: #c08cf5;
-  --lineage-4: #ee7fb4; --lineage-5: #4cc4d9; --lineage-6: #e0b64a; --lineage-7: #a3cc5a;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font: 15px/1.5 system-ui, sans-serif; color: var(--color-foreground); background: var(--color-background); }
@@ -92,10 +88,6 @@ main p.note { margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-muted);
   <label>Lone dots <select id="lone">
     <option value="trunk">In a column of their own</option>
     <option value="packed">In any free column</option>
-  </select></label>
-  <label>Dot color <select id="dot">
-    <option value="status">Status</option>
-    <option value="lineage">Lineage, status as ring</option>
   </select></label>
   <label>References <select id="refs">
     <option value="quiet">Quiet</option>
@@ -279,12 +271,13 @@ let model, selected = 0;
 const COL = 12, PAD = 9, COLLAPSED = 22;
 const STATUS_VAR = { accepted: "accepted", amended: "amended", proposed: "proposed", draft: "draft", superseded: "superseded-strong", deprecated: "superseded", rejected: "rejected" };
 const statusColor = (s) => `var(--color-${STATUS_VAR[(s || "").toLowerCase()] ?? "draft"})`;
-const lineColor = (l) => `var(--lineage-${l.color})`;
+// Lanes carry no color of their own: status lives on the dots.
+const lineColor = () => "var(--color-muted)";
 const NS = "http://www.w3.org/2000/svg";
 const el = (name, attrs, parent) => { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); parent?.appendChild(e); return e; };
 
 function readOpts() {
-  for (const k of ["data", "state", "takeover", "lone", "dot", "refs", "dim", "arcs", "theme"]) opts[k] = $(k).value;
+  for (const k of ["data", "state", "takeover", "lone", "refs", "dim", "arcs", "theme"]) opts[k] = $(k).value;
 }
 
 function renderMenu() {
@@ -382,7 +375,7 @@ function draw() {
     const newest = members[members.length - 1];
     if (l.top < newest) {
       const showRefs = opts.refs !== "selected" || hot;
-      if (showRefs) el("line", { x1: x, y1: ys[newest], x2: x, y2: ys[l.top] + 10, ...edgeStyle("reference", color, hot), opacity: fade(hot) }, gLanes);
+      if (showRefs) el("line", { x1: x, y1: ys[newest], x2: x, y2: ys[l.top] + 3, ...edgeStyle("reference", color, hot), opacity: fade(hot) }, gLanes);
     }
   }
   // Joins: each linker that sits outside the lineage curves into the lane at its own row.
@@ -395,8 +388,9 @@ function draw() {
       const hot = from === sel || l === selLineage;
       if (kind === "reference" && opts.refs === "selected" && !hot) continue;
       const xf = X(model.lineageOfRow[from].col), y = ys[from];
-      const y2 = y + 10;
-      el("path", { d: `M${xf},${y} C${x},${y} ${x},${y} ${x},${y2}`, ...edgeStyle(kind, color, hot), opacity: fade(hot) }, gEdges);
+      // An elbow, like the collapsed links: across to the lane, then down into it.
+      const r = 3, s = Math.sign(xf - x);
+      el("path", { d: `M${xf},${y} H${x + s * r} Q${x},${y} ${x},${y + r}`, ...edgeStyle(kind, color, hot), opacity: fade(hot) }, gEdges);
     }
   }
   // Dots.
@@ -405,11 +399,7 @@ function draw() {
     const x = X(l.col), y = ys[i];
     const hot = i === sel || near.has(i) || l === selLineage;
     const r = i === sel ? 4.5 : l.hasLane ? 3.5 : 3;
-    if (opts.dot === "lineage" && l.hasLane) {
-      el("circle", { cx: x, cy: y, r: r + 0.5, fill: lineColor(l), stroke: statusColor(d.status), "stroke-width": 2, opacity: fade(hot) }, gDots);
-    } else {
-      el("circle", { cx: x, cy: y, r, fill: statusColor(d.status), stroke: "var(--color-background)", "stroke-width": 1.5, opacity: fade(hot) }, gDots);
-    }
+    el("circle", { cx: x, cy: y, r, fill: statusColor(d.status), stroke: "var(--color-background)", "stroke-width": 1.5, opacity: fade(hot) }, gDots);
     if (i === sel) el("circle", { cx: x, cy: y, r: r + 3, fill: "none", stroke: "var(--color-foreground)", "stroke-width": 1.2 }, gDots);
   });
 }
