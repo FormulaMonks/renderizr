@@ -95,6 +95,10 @@ const singleFile = once(() =>
     ]),
 );
 const based = once(() => build("based", ["--base", "/docs/"]));
+/** `--single-file` and nothing else: the page as Renderizr ships it. */
+const defaultSingleFile = once(() =>
+    build("default-single", ["--single-file"]),
+);
 
 /* --------------------------------------------------------------- multi-file */
 
@@ -640,12 +644,14 @@ test("the edit-mode markers are in the page when edit mode is compiled in", asyn
 /* --------------------------------------------------- the single-file budget */
 
 /**
- * The single file as the fixture workspace renders it, in bytes: `index.html`
- * with every asset inlined, the larger of the two files `--single-file`
- * writes, measured with the React Flow engine as the only engine. The page's
- * code makes up nearly all of it; the fixture workspace adds a few kilobytes.
+ * The single file as the fixture workspace renders it with the default flags,
+ * in bytes: `index.html` with every asset inlined, the larger of the two files
+ * `--single-file` writes, measured with the React Flow engine as the only
+ * engine. The budget covers only what Renderizr ships, so it leaves out the
+ * logo, fonts and imagery a user may add. The page's code makes up nearly all
+ * of it; the fixture workspace adds a few kilobytes.
  */
-const SINGLE_FILE_BYTES = 838_627;
+const SINGLE_FILE_BYTES = 838_191;
 
 /**
  * The most a Claude artifact page may weigh, read as decimal megabytes, the
@@ -659,8 +665,8 @@ const ARTIFACT_LIMIT_BYTES = 16_000_000;
  */
 const SINGLE_FILE_BUDGET_BYTES = Math.floor(SINGLE_FILE_BYTES * 1.1);
 
-test("each file --single-file writes stays within index.html's measured size plus 10%, and within a tenth of a Claude artifact's limit", async () => {
-    const { out } = await singleFile();
+test("each file a default --single-file build writes stays within index.html's measured size plus 10%, and within a tenth of a Claude artifact's limit", async () => {
+    const { out } = await defaultSingleFile();
 
     for (const name of ["index.html", "artifact.html"]) {
         const { length } = await readFile(join(out, name));

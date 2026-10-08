@@ -41,7 +41,7 @@ Weigh a render against the page Renderizr ships. The page (the diagram engine, R
 | `--font` | +8% | +20% |
 | `--font` and `--font-italic` | +15% | +35% |
 
-The page weighs about a twentieth of the 16 MB a Claude artifact allows, and the build's tests keep it under a tenth. The rest belongs to the workspace. If a render ever approaches the limit, look for embedded imagery in the workspace or its documentation: the number of elements barely moves the size.
+With the default flags, the page weighs about a twentieth of the 16 MB a Claude artifact allows, and the build's tests keep it under a tenth. The rest belongs to the workspace and to what the user adds: a logo, fonts and imagery weigh what their files weigh, and no budget covers them. If a render ever approaches the limit, look for embedded imagery in the workspace or its documentation: the number of elements barely moves the size.
 
 ## What the reader gets
 
