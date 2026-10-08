@@ -147,3 +147,11 @@ _Avoid_: magnet
 **Alignment guide**:
 The dashed line edit mode draws while a dragged element or vertex lines up with another element, vertex or edge end.
 _Avoid_: smart guide, snap line
+
+**Decision graph**:
+The drawing beside the decisions menu that shows how decisions link to one another: a dot per decision, colored by its status, and a lane for each decision that later decisions link to.
+_Avoid_: timeline, history graph
+
+**Lane**:
+The vertical line in the decision graph that runs from a decision up to the newest decision that links to it. A decision that supersedes or amends it continues the same lane instead of opening its own; a decision that references it joins the lane with a short elbow.
+_Avoid_: branch, track
