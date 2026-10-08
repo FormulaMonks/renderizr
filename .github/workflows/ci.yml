@@ -12,7 +12,9 @@
 #   consumer  the >=20 floor, via npm and production dependencies only — what
 #             `npx github:FormulaMonks/renderizr` actually does
 #   structurizr  Structurizr's own tools, pinned: the committed acceptance
-#                fixture matches what `pnpm fixtures:acceptance` writes
+#                fixture matches what `pnpm fixtures:acceptance` writes, and
+#                architecture/workspace.json matches what
+#                `pnpm architecture:export` writes
 #   ci      one required status check that stands for all of the above
 #
 # Outside `ci`, and so never required: `contact sheet`, which screenshots
@@ -407,6 +409,20 @@ jobs:
             exit 0
           fi
           echo "::error title=Acceptance fixture out of date::pnpm fixtures:acceptance changed test/__fixtures__/acceptance. Run it with Structurizr ${STRUCTURIZR_VERSION} (STRUCTURIZR_CLI=\"java -jar structurizr.war\") and commit the result."
+          exit 1
+
+      # GitHub Pages publishes Renderizr's own architecture documentation from
+      # the committed architecture/workspace.json, so it has to match
+      # workspace.dsl and the folders it imports.
+      - name: Export the architecture workspace
+        run: pnpm architecture:export
+
+      - name: Check the committed architecture workspace is up to date
+        run: |
+          if git diff --exit-code -- architecture; then
+            exit 0
+          fi
+          echo "::error title=Architecture workspace out of date::pnpm architecture:export changed architecture/workspace.json. Run it with Structurizr ${STRUCTURIZR_VERSION} (STRUCTURIZR_CLI=\"java -jar structurizr.war\"), or save from renderizr edit on architecture/, and commit the result."
           exit 1
 
   # Every acceptance view in one HTML page, for a person reviewing a change to

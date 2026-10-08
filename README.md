@@ -17,12 +17,11 @@ npx servor structurizr-output
 And you get this:
 
 <!--
-  A live, clickable copy of exactly this build belongs here, in place of (or beside) the screenshot:
+  A live, clickable example belongs here, beside the screenshot: Renderizr's own architecture documentation, rendered by Renderizr.
 
-    https://formulamonks.github.io/renderizr/                 the browsable site
-    https://formulamonks.github.io/renderizr/single-file.html the same workspace as one document
+    https://formulamonks.github.io/renderizr/
 
-  .github/workflows/pages.yml publishes both on every push to main, but no deployment has happened yet and one manual step stands in the way: an admin has to flip Settings → Pages → Source = "GitHub Actions" once, because creating a Pages site needs administration:write and GITHUB_TOKEN cannot hold it. Until then `gh api repos/FormulaMonks/renderizr/pages` returns 404, the workflow's preflight job skips the build and deploy jobs rather than failing — the run reports success, having published nothing — and these links would 404 in the first screenful. Add them in the same pull request as the first green pages deployment, not before. Tracked in MAINTAINERS.md → "Repository setup still to be done". -->
+  .github/workflows/pages.yml publishes it on each release, rendered from the release's tag, but no deployment has happened yet and one manual step stands in the way: an admin has to set Settings → Pages → Build and deployment → Source to "GitHub Actions". Today `gh api repos/FormulaMonks/renderizr/pages` reports `build_type: legacy` ("Deploy from a branch"), so the workflow's preflight job skips the build and deploy jobs: the run reports success, having published nothing. Add the link in the same pull request as the first green pages deployment, not before. Tracked in MAINTAINERS.md → "Repository setup still to be done". -->
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
