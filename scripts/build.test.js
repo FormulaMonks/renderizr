@@ -637,39 +637,29 @@ test("the edit-mode markers are in the page when edit mode is compiled in", asyn
     }
 });
 
-/* -------------------------------------------------------- the bundle budget */
+/* --------------------------------------------------- the single-file budget */
 
 /**
  * The single file as the fixture workspace renders it, in bytes: `index.html`
  * with every asset inlined, the larger of the two files `--single-file`
- * writes, measured once the React Flow engine became the only renderer. The
- * application makes up nearly all of it; the fixture workspace adds a few
- * kilobytes.
+ * writes, measured with the React Flow engine as the only engine. The page's
+ * code makes up nearly all of it; the fixture workspace adds a few kilobytes.
  */
 const SINGLE_FILE_BYTES = 838_627;
 
 /**
- * The most a Claude artifact page may weigh. People upload `artifact.html`
- * there, and the limit counts the page as written, uncompressed.
+ * The most a Claude artifact page may weigh, read as decimal megabytes, the
+ * stricter reading of 16 MB. People upload `artifact.html` there.
  */
 const ARTIFACT_LIMIT_BYTES = 16_000_000;
 
 /**
- * The single file's measured size plus 10%: past it, the application has
- * grown more than planned.
+ * The single file's measured size plus 10%: past it, the page grows more
+ * than planned.
  */
 const SINGLE_FILE_BUDGET_BYTES = Math.floor(SINGLE_FILE_BYTES * 1.1);
 
-test("the single-file budget stays within a tenth of a Claude artifact's limit", () => {
-    // The rest of the limit belongs to the workspace: its documentation,
-    // decisions and any imagery they embed.
-    assert.ok(
-        SINGLE_FILE_BUDGET_BYTES * 10 <= ARTIFACT_LIMIT_BYTES,
-        `the ${SINGLE_FILE_BUDGET_BYTES}-byte budget leaves the workspace less than nine tenths of the ${ARTIFACT_LIMIT_BYTES}-byte limit`,
-    );
-});
-
-test("each single-file output stays within its measured size plus 10%", async () => {
+test("each file --single-file writes stays within index.html's measured size plus 10%, and within a tenth of a Claude artifact's limit", async () => {
     const { out } = await singleFile();
 
     for (const name of ["index.html", "artifact.html"]) {
@@ -677,6 +667,12 @@ test("each single-file output stays within its measured size plus 10%", async ()
         assert.ok(
             length <= SINGLE_FILE_BUDGET_BYTES,
             `${name} is ${length} bytes, over the ${SINGLE_FILE_BUDGET_BYTES}-byte budget`,
+        );
+        // The rest of the limit belongs to the workspace: its documentation,
+        // decisions and any imagery they embed.
+        assert.ok(
+            length * 10 <= ARTIFACT_LIMIT_BYTES,
+            `${name} is ${length} bytes, more than a tenth of the ${ARTIFACT_LIMIT_BYTES}-byte artifact limit`,
         );
     }
 });
