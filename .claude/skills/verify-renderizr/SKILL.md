@@ -28,7 +28,7 @@ RUN=.claude/verify-runs/$(date +%Y%m%d-%H%M%S)   # gitignored by /.claude/*
 | `node $S/drive.mjs $RUN <steps.json \| -> [--name p] [--size 1440x900] [--scheme light\|dark]` | Runs a JSON list of steps in headless Chrome; writes shots, `<p>results.json` and `<p>console.json` into `$RUN/evidence/` |
 | `$S/cleanup.sh $RUN` | Stops every process group this run started; removes `site/` and `edit/`; keeps `evidence/` and the logs |
 
-Ready-made step files live in `.claude/skills/verify-renderizr/steps/`. The step vocabulary is in the header of `drive.mjs`: `open`, `hash`, `ready`, `waitFor`, `click` (with `shift`), `clickLabel`, `drag`, `key` (with `mods`), `eval` (with `as`), `assert` (with `message`), `shot`, `sleep`. `{{build}}`, `{{serve}}`, `{{dev}}` and `{{edit}}` expand to the URLs `launch.sh` recorded.
+Ready-made step files live in `.claude/skills/verify-renderizr/steps/`. The step vocabulary is in the header of `drive.mjs`: `open`, `hash`, `ready`, `waitFor`, `click` (with `shift`), `clickLabel`, `hover`, `drag`, `key` (with `mods`), `eval` (with `as`), `assert` (with `message`), `links` (with `highlighted`, `expect` and `as`), `shot`, `sleep`. `{{build}}`, `{{serve}}`, `{{dev}}` and `{{edit}}` expand to the URLs `launch.sh` recorded.
 
 ## Launch
 

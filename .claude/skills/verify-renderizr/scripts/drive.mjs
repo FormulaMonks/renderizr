@@ -23,10 +23,23 @@
  *   { "click": "<css>" }         click the element's center; "shift": true
  *                                adds Shift (adds to an edit-mode selection)
  *   { "clickLabel": "Save and close" }  click [aria-label="..."]
+ *   { "hover": "<css>" }         move the mouse over the element's center
+ *                                without pressing (mouseover, :hover)
  *   { "drag": "<css>", "dx": 40, "dy": 0 }  press, move in steps, release
  *   { "key": "s", "code": "KeyS", "mods": ["Meta"] }  mods: Alt Ctrl Meta Shift
  *   { "eval": "<js>", "as": "name" }  save the value in results.json
  *   { "assert": "<js>", "message": "..." }  fail unless truthy
+ *   { "links": "#adrs-graph", "highlighted": true, "expect": ["14>4 amend"] }
+ *                                read the decision graph's links inside the
+ *                                element as "<from>><to> <kind>", once
+ *                                each: edge and join marks, and stretch
+ *                                marks other than "reference" (one of those
+ *                                only carries a lane up to a reference, so
+ *                                its ends need not link);
+ *                                "highlighted" keeps only lit ones; saves
+ *                                them under "as" (default "links") and, with
+ *                                "expect", fails unless they match in any
+ *                                order
  *   { "shot": "name.png" }       screenshot of the viewport
  *   { "sleep": 500 }             only to let an animation end
  *
@@ -205,7 +218,9 @@ const mouse = (type, { x, y }, buttons, modifiers = 0) =>
         type,
         x,
         y,
-        button: "left",
+        // A move with no button held must say so, or Chrome sends no
+        // mouseover.
+        button: type === "mouseMoved" && !buttons ? "none" : "left",
         buttons,
         clickCount: 1,
         modifiers,
@@ -249,6 +264,8 @@ try {
                     `[aria-label=${JSON.stringify(step.clickLabel)}]`,
                 ),
             );
+        else if (step.hover)
+            await mouse("mouseMoved", await centerOf(step.hover), 0);
         else if (step.drag) {
             const from = await centerOf(step.drag);
             const to = {
@@ -282,7 +299,34 @@ try {
         } else if (step.eval)
             results.values[step.as ?? `eval${results.steps.length}`] =
                 await evaluate(step.eval);
-        else if (step.assert) {
+        else if (step.links) {
+            const lit = step.highlighted ? "[data-highlighted]" : "";
+            const marks = [
+                `[data-mark="edge"]${lit}`,
+                `[data-mark="join"]${lit}`,
+                `[data-mark="stretch"]:not([data-kind="reference"])${lit}`,
+            ]
+                .map((mark) => `${step.links} path${mark}`)
+                .join();
+            const found = await evaluate(
+                `[...new Set([...document.querySelectorAll(${JSON.stringify(marks)})].map((e) => \`\${e.dataset.from}>\${e.dataset.to} \${e.dataset.kind}\`))].sort()`,
+            );
+            results.values[step.as ?? "links"] = found;
+            if (step.expect) {
+                const want = [...step.expect].sort();
+                const ok = JSON.stringify(found) === JSON.stringify(want);
+                results.asserts.push({
+                    links: step.links,
+                    expect: want,
+                    found,
+                    ok,
+                });
+                if (!ok)
+                    throw new Error(
+                        `links ${JSON.stringify(found)}, expected ${JSON.stringify(want)}`,
+                    );
+            }
+        } else if (step.assert) {
             const ok = await evaluate(`!!(${step.assert})`);
             results.asserts.push({
                 assert: step.assert,
