@@ -2,10 +2,12 @@
 
 [![ci](https://img.shields.io/github/actions/workflow/status/FormulaMonks/renderizr/ci.yml?branch=main&label=ci&style=flat-square)](https://github.com/FormulaMonks/renderizr/actions/workflows/ci.yml) [![node](https://img.shields.io/badge/node-%E2%89%A5%2020-informational?style=flat-square)](https://nodejs.org) [![license](https://img.shields.io/github/license/FormulaMonks/renderizr?style=flat-square)](LICENSE)
 
+**[Live example](https://formulamonks.github.io/renderizr/)**: Renderizr's own architecture, rendered by Renderizr from each release. It also holds the getting started, usage and contributing guides.
+
 Render a [Structurizr](https://structurizr.com/) workspace — its diagrams, documentation and architecture decisions — as a static site, or as a single self-contained HTML file you can host anywhere.
 
 ```bash
-npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
+npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json
 ```
 
 That renders the [Big Bank plc example](https://structurizr.com/dsl?example=big-bank-plc) into `./structurizr-output` — a couple of seconds, once npm has fetched the package. Serve it with anything:
@@ -15,13 +17,6 @@ npx servor structurizr-output
 ```
 
 And you get this:
-
-<!--
-  A live, clickable example belongs here, beside the screenshot: Renderizr's own architecture documentation, rendered by Renderizr.
-
-    https://formulamonks.github.io/renderizr/
-
-  .github/workflows/pages.yml publishes it on each release, rendered from the release's tag, but no deployment has happened yet and one manual step stands in the way: an admin has to set Settings → Pages → Build and deployment → Source to "GitHub Actions". Today `gh api repos/FormulaMonks/renderizr/pages` reports `build_type: legacy` ("Deploy from a branch"), so the workflow's preflight job skips the build and deploy jobs: the run reports success, having published nothing. Add the link in the same pull request as the first green pages deployment. Tracked in MAINTAINERS.md → "Repository setup still to be done". -->
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">

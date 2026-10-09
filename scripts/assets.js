@@ -278,9 +278,10 @@ const IMAGE_FIELDS = ["content", "contentLight", "contentDark"];
 
 /**
  * Themes, element icons, image views and the branding logo are all fetched
- * by the Structurizr UI at runtime. A self-contained page cannot do that, so
- * every one of them is resolved here and folded into the workspace. An image
- * that cannot be inlined keeps its URL, and the engine draws its placeholder.
+ * by Structurizr's own pages at runtime. A self-contained page cannot do
+ * that, so every one of them is resolved here and folded into the
+ * workspace. An image that cannot be inlined keeps its URL, and the engine
+ * draws its placeholder.
  */
 async function inlineWorkspaceAssets(workspace) {
     const views = workspace.views ?? {};

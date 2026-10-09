@@ -24,7 +24,7 @@ body:
     id: workspace
     attributes:
       label: The workspace that reproduces it
-      description: A link, a dragged-in attachment, or the smallest cut-down workspace that still shows the problem. If yours is confidential, do not paste it — reproduce against the public [Big Bank plc example](https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json) and say so. If you can share nothing at all, say that here rather than leaving it blank, and describe the smallest shape that triggers it.
+      description: A link, a dragged-in attachment, or the smallest cut-down workspace that still shows the problem. If yours is confidential, do not paste it — reproduce against the public [Big Bank plc example](https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json) and say so. If you can share nothing at all, say that here rather than leaving it blank, and describe the smallest shape that triggers it.
       placeholder: |
         https://gist.github.com/me/0000000/raw/minimal-workspace.json
         (or drag the .json file into this box)

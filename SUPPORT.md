@@ -43,10 +43,10 @@ The difference between a same-day answer and a week of back-and-forth is usually
 3. **What you expected instead.**
 4. **Your Node version** (`node --version`) and your OS. Renderizr needs Node 20 or newer, and "it exits immediately" is very often Node 18 on the `PATH`.
 
-If a specific workspace is involved, the single most useful thing you can attach is a **minimal `workspace.json` that reproduces it** — cut it down until removing one more thing makes the problem go away. If the workspace is confidential, say so and reproduce it against [the Big Bank plc example](https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json) instead:
+If a specific workspace is involved, the single most useful thing you can attach is a **minimal `workspace.json` that reproduces it** — cut it down until removing one more thing makes the problem go away. If the workspace is confidential, say so and reproduce it against [the Big Bank plc example](https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json) instead:
 
 ```bash
-npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json --single-file
+npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json --single-file
 ```
 
 If that also reproduces it, say so — it tells us the problem is in Renderizr and not in your model, which is half the investigation.
