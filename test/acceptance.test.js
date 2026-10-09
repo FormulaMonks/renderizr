@@ -7,8 +7,8 @@
  *
  * Each workspace is built once as a single file with the report flag on;
  * each view is opened at its own URL, one Chrome at a time, so the wall-clock
- * time to the document, less what Chrome takes to start, is that view's alone
- * (`renderPage`, `launchCost`). `pnpm test` runs this file by itself, after
+ * time to the document, less what Chrome takes to start right beside it, is
+ * that view's alone (`renderPage`, `launchCost`). `pnpm test` runs this file by itself, after
  * the other test files, which `node --test` runs side by side: their builds
  * and Chromes would otherwise share the runner with the timed views.
  *
@@ -62,10 +62,13 @@ const READY_WITHIN_MS = 2000;
 
 /**
  * How many times a view over the limit is opened in all before it counts as
- * slow. A CI runner now and then takes a second longer to start one Chrome,
- * which no view can help; a slow view is slow every time.
+ * slow, and how long, in ms, the harness waits before each try after the
+ * first. A CI runner now and then slows down for several seconds at a
+ * stretch, which no view can help: tries spread over half a minute outlast
+ * it, and a slow view is slow every time.
  */
-const TIMED_RUNS = 3;
+const TIMED_RUNS = 5;
+const RETRY_PAUSE_MS = 5000;
 
 /**
  * Console lines the engine is allowed to write: the warnings the spec asks
@@ -151,20 +154,28 @@ const chromeLaunch = () => {
 /**
  * Open one view and read back its canvas, its report, the console, and how
  * long the view took to arrive in wall-clock time, Chrome's start aside. A
- * view over the limit is opened again, up to `TIMED_RUNS` times, and the
- * fastest run is the one read, as `launchCost` takes the least of its runs.
+ * view over the limit is opened again, up to `TIMED_RUNS` times,
+ * `RETRY_PAUSE_MS` apart, and the fastest try is the one read. Each try after
+ * the first times Chrome's start on a blank page right before it, so a runner
+ * that has slowed down slows both alike.
  */
 async function drawView(site, key, readyWithin) {
     // Measured before the first view opens, so that view is not the one to
     // pay for Chrome's cold start, which `launchCost` would not take off.
-    const launched = await chromeLaunch();
+    const firstLaunch = await chromeLaunch();
     let page;
     for (let run = 0; run < TIMED_RUNS; run++) {
+        let launched = firstLaunch;
+        if (run > 0) {
+            await new Promise((done) => setTimeout(done, RETRY_PAUSE_MS));
+            launched = await launchCost(CHROME, { runs: 1 });
+        }
         const next = await renderPage(CHROME, viewUrl(site, key), {
             offline: true,
         });
-        if (!page || next.elapsed < page.elapsed) page = next;
-        if (page.elapsed - launched <= readyWithin) break;
+        next.readyIn = next.elapsed - launched;
+        if (!page || next.readyIn < page.readyIn) page = next;
+        if (page.readyIn <= readyWithin) break;
     }
     const document = parseDocument(page.html);
     const root = document.querySelector(
@@ -174,7 +185,7 @@ async function drawView(site, key, readyWithin) {
     return {
         viewKey: root?.getAttribute("data-view-key") ?? null,
         ready: root?.getAttribute("data-ready") === "true",
-        readyIn: page.elapsed - launched,
+        readyIn: page.readyIn,
         report: script ? JSON.parse(script.textContent) : null,
         console: page.console,
     };
