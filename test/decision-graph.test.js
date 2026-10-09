@@ -13,8 +13,14 @@ import { readFileSync } from "node:fs";
 import { syntheticDecisions } from "./support/decision-sets.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { edgesOfDecision, layoutDecisionGraph, linkKind, relatedDecisions } =
-    await importSrc("model/decision-graph");
+const {
+    edgesOfDecision,
+    joinsLane,
+    laneColumnsOfDecision,
+    layoutDecisionGraph,
+    linkKind,
+    relatedDecisions,
+} = await importSrc("model/decision-graph");
 
 const decision = (id, date, links = [], status = "Accepted") => ({
     id: String(id),
@@ -365,9 +371,9 @@ test("a decision on a lane lights the whole lane, every link onto it and the dot
         links: ["6-3", "4-3", "3-1"],
         edges: ["2-1", "3-1", "4-3", "5-1", "6-1", "6-3"],
         stretches: [],
-        // The decisions that join the lane are not its own, so only the ones
-        // that link to the open decision itself light up.
-        dots: ["1", "3", "4", "6"],
+        // Every lit join starts at a lit dot, so the decisions that join the
+        // lane light up too.
+        dots: ["1", "2", "3", "4", "5", "6"],
     });
 });
 
@@ -387,13 +393,13 @@ test("a decision that links to several decisions of one lane lights its stretch 
     ]);
 });
 
-test("a decision with no links lights only its own dot", () => {
+test("a decision with no links lights nothing, not even its own dot", () => {
     assert.deepEqual(lit(layoutDecisionGraph(JOINED), "7"), {
         lane: null,
         links: [],
         edges: [],
         stretches: [],
-        dots: ["7"],
+        dots: [],
     });
 });
 
@@ -494,6 +500,71 @@ test("past the cap, the open decision lights its references but no stretch of th
         ["2-1", "5-2"],
         "its own links, but not 3's reference to 1, which joins no lane",
     );
+});
+
+test("past the cap, a reference joins no lane, and supersede and amend still do", () => {
+    const cases = [
+        { cap: 4, kind: "reference", joins: true },
+        { cap: 3, kind: "reference", joins: false },
+        { cap: 3, kind: "supersede", joins: true },
+        { cap: 3, kind: "amend", joins: true },
+    ];
+
+    for (const { cap, kind, joins } of cases) {
+        assert.equal(
+            joinsLane(layoutDecisionGraph(CAPPED, cap), {
+                from: 0,
+                to: 1,
+                kind,
+            }),
+            joins,
+            `a ${kind} under a cap of ${cap}`,
+        );
+    }
+});
+
+/**
+ * Past the cap of 2, the lanes scroll: 4 amends 2 in column 2 and 3 amends 1
+ * in column 3. 4 also references 1, and 5 references 3 and 4 from a lone dot.
+ */
+const TWO_LANES = [
+    decision(1, "2024-01-01"),
+    decision(2, "2024-02-01"),
+    decision(3, "2024-03-01", [[1, "Amends"]]),
+    decision(4, "2024-04-01", [
+        [2, "Amends"],
+        [1, "References"],
+    ]),
+    decision(5, "2024-05-01", [
+        [3, "References"],
+        [4, "References"],
+    ]),
+];
+
+test("the lanes a decision reaches come with its own lane first, then nearest the titles first", () => {
+    const layout = layoutDecisionGraph(TWO_LANES, 2);
+    assert.equal(layout.fallback, "scroll");
+
+    const cases = [
+        { id: "4", columns: [2, 3], why: "its own lane, then 1's" },
+        { id: "1", columns: [3, 2], why: "its own lane, then 4's" },
+        { id: "5", columns: [2, 3], why: "a lone dot reaches both lanes" },
+        { id: "2", columns: [2], why: "each lane once" },
+    ];
+    for (const { id, columns, why } of cases) {
+        const row = layout.rows.findIndex((decision) => decision.id === id);
+        assert.deepEqual(laneColumnsOfDecision(layout, row), columns, why);
+    }
+});
+
+test("the lanes a decision reaches leave out the pinned columns", () => {
+    const layout = layoutDecisionGraph(
+        [...TWO_LANES, decision(6, "2024-06-01", [[5, "References"]])],
+        2,
+    );
+    const row = layout.rows.findIndex((decision) => decision.id === "6");
+
+    assert.deepEqual(laneColumnsOfDecision(layout, row), []);
 });
 
 /* ---------------- our own decisions */

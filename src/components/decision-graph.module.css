@@ -12,18 +12,17 @@
     overflow: visible;
 }
 
-/* Every dot takes its status color, the same as the status pill. The halo
-   keeps a dot apart from an elbow that ends on it. */
+/* Every dot takes its full status color, the same as the status pill. The
+   halo keeps a dot apart from an elbow that ends on it. */
 .dot {
     stroke: var(--color-background);
     stroke-width: 1px;
-    fill-opacity: 0.55;
 }
 
-/* Full strength for the open decision and the decisions it links to, so they
-   stand out from the rest of the gutter. */
-.dot[data-highlighted] {
-    fill-opacity: 1;
+/* With a decision open, everything outside its links drops back, collapsed or
+expanded, so the reader sees at a glance what the open decision links to. */
+.graph [data-dimmed] {
+    opacity: 0.3;
 }
 
 .dot[data-status="accepted"] {
@@ -91,10 +90,8 @@
 
 /* ---- expanded ---- */
 
-/* Every dot shows at full strength on its lane, with a halo that keeps it
-apart from the lane running through it. */
+/* Expanded, a dot's halo keeps it apart from the lane running through it. */
 .graph[data-state="expanded"] .dot {
-    fill-opacity: 1;
     stroke-width: 1.5px;
 }
 
@@ -104,12 +101,6 @@ its own and leaves supersede and amend to carry the graph. */
     stroke-width: 1px;
     stroke-dasharray: 1.5 2.5;
     stroke-opacity: 0.9;
-}
-
-/* With a decision open, everything outside its edges drops back, so the
-reader sees at a glance what the open decision links to. */
-.graph[data-state="expanded"] [data-dimmed] {
-    opacity: 0.3;
 }
 
 /* A lit reference grows a little but stays dotted, so it never reads as a
@@ -125,6 +116,8 @@ lane. */
 it would sit at the bottom of a gutter as tall as the menu; a trackpad swipe,
 Shift with the mouse wheel, and the ‹ › buttons scroll the lanes. */
 .lanes {
+    /* The cap's width, set by `decision-graph.ts`. */
+    width: var(--lanes-width, auto);
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;

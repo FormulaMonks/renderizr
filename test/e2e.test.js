@@ -1870,12 +1870,6 @@ const EXPAND_PROBE = `<script>
             graph: document.querySelector("#adrs-graph svg").getBoundingClientRect().width,
         });
         result.collapsed = edges();
-
-        document.getElementById("adrs-expand").click();
-        await sleep(200);
-        result.expanded = edges();
-        result.state = document.getElementById("adrs-graph").dataset.state;
-        result.stretches = document.querySelectorAll('#adrs-menu [data-mark="stretch"]').length;
         const style = (selector) => {
             const mark = document.querySelector("#adrs-menu " + selector);
             if (!mark) return null;
@@ -1884,8 +1878,17 @@ const EXPAND_PROBE = `<script>
                 dash: computed.strokeDasharray,
                 width: computed.strokeWidth,
                 opacity: computed.opacity,
+                fillOpacity: computed.fillOpacity,
             };
         };
+        result.collapsedLit = style('[data-mark="dot"][data-highlighted]');
+        result.collapsedDimmed = style('[data-mark="dot"][data-dimmed]');
+
+        document.getElementById("adrs-expand").click();
+        await sleep(200);
+        result.expanded = edges();
+        result.state = document.getElementById("adrs-graph").dataset.state;
+        result.stretches = document.querySelectorAll('#adrs-menu [data-mark="stretch"]').length;
         result.litReference = style('[data-kind="reference"][data-highlighted]');
         result.fallback = document.getElementById("adrs-graph").dataset.fallback;
         result.dimmed = style("[data-dimmed]");
@@ -1950,6 +1953,18 @@ test(
         assert.equal(litReference.width, "1.5px");
         assert.equal(litReference.opacity, "1");
         assert.equal(dimmed.opacity, "0.3", "everything else dims to 30%");
+        const { collapsedLit, collapsedDimmed } = result;
+        assert.equal(
+            collapsedLit.opacity,
+            "1",
+            "collapsed, a linked dot shows in full",
+        );
+        assert.equal(collapsedLit.fillOpacity, "1", "in its full color");
+        assert.equal(
+            collapsedDimmed.opacity,
+            "0.3",
+            "collapsed, the rest dims to the same 30% as expanded",
+        );
         const grown = expanded.graph - collapsed.graph;
         assert.ok(
             Math.abs(expanded.text - collapsed.text - grown) <= 1,

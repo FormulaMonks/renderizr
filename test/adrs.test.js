@@ -445,6 +445,26 @@ test("the open decision's dot and the dots it links to are highlighted", () => {
     );
 });
 
+/** The decisions whose dots the collapsed gutter dims. */
+const dimmedDots = () =>
+    document
+        .querySelectorAll('#adrs-menu [data-mark="dot"][data-dimmed]')
+        .map((dot) => dot.getAttribute("data-decision"))
+        .sort();
+
+test("the collapsed gutter dims every dot outside the open decision's links", () => {
+    renderPage([...LINKED, decision("5", { date: "2024-05-01T12:00:00Z" })]);
+
+    assert.deepEqual(dimmedDots(), [], "nothing dims while nothing is open");
+
+    open("3");
+    assert.deepEqual(dimmedDots(), ["2", "5"]);
+
+    open("5");
+    assert.deepEqual(highlightedDots(), [], "5 links to nothing");
+    assert.deepEqual(dimmedDots(), ["1", "2", "3", "4", "5"]);
+});
+
 test("opening another decision redraws the elbows for it", () => {
     renderPage(LINKED);
 
@@ -711,27 +731,38 @@ test("opening a decision on a lineage lights every stretch of its lane", () => {
         ["join reference 3-1 on 1"],
         "3 joins 2's lane, so its join lights too",
     );
-    assert.deepEqual(dimmed(), ["dot 3", "dot 5", "join 4-3", "stretch 4-3"]);
+    assert.deepEqual(
+        dimmed(),
+        ["dot 5", "join 4-3", "stretch 4-3"],
+        "3's dot lights with its join, so the join never starts at a dimmed dot",
+    );
 });
 
-test("opening a decision with no links dims the whole graph but its own dot", () => {
+test("opening a decision with no links dims the whole graph, its own dot too, and the ring still marks it", () => {
     renderPage([...LINKED, LONE]);
     expand();
 
     open("5");
 
-    assert.deepEqual(lit(), ["dot 5"]);
+    assert.deepEqual(lit(), []);
     assert.deepEqual(dimmed(), [
         "dot 1",
         "dot 2",
         "dot 3",
         "dot 4",
+        "dot 5",
         "join 3-1",
         "join 4-3",
         "stretch 2-1",
         "stretch 4-2",
         "stretch 4-3",
     ]);
+    assert.equal(
+        document
+            .querySelector('#adrs-menu [data-mark="ring"]')
+            ?.getAttribute("data-decision"),
+        "5",
+    );
 });
 
 test("nothing lights or dims until a decision opens", () => {
@@ -1160,7 +1191,8 @@ test("focusing a row lights its edges, and moving focus away puts them out", () 
     renderPage([...LINKED, LONE]);
 
     point(indexRow("5"), "focusin");
-    assert.deepEqual(indexMarks("highlighted"), ["dot 5"]);
+    assert.deepEqual(indexMarks("highlighted"), [], "5 stands alone");
+    assert.ok(indexMarks("dimmed").includes("dot 5"), "so its dot dims too");
 
     point(indexRow("5"), "focusout");
     assert.deepEqual(indexMarks("dimmed"), []);
@@ -1293,7 +1325,11 @@ test("past even the lineage fallback, the lanes scroll behind the pinned columns
     assert.equal(graph().getAttribute("data-fallback"), "scroll");
     const view = lanesView();
     assert.ok(view, "the lanes sit in a view of their own");
-    assert.equal(view.style.width, "366px", "as wide as 30 columns");
+    assert.equal(
+        view.style.getPropertyValue("--lanes-width"),
+        "366px",
+        "as wide as 30 columns",
+    );
     assert.equal(
         view.querySelectorAll('[data-mark="dot"]').length,
         82,
