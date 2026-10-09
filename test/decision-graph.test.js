@@ -10,6 +10,7 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { syntheticDecisions } from "./support/decision-sets.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { edgesOfDecision, layoutDecisionGraph, linkKind, relatedDecisions } =
@@ -378,6 +379,99 @@ test("a decision with no links lights only its own dot", () => {
     });
 });
 
+/* ---------------- the cap and the fallbacks */
+
+/**
+ * 2 supersedes 1; 3 references 1; 4 references 3; 5 references 2; 6
+ * references 4. With reference lanes, the lineage's lane runs up to 5, and 3
+ * and 4 get lanes of their own: 4 columns in all.
+ */
+const CAPPED = [
+    decision(1, "2024-01-01"),
+    decision(2, "2024-02-01", [[1, "Supersedes"]]),
+    decision(3, "2024-03-01", [[1, "References"]]),
+    decision(4, "2024-04-01", [[3, "References"]]),
+    decision(5, "2024-05-01", [[2, "References"]]),
+    decision(6, "2024-06-01", [[4, "References"]]),
+];
+
+test("a graph whose lanes all fit the cap needs no fallback", () => {
+    const layout = layoutDecisionGraph(CAPPED, 4);
+
+    assert.equal(layout.columns, 4, "lanes for 1, 3 and 4, and the lone dots");
+    assert.equal(layout.fallback, "none");
+    assert.equal(layout.referenceColumn, null);
+});
+
+test("without a cap, every lane opens", () => {
+    const layout = layoutDecisionGraph(CAPPED);
+
+    assert.equal(layout.columns, 4);
+    assert.equal(layout.fallback, "none");
+});
+
+test("past the cap, references open no lanes and column 1 waits for the open decision's references", () => {
+    const layout = layoutDecisionGraph(CAPPED, 3);
+
+    assert.equal(layout.fallback, "lineage");
+    assert.equal(layout.referenceColumn, 1);
+    assert.deepEqual(lanesOf(layout), [
+        { col: 2, top: "2", bottom: "1", members: ["2", "1"], linkers: [] },
+    ]);
+    assert.deepEqual(loneOf(layout), ["6", "5", "4", "3"]);
+    assert.equal(layout.columns, 3, "the lone dots, column 1 and one lane");
+    assert.equal(layout.edges.length, 5, "every link still makes an edge");
+});
+
+test("when even supersede and amend lanes outgrow the cap, the lanes scroll", () => {
+    const layout = layoutDecisionGraph(CAPPED, 2);
+
+    assert.equal(layout.fallback, "scroll");
+    assert.equal(layout.referenceColumn, 1);
+    assert.equal(layout.columns, 3, "the columns of the lineage fallback");
+});
+
+test("past the cap, a reference from one lineage's decision to another opens no lane", () => {
+    const layout = layoutDecisionGraph(
+        [
+            decision(1, "2024-01-01"),
+            decision(2, "2024-02-01", [[1, "Amends"]]),
+            decision(3, "2024-03-01"),
+            decision(4, "2024-04-01", [
+                [3, "Supersedes"],
+                [1, "References"],
+            ]),
+        ],
+        2,
+    );
+
+    assert.notEqual(layout.fallback, "none");
+    assert.deepEqual(
+        lanesOf(layout).map((lane) => [lane.members, lane.linkers]),
+        [
+            [["4", "3"], []],
+            [["2", "1"], []],
+        ],
+    );
+});
+
+test("past the cap, the open decision lights its references but no stretch of the lanes they reach", () => {
+    const layout = layoutDecisionGraph(CAPPED, 3);
+
+    assert.deepEqual(lit(layout, "5"), {
+        lane: null,
+        links: ["5-2"],
+        edges: ["5-2"],
+        stretches: [],
+        dots: ["2", "5"],
+    });
+    assert.deepEqual(
+        lit(layout, "2").edges,
+        ["2-1", "5-2"],
+        "its own links, but not 3's reference to 1, which joins no lane",
+    );
+});
+
 /* ---------------- our own decisions */
 
 const OURS = JSON.parse(
@@ -439,6 +533,65 @@ test("our own decisions need 8 columns", () => {
         "every other decision is a lone dot",
     );
 });
+
+test("our own decisions need no fallback at 8 columns", () => {
+    const layout = layoutDecisionGraph(OURS, 8);
+
+    assert.equal(layout.columns, 8);
+    assert.equal(layout.fallback, "none");
+});
+
+/* ---------------- seeded synthetic sets */
+
+/** The prototype's sparse set: 1,000 decisions, 0.2 references each. */
+const SPARSE_1000 = syntheticDecisions(1000, 0.2, 13);
+
+test("the sparse 1,000-decision set is the prototype's, decision for decision", () => {
+    assert.equal(SPARSE_1000[0].title, "Cache the gateway in Postgres");
+    assert.equal(SPARSE_1000[0].date, "2019-01-12");
+    assert.equal(SPARSE_1000.at(-1).date, "2043-08-23");
+    assert.equal(
+        SPARSE_1000.filter((decision) => decision.status === "Superseded")
+            .length,
+        85,
+    );
+});
+
+test("the sparse 1,000-decision set opens 51 columns with every lane", () => {
+    const layout = layoutDecisionGraph(SPARSE_1000);
+
+    assert.equal(layout.columns, 51);
+    assert.equal(layout.fallback, "none");
+});
+
+test("the sparse 1,000-decision set falls back to supersede and amend lanes at 12 columns under a 30-column cap", () => {
+    const layout = layoutDecisionGraph(SPARSE_1000, 30);
+
+    assert.equal(layout.fallback, "lineage");
+    assert.equal(layout.columns, 12);
+    assert.equal(layout.referenceColumn, 1);
+    assert.ok(
+        layout.lanes.every((lane) => lane.linkers.length === 0),
+        "no lane carries references",
+    );
+});
+
+/** Sets, caps too small for even their supersede and amend lanes, columns. */
+const SCROLLING = [
+    ["the sparse 1,000-decision set", SPARSE_1000, 11, 12],
+    ["the sparse 300-decision set", syntheticDecisions(300, 0.2, 11), 8, 10],
+    ["the sparse 100-decision set", syntheticDecisions(100, 0.2, 7), 8, 10],
+];
+
+for (const [name, decisions, cap, columns] of SCROLLING) {
+    test(`${name} scrolls its lanes under a ${cap}-column cap`, () => {
+        const layout = layoutDecisionGraph(decisions, cap);
+
+        assert.equal(layout.fallback, "scroll");
+        assert.equal(layout.columns, columns, "the lanes keep every column");
+        assert.equal(layout.referenceColumn, 1);
+    });
+}
 
 /* ---------------- the fixture workspace */
 
@@ -517,4 +670,13 @@ test("a decision with no links is its own only relative, and an unknown one has 
 
     assert.deepEqual(idsOf(relatedDecisions(set, "8")), ["8"]);
     assert.deepEqual(relatedDecisions(set, "99"), []);
+});
+
+test("the fixture falls back to supersede and amend lanes under the menu's 30-column cap", () => {
+    const uncapped = layoutDecisionGraph(FIXTURE);
+    const layout = layoutDecisionGraph(FIXTURE, 30);
+
+    assert.ok(uncapped.columns > 30, `${uncapped.columns} columns uncapped`);
+    assert.equal(layout.fallback, "lineage");
+    assert.equal(layout.referenceColumn, 1);
 });

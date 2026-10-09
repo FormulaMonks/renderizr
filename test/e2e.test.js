@@ -1887,7 +1887,7 @@ const EXPAND_PROBE = `<script>
             };
         };
         result.litReference = style('[data-kind="reference"][data-highlighted]');
-        result.quietReference = style('[data-kind="reference"][data-dimmed]');
+        result.fallback = document.getElementById("adrs-graph").dataset.fallback;
         result.dimmed = style("[data-dimmed]");
 
         const bar = document.getElementById("adrs-controls");
@@ -1922,7 +1922,7 @@ test(
 
         const { html: dumped } = await renderPage(
             CHROME,
-            `${fileUrl(join(out, "index.html"))}#/?page=adrs&adr=4`,
+            `${fileUrl(join(out, "index.html"))}#/?page=adrs&adr=7`,
         );
         const probe = parseDocument(dumped).querySelector("#probe");
         assert.ok(probe, "the probe should have finished");
@@ -1936,17 +1936,17 @@ test(
         const { collapsed, expanded } = result;
         assert.equal(result.state, "expanded");
         assert.ok(result.stretches > 0, "the expanded graph draws its lanes");
-        // 4 supersedes 3, 6 amends 4, and 7 references 6: its join onto 4's
-        // lane lights up with the lane.
-        const { litReference, quietReference, dimmed } = result;
-        assert.ok(litReference, "a reference lights up with 4's lane");
-        assert.ok(quietReference, "and other references stay quiet");
-        assert.equal(
+        // Decision 46 builds on 35 others, past the menu's cap, so only
+        // supersede and amend lanes draw. 7 references 6, and that reference
+        // lights up on the reference column.
+        const { litReference, dimmed } = result;
+        assert.equal(result.fallback, "lineage");
+        assert.ok(litReference, "7's reference lights up on the column");
+        assert.notEqual(
             litReference.dash,
-            quietReference.dash,
+            "none",
             "a lit reference stays dotted",
         );
-        assert.notEqual(litReference.dash, "none");
         assert.equal(litReference.width, "1.5px");
         assert.equal(litReference.opacity, "1");
         assert.equal(dimmed.opacity, "0.3", "everything else dims to 30%");

@@ -19,6 +19,12 @@ import collapseIcon from "bootstrap-icons/icons/arrows-collapse-vertical.svg?raw
 import expandIcon from "bootstrap-icons/icons/arrows-expand-vertical.svg?raw";
 import history from "history/hash";
 
+/**
+ * The most columns the expanded decision graph takes beside the menu, from
+ * the decision body. Past it, the graph falls back (spec #143).
+ */
+export const MENU_GRAPH_CAP = 30;
+
 /** Where the page remembers whether the decision graph was left expanded. */
 export const DECISION_GRAPH_STORAGE_KEY = "renderizr:decision-graph";
 
@@ -325,7 +331,7 @@ export default class Decisions extends Page {
             ),
         );
         this.#graph = graph;
-        graph.setLayout(layoutDecisionGraph(this.#decisions));
+        graph.setLayout(layoutDecisionGraph(this.#decisions, MENU_GRAPH_CAP));
         graph.setState(storedGraphState());
         this.#renderExpandToggle();
         // A rebuilt menu has new entries, and a switch to the `<select>` has

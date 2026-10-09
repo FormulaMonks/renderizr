@@ -18,6 +18,11 @@
  * With a decision open, the expanded graph lights that decision's edges, as
  * `edgesOfDecision` works them out, and dims everything else. On the index,
  * where nothing is open, the row a reader points at lights the same way.
+ *
+ * Past its cap, the layout falls back: references open no lanes, and the
+ * open decision's references draw in full on the reference column, next to
+ * the lone dots. The column takes its room whether a decision is open or
+ * not, so opening one never moves a column.
  */
 
 import {
@@ -100,6 +105,32 @@ function joinPath(fromX: number, laneX: number, y: number): string {
         `M ${px(fromX)},${px(y)}`,
         `H ${px(laneX + side * JOIN_CORNER)}`,
         `Q ${px(laneX)},${px(y)} ${px(laneX)},${px(y + JOIN_CORNER)}`,
+    ].join(" ");
+}
+
+/**
+ * A reference drawn in full on the reference column: across from the newer
+ * decision's dot to the column, down it, and back across to the older
+ * decision's dot, with a small corner at each turn.
+ */
+function referenceColumnPath(
+    fromX: number,
+    fromY: number,
+    columnX: number,
+    toX: number,
+    toY: number,
+): string {
+    const corner = Math.min(JOIN_CORNER, Math.abs(toY - fromY) / 2);
+    const fromSide = Math.sign(fromX - columnX);
+    const toSide = Math.sign(toX - columnX);
+
+    return [
+        `M ${px(fromX)},${px(fromY)}`,
+        `H ${px(columnX + fromSide * corner)}`,
+        `Q ${px(columnX)},${px(fromY)} ${px(columnX)},${px(fromY + corner)}`,
+        `V ${px(toY - corner)}`,
+        `Q ${px(columnX)},${px(toY)} ${px(columnX + toSide * corner)},${px(toY)}`,
+        `H ${px(toX)}`,
     ].join(" ");
 }
 
@@ -353,16 +384,39 @@ export default class DecisionGraph extends Component {
         }
 
         // A join for every link into another lineage's lane, from the
-        // linker's own column across to the lane.
+        // linker's own column across to the lane. In a fallback, references
+        // join no lane.
+        const { referenceColumn } = layout;
         const joins = edges.flatMap((edge) => {
             const lane = laneOf[edge.to];
             if (!lane || laneOf[edge.from] === lane) return [];
+            if (referenceColumn !== null && edge.kind === "reference") {
+                return [];
+            }
             const fromX = x(laneOf[edge.from]?.col ?? 0);
             const d = joinPath(fromX, x(lane.col), y(edge.from));
             return [
                 `<path class="${styles.edge}" data-mark="join" data-kind="${edge.kind}" data-from="${attribute(rows[edge.from].id)}" data-to="${attribute(rows[edge.to].id)}" data-status="${decisionStatus(rows[edge.to].status)}" data-lane="${laneName(layout, lane)}"${emphasis(lit, lit?.edges.has(edge) ?? false)} d="${d}"></path>`,
             ];
         });
+
+        // In a fallback, the open decision's references run in full on the
+        // reference column, lit; it stays empty while nothing is lit.
+        const references =
+            referenceColumn === null
+                ? []
+                : (lit?.links ?? [])
+                      .filter((edge) => edge.kind === "reference")
+                      .map((edge) => {
+                          const d = referenceColumnPath(
+                              x(laneOf[edge.from]?.col ?? 0),
+                              y(edge.from),
+                              x(referenceColumn),
+                              x(laneOf[edge.to]?.col ?? 0),
+                              y(edge.to),
+                          );
+                          return `<path class="${styles.edge}" data-mark="edge" data-kind="reference" data-from="${attribute(rows[edge.from].id)}" data-to="${attribute(rows[edge.to].id)}" data-status="${decisionStatus(rows[edge.to].status)}" data-highlighted d="${d}"></path>`;
+                      });
 
         const dots = rows.map((row, index) => {
             const lane = laneOf[index];
@@ -384,7 +438,7 @@ export default class DecisionGraph extends Component {
 
         return {
             width,
-            marks: `${stretches.join("")}${joins.join("")}${dots.join("")}`,
+            marks: `${stretches.join("")}${joins.join("")}${references.join("")}${dots.join("")}`,
         };
     }
 
@@ -400,6 +454,7 @@ export default class DecisionGraph extends Component {
             this.element.innerHTML = "";
             return;
         }
+        this.element.dataset.fallback = layout.fallback;
 
         const { width, marks } =
             this.#state === "expanded"
