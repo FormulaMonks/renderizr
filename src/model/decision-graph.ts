@@ -49,7 +49,10 @@ export type DecisionGraphLayout = {
     lanes: Lane[];
     /** The lane each row sits on, or null for a lone dot. */
     laneOf: (Lane | null)[];
-    /** How many columns the graph takes, column 0 for the lone dots included. */
+    /**
+     * How many columns the graph takes, column 0 for the lone dots and the
+     * reference column included.
+     */
     columns: number;
     fallback: Fallback;
     /**
@@ -58,10 +61,10 @@ export type DecisionGraphLayout = {
      */
     cap: number;
     /**
-     * The column kept for the open decision's references in a fallback, next
-     * to the lone dots, or null while references open lanes.
+     * The column kept for the lit decision's links, next to the lone dots.
+     * It stays empty while nothing is lit, and no lane ever takes it.
      */
-    referenceColumn: number | null;
+    referenceColumn: number;
 };
 
 /** Which kind wins when the two sides of a link disagree. */
@@ -209,18 +212,21 @@ function assignColumns(lanes: Lane[], first: number): number {
     return bottomOf.length + first;
 }
 
-/** The column kept for the open decision's references, next to the lone dots. */
+/** The column kept for the lit decision's links, next to the lone dots. */
 const REFERENCE_COLUMN = 1;
 
 /**
  * The lanes and their columns, with or without references opening lanes.
- * Without, the reference column stays free between the lone dots and the
+ * Either way, the reference column stays free between the lone dots and the
  * lanes.
  */
 function placeLanes(rows: Decision[], edges: Edge[], references: boolean) {
     const { lanes, laneOf } = openLanes(rows, edges, references);
-    const first = references ? 1 : REFERENCE_COLUMN + 1;
-    return { lanes, laneOf, columns: assignColumns(lanes, first) };
+    return {
+        lanes,
+        laneOf,
+        columns: assignColumns(lanes, REFERENCE_COLUMN + 1),
+    };
 }
 
 /**
@@ -250,12 +256,12 @@ export function relatedDecisions(
 /**
  * Lay out the decision graph for a set of decisions: the menu's order, one
  * edge per linked pair, and a lane in its own column for every lineage that
- * later decisions link to. Every other decision is a lone dot in column 0.
+ * later decisions link to. Every other decision is a lone dot in column 0,
+ * and column 1 stays free for the lit decision's links.
  *
  * The graph takes at most `cap` columns. Past it, references stop opening
- * lanes and column 1 stays free for the open decision's references; past it
- * even then, the lanes scroll. The whole set decides this once, so opening a
- * decision or scrolling the menu never moves a column.
+ * lanes; past it even then, the lanes scroll. The whole set decides this
+ * once, so opening a decision or scrolling the menu never moves a column.
  */
 export function layoutDecisionGraph(
     decisions: Decision[],
@@ -263,32 +269,20 @@ export function layoutDecisionGraph(
 ): DecisionGraphLayout {
     const rows = decisionOrder(decisions);
     const edges = mergeEdges(rows);
+    const base = { rows, edges, cap, referenceColumn: REFERENCE_COLUMN };
 
     const everyLane = placeLanes(rows, edges, true);
     if (everyLane.columns <= cap) {
-        return {
-            rows,
-            edges,
-            ...everyLane,
-            fallback: "none",
-            cap,
-            referenceColumn: null,
-        };
+        return { ...base, ...everyLane, fallback: "none" };
     }
 
     const lineageLanes = placeLanes(rows, edges, false);
     return {
-        rows,
-        edges,
+        ...base,
         ...lineageLanes,
         fallback: lineageLanes.columns <= cap ? "lineage" : "scroll",
-        cap,
-        referenceColumn: REFERENCE_COLUMN,
     };
 }
-
-/** A stretch of another decision's lane, by row: from a join down to `to`. */
-export type LaneStretch = { lane: Lane; from: number; to: number };
 
 /**
  * What one decision lights up in the decision graph, by row: the open
@@ -296,100 +290,63 @@ export type LaneStretch = { lane: Lane; from: number; to: number };
  */
 export type DecisionEdges = {
     row: number;
-    /** The decision's own links, both ways. */
-    links: Edge[];
-    /** Its lineage's lane, which lights in full, or null for a lone dot. */
-    lane: Lane | null;
-    /** Its links, and every link that joins its lane. */
-    edges: Set<Edge>;
     /**
-     * Of each other lane it joins, the stretch from its join down to the
-     * oldest decision it links to there, so the light never ends at a
-     * decision it does not link to.
+     * The decision's own links, both ways, farthest first: drawn in that
+     * order on the reference column, the nearest sits on top where they
+     * overlap.
      */
-    stretches: LaneStretch[];
-    /** The decision, the decisions it links to and its lane's decisions. */
+    links: Edge[];
+    /** The decision and the other end of each link; none without links. */
     dots: Set<number>;
 };
 
 /**
  * Whether a link joins the lane of the decision it links to. In a fallback,
- * a reference joins no lane: it runs on the reference column from one end to
- * the other, and lights no lane on the way.
+ * a reference opens no lane, so it joins none.
  */
 export function joinsLane(layout: DecisionGraphLayout, edge: Edge): boolean {
-    return layout.referenceColumn === null || edge.kind !== "reference";
+    return layout.fallback === "none" || edge.kind !== "reference";
 }
 
 /**
- * What a decision lights up: its own lineage's lane with every join on it,
- * its own joins into other lanes and, of each such lane, only the stretch
- * down to the decision it links to. Every lit link lights the dots at both
- * its ends, so no lit join starts at a dimmed dot. Everything else dims; a
- * decision with no links dims the whole graph, its own dot included, so it
- * reads as standing alone.
+ * What a decision lights up: its own links, whatever their kind and either
+ * way, and the dots at their ends. Nothing else lights, not even the rest of
+ * its own lane; a decision with no links lights nothing, its own dot
+ * included, so it reads as standing alone.
  */
 export function edgesOfDecision(
     layout: DecisionGraphLayout,
     row: number,
 ): DecisionEdges {
-    const { edges, laneOf } = layout;
-    const lane = laneOf[row] ?? null;
-    const links = edges.filter((edge) => edge.from === row || edge.to === row);
+    const reach = (edge: Edge) => edge.to - edge.from;
+    const links = layout.edges
+        .filter((edge) => edge.from === row || edge.to === row)
+        .sort((a, b) => reach(b) - reach(a));
 
-    const stretches = new Map<Lane, LaneStretch>();
-    for (const edge of links) {
-        const other = laneOf[edge.to];
-        if (
-            edge.from !== row ||
-            !other ||
-            other === lane ||
-            !joinsLane(layout, edge)
-        ) {
-            continue;
-        }
-        const known = stretches.get(other);
-        if (!known || edge.to > known.to) {
-            stretches.set(other, { lane: other, from: row, to: edge.to });
-        }
-    }
+    const dots = new Set<number>();
+    for (const edge of links) dots.add(edge.from).add(edge.to);
 
-    const lit = new Set([
-        ...links,
-        ...edges.filter(
-            (edge) =>
-                lane && laneOf[edge.to] === lane && joinsLane(layout, edge),
-        ),
-    ]);
-    const dots = new Set(lane?.members);
-    for (const edge of lit) dots.add(edge.from).add(edge.to);
-
-    return {
-        row,
-        links,
-        lane,
-        edges: lit,
-        stretches: [...stretches.values()],
-        dots,
-    };
+    return { row, links, dots };
 }
 
 /**
- * The columns of the lanes a decision's edges reach, past the pinned columns
+ * The columns of the lanes a decision's links reach, past the pinned columns
  * (the lone dots and the reference column): its own lane first, then the
  * rest nearest the titles first, each once. When the lanes scroll, these are
- * the lanes to bring into view, and the first wins when they don't all fit.
+ * the lanes to bring into view, since the lit links start from their dots,
+ * and the first wins when they don't all fit.
  */
 export function laneColumnsOfDecision(
     layout: DecisionGraphLayout,
     row: number,
 ): number[] {
     const { laneOf } = layout;
-    const pinned = layout.referenceColumn ?? 0;
     const col = (other: number) => laneOf[other]?.col ?? 0;
     const reached = edgesOfDecision(layout, row)
         .links.map((edge) => col(edge.from === row ? edge.to : edge.from))
         .sort((a, b) => a - b);
 
-    return [...new Set([col(row), ...reached])].filter((c) => c > pinned);
+    return [...new Set([col(row), ...reached])].filter(
+        (c) => c > layout.referenceColumn,
+    );
 }

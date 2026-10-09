@@ -640,12 +640,35 @@ test("every dot in the expanded decision graph sits on its lane, or alone", () =
     );
 });
 
-test("the expanded decision graph draws no elbows, and collapsing brings them back", () => {
+test("expanded, the open decision's links run on the reference column, and collapsing brings the elbows back", () => {
     history.replace({ search: "?page=adrs&adr=4" });
     renderPage(LINKED);
 
     expand();
-    assert.deepEqual(elbows(), [], "lanes and joins stand in for elbows");
+    assert.deepEqual(
+        document
+            .querySelectorAll('#adrs-menu [data-mark="edge"]')
+            .map(
+                (edge) =>
+                    `${edge.getAttribute("data-kind")} ${edge.getAttribute("data-from")}-${edge.getAttribute("data-to")} ${edge.getAttribute("data-status")}`,
+            ),
+        [
+            "supersede 4-1 superseded",
+            "amend 4-2 amended",
+            "reference 4-3 accepted",
+        ],
+        "every link of 4, farthest first, so the nearest draws on top",
+    );
+    assert.ok(
+        document
+            .querySelectorAll('#adrs-menu [data-mark="edge"]')
+            .every(
+                (edge) =>
+                    edge.hasAttribute("data-highlighted") &&
+                    !edge.hasAttribute("data-lane"),
+            ),
+        "each lights, and runs on no lane",
+    );
     assert.equal(
         document
             .querySelector('#adrs-menu [data-mark="dot"][data-open]')
@@ -688,53 +711,54 @@ const dimmed = () =>
 
 const LONE = decision("5", { date: "2024-05-01T12:00:00Z" });
 
-test("opening a decision lights its lane with every join on it, its own joins, and only its stretch of other lanes", () => {
+test("opening a decision lights its links on the reference column and the dots at their ends, and dims every lane", () => {
     renderPage([...LINKED, LONE]);
     expand();
 
     open("3");
 
-    assert.deepEqual(
-        lit(),
-        [
-            "dot 1",
-            "dot 3",
-            "dot 4",
-            // 4 joins 3's lane, and 3's lane lights in full.
-            "join reference 4-3 on 3",
-            // 3's own join into 1's lane.
-            "join reference 3-1 on 1",
-            // Of 1's lane, only the stretch from 3's join down to 1.
-            "stretch reference 3-1 on 1",
-            "stretch reference 4-3 on 3",
-        ].sort(),
-    );
+    assert.deepEqual(lit(), [
+        "dot 1",
+        "dot 3",
+        "dot 4",
+        "edge reference 3-1 on null",
+        "edge reference 4-3 on null",
+    ]);
     assert.deepEqual(
         dimmed(),
-        ["dot 2", "dot 5", "stretch 2-1", "stretch 4-2"],
-        "the rest of 1's lane and every other dot dim",
+        [
+            "dot 2",
+            "dot 5",
+            "join 3-1",
+            "join 4-3",
+            "stretch 2-1",
+            "stretch 4-2",
+            "stretch 4-3",
+        ],
+        "every lane stretch and join dims, its own joins too",
     );
 });
 
-test("opening a decision on a lineage lights every stretch of its lane", () => {
+test("opening a decision on a lineage lights its own links, not the rest of its lane", () => {
     renderPage([...LINKED, LONE]);
     expand();
 
     open("2");
 
-    assert.deepEqual(
-        lit().filter((mark) => mark.startsWith("stretch")),
-        ["stretch amend 4-2 on 1", "stretch supersede 2-1 on 1"],
-    );
-    assert.deepEqual(
-        lit().filter((mark) => mark.startsWith("join")),
-        ["join reference 3-1 on 1"],
-        "3 joins 2's lane, so its join lights too",
-    );
+    assert.deepEqual(lit(), ["dot 2", "dot 4", "edge amend 4-2 on null"]);
     assert.deepEqual(
         dimmed(),
-        ["dot 5", "join 4-3", "stretch 4-3"],
-        "3's dot lights with its join, so the join never starts at a dimmed dot",
+        [
+            "dot 1",
+            "dot 3",
+            "dot 5",
+            "join 3-1",
+            "join 4-3",
+            "stretch 2-1",
+            "stretch 4-2",
+            "stretch 4-3",
+        ],
+        "1 shares 2's lane but links to 4, not to 2",
     );
 });
 
@@ -857,6 +881,18 @@ test("opening a decision never moves a column", () => {
     open("46");
 
     assert.deepEqual(geometry(), closed);
+});
+
+test("under the cap too, opening a decision never moves a column", () => {
+    renderPage([...LINKED, LONE]);
+    expand();
+    assert.equal(graph().getAttribute("data-fallback"), "none");
+    const closed = geometry();
+
+    open("4");
+
+    assert.deepEqual(geometry(), closed);
+    assert.equal(marks("edge").length, 3, "4's links draw on the kept column");
 });
 
 test("the expand toggle's state survives a reload", () => {
@@ -1056,12 +1092,15 @@ test("the filtered, expanded graph still lights the open decision's edges and di
         "dot 2",
         "dot 4",
         "dot 6",
-        "join reference 4-2 on 2",
-        "join reference 6-4 on 4",
-        "stretch reference 4-2 on 2",
-        "stretch reference 6-4 on 4",
+        "edge reference 4-2 on null",
+        "edge reference 6-4 on null",
     ]);
-    assert.deepEqual(dimmed(), ["stretch 4-2"]);
+    assert.deepEqual(dimmed(), [
+        "join 4-2",
+        "join 6-4",
+        "stretch 4-2",
+        "stretch 6-4",
+    ]);
 
     // Turning the filter off brings the hidden decisions back, dimmed.
     relatedOnly().click();
@@ -1183,16 +1222,17 @@ test("pointing at a row lights its edges and dims the rest, and nothing dims onc
         "dot 1",
         "dot 3",
         "dot 4",
-        "join 3-1",
-        "join 4-3",
-        "stretch 3-1",
-        "stretch 4-3",
+        "edge 3-1",
+        "edge 4-3",
     ]);
     assert.deepEqual(indexMarks("dimmed"), [
         "dot 2",
         "dot 5",
+        "join 3-1",
+        "join 4-3",
         "stretch 2-1",
         "stretch 4-2",
+        "stretch 4-3",
     ]);
 
     point(index().querySelector("[data-index-rows]"), "mouseleave");

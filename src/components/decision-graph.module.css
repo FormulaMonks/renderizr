@@ -21,7 +21,8 @@
 
 /* With a decision open, everything outside its links drops back, collapsed or
 expanded, so the reader sees at a glance what the open decision links to. */
-.graph [data-dimmed] {
+.graph [data-dimmed],
+[data-drawing] [data-dimmed] {
     opacity: 0.3;
 }
 
@@ -90,14 +91,20 @@ expanded, so the reader sees at a glance what the open decision links to. */
 
 /* ---- expanded ---- */
 
+/* While the lanes scroll, the pinned strip repeats the drawing through `<use>`,
+whose copy has no `.graph` above it, so each expanded rule also matches inside
+the drawing's own `[data-drawing]` group. */
+
 /* Expanded, a dot's halo keeps it apart from the lane running through it. */
-.graph[data-state="expanded"] .dot {
+.graph[data-state="expanded"] .dot,
+[data-drawing] .dot {
     stroke-width: 1.5px;
 }
 
 /* Expanded, a reference is dotted and thin, so it never reads as a lane of
 its own and leaves supersede and amend to carry the graph. */
-.graph[data-state="expanded"] .edge[data-kind="reference"] {
+.graph[data-state="expanded"] .edge[data-kind="reference"],
+[data-drawing] .edge[data-kind="reference"] {
     stroke-width: 1px;
     stroke-dasharray: 1.5 2.5;
     stroke-opacity: 0.9;
@@ -105,7 +112,8 @@ its own and leaves supersede and amend to carry the graph. */
 
 /* A lit reference grows a little but stays dotted, so it never reads as a
 lane. */
-.graph[data-state="expanded"] .edge[data-kind="reference"][data-highlighted] {
+.graph[data-state="expanded"] .edge[data-kind="reference"][data-highlighted],
+[data-drawing] .edge[data-kind="reference"][data-highlighted] {
     stroke-width: 1.5px;
     stroke-opacity: 1;
 }

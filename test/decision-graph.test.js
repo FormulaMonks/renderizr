@@ -208,7 +208,11 @@ test("a decision nobody links to is a lone dot in column 0", () => {
 
     assert.deepEqual(layout.lanes, []);
     assert.deepEqual(loneOf(layout), ["2", "1"]);
-    assert.equal(layout.columns, 1, "column 0 holds the lone dots");
+    assert.equal(
+        layout.columns,
+        2,
+        "column 0 holds the lone dots, and column 1 waits for the lit links",
+    );
 });
 
 test("supersede and amend join decisions into one lineage on one lane", () => {
@@ -220,7 +224,7 @@ test("supersede and amend join decisions into one lineage on one lane", () => {
 
     assert.deepEqual(lanesOf(layout), [
         {
-            col: 1,
+            col: 2,
             top: "3",
             bottom: "1",
             members: ["3", "2", "1"],
@@ -228,7 +232,7 @@ test("supersede and amend join decisions into one lineage on one lane", () => {
         },
     ]);
     assert.deepEqual(loneOf(layout), []);
-    assert.equal(layout.columns, 2);
+    assert.equal(layout.columns, 3);
 });
 
 test("a decision a later one references gets a lane up to its newest linker", () => {
@@ -240,7 +244,7 @@ test("a decision a later one references gets a lane up to its newest linker", ()
     ]);
 
     assert.deepEqual(lanesOf(layout), [
-        { col: 1, top: "4", bottom: "1", members: ["1"], linkers: ["4", "2"] },
+        { col: 2, top: "4", bottom: "1", members: ["1"], linkers: ["4", "2"] },
     ]);
     assert.deepEqual(
         loneOf(layout),
@@ -257,7 +261,7 @@ test("a lane runs up to its newest decision when that is newer than its newest l
     ]);
 
     assert.deepEqual(lanesOf(layout), [
-        { col: 1, top: "3", bottom: "1", members: ["3", "1"], linkers: ["2"] },
+        { col: 2, top: "3", bottom: "1", members: ["3", "1"], linkers: ["2"] },
     ]);
 });
 
@@ -285,12 +289,12 @@ test("lanes open to the left, newest first, in the lowest free column", () => {
     assert.deepEqual(
         lanesOf(layout).map(({ col, bottom }) => [col, bottom]),
         [
-            [1, "2"],
-            [2, "1"],
+            [2, "2"],
+            [3, "1"],
         ],
-        "2's lane opens first, at 4, so it takes column 1",
+        "2's lane opens first, at 4, so it takes column 2",
     );
-    assert.equal(layout.columns, 3);
+    assert.equal(layout.columns, 4);
 });
 
 test("a column comes back into use once its lane closes", () => {
@@ -304,12 +308,12 @@ test("a column comes back into use once its lane closes", () => {
     assert.deepEqual(
         lanesOf(layout).map(({ col, bottom }) => [col, bottom]),
         [
-            [1, "3"],
-            [1, "1"],
+            [2, "3"],
+            [2, "1"],
         ],
         "3's lane closes at 3, above where 1's lane opens, at 2",
     );
-    assert.equal(layout.columns, 2);
+    assert.equal(layout.columns, 3);
 });
 
 test("each row knows the lane it sits on", () => {
@@ -321,7 +325,7 @@ test("each row knows the lane it sits on", () => {
 
     assert.deepEqual(
         layout.laneOf.map((lane) => lane?.col ?? null),
-        [null, 1, 1],
+        [null, 2, 2],
         "3 references the lineage and stays lone; 2 and 1 sit on its lane",
     );
 });
@@ -352,54 +356,69 @@ const lit = (layout, id) => {
     const edges = edgesOfDecision(layout, row);
 
     return {
-        lane: edges.lane ? idOf(edges.lane.bottom) : null,
         links: edges.links.map((edge) => `${idOf(edge.from)}-${idOf(edge.to)}`),
-        edges: [...edges.edges]
-            .map((edge) => `${idOf(edge.from)}-${idOf(edge.to)}`)
-            .sort(),
-        stretches: edges.stretches.map(
-            (stretch) =>
-                `${idOf(stretch.lane.bottom)}: ${idOf(stretch.from)}-${idOf(stretch.to)}`,
-        ),
         dots: [...edges.dots].map(idOf).sort(),
     };
 };
 
-test("a decision on a lane lights the whole lane, every link onto it and the dots on it", () => {
+test("a decision on a lane lights its own links and their ends, not the rest of its lane", () => {
     assert.deepEqual(lit(layoutDecisionGraph(JOINED), "3"), {
-        lane: "1",
-        links: ["6-3", "4-3", "3-1"],
-        edges: ["2-1", "3-1", "4-3", "5-1", "6-1", "6-3"],
-        stretches: [],
-        // Every lit join starts at a lit dot, so the decisions that join the
-        // lane light up too.
-        dots: ["1", "2", "3", "4", "5", "6"],
+        // Farthest first, so the nearest draws on top where they overlap.
+        links: ["6-3", "3-1", "4-3"],
+        // 2 and 5 join 3's lane, but they link to 1, not to 3.
+        dots: ["1", "3", "4", "6"],
     });
 });
 
-test("a decision that joins another lane lights only its stretch of that lane, down to the decision it links to", () => {
+test("a decision that joins another lane lights only its own link", () => {
     assert.deepEqual(lit(layoutDecisionGraph(JOINED), "4"), {
-        lane: null,
         links: ["4-3"],
-        edges: ["4-3"],
-        stretches: ["1: 4-3"],
         dots: ["3", "4"],
     });
 });
 
-test("a decision that links to several decisions of one lane lights its stretch down to the oldest", () => {
-    assert.deepEqual(lit(layoutDecisionGraph(JOINED), "6").stretches, [
-        "1: 6-1",
+test("a decision's links run farthest first, either way", () => {
+    assert.deepEqual(lit(layoutDecisionGraph(JOINED), "1").links, [
+        "6-1",
+        "5-1",
+        "3-1",
+        "2-1",
     ]);
 });
 
 test("a decision with no links lights nothing, not even its own dot", () => {
     assert.deepEqual(lit(layoutDecisionGraph(JOINED), "7"), {
-        lane: null,
         links: [],
-        edges: [],
-        stretches: [],
         dots: [],
+    });
+});
+
+test("a decision in the middle of a long amend trunk lights only its direct links", () => {
+    // One lineage of ten: from 2 on, each decision amends the one before. 11
+    // and 12 reference 5, and 5 references 13, a lone dot otherwise.
+    const trunk = Array.from({ length: 10 }, (__, index) =>
+        decision(
+            index + 1,
+            `2024-01-${String(index + 1).padStart(2, "0")}`,
+            index === 0 ? [] : [[index, "Amends"]],
+        ),
+    );
+    trunk[4].links.push({ id: "13", description: "References" });
+    const layout = layoutDecisionGraph([
+        ...trunk,
+        decision(11, "2024-02-01", [[5, "References"]]),
+        decision(12, "2024-02-02", [[5, "References"]]),
+        decision(13, "2023-12-01"),
+    ]);
+
+    assert.deepEqual(
+        layout.laneOf.map((lane) => lane?.members.length ?? 0),
+        [0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 1],
+        "the ten share one trunk lane",
+    );
+    assert.deepEqual(lit(layout, "5"), {
+        links: ["12-5", "11-5", "5-13", "6-5", "5-4"],
+        dots: ["11", "12", "13", "4", "5", "6"],
     });
 });
 
@@ -408,7 +427,7 @@ test("a decision with no links lights nothing, not even its own dot", () => {
 /**
  * 2 supersedes 1; 3 references 1; 4 references 3; 5 references 2; 6
  * references 4. With reference lanes, the lineage's lane runs up to 5, and 3
- * and 4 get lanes of their own: 4 columns in all.
+ * and 4 get lanes of their own: 5 columns in all.
  */
 const CAPPED = [
     decision(1, "2024-01-01"),
@@ -420,25 +439,39 @@ const CAPPED = [
 ];
 
 test("a graph whose lanes all fit the cap needs no fallback", () => {
-    const layout = layoutDecisionGraph(CAPPED, 4);
+    const layout = layoutDecisionGraph(CAPPED, 5);
 
-    assert.equal(layout.columns, 4, "lanes for 1, 3 and 4, and the lone dots");
+    assert.equal(
+        layout.columns,
+        5,
+        "lanes for 1, 3 and 4, the lone dots and column 1",
+    );
     assert.equal(layout.fallback, "none");
-    assert.equal(layout.referenceColumn, null);
+});
+
+test("every layout keeps column 1 for the lit decision's links, and lanes start at column 2", () => {
+    for (const cap of [Number.POSITIVE_INFINITY, 5, 4, 2]) {
+        const layout = layoutDecisionGraph(CAPPED, cap);
+
+        assert.equal(layout.referenceColumn, 1, `under a cap of ${cap}`);
+        assert.ok(
+            layout.lanes.every((lane) => lane.col >= 2),
+            `no lane takes column 1 under a cap of ${cap}`,
+        );
+    }
 });
 
 test("without a cap, every lane opens", () => {
     const layout = layoutDecisionGraph(CAPPED);
 
-    assert.equal(layout.columns, 4);
+    assert.equal(layout.columns, 5);
     assert.equal(layout.fallback, "none");
 });
 
-test("past the cap, references open no lanes and column 1 waits for the open decision's references", () => {
-    const layout = layoutDecisionGraph(CAPPED, 3);
+test("past the cap, references open no lanes", () => {
+    const layout = layoutDecisionGraph(CAPPED, 4);
 
     assert.equal(layout.fallback, "lineage");
-    assert.equal(layout.referenceColumn, 1);
     assert.deepEqual(lanesOf(layout), [
         { col: 2, top: "2", bottom: "1", members: ["2", "1"], linkers: [] },
     ]);
@@ -451,7 +484,6 @@ test("when even supersede and amend lanes outgrow the cap, the lanes scroll", ()
     const layout = layoutDecisionGraph(CAPPED, 2);
 
     assert.equal(layout.fallback, "scroll");
-    assert.equal(layout.referenceColumn, 1);
     assert.equal(layout.columns, 3, "the columns of the lineage fallback");
     assert.equal(layout.cap, 2, "the lanes scroll at the cap's width");
 });
@@ -485,29 +517,22 @@ test("past the cap, a reference from one lineage's decision to another opens no 
     );
 });
 
-test("past the cap, the open decision lights its references but no stretch of the lanes they reach", () => {
-    const layout = layoutDecisionGraph(CAPPED, 3);
-
-    assert.deepEqual(lit(layout, "5"), {
-        lane: null,
-        links: ["5-2"],
-        edges: ["5-2"],
-        stretches: [],
-        dots: ["2", "5"],
-    });
-    assert.deepEqual(
-        lit(layout, "2").edges,
-        ["2-1", "5-2"],
-        "its own links, but not 3's reference to 1, which joins no lane",
-    );
+test("a decision lights the same links whether the graph falls back or not", () => {
+    for (const id of ["1", "2", "5"]) {
+        assert.deepEqual(
+            lit(layoutDecisionGraph(CAPPED, 4), id),
+            lit(layoutDecisionGraph(CAPPED), id),
+            `decision ${id}`,
+        );
+    }
 });
 
 test("past the cap, a reference joins no lane, and supersede and amend still do", () => {
     const cases = [
-        { cap: 4, kind: "reference", joins: true },
-        { cap: 3, kind: "reference", joins: false },
-        { cap: 3, kind: "supersede", joins: true },
-        { cap: 3, kind: "amend", joins: true },
+        { cap: 5, kind: "reference", joins: true },
+        { cap: 4, kind: "reference", joins: false },
+        { cap: 4, kind: "supersede", joins: true },
+        { cap: 4, kind: "amend", joins: true },
     ];
 
     for (const { cap, kind, joins } of cases) {
@@ -600,7 +625,7 @@ test("our own decisions make one amend edge and 22 references", () => {
     );
 });
 
-test("our own decisions need 8 columns", () => {
+test("our own decisions need 9 columns", () => {
     const layout = layoutDecisionGraph(OURS);
     const lane = (col, members, linkers) => ({
         col,
@@ -610,17 +635,17 @@ test("our own decisions need 8 columns", () => {
         linkers,
     });
 
-    assert.equal(layout.columns, 8);
+    assert.equal(layout.columns, 9);
     assert.deepEqual(lanesOf(layout), [
-        lane(1, ["7"], ["19", "17", "8"]),
-        lane(2, ["3"], ["18", "15", "6"]),
-        lane(3, ["14", "4"], ["17", "10", "9"]),
-        lane(4, ["9"], ["17", "10"]),
-        lane(5, ["10"], ["17"]),
-        lane(6, ["16"], ["17"]),
-        lane(6, ["2"], ["13", "12", "11", "9", "7", "5", "3"]),
-        lane(7, ["15"], ["16"]),
-        lane(7, ["11"], ["12"]),
+        lane(2, ["7"], ["19", "17", "8"]),
+        lane(3, ["3"], ["18", "15", "6"]),
+        lane(4, ["14", "4"], ["17", "10", "9"]),
+        lane(5, ["9"], ["17", "10"]),
+        lane(6, ["10"], ["17"]),
+        lane(7, ["16"], ["17"]),
+        lane(7, ["2"], ["13", "12", "11", "9", "7", "5", "3"]),
+        lane(8, ["15"], ["16"]),
+        lane(8, ["11"], ["12"]),
     ]);
     assert.deepEqual(
         loneOf(layout),
@@ -629,10 +654,10 @@ test("our own decisions need 8 columns", () => {
     );
 });
 
-test("our own decisions need no fallback at 8 columns", () => {
-    const layout = layoutDecisionGraph(OURS, 8);
+test("our own decisions need no fallback at 9 columns", () => {
+    const layout = layoutDecisionGraph(OURS, 9);
 
-    assert.equal(layout.columns, 8);
+    assert.equal(layout.columns, 9);
     assert.equal(layout.fallback, "none");
 });
 
@@ -652,10 +677,10 @@ test("the sparse 1,000-decision set is the prototype's, decision for decision", 
     );
 });
 
-test("the sparse 1,000-decision set opens 51 columns with every lane", () => {
+test("the sparse 1,000-decision set opens 52 columns with every lane", () => {
     const layout = layoutDecisionGraph(SPARSE_1000);
 
-    assert.equal(layout.columns, 51);
+    assert.equal(layout.columns, 52);
     assert.equal(layout.fallback, "none");
 });
 

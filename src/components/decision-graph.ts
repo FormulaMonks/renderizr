@@ -15,14 +15,14 @@
  * highlighted or dimmed), so the page tests read the graph's meaning without
  * the positions, which only a real browser lays out.
  *
- * With a decision open, the expanded graph lights that decision's edges, as
- * `edgesOfDecision` works them out, and dims everything else. On the index,
- * where nothing is open, the row a reader points at lights the same way.
+ * With a decision open, the expanded graph draws every link of that decision
+ * in full on the reference column, next to the lone dots, and dims everything
+ * else: every lane, every join and every dot but the links' ends. On the
+ * index, where nothing is open, the row a reader points at lights the same
+ * way. The column takes its room whether a decision is open or not, so
+ * opening one never moves a column.
  *
- * Past its cap, the layout falls back: references open no lanes, and the
- * open decision's references draw in full on the reference column, next to
- * the lone dots. The column takes its room whether a decision is open or
- * not, so opening one never moves a column.
+ * Past its cap, the layout falls back, and references open no lanes.
  *
  * When even supersede and amend lanes outgrow the cap, the lanes scroll
  * sideways in a view as wide as the cap, under a pinned strip that repeats
@@ -144,11 +144,11 @@ function joinPath(fromX: number, laneX: number, y: number): string {
 }
 
 /**
- * A reference drawn in full on the reference column: across from the newer
+ * A link drawn in full on the reference column: across from the newer
  * decision's dot to the column, down it, and back across to the older
  * decision's dot, with a small corner at each turn.
  */
-function referenceColumnPath(from: Point, columnX: number, to: Point): string {
+function columnPath(from: Point, columnX: number, to: Point): string {
     const corner = Math.min(JOIN_CORNER, Math.abs(to.y - from.y) / 2);
     const fromSide = Math.sign(from.x - columnX);
     const toSide = Math.sign(to.x - columnX);
@@ -333,8 +333,6 @@ export default class DecisionGraph extends Component {
         const open = this.#litRow(layout);
         const lit = open < 0 ? null : edgesOfDecision(layout, open);
         const links = lit?.links ?? [];
-        // A decision with no links lights nothing, its own dot included.
-        const linked = new Set(links.flatMap((edge) => [edge.from, edge.to]));
 
         const elbows = links.map((edge) => {
             const newer = rows[edge.from];
@@ -361,7 +359,7 @@ export default class DecisionGraph extends Component {
                 ys.get(row.id) ?? 0,
                 row.id === this.#open ? OPEN_DOT_RADIUS : DOT_RADIUS,
                 RING_GAP,
-                emphasis(lit, linked.has(index)),
+                emphasis(lit, lit?.dots.has(index) ?? false),
             ),
         );
 
@@ -372,36 +370,39 @@ export default class DecisionGraph extends Component {
     }
 
     /**
-     * The expanded graph: every lane's stretches, the joins into lanes, and
-     * every dot on its lane or, alone, in column 0 next to the titles.
+     * The expanded graph: every lane's stretches, the joins into lanes,
+     * every dot on its lane or, alone, in column 0 next to the titles, and
+     * the lit decision's links on the reference column.
      */
     #drawExpanded(
         layout: DecisionGraphLayout,
         ys: Map<string, number>,
     ): ExpandedDrawing {
-        const { rows, edges, lanes, laneOf } = layout;
+        const { rows, edges, lanes, laneOf, referenceColumn } = layout;
         const columnWidth = this.#columnWidth;
         // While the lanes scroll, the lone dots and the reference column stay
         // pinned, and a gap sets the first lane apart from them.
         const gap = layout.fallback === "scroll" ? LANE_GAP : 0;
-        const pinned = layout.referenceColumn ?? 0;
-        const width =
-            2 * PADDING + gap + Math.max(1, layout.columns - 1) * columnWidth;
+        const width = 2 * PADDING + gap + (layout.columns - 1) * columnWidth;
         // Column 0 sits next to the titles, and the graph grows to the left.
         const x = (col: number) =>
-            width - PADDING - (col > pinned ? gap : 0) - col * columnWidth;
+            width -
+            PADDING -
+            (col > referenceColumn ? gap : 0) -
+            col * columnWidth;
         const y = (row: number) => ys.get(rows[row].id) ?? 0;
         const open = this.#litRow(layout);
         const lit = open < 0 ? null : edgesOfDecision(layout, open);
 
         // A stretch runs up the lane from the older decision's dot to `topY`.
+        // Once a decision lights, every stretch dims: its links light on the
+        // reference column instead.
         const stretch = (
             lane: Lane,
             kind: string,
             newer: number,
             older: number,
             topY: number,
-            on = lit?.lane === lane,
         ) =>
             edgePath({
                 mark: "stretch",
@@ -409,7 +410,7 @@ export default class DecisionGraph extends Component {
                 newer: rows[newer],
                 older: rows[older],
                 lane: laneName(layout, lane),
-                emphasis: emphasis(lit, on),
+                emphasis: emphasis(lit, false),
                 d: `M ${px(x(lane.col))},${px(y(older))} V ${px(topY)}`,
             });
 
@@ -457,23 +458,6 @@ export default class DecisionGraph extends Component {
             }
         }
 
-        // Of each other lane the open decision joins, only the stretch from
-        // its join down to the decision it links to lights, drawn over the
-        // lane's dimmed stretches. A link into another lineage's lane is
-        // always a reference, since supersede and amend join the lineages.
-        for (const { lane, from, to } of lit?.stretches ?? []) {
-            stretches.push(
-                stretch(
-                    lane,
-                    "reference",
-                    from,
-                    to,
-                    y(from) + JOIN_CORNER,
-                    true,
-                ),
-            );
-        }
-
         // Where a row's dot sits: on its lane, or alone in column 0.
         const dot = (row: number) => ({
             x: x(laneOf[row]?.col ?? 0),
@@ -493,32 +477,26 @@ export default class DecisionGraph extends Component {
                     newer: rows[edge.from],
                     older: rows[edge.to],
                     lane: laneName(layout, lane),
-                    emphasis: emphasis(lit, lit?.edges.has(edge) ?? false),
+                    emphasis: emphasis(lit, false),
                     d: joinPath(dot(edge.from).x, x(lane.col), y(edge.from)),
                 }),
             ];
         });
 
-        // In a fallback, the open decision's references join no lane and
-        // run in full on the reference column instead, lit; the column stays
-        // empty while nothing is lit.
-        const columnX = x(layout.referenceColumn ?? 0);
-        const references = (lit?.links ?? [])
-            .filter((edge) => !joinsLane(layout, edge))
-            .map((edge) =>
-                edgePath({
-                    mark: "edge",
-                    kind: edge.kind,
-                    newer: rows[edge.from],
-                    older: rows[edge.to],
-                    emphasis: emphasis(lit, true),
-                    d: referenceColumnPath(
-                        dot(edge.from),
-                        columnX,
-                        dot(edge.to),
-                    ),
-                }),
-            );
+        // Every link of the lit decision runs in full on the reference
+        // column, lit, farthest first so the nearest sits on top where they
+        // overlap. The column stays empty while nothing is lit.
+        const columnX = x(referenceColumn);
+        const links = (lit?.links ?? []).map((edge) =>
+            edgePath({
+                mark: "edge",
+                kind: edge.kind,
+                newer: rows[edge.from],
+                older: rows[edge.to],
+                emphasis: emphasis(lit, true),
+                d: columnPath(dot(edge.from), columnX, dot(edge.to)),
+            }),
+        );
 
         const dots = rows.map((row, index) => {
             const lane = laneOf[index];
@@ -540,7 +518,7 @@ export default class DecisionGraph extends Component {
 
         return {
             width,
-            marks: `${stretches.join("")}${joins.join("")}${references.join("")}${dots.join("")}`,
+            marks: `${stretches.join("")}${joins.join("")}${links.join("")}${dots.join("")}`,
             x,
         };
     }
@@ -558,7 +536,7 @@ export default class DecisionGraph extends Component {
         if (!this.element) return;
 
         const viewWidth = 2 * PADDING + (layout.cap - 1) * this.#columnWidth;
-        const pinWidth = width - x(layout.referenceColumn ?? 0) + PIN_ROOM;
+        const pinWidth = width - x(layout.referenceColumn) + PIN_ROOM;
 
         let view = this.element.querySelector<HTMLElement>("[data-lanes]");
         if (!view) {
