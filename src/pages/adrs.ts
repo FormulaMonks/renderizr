@@ -351,7 +351,14 @@ export default class Decisions extends Page {
         );
         this.#indexGraph = indexGraph;
         indexGraph.setState("expanded");
-        indexGraph.setLayout(layoutDecisionGraph(this.#decisions));
+        // The index measures 0 while it waits for a first paint or hides
+        // behind an open decision; the window stands in for it until then.
+        const indexWidth =
+            document.getElementById("adrs-index")!.clientWidth ||
+            window.innerWidth;
+        indexGraph.setLayout(
+            layoutDecisionGraph(this.#decisions, indexColumnCap(indexWidth)),
+        );
         indexRows.addEventListener("mouseover", this.#handleIndexPoint);
         indexRows.addEventListener("focusin", this.#handleIndexPoint);
         indexRows.addEventListener("mouseleave", this.#handleIndexLeave);
@@ -461,7 +468,7 @@ export default class Decisions extends Page {
                 : this.#decisions;
         // The layout first: the menu's redraw draws the graph again, and by
         // then the two have to agree on the rows.
-        this.#graph?.setLayout(layoutDecisionGraph(decisions));
+        this.#graph?.setLayout(layoutDecisionGraph(decisions, MENU_GRAPH_CAP));
         this.#menu?.setItems(decisions);
     }
 

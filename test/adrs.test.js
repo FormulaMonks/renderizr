@@ -1205,6 +1205,44 @@ test("the index's decision graph takes up to half the index's width", () => {
     }
 });
 
+/* ---------------------------------------------- each decision graph's cap -- */
+
+test("under Related only, the menu's decision graph keeps the menu's cap", () => {
+    history.replace({ search: "?page=adrs&adr=46" });
+    renderPage(GRAPH_DECISIONS);
+    expand();
+
+    relatedOnly().click();
+
+    // 46 and the 36 decisions it builds on would open 37 columns.
+    assert.equal(menuIds().length, 37);
+    assert.equal(graph().getAttribute("data-fallback"), "lineage");
+    assert.ok(marks("edge").length > 0, "46's references run on their column");
+});
+
+test("the index lays out its decision graph under its own cap", () => {
+    // Half of 1,280px holds 40 of the index's columns: room for all 37.
+    renderPage(GRAPH_DECISIONS);
+    assert.equal(indexGraph().getAttribute("data-fallback"), "none");
+});
+
+test("on a narrow index, the decision graph falls back", () => {
+    dom.setViewportWidth(600);
+    renderPage(GRAPH_DECISIONS);
+
+    // 600px holds 18 of the index's columns, fewer than the 37 it needs.
+    assert.equal(indexGraph().getAttribute("data-fallback"), "lineage");
+    assert.deepEqual(
+        document
+            .querySelectorAll(
+                '#adrs-index [data-mark="stretch"][data-kind="reference"]',
+            )
+            .map((mark) => mark.getAttribute("data-from")),
+        [],
+        "no reference runs up a lane",
+    );
+});
+
 /* -------------------------------------------------------------- selection -- */
 
 test("choosing a decision shows its title, date and status", () => {
