@@ -868,6 +868,42 @@ test("the open decision's body still links to decisions the filter hides", () =>
     assert.deepEqual(menuIds(), ["7", "2", "5"]);
 });
 
+test("the filtered, expanded graph still lights the open decision's edges and dims the rest", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+
+    relatedOnly().click();
+    expand();
+    assert.deepEqual(
+        lit().filter((mark) => mark.startsWith("dot")),
+        ["dot 1", "dot 2", "dot 3", "dot 4", "dot 5"],
+        "every decision left is related to 2, so every dot lights",
+    );
+
+    open("4");
+    assert.deepEqual(lit(), [
+        "dot 2",
+        "dot 4",
+        "dot 6",
+        "join reference 4-2 on 2",
+        "join reference 6-4 on 4",
+        "stretch reference 4-2 on 2",
+        "stretch reference 6-4 on 4",
+    ]);
+    assert.deepEqual(dimmed(), ["stretch 4-2"]);
+
+    // Turning the filter off brings the hidden decisions back, dimmed.
+    relatedOnly().click();
+    assert.deepEqual(
+        dimmed().filter((mark) => mark.startsWith("dot")),
+        ["dot 1", "dot 3", "dot 5", "dot 7"],
+    );
+    assert.deepEqual(
+        lit().filter((mark) => mark.startsWith("dot")),
+        ["dot 2", "dot 4", "dot 6"],
+    );
+});
+
 test("pressing Related only again shows every decision", () => {
     history.replace({ search: "?page=adrs&adr=2" });
     renderPage(FAMILY);
