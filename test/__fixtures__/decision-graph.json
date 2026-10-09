@@ -1,0 +1,610 @@
+{
+    "id": 0,
+    "name": "Decision graph",
+    "description": "Decisions linked by supersede, amend, override and unknown wordings, from one side or both, and more lanes than the decisions menu has room for",
+    "lastModifiedDate": null,
+    "model": {
+        "softwareSystems": [
+            {
+                "id": "1",
+                "tags": "Element,Software System",
+                "name": "Shop",
+                "location": "Internal"
+            }
+        ]
+    },
+    "documentation": {
+        "sections": [],
+        "decisions": [
+            {
+                "id": "1",
+                "title": "Store sessions in the database",
+                "date": "2023-02-06T00:00:00Z",
+                "status": "Superseded",
+                "format": "Markdown",
+                "content": "# 1. Store sessions in the database\n\nDate: 2023-02-06\n\n## Status\n\nSuperseded\n\nSuperseded by [2. Store sessions in a shared cache so every node of the cluster can read them](0002-x.md)\n\n## Context\n\nBecause.\n\n## Decision\n\nStore sessions in the database.\n\n## Consequences\n\nNone recorded.\n",
+                "links": [
+                    {
+                        "id": "2",
+                        "description": "Superseded by"
+                    }
+                ]
+            },
+            {
+                "id": "2",
+                "title": "Store sessions in a shared cache so every node of the cluster can read them",
+                "date": "2023-03-14T00:00:00Z",
+                "status": "Superseded",
+                "format": "Markdown",
+                "content": "# 2. Store sessions in a shared cache so every node of the cluster can read them\n\nDate: 2023-03-14\n\n## Status\n\nSuperseded\n\nSupersedes [1. Store sessions in the database](0001-x.md)\n\nOverridden by [5. Keep sessions in signed cookies and drop server-side session storage altogether](0005-x.md)\n\nReferenced by [8. Rotate the cookie signing key every month](0008-x.md)\n\n## Context\n\nBecause.\n\n## Decision\n\nStore sessions in a shared cache so every node of the cluster can read them.\n\n## Consequences\n\nNone recorded.\n",
+                "links": [
+                    {
+                        "id": "1",
+                        "description": "Supersedes"
+                    },
+                    {
+                        "id": "5",
+                        "description": "Overridden by"
+                    },
+                    {
+                        "id": "8",
+                        "description": "Referenced by"
+                    }
+                ]
+            },
+            {
+                "id": "3",
+                "title": "Send email through the hosting provider's relay",
+                "date": "2023-04-03T00:00:00Z",
+                "status": "Superseded",
+                "format": "Markdown",
+                "content": "# 3. Send email through the hosting provider's relay\n\nDate: 2023-04-03\n\n## Status\n\nSuperseded\n\n## Context\n\nBecause.\n\n## Decision\n\nSend email through the hosting provider's relay.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "4",
+                "title": "Send email through a transactional email service with delivery reports",
+                "date": "2023-05-22T00:00:00Z",
+                "status": "Amended",
+                "format": "Markdown",
+                "content": "# 4. Send email through a transactional email service with delivery reports\n\nDate: 2023-05-22\n\n## Status\n\nAmended\n\nSupercedes [3. Send email through the hosting provider's relay](0003-x.md)\n\nAmended by [6. Retry failed deliveries for a day](0006-x.md)\n\n## Context\n\nBecause.\n\n## Decision\n\nSend email through a transactional email service with delivery reports.\n\n## Consequences\n\nNone recorded.\n",
+                "links": [
+                    {
+                        "id": "3",
+                        "description": "Supercedes"
+                    },
+                    {
+                        "id": "6",
+                        "description": "Amended by"
+                    }
+                ]
+            },
+            {
+                "id": "5",
+                "title": "Keep sessions in signed cookies and drop server-side session storage altogether",
+                "date": "2023-07-10T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 5. Keep sessions in signed cookies and drop server-side session storage altogether\n\nDate: 2023-07-10\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nKeep sessions in signed cookies and drop server-side session storage altogether.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "6",
+                "title": "Retry failed deliveries for a day",
+                "date": "2023-09-18T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 6. Retry failed deliveries for a day\n\nDate: 2023-09-18\n\n## Status\n\nAccepted\n\nAmends [4. Send email through a transactional email service with delivery reports](0004-x.md)\n\n## Context\n\nBecause.\n\n## Decision\n\nRetry failed deliveries for a day.\n\n## Consequences\n\nNone recorded.\n",
+                "links": [
+                    {
+                        "id": "4",
+                        "description": "Amends"
+                    }
+                ]
+            },
+            {
+                "id": "7",
+                "title": "Write audit events to the application log",
+                "date": "2023-11-02T00:00:00Z",
+                "status": "Superseded",
+                "format": "Markdown",
+                "content": "# 7. Write audit events to the application log\n\nDate: 2023-11-02\n\n## Status\n\nSuperseded\n\nClarifies [6. Retry failed deliveries for a day](0006-x.md)\n\nsuperseded by [10. Ship audit events to a separate append-only store that operations can query without touching production](0010-x.md)\n\n## Context\n\nBecause.\n\n## Decision\n\nWrite audit events to the application log.\n\n## Consequences\n\nNone recorded.\n",
+                "links": [
+                    {
+                        "id": "10",
+                        "description": "superseded by"
+                    },
+                    {
+                        "id": "6",
+                        "description": "Clarifies"
+                    }
+                ]
+            },
+            {
+                "id": "8",
+                "title": "Rotate the cookie signing key every month",
+                "date": "2024-01-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 8. Rotate the cookie signing key every month\n\nDate: 2024-01-15\n\n## Status\n\nAccepted\n\nReferences [2. Store sessions in a shared cache so every node of the cluster can read them](0002-x.md)\n\nDepends on [5. Keep sessions in signed cookies and drop server-side session storage altogether](0005-x.md)\n\n## Context\n\nBecause.\n\n## Decision\n\nRotate the cookie signing key every month.\n\n## Consequences\n\nNone recorded.\n",
+                "links": [
+                    {
+                        "id": "2",
+                        "description": "References"
+                    },
+                    {
+                        "id": "5",
+                        "description": "Depends on"
+                    }
+                ]
+            },
+            {
+                "id": "9",
+                "title": "Publish an API changelog with every release",
+                "date": "2024-02-26T00:00:00Z",
+                "status": "Proposed",
+                "format": "Markdown",
+                "content": "# 9. Publish an API changelog with every release\n\nDate: 2024-02-26\n\n## Status\n\nProposed\n\n## Context\n\nBecause.\n\n## Decision\n\nPublish an API changelog with every release.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "10",
+                "title": "Ship audit events to a separate append-only store that operations can query without touching production",
+                "date": "2024-04-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 10. Ship audit events to a separate append-only store that operations can query without touching production\n\nDate: 2024-04-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nShip audit events to a separate append-only store that operations can query without touching production.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "11",
+                "title": "Give the billing service its own owner",
+                "date": "2024-05-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 11. Give the billing service its own owner\n\nDate: 2024-05-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the billing service its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "12",
+                "title": "Give the search index its own owner",
+                "date": "2024-05-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 12. Give the search index its own owner\n\nDate: 2024-05-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the search index its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "13",
+                "title": "Give the job queue its own owner",
+                "date": "2024-05-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 13. Give the job queue its own owner\n\nDate: 2024-05-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the job queue its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "14",
+                "title": "Give the file store its own owner",
+                "date": "2024-05-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 14. Give the file store its own owner\n\nDate: 2024-05-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the file store its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "15",
+                "title": "Give the metrics pipeline its own owner",
+                "date": "2024-06-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 15. Give the metrics pipeline its own owner\n\nDate: 2024-06-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the metrics pipeline its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "16",
+                "title": "Give the feature flags its own owner",
+                "date": "2024-06-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 16. Give the feature flags its own owner\n\nDate: 2024-06-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the feature flags its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "17",
+                "title": "Give the admin console its own owner",
+                "date": "2024-06-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 17. Give the admin console its own owner\n\nDate: 2024-06-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the admin console its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "18",
+                "title": "Give the public API its own owner",
+                "date": "2024-06-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 18. Give the public API its own owner\n\nDate: 2024-06-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the public API its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "19",
+                "title": "Give the mobile backend its own owner",
+                "date": "2024-07-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 19. Give the mobile backend its own owner\n\nDate: 2024-07-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the mobile backend its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "20",
+                "title": "Give the notification hub its own owner",
+                "date": "2024-07-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 20. Give the notification hub its own owner\n\nDate: 2024-07-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the notification hub its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "21",
+                "title": "Give the image resizer its own owner",
+                "date": "2024-07-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 21. Give the image resizer its own owner\n\nDate: 2024-07-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the image resizer its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "22",
+                "title": "Give the CDN rules its own owner",
+                "date": "2024-07-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 22. Give the CDN rules its own owner\n\nDate: 2024-07-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the CDN rules its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "23",
+                "title": "Give the payment gateway its own owner",
+                "date": "2024-08-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 23. Give the payment gateway its own owner\n\nDate: 2024-08-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the payment gateway its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "24",
+                "title": "Give the address lookup its own owner",
+                "date": "2024-08-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 24. Give the address lookup its own owner\n\nDate: 2024-08-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the address lookup its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "25",
+                "title": "Give the tax rules its own owner",
+                "date": "2024-08-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 25. Give the tax rules its own owner\n\nDate: 2024-08-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the tax rules its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "26",
+                "title": "Give the report builder its own owner",
+                "date": "2024-08-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 26. Give the report builder its own owner\n\nDate: 2024-08-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the report builder its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "27",
+                "title": "Give the import tool its own owner",
+                "date": "2024-09-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 27. Give the import tool its own owner\n\nDate: 2024-09-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the import tool its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "28",
+                "title": "Give the export tool its own owner",
+                "date": "2024-09-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 28. Give the export tool its own owner\n\nDate: 2024-09-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the export tool its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "29",
+                "title": "Give the webhook relay its own owner",
+                "date": "2024-09-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 29. Give the webhook relay its own owner\n\nDate: 2024-09-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the webhook relay its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "30",
+                "title": "Give the rate limiter its own owner",
+                "date": "2024-09-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 30. Give the rate limiter its own owner\n\nDate: 2024-09-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the rate limiter its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "31",
+                "title": "Give the login page its own owner",
+                "date": "2024-10-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 31. Give the login page its own owner\n\nDate: 2024-10-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the login page its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "32",
+                "title": "Give the password reset its own owner",
+                "date": "2024-10-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 32. Give the password reset its own owner\n\nDate: 2024-10-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the password reset its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "33",
+                "title": "Give the audit viewer its own owner",
+                "date": "2024-10-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 33. Give the audit viewer its own owner\n\nDate: 2024-10-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the audit viewer its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "34",
+                "title": "Give the data warehouse its own owner",
+                "date": "2024-10-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 34. Give the data warehouse its own owner\n\nDate: 2024-10-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the data warehouse its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "35",
+                "title": "Give the backup jobs its own owner",
+                "date": "2024-11-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 35. Give the backup jobs its own owner\n\nDate: 2024-11-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the backup jobs its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "36",
+                "title": "Give the status page its own owner",
+                "date": "2024-11-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 36. Give the status page its own owner\n\nDate: 2024-11-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the status page its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "37",
+                "title": "Give the support inbox its own owner",
+                "date": "2024-11-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 37. Give the support inbox its own owner\n\nDate: 2024-11-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the support inbox its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "38",
+                "title": "Give the release train its own owner",
+                "date": "2024-11-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 38. Give the release train its own owner\n\nDate: 2024-11-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the release train its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "39",
+                "title": "Give the staging copy its own owner",
+                "date": "2024-12-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 39. Give the staging copy its own owner\n\nDate: 2024-12-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the staging copy its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "40",
+                "title": "Give the load tests its own owner",
+                "date": "2024-12-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 40. Give the load tests its own owner\n\nDate: 2024-12-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the load tests its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "41",
+                "title": "Give the error tracker its own owner",
+                "date": "2024-12-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 41. Give the error tracker its own owner\n\nDate: 2024-12-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the error tracker its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "42",
+                "title": "Give the access reviews its own owner",
+                "date": "2024-12-22T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 42. Give the access reviews its own owner\n\nDate: 2024-12-22\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the access reviews its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "43",
+                "title": "Give the onboarding flow its own owner",
+                "date": "2025-01-01T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 43. Give the onboarding flow its own owner\n\nDate: 2025-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the onboarding flow its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "44",
+                "title": "Give the price list its own owner",
+                "date": "2025-01-08T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 44. Give the price list its own owner\n\nDate: 2025-01-08\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the price list its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "45",
+                "title": "Give the translation memory its own owner",
+                "date": "2025-01-15T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 45. Give the translation memory its own owner\n\nDate: 2025-01-15\n\n## Status\n\nAccepted\n\n## Context\n\nBecause.\n\n## Decision\n\nGive the translation memory its own owner.\n\n## Consequences\n\nNone recorded.\n"
+            },
+            {
+                "id": "46",
+                "title": "Adopt the platform baseline across every service",
+                "date": "2025-11-03T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 46. Adopt the platform baseline across every service\n\nDate: 2025-11-03\n\n## Status\n\nAccepted\n\nBuilds on [11. Give the billing service its own owner](0011-x.md)\n\nBuilds on [12. Give the search index its own owner](0012-x.md)\n\nBuilds on [13. Give the job queue its own owner](0013-x.md)\n\nBuilds on [14. Give the file store its own owner](0014-x.md)\n\nBuilds on [15. Give the metrics pipeline its own owner](0015-x.md)\n\nBuilds on [16. Give the feature flags its own owner](0016-x.md)\n\nBuilds on [17. Give the admin console its own owner](0017-x.md)\n\nBuilds on [18. Give the public API its own owner](0018-x.md)\n\nBuilds on [19. Give the mobile backend its own owner](0019-x.md)\n\nBuilds on [20. Give the notification hub its own owner](0020-x.md)\n\nBuilds on [21. Give the image resizer its own owner](0021-x.md)\n\nBuilds on [22. Give the CDN rules its own owner](0022-x.md)\n\nBuilds on [23. Give the payment gateway its own owner](0023-x.md)\n\nBuilds on [24. Give the address lookup its own owner](0024-x.md)\n\nBuilds on [25. Give the tax rules its own owner](0025-x.md)\n\nBuilds on [26. Give the report builder its own owner](0026-x.md)\n\nBuilds on [27. Give the import tool its own owner](0027-x.md)\n\nBuilds on [28. Give the export tool its own owner](0028-x.md)\n\nBuilds on [29. Give the webhook relay its own owner](0029-x.md)\n\nBuilds on [30. Give the rate limiter its own owner](0030-x.md)\n\nBuilds on [31. Give the login page its own owner](0031-x.md)\n\nBuilds on [32. Give the password reset its own owner](0032-x.md)\n\nBuilds on [33. Give the audit viewer its own owner](0033-x.md)\n\nBuilds on [34. Give the data warehouse its own owner](0034-x.md)\n\nBuilds on [35. Give the backup jobs its own owner](0035-x.md)\n\nBuilds on [36. Give the status page its own owner](0036-x.md)\n\nBuilds on [37. Give the support inbox its own owner](0037-x.md)\n\nBuilds on [38. Give the release train its own owner](0038-x.md)\n\nBuilds on [39. Give the staging copy its own owner](0039-x.md)\n\nBuilds on [40. Give the load tests its own owner](0040-x.md)\n\nBuilds on [41. Give the error tracker its own owner](0041-x.md)\n\nBuilds on [42. Give the access reviews its own owner](0042-x.md)\n\nBuilds on [43. Give the onboarding flow its own owner](0043-x.md)\n\nBuilds on [44. Give the price list its own owner](0044-x.md)\n\nBuilds on [45. Give the translation memory its own owner](0045-x.md)\n\nReferences [9. Publish an API changelog with every release](0009-x.md)\n\n## Context\n\nBecause.\n\n## Decision\n\nAdopt the platform baseline across every service.\n\n## Consequences\n\nNone recorded.\n",
+                "links": [
+                    {
+                        "id": "11",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "12",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "13",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "14",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "15",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "16",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "17",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "18",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "19",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "20",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "21",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "22",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "23",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "24",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "25",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "26",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "27",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "28",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "29",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "30",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "31",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "32",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "33",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "34",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "35",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "36",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "37",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "38",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "39",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "40",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "41",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "42",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "43",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "44",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "45",
+                        "description": "Builds on"
+                    },
+                    {
+                        "id": "9",
+                        "description": "References"
+                    }
+                ]
+            }
+        ]
+    },
+    "views": {
+        "systemLandscapeViews": [
+            {
+                "key": "Landscape",
+                "title": "Landscape",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    }
+                ],
+                "relationships": []
+            }
+        ],
+        "configuration": {
+            "styles": {}
+        }
+    }
+}
