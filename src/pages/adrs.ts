@@ -36,6 +36,17 @@ const BARE_STATUS = new RegExp(
     "i",
 );
 
+/**
+ * A decision's number as four digits, `7` as `0007`, so numbers line up down
+ * the menu and read the same everywhere on the page. An id that is not a
+ * number has nothing to pad and shows as written.
+ */
+export const decisionNumber = (id: string) =>
+    /^\d+$/.test(id) ? id.padStart(4, "0") : id;
+
+const numberSpan = (id: string) =>
+    `<span class="${styles.number}">${decisionNumber(id)}</span>`;
+
 const longDate = (value?: string) =>
     value
         ? new Date(value).toLocaleDateString(undefined, { dateStyle: "long" })
@@ -158,7 +169,7 @@ export default class Decisions extends Page {
         this.#select(decision);
     };
 
-    #decisionTitle = (item: Decision) => `#${item.id} - ${item.title}`;
+    #decisionTitle = (item: Decision) => `${numberSpan(item.id)} ${item.title}`;
 
     /**
      * The question a reader arrives with is "which of these still stand?", and
@@ -250,7 +261,7 @@ export default class Decisions extends Page {
         );
         this.#menu = menu;
 
-        menu.setTextContentFn(this.#decisionTitle);
+        menu.setNumberFn((item) => decisionNumber(item.id));
 
         this.#currentDecision = this.#getAdrFromUrl() ?? null;
         const decisionViewer = this.addComponent(

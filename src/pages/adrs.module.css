@@ -22,6 +22,16 @@
     }
 }
 
+/* A decision's four-digit number, muted and monospaced as in the menu, so the
+title reads first and numbers line up down the summary. */
+.number {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--color-muted);
+}
+
 .date {
     font-size: 0.9rem;
     color: var(--color-muted);

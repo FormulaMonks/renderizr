@@ -79,8 +79,8 @@ test("the landing view is every decision, not the first one", () => {
 
     assert.equal(title().innerHTML, "");
     assert.deepEqual(summaryLinks(), [
-        "#2 - Inline every asset for single-file output",
-        "#1 - Render diagrams in the browser",
+        "0002 Inline every asset for single-file output",
+        "0001 Render diagrams in the browser",
     ]);
 });
 
@@ -167,8 +167,8 @@ test("the menu lists decisions newest first", () => {
     renderPage();
 
     assert.deepEqual(menuLinks(), [
-        "#2 - Inline every asset for single-file output",
-        "#1 - Render diagrams in the browser",
+        "0002 Inline every asset for single-file output",
+        "0001 Render diagrams in the browser",
     ]);
 });
 
@@ -180,10 +180,93 @@ test("decisions recorded on the same day are ordered by number", () => {
     ]);
 
     assert.deepEqual(menuLinks(), [
-        "#9 - Decision 9",
-        "#8 - Decision 8",
-        "#7 - Decision 7",
+        "0009 Decision 9",
+        "0008 Decision 8",
+        "0007 Decision 7",
     ]);
+});
+
+/* -------------------------------------------------------------- numbers -- */
+
+test("decision numbers read as four digits wherever they appear", () => {
+    const cases = [
+        { id: "7", number: "0007" },
+        { id: "42", number: "0042" },
+        { id: "1234", number: "1234" },
+        { id: "12345", number: "12345" },
+        // Not a number, so there is nothing to pad: it shows as written.
+        { id: "adr-x", number: "adr-x" },
+    ];
+
+    for (const { id, number } of cases) {
+        dom.reset();
+        host = dom.mount("page-content");
+        history.replace({ search: `?page=adrs&adr=${id}`, hash: "" });
+        renderPage([decision(id)]);
+
+        const menuNumber = document.querySelector(
+            `#adrs-menu a[data-item-id="${id}"] span.number`,
+        );
+        assert.equal(menuNumber?.textContent, number, `menu entry for ${id}`);
+
+        const titleNumber = title().querySelector("h2 span.number");
+        assert.equal(titleNumber?.textContent, number, `heading for ${id}`);
+        assert.equal(
+            title().querySelector("h2").textContent,
+            `${number} Decision ${id}`,
+            `the heading of ${id} reads number, then title`,
+        );
+    }
+});
+
+test("the summary rows show the four-digit number before the title", () => {
+    renderPage();
+
+    assert.deepEqual(
+        content()
+            .querySelectorAll("li a span.number")
+            .map((span) => span.textContent),
+        ["0002", "0001"],
+    );
+});
+
+test("the narrow-screen select shows four-digit numbers", () => {
+    dom.setViewportWidth(600);
+    renderPage();
+
+    assert.deepEqual(
+        document
+            .querySelectorAll("#adrs-menu option")
+            .map((option) => option.textContent),
+        [
+            "0002 Inline every asset for single-file output",
+            "0001 Render diagrams in the browser",
+        ],
+    );
+});
+
+test("switching between the list and the select redraws the menu and keeps the open decision", () => {
+    history.replace({ search: "?page=adrs&adr=1" });
+    renderPage();
+
+    dom.setViewportWidth(600);
+
+    assert.equal(
+        document.querySelector("#adrs-menu select")?.value,
+        "1",
+        "the select opens on the open decision",
+    );
+
+    dom.setViewportWidth(1280);
+
+    const active = document.querySelector("#adrs-menu a.active");
+    assert.equal(active?.dataset.itemId, "1", "the list marks the open one");
+    assert.equal(active.textContent, "0001 Render diagrams in the browser");
+    assert.equal(
+        title().querySelector("h2").textContent,
+        "0001 Render diagrams in the browser",
+        "a redraw is not a navigation; the open decision stays open",
+    );
 });
 
 /* -------------------------------------------------------------- selection -- */
@@ -195,10 +278,13 @@ test("choosing a decision shows its title, date and status", () => {
 
     assert.equal(
         title().querySelector("h2").textContent,
-        "#1 - Render diagrams in the browser",
+        "0001 Render diagrams in the browser",
     );
     assert.match(title().querySelector("p").textContent, /2024/);
-    assert.equal(title().querySelector("span").textContent, "Accepted");
+    assert.equal(
+        title().querySelector("span[class*=status]").textContent,
+        "Accepted",
+    );
 });
 
 test("choosing a decision renders its body as markdown", () => {
@@ -269,7 +355,7 @@ test("the decision named in the URL is the one that opens", () => {
 
     assert.equal(
         title().querySelector("h2").textContent,
-        "#1 - Render diagrams in the browser",
+        "0001 Render diagrams in the browser",
     );
 });
 
@@ -298,7 +384,7 @@ test("a link to another decision inside the body opens that decision", () => {
     document.querySelector('#adrs-menu a[data-item-id="2"]').click();
     content().querySelector('a[href="#1"]').click();
 
-    assert.equal(title().querySelector("h2").textContent, "#1 - Decision 1");
+    assert.equal(title().querySelector("h2").textContent, "0001 Decision 1");
     assert.equal(new URLSearchParams(history.location.search).get("adr"), "1");
 });
 
@@ -318,7 +404,7 @@ test("a link to something that is not a decision is left alone", () => {
 
     // An ordinary heading anchor is the markdown renderer's business: it
     // scrolls the heading into view, and the decision page stays put.
-    assert.equal(title().querySelector("h2").textContent, "#1 - Decision 1");
+    assert.equal(title().querySelector("h2").textContent, "0001 Decision 1");
     assert.deepEqual(
         document.scrolledIntoView.map((entry) => entry.id),
         ["context"],
@@ -339,7 +425,7 @@ test("a heading anchor that starts with a number does not open that decision", (
     document.querySelector('#adrs-menu a[data-item-id="2"]').click();
     content().querySelector('a[href="#1-option-a"]').click();
 
-    assert.equal(title().querySelector("h2").textContent, "#2 - Decision 2");
+    assert.equal(title().querySelector("h2").textContent, "0002 Decision 2");
     assert.deepEqual(
         document.scrolledIntoView.map((entry) => entry.id),
         ["1-option-a"],

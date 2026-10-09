@@ -298,8 +298,8 @@ test(
                 .querySelectorAll("#adrs-menu a[data-item-id]")
                 .map((link) => link.textContent),
             [
-                "#2 - Inline every asset for single-file output",
-                "#1 - Render diagrams in the browser",
+                "0002 Inline every asset for single-file output",
+                "0001 Render diagrams in the browser",
             ],
         );
     },
@@ -316,7 +316,7 @@ test(
 
         assert.equal(
             document.querySelector("#decision-title h2").textContent,
-            "#1 - Render diagrams in the browser",
+            "0001 Render diagrams in the browser",
         );
         assert.match(
             document.querySelector("#decision-content").textContent,
