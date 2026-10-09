@@ -201,6 +201,35 @@ function assignColumns(lanes: Lane[]): number {
 }
 
 /**
+ * The decisions related to one decision, in decision order: its lineage, at
+ * any distance, and every decision it links to or that links to it. A
+ * decision missing from the set has no relatives.
+ */
+export function relatedDecisions(
+    decisions: Decision[],
+    id: string,
+): Decision[] {
+    const rows = decisionOrder(decisions);
+    const open = rows.findIndex((row) => row.id === id);
+    if (open < 0) return [];
+
+    const edges = mergeEdges(rows);
+    const lineageOf = lineages(rows, edges);
+    const keep = new Set(
+        rows.flatMap((__, row) =>
+            lineageOf[row] === lineageOf[open] ? [row] : [],
+        ),
+    );
+    for (const edge of edges) {
+        if (edge.from === open || edge.to === open) {
+            keep.add(edge.from).add(edge.to);
+        }
+    }
+
+    return rows.filter((__, row) => keep.has(row));
+}
+
+/**
  * Lay out the decision graph for a set of decisions: the menu's order, one
  * edge per linked pair, and a lane in its own column for every lineage that
  * later decisions link to. Every other decision is a lone dot in column 0.

@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { layoutDecisionGraph, linkKind } = await importSrc(
+const { layoutDecisionGraph, linkKind, relatedDecisions } = await importSrc(
     "model/decision-graph",
 );
 
@@ -396,4 +396,49 @@ test("the fixture's newest decision builds on 35 others, more lanes than the men
 
     assert.equal(layout.rows[0].id, "46");
     assert.equal(newest.length, 36, "35 owners and the API changelog");
+});
+
+/* ---------------- related decisions */
+
+const idsOf = (decisions) => decisions.map((d) => d.id);
+
+/**
+ * 2 supersedes 1 and 3 amends 2: one lineage. 2 references 5 and 4 references
+ * 2. 6 references 4 and 7 supersedes 5, each one step too far from 2.
+ */
+const FAMILY = [
+    decision(1, "2024-01-01T00:00:00Z"),
+    decision(5, "2024-01-05T00:00:00Z"),
+    decision(2, "2024-02-01T00:00:00Z", [
+        [1, "Supersedes"],
+        [5, "References"],
+    ]),
+    decision(3, "2024-03-01T00:00:00Z", [[2, "Amends"]]),
+    decision(4, "2024-04-01T00:00:00Z", [[2, "References"]]),
+    decision(6, "2024-06-01T00:00:00Z", [[4, "References"]]),
+    decision(7, "2024-07-01T00:00:00Z", [[5, "Supersedes"]]),
+];
+
+test("a decision's relatives are its lineage at any distance and its direct references, in decision order", () => {
+    assert.deepEqual(
+        idsOf(relatedDecisions(FAMILY, "1")),
+        ["3", "2", "1"],
+        "2 supersedes 1 and 3 amends 2",
+    );
+    assert.deepEqual(
+        idsOf(relatedDecisions(FAMILY, "2")),
+        ["4", "3", "2", "5", "1"],
+        "a reference counts either way, but not the referenced decision's lineage",
+    );
+});
+
+test("a decision's relatives stop at its direct references", () => {
+    assert.deepEqual(idsOf(relatedDecisions(FAMILY, "4")), ["6", "4", "2"]);
+});
+
+test("a decision with no links is its own only relative, and an unknown one has none", () => {
+    const set = [...FAMILY, decision(8, "2024-08-01T00:00:00Z")];
+
+    assert.deepEqual(idsOf(relatedDecisions(set, "8")), ["8"]);
+    assert.deepEqual(relatedDecisions(set, "99"), []);
 });
