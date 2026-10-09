@@ -21,7 +21,6 @@ import {
     BROWSERS,
     buildForAcceptance,
     mapLimit,
-    missingReason,
     prepareWorkspace,
     viewKeys,
     viewUrl,
@@ -67,21 +66,16 @@ const figure = (label, { image, failure }) => `
         }
         </figure>`;
 
-const section = ({ entry, views, skipped }) => `
+const section = ({ entry, views }) => `
   <section>
-    <h2>${escapeHtml(entry.name)}</h2>${
-        skipped
-            ? `
-    <p class="skipped">Skipped: ${escapeHtml(skipped)}</p>`
-            : views
-                  .map(
-                      ({ key, image }) => `
+    <h2>${escapeHtml(entry.name)}</h2>${views
+        .map(
+            ({ key, image }) => `
     <article>
       <h3>${escapeHtml(key)}</h3>${figure(key, image)}
     </article>`,
-                  )
-                  .join("")
-    }
+        )
+        .join("")}
   </section>`;
 
 const page = (sections, built) => `<!doctype html>
@@ -95,7 +89,7 @@ const page = (sections, built) => `<!doctype html>
   h2 { border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; }
   figure { margin: 0; }
   img { width: 100%; border: 1px solid #ccc; }
-  .skipped, .failed { color: #a00; }
+  .failed { color: #a00; }
 </style>
 </head>
 <body>
@@ -119,12 +113,6 @@ const scratch = await mkdtemp(join(tmpdir(), "renderizr-contact-sheet-"));
 try {
     const sections = [];
     for (const entry of ACCEPTANCE_SET) {
-        const skipped = missingReason(entry);
-        if (skipped) {
-            process.stderr.write(`warning: ${skipped}\n`);
-            sections.push({ entry, skipped });
-            continue;
-        }
         process.stdout.write(`Screenshotting ${entry.name}...\n`);
         sections.push({
             entry,

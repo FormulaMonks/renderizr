@@ -158,7 +158,7 @@ These run on the machine performing the build. None of their code appears in the
 
 Vite bundles Rollup, esbuild and PostCSS inside its own distribution; their licenses are reproduced in `node_modules/vite/LICENSE.md`, which Vite ships for exactly this purpose. TypeScript ships `node_modules/typescript/ThirdPartyNoticeText.txt` covering its own dependencies. Biome is dual-licensed and may be taken under either MIT or Apache-2.0; nothing here depends on the choice, since Biome only lints.
 
-`submodules/structurizr` is a git submodule of the Apache-2.0 [structurizr/structurizr](https://github.com/structurizr/structurizr) repository. It holds workspaces the acceptance tests render, is not required to build, is not fetched by npm or pnpm for a git dependency, and is not included in the published package.
+`test/__fixtures__/big-bank-plc.json`, `test/__fixtures__/groups.json` and `test/__fixtures__/amazon-web-services.json` are unmodified copies of the workspaces in `structurizr-export/src/test/resources/` of the Apache-2.0 [structurizr/structurizr](https://github.com/structurizr/structurizr) repository, at commit `9ff16634`. The tests render them. The build never reads them, and `package.json` leaves `test/` out of the package.
 
 ---
 

@@ -2,10 +2,12 @@
 
 [![ci](https://img.shields.io/github/actions/workflow/status/FormulaMonks/renderizr/ci.yml?branch=main&label=ci&style=flat-square)](https://github.com/FormulaMonks/renderizr/actions/workflows/ci.yml) [![node](https://img.shields.io/badge/node-%E2%89%A5%2020-informational?style=flat-square)](https://nodejs.org) [![license](https://img.shields.io/github/license/FormulaMonks/renderizr?style=flat-square)](LICENSE)
 
+**[Live example](https://formulamonks.github.io/renderizr/)**: Renderizr's own architecture, rendered by Renderizr from each release. It also holds the getting started, usage and contributing guides.
+
 Render a [Structurizr](https://structurizr.com/) workspace — its diagrams, documentation and architecture decisions — as a static site, or as a single self-contained HTML file you can host anywhere.
 
 ```bash
-npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
+npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json
 ```
 
 That renders the [Big Bank plc example](https://structurizr.com/dsl?example=big-bank-plc) into `./structurizr-output` — a couple of seconds, once npm has fetched the package. Serve it with anything:
@@ -15,13 +17,6 @@ npx servor structurizr-output
 ```
 
 And you get this:
-
-<!--
-  A live, clickable example belongs here, beside the screenshot: Renderizr's own architecture documentation, rendered by Renderizr.
-
-    https://formulamonks.github.io/renderizr/
-
-  .github/workflows/pages.yml publishes it on each release, rendered from the release's tag, but no deployment has happened yet and one manual step stands in the way: an admin has to set Settings → Pages → Build and deployment → Source to "GitHub Actions". Today `gh api repos/FormulaMonks/renderizr/pages` reports `build_type: legacy` ("Deploy from a branch"), so the workflow's preflight job skips the build and deploy jobs: the run reports success, having published nothing. Add the link in the same pull request as the first green pages deployment. Tracked in MAINTAINERS.md → "Repository setup still to be done". -->
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
@@ -40,7 +35,7 @@ It renders a workspace. It does not define one — the model, the views and the 
 
 - **Every view**, listed down the side: landscape, context, container, component, dynamic, deployment, image, filtered and custom — each with its own mark and key.
 - **A live diagram engine** built for workspace JSON, not a PlantUML export. Diagrams pan and zoom, dynamic views animate, labels toggle, and an element with several destinations offers a choice.
-- **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions (`02-containers.md#api`, `../decisions/0005-foo.md`) open the matching page; Renderizr shows a link to a file the workspace doesn't include as plain text. Markdown gets GitHub-style alerts, permalinks and highlighting; AsciiDoc is converted, not dumped as `:toc:` noise.
+- **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions (`02-containers.md#api`, `../decisions/0005-foo.md`) open the matching page; Renderizr shows a link to a file the workspace doesn't include as plain text. Markdown gets GitHub-style alerts, permalinks and highlighting, and images show from the copies Structurizr embeds in the workspace; AsciiDoc is converted, not dumped as `:toc:` noise.
 - **The decision log**: status pills, supersessions and amendments, grouped by year, headed by how many are recorded and how many still stand.
 - **Light and dark**, following the reader's system setting until they override it. Page and diagrams keep separate preferences.
 - **Deep links that survive**: routing lives in the URL hash, so a link to a view, document or decision still works after a reload, over `file://`, and inside a sandboxed frame.
@@ -156,7 +151,7 @@ Two things come from Structurizr and stay as Structurizr has them:
 - **The id fallback.** `merge` carries each element's position over by its canonical name and falls back to its id. When a DSL change renames an element and shifts the ids of others, `merge` can hand the renamed element another element's position. Check the views after a rename.
 - **Unwatched includes.** Edit mode watches every file under the DSL's folder, except `workspace.json`, dot folders and `node_modules`. A file that `!include` pulls in from outside that folder goes unwatched, as in Structurizr Local: save a file inside the folder to run the tools again.
 
-### Keys
+### Keyboard shortcuts
 
 Keys match by physical key, so Option's characters on macOS don't get in the way. `?` opens the same list in the editor.
 
@@ -250,12 +245,6 @@ pnpm hooks   # once, to install the git hooks
 Installing the hooks is a separate step rather than a `prepare` script: `prepare` runs when a package manager installs a package from a git URL, and `npx github:FormulaMonks/renderizr` is exactly that — so a `prepare` script here would try to run husky inside every consumer's install tree. Contributors are the only people who want the hooks.
 
 For the same reason the script that renders a workspace is `render`. npm prepares a git dependency with a full `npm install --include dev` whenever its `package.json` has a `build`, `prepare`, `prepack`, `install`, `preinstall` or `postinstall` script, and that adds about 20 seconds to a cold `npx`. `scripts/install.test.js` fails if one of those names comes back.
-
-The Structurizr submodule is optional: only the acceptance tests read workspaces from it, and they skip those workspaces when it is absent. `.gitmodules` keeps it out of recursive clones, so `npx` never downloads it. Check it out to run the acceptance tests:
-
-```bash
-git submodule update --init --checkout submodules/structurizr
-```
 
 ### Dev server
 

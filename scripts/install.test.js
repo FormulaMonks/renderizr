@@ -9,7 +9,7 @@
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import { REPO_ROOT } from "./__fixtures__/helpers.js";
@@ -31,12 +31,6 @@ const manifest = JSON.parse(
     readFileSync(resolve(REPO_ROOT, "package.json"), "utf8"),
 );
 
-const gitmodules = (...args) =>
-    execFileSync("git", ["config", "--file", ".gitmodules", ...args], {
-        cwd: REPO_ROOT,
-        encoding: "utf8",
-    }).trim();
-
 test("package.json has no script that makes npm prepare the git dependency", () => {
     const triggers = PREPARE_TRIGGERS.filter(
         (name) => name in (manifest.scripts ?? {}),
@@ -53,17 +47,17 @@ test("package.json declares no workspaces, which also make npm prepare it", () =
     );
 });
 
-test("every submodule stays out of a recursive clone", () => {
-    const names = gitmodules("--get-regexp", String.raw`^submodule\..*\.path$`)
+test("the repository has no submodule for a recursive clone to download", () => {
+    const gitlinks = execFileSync("git", ["ls-files", "--stage"], {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+    })
         .split("\n")
-        .map((line) => line.match(/^submodule\.(.+)\.path /)[1]);
+        .filter((line) => line.startsWith("160000 "));
 
-    assert.ok(names.length > 0, ".gitmodules lists no submodule");
-    for (const name of names) {
-        assert.equal(
-            gitmodules("--default", "", "--get", `submodule.${name}.update`),
-            "none",
-            `${name} is cloned by npx`,
-        );
-    }
+    assert.deepEqual(gitlinks, [], "npx would clone every submodule");
+    assert.ok(
+        !existsSync(resolve(REPO_ROOT, ".gitmodules")),
+        ".gitmodules is back",
+    );
 });

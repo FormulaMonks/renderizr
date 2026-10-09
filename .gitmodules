@@ -1,5 +1,0 @@
-[submodule "submodules/structurizr"]
-	path = submodules/structurizr
-	url = https://github.com/structurizr/structurizr.git
-	branch = main
-	update = none

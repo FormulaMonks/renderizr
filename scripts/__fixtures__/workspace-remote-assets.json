@@ -1,7 +1,7 @@
 {
     "id": 2,
     "name": "Remote Assets Workspace",
-    "description": "Every asset the Structurizr UI would fetch at runtime, so the inliner has something to resolve.",
+    "description": "Every asset Structurizr's own pages would fetch at runtime, so the inliner has something to resolve.",
     "model": {
         "softwareSystems": [
             {

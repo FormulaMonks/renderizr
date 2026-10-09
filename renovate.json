@@ -8,7 +8,7 @@
         ":semanticCommitTypeAll(chore)"
     ],
     "enabledManagers": ["npm", "github-actions", "custom.regex"],
-    "ignorePaths": ["**/node_modules/**", "submodules/**", "architecture/**"],
+    "ignorePaths": ["**/node_modules/**", "architecture/**"],
     "semanticCommits": "enabled",
     "semanticCommitType": "chore",
     "semanticCommitScope": "deps",

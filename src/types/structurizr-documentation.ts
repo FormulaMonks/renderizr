@@ -18,3 +18,14 @@ export type DocumentationSection = Item & {
     format: "Markdown";
     order: number;
 };
+
+/**
+ * An image a documentation file or a decision references, which
+ * Structurizr's importers embed: `name` is its path relative to the folder,
+ * `content` its bytes as base64.
+ */
+export type DocumentationImage = {
+    name: string;
+    type: string;
+    content: string;
+};

@@ -54,7 +54,7 @@ Renderizr takes **JSON**, either a local path or a URL. It does not parse DSL.
 
   ```bash
   npx github:FormulaMonks/renderizr \
-    https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json \
+    https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json \
     --single-file --out /tmp/big-bank
   ```
 

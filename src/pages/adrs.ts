@@ -2,6 +2,7 @@ import history from "history/hash";
 import DecisionGraph, {
     type DecisionGraphState,
 } from "../components/decision-graph";
+import type { ImageResolver } from "../components/doc-images";
 import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
@@ -105,6 +106,7 @@ export default class Decisions extends Page {
     #graph: DecisionGraph | null = null;
     #indexGraph: DecisionGraph | null = null;
     #resolveLink: LinkResolver | null;
+    #resolveImage: ImageResolver | null;
     /** Whether the menu keeps only the decisions related to the open one. */
     #relatedOnly = false;
     /** The cap the index's decision graph last laid out under. */
@@ -117,9 +119,11 @@ export default class Decisions extends Page {
         name = "Decisions",
         decisions: Decision[] = [],
         resolveLink: LinkResolver | null = null,
+        resolveImage: ImageResolver | null = null,
     ) {
         super(container, name);
         this.#resolveLink = resolveLink;
+        this.#resolveImage = resolveImage;
         this.#decisions = decisionOrder(decisions);
     }
 
@@ -413,6 +417,7 @@ export default class Decisions extends Page {
             new MarkdownRenderer(document.getElementById("decision-content")!),
         );
         decisionViewer.setLinkResolver(this.#resolveLink);
+        decisionViewer.setImageResolver(this.#resolveImage);
 
         menu.onSelectionChange((item) => {
             this.#currentDecision = item;

@@ -295,6 +295,31 @@ test("without a resolver every link is left as written", () => {
     );
 });
 
+/* -------------------------------------------------------------- images */
+
+test("an image the resolver knows gets the embedded source", () => {
+    const element = stubElement();
+    const renderer = new MarkdownRenderer(element);
+    renderer.setImageResolver((src) =>
+        src === "edit-mode.png"
+            ? "data:image/png;base64,iVBORw0KGgo="
+            : undefined,
+    );
+    renderer.setContent("![Edit mode](edit-mode.png) ![Logo](logo.png)");
+
+    assert.equal(
+        element.html,
+        '<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="Edit mode"> <img src="logo.png" alt="Logo"></p>',
+    );
+});
+
+test("without an image resolver every image is left as written", () => {
+    assert.equal(
+        render("![Edit mode](edit-mode.png)"),
+        '<p><img src="edit-mode.png" alt="Edit mode"></p>',
+    );
+});
+
 test("clear() empties the element and detaches the listener", () => {
     const element = stubElement();
     const renderer = new MarkdownRenderer(element);

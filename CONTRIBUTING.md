@@ -4,6 +4,8 @@ Thanks for being here. This document aims to take you from a fresh clone to a me
 
 We expect everyone taking part to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Questions about *using* Renderizr belong in [SUPPORT.md](SUPPORT.md); security problems belong in [SECURITY.md](SECURITY.md), and you must never file them as public issues.
 
+The [architecture site](https://formulamonks.github.io/renderizr/) carries a shorter version of this guide under _Contributing_, next to Renderizr's views and decisions. This file goes into more depth; when the two disagree, fix whichever one is wrong.
+
 ## Table of contents
 
 - [Prerequisites](#prerequisites)
@@ -23,9 +25,9 @@ We expect everyone taking part to follow the [Code of Conduct](CODE_OF_CONDUCT.m
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Node | 20 or newer | `scripts/build.js` refuses to run below 20 — it needs a global `fetch` and `util.parseArgs` defaults. `package.json` declares `"engines": { "node": ">=20" }`. On 20.0–20.5 the `test/` suite skips itself loudly, because importing `src/` needs `module.register`, which landed in 20.6 |
-| pnpm | 10 or newer (11.x in use) | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
-| git | any | The repository has one submodule |
+| Node | 22.13 or newer | pnpm 11 imports `node:sqlite`, which needs 22.13. Renderizr itself runs on Node 20 or newer: `scripts/build.js` refuses to run below 20 — it needs a global `fetch` and `util.parseArgs` defaults. `package.json` declares `"engines": { "node": ">=20" }`. On 20.0–20.5 the `test/` suite skips itself loudly, because importing `src/` needs `module.register`, which landed in 20.6 |
+| pnpm | 11 | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
+| git | any | To clone the repository |
 
 That is the whole list. No IDE is required, no JDK, no global CLI.
 
@@ -35,7 +37,7 @@ Development happens on Node 24 — that is what `.mise.toml` pins and what the c
 mise install     # optional; installs Node 24 and pnpm per .mise.toml + mise.lock
 ```
 
-If you would rather not install mise, use any Node 20+ and pnpm you already have. Nothing in the build reads mise.
+If you would rather not install mise, use any Node 22.13+ and pnpm 11 you already have. Nothing in the build reads mise.
 
 `.vscode/extensions.json` recommends the [Biome](https://biomejs.dev) extension and `.vscode/settings.json` wires up format-on-save. Both are conveniences — Biome has editor plugins for Zed, JetBrains, Neovim and others, and `pnpm exec biome check --write .` covers you from any editor at all.
 
@@ -44,22 +46,9 @@ If you would rather not install mise, use any Node 20+ and pnpm you already have
 ```bash
 git clone https://github.com/FormulaMonks/renderizr.git
 cd renderizr
-git submodule update --init --checkout submodules/structurizr
 ```
 
-The last command needs `--checkout`. `.gitmodules` sets `update = none` on the submodule, so `git clone --recurse-submodules` and a plain `git submodule update --init` both skip it. The section below explains why.
-
-### About the submodule
-
-`submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr). It is **optional for day-to-day work**: install, dev, build, test and lint all pass on a clone with an empty `submodules/` directory. The acceptance harness and the end-to-end test read three workspaces from it (Big Bank plc, groups and Amazon Web Services) and skip them, with a reason, when it is absent. Check it out to run them:
-
-```bash
-git submodule update --init --checkout submodules/structurizr
-```
-
-`.gitmodules` sets `update = none` because npm clones a git dependency with `--recurse-submodules`. Without it, every cold `npx github:FormulaMonks/renderizr` downloads the whole Structurizr repository before the CLI starts.
-
-The same setting means `git pull` and a plain `git submodule update` leave the submodule where it is when the gitlink moves. Run the `--checkout` command again after a change that bumps it.
+The clone holds everything the tests need. The Big Bank plc, groups and Amazon Web Services workspaces the acceptance harness draws are unmodified copies from [structurizr/structurizr](https://github.com/structurizr/structurizr), committed under `test/__fixtures__/`. The repository has no submodule, because npm clones a git dependency with `--recurse-submodules`, and every cold `npx github:FormulaMonks/renderizr` would download it before the CLI starts. `scripts/install.test.js` fails if one comes back.
 
 ## Install
 
@@ -120,7 +109,7 @@ Always put `--` before the arguments. Without it, Vite reads them itself and sto
 ```bash
 pnpm render architecture/workspace.json
 pnpm render architecture/workspace.json --single-file --font Inter
-pnpm render https://raw.githubusercontent.com/structurizr/ui/main/examples/big-bank-plc.json
+pnpm render https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json
 ```
 
 Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm render` runs `tsc` first, so a type error fails the build before Vite starts.
@@ -130,7 +119,7 @@ Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm rend
 
 ### Lint and format
 
-Biome is the only linter and the only formatter: no ESLint, no Prettier. The settings that matter: 4-space indent, `submodules/` and `architecture/` excluded, `.gitignore` respected. See `biome.json`.
+Biome is the only linter and the only formatter: no ESLint, no Prettier. The settings that matter: 4-space indent, `architecture/` and the workspaces copied from Structurizr excluded, `.gitignore` respected. See `biome.json`.
 
 ```bash
 pnpm exec biome check .            # what's wrong
@@ -233,7 +222,6 @@ Either way the checks still run in CI — the switches save you time locally, th
 scripts/        the build pipeline — plain ESM JavaScript, no TypeScript, runs on Node
 src/            the single-page app that ships in the output — TypeScript, bundled by Vite
 test/           the tests for src/, plus the DOM and module-hook harness they run on
-submodules/     upstream sources, for the acceptance fixtures only
 architecture/   Renderizr's own Structurizr workspace, which the dev server renders by default
 public/         static files copied into every build (currently the favicon)
 ```
@@ -325,7 +313,7 @@ srcTest("renders one entry per view", () => {
 
 `test/e2e.test.js` goes further and runs a real `--single-file` build in headless Chrome. It skips itself with a message when no Chrome-shaped binary is on the machine, so it never fails a clone that has none.
 
-`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. The harness skips workspaces from `submodules/structurizr`, with a reason, when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. The harness opens views one Chrome at a time, so that it measures the 2 s budget in wall-clock time from outside the page: virtual time fakes every clock inside it. For the same reason `pnpm test` runs this file alone, once every other test file has finished. `node --test` runs files in parallel, and a Vite build or another Chrome on the same runner slows a view by a second or more, which a view under test cannot help.
+`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. The harness opens views one Chrome at a time, so that it measures the 2 s budget in wall-clock time from outside the page: virtual time fakes every clock inside it. For the same reason `pnpm test` runs this file alone, once every other test file has finished. `node --test` runs files in parallel, and a Vite build or another Chrome on the same runner slows a view by a second or more, which a view under test cannot help.
 
 To review every acceptance view by eye:
 
@@ -373,14 +361,14 @@ What a good pull request looks like here:
 - **Conventional commits throughout**, because release-please generates the changelog and the version bump from them. A `feat:` in a PR of `fix:` commits changes what the next release is called.
 - **A description that says what changed and why.** For anything visual, a before/after screenshot or a link to a rendered `--single-file` output is worth more than a paragraph.
 - **Tests for anything in `scripts/`.** New behavior gets a test; a fixed bug gets the test that would have caught it.
-- **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text *and* the flag table in `README.md`. A changed workflow means this file.
+- **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text, the flag table in `README.md` *and* the one in `architecture/docs/02-usage.md`. A changed workflow means this file and `architecture/docs/03-contributing.md`, and a changed script or folder means `architecture/docs/04-reference.md`.
 - **No unrelated reformatting.** Biome's settings are the settings; if a diff is mostly whitespace, something is configured wrong locally.
 - **No new runtime dependency without saying why.** Everything in `dependencies` ends up inlined into a self-contained HTML file that people email around — weight is a feature here, and adding to it needs a sentence of justification in the PR.
 - **Draft PRs are welcome** for work you want eyes on early. Mark it ready when CI is green.
 
 ## How a review goes
 
-1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 20/22/24, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
+1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 22 and 24, an npm install and build on Node 20, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
 3. Review comments come in three flavors, and reviewers label them so you never have to guess:
    - **blocking** — must change before merge.
@@ -388,7 +376,7 @@ What a good pull request looks like here:
    - **nit** — cosmetic, never blocking.
 4. Push fixes as new commits rather than force-pushing while a review is in flight, so reviewers can read the delta. Squashing happens at merge, so the intermediate commits cost nothing.
 5. Once approved and green, a maintainer merges. **The maintainer squash-merges every PR**: the squash commit message is the conventional-commit header the release tooling reads, so the maintainer edits it to say what the whole PR did, not what the last commit did.
-6. Nothing merges into `main` without a passing CI run and one approving review from someone other than the author — maintainers' own changes included. `main` carries no branch protection today, so that is a rule the maintainers hold themselves to rather than a setting GitHub enforces; [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to) writes it down precisely so anyone can point at it when someone breaks it.
+6. Nothing merges into `main` without a passing CI run and one approving review from someone other than the author, maintainers' own changes included. A ruleset on `main` enforces the pull request, the resolved review threads and the passing `ci` check. It requires no approving review, so the review is a rule the maintainers hold themselves to; [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to) writes it down so anyone can point at it when someone breaks it.
 
 If a PR goes quiet for 30 days with unaddressed blocking feedback, we will close it with a note. That is bookkeeping, not a verdict — reopen it whenever you pick it back up.
 

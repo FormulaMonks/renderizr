@@ -1,7 +1,6 @@
 /**
  * `test/support/acceptance.js`: how the acceptance set's workspaces are
- * prepared to build offline (spec 15.3). Here only what needs no submodule
- * and no browser; `test/acceptance.test.js` builds and draws the set itself.
+ * prepared to build offline (spec 15.3). Here only what needs no browser; `test/acceptance.test.js` builds and draws the set itself.
  */
 
 import assert from "node:assert/strict";
@@ -30,7 +29,7 @@ async function prepareWithAwsTheme(name) {
             views: { configuration: { themes: [AWS_THEME] } },
         }),
     );
-    return prepareWorkspace({ name, source, submodule: false });
+    return prepareWorkspace({ name, source });
 }
 
 const styleFor = (workspace, tag) =>

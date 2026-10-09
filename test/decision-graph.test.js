@@ -684,17 +684,17 @@ test("our own decisions get back the three links the importer drops", () => {
     }
 });
 
-test("our own decisions make one amend edge and 22 references", () => {
+test("our own decisions make two amend edges and 22 references", () => {
     const edges = edgesOf(layoutDecisionGraph(OURS));
 
-    assert.equal(edges.length, 23);
+    assert.equal(edges.length, 24);
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
-        ["14 amend 4"],
+        ["20 amend 12", "14 amend 4"],
     );
 });
 
-test("our own decisions need 9 columns", () => {
+test("our own decisions need 10 columns", () => {
     const layout = layoutDecisionGraph(OURS);
     const lane = (col, members, linkers) => ({
         col,
@@ -704,29 +704,30 @@ test("our own decisions need 9 columns", () => {
         linkers,
     });
 
-    assert.equal(layout.columns, 9);
+    assert.equal(layout.columns, 10);
     assert.deepEqual(lanesOf(layout), [
-        lane(2, ["7"], ["19", "17", "8"]),
-        lane(3, ["3"], ["18", "15", "6"]),
-        lane(4, ["14", "4"], ["17", "10", "9"]),
-        lane(5, ["9"], ["17", "10"]),
-        lane(6, ["10"], ["17"]),
-        lane(7, ["16"], ["17"]),
-        lane(7, ["2"], ["13", "12", "11", "9", "7", "5", "3"]),
-        lane(8, ["15"], ["16"]),
-        lane(8, ["11"], ["12"]),
+        lane(2, ["20", "12"], []),
+        lane(3, ["7"], ["19", "17", "8"]),
+        lane(4, ["3"], ["18", "15", "6"]),
+        lane(5, ["14", "4"], ["17", "10", "9"]),
+        lane(6, ["9"], ["17", "10"]),
+        lane(7, ["10"], ["17"]),
+        lane(8, ["16"], ["17"]),
+        lane(8, ["2"], ["13", "12", "11", "9", "7", "5", "3"]),
+        lane(9, ["15"], ["16"]),
+        lane(9, ["11"], ["12"]),
     ]);
     assert.deepEqual(
         loneOf(layout),
-        ["19", "18", "17", "13", "12", "8", "6", "5", "1"],
+        ["19", "18", "17", "13", "8", "6", "5", "1"],
         "every other decision is a lone dot",
     );
 });
 
-test("our own decisions need no fallback at 9 columns", () => {
-    const layout = layoutDecisionGraph(OURS, 9);
+test("our own decisions need no fallback at 10 columns", () => {
+    const layout = layoutDecisionGraph(OURS, 10);
 
-    assert.equal(layout.columns, 9);
+    assert.equal(layout.columns, 10);
     assert.equal(layout.fallback, "none");
 });
 

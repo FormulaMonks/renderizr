@@ -1,5 +1,6 @@
 import type {
     Decision,
+    DocumentationImage,
     DocumentationSection,
 } from "../types/structurizr-documentation";
 
@@ -13,7 +14,7 @@ export type WorkspaceSummary = {
     documentation: {
         sections: DocumentationSection[];
         decisions: Decision[];
-        images: Record<string, unknown>[];
+        images: DocumentationImage[];
     };
 };
 import history from "history/hash";
