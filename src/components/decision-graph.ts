@@ -23,6 +23,12 @@
  * open decision's references draw in full on the reference column, next to
  * the lone dots. The column takes its room whether a decision is open or
  * not, so opening one never moves a column.
+ *
+ * When even supersede and amend lanes outgrow the cap, the lanes scroll
+ * sideways in a view as wide as the cap, under a pinned strip that repeats
+ * the lone dots and the reference column. The view starts at the titles'
+ * edge, and opening a decision scrolls it as little as possible to show the
+ * lanes the decision's edges reach, its own lane first.
  */
 
 import {
@@ -66,6 +72,25 @@ const JOIN_CORNER = 3;
 const LONE_DOT_RADIUS = 3;
 /** The open decision's ring stands a little further off in the expanded graph. */
 const EXPANDED_RING_GAP = 3;
+
+/** While the lanes scroll, a gap keeps the first lane clear of the pinned strip. */
+const LANE_GAP = 8;
+/** The pinned strip reaches past the reference column, so no line sits on its edge. */
+const PIN_ROOM = 6;
+/** The room a lane keeps from the edges of the lanes' view when it scrolls in. */
+const LANE_MARGIN = 14;
+/** How many columns a press of ‹ or › scrolls. */
+const SCROLL_STEP = 4;
+
+/** Each drawing's id, unique on the page, so the pinned strip can repeat it. */
+let drawings = 0;
+
+/** The expanded drawing: its width, its marks, and where each column sits. */
+type ExpandedDrawing = {
+    width: number;
+    marks: string;
+    x: (col: number) => number;
+};
 
 /** Ids come from the workspace author, so they are escaped into attributes. */
 const attribute = (value: string) =>
@@ -154,6 +179,11 @@ export default class DecisionGraph extends Component {
     readonly #columnWidth: number;
     #state: DecisionGraphState = "collapsed";
     #resizeObserver: ResizeObserver | null = null;
+    readonly #drawingId = `decision-graph-${++drawings}`;
+    /** Whether the lanes go back to the titles' edge on the next draw. */
+    #scrollToTitles = false;
+    /** Whether the open decision's lanes scroll into view on the next draw. */
+    #scrollToOpen = false;
 
     constructor(
         element: HTMLElement,
@@ -167,12 +197,15 @@ export default class DecisionGraph extends Component {
 
     setLayout(layout: DecisionGraphLayout) {
         this.#layout = layout;
+        this.#scrollToTitles = true;
+        this.#scrollToOpen = true;
         this.draw();
     }
 
     /** Draw the links of this decision, or of none. */
     setOpen(id: string | null) {
         this.#open = id;
+        this.#scrollToOpen = true;
         this.draw();
     }
 
@@ -199,8 +232,25 @@ export default class DecisionGraph extends Component {
     /** Collapse the graph to its gutter, or expand it to show every lane. */
     setState(state: DecisionGraphState) {
         this.#state = state;
+        this.#scrollToTitles = true;
+        this.#scrollToOpen = true;
         if (this.element) this.element.dataset.state = state;
         this.draw();
+    }
+
+    /** Whether the lanes scroll sideways: expanded, past even the lineage fallback. */
+    get scrolling(): boolean {
+        return (
+            this.#state === "expanded" && this.#layout?.fallback === "scroll"
+        );
+    }
+
+    /** Scroll the lanes a few columns to the left (-1) or the right (1). */
+    scrollLanes(direction: -1 | 1) {
+        this.element?.querySelector<HTMLElement>("[data-lanes]")?.scrollBy({
+            left: direction * SCROLL_STEP * this.#columnWidth,
+            behavior: "smooth",
+        });
     }
 
     /**
@@ -300,13 +350,21 @@ export default class DecisionGraph extends Component {
      * The expanded graph: every lane's stretches, the joins into lanes, and
      * every dot on its lane or, alone, in column 0 next to the titles.
      */
-    #drawExpanded(layout: DecisionGraphLayout, ys: Map<string, number>) {
+    #drawExpanded(
+        layout: DecisionGraphLayout,
+        ys: Map<string, number>,
+    ): ExpandedDrawing {
         const { rows, edges, lanes, laneOf } = layout;
         const columnWidth = this.#columnWidth;
+        // While the lanes scroll, the lone dots and the reference column stay
+        // pinned, and a gap sets the first lane apart from them.
+        const gap = layout.fallback === "scroll" ? LANE_GAP : 0;
+        const pinned = layout.referenceColumn ?? 0;
         const width =
-            2 * PADDING + Math.max(1, layout.columns - 1) * columnWidth;
+            2 * PADDING + gap + Math.max(1, layout.columns - 1) * columnWidth;
         // Column 0 sits next to the titles, and the graph grows to the left.
-        const x = (col: number) => width - PADDING - col * columnWidth;
+        const x = (col: number) =>
+            width - PADDING - (col > pinned ? gap : 0) - col * columnWidth;
         const y = (row: number) => ys.get(rows[row].id) ?? 0;
         const open = this.#litRow(layout);
         const lit = open < 0 ? null : edgesOfDecision(layout, open);
@@ -439,7 +497,95 @@ export default class DecisionGraph extends Component {
         return {
             width,
             marks: `${stretches.join("")}${joins.join("")}${references.join("")}${dots.join("")}`,
+            x,
         };
+    }
+
+    /**
+     * Paint the expanded drawing with its lanes in a view that scrolls, at
+     * the cap's width, under a strip that repeats the pinned columns. The
+     * view stays from one draw to the next, so it keeps its scroll position.
+     */
+    #paintScrolling(
+        layout: DecisionGraphLayout,
+        { width, marks, x }: ExpandedDrawing,
+        height: number,
+    ) {
+        if (!this.element) return;
+
+        const viewWidth = 2 * PADDING + (layout.cap - 1) * this.#columnWidth;
+        const pinWidth = width - x(layout.referenceColumn ?? 0) + PIN_ROOM;
+
+        let view = this.element.querySelector<HTMLElement>("[data-lanes]");
+        if (!view) {
+            this.element.innerHTML = `<div class="${styles.lanes}" data-lanes></div><svg class="${styles.pinned}" data-pinned aria-hidden="true" focusable="false"></svg>`;
+            view = this.element.querySelector<HTMLElement>("[data-lanes]")!;
+        }
+        view.style.width = `${px(viewWidth)}px`;
+        view.innerHTML = `<svg class="${styles.svg}" width="${px(width)}" height="${px(height)}" aria-hidden="true" focusable="false"><g id="${this.#drawingId}" data-drawing>${marks}</g></svg>`;
+
+        const strip = this.element.querySelector("[data-pinned]")!;
+        strip.setAttribute("width", px(pinWidth));
+        strip.setAttribute("height", px(height));
+        strip.innerHTML = `<rect class="${styles.pinnedBackground}" width="${px(pinWidth)}" height="${px(height)}"></rect><use href="#${this.#drawingId}" x="${px(pinWidth - width)}"></use>`;
+
+        this.#scrollLanesIntoView(view, layout, x, viewWidth - pinWidth);
+    }
+
+    /**
+     * Scroll the lanes back to the titles' edge after a new layout, and the
+     * open decision's lanes into view once it opens: its own lane and every
+     * lane its edges reach, moving as little as possible. When they don't
+     * all fit, its own lane wins or, for a lone dot, the lane nearest the
+     * titles. `room` is the width the lanes show in, beside the pinned strip.
+     */
+    #scrollLanesIntoView(
+        view: HTMLElement,
+        layout: DecisionGraphLayout,
+        x: (col: number) => number,
+        room: number,
+    ) {
+        if (!this.#scrollToTitles && !this.#scrollToOpen) return;
+        // A hidden view measures nothing; it scrolls once it shows.
+        if (view.clientWidth === 0) return;
+
+        const end = Math.max(0, view.scrollWidth - view.clientWidth);
+        let left = this.#scrollToTitles ? end : view.scrollLeft;
+        this.#scrollToTitles = false;
+        this.#scrollToOpen = false;
+
+        const { rows, laneOf } = layout;
+        const pinned = layout.referenceColumn ?? 0;
+        const open = rows.findIndex((row) => row.id === this.#open);
+        const col = (row: number) => laneOf[row]?.col ?? 0;
+        const own = open < 0 ? 0 : col(open);
+        const xs = (
+            open < 0
+                ? []
+                : [
+                      own,
+                      ...edgesOfDecision(layout, open).links.map((edge) =>
+                          col(edge.from === open ? edge.to : edge.from),
+                      ),
+                  ]
+        )
+            .filter((c) => c > pinned)
+            .map(x);
+
+        if (xs.length > 0) {
+            let lo = Math.min(...xs);
+            let hi = Math.max(...xs);
+            if (hi - lo > room - 2 * LANE_MARGIN) {
+                lo = own > pinned ? x(own) : hi;
+                hi = lo;
+            }
+            left = Math.min(
+                Math.max(left, hi - room + LANE_MARGIN),
+                lo - LANE_MARGIN,
+            );
+        }
+
+        view.scrollLeft = Math.min(Math.max(left, 0), end);
     }
 
     /** Redraw from the layout and where the menu's entries are now. */
@@ -456,12 +602,15 @@ export default class DecisionGraph extends Component {
         }
         this.element.dataset.fallback = layout.fallback;
 
-        const { width, marks } =
-            this.#state === "expanded"
-                ? this.#drawExpanded(layout, ys)
-                : this.#drawCollapsed(layout, ys);
-
         const height = this.#entries.getBoundingClientRect().height;
+        const expanded =
+            this.#state === "expanded" ? this.#drawExpanded(layout, ys) : null;
+        if (expanded && layout.fallback === "scroll") {
+            this.#paintScrolling(layout, expanded, height);
+            return;
+        }
+
+        const { width, marks } = expanded ?? this.#drawCollapsed(layout, ys);
         this.element.innerHTML = `<svg class="${styles.svg}" width="${px(width)}" height="${px(height)}" aria-hidden="true" focusable="false">${marks}</svg>`;
     }
 
@@ -472,6 +621,9 @@ export default class DecisionGraph extends Component {
         this.element.classList.add(styles.graph);
         this.element.dataset.decisionGraph = "";
         this.element.dataset.state = this.#state;
+        // A fresh drawing starts at the titles' edge, like a new layout.
+        this.#scrollToTitles = true;
+        this.#scrollToOpen = true;
 
         // Entries change height when a web font arrives and titles rewrap;
         // the dots have to follow them.

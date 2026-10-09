@@ -2,6 +2,7 @@
    more, so the menu stays as narrow as it was while the graph is collapsed. */
 .graph {
     flex: none;
+    position: relative;
 }
 
 /* Elbows reach to the gutter's edge and the open decision's ring past its
@@ -116,4 +117,33 @@ lane. */
 .graph[data-state="expanded"] .edge[data-kind="reference"][data-highlighted] {
     stroke-width: 1.5px;
     stroke-opacity: 1;
+}
+
+/* ---- scrolling lanes ---- */
+
+/* Past the cap, the lanes scroll sideways. The scrollbar stays hidden, since
+it would sit at the bottom of a gutter as tall as the menu; a trackpad swipe,
+Shift with the mouse wheel, and the ‹ › buttons scroll the lanes. */
+.lanes {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.lanes::-webkit-scrollbar {
+    display: none;
+}
+
+/* The strip over the lanes' right edge repeats the lone dots and the
+reference column, so they stay put while the lanes scroll under them. */
+.pinned {
+    position: absolute;
+    top: 0;
+    right: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.pinnedBackground {
+    fill: var(--color-background);
 }

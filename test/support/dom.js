@@ -411,7 +411,9 @@ export class DOMElement extends DOMNode {
         // everything else sees a zero-sized box, exactly as an unrendered
         // document would.
         this.scrollTop = 0;
+        this.scrollLeft = 0;
         this.scrollHeight = 0;
+        this.scrollWidth = 0;
         this.clientWidth = 0;
         this.clientHeight = 0;
         this.offsetHeight = 0;
@@ -581,6 +583,13 @@ export class DOMElement extends DOMNode {
             element: this,
             options,
         });
+    }
+
+    /** Recorded, and moved by as much, since nothing lays out to clamp it. */
+    scrollBy(options) {
+        this.scrollLeft += options?.left ?? 0;
+        this.scrollTop += options?.top ?? 0;
+        this.ownerDocument?.scrolledBy.push({ element: this, options });
     }
 
     /** Focus moves; nothing scrolls and no focus events fire. */
@@ -885,6 +894,7 @@ class DOMDocument extends DOMEventTarget {
     constructor() {
         super();
         this.scrolledIntoView = [];
+        this.scrolledBy = [];
         this.documentElement = new DOMElement("html", this);
         this.head = new DOMElement("head", this);
         this.body = new DOMElement("body", this);
@@ -1266,6 +1276,7 @@ export function installDOM() {
             document.body.childNodes = [];
             document.activeElement = document.body;
             document.scrolledIntoView.length = 0;
+            document.scrolledBy.length = 0;
             window.scrollCalls.length = 0;
             window.timers.length = 0;
             window.frames.length = 0;

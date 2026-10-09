@@ -405,6 +405,24 @@ test("localStorage keeps values and reset() empties it", () => {
     assert.equal(window.localStorage.getItem("renderizr:theme"), null);
 });
 
+test("scrollBy records the call and moves scrollLeft; reset() forgets it", () => {
+    const box = document.createElement("div");
+
+    box.scrollBy({ left: -48, behavior: "smooth" });
+
+    assert.equal(box.scrollLeft, -48);
+    assert.deepEqual(
+        document.scrolledBy.map(({ element, options }) => ({
+            same: element === box,
+            options,
+        })),
+        [{ same: true, options: { left: -48, behavior: "smooth" } }],
+    );
+
+    dom.reset();
+    assert.deepEqual(document.scrolledBy, []);
+});
+
 /* --------------------------------------------------------- whole document -- */
 
 test("parseDocument keeps head and body apart", () => {

@@ -429,6 +429,12 @@ test("when even supersede and amend lanes outgrow the cap, the lanes scroll", ()
     assert.equal(layout.fallback, "scroll");
     assert.equal(layout.referenceColumn, 1);
     assert.equal(layout.columns, 3, "the columns of the lineage fallback");
+    assert.equal(layout.cap, 2, "the lanes scroll at the cap's width");
+});
+
+test("a layout keeps the cap it was laid out under", () => {
+    assert.equal(layoutDecisionGraph(CAPPED, 4).cap, 4);
+    assert.equal(layoutDecisionGraph(CAPPED).cap, Number.POSITIVE_INFINITY);
 });
 
 test("past the cap, a reference from one lineage's decision to another opens no lane", () => {
@@ -679,4 +685,24 @@ test("the fixture falls back to supersede and amend lanes under the menu's 30-co
     assert.ok(uncapped.columns > 30, `${uncapped.columns} columns uncapped`);
     assert.equal(layout.fallback, "lineage");
     assert.equal(layout.referenceColumn, 1);
+});
+
+/**
+ * The scrolling fixture: forty supersede and amend lineages stay open across
+ * the same rows, so their lanes outgrow the menu's cap and a wide index's.
+ */
+const SCROLL_FIXTURE = JSON.parse(
+    readFileSync(
+        new URL("./__fixtures__/decision-graph-scroll.json", import.meta.url),
+        "utf-8",
+    ),
+).documentation.decisions;
+
+test("the scrolling fixture scrolls its lanes under the menu's cap and a wide index's", () => {
+    for (const cap of [30, 35]) {
+        const layout = layoutDecisionGraph(SCROLL_FIXTURE, cap);
+
+        assert.equal(layout.fallback, "scroll", `under a ${cap}-column cap`);
+        assert.equal(layout.columns, 42, "40 lanes, the lone dots, column 1");
+    }
 });

@@ -1970,3 +1970,152 @@ test(
         );
     },
 );
+
+/* ------------------------------------------ decision graph lanes that scroll */
+
+/** The scrolling fixture, built once as a single file. */
+const decisionGraphScrollBuild = once(async () => {
+    const out = join(SCRATCH, "decision-graph-scroll");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/decision-graph-scroll.json"),
+            "--out",
+            out,
+            "--single-file",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return out;
+});
+
+/**
+ * Measures the scrolling lanes in the page: where the lanes' view starts,
+ * whether a scrollbar takes room, and what stays pinned while the lanes
+ * scroll. In the menu it expands the decision graph first, the way a reader
+ * does.
+ */
+const lanesProbe = (scope) => `<script>
+(async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const result = {};
+    try {
+        for (let tries = 0; tries < 400; tries++) {
+            if (document.querySelector('${scope} [data-mark="dot"]')) break;
+            await sleep(25);
+        }
+        await document.fonts.ready;
+        await sleep(200);
+        if ("${scope}" === "#adrs-menu") {
+            document.getElementById("adrs-expand").click();
+            await sleep(200);
+        }
+        const view = document.querySelector("${scope} [data-lanes]");
+        const strip = document.querySelector("${scope} [data-pinned]");
+        const left = (id) =>
+            document
+                .querySelector('${scope} [data-lanes] [data-mark="dot"][data-decision="' + id + '"]')
+                .getBoundingClientRect().left;
+        const measure = () => ({
+            scrollLeft: view.scrollLeft,
+            end: view.scrollWidth - view.clientWidth,
+            view: view.getBoundingClientRect().toJSON(),
+            strip: strip.getBoundingClientRect().toJSON(),
+            dot41: left("41"),
+            dot80: left("80"),
+        });
+        result.fallback = document.querySelector("${scope} [data-decision-graph]").dataset.fallback;
+        result.scrollbar = {
+            style: getComputedStyle(view).scrollbarWidth,
+            height: view.offsetHeight - view.clientHeight,
+        };
+        result.buttons = [...document.querySelectorAll("${scope} [data-scroll-lanes]")].filter(
+            (button) => button.offsetParent !== null,
+        ).length;
+        result.first = measure();
+        // A swipe would scroll the view itself. (The buttons scroll it
+        // smoothly, which virtual time never animates.)
+        view.scrollLeft += 48;
+        await sleep(100);
+        result.right = measure();
+    } catch (error) {
+        result.error = String(error);
+    }
+    const probe = document.createElement("pre");
+    probe.id = "probe";
+    probe.textContent = JSON.stringify(result);
+    document.body.append(probe);
+})();
+</script>`;
+
+/** Load the scrolling fixture with the probe, and return what it measured. */
+const probeLanes = async (scope, route) => {
+    const built = await decisionGraphScrollBuild();
+    const out = join(SCRATCH, `probe-lanes-${scope.slice(1)}`);
+    await mkdir(out, { recursive: true });
+    const html = await readFile(join(built, "index.html"), "utf8");
+    await writeFile(
+        join(out, "index.html"),
+        html.replace("</body>", `${lanesProbe(scope)}</body>`),
+    );
+    const { html: dumped } = await renderPage(
+        CHROME,
+        `${fileUrl(join(out, "index.html"))}#/?${route}`,
+    );
+    const probe = parseDocument(dumped).querySelector("#probe");
+    assert.ok(probe, "the probe should have finished");
+    const result = JSON.parse(probe.textContent);
+    assert.equal(result.error, undefined, `the probe failed: ${result.error}`);
+    return result;
+};
+
+/** Whether a dot sits in the lanes' view, clear of the pinned strip. */
+const inLanes = ({ view, strip }, x) => x >= view.left && x < strip.left;
+
+test(
+    "past the menu's cap, the lanes scroll under pinned columns with no scrollbar, following the open decision",
+    { skip: SKIP },
+    async () => {
+        const result = await probeLanes("#adrs-menu", "page=adrs&adr=41");
+        const { first, right } = result;
+
+        assert.equal(result.fallback, "scroll");
+        assert.equal(result.scrollbar.style, "none");
+        assert.equal(result.scrollbar.height, 0, "no scrollbar takes room");
+        assert.equal(result.buttons, 2, "‹ › show in the controls bar");
+
+        // 41's lane is the last; its reference to 40 reaches the first lane,
+        // too far to show both, so 41's own lane wins.
+        assert.ok(first.end > 0, "the lanes overflow their view");
+        assert.equal(first.scrollLeft, 0);
+        assert.ok(inLanes(first, first.dot41), "41's lane is in view");
+        assert.equal(
+            Math.round(first.strip.right),
+            Math.round(first.view.right),
+            "the pinned strip covers the view's right edge",
+        );
+
+        // Four columns toward the titles, the lanes move under a pinned
+        // strip that stays where it was.
+        assert.equal(right.scrollLeft, 48);
+        assert.equal(Math.round(first.dot41 - right.dot41), 48);
+        assert.deepEqual(right.strip, first.strip, "the pinned strip stays");
+    },
+);
+
+test(
+    "on the index, the lanes start at the titles' edge, with ‹ › in a bar of their own",
+    { skip: SKIP },
+    async () => {
+        const result = await probeLanes("#adrs-index", "page=adrs");
+        const { first } = result;
+
+        assert.equal(result.fallback, "scroll");
+        assert.equal(result.scrollbar.height, 0, "no scrollbar takes room");
+        assert.equal(result.buttons, 2);
+        assert.ok(first.end > 0, "the lanes overflow their view");
+        assert.equal(first.scrollLeft, first.end, "at the titles' edge");
+        assert.ok(inLanes(first, first.dot80), "the first lane is in view");
+        assert.ok(!inLanes(first, first.dot41), "the last lane is not");
+    },
+);

@@ -53,6 +53,11 @@ export type DecisionGraphLayout = {
     columns: number;
     fallback: Fallback;
     /**
+     * The most columns the graph may take; the lanes scroll at its width
+     * when they outgrow it.
+     */
+    cap: number;
+    /**
      * The column kept for the open decision's references in a fallback, next
      * to the lone dots, or null while references open lanes.
      */
@@ -271,6 +276,7 @@ export function layoutDecisionGraph(
             edges,
             ...everyLane,
             fallback: "none",
+            cap,
             referenceColumn: null,
         };
     }
@@ -281,6 +287,7 @@ export function layoutDecisionGraph(
         edges,
         ...lineageLanes,
         fallback: lineageLanes.columns <= cap ? "lineage" : "scroll",
+        cap,
         referenceColumn: REFERENCE_COLUMN,
     };
 }

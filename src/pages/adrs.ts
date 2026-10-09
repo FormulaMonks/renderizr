@@ -73,6 +73,18 @@ const longDate = (value?: string) =>
 
 const statusClass = (status = "") => styles[decisionStatus(status)];
 
+/**
+ * The ‹ › buttons that scroll a decision graph's lanes. A reader may not know
+ * a swipe scrolls them too, so the tooltips say so.
+ */
+const laneButtons = (graph: string) =>
+    (["left", "right"] as const)
+        .map(
+            (side) =>
+                `<button type="button" class="${styles.scrollLanes}" data-scroll-lanes="${side}" aria-controls="${graph}" aria-label="Scroll the lanes ${side}" title="Scroll the lanes ${side}. A trackpad swipe, or Shift with the mouse wheel, scrolls them too.">${side === "left" ? "‹" : "›"}</button>`,
+        )
+        .join("");
+
 const statusPill = (status: string) =>
     `<span class="${styles.status} ${statusClass(status)}">${status || "Unknown"}</span>`;
 
@@ -216,6 +228,7 @@ export default class Decisions extends Page {
         return `
             <h2>Decisions</h2>
             <p class="${styles.indexIntro}">${this.#decisions.length} recorded, ${inForce} in force</p>
+            <div id="adrs-index-controls" class="${styles.controls} ${styles.indexControls}" hidden>${laneButtons("adrs-index-graph")}</div>
             <div class="${styles.rows}">
                 <div id="adrs-index-graph"></div>
                 <div class="${styles.indexEntries}" data-index-rows>
@@ -294,6 +307,7 @@ export default class Decisions extends Page {
                     <div id="adrs-controls" class="${styles.controls}">
                         <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
                         <button type="button" id="adrs-expand" class="${styles.expand}" aria-controls="adrs-graph"></button>
+                        <span id="adrs-lanes" class="${styles.laneButtons}" hidden>${laneButtons("adrs-graph")}</span>
                         <button type="button" id="adrs-related" class="${styles.related}" aria-pressed="false" title="Show only the decisions related to the open one" hidden>Related only</button>
                     </div>
                     <div id="adrs-scroll" class="${styles.scroll}">
@@ -359,6 +373,7 @@ export default class Decisions extends Page {
         indexGraph.setLayout(
             layoutDecisionGraph(this.#decisions, indexColumnCap(indexWidth)),
         );
+        this.#renderLaneButtons();
         indexRows.addEventListener("mouseover", this.#handleIndexPoint);
         indexRows.addEventListener("focusin", this.#handleIndexPoint);
         indexRows.addEventListener("mouseleave", this.#handleIndexLeave);
@@ -394,6 +409,11 @@ export default class Decisions extends Page {
         document
             .getElementById("adrs-related")
             ?.addEventListener("click", this.#handleRelatedClick);
+        for (const id of ["adrs-lanes", "adrs-index-controls"]) {
+            document
+                .getElementById(id)
+                ?.addEventListener("click", this.#handleLaneClick);
+        }
 
         this.renderAllComponents();
         indexGraph.render();
@@ -442,7 +462,31 @@ export default class Decisions extends Page {
         this.#graph.setState(state);
         writeSetting(DECISION_GRAPH_STORAGE_KEY, state);
         this.#renderExpandToggle();
+        this.#renderLaneButtons();
     };
+
+    /** ‹ and › scroll the lanes of the decision graph they sit above. */
+    #handleLaneClick = (event: Event) => {
+        const button = (
+            event.target as HTMLElement | null
+        )?.closest<HTMLElement>("[data-scroll-lanes]");
+        if (!button) return;
+        const graph = button.closest("#adrs-index")
+            ? this.#indexGraph
+            : this.#graph;
+        graph?.scrollLanes(button.dataset.scrollLanes === "left" ? -1 : 1);
+    };
+
+    /** Each graph's ‹ › buttons show only while its lanes scroll. */
+    #renderLaneButtons() {
+        for (const [id, graph] of [
+            ["adrs-lanes", this.#graph],
+            ["adrs-index-controls", this.#indexGraph],
+        ] as const) {
+            const buttons = document.getElementById(id);
+            if (buttons) buttons.hidden = !graph?.scrolling;
+        }
+    }
 
     #handleRelatedClick = () => {
         this.#setRelatedOnly(!this.#relatedOnly);
@@ -470,6 +514,7 @@ export default class Decisions extends Page {
         // then the two have to agree on the rows.
         this.#graph?.setLayout(layoutDecisionGraph(decisions, MENU_GRAPH_CAP));
         this.#menu?.setItems(decisions);
+        this.#renderLaneButtons();
     }
 
     /** Related only filters by the open decision, so it shows only with one. */
@@ -520,6 +565,11 @@ export default class Decisions extends Page {
         document
             .getElementById("adrs-related")
             ?.removeEventListener("click", this.#handleRelatedClick);
+        for (const id of ["adrs-lanes", "adrs-index-controls"]) {
+            document
+                .getElementById(id)
+                ?.removeEventListener("click", this.#handleLaneClick);
+        }
         this.#relatedOnly = false;
         this.container!.innerHTML = "";
     }

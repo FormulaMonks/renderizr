@@ -116,6 +116,46 @@ in reach however far the reader scrolls the menu. */
     }
 }
 
+/* The ‹ › buttons, a pair as quiet as the expand toggle. They show only while
+the lanes scroll, and the narrow-screen select has no lanes to scroll. */
+.laneButtons {
+    display: none;
+    gap: 2px;
+}
+
+.scrollLanes {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    font: inherit;
+    line-height: 1;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-foreground);
+    }
+}
+
+/* On the index, the bar holds only the ‹ › buttons, at the lanes' end of the
+row, and stays in reach while the page scrolls. */
+.indexControls {
+    position: sticky;
+    top: var(--header-height, 5rem);
+    z-index: 1;
+    gap: 2px;
+    background: var(--color-background);
+
+    &[hidden] {
+        display: none;
+    }
+}
+
 /* A pill at the right end of the bar, filled while it filters the menu. */
 .related {
     margin-left: auto;
@@ -291,6 +331,10 @@ keep room beside the decision graph. */
 
     .expand {
         display: grid;
+    }
+
+    .laneButtons:not([hidden]) {
+        display: flex;
     }
 
     /* The menu's own scroll area, below the controls bar. */

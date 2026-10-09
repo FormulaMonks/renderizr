@@ -1116,7 +1116,15 @@ test("the index stays expanded whatever the menu's decision graph was left as", 
 test("the index has no expand toggle and no Related only", () => {
     renderPage(LINKED);
 
-    assert.equal(index().querySelector("button"), null);
+    // Compared by what they do: a failing comparison of two elements would
+    // print the whole document.
+    assert.deepEqual(
+        index()
+            .querySelectorAll("button")
+            .map((button) => button.getAttribute("data-scroll-lanes")),
+        ["left", "right"],
+        "only the ‹ › buttons, for lanes that scroll",
+    );
 });
 
 test("pointing at a row lights its edges and dims the rest, and nothing dims once it leaves", () => {
@@ -1241,6 +1249,210 @@ test("on a narrow index, the decision graph falls back", () => {
         [],
         "no reference runs up a lane",
     );
+});
+
+/* ------------------------------------------------------- scrolling lanes -- */
+
+/**
+ * The scrolling fixture: forty supersede and amend lineages stay open across
+ * the same rows, 42 columns in all, so the lanes outgrow the menu's cap and
+ * the index's. Decision k's lane sits in column 42 - k; 41 references 40, at
+ * the other end of the lanes, and 82 references 33 and 35, two lanes apart.
+ */
+const SCROLL_DECISIONS = JSON.parse(
+    readFileSync(
+        new URL("./__fixtures__/decision-graph-scroll.json", import.meta.url),
+        "utf-8",
+    ),
+).documentation.decisions;
+
+const lanesView = (scope = "#adrs-menu") =>
+    document.querySelector(`${scope} [data-lanes]`);
+const pinnedStrip = (scope = "#adrs-menu") =>
+    document.querySelector(`${scope} [data-pinned]`);
+const laneButtons = (scope = "#adrs-menu") =>
+    document.querySelectorAll(`${scope} [data-scroll-lanes]`);
+
+/**
+ * Give the lanes' view the size a browser would, then let the graph redraw
+ * the way it does when anything resizes: the menu's view shows 30 columns of
+ * 12px out of 42, with the 8px gap after the pinned columns.
+ */
+const layOutLanes = () => {
+    const view = lanesView();
+    view.clientWidth = 2 * 9 + 29 * 12;
+    view.scrollWidth = 2 * 9 + 8 + 41 * 12;
+    dom.setViewportWidth(1280);
+    return view;
+};
+
+test("past even the lineage fallback, the lanes scroll behind the pinned columns", () => {
+    renderPage(SCROLL_DECISIONS);
+    expand();
+
+    assert.equal(graph().getAttribute("data-fallback"), "scroll");
+    const view = lanesView();
+    assert.ok(view, "the lanes sit in a view of their own");
+    assert.equal(view.style.width, "366px", "as wide as 30 columns");
+    assert.equal(
+        view.querySelectorAll('[data-mark="dot"]').length,
+        82,
+        "every dot draws once, in the scrolling view",
+    );
+
+    // The pinned strip repeats the drawing's right edge, where the lone dots
+    // and the reference column sit, over the lanes that scroll under it.
+    const strip = pinnedStrip();
+    assert.ok(strip, "the lone and reference columns stay pinned");
+    const drawing = view.querySelector("[data-drawing]").getAttribute("id");
+    assert.equal(
+        strip.querySelector("use").getAttribute("href"),
+        `#${drawing}`,
+    );
+    assert.equal(strip.querySelectorAll("[data-mark]").length, 0);
+});
+
+test("the lanes scroll only past the lineage fallback, and only expanded", () => {
+    for (const [decisions, expanded] of [
+        [LINKED, true],
+        [GRAPH_DECISIONS, true],
+        [SCROLL_DECISIONS, false],
+    ]) {
+        dom.reset();
+        host = dom.mount("page-content");
+        history.replace({ search: "?page=adrs&adr=2", hash: "" });
+        renderPage(decisions);
+        if (expanded) expand();
+
+        assert.equal(lanesView(), null);
+        assert.equal(pinnedStrip(), null);
+    }
+});
+
+test("the ‹ › buttons show in the controls bar only while the lanes scroll", () => {
+    history.replace({ search: "?page=adrs&adr=82" });
+    renderPage(SCROLL_DECISIONS);
+    const buttons = () => document.getElementById("adrs-lanes");
+
+    assert.ok(buttons().hidden, "collapsed, nothing scrolls");
+    expand();
+    assert.equal(buttons().hidden, false);
+    assert.deepEqual(
+        laneButtons().map((button) => [button.textContent, button.title]),
+        [
+            [
+                "‹",
+                "Scroll the lanes left. A trackpad swipe, or Shift with the mouse wheel, scrolls them too.",
+            ],
+            [
+                "›",
+                "Scroll the lanes right. A trackpad swipe, or Shift with the mouse wheel, scrolls them too.",
+            ],
+        ],
+    );
+
+    // Related only lays out 82's relatives alone, and their lanes fit.
+    relatedOnly().click();
+    assert.ok(buttons().hidden, "the related decisions' lanes fit");
+    relatedOnly().click();
+    assert.equal(buttons().hidden, false, "every decision again");
+    expand();
+    assert.ok(buttons().hidden, "collapsed again");
+});
+
+test("the ‹ › buttons sit between the expand toggle and Related only", () => {
+    renderPage(SCROLL_DECISIONS);
+
+    assert.deepEqual(
+        controls().children.map((child) => child.getAttribute("id")),
+        ["adrs-summary", "adrs-expand", "adrs-lanes", "adrs-related"],
+    );
+});
+
+test("‹ and › scroll the lanes by four columns", () => {
+    history.replace({ search: "?page=adrs&adr=82" });
+    renderPage(SCROLL_DECISIONS);
+    expand();
+    const [left, right] = laneButtons();
+
+    left.click();
+    right.click();
+
+    assert.deepEqual(
+        document.scrolledBy.map(({ element, options }) => ({
+            lanes: element === lanesView(),
+            options,
+        })),
+        [
+            { lanes: true, options: { left: -48, behavior: "smooth" } },
+            { lanes: true, options: { left: 48, behavior: "smooth" } },
+        ],
+    );
+});
+
+test("the lanes start scrolled to the titles' edge", () => {
+    history.replace({ search: "?page=adrs&adr=80" });
+    renderPage(SCROLL_DECISIONS);
+    expand();
+
+    const view = layOutLanes();
+
+    assert.equal(view.scrollLeft, view.scrollWidth - view.clientWidth);
+});
+
+test("opening a decision scrolls as little as possible to show the lanes its edges reach", () => {
+    history.replace({ search: "?page=adrs&adr=41" });
+    renderPage(SCROLL_DECISIONS);
+    expand();
+    const view = layOutLanes();
+
+    // 41's own lane is the last column, and its reference to 40 reaches the
+    // first lane: the two never fit at once, so its own lane wins.
+    assert.equal(view.scrollLeft, 0, "41's lane in view, at the far left");
+
+    // 82 references 33 and 35, two lanes apart: the view moves just far
+    // enough to take both in, with room to spare at its edge.
+    open("82");
+    assert.equal(view.scrollLeft, 92);
+
+    // A redraw that opens nothing leaves the lanes where the reader put them.
+    view.scrollLeft = 40;
+    dom.setViewportWidth(1280);
+    assert.equal(view.scrollLeft, 40);
+});
+
+test("the index shows ‹ › in a bar of its own while its lanes scroll", () => {
+    // 1,280px holds 40 of the index's columns, fewer than the 42 it needs.
+    renderPage(SCROLL_DECISIONS);
+
+    assert.equal(indexGraph().getAttribute("data-fallback"), "scroll");
+    assert.ok(lanesView("#adrs-index"), "the index's lanes scroll");
+    assert.ok(pinnedStrip("#adrs-index"), "behind their own pinned columns");
+    const bar = document.getElementById("adrs-index-controls");
+    assert.equal(bar.hidden, false);
+    assert.deepEqual(
+        bar.querySelectorAll("button").map((button) => button.textContent),
+        ["‹", "›"],
+        "the index's bar holds only the ‹ › buttons",
+    );
+
+    const [left] = laneButtons("#adrs-index");
+    left.click();
+    assert.deepEqual(
+        document.scrolledBy.map(({ element, options }) => ({
+            lanes: element === lanesView("#adrs-index"),
+            left: options.left,
+        })),
+        [{ lanes: true, left: -64 }],
+        "four of the index's wider columns",
+    );
+});
+
+test("the index hides its ‹ › bar while its lanes fit", () => {
+    renderPage(GRAPH_DECISIONS);
+
+    assert.ok(document.getElementById("adrs-index-controls").hidden);
+    assert.equal(lanesView("#adrs-index"), null);
 });
 
 /* -------------------------------------------------------------- selection -- */
