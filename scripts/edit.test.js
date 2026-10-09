@@ -646,37 +646,76 @@ function recordEvents(server) {
     return sent;
 }
 
+/**
+ * How many times edit mode has finished handling the watcher's news of a
+ * change to `file`, from now on, as `{ count }`.
+ */
+function recordHotUpdates(server, file) {
+    const handled = { count: 0 };
+    const plugin = server.config.plugins.find(
+        ({ name }) => name === "renderizr:edit-mode",
+    );
+    assert.ok(plugin, "the server runs without edit mode's plugin");
+    const handle = plugin.handleHotUpdate;
+    plugin.handleHotUpdate = async function (context) {
+        const result = await handle.call(this, context);
+        if (context.file === file) handled.count++;
+        return result;
+    };
+    return handled;
+}
+
 test("a save reaches every page once, as a workspace event naming the page that saved, and an outside change arrives as one with its version and the build's transforms", async () => {
     const font = { family: "Fixture Sans", css: "@font-face{}" };
     await withEditServer({ font }, async ({ server, url, token, json }) => {
         const sent = recordEvents(server);
+        const handled = recordHotUpdates(server, json);
         const version = await servedVersion(new URL(url).origin);
         const { status, body } = await postSave(url, token, {
             ...moveSave(version),
             source: "tab-1",
         });
         assert.equal(status, 200);
-        // Give the watcher time to report the write.
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        assert.equal(sent.length, 1, "the save reached the pages twice");
-        assert.equal(sent[0].event, WORKSPACE_EVENT);
-        assert.equal(sent[0].data.source, "tab-1");
-        assert.equal(sent[0].data.version, body.version);
-        assert.equal(
-            sent[0].data.workspace.views.customViews[0].elements[0].x,
-            205,
+        await eventually(
+            () => handled.count > 0,
+            "the watcher never reported the save",
         );
-        sent.length = 0;
 
         const workspace = JSON.parse(await readFile(json, "utf8"));
         workspace.description = "Changed outside edit mode";
         await writeFile(json, JSON.stringify(workspace));
+        const outside = versionOf(await readFile(json, "utf8"));
+        const isOutside = ({ event, data }) =>
+            event === WORKSPACE_EVENT && data.version === outside;
         await eventually(
-            () => sent.some(({ event }) => event === WORKSPACE_EVENT),
+            () => sent.some(isOutside),
             "an outside change never reached the page",
         );
-        const { data } = sent.find(({ event }) => event === WORKSPACE_EVENT);
-        assert.equal(data.version, versionOf(await readFile(json, "utf8")));
+
+        const saves = sent.filter(
+            ({ event, data }) =>
+                (event === WORKSPACE_EVENT || event === ERROR_EVENT) &&
+                data.version === body.version,
+        );
+        assert.equal(
+            saves.length,
+            1,
+            `the save reached the pages as ${JSON.stringify(sent.map(({ event, type }) => event ?? type))}`,
+        );
+        const [saved] = saves;
+        assert.equal(saved.event, WORKSPACE_EVENT);
+        assert.equal(saved.data.source, "tab-1");
+        assert.equal(
+            saved.data.workspace.views.customViews[0].elements[0].x,
+            205,
+        );
+        const outsideEvent = sent.find(isOutside);
+        assert.ok(
+            sent.indexOf(saved) < sent.indexOf(outsideEvent),
+            "the save reached the pages after the change that followed it",
+        );
+
+        const { data } = outsideEvent;
         assert.equal(data.source, undefined);
         assert.equal(data.workspace.description, "Changed outside edit mode");
         assert.match(
@@ -684,8 +723,13 @@ test("a save reaches every page once, as a workspace event naming the page that 
             /"font":\{"name":"Fixture Sans"\}/,
             "the build's font transform did not reach the event",
         );
+        // Vite reloads pages for files of its own too; only the workspace's
+        // reloads count here.
         assert.ok(
-            !sent.some(({ type }) => type === "full-reload"),
+            !sent.some(
+                ({ type, triggeredBy }) =>
+                    type === "full-reload" && triggeredBy === json,
+            ),
             "the page reloaded in full",
         );
     });

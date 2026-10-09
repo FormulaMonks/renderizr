@@ -418,9 +418,10 @@ export class StaleVersionError extends Error {
  * Saves edited layouts, and the workspaces the DSL pipeline's runs produce
  * (spec 5.2), into one `workspace.json`, one write at a time, each
  * through a temporary file in the same folder renamed over it. It remembers
- * the versions it wrote recently, each once its rename has landed, so edit
- * mode's watcher can tell its own writes from outside changes, even when the
- * event for an earlier write arrives after a later one.
+ * the versions it wrote recently, and the one it is renaming into place, so
+ * edit mode's watcher can tell its own writes from outside changes, even when
+ * the event for an earlier write arrives after a later one, or the watcher
+ * reads the file before its rename resolves.
  */
 export class WorkspaceWriter {
     #file;
@@ -429,6 +430,8 @@ export class WorkspaceWriter {
     #queue = Promise.resolve();
     /** The version of the writer's latest write and when it was, in ms. */
     #latest = null;
+    /** The write being renamed into place, as `#latest` holds one. */
+    #landing = null;
     #clock;
 
     constructor(file, { agent, now = () => new Date(), clock = Date.now }) {
@@ -442,15 +445,18 @@ export class WorkspaceWriter {
      * Whether `text`, the file as it is now, is the writer's latest write,
      * made moments ago. The watcher's news of any write of its own reads the
      * file as it is by then, so a late report of an earlier one finds the
-     * latest. An earlier file back on disk, as when a tool restores one, is
-     * someone else's change.
+     * latest, or the one being renamed into place, which the watcher can
+     * read before the rename resolves. An earlier file back on disk, as when
+     * a tool restores one, is someone else's change.
      */
     wrote(text) {
-        const latest = this.#latest;
-        return (
-            latest !== null &&
-            latest.version === versionOf(text) &&
-            this.#clock() - latest.at < UNHEARD_MS
+        const version = versionOf(text);
+        const now = this.#clock();
+        return [this.#latest, this.#landing].some(
+            (write) =>
+                write !== null &&
+                write.version === version &&
+                now - write.at < UNHEARD_MS,
         );
     }
 
@@ -528,14 +534,17 @@ export class WorkspaceWriter {
             dirname(this.#file),
             `.${basename(this.#file)}.${randomBytes(6).toString("hex")}.tmp`,
         );
+        const version = versionOf(text);
         try {
             await writeFile(temporary, text, "utf8");
+            this.#landing = { version, at: this.#clock() };
             await rename(temporary, this.#file);
         } catch (error) {
             await rm(temporary, { force: true });
             throw error;
+        } finally {
+            this.#landing = null;
         }
-        const version = versionOf(text);
         this.#latest = { version, at: this.#clock() };
         return { version, written: true };
     }
