@@ -1,0 +1,36 @@
+[
+    { "open": "{{edit}}#/?page=diagrams&view=Container-001&mode=edit" },
+    { "ready": true },
+    {
+        "eval": "document.querySelector('.save-status')?.dataset.state ?? null",
+        "as": "stateAtStart"
+    },
+    {
+        "eval": "['5', '1'].map((id) => Math.round(document.querySelector(`.react-flow__node[data-id=\"${id}\"]`).getBoundingClientRect().left))",
+        "as": "leftsBefore"
+    },
+    { "click": ".react-flow__node[data-id=\"5\"]" },
+    { "click": ".react-flow__node[data-id=\"1\"]", "shift": true },
+    {
+        "assert": "document.querySelectorAll('.react-flow__node.selected').length === 2",
+        "message": "two elements selected"
+    },
+    { "shot": "1-selected.png" },
+    { "clickLabel": "Align left" },
+    {
+        "waitFor": "(() => { const [a, b] = ['5', '1'].map((id) => Math.round(document.querySelector(`.react-flow__node[data-id=\"${id}\"]`).getBoundingClientRect().left)); return a === b; })()"
+    },
+    {
+        "eval": "document.querySelector('.save-status').dataset.state",
+        "as": "stateAfterAlign"
+    },
+    { "key": "s", "code": "KeyS", "mods": ["Meta"] },
+    {
+        "waitFor": "document.querySelector('.save-status').dataset.state === 'saved'"
+    },
+    {
+        "eval": "['5', '1'].map((id) => Math.round(document.querySelector(`.react-flow__node[data-id=\"${id}\"]`).getBoundingClientRect().left))",
+        "as": "leftsAfter"
+    },
+    { "shot": "2-aligned-saved.png" }
+]
