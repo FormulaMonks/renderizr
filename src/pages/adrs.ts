@@ -4,7 +4,7 @@ import DecisionGraph, {
 import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
-import { layoutDecisionGraph } from "../model/decision-graph";
+import { layoutDecisionGraph, relatedDecisions } from "../model/decision-graph";
 import {
     DECISION_STATUS,
     decisionNumber,
@@ -68,6 +68,8 @@ export default class Decisions extends Page {
     #menu: Menu<Decision> | null = null;
     #graph: DecisionGraph | null = null;
     #resolveLink: LinkResolver | null;
+    /** Whether the menu keeps only the decisions related to the open one. */
+    #relatedOnly = false;
 
     constructor(
         container: HTMLElement | null = null,
@@ -226,6 +228,8 @@ export default class Decisions extends Page {
         if (title) title.innerHTML = "";
         if (content) content.innerHTML = this.#renderSummary();
         this.#graph?.setOpen(null);
+        this.#setRelatedOnly(false);
+        this.#renderRelatedOnly();
 
         const search = new URLSearchParams(history.location.search);
         if (search.has("adr")) {
@@ -244,6 +248,7 @@ export default class Decisions extends Page {
                     <div id="adrs-controls" class="${styles.controls}">
                         <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
                         <button type="button" id="adrs-expand" class="${styles.expand}" aria-controls="adrs-graph"></button>
+                        <button type="button" id="adrs-related" class="${styles.related}" aria-pressed="false" title="Show only the decisions related to the open one" hidden>Related only</button>
                     </div>
                     <div id="adrs-scroll" class="${styles.scroll}">
                         <div class="${styles.rows}">
@@ -298,7 +303,10 @@ export default class Decisions extends Page {
             decisionViewer.setContentFormatter(this.#formatContent);
             decisionViewer.setContent(item.content);
             this.#renderTitle();
+            // Related only follows the open decision.
+            if (this.#relatedOnly) this.#showDecisions();
             graph.setOpen(item.id);
+            this.#renderRelatedOnly();
             this.#setAdrInUrl(item);
             window.scrollTo({ top: 0 });
         });
@@ -310,6 +318,9 @@ export default class Decisions extends Page {
         document
             .getElementById("adrs-expand")
             ?.addEventListener("click", this.#handleExpandClick);
+        document
+            .getElementById("adrs-related")
+            ?.addEventListener("click", this.#handleRelatedClick);
 
         this.renderAllComponents();
 
@@ -334,6 +345,43 @@ export default class Decisions extends Page {
         writeSetting(DECISION_GRAPH_STORAGE_KEY, state);
         this.#renderExpandToggle();
     };
+
+    #handleRelatedClick = () => {
+        this.#setRelatedOnly(!this.#relatedOnly);
+        this.#renderRelatedOnly();
+    };
+
+    #setRelatedOnly(relatedOnly: boolean) {
+        if (relatedOnly === this.#relatedOnly) return;
+        this.#relatedOnly = relatedOnly;
+        this.#showDecisions();
+    }
+
+    /**
+     * Fill the menu and the decision graph with every decision or, under
+     * Related only, with the open decision's relatives. Both keep decision
+     * order, so no entry moves.
+     */
+    #showDecisions() {
+        const open = this.#currentDecision;
+        const decisions =
+            this.#relatedOnly && open
+                ? relatedDecisions(this.#decisions, open.id)
+                : this.#decisions;
+        // The layout first: the menu's redraw draws the graph again, and by
+        // then the two have to agree on the rows.
+        this.#graph?.setLayout(layoutDecisionGraph(decisions));
+        this.#menu?.setItems(decisions);
+    }
+
+    /** Related only filters by the open decision, so it shows only with one. */
+    #renderRelatedOnly() {
+        const button = document.getElementById("adrs-related");
+        if (!button) return;
+
+        button.hidden = !this.#currentDecision;
+        button.setAttribute("aria-pressed", String(this.#relatedOnly));
+    }
 
     /** The expand toggle says what pressing it does next. */
     #renderExpandToggle() {
@@ -361,6 +409,10 @@ export default class Decisions extends Page {
         document
             .getElementById("adrs-expand")
             ?.removeEventListener("click", this.#handleExpandClick);
+        document
+            .getElementById("adrs-related")
+            ?.removeEventListener("click", this.#handleRelatedClick);
+        this.#relatedOnly = false;
         this.container!.innerHTML = "";
     }
 }
