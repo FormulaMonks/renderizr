@@ -94,7 +94,7 @@ It refuses `--out`, `--single-file` and `--base`, because edit mode writes no ou
 
 The server listens on `127.0.0.1` only, so nothing but your machine reaches it, and every save carries a token that only the printed URL holds.
 
-### Keys
+### Keyboard shortcuts
 
 Keys match by physical key, so Option's characters on macOS stay out of the way. `?` opens the same list in edit mode.
 

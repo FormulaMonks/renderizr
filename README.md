@@ -151,7 +151,7 @@ Two things come from Structurizr and stay as Structurizr has them:
 - **The id fallback.** `merge` carries each element's position over by its canonical name and falls back to its id. When a DSL change renames an element and shifts the ids of others, `merge` can hand the renamed element another element's position. Check the views after a rename.
 - **Unwatched includes.** Edit mode watches every file under the DSL's folder, except `workspace.json`, dot folders and `node_modules`. A file that `!include` pulls in from outside that folder goes unwatched, as in Structurizr Local: save a file inside the folder to run the tools again.
 
-### Keys
+### Keyboard shortcuts
 
 Keys match by physical key, so Option's characters on macOS don't get in the way. `?` opens the same list in the editor.
 
