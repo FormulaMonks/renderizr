@@ -178,3 +178,16 @@ superseded no longer is. */
         flex: 1;
     }
 }
+
+/* ---- decision graph ---- */
+
+/* The decision graph sits left of the menu's entries, so its dots line up with
+the titles and grow away from them. */
+.rows {
+    display: flex;
+}
+
+.entries {
+    flex: 1;
+    min-width: 0;
+}

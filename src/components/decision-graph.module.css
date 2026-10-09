@@ -1,0 +1,89 @@
+/* The gutter beside the menu's entries. It takes the drawing's width and no
+   more, so the menu stays as narrow as it was while the graph is collapsed. */
+.graph {
+    flex: none;
+}
+
+/* Elbows reach to the gutter's edge and the open decision's ring past its
+   dot, so nothing clips them. */
+.svg {
+    display: block;
+    overflow: visible;
+}
+
+/* Every dot takes its status color, the same as the status pill. The halo
+   keeps a dot apart from an elbow that ends on it. */
+.dot {
+    stroke: var(--color-background);
+    stroke-width: 1px;
+    fill-opacity: 0.55;
+}
+
+/* Full strength for the open decision and the decisions it links to, so they
+   stand out from the rest of the gutter. */
+.dot[data-highlighted] {
+    fill-opacity: 1;
+}
+
+.dot[data-status="accepted"] {
+    fill: var(--color-accepted);
+}
+
+.dot[data-status="amended"] {
+    fill: var(--color-amended);
+}
+
+.dot[data-status="draft"] {
+    fill: var(--color-draft);
+}
+
+.dot[data-status="superseded"] {
+    fill: var(--color-superseded-strong);
+}
+
+/* A ring marks the open decision's dot without a color of its own. */
+.ring {
+    fill: none;
+    stroke: var(--color-foreground);
+    stroke-width: 1.2px;
+}
+
+.edge {
+    fill: none;
+}
+
+/* Supersede and amend take the older decision's status color, which says
+   what the newer decision did to it: superseded amber, amended blue. */
+.edge[data-status="accepted"] {
+    stroke: var(--color-accepted);
+}
+
+.edge[data-status="amended"] {
+    stroke: var(--color-amended);
+}
+
+.edge[data-status="draft"] {
+    stroke: var(--color-draft);
+}
+
+.edge[data-status="superseded"] {
+    stroke: var(--color-superseded-strong);
+}
+
+/* Supersede is solid and amend dashed, so the two read apart in any color. */
+.edge[data-kind="supersede"] {
+    stroke-width: 2.5px;
+}
+
+.edge[data-kind="amend"] {
+    stroke-width: 2px;
+    stroke-dasharray: 5 3;
+}
+
+/* A reference is the weakest link: thinner and muted, whatever the status. In
+   the collapsed gutter it stays solid, since a dotted elbow this short reads as
+   a smudge. */
+.edge[data-kind="reference"] {
+    stroke: var(--color-muted);
+    stroke-width: 1.5px;
+}

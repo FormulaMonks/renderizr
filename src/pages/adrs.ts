@@ -1,25 +1,18 @@
+import DecisionGraph from "../components/decision-graph";
 import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
+import { layoutDecisionGraph } from "../model/decision-graph";
+import {
+    DECISION_STATUS,
+    decisionNumber,
+    decisionOrder,
+    decisionStatus,
+} from "../model/decisions";
 import type { Decision } from "../types/structurizr-documentation";
 import Page from "./_page";
 import styles from "./adrs.module.css";
 import history from "history/hash";
-
-/**
- * The four states a decision can be in, plus the older spellings that mean the
- * same thing. "Amended" is a partial supersession: the decision still stands,
- * but a later one has changed part of it.
- */
-const STATUS_CLASS: Record<string, string> = {
-    draft: "draft",
-    proposed: "draft",
-    accepted: "accepted",
-    amended: "amended",
-    superseded: "superseded",
-    rejected: "superseded",
-    deprecated: "superseded",
-};
 
 /** Decisions that still govern anything — amended ones still mostly do. */
 const IN_FORCE = new Set(["accepted", "amended"]);
@@ -32,17 +25,9 @@ const IN_FORCE = new Set(["accepted", "amended"]);
  * the amendment note as "Amended Amends 15. …".)
  */
 const BARE_STATUS = new RegExp(
-    `^(${Object.keys(STATUS_CLASS).join("|")})\\.?$`,
+    `^(${Object.keys(DECISION_STATUS).join("|")})\\.?$`,
     "i",
 );
-
-/**
- * A decision's number as four digits, `7` as `0007`, so numbers line up down
- * the menu and read the same everywhere on the page. An id that is not a
- * number has nothing to pad and shows as written.
- */
-export const decisionNumber = (id: string) =>
-    /^\d+$/.test(id) ? id.padStart(4, "0") : id;
 
 const numberSpan = (id: string) =>
     `<span class="${styles.number}">${decisionNumber(id)}</span>`;
@@ -52,8 +37,7 @@ const longDate = (value?: string) =>
         ? new Date(value).toLocaleDateString(undefined, { dateStyle: "long" })
         : "";
 
-const statusClass = (status = "") =>
-    styles[STATUS_CLASS[status.trim().toLowerCase()] ?? "draft"];
+const statusClass = (status = "") => styles[decisionStatus(status)];
 
 const statusPill = (status: string) =>
     `<span class="${styles.status} ${statusClass(status)}">${status || "Unknown"}</span>`;
@@ -65,6 +49,7 @@ export default class Decisions extends Page {
     // classes, so `components.get("Menu")` is undefined in a built file — which
     // is why every link out of the summary used to do nothing.
     #menu: Menu<Decision> | null = null;
+    #graph: DecisionGraph | null = null;
     #resolveLink: LinkResolver | null;
 
     constructor(
@@ -75,13 +60,7 @@ export default class Decisions extends Page {
     ) {
         super(container, name);
         this.#resolveLink = resolveLink;
-        // Newest first, and within the same date the higher number is the
-        // later decision.
-        this.#decisions = decisions.toSorted((a, b) => {
-            const byDate =
-                new Date(b.date).getTime() - new Date(a.date).getTime();
-            return byDate || Number(b.id) - Number(a.id);
-        });
+        this.#decisions = decisionOrder(decisions);
     }
 
     #opened = false;
@@ -229,6 +208,7 @@ export default class Decisions extends Page {
         const content = document.getElementById("decision-content");
         if (title) title.innerHTML = "";
         if (content) content.innerHTML = this.#renderSummary();
+        this.#graph?.setOpen(null);
 
         const search = new URLSearchParams(history.location.search);
         if (search.has("adr")) {
@@ -245,6 +225,9 @@ export default class Decisions extends Page {
             <div class="${styles.adrs}">
                 <section id="adrs-menu" class="${styles.menu}">
                     <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
+                    <div class="${styles.rows}">
+                        <div id="adrs-graph"></div>
+                    </div>
                 </section>
                 <section id="decision" class="${styles.decision}">
                     <div id="decision-title"></div>
@@ -253,8 +236,13 @@ export default class Decisions extends Page {
             </div>
         `;
 
+        // The menu's entries sit beside the decision graph, inside the
+        // menu's own scroll area, so the dots scroll with their titles.
         const menuContainer = document.createElement("div");
-        document.getElementById("adrs-menu")!.appendChild(menuContainer);
+        menuContainer.className = styles.entries;
+        document
+            .querySelector(`#adrs-menu .${styles.rows}`)!
+            .appendChild(menuContainer);
 
         const menu = this.addComponent(
             new Menu<Decision>(menuContainer, this.#decisions),
@@ -262,6 +250,18 @@ export default class Decisions extends Page {
         this.#menu = menu;
 
         menu.setNumberFn((item) => decisionNumber(item.id));
+
+        const graph = this.addComponent(
+            new DecisionGraph(
+                document.getElementById("adrs-graph")!,
+                menuContainer,
+            ),
+        );
+        this.#graph = graph;
+        graph.setLayout(layoutDecisionGraph(this.#decisions));
+        // A rebuilt menu has new entries, and a switch to the `<select>` has
+        // none to sit beside.
+        menu.onRedraw(() => graph.draw());
 
         this.#currentDecision = this.#getAdrFromUrl() ?? null;
         const decisionViewer = this.addComponent(
@@ -274,6 +274,7 @@ export default class Decisions extends Page {
             decisionViewer.setContentFormatter(this.#formatContent);
             decisionViewer.setContent(item.content);
             this.#renderTitle();
+            graph.setOpen(item.id);
             this.#setAdrInUrl(item);
             window.scrollTo({ top: 0 });
         });
@@ -301,6 +302,7 @@ export default class Decisions extends Page {
     clear(): void {
         this.removeAllComponents();
         this.#menu = null;
+        this.#graph = null;
         this.container?.removeEventListener("click", this.#handleDecisionLink);
         document
             .getElementById("adrs-summary")

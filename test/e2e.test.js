@@ -1697,3 +1697,107 @@ test(
         }
     },
 );
+
+/* --------------------------------------------------------- decision graph */
+
+/** The committed decision graph fixture, built once as a single file. */
+const decisionGraphBuild = once(async () => {
+    const out = join(SCRATCH, "decision-graph");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/decision-graph.json"),
+            "--out",
+            out,
+            "--single-file",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return out;
+});
+
+/**
+ * Measures, in the page, where each dot sits and where its entry's first line
+ * is. The first line's center comes from the title's first character, apart
+ * from anything the graph itself measures, so a dot that drifts to the middle
+ * of a wrapped title shows up here.
+ */
+const DOT_PROBE = `<script>
+(async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const result = { rows: [] };
+    try {
+        for (let tries = 0; tries < 400; tries++) {
+            if (document.querySelector('#adrs-menu [data-mark="dot"]')) break;
+            await sleep(25);
+        }
+        await document.fonts.ready;
+        // Let the graph hear about any rewrap the font caused.
+        await sleep(200);
+        const center = (rect) => (rect.top + rect.bottom) / 2;
+        for (const anchor of document.querySelectorAll("#adrs-menu a[data-item-id]")) {
+            const id = anchor.dataset.itemId;
+            const title = anchor.lastElementChild;
+            const range = document.createRange();
+            range.setStart(title.firstChild, 0);
+            range.setEnd(title.firstChild, 1);
+            const dot = document.querySelector(
+                '#adrs-menu [data-mark="dot"][data-decision="' + id + '"]',
+            );
+            const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
+            result.rows.push({
+                id,
+                line: center(range.getClientRects()[0]),
+                dot: dot ? center(dot.getBoundingClientRect()) : null,
+                lines: Math.round(title.getBoundingClientRect().height / lineHeight),
+            });
+        }
+        result.elbows = document.querySelectorAll('#adrs-menu [data-mark="edge"]').length;
+    } catch (error) {
+        result.error = String(error);
+    }
+    const probe = document.createElement("pre");
+    probe.id = "probe";
+    probe.textContent = JSON.stringify(result);
+    document.body.append(probe);
+})();
+</script>`;
+
+test(
+    "each dot of the decision graph lines up with its entry's first line, wrapped titles included",
+    { skip: SKIP },
+    async () => {
+        const built = await decisionGraphBuild();
+        const out = join(SCRATCH, "probe-decision-graph");
+        await mkdir(out, { recursive: true });
+        const html = await readFile(join(built, "index.html"), "utf8");
+        await writeFile(
+            join(out, "index.html"),
+            html.replace("</body>", `${DOT_PROBE}</body>`),
+        );
+
+        const { html: dumped } = await renderPage(
+            CHROME,
+            `${fileUrl(join(out, "index.html"))}#/?page=adrs&adr=4`,
+        );
+        const probe = parseDocument(dumped).querySelector("#probe");
+        assert.ok(probe, "the probe should have finished");
+        const { rows, elbows, error } = JSON.parse(probe.textContent);
+        assert.equal(error, undefined, `the probe failed: ${error}`);
+
+        assert.equal(rows.length, 46, "every decision has an entry");
+        assert.ok(
+            rows.some((row) => row.lines > 1),
+            "some titles wrap, or this checks nothing about them",
+        );
+        for (const row of rows) {
+            assert.notEqual(row.dot, null, `decision ${row.id} has a dot`);
+            assert.ok(
+                Math.abs(row.dot - row.line) <= 1.5,
+                `decision ${row.id}'s dot sits at ${row.dot}, its first line at ${row.line}`,
+            );
+        }
+        // 4 supersedes 3, and 6 amends it.
+        assert.equal(elbows, 2, "the open decision draws its elbows");
+    },
+);

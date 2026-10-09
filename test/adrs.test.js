@@ -269,6 +269,179 @@ test("switching between the list and the select redraws the menu and keeps the o
     );
 });
 
+/* --------------------------------------------------------- decision graph -- */
+
+/**
+ * Four decisions linked every way a workspace links them: 4 supersedes 1 and
+ * says so, 2 states from its own side that 4 amends it, 4 references 3 in a
+ * wording nobody knows, and 3 references 1.
+ */
+const LINKED = [
+    decision("1", {
+        date: "2024-01-01T12:00:00Z",
+        status: "Superseded",
+        links: [{ id: "4", description: "Superseded by" }],
+    }),
+    decision("2", {
+        date: "2024-02-01T12:00:00Z",
+        status: "Amended",
+        links: [{ id: "4", description: "Amended by" }],
+    }),
+    decision("3", {
+        date: "2024-03-01T12:00:00Z",
+        links: [{ id: "1", description: "References" }],
+    }),
+    decision("4", {
+        date: "2024-04-01T12:00:00Z",
+        status: "Proposed",
+        links: [
+            { id: "1", description: "Supersedes" },
+            { id: "3", description: "Clarifies" },
+        ],
+    }),
+];
+
+const graph = () => document.querySelector("#adrs-menu [data-decision-graph]");
+
+/** Each dot's meaning, as the drawing records it, in drawing order. */
+const dots = () =>
+    document.querySelectorAll('#adrs-menu [data-mark="dot"]').map((dot) => ({
+        decision: dot.getAttribute("data-decision"),
+        status: dot.getAttribute("data-status"),
+    }));
+
+/** Each elbow's meaning, as the drawing records it, sorted for comparison. */
+const elbows = () =>
+    document
+        .querySelectorAll('#adrs-menu [data-mark="edge"]')
+        .map((edge) => ({
+            kind: edge.getAttribute("data-kind"),
+            from: edge.getAttribute("data-from"),
+            to: edge.getAttribute("data-to"),
+            status: edge.getAttribute("data-status"),
+        }))
+        .sort((a, b) => `${a.from}${a.to}`.localeCompare(`${b.from}${b.to}`));
+
+/** The decisions whose dots the drawing marks as highlighted. */
+const highlightedDots = () =>
+    document
+        .querySelectorAll('#adrs-menu [data-mark="dot"][data-highlighted]')
+        .map((dot) => dot.getAttribute("data-decision"))
+        .sort();
+
+const open = (id) =>
+    document.querySelector(`#adrs-menu a[data-item-id="${id}"]`).click();
+
+test("the decision graph starts collapsed beside the menu", () => {
+    renderPage(LINKED);
+
+    assert.equal(graph()?.getAttribute("data-state"), "collapsed");
+});
+
+test("the collapsed decision graph draws a dot per decision, colored by its status, in menu order", () => {
+    renderPage(LINKED);
+
+    assert.deepEqual(dots(), [
+        { decision: "4", status: "draft" },
+        { decision: "3", status: "accepted" },
+        { decision: "2", status: "amended" },
+        { decision: "1", status: "superseded" },
+    ]);
+});
+
+test("dots take the same status as the pill, older spellings included", () => {
+    renderPage([
+        decision("1", { status: "Rejected" }),
+        decision("2", { status: "Deprecated" }),
+        decision("3", { status: "Proposed" }),
+        decision("4", { status: "Something new" }),
+    ]);
+
+    assert.deepEqual(
+        dots().map((dot) => dot.status),
+        ["draft", "draft", "superseded", "superseded"],
+    );
+});
+
+test("no elbow shows until a decision opens", () => {
+    renderPage(LINKED);
+
+    assert.deepEqual(elbows(), []);
+    assert.deepEqual(highlightedDots(), [], "nothing is highlighted either");
+});
+
+test("opening a decision draws an elbow to each decision it links to, by kind and older status", () => {
+    renderPage(LINKED);
+
+    open("4");
+
+    assert.deepEqual(elbows(), [
+        { kind: "supersede", from: "4", to: "1", status: "superseded" },
+        // Stated only by 2, in its own words.
+        { kind: "amend", from: "4", to: "2", status: "amended" },
+        // A wording nobody knows is a reference.
+        { kind: "reference", from: "4", to: "3", status: "accepted" },
+    ]);
+});
+
+test("the open decision's dot and the dots it links to are highlighted", () => {
+    renderPage(LINKED);
+
+    open("3");
+
+    assert.deepEqual(highlightedDots(), ["1", "3", "4"]);
+    assert.equal(
+        document
+            .querySelector('#adrs-menu [data-mark="dot"][data-open]')
+            ?.getAttribute("data-decision"),
+        "3",
+        "the open decision's dot says so",
+    );
+});
+
+test("opening another decision redraws the elbows for it", () => {
+    renderPage(LINKED);
+
+    open("4");
+    open("1");
+
+    assert.deepEqual(elbows(), [
+        { kind: "reference", from: "3", to: "1", status: "superseded" },
+        { kind: "supersede", from: "4", to: "1", status: "superseded" },
+    ]);
+});
+
+test("a decision opened from the URL draws its elbows on first paint", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(LINKED);
+
+    assert.deepEqual(elbows(), [
+        { kind: "amend", from: "4", to: "2", status: "amended" },
+    ]);
+});
+
+test("All decisions clears the elbows", () => {
+    renderPage(LINKED);
+
+    open("4");
+    document.getElementById("adrs-summary").click();
+
+    assert.deepEqual(elbows(), []);
+    assert.deepEqual(highlightedDots(), []);
+});
+
+test("the narrow-screen select carries no decision graph, and it comes back with the list", () => {
+    history.replace({ search: "?page=adrs&adr=4" });
+    renderPage(LINKED);
+
+    dom.setViewportWidth(600);
+    assert.deepEqual(dots(), [], "no dots beside a select");
+
+    dom.setViewportWidth(1280);
+    assert.equal(dots().length, 4, "the list gets its dots back");
+    assert.equal(elbows().length, 3, "and the open decision its elbows");
+});
+
 /* -------------------------------------------------------------- selection -- */
 
 test("choosing a decision shows its title, date and status", () => {
