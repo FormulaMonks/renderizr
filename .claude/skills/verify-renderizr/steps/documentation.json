@@ -1,0 +1,46 @@
+[
+    { "open": "{{build}}#/?page=docs" },
+    { "waitFor": "document.querySelector('#docs-content h1')" },
+    {
+        "eval": "[...document.querySelectorAll('a[data-item-id^=\"section:\"]')].map((a) => a.textContent.trim())",
+        "as": "sections"
+    },
+    {
+        "assert": "JSON.stringify([...document.querySelectorAll('a[data-item-id^=\"section:\"]')].map((a) => a.textContent.trim())) === JSON.stringify(['Getting started', 'Usage', 'Contributing', 'Reference'])",
+        "message": "the four sections, in filename order"
+    },
+    { "shot": "1-getting-started.png" },
+    {
+        "hash": "#/?page=docs&section=01-getting-started&subsection=render-a-workspace"
+    },
+    {
+        "waitFor": "document.querySelectorAll('#docs-content img').length === 3"
+    },
+    {
+        "waitFor": "[...document.querySelectorAll('#docs-content img')].every((img) => img.complete && img.naturalWidth > 0)"
+    },
+    {
+        "assert": "[...document.querySelectorAll('#docs-content img')].every((img) => img.getAttribute('src').startsWith('data:image/png;base64,'))",
+        "message": "every image comes from the copy embedded in the workspace"
+    },
+    {
+        "eval": "[...document.querySelectorAll('#docs-content img')].map((img) => img.alt.slice(0, 40))",
+        "as": "images"
+    },
+    { "shot": "2-render-a-workspace.png" },
+    { "hash": "#/?page=docs&section=01-getting-started&subsection=next-steps" },
+    {
+        "waitFor": "document.querySelector('#docs-content a[href*=\"section=04-reference\"]')"
+    },
+    {
+        "eval": "[...document.querySelectorAll('#docs-content a')].map((a) => a.getAttribute('href'))",
+        "as": "nextStepLinks"
+    },
+    { "click": "#docs-content a[href*=\"section=04-reference\"]" },
+    { "waitFor": "location.hash.includes('section=04-reference')" },
+    {
+        "assert": "document.querySelector('#docs-content h1')?.textContent.trim() === 'Reference'",
+        "message": "a link between sections opens the other section"
+    },
+    { "shot": "3-reference.png" }
+]
