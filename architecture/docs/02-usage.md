@@ -33,7 +33,7 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `--primary-color <color>` | A CSS color, such as `#e4572e` or `rgb(228 87 46)`, for links, the active page and view, and edit mode's marks, in light and dark alike. Default is Renderizr's blue |
 | `-h, --help` | Print the reference as text and exit |
 
-A font is the one option with a real cost: Inter at latin, weights 400–700, adds about 50KB gzipped. Every other option adds a few kilobytes at most.
+A font is the one option with a real cost: an embedded family outweighs every other option together, and each extra weight, subset or italic face adds to it.
 
 ## Default output
 
@@ -54,8 +54,6 @@ The build writes two files:
 | `index.html` | Anywhere a URL can point: GitHub Pages, S3, an email attachment, or straight off your disk over `file://` |
 | `artifact.html` | Hosts that supply their own document scaffolding, such as a Claude artifact. It holds the same page without its own `<html>`, `<head>` or `<body>` |
 
-The Big Bank plc example comes out at about 920KB, or 300KB gzipped, with the engine, icons and workspace included.
-
 Pick the single file when a folder of files is hard to hand over. One file goes in a chat message, an email, a wiki attachment or a bucket with no build step, and it opens off a USB stick on a machine with no network.
 
 The build fetches themes, element icons and a logo referenced by URL, and folds them all in. The page never reaches for the network, so it also works under a strict content security policy.
@@ -68,7 +66,7 @@ Edit mode lets you arrange the layout of a workspace's views in a browser, with 
 npx github:FormulaMonks/renderizr edit ./architecture
 ```
 
-`renderizr edit [path]` takes a `workspace.dsl`, a `workspace.json` or a folder, and opens the current folder when you leave the path out. A file path can carry any name. In a folder, edit mode looks only for the exact names `workspace.dsl` and `workspace.json`, and never in subfolders. It starts a local server and runs until you press Ctrl+C. The terminal prints the URL: open it in your browser, and use it again to come back to the editor.
+`renderizr edit [path]` takes a `workspace.dsl`, a `workspace.json` or a folder, and opens the current folder when you leave the path out. A file path can carry any name. In a folder, edit mode looks only for the exact names `workspace.dsl` and `workspace.json`, and never in subfolders. It starts a local server and runs until you press Ctrl+C. The terminal prints the URL: open it in your browser, and use it again to come back to edit mode.
 
 | You open | Edit mode runs | It saves into |
 | --- | --- | --- |
@@ -83,7 +81,7 @@ Edit mode saves 5 seconds after your last change, and at once on Cmd/Ctrl+S. A d
 
 ### Edit mode flags
 
-`renderizr edit` takes the branding flags of the build (`--logo`, `--logo-alt`, `--logo-href`, `--font`, `--font-weights`, `--font-subsets`, `--font-italic` and `--primary-color`), so the editor looks like your site, plus two of its own:
+`renderizr edit` takes the branding flags of the build (`--logo`, `--logo-alt`, `--logo-href`, `--font`, `--font-weights`, `--font-subsets`, `--font-italic` and `--primary-color`), so edit mode looks like your site, plus two of its own:
 
 | Flag | Effect |
 | --- | --- |
@@ -96,7 +94,7 @@ The server listens on `127.0.0.1` only, so nothing but your machine reaches it, 
 
 ### Keys
 
-Keys match by physical key, so Option's characters on macOS stay out of the way. `?` opens the same list in the editor.
+Keys match by physical key, so Option's characters on macOS stay out of the way. `?` opens the same list in edit mode.
 
 | Command | Keys |
 | --- | --- |
@@ -117,7 +115,7 @@ Keys match by physical key, so Option's characters on macOS stay out of the way.
 | Save now | Cmd/Ctrl+S |
 | Open the keyboard shortcuts | `?` |
 
-With the pointer, a drag moves an element or the selection, and a drag on empty canvas draws a marquee. A double-click on an edge adds a vertex, and a double-click on a vertex removes it. A selected edge shows a handle on each edge end: drag one onto a side of its element to choose that side. A drag on an edge's label slides it along the route. The edit toolbar also holds the routing mode of the selected edge, the canvas size (Decrease, Increase and Auto) and **Calculate layout**, which lays out the whole view once, the way an automatic layout would, and stores the result as a calculated layout. Undo covers all of it.
+With the pointer, a drag moves an element or the selection, and a drag on empty canvas draws a marquee. A double-click on an edge adds a vertex, and a double-click on a vertex removes it. A selected edge marks each edge end: drag one onto a side of its element to choose that side. A drag on an edge's label slides it along the route. The edit toolbar also holds the routing mode of the selected edge, the canvas size (Decrease, Increase and Auto) and **Calculate layout**, which lays out the whole view once, the way an automatic layout would, and stores the result as a calculated layout. Undo covers all of it.
 
 ### What edit mode writes
 
@@ -131,7 +129,7 @@ It writes the file the way Structurizr does: a Structurizr read followed by a St
 
 ### Vertices turn avoidance off
 
-An edge without vertices goes round the elements in its way. Any vertex turns that avoidance off for its relationship, and choosing a side adds a vertex: an edge that used to bend round elements runs straight through them once you choose a side. Add vertices to route it round them again.
+An edge without vertices goes around the elements in its way. Any vertex turns that avoidance off for its relationship, and choosing a side adds a vertex: an edge that used to bend around elements runs straight through them once you choose a side. Add vertices to route it around them again.
 
 An edge with vertices also keeps each edge end where its nearest vertex aims it, and those ends stop spreading along the side with the ends of other edges. Reading mode and builds draw them the same way.
 
