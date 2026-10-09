@@ -1093,6 +1093,22 @@ test("pressing Related only scrolls the menu back to its top", () => {
     assert.equal(scroll.scrollTop, 0, "and so does the whole list");
 });
 
+test("opening a decision marks the menu entries it links to, collapsed or expanded", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+    const linkedEntries = () =>
+        document
+            .querySelectorAll("#adrs-menu a[data-linked]")
+            .map((entry) => entry.getAttribute("data-item-id"));
+
+    assert.deepEqual(linkedEntries(), ["4", "3", "5", "1"], "not 2 itself");
+    expand();
+    assert.deepEqual(linkedEntries(), ["4", "3", "5", "1"]);
+
+    open("6");
+    assert.deepEqual(linkedEntries(), ["4"]);
+});
+
 test("the filtered decision graph is laid out from the related decisions alone", () => {
     history.replace({ search: "?page=adrs&adr=2" });
     renderPage(FAMILY);
@@ -1304,6 +1320,20 @@ test("pointing at a row lights its edges and dims the rest, and nothing dims onc
 
     assert.deepEqual(indexMarks("highlighted"), []);
     assert.deepEqual(indexMarks("dimmed"), []);
+});
+
+test("pointing at a row marks the rows it links to, and leaving clears them", () => {
+    renderPage([...LINKED, LONE]);
+    const linkedRows = () =>
+        index()
+            .querySelectorAll("a[data-linked]")
+            .map((row) => row.getAttribute("data-item-id"));
+
+    point(indexRow("3"), "mouseover");
+    assert.deepEqual(linkedRows(), ["4", "1"], "not 3 itself");
+
+    point(index().querySelector("[data-index-rows]"), "mouseleave");
+    assert.deepEqual(linkedRows(), []);
 });
 
 test("focusing a row lights its edges, and moving focus away puts them out", () => {

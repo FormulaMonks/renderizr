@@ -361,6 +361,18 @@ the titles and grow away from them. */
     min-width: 0;
 }
 
+/* The decisions the open one links to: `decision-graph.ts` marks their
+entries, and their titles stand out beside the lit dots. The title is the
+entry's last span, after the number. */
+.entries a[data-linked] {
+    color: var(--color-foreground);
+}
+
+.entries a[data-linked] > span:last-child,
+.indexRow[data-linked] .indexTitle {
+    font-weight: 600;
+}
+
 /* Beside the decision graph, the entries keep the width the menu always had,
 less the collapsed gutter, so the sidebar grows by the graph's width.
 `decision-graph.ts` sets `--collapsed-gutter`, the gutter's own width. */

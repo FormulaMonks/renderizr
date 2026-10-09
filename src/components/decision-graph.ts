@@ -632,6 +632,7 @@ export default class DecisionGraph extends Component {
             return;
         }
         this.element.dataset.fallback = layout.fallback;
+        this.#markLinked(layout);
 
         const height = this.#entries.getBoundingClientRect().height;
         const expanded =
@@ -643,6 +644,31 @@ export default class DecisionGraph extends Component {
 
         const { width, marks } = expanded ?? this.#drawCollapsed(layout, ys);
         this.element.innerHTML = `<svg class="${styles.svg}" width="${px(width)}" height="${px(height)}" aria-hidden="true" focusable="false">${marks}</svg>`;
+    }
+
+    /**
+     * Mark the entries of the decisions the lit decision links to, so their
+     * titles can stand out beside the lit dots.
+     */
+    #markLinked(layout: DecisionGraphLayout) {
+        const lit = this.#litRow(layout);
+        const linked = new Set(
+            lit < 0
+                ? []
+                : edgesOfDecision(layout, lit)
+                      .links.flatMap((edge) => [edge.from, edge.to])
+                      .filter((row) => row !== lit)
+                      .map((row) => layout.rows[row].id),
+        );
+        const anchors =
+            this.#entries.querySelectorAll<HTMLElement>("a[data-item-id]");
+        for (const anchor of anchors) {
+            if (linked.has(anchor.dataset.itemId ?? "")) {
+                anchor.setAttribute("data-linked", "");
+            } else {
+                anchor.removeAttribute("data-linked");
+            }
+        }
     }
 
     render() {
