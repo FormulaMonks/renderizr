@@ -21,6 +21,24 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.2.0](https://github.com/FormulaMonks/renderizr/compare/v2.1.1...v2.2.0) (2026-10-09)
+
+
+### Added
+
+* **adrs:** draw a decision graph beside the decisions menu ([#154](https://github.com/FormulaMonks/renderizr/issues/154)) ([1b17d11](https://github.com/FormulaMonks/renderizr/commit/1b17d11eb5deacd985b1192ac8ef34e0ddc5b168)), closes [#153](https://github.com/FormulaMonks/renderizr/issues/153)
+
+
+### Fixed
+
+* count an edit mode save once and steady the paint-time check ([#157](https://github.com/FormulaMonks/renderizr/issues/157)) ([aa937ab](https://github.com/FormulaMonks/renderizr/commit/aa937ab97e430cb52e07186fbd5895c32618382e))
+
+
+### Documentation
+
+* add decision graph and lane to the glossary ([#131](https://github.com/FormulaMonks/renderizr/issues/131)) ([#144](https://github.com/FormulaMonks/renderizr/issues/144)) ([527a39f](https://github.com/FormulaMonks/renderizr/commit/527a39fcfc188324295efc942209b7f60972e63b))
+* document getting started, usage and contributing on the architecture site ([#155](https://github.com/FormulaMonks/renderizr/issues/155)) ([d275a1a](https://github.com/FormulaMonks/renderizr/commit/d275a1a6b5fef0741c31b4bfd181220e19d5813b))
+
 ## [2.1.1](https://github.com/FormulaMonks/renderizr/compare/v2.1.0...v2.1.1) (2026-10-08)
 
 
