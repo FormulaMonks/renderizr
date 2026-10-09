@@ -517,6 +517,10 @@ export default class Decisions extends Page {
     #handleRelatedClick = () => {
         this.#setRelatedOnly(!this.#relatedOnly);
         this.#renderRelatedOnly();
+        // The list changes length under the reader's scroll position, and a
+        // shorter list would leave the menu showing empty space.
+        const scroll = document.getElementById("adrs-scroll");
+        if (scroll) scroll.scrollTop = 0;
     };
 
     #setRelatedOnly(relatedOnly: boolean) {

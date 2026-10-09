@@ -978,6 +978,20 @@ test("Related only keeps the open decision's lineage and direct references, and 
     );
 });
 
+test("pressing Related only scrolls the menu back to its top", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+    const scroll = document.getElementById("adrs-scroll");
+
+    scroll.scrollTop = 400;
+    relatedOnly().click();
+    assert.equal(scroll.scrollTop, 0, "the shorter list starts in view");
+
+    scroll.scrollTop = 400;
+    relatedOnly().click();
+    assert.equal(scroll.scrollTop, 0, "and so does the whole list");
+});
+
 test("the filtered decision graph is laid out from the related decisions alone", () => {
     history.replace({ search: "?page=adrs&adr=2" });
     renderPage(FAMILY);
