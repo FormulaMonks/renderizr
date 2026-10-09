@@ -4,8 +4,7 @@
  * every view, and `test/contact-sheet.js` screenshots every view for people
  * to review (ADR 11).
  *
- * Workspaces from the pinned `submodules/structurizr` checkout are skipped,
- * with a reason, where the submodule is absent. Builds run offline: remote
+ * Every workspace in the set is committed. Builds run offline: remote
  * themes and their icons come from committed copies, or are dropped, before
  * the CLI sees the workspace, and `fetch` is poisoned in the CLI's process
  * besides.
@@ -21,12 +20,6 @@ import {
     runCli,
 } from "../../scripts/__fixtures__/helpers.js";
 
-/** Where the Structurizr repository keeps the workspaces its exporters test against. */
-const STRUCTURIZR_RESOURCES = join(
-    REPO_ROOT,
-    "submodules/structurizr/structurizr-export/src/test/resources",
-);
-
 /**
  * Every workspace whose views the engine has to draw (spec 15.3): the
  * Structurizr examples, the large landscape, the purpose-built workspace and
@@ -35,18 +28,15 @@ const STRUCTURIZR_RESOURCES = join(
 export const ACCEPTANCE_SET = [
     {
         name: "Big Bank plc",
-        source: join(STRUCTURIZR_RESOURCES, "big-bank-plc.json"),
-        submodule: true,
+        source: join(REPO_ROOT, "test/__fixtures__/big-bank-plc.json"),
     },
     {
         name: "groups",
-        source: join(STRUCTURIZR_RESOURCES, "groups.json"),
-        submodule: true,
+        source: join(REPO_ROOT, "test/__fixtures__/groups.json"),
     },
     {
         name: "Amazon Web Services",
-        source: join(STRUCTURIZR_RESOURCES, "amazon-web-services.json"),
-        submodule: true,
+        source: join(REPO_ROOT, "test/__fixtures__/amazon-web-services.json"),
     },
     {
         // Big Bank with every view's separations at 100 instead of 300:
@@ -54,18 +44,15 @@ export const ACCEPTANCE_SET = [
         // each other unless the engine makes room for them (spec 7.1, 8).
         name: "Big Bank plc (tight)",
         source: join(REPO_ROOT, "test/__fixtures__/big-bank-plc-tight.json"),
-        submodule: false,
     },
     {
         name: "Renderizr",
         source: join(REPO_ROOT, "architecture/workspace.json"),
-        submodule: false,
     },
     {
         // One stored-layout view per edge-routing case of spec 10.
         name: "Edge routing",
         source: join(REPO_ROOT, "test/__fixtures__/edge-routing.json"),
-        submodule: false,
     },
     {
         // Stored-layout views with unplaced elements (spec 7.2), each placed
@@ -73,19 +60,16 @@ export const ACCEPTANCE_SET = [
         // of the view when every slot is taken.
         name: "Unplaced elements",
         source: join(REPO_ROOT, "test/__fixtures__/unplaced-elements.json"),
-        submodule: false,
     },
     {
         // The filtered, custom and image views of spec 12.
         name: "View types",
         source: join(REPO_ROOT, "test/__fixtures__/view-types.json"),
-        submodule: false,
     },
     {
         // The dynamic and static animations of spec 11.
         name: "Animation",
         source: join(REPO_ROOT, "test/__fixtures__/animation.json"),
-        submodule: false,
     },
     {
         // structurizr/ui's Big Bank, every view with its stored layout: the
@@ -93,14 +77,12 @@ export const ACCEPTANCE_SET = [
         // Structurizr's editor saves were never drawn here (#72).
         name: "Big Bank plc (stored layout)",
         source: join(REPO_ROOT, "test/__fixtures__/big-bank-plc-stored.json"),
-        submodule: false,
     },
     {
         // Elements, boundaries and relationships with none, one or several
         // targets and their indicators (spec 6.1, 9.2, 10.9).
         name: "Activation targets",
         source: join(REPO_ROOT, "test/__fixtures__/activation-targets.json"),
-        submodule: false,
     },
     {
         // The large fixture of spec 15.3: 300 elements, 600 relationships and
@@ -109,7 +91,6 @@ export const ACCEPTANCE_SET = [
         // 5 s where an ordinary view has 2 s.
         name: "Large landscape",
         source: join(REPO_ROOT, "test/__fixtures__/large-landscape.json"),
-        submodule: false,
         readyWithinMs: 5000,
     },
     {
@@ -121,7 +102,6 @@ export const ACCEPTANCE_SET = [
         // export.js merges the DSL into it again.
         name: "Acceptance",
         source: join(REPO_ROOT, "test/__fixtures__/acceptance/workspace.json"),
-        submodule: false,
     },
 ];
 
@@ -179,14 +159,6 @@ function withCopiedIcon({ icon, ...style }, icons) {
     if (!type || !existsSync(file)) return style;
     const data = readFileSync(file).toString("base64");
     return { ...style, icon: `data:${type};base64,${data}` };
-}
-
-/** Why `entry` cannot be built here, or null when it can. */
-export function missingReason(entry) {
-    if (existsSync(entry.source)) return null;
-    return entry.submodule
-        ? `${entry.name}: submodules/structurizr is not checked out; run git submodule update --init --checkout submodules/structurizr`
-        : `${entry.name}: ${entry.source} is missing`;
 }
 
 /**

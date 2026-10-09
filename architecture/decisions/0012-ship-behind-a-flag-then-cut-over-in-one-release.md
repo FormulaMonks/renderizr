@@ -4,7 +4,9 @@ Date: 2026-10-02
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [20. Commit the Structurizr test workspaces in place of the submodule](0020-commit-the-structurizr-test-workspaces-in-place-of-the-submodule.md).
 
 References [2. Draw diagrams from workspace semantics](0002-draw-diagrams-from-workspace-semantics.md): diagrams look different, so the cutover is a major version.
 

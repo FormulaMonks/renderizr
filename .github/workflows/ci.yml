@@ -38,14 +38,9 @@
 # .nvmrc/.mise.toml pin 24 for development; that is the toolchain, not the
 # supported range.
 #
-# Only the e2e and contact sheet jobs check out the submodule.
-# `submodules/structurizr` is an upstream reference checkout; lint, typecheck,
-# test and the build itself all pass without it. e2e wants it because it carries pinned, committed copies of the Big Bank plc,
-# groups and Amazon Web Services workspaces
-# (structurizr-export/src/test/resources/), which lets the end-to-end render
-# and the acceptance set run off disk instead of reaching for the network.
-# Without it, the `test` job's run of test/acceptance.test.js skips those
-# three workspaces with a reason and checks Renderizr's own.
+# test/__fixtures__/ holds byte-for-byte copies of Structurizr's Big Bank plc,
+# groups and Amazon Web Services workspaces, so the end-to-end render and the
+# acceptance set run off disk instead of reaching for the network.
 #
 # `edited` is in the pull_request trigger list — which the default (opened,
 # synchronize, reopened) does not include — so that editing a pull request
@@ -76,9 +71,9 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  # Committed, pinned by the submodule gitlink, and the same workspace the
-  # README tells people to try first.
-  BIG_BANK: submodules/structurizr/structurizr-export/src/test/resources/big-bank-plc.json
+  # Committed, a byte-for-byte copy of Structurizr's, and the same workspace
+  # the README tells people to try first.
+  BIG_BANK: test/__fixtures__/big-bank-plc.json
   PNPM_VERSION: "11"
 
 jobs:
@@ -209,11 +204,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      # `.gitmodules` sets `update = none` so `npx` skips the submodule, which
-      # makes `submodules: true` skip it as well. `--checkout` overrides that.
-      - name: Check out the structurizr submodule
-        run: git submodule update --init --checkout --depth=1 submodules/structurizr
 
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -442,11 +432,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # `.gitmodules` sets `update = none` so `npx` skips the submodule, which
-      # makes `submodules: true` skip it as well. `--checkout` overrides that.
-      - name: Check out the structurizr submodule
-        run: git submodule update --init --checkout --depth=1 submodules/structurizr
-
       - name: Check whether the pull request touches the engine
         id: engine
         run: |
@@ -494,9 +479,8 @@ jobs:
   # dev toolchain, no Biome, no TypeScript — just the runtime dependencies and
   # `node scripts/build.js`, which is the `renderizr` bin.
   #
-  # The fixture is the committed one rather than the submodule's Big Bank, so
-  # this job needs neither a submodule checkout nor the network — the same two
-  # things a user on a locked-down machine will not have either.
+  # The fixture is committed, so this job needs no network, which a user on a
+  # locked-down machine will not have either.
   consumer:
     name: consumer (node 20, npm)
     runs-on: ubuntu-latest

@@ -4,10 +4,6 @@
 # pack covers `src/`, `scripts/` and the workflows' own JS. Nothing is compiled
 # to analyze, so `build-mode: none` is the correct mode and there is no build
 # step to keep in step with CI.
-#
-# `submodules/` is an upstream checkout (and is not even fetched by this
-# workflow). Alerts in it would be reports against someone else's code that no
-# pull request here could fix, so it is excluded.
 
 name: codeql
 
@@ -49,8 +45,6 @@ jobs:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The submodule is not analyzed, so do not spend a 76 MB fetch on it.
-          submodules: false
           persist-credentials: false
 
       - name: Initialize CodeQL
@@ -64,7 +58,6 @@ jobs:
           queries: security-extended
           config: |
             paths-ignore:
-              - submodules
               - dist
               - output
               - structurizr-output

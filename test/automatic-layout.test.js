@@ -11,7 +11,6 @@ import { REPO_ROOT } from "../scripts/__fixtures__/helpers.js";
 import {
     ACCEPTANCE_SET,
     INVALID_SET,
-    missingReason,
     prepareWorkspace,
 } from "./support/acceptance.js";
 import { expectedDrawing, isAutomatic } from "./support/engine-checks.js";
@@ -570,9 +569,8 @@ test("a large view still keeps its elements apart and ranked along its edges", (
 const FIXTURES = join(REPO_ROOT, "test/__fixtures__");
 
 /**
- * Every committed workspace with views to lay out: the acceptance set,
- * submodule workspaces included, and every other workspace among the test
- * fixtures. The workspaces the build refuses lay nothing out.
+ * Every committed workspace with views to lay out: the acceptance set and
+ * every other workspace among the test fixtures. The workspaces the build refuses lay nothing out.
  */
 const LAID_OUT = [
     ...ACCEPTANCE_SET,
@@ -581,7 +579,6 @@ const LAID_OUT = [
         .map((file) => ({
             name: `test/__fixtures__/${file}`,
             source: join(FIXTURES, file),
-            submodule: false,
         }))
         .filter(
             ({ source }) =>
@@ -610,16 +607,6 @@ function rankedGraph(expected) {
 // ADR 14 promises that every ordinary automatic view keeps the ranker, and
 // so the layout, it had before the large landscape needed tight-tree.
 for (const entry of LAID_OUT) {
-    const skip = missingReason(entry);
-    if (skip) {
-        test(
-            `every automatic view of ${entry.name} is ranked by network-simplex`,
-            {
-                skip,
-            },
-        );
-        continue;
-    }
     const model = new WorkspaceModel(prepareWorkspace(entry));
     const ranker =
         entry.source === LARGE_LANDSCAPE_FIXTURE

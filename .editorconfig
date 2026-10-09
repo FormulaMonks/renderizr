@@ -39,9 +39,9 @@ indent_size = 2
 [.husky/*]
 indent_size = 2
 
-# Upstream code and generated architecture files, kept byte-for-byte.
-# biome.json ignores these same two paths.
-[{submodules,architecture}/**]
+# Generated architecture files and the workspaces copied from Structurizr, kept
+# byte-for-byte. biome.json ignores the copies and architecture/workspace.json.
+[{architecture/**,test/__fixtures__/big-bank-plc.json,test/__fixtures__/groups.json,test/__fixtures__/amazon-web-services.json}]
 charset = unset
 end_of_line = unset
 indent_style = unset

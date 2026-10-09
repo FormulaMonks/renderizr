@@ -246,12 +246,6 @@ Installing the hooks is a separate step rather than a `prepare` script: `prepare
 
 For the same reason the script that renders a workspace is `render`. npm prepares a git dependency with a full `npm install --include dev` whenever its `package.json` has a `build`, `prepare`, `prepack`, `install`, `preinstall` or `postinstall` script, and that adds about 20 seconds to a cold `npx`. `scripts/install.test.js` fails if one of those names comes back.
 
-The Structurizr submodule is optional: only the acceptance tests read workspaces from it, and they skip those workspaces when it is absent. `.gitmodules` keeps it out of recursive clones, so `npx` never downloads it. Check it out to run the acceptance tests:
-
-```bash
-git submodule update --init --checkout submodules/structurizr
-```
-
 ### Dev server
 
 ```bash

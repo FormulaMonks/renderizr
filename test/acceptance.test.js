@@ -12,8 +12,7 @@
  * the other test files, which `node --test` runs side by side: their builds
  * and Chromes would otherwise share the runner with the timed views.
  *
- * Skips with a reason when Chrome is missing, and per workspace when the
- * Structurizr submodule is.
+ * Skips with a reason when Chrome is missing.
  */
 
 import assert from "node:assert/strict";
@@ -24,7 +23,6 @@ import { after } from "node:test";
 import {
     ACCEPTANCE_SET,
     buildForAcceptance,
-    missingReason,
     prepareWorkspace,
     viewKeys,
     viewUrl,
@@ -183,8 +181,7 @@ async function drawView(site, key, readyWithin) {
 }
 
 for (const entry of ACCEPTANCE_SET) {
-    const skip = NO_CHROME || missingReason(entry);
-    const workspace = skip ? null : prepareWorkspace(entry);
+    const workspace = NO_CHROME ? null : prepareWorkspace(entry);
     const keys = workspace ? viewKeys(workspace) : [];
     const model = workspace ? new WorkspaceModel(workspace) : null;
     const readyWithin = entry.readyWithinMs ?? READY_WITHIN_MS;
@@ -206,9 +203,9 @@ for (const entry of ACCEPTANCE_SET) {
         return drawn;
     };
 
-    if (skip) {
+    if (NO_CHROME) {
         test(`every view of ${entry.name} is drawn as the workspace says`, {
-            skip,
+            skip: NO_CHROME,
         });
         continue;
     }

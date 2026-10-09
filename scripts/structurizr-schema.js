@@ -6,14 +6,14 @@
 
 // This schema describes the keys that survive a Structurizr read followed by a Structurizr write.
 //
-// Source: submodules/structurizr (structurizr/structurizr v6.2.2), modules structurizr-core and
-// structurizr-client. Every path below is relative to submodules/structurizr/.
+// Source: github.com/structurizr/structurizr at v6.2.2, modules structurizr-core and
+// structurizr-client. Every path below is relative to that repository's root.
 //   core = structurizr-core/src/main/java/com/structurizr
 //
 // We derived it in three steps:
 //   1. We read the Java classes and the Jackson config in
 //      structurizr-client/src/main/java/com/structurizr/io/json/{AbstractJsonReader,AbstractJsonWriter}.java.
-//   2. We compiled the submodule's core sources plus io/json against the Jackson jars Structurizr
+//   2. We compiled its core sources plus io/json against the Jackson jars Structurizr
 //      2026.09.19 ships (jackson-databind 2.21.2, jackson-annotations 2.21) and asked Jackson for the
 //      BeanDeserializer properties (read) and BeanSerializer properties (write) of every reachable type.
 //   3. We round-tripped the repo fixtures plus a hand-made edge-case workspace through JsonReader and
@@ -814,7 +814,8 @@ STRUCTURIZR_TYPES.AutomaticLayout.implementation =
 STRUCTURIZR_TYPES.AutomaticLayout.applied = "value";
 
 /*
- * Answers to the "Also report" questions. Paths are relative to submodules/structurizr/;
+ * Answers to the "Also report" questions. Paths are relative to the root of
+ * github.com/structurizr/structurizr at v6.2.2;
  * client = structurizr-client/src/main/java/com/structurizr, core = structurizr-core/src/main/java/com/structurizr,
  * app = structurizr-application/src/main/java/com/structurizr.
  *

@@ -27,7 +27,7 @@ The [architecture site](https://formulamonks.github.io/renderizr/) carries a sho
 | --- | --- | --- |
 | Node | 22.13 or newer | pnpm 11 imports `node:sqlite`, which needs 22.13. Renderizr itself runs on Node 20 or newer: `scripts/build.js` refuses to run below 20 — it needs a global `fetch` and `util.parseArgs` defaults. `package.json` declares `"engines": { "node": ">=20" }`. On 20.0–20.5 the `test/` suite skips itself loudly, because importing `src/` needs `module.register`, which landed in 20.6 |
 | pnpm | 11 | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
-| git | any | The repository has one submodule |
+| git | any | To clone the repository |
 
 That is the whole list. No IDE is required, no JDK, no global CLI.
 
@@ -46,22 +46,9 @@ If you would rather not install mise, use any Node 22.13+ and pnpm 11 you alread
 ```bash
 git clone https://github.com/FormulaMonks/renderizr.git
 cd renderizr
-git submodule update --init --checkout submodules/structurizr
 ```
 
-The last command needs `--checkout`. `.gitmodules` sets `update = none` on the submodule, so `git clone --recurse-submodules` and a plain `git submodule update --init` both skip it. The section below explains why.
-
-### About the submodule
-
-`submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr). It is **optional for day-to-day work**: install, dev, build, test and lint all pass on a clone with an empty `submodules/` directory. The acceptance harness and the end-to-end test read three workspaces from it (Big Bank plc, groups and Amazon Web Services) and skip them, with a reason, when it is absent. Check it out to run them:
-
-```bash
-git submodule update --init --checkout submodules/structurizr
-```
-
-`.gitmodules` sets `update = none` because npm clones a git dependency with `--recurse-submodules`. Without it, every cold `npx github:FormulaMonks/renderizr` downloads the whole Structurizr repository before the CLI starts.
-
-The same setting means `git pull` and a plain `git submodule update` leave the submodule where it is when the gitlink moves. Run the `--checkout` command again after a change that bumps it.
+The clone holds everything the tests need. The Big Bank plc, groups and Amazon Web Services workspaces the acceptance harness draws are unmodified copies from [structurizr/structurizr](https://github.com/structurizr/structurizr), committed under `test/__fixtures__/`. The repository has no submodule, because npm clones a git dependency with `--recurse-submodules`, and every cold `npx github:FormulaMonks/renderizr` would download it before the CLI starts. `scripts/install.test.js` fails if one comes back.
 
 ## Install
 
@@ -132,7 +119,7 @@ Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm rend
 
 ### Lint and format
 
-Biome is the only linter and the only formatter: no ESLint, no Prettier. The settings that matter: 4-space indent, `submodules/` and `architecture/` excluded, `.gitignore` respected. See `biome.json`.
+Biome is the only linter and the only formatter: no ESLint, no Prettier. The settings that matter: 4-space indent, `architecture/` and the workspaces copied from Structurizr excluded, `.gitignore` respected. See `biome.json`.
 
 ```bash
 pnpm exec biome check .            # what's wrong
@@ -235,7 +222,6 @@ Either way the checks still run in CI — the switches save you time locally, th
 scripts/        the build pipeline — plain ESM JavaScript, no TypeScript, runs on Node
 src/            the single-page app that ships in the output — TypeScript, bundled by Vite
 test/           the tests for src/, plus the DOM and module-hook harness they run on
-submodules/     upstream sources, for the acceptance fixtures only
 architecture/   Renderizr's own Structurizr workspace, which the dev server renders by default
 public/         static files copied into every build (currently the favicon)
 ```
@@ -327,7 +313,7 @@ srcTest("renders one entry per view", () => {
 
 `test/e2e.test.js` goes further and runs a real `--single-file` build in headless Chrome. It skips itself with a message when no Chrome-shaped binary is on the machine, so it never fails a clone that has none.
 
-`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. The harness skips workspaces from `submodules/structurizr`, with a reason, when the submodule is absent. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. The harness opens views one Chrome at a time, so that it measures the 2 s budget in wall-clock time from outside the page: virtual time fakes every clock inside it. For the same reason `pnpm test` runs this file alone, once every other test file has finished. `node --test` runs files in parallel, and a Vite build or another Chrome on the same runner slows a view by a second or more, which a view under test cannot help.
+`test/acceptance.test.js` is the React Flow engine's acceptance harness. It builds every workspace in the acceptance set (`test/support/acceptance.js`) with `RENDERIZR_ENGINE_REPORT=1`, which makes the engine write the geometry it drew into `<script type="application/json" id="engine-report">`, opens each view in headless Chrome and holds the report to the rules in `test/support/engine-checks.js`. A check the engine cannot meet yet carries a `pending` reason in `CHECKS` naming the ticket that closes it, and runs as a todo until then. The harness opens views one Chrome at a time, so that it measures the 2 s budget in wall-clock time from outside the page: virtual time fakes every clock inside it. For the same reason `pnpm test` runs this file alone, once every other test file has finished. `node --test` runs files in parallel, and a Vite build or another Chrome on the same runner slows a view by a second or more, which a view under test cannot help.
 
 To review every acceptance view by eye:
 

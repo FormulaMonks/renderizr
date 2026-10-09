@@ -8,7 +8,7 @@ This section takes you from a fresh clone to a merged pull request. Bug reports,
 | --- | --- | --- |
 | Node | 22.13 or newer | pnpm 11 needs it. Renderizr itself runs on Node 20 or newer, and CI checks that floor with npm in a separate job |
 | pnpm | 11 | The lockfile is `pnpm-lock.yaml`, and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn drift the lockfile |
-| git | any | The repository has one optional submodule |
+| git | any | To clone the repository |
 
 Development runs on Node 24, which `.mise.toml` pins and `mise.lock` resolves. With [mise](https://mise.jdx.dev) installed, `mise install` in the repository root gets you the exact Node and pnpm the maintainers use. Any Node and pnpm that meet the table work too; nothing in the build reads mise.
 
@@ -23,15 +23,9 @@ pnpm hooks
 
 `pnpm hooks` installs the git hooks, once per clone. It stays a separate step because a `prepare` script runs whenever a package manager installs a package from a git URL, and `npx github:FormulaMonks/renderizr` does exactly that. Confirm the hooks took with `git config --get core.hooksPath`, which prints `.husky/_`.
 
-### The submodule
+### The test workspaces
 
-`submodules/structurizr` tracks [structurizr/structurizr](https://github.com/structurizr/structurizr). Install, dev, build, test and lint all pass without it. Only the acceptance harness and the end-to-end test read workspaces from it, and they skip those workspaces with a reason when it is absent. Check it out to run them:
-
-```bash
-git submodule update --init --checkout submodules/structurizr
-```
-
-The command needs `--checkout`. `.gitmodules` sets `update = none` on the submodule, because npm clones a git dependency with `--recurse-submodules`, and every cold `npx` would otherwise download the whole Structurizr repository. The same setting means `git pull` leaves the submodule where it is when the gitlink moves: run the command again after a change that bumps it.
+The clone holds everything the tests need. The Big Bank plc, groups and Amazon Web Services workspaces the acceptance harness draws are unmodified copies from [structurizr/structurizr](https://github.com/structurizr/structurizr), committed under `test/__fixtures__/`. The repository keeps no submodule, because npm clones a git dependency with `--recurse-submodules`, and every cold `npx` would download it before the CLI starts.
 
 ## The dev server
 
@@ -70,7 +64,7 @@ pnpm render architecture/workspace.json --single-file
 
 `pnpm architecture:merge` and `pnpm fixtures:acceptance` find Structurizr's tools the way [edit mode](02-usage.md#structurizrs-tools-for-a-dsl-session) does: `STRUCTURIZR_CLI` as a whole command, or `structurizr-cli` on the `PATH`.
 
-Biome is the only linter and the only formatter. It indents with 4 spaces, skips `submodules/` and `architecture/`, and respects `.gitignore`; `biome.json` holds the rest.
+Biome is the only linter and the only formatter. It indents with 4 spaces, skips `architecture/` and the workspaces copied from Structurizr, and respects `.gitignore`; `biome.json` holds the rest.
 
 ### Git hooks
 
