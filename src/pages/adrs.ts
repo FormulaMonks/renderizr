@@ -31,6 +31,17 @@ const storedGraphState = (): DecisionGraphState =>
         ? "expanded"
         : "collapsed";
 
+/** How far apart the index's columns sit: wider than the menu's. */
+const INDEX_COLUMN_WIDTH = 16;
+
+/**
+ * How many columns the index's decision graph may take: half the index's
+ * width, so the titles keep the other half. Never less than the column the
+ * lone dots sit in.
+ */
+export const indexColumnCap = (width: number) =>
+    Math.max(1, Math.floor(width / 2 / INDEX_COLUMN_WIDTH));
+
 /** Decisions that still govern anything — amended ones still mostly do. */
 const IN_FORCE = new Set(["accepted", "amended"]);
 
@@ -64,9 +75,10 @@ export default class Decisions extends Page {
     #currentDecision: Decision | null = null;
     // Held directly rather than looked up by class name: the minifier renames
     // classes, so `components.get("Menu")` is undefined in a built file — which
-    // is why every link out of the summary used to do nothing.
+    // is why every link out of the old summary used to do nothing.
     #menu: Menu<Decision> | null = null;
     #graph: DecisionGraph | null = null;
+    #indexGraph: DecisionGraph | null = null;
     #resolveLink: LinkResolver | null;
 
     constructor(
@@ -169,10 +181,11 @@ export default class Decisions extends Page {
 
     /**
      * The question a reader arrives with is "which of these still stand?", and
-     * no single decision answers it. So the landing page is the whole set:
-     * number, title, date and status, grouped by year, in one screen.
+     * no single decision answers it. So the landing page is the whole set, as
+     * the menu's rows enlarged: number, status and full title under a heading
+     * per year, beside the decision graph with every lane.
      */
-    #renderSummary() {
+    #renderIndex() {
         const byYear = new Map<string, Decision[]>();
         for (const decision of this.#decisions) {
             const year = decision.date
@@ -185,28 +198,27 @@ export default class Decisions extends Page {
             IN_FORCE.has((d.status ?? "").trim().toLowerCase()),
         ).length;
 
+        // The date is the row's tooltip, so the row stays as compact as the
+        // menu's.
+        const row = (d: Decision) => `
+            <li>
+                <a class="${styles.indexRow}" href="#${d.id}" data-item-id="${d.id}" title="${longDate(d.date)}">${numberSpan(d.id)}<span class="${styles.indexStatus} ${statusClass(d.status)}">${d.status || "Unknown"}</span><span class="${styles.indexTitle}">${d.title}</span></a>
+            </li>`;
+
         return `
-            <div class="${styles.summary}">
-                <h2>Decisions</h2>
-                <p class="${styles.summaryIntro}">${this.#decisions.length} recorded, ${inForce} currently in force.</p>
-                ${[...byYear]
-                    .map(
-                        ([year, decisions]) => `
-                    <h3 class="${styles.year}">${year}</h3>
-                    <ul class="${styles.summaryList}">
-                        ${decisions
-                            .map(
-                                (d) => `
-                            <li class="${styles.summaryRow}">
-                                <a href="#${d.id}">${this.#decisionTitle(d)}</a>
-                                <span class="${styles.date}">${longDate(d.date)}</span>
-                                ${statusPill(d.status ?? "")}
-                            </li>`,
-                            )
-                            .join("")}
-                    </ul>`,
-                    )
-                    .join("")}
+            <h2>Decisions</h2>
+            <p class="${styles.indexIntro}">${this.#decisions.length} recorded, ${inForce} in force</p>
+            <div class="${styles.rows}">
+                <div id="adrs-index-graph"></div>
+                <div class="${styles.indexEntries}" data-index-rows>
+                    ${[...byYear]
+                        .map(
+                            ([year, decisions]) => `
+                        <h3 class="${styles.year}">${year}</h3>
+                        <ul class="${styles.indexList}">${decisions.map(row).join("")}</ul>`,
+                        )
+                        .join("")}
+                </div>
             </div>
         `;
     }
@@ -216,16 +228,36 @@ export default class Decisions extends Page {
             this.#menu?.setActive(decision);
         } else {
             this.#currentDecision = null;
-            this.#showSummary();
+            this.#showIndex();
         }
     }
 
-    #showSummary() {
+    /**
+     * The index and an open decision take turns: the index hides the menu,
+     * and an open decision hides the index.
+     */
+    #showView(view: "index" | "decision") {
+        const index = view === "index";
+        for (const [id, hidden] of [
+            ["adrs-index", !index],
+            ["adrs-menu", index],
+            ["decision", index],
+        ] as const) {
+            const section = document.getElementById(id);
+            if (section) section.hidden = hidden;
+        }
+        // A graph that was hidden measured nothing; draw it where it is now.
+        if (index) this.#indexGraph?.setHover(null);
+        (index ? this.#indexGraph : this.#graph)?.draw();
+    }
+
+    #showIndex() {
         const title = document.getElementById("decision-title");
         const content = document.getElementById("decision-content");
         if (title) title.innerHTML = "";
-        if (content) content.innerHTML = this.#renderSummary();
+        if (content) content.innerHTML = "";
         this.#graph?.setOpen(null);
+        this.#showView("index");
 
         const search = new URLSearchParams(history.location.search);
         if (search.has("adr")) {
@@ -238,9 +270,17 @@ export default class Decisions extends Page {
     render() {
         if (!this.container) return;
 
+        this.#currentDecision = this.#getAdrFromUrl() ?? null;
+        // The first view shows at once, before the deferred first paint, so
+        // a deep link never flashes the index.
+        const opening = this.#currentDecision !== null;
+
         this.container!.innerHTML = `
             <div class="${styles.adrs}">
-                <section id="adrs-menu" class="${styles.menu}">
+                <section id="adrs-index" class="${styles.index}"${opening ? " hidden" : ""}>
+                    ${this.#renderIndex()}
+                </section>
+                <section id="adrs-menu" class="${styles.menu}"${opening ? "" : " hidden"}>
                     <div id="adrs-controls" class="${styles.controls}">
                         <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
                         <button type="button" id="adrs-expand" class="${styles.expand}" aria-controls="adrs-graph"></button>
@@ -251,7 +291,7 @@ export default class Decisions extends Page {
                         </div>
                     </div>
                 </section>
-                <section id="decision" class="${styles.decision}">
+                <section id="decision" class="${styles.decision}"${opening ? "" : " hidden"}>
                     <div id="decision-title"></div>
                     <div id="decision-content"></div>
                 </section>
@@ -287,7 +327,26 @@ export default class Decisions extends Page {
         // none to sit beside.
         menu.onRedraw(() => graph.draw());
 
-        this.#currentDecision = this.#getAdrFromUrl() ?? null;
+        // The index is always expanded, with wider columns and no toggle.
+        const indexRows = document.querySelector<HTMLElement>(
+            "#adrs-index [data-index-rows]",
+        )!;
+        // Held apart from the page's components, which are keyed by class
+        // name and would lose the menu's decision graph to this one.
+        const indexGraph = new DecisionGraph(
+            document.getElementById("adrs-index-graph")!,
+            indexRows,
+            { columnWidth: INDEX_COLUMN_WIDTH },
+        );
+        this.#indexGraph = indexGraph;
+        indexGraph.setState("expanded");
+        indexGraph.setLayout(layoutDecisionGraph(this.#decisions));
+        indexRows.addEventListener("mouseover", this.#handleIndexPoint);
+        indexRows.addEventListener("focusin", this.#handleIndexPoint);
+        indexRows.addEventListener("mouseleave", this.#handleIndexLeave);
+        indexRows.addEventListener("focusout", this.#handleIndexLeave);
+        indexRows.addEventListener("click", this.#handleIndexClick);
+
         const decisionViewer = this.addComponent(
             new MarkdownRenderer(document.getElementById("decision-content")!),
         );
@@ -299,6 +358,7 @@ export default class Decisions extends Page {
             decisionViewer.setContent(item.content);
             this.#renderTitle();
             graph.setOpen(item.id);
+            this.#showView("decision");
             this.#setAdrInUrl(item);
             window.scrollTo({ top: 0 });
         });
@@ -312,6 +372,7 @@ export default class Decisions extends Page {
             ?.addEventListener("click", this.#handleExpandClick);
 
         this.renderAllComponents();
+        indexGraph.render();
 
         // Wait until menu is rendered
         window.setTimeout(() => {
@@ -319,12 +380,36 @@ export default class Decisions extends Page {
                 menu.setActive(this.#currentDecision);
                 this.#renderTitle();
             } else {
-                this.#showSummary();
+                this.#showIndex();
             }
         }, 100);
     }
 
     #handleSummaryClick = () => this.#select(null);
+
+    /** The row under the pointer or the focus, if any. */
+    #indexRowOf = (event: Event) =>
+        (event.target as HTMLElement | null)?.closest<HTMLElement>(
+            "a[data-item-id]",
+        ) ?? null;
+
+    /** Pointing at a row lights its edges; a year heading lights nothing. */
+    #handleIndexPoint = (event: Event) =>
+        this.#indexGraph?.setHover(
+            this.#indexRowOf(event)?.dataset.itemId ?? null,
+        );
+
+    /** Nothing dims while no row is pointed at. */
+    #handleIndexLeave = () => this.#indexGraph?.setHover(null);
+
+    /** A row opens its decision, whatever its id looks like. */
+    #handleIndexClick = (event: Event) => {
+        const id = this.#indexRowOf(event)?.dataset.itemId;
+        const decision = this.#decisions.find((d) => d.id === id);
+        if (!decision) return;
+        event.preventDefault();
+        this.#select(decision);
+    };
 
     #handleExpandClick = () => {
         if (!this.#graph) return;
@@ -352,8 +437,18 @@ export default class Decisions extends Page {
 
     clear(): void {
         this.removeAllComponents();
+        this.#indexGraph?.clear();
         this.#menu = null;
         this.#graph = null;
+        this.#indexGraph = null;
+        const indexRows = document.querySelector(
+            "#adrs-index [data-index-rows]",
+        );
+        indexRows?.removeEventListener("mouseover", this.#handleIndexPoint);
+        indexRows?.removeEventListener("focusin", this.#handleIndexPoint);
+        indexRows?.removeEventListener("mouseleave", this.#handleIndexLeave);
+        indexRows?.removeEventListener("focusout", this.#handleIndexLeave);
+        indexRows?.removeEventListener("click", this.#handleIndexClick);
         this.container?.removeEventListener("click", this.#handleDecisionLink);
         document
             .getElementById("adrs-summary")

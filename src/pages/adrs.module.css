@@ -23,7 +23,7 @@
 }
 
 /* A decision's four-digit number, muted and monospaced as in the menu, so the
-title reads first and numbers line up down the summary. */
+title reads first and numbers line up down the index. */
 .number {
     font-family: var(--font-mono);
     font-size: 0.85em;
@@ -116,10 +116,22 @@ in reach however far the reader scrolls the menu. */
     }
 }
 
-/* ---- summary index ---- */
+/* ---- index ---- */
 
-.summary {
-    min-width: 0;
+/* The index and an open decision take turns, and the sections' own display
+rules would otherwise show a hidden one anyway. */
+.index[hidden],
+.menu[hidden],
+.decision[hidden] {
+    display: none;
+}
+
+/* The menu's rows, enlarged, in a centered list with room to read the whole
+decision graph at once. */
+.index {
+    width: 100%;
+    max-width: 70rem;
+    margin: 0 auto;
     padding-bottom: 2rem;
 
     h2 {
@@ -129,64 +141,99 @@ in reach however far the reader scrolls the menu. */
     }
 }
 
-.summaryIntro {
+.indexIntro {
     color: var(--color-muted);
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
+.indexEntries {
+    flex: 1;
+    min-width: 0;
+}
+
+/* A heading per year; the lanes run straight through the gap it leaves. */
 .year {
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     color: var(--color-muted);
-    margin: 2rem 0 0.5rem;
+    padding: 1.5rem 0.75rem 0.25rem;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 0.25rem;
 }
 
-.summaryList {
+.year:first-child {
+    padding-top: 0.5rem;
+}
+
+.indexList {
     list-style: none;
     display: flex;
     flex-direction: column;
-    border-top: 1px solid var(--color-border);
+    gap: 0.25rem;
 }
 
-.summaryRow {
-    list-style: none;
-    display: flex;
+/* Number, status and title in fixed columns, so the numbers and the titles
+line up down the page. The title is never cut off. */
+.indexRow {
+    display: grid;
+    grid-template-columns: 3.2rem 7.5rem 1fr;
     align-items: baseline;
-    gap: 1rem;
-    padding: 0.7rem 0;
-    border-bottom: 1px solid var(--color-border);
+    font-size: 1rem;
+    line-height: 1.45;
+    padding: 0.55rem 0.75rem;
+    border-radius: 4px;
+    color: var(--color-foreground);
+    text-decoration: none;
 
-    & a {
-        font-weight: 600;
-        min-width: 0;
-    }
-
-    & .date {
-        flex: 1;
-        text-align: right;
-        white-space: nowrap;
-    }
-
-    & .status {
-        margin-top: 0;
-        flex: none;
+    &:hover,
+    &:focus-visible {
+        background: var(--color-surface);
     }
 }
 
+/* The full title, wrapping rather than cut off, even a long unbroken word. */
+.indexTitle {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The status in its own color, quiet beside the title. */
+.indexStatus {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-superseded);
+}
+
+.indexStatus.accepted {
+    color: var(--color-accepted);
+}
+
+.indexStatus.amended {
+    color: var(--color-amended);
+}
+
+.indexStatus.draft {
+    color: var(--color-draft);
+}
+
+.indexStatus.superseded {
+    color: var(--color-superseded-strong);
+}
+
+/* A phone keeps the index's layout, with narrower columns, so the titles
+keep room beside the decision graph. */
 @media (max-width: 599px) {
-    .summaryRow {
-        flex-wrap: wrap;
-        gap: 0.35rem 0.75rem;
+    .indexRow {
+        grid-template-columns: 2.6rem 5.25rem 1fr;
+        font-size: 0.9rem;
+        padding: 0.45rem 0.4rem;
+    }
 
-        & a {
-            flex-basis: 100%;
-        }
-
-        & .date {
-            flex: none;
-            text-align: left;
-        }
+    .indexStatus {
+        font-size: 0.6rem;
     }
 }
 
