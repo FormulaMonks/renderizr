@@ -702,6 +702,86 @@ test("nothing lights or dims until a decision opens", () => {
     assert.deepEqual(dimmed(), []);
 });
 
+/* --------------------------------------- the cap and the reference column -- */
+
+/**
+ * The versioned decision graph fixture: its newest decision, 46, builds on 35
+ * others, more lanes than the menu's 30 columns hold.
+ */
+const GRAPH_DECISIONS = JSON.parse(
+    readFileSync(
+        new URL("./__fixtures__/decision-graph.json", import.meta.url),
+        "utf-8",
+    ),
+).documentation.decisions;
+
+/** Where every dot sits and how wide the graph is, to compare two draws. */
+const geometry = () => ({
+    width: graph().querySelector("svg").getAttribute("width"),
+    dots: document
+        .querySelectorAll('#adrs-menu [data-mark="dot"]')
+        .map(
+            (dot) =>
+                `${dot.getAttribute("data-decision")} ${dot.getAttribute("cx")}`,
+        ),
+});
+
+test("past the menu's cap, references open no lanes and only supersede and amend lanes remain", () => {
+    renderPage(GRAPH_DECISIONS);
+    expand();
+
+    assert.equal(graph().getAttribute("data-fallback"), "lineage");
+    assert.ok(marks("stretch").length > 0, "supersede and amend lanes draw");
+    assert.deepEqual(
+        [...marks("stretch"), ...marks("join")].filter(
+            (mark) => mark.kind === "reference",
+        ),
+        [],
+        "no reference joins a lane or runs up one",
+    );
+    assert.deepEqual(marks("edge"), [], "the reference column stays empty");
+});
+
+test("past the menu's cap, the reference column carries the open decision's references in full", () => {
+    renderPage(GRAPH_DECISIONS);
+    expand();
+
+    open("8");
+
+    assert.deepEqual(
+        marks("edge").map(({ kind, from, to, lane }) => ({
+            kind,
+            from,
+            to,
+            lane,
+        })),
+        [
+            { kind: "reference", from: "8", to: "2", lane: null },
+            { kind: "reference", from: "8", to: "5", lane: null },
+        ],
+    );
+    assert.ok(
+        document
+            .querySelectorAll('#adrs-menu [data-mark="edge"]')
+            .every((edge) => edge.hasAttribute("data-highlighted")),
+        "every reference on the column lights",
+    );
+    assert.ok(lit().includes("dot 2") && lit().includes("dot 5"));
+
+    open("46");
+    assert.equal(marks("edge").length, 36, "every reference 46 makes");
+});
+
+test("opening a decision never moves a column", () => {
+    renderPage(GRAPH_DECISIONS);
+    expand();
+    const closed = geometry();
+
+    open("46");
+
+    assert.deepEqual(geometry(), closed);
+});
+
 test("the expand toggle's state survives a reload", () => {
     const page = renderPage(LINKED);
     expand();
