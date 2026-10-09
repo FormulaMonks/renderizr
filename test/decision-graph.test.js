@@ -743,23 +743,22 @@ const FAMILY = [
     decision(7, "2024-07-01T00:00:00Z", [[5, "Supersedes"]]),
 ];
 
-test("a decision's relatives are its lineage at any distance and its direct references, in decision order", () => {
+test("a decision's relatives are the decisions it links to or that link to it, in decision order", () => {
     assert.deepEqual(
         idsOf(relatedDecisions(FAMILY, "1")),
-        ["3", "2", "1"],
-        "2 supersedes 1 and 3 amends 2",
+        ["2", "1"],
+        "2 supersedes 1; 3 amends 2, one step too far",
     );
     assert.deepEqual(
         idsOf(relatedDecisions(FAMILY, "2")),
         ["4", "3", "2", "5", "1"],
-        "a reference counts either way, but not the referenced decision's lineage",
+        "every kind counts, either way",
     );
 });
 
-test("a decision's lineage runs through what it amends or supersedes and what amends or supersedes it, never through siblings", () => {
-    // 41 amends 5 and 35; 51 and 64 amend 41, and 52 amends 51. 5 supersedes
-    // 2. 50 also amends 5 and 49 also amends 35: siblings of 41, which share
-    // an older decision with it but none of its history.
+test("a decision's relatives stop one step away, along its history too", () => {
+    // 41 amends 5 and 35, and 5 supersedes 2: 2 is two steps away. 51 amends
+    // 41 and 52 amends 51. 50 also amends 5: a sibling of 41.
     const set = [
         decision(2, "2024-01-02T00:00:00Z"),
         decision(5, "2024-01-05T00:00:00Z", [[2, "Supersedes"]]),
@@ -769,22 +768,17 @@ test("a decision's lineage runs through what it amends or supersedes and what am
             [35, "Amends"],
         ]),
         decision(45, "2024-03-05T00:00:00Z", [[41, "References"]]),
-        decision(49, "2024-03-09T00:00:00Z", [[35, "Amends"]]),
         decision(50, "2024-03-10T00:00:00Z", [[5, "Amends"]]),
         decision(51, "2024-03-11T00:00:00Z", [[41, "Amends"]]),
         decision(52, "2024-03-12T00:00:00Z", [[51, "Amends"]]),
-        decision(64, "2024-04-04T00:00:00Z", [[41, "Amends"]]),
     ];
 
     assert.deepEqual(idsOf(relatedDecisions(set, "41")), [
-        "64",
-        "52",
         "51",
         "45",
         "41",
         "35",
         "5",
-        "2",
     ]);
 });
 

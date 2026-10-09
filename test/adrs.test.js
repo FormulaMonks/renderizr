@@ -956,7 +956,7 @@ test("Related only sits at the right of the controls bar, unpressed", () => {
     assert.equal(relatedOnly().getAttribute("aria-pressed"), "false");
 });
 
-test("Related only keeps the open decision's lineage and direct references, and shows as pressed", () => {
+test("Related only keeps the open decision and the decisions it links to or that link to it, and shows as pressed", () => {
     history.replace({ search: "?page=adrs&adr=2" });
     renderPage(FAMILY);
 
