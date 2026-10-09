@@ -159,7 +159,7 @@ CI runs lint, type checks, the test suite on Node 22 and 24, an npm install and 
 - **suggestion**: take it or explain why not; either answer merges.
 - **nit**: cosmetic, never blocking.
 
-Push fixes as new commits while a review is open, so reviewers can read the change since their last look. The ruleset on `main` requires a passing CI run, and maintainers also wait for one approving review from someone other than the author before they merge.
+Push fixes as new commits while a review is open, so reviewers can read the change since their last look. The ruleset on `main` requires a pull request with every review thread resolved and a passing `ci` check. Maintainers also wait for one approving review from someone other than the author before they merge.
 
 ## Releases
 

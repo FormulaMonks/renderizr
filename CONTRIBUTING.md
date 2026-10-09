@@ -25,8 +25,8 @@ The [architecture site](https://formulamonks.github.io/renderizr/) carries a sho
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Node | 20 or newer | `scripts/build.js` refuses to run below 20 — it needs a global `fetch` and `util.parseArgs` defaults. `package.json` declares `"engines": { "node": ">=20" }`. On 20.0–20.5 the `test/` suite skips itself loudly, because importing `src/` needs `module.register`, which landed in 20.6 |
-| pnpm | 10 or newer (11.x in use) | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
+| Node | 22.13 or newer | pnpm 11 imports `node:sqlite`, which needs 22.13. Renderizr itself runs on Node 20 or newer: `scripts/build.js` refuses to run below 20 — it needs a global `fetch` and `util.parseArgs` defaults. `package.json` declares `"engines": { "node": ">=20" }`. On 20.0–20.5 the `test/` suite skips itself loudly, because importing `src/` needs `module.register`, which landed in 20.6 |
+| pnpm | 11 | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
 | git | any | The repository has one submodule |
 
 That is the whole list. No IDE is required, no JDK, no global CLI.
@@ -37,7 +37,7 @@ Development happens on Node 24 — that is what `.mise.toml` pins and what the c
 mise install     # optional; installs Node 24 and pnpm per .mise.toml + mise.lock
 ```
 
-If you would rather not install mise, use any Node 20+ and pnpm you already have. Nothing in the build reads mise.
+If you would rather not install mise, use any Node 22.13+ and pnpm 11 you already have. Nothing in the build reads mise.
 
 `.vscode/extensions.json` recommends the [Biome](https://biomejs.dev) extension and `.vscode/settings.json` wires up format-on-save. Both are conveniences — Biome has editor plugins for Zed, JetBrains, Neovim and others, and `pnpm exec biome check --write .` covers you from any editor at all.
 
@@ -382,7 +382,7 @@ What a good pull request looks like here:
 
 ## How a review goes
 
-1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 20/22/24, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
+1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 22 and 24, an npm install and build on Node 20, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
 3. Review comments come in three flavors, and reviewers label them so you never have to guess:
    - **blocking** — must change before merge.
@@ -390,7 +390,7 @@ What a good pull request looks like here:
    - **nit** — cosmetic, never blocking.
 4. Push fixes as new commits rather than force-pushing while a review is in flight, so reviewers can read the delta. Squashing happens at merge, so the intermediate commits cost nothing.
 5. Once approved and green, a maintainer merges. **The maintainer squash-merges every PR**: the squash commit message is the conventional-commit header the release tooling reads, so the maintainer edits it to say what the whole PR did, not what the last commit did.
-6. Nothing merges into `main` without a passing CI run and one approving review from someone other than the author — maintainers' own changes included. `main` carries no branch protection today, so that is a rule the maintainers hold themselves to rather than a setting GitHub enforces; [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to) writes it down precisely so anyone can point at it when someone breaks it.
+6. Nothing merges into `main` without a passing CI run and one approving review from someone other than the author, maintainers' own changes included. A ruleset on `main` enforces the pull request, the resolved review threads and the passing `ci` check. It requires no approving review, so the review is a rule the maintainers hold themselves to; [MAINTAINERS.md](MAINTAINERS.md#the-rules-maintainers-hold-themselves-to) writes it down so anyone can point at it when someone breaks it.
 
 If a PR goes quiet for 30 days with unaddressed blocking feedback, we will close it with a note. That is bookkeeping, not a verdict — reopen it whenever you pick it back up.
 
