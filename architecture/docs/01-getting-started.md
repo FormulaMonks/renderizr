@@ -32,6 +32,18 @@ npx github:FormulaMonks/renderizr ./workspace.json
 
 The build takes a couple of seconds once npm has fetched the package, and writes the site into `./structurizr-output`: an `index.html`, an `assets/` folder and a favicon. The site uses relative URLs, so it works from any folder on any static host.
 
+The site you are reading is Renderizr's own workspace, rendered this way. Every view gets a diagram that pans and zooms, listed down the side:
+
+![The container view of Renderizr's workspace: the list of views on the left, the diagram and its controls on the right.](images/render-diagrams.png)
+
+The documentation becomes pages, with a table of contents built from the headings:
+
+![The Options section of the usage documentation: the table of contents on the left, the section's text and its flag table on the right.](images/render-documentation.png)
+
+The decisions become a log, with a graph of the links between them:
+
+![The decision log of Renderizr's workspace: each decision with its number and status, and a graph of its links to the others on the left.](images/render-decisions.png)
+
 ## Open the site
 
 Serve the output folder with any static server:
@@ -54,7 +66,7 @@ Then open `structurizr-output/index.html` in a browser. It needs no server and m
 
 - **Every view**, listed down the side: landscape, context, container, component, dynamic, deployment, image, filtered and custom, each with its own mark and key.
 - **A live engine** built for workspace JSON. Diagrams pan and zoom, dynamic views animate, labels toggle, and an element with several activation targets opens a target menu.
-- **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions open the matching page. Markdown gets GitHub-style alerts, permalinks and highlighting, and Renderizr converts AsciiDoc to the same pages.
+- **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions open the matching page. Markdown gets GitHub-style alerts, permalinks and highlighting, images show from the copies Structurizr embeds in the workspace, and Renderizr converts AsciiDoc to the same pages.
 - **The decision log**, with status pills, supersessions and amendments, grouped by year.
 - **Light and dark**, following the reader's system setting until they choose one. The page and the diagrams keep separate preferences.
 - **Deep links that last**: routing lives in the URL hash, so a link to a view, document or decision still works after a reload, over `file://` and inside a sandboxed frame.

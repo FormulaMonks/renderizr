@@ -79,6 +79,8 @@ npx github:FormulaMonks/renderizr edit ./architecture
 
 On a view you can edit, the toolbar shows a pencil. Two buttons take you back to reading: **Save and close** (the check mark) saves what waits, and **Discard changes and close** (the cross) puts every view back as it was when you started editing, saves that and closes. A view with automatic layout shows the pencil disabled, since its layout comes from `autoLayout` in the DSL. A filtered view links to its base view, and an image view has nothing to edit. A view with no stored layout yet opens with the positions Renderizr would draw, and your first edit saves them.
 
+![Edit mode on the container view: two software systems selected, with the align and distribute buttons in the edit toolbar above the canvas.](images/edit-mode-selection.png)
+
 Edit mode saves 5 seconds after your last change, and at once on Cmd/Ctrl+S. A dot in the toolbar shows the state of saving: yellow while changes wait, gray and pulsing while a save runs, green once saved and red when a save failed. Its tooltip says why a save failed.
 
 ### Edit mode flags
@@ -118,6 +120,8 @@ Keys match by physical key, so Option's characters on macOS stay out of the way.
 | Open the keyboard shortcuts | `?` |
 
 With the pointer, a drag moves an element or the selection, and a drag on empty canvas draws a marquee. A double-click on an edge adds a vertex, and a double-click on a vertex removes it. A selected edge marks each edge end: drag one onto a side of its element to choose that side. A drag on an edge's label slides it along the route. The edit toolbar also holds the routing mode of the selected edge, the canvas size (Decrease, Increase and Auto) and **Calculate layout**, which lays out the whole view once, the way an automatic layout would, and stores the result as a calculated layout. Undo covers all of it.
+
+![A selected edge in edit mode: a handle on each edge end, and the routing mode button in the edit toolbar.](images/edit-mode-edge.png)
 
 ### What edit mode writes
 
