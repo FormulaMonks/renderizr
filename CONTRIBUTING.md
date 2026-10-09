@@ -361,7 +361,7 @@ What a good pull request looks like here:
 - **Conventional commits throughout**, because release-please generates the changelog and the version bump from them. A `feat:` in a PR of `fix:` commits changes what the next release is called.
 - **A description that says what changed and why.** For anything visual, a before/after screenshot or a link to a rendered `--single-file` output is worth more than a paragraph.
 - **Tests for anything in `scripts/`.** New behavior gets a test; a fixed bug gets the test that would have caught it.
-- **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text, the flag table in `README.md` *and* the one in `architecture/docs/02-usage.md`. A changed workflow means this file and `architecture/docs/03-contributing.md`.
+- **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text, the flag table in `README.md` *and* the one in `architecture/docs/02-usage.md`. A changed workflow means this file and `architecture/docs/03-contributing.md`, and a changed script or folder means `architecture/docs/04-reference.md`.
 - **No unrelated reformatting.** Biome's settings are the settings; if a diff is mostly whitespace, something is configured wrong locally.
 - **No new runtime dependency without saying why.** Everything in `dependencies` ends up inlined into a self-contained HTML file that people email around — weight is a feature here, and adding to it needs a sentence of justification in the PR.
 - **Draft PRs are welcome** for work you want eyes on early. Mark it ready when CI is green.

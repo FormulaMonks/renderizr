@@ -75,6 +75,8 @@ npx github:FormulaMonks/renderizr edit ./architecture
 | A `workspace.dsl`, or a folder that holds one, without the tools and without a `workspace.json` | Nothing: it stops before the server starts and says how to set the tools up | Nothing |
 | A `workspace.json`, or a folder that holds only one | A JSON session, with no tools and no JVM | That `workspace.json`, in place |
 
+[Structurizr's tools for a DSL session](04-reference.md#structurizrs-tools-for-a-dsl-session) says how edit mode finds the tools and how to set them up.
+
 On a view you can edit, the toolbar shows a pencil. Two buttons take you back to reading: **Save and close** (the check mark) saves what waits, and **Discard changes and close** (the cross) puts every view back as it was when you started editing, saves that and closes. A view with automatic layout shows the pencil disabled, since its layout comes from `autoLayout` in the DSL. A filtered view links to its base view, and an image view has nothing to edit. A view with no stored layout yet opens with the positions Renderizr would draw, and your first edit saves them.
 
 Edit mode saves 5 seconds after your last change, and at once on Cmd/Ctrl+S. A dot in the toolbar shows the state of saving: yellow while changes wait, gray and pulsing while a save runs, green once saved and red when a save failed. Its tooltip says why a save failed.
@@ -132,34 +134,6 @@ It writes the file the way Structurizr does: a Structurizr read followed by a St
 An edge without vertices goes around the elements in its way. Any vertex turns that avoidance off for its relationship, and choosing a side adds a vertex: an edge that used to bend around elements runs straight through them once you choose a side. Add vertices to route it around them again.
 
 An edge with vertices also keeps each edge end where its nearest vertex aims it, and those ends stop spreading along the side with the ends of other edges. Reading mode and builds draw them the same way.
-
-## Structurizr's tools for a DSL session
-
-Renderizr never parses DSL. A DSL session runs Structurizr's own tools: `merge -workspace workspace.dsl -layout workspace.json`, which lays the saved layout over the model as Structurizr Local does, or `export` on the first run, while no `workspace.json` exists yet. Edit mode finds the tools in this order:
-
-1. The `STRUCTURIZR_CLI` environment variable, read as a whole command.
-2. `structurizr-cli` on your `PATH`.
-
-The tools need Java 21 to 25; Groovy `!script` blocks fail on Java 26. Edit mode works with the 2026 distribution (`structurizr.war` and the `structurizr/structurizr` Docker image, where every tool is a subcommand) and with the archived `structurizr-cli` 2025.11.09.
-
-```bash
-STRUCTURIZR_CLI="java -jar ~/bin/structurizr.war" npx github:FormulaMonks/renderizr edit ./architecture
-```
-
-With Docker and no Java on your machine:
-
-```bash
-STRUCTURIZR_CLI='docker run --rm -v "$PWD:/usr/local/structurizr" structurizr/structurizr' npx github:FormulaMonks/renderizr edit ./architecture
-```
-
-Edit mode runs the command through the shell from the DSL's folder, so `$PWD` in single quotes expands there and the container mounts that folder. The tools write into a temporary `.renderizr-*` folder beside the DSL, which edit mode deletes after each run, and never write `workspace.json` themselves.
-
-When a DSL change breaks the parse, the terminal prints the tools' output and the page shows the error over the last workspace that parsed, which stays editable. The next good run clears it.
-
-Two behaviors come from Structurizr and stay as Structurizr has them:
-
-- **The id fallback.** `merge` carries each element's position over by its canonical name and falls back to its id. When a DSL change renames an element and shifts the ids of others, `merge` can hand the renamed element another element's position. Check the views after a rename.
-- **Unwatched includes.** Edit mode watches every file under the DSL's folder, except `workspace.json`, dot folders and `node_modules`. A file that `!include` pulls in from outside that folder goes unwatched, as in Structurizr Local: save a file inside the folder to run the tools again.
 
 ## Use Renderizr from an AI agent
 

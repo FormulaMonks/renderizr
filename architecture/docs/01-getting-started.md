@@ -65,3 +65,4 @@ Renderizr reads documentation and decisions from the workspace level (`documenta
 
 - [Usage](02-usage.md) covers every flag, the single file, edit mode and using Renderizr from an AI agent.
 - [Contributing](03-contributing.md) takes you from a clone to a merged pull request.
+- [Reference](04-reference.md) covers local development, every pnpm script, Structurizr's tools for edit mode, the project layout and adding a test.

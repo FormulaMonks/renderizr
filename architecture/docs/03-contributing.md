@@ -27,56 +27,7 @@ pnpm hooks
 
 The clone holds everything the tests need. The Big Bank plc, groups and Amazon Web Services workspaces the acceptance harness draws are unmodified copies from [structurizr/structurizr](https://github.com/structurizr/structurizr), committed under `test/__fixtures__/`. The repository keeps no submodule, because npm clones a git dependency with `--recurse-submodules`, and every cold `npx` would download it before the CLI starts.
 
-## The dev server
-
-```bash
-pnpm dev
-```
-
-Vite serves this repository's own workspace, `architecture/workspace.json`, on <http://localhost:5173>, with hot reload for `src/`. To check a change, point the dev server at a versioned fixture under `test/__fixtures__/` that shows it:
-
-```bash
-pnpm dev -- test/__fixtures__/edge-routing.json --font Inter
-```
-
-Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know. The dev server accepts `--logo <path|url>`, `--font <family>` and `--single-file`, before or after the workspace path, and reads `RENDERIZR_WORKSPACE` from the environment when you pass no workspace. Git tracks the fixtures, so `git status` shows whether anything changed one while you looked. When no fixture shows your change, add one in the same pull request.
-
-## The build
-
-```bash
-pnpm render architecture/workspace.json --single-file
-```
-
-`pnpm render` runs `tsc` first, so a type error fails the build before Vite starts, then writes into `./structurizr-output` unless `--out` says otherwise. It takes its arguments with no `--`. Open `structurizr-output/index.html` in a browser to look at the result; a single file needs no server.
-
-## Checks
-
-| Command | What it does |
-| --- | --- |
-| `pnpm test` | `node --test` over `scripts/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own |
-| `pnpm typecheck` | Type-checks `src/` |
-| `pnpm lint` | Runs `biome ci .`: lint and format, never fixing, failing on any finding. CI and the pre-commit hook run the same check |
-| `pnpm format` | Lint and format, fixing what Biome can fix in place |
-| `pnpm test:coverage` | The test suite with V8 coverage |
-| `pnpm architecture:merge` | Writes `architecture/workspace.json` again from `architecture/workspace.dsl` with Structurizr's tools, the way a DSL session of edit mode writes it. CI fails when the committed workspace differs from its DSL |
-| `pnpm fixtures:acceptance` | Merges the acceptance fixture's DSL into its `workspace.json` with Structurizr's tools |
-| `pnpm fixtures:large` | Writes the large landscape fixture again from its generator |
-
-`pnpm architecture:merge` and `pnpm fixtures:acceptance` find Structurizr's tools the way [edit mode](02-usage.md#structurizrs-tools-for-a-dsl-session) does: `STRUCTURIZR_CLI` as a whole command, or `structurizr-cli` on the `PATH`.
-
-Biome is the only linter and the only formatter. It indents with 4 spaces, skips `architecture/` and the workspaces copied from Structurizr, and respects `.gitignore`; `biome.json` holds the rest.
-
-### Git hooks
-
-`pnpm hooks` installs three hooks from `.husky/`:
-
-| Hook | Runs | Purpose |
-| --- | --- | --- |
-| `prepare-commit-msg` | `pnpm exec czg --hook` | Opens an interactive prompt that writes the commit message when you pass no `-m` |
-| `pre-commit` | `pnpm exec lint-staged` | Runs `biome ci` over the staged source files |
-| `commit-msg` | `pnpm exec commitlint --edit` | Checks the message against Conventional Commits |
-
-When `pre-commit` fails, run `pnpm format`, stage the files again and commit. When `commit-msg` fails, the output names the rule; run `git commit` again and let czg write the message. A per-clone switch turns each hook off, such as `git config custom.hooks.pre-commit false`, and `git config --unset` turns it back on. CI runs the same checks either way.
+[Reference](04-reference.md) covers the dev server and the build, every pnpm script, the project layout and where a new test goes.
 
 ## Branches and commits
 
@@ -90,41 +41,17 @@ Write commit messages as [Conventional Commits](https://www.conventionalcommits.
 
 A maintainer squash-merges every pull request, so the pull request title becomes the commit that release-please reads. CI checks the title with the same commitlint rules.
 
-## Project layout
+### Git hooks
 
-| Path | What lives there |
-| --- | --- |
-| `scripts/` | The build pipeline and edit mode's server, in plain ESM JavaScript that Node runs with no build step |
-| `scripts/build.js` | The CLI entry point: checks the Node version, parses arguments, loads assets and runs Vite |
-| `scripts/cli.js` | Option definitions and `--help`, for the build and for `renderizr edit` |
-| `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
-| `scripts/edit.js`, `scripts/edit-plugin.js` | Edit mode: the session a path opens, the local server and its save endpoint |
-| `scripts/dsl-pipeline.js`, `scripts/structurizr-tools.js` | Running Structurizr's tools on a `workspace.dsl` |
-| `scripts/workspace-writer.js` | Writing `workspace.json` the way Structurizr does |
-| `src/` | The page that ships in the output, in TypeScript, bundled by Vite |
-| `src/model/` | The typed workspace model and style resolution, ported from Structurizr, and `resolveView` |
-| `src/engine/` | The React Flow engine: the diagram contract in `index.ts`, geometry, layout and the island |
-| `src/pages/`, `src/components/` | The diagrams, documentation and decisions pages, and the parts they share |
-| `test/` | Tests for `src/`, and the DOM and module hooks they run on in `test/support/` |
-| `test/__fixtures__/` | Versioned workspaces for tests and for checking changes in the dev server |
-| `architecture/` | Renderizr's own workspace, which this site renders |
+`pnpm hooks` installs three hooks from `.husky/`:
 
-`scripts/` stays JavaScript and `src/` stays TypeScript. `tsconfig.json` includes only `src`, so the tests in `scripts/` are what guard the pipeline.
-
-## Adding a test
-
-Tests use the Node built-in runner. Put a test where its subject lives:
-
-| Testing | Put it in | Import |
+| Hook | Runs | Purpose |
 | --- | --- | --- |
-| Anything in `scripts/` | `scripts/<module>.test.js`, next to the module | The module directly: `import { parseCliArgs } from "./cli.js"` |
-| Anything in `src/` | `test/<subject>.test.js` | Through `test/support/ts.js`, which installs the DOM and the TypeScript hooks: `await importSrc("components/menu")` |
+| `prepare-commit-msg` | `pnpm exec czg --hook` | Opens an interactive prompt that writes the commit message when you pass no `-m` |
+| `pre-commit` | `pnpm exec lint-staged` | Runs `biome ci` over the staged source files |
+| `commit-msg` | `pnpm exec commitlint --edit` | Checks the message against Conventional Commits |
 
-`pnpm test` picks up a new file ending in `.test.js` in either folder with nothing to register. `scripts/escapes.test.js` and `test/menu.test.js` are good models to copy.
-
-The DOM in `test/support/dom.js` is a purpose-built subset, and its selector engine throws on any selector it does not implement. When valid CSS a component ships fails there, extend `dom.js` and add a case to `test/dom.test.js`. Timers and animation frames are fake: nothing deferred runs until a test calls `dom.runTimers()`.
-
-`test/e2e.test.js` runs a real `--single-file` build in headless Chrome, and `test/acceptance.test.js` holds the engine's drawing of every acceptance view to the rules in `test/support/engine-checks.js`. Both skip themselves when the machine has no Chrome.
+When `pre-commit` fails, run `pnpm format`, stage the files again and commit. When `commit-msg` fails, the output names the rule; run `git commit` again and let czg write the message. A per-clone switch turns each hook off, such as `git config custom.hooks.pre-commit false`, and `git config --unset` turns it back on. CI runs the same checks either way.
 
 ## Pull requests
 
@@ -136,7 +63,7 @@ pnpm typecheck
 pnpm test
 ```
 
-Then build something real and look at it in a browser. A rendering or documentation change that only passes the tests stays untested.
+Then build something real, as [Local development](04-reference.md#local-development) shows, and look at it in a browser. A rendering or documentation change that only passes the tests stays untested.
 
 - **Keep one concern per pull request.** Branch off `main` and name the branch as [Branches and commits](#branches-and-commits) says.
 - **Fill in the template**: what the change does and why, how a reviewer can see it work, and any additional notes. For anything visual, a screenshot before and after says more than a paragraph.
