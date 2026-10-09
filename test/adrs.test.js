@@ -32,8 +32,12 @@ const WORKSPACE = JSON.parse(
 const FIXTURE_DECISIONS = WORKSPACE.documentation.decisions;
 
 let host;
+/** The page the last test rendered, cleared so it stops following history. */
+let rendered;
 
 beforeEach(() => {
+    rendered?.clear();
+    rendered = null;
     dom.reset();
     host = dom.mount("page-content");
     history.replace({ search: "?page=adrs", hash: "" });
@@ -41,7 +45,9 @@ beforeEach(() => {
 
 /** Render the page and run the deferred first paint. */
 const renderPage = (decisions = FIXTURE_DECISIONS) => {
+    rendered?.clear();
     const page = new Decisions(host, "adrs", decisions);
+    rendered = page;
     page.render();
     dom.runTimers();
     return page;
@@ -210,6 +216,51 @@ test("clicking a row opens the decision with the menu and records it in the URL"
     );
 });
 
+test("Back and Forward move between the decisions the reader opened", () => {
+    renderPage();
+    const heading = () => title().querySelector("h2")?.textContent ?? "";
+
+    index().querySelector('a[data-item-id="2"]').click();
+    open("1");
+    assert.match(heading(), /^0001 /);
+
+    window.history.back();
+    assert.match(heading(), /^0002 /, "back to 2");
+    assert.equal(new URLSearchParams(history.location.search).get("adr"), "2");
+    assert.equal(
+        document
+            .querySelector('#adrs-menu a[aria-current="true"]')
+            ?.getAttribute("data-item-id"),
+        "2",
+        "and the menu follows",
+    );
+
+    window.history.forward();
+    assert.match(heading(), /^0001 /, "forward to 1 again");
+});
+
+test("Back from the first decision opened returns to the index", () => {
+    renderPage();
+
+    index().querySelector('a[data-item-id="2"]').click();
+    window.history.back();
+
+    assert.equal(index().hidden, false, "the index shows");
+    assert.equal(menuSection().hidden, true, "the menu hides");
+    assert.equal(
+        new URLSearchParams(history.location.search).has("adr"),
+        false,
+    );
+});
+
+test("clear() stops following history", () => {
+    const page = renderPage();
+    index().querySelector('a[data-item-id="2"]').click();
+    page.clear();
+
+    assert.doesNotThrow(() => window.history.back());
+});
+
 test("a decision opened from the URL shows the menu, not the index", () => {
     history.replace({ search: "?page=adrs&adr=1" });
     renderPage();
@@ -256,6 +307,7 @@ test("decision numbers read as four digits wherever they appear", () => {
     ];
 
     for (const { id, number } of cases) {
+        rendered?.clear();
         dom.reset();
         host = dom.mount("page-content");
         history.replace({ search: `?page=adrs&adr=${id}`, hash: "" });
@@ -1577,6 +1629,7 @@ test("the lanes scroll only past the lineage fallback, and only expanded", () =>
         [GRAPH_DECISIONS, true],
         [SCROLL_DECISIONS, false],
     ]) {
+        rendered?.clear();
         dom.reset();
         host = dom.mount("page-content");
         history.replace({ search: "?page=adrs&adr=2", hash: "" });

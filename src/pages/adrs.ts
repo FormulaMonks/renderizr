@@ -110,6 +110,7 @@ export default class Decisions extends Page {
     /** The cap the index's decision graph last laid out under. */
     #indexCap: number | null = null;
     #listeners: BoundListener[] = [];
+    #unlisten: (() => void) | null = null;
 
     constructor(
         container: HTMLElement | null = null,
@@ -314,6 +315,9 @@ export default class Decisions extends Page {
         this.#setRelatedOnly(false);
         this.#renderRelatedOnly();
         this.#show("index");
+        // The index is a place of its own, so a decision opened from it gets
+        // its own history entry, and Back returns here.
+        this.#opened = true;
 
         const search = new URLSearchParams(history.location.search);
         if (search.has("adr")) {
@@ -438,6 +442,17 @@ export default class Decisions extends Page {
 
         this.renderAllComponents();
         indexGraph.render();
+
+        // Back and Forward change only `adr`, and the router redraws a page
+        // only when `page` changes, so the page follows `adr` itself.
+        this.#unlisten = history.listen(({ location }) => {
+            const search = new URLSearchParams(location.search);
+            if (search.get("page") !== "adrs") return;
+
+            const decision = this.#getAdrFromUrl() ?? null;
+            if (decision?.id === this.#currentDecision?.id) return;
+            this.#select(decision);
+        });
 
         // Wait until menu is rendered
         window.setTimeout(() => {
@@ -572,6 +587,8 @@ export default class Decisions extends Page {
     }
 
     clear(): void {
+        this.#unlisten?.();
+        this.#unlisten = null;
         this.removeAllComponents();
         this.#indexGraph?.clear();
         this.#menu = null;
