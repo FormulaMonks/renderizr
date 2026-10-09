@@ -1,4 +1,6 @@
-import DecisionGraph from "../components/decision-graph";
+import DecisionGraph, {
+    type DecisionGraphState,
+} from "../components/decision-graph";
 import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
@@ -9,10 +11,25 @@ import {
     decisionOrder,
     decisionStatus,
 } from "../model/decisions";
+import { readSetting, writeSetting } from "../storage";
 import type { Decision } from "../types/structurizr-documentation";
 import Page from "./_page";
 import styles from "./adrs.module.css";
+import collapseIcon from "bootstrap-icons/icons/arrows-collapse-vertical.svg?raw";
+import expandIcon from "bootstrap-icons/icons/arrows-expand-vertical.svg?raw";
 import history from "history/hash";
+
+/** Where the page remembers whether the decision graph was left expanded. */
+export const DECISION_GRAPH_STORAGE_KEY = "renderizr:decision-graph";
+
+/**
+ * The decision graph's state as the reader left it. Anything else, storage
+ * that is unavailable included, falls back to collapsed, the narrow menu.
+ */
+const storedGraphState = (): DecisionGraphState =>
+    readSetting(DECISION_GRAPH_STORAGE_KEY) === "expanded"
+        ? "expanded"
+        : "collapsed";
 
 /** Decisions that still govern anything — amended ones still mostly do. */
 const IN_FORCE = new Set(["accepted", "amended"]);
@@ -224,9 +241,14 @@ export default class Decisions extends Page {
         this.container!.innerHTML = `
             <div class="${styles.adrs}">
                 <section id="adrs-menu" class="${styles.menu}">
-                    <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
-                    <div class="${styles.rows}">
-                        <div id="adrs-graph"></div>
+                    <div id="adrs-controls" class="${styles.controls}">
+                        <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
+                        <button type="button" id="adrs-expand" class="${styles.expand}" aria-controls="adrs-graph"></button>
+                    </div>
+                    <div id="adrs-scroll" class="${styles.scroll}">
+                        <div class="${styles.rows}">
+                            <div id="adrs-graph"></div>
+                        </div>
                     </div>
                 </section>
                 <section id="decision" class="${styles.decision}">
@@ -259,6 +281,8 @@ export default class Decisions extends Page {
         );
         this.#graph = graph;
         graph.setLayout(layoutDecisionGraph(this.#decisions));
+        graph.setState(storedGraphState());
+        this.#renderExpandToggle();
         // A rebuilt menu has new entries, and a switch to the `<select>` has
         // none to sit beside.
         menu.onRedraw(() => graph.draw());
@@ -283,6 +307,9 @@ export default class Decisions extends Page {
         document
             .getElementById("adrs-summary")
             ?.addEventListener("click", this.#handleSummaryClick);
+        document
+            .getElementById("adrs-expand")
+            ?.addEventListener("click", this.#handleExpandClick);
 
         this.renderAllComponents();
 
@@ -299,6 +326,30 @@ export default class Decisions extends Page {
 
     #handleSummaryClick = () => this.#select(null);
 
+    #handleExpandClick = () => {
+        if (!this.#graph) return;
+        const state =
+            this.#graph.state === "expanded" ? "collapsed" : "expanded";
+        this.#graph.setState(state);
+        writeSetting(DECISION_GRAPH_STORAGE_KEY, state);
+        this.#renderExpandToggle();
+    };
+
+    /** The expand toggle says what pressing it does next. */
+    #renderExpandToggle() {
+        const toggle = document.getElementById("adrs-expand");
+        if (!toggle || !this.#graph) return;
+
+        const expanded = this.#graph.state === "expanded";
+        const label = expanded
+            ? "Collapse the decision graph"
+            : "Expand the decision graph";
+        toggle.innerHTML = expanded ? collapseIcon : expandIcon;
+        toggle.setAttribute("aria-expanded", String(expanded));
+        toggle.setAttribute("aria-label", label);
+        toggle.title = label;
+    }
+
     clear(): void {
         this.removeAllComponents();
         this.#menu = null;
@@ -307,6 +358,9 @@ export default class Decisions extends Page {
         document
             .getElementById("adrs-summary")
             ?.removeEventListener("click", this.#handleSummaryClick);
+        document
+            .getElementById("adrs-expand")
+            ?.removeEventListener("click", this.#handleExpandClick);
         this.container!.innerHTML = "";
     }
 }

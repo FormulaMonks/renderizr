@@ -442,6 +442,203 @@ test("the narrow-screen select carries no decision graph, and it comes back with
     assert.equal(elbows().length, 3, "and the open decision its elbows");
 });
 
+/* ------------------------------------------------ expanded decision graph -- */
+
+const controls = () => document.getElementById("adrs-controls");
+const expandToggle = () => document.getElementById("adrs-expand");
+const expand = () => expandToggle().click();
+
+/** Each mark of one kind, by what it means, sorted for comparison. */
+const marks = (mark) =>
+    document
+        .querySelectorAll(`#adrs-menu [data-mark="${mark}"]`)
+        .map((element) => ({
+            kind: element.getAttribute("data-kind"),
+            from: element.getAttribute("data-from"),
+            to: element.getAttribute("data-to"),
+            status: element.getAttribute("data-status"),
+            lane: element.getAttribute("data-lane"),
+        }))
+        .sort((a, b) => `${a.from}${a.to}`.localeCompare(`${b.from}${b.to}`));
+
+test("the controls bar sits above the menu, outside its scroll area, with All decisions and the expand toggle", () => {
+    renderPage(LINKED);
+
+    const bar = controls();
+    assert.ok(bar, "the page has a controls bar");
+    assert.equal(
+        bar.querySelector("#adrs-summary")?.textContent,
+        "All decisions",
+    );
+    assert.ok(bar.querySelector("#adrs-expand"), "it holds the expand toggle");
+
+    const scrollArea = document.getElementById("adrs-scroll");
+    assert.ok(
+        scrollArea.querySelector("a[data-item-id]"),
+        "the menu's entries scroll",
+    );
+    assert.ok(
+        scrollArea.querySelector("[data-decision-graph]"),
+        "and the decision graph scrolls with them",
+    );
+    assert.equal(
+        scrollArea.querySelector("#adrs-controls"),
+        null,
+        "the controls bar stays out of the scroll area",
+    );
+});
+
+test("the expand toggle expands the decision graph, and pressing it again collapses it", () => {
+    renderPage(LINKED);
+
+    assert.equal(expandToggle().getAttribute("aria-expanded"), "false");
+
+    expand();
+    assert.equal(graph().getAttribute("data-state"), "expanded");
+    assert.equal(expandToggle().getAttribute("aria-expanded"), "true");
+
+    expand();
+    assert.equal(graph().getAttribute("data-state"), "collapsed");
+    assert.equal(expandToggle().getAttribute("aria-expanded"), "false");
+});
+
+test("the expanded decision graph draws each lane's stretches by kind and the older decision's status", () => {
+    renderPage(LINKED);
+
+    expand();
+
+    assert.deepEqual(marks("stretch"), [
+        // 4 supersedes 1 and amends 2, so 1, 2 and 4 share a lane: 4 amends
+        // 2 along it, and 4's supersede of 1 carries the stretch below 2.
+        {
+            kind: "supersede",
+            from: "2",
+            to: "1",
+            status: "superseded",
+            lane: "1",
+        },
+        { kind: "amend", from: "4", to: "2", status: "amended", lane: "1" },
+        // 4 references 3, so 3 gets a lane that only carries references.
+        {
+            kind: "reference",
+            from: "4",
+            to: "3",
+            status: "accepted",
+            lane: "3",
+        },
+    ]);
+});
+
+test("a reference joins the lane of the decision it links to", () => {
+    renderPage(LINKED);
+
+    expand();
+
+    assert.deepEqual(marks("join"), [
+        {
+            kind: "reference",
+            from: "3",
+            to: "1",
+            status: "superseded",
+            lane: "1",
+        },
+        {
+            kind: "reference",
+            from: "4",
+            to: "3",
+            status: "accepted",
+            lane: "3",
+        },
+    ]);
+});
+
+test("every dot in the expanded decision graph sits on its lane, or alone", () => {
+    renderPage([...LINKED, decision("5", { date: "2024-05-01T12:00:00Z" })]);
+
+    expand();
+
+    assert.deepEqual(
+        document
+            .querySelectorAll('#adrs-menu [data-mark="dot"]')
+            .map((dot) => [
+                dot.getAttribute("data-decision"),
+                dot.getAttribute("data-lane"),
+            ]),
+        [
+            ["5", null],
+            ["4", "1"],
+            ["3", "3"],
+            ["2", "1"],
+            ["1", "1"],
+        ],
+    );
+});
+
+test("the expanded decision graph draws no elbows, and collapsing brings them back", () => {
+    history.replace({ search: "?page=adrs&adr=4" });
+    renderPage(LINKED);
+
+    expand();
+    assert.deepEqual(elbows(), [], "lanes and joins stand in for elbows");
+    assert.equal(
+        document
+            .querySelector('#adrs-menu [data-mark="dot"][data-open]')
+            ?.getAttribute("data-decision"),
+        "4",
+        "the open decision's dot still says so",
+    );
+
+    expand();
+    assert.equal(elbows().length, 3);
+    assert.deepEqual(marks("stretch"), [], "and the lanes go");
+});
+
+test("the expand toggle's state survives a reload", () => {
+    const page = renderPage(LINKED);
+    expand();
+    page.clear();
+
+    renderPage(LINKED);
+
+    assert.equal(graph().getAttribute("data-state"), "expanded");
+    assert.equal(expandToggle().getAttribute("aria-expanded"), "true");
+    assert.ok(marks("stretch").length > 0, "the lanes draw on first paint");
+});
+
+test("the decision graph renders collapsed when storage is unavailable, and the toggle still works", () => {
+    const realStorage = window.localStorage;
+    const refuse = () => {
+        throw new Error("SecurityError: storage is unavailable");
+    };
+    const broken = {
+        getItem: refuse,
+        setItem: refuse,
+        removeItem: refuse,
+        clear: refuse,
+    };
+    window.localStorage = broken;
+    globalThis.localStorage = broken;
+
+    try {
+        renderPage(LINKED);
+        assert.equal(graph().getAttribute("data-state"), "collapsed");
+
+        expand();
+        assert.equal(graph().getAttribute("data-state"), "expanded");
+    } finally {
+        window.localStorage = realStorage;
+        globalThis.localStorage = realStorage;
+    }
+});
+
+test("a stored state the page does not know renders collapsed", () => {
+    window.localStorage.setItem("renderizr:decision-graph", "sideways");
+
+    renderPage(LINKED);
+
+    assert.equal(graph().getAttribute("data-state"), "collapsed");
+});
+
 /* -------------------------------------------------------------- selection -- */
 
 test("choosing a decision shows its title, date and status", () => {

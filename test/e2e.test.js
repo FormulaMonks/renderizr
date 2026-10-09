@@ -1801,3 +1801,100 @@ test(
         assert.equal(elbows, 2, "the open decision draws its elbows");
     },
 );
+
+/**
+ * Expands the decision graph the way a reader does, then measures where the
+ * menu text and the decision body sit, and whether the controls bar stays put
+ * while the menu scrolls.
+ */
+const EXPAND_PROBE = `<script>
+(async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const result = {};
+    try {
+        for (let tries = 0; tries < 400; tries++) {
+            if (document.querySelector('#adrs-menu [data-mark="dot"]')) break;
+            await sleep(25);
+        }
+        await document.fonts.ready;
+        await sleep(200);
+        const edges = () => ({
+            text: document.querySelector("#adrs-menu a[data-item-id]").getBoundingClientRect().left,
+            menu: document.getElementById("adrs-menu").getBoundingClientRect().right,
+            body: document.getElementById("decision").getBoundingClientRect().left,
+            graph: document.querySelector("#adrs-graph svg").getBoundingClientRect().width,
+        });
+        result.collapsed = edges();
+
+        document.getElementById("adrs-expand").click();
+        await sleep(200);
+        result.expanded = edges();
+        result.state = document.getElementById("adrs-graph").dataset.state;
+        result.stretches = document.querySelectorAll('#adrs-menu [data-mark="stretch"]').length;
+
+        const bar = document.getElementById("adrs-controls");
+        const scroll = document.getElementById("adrs-scroll");
+        const before = bar.getBoundingClientRect().top;
+        scroll.scrollTop = scroll.scrollHeight;
+        await sleep(100);
+        result.scrolled = scroll.scrollTop;
+        result.bar = { before, after: bar.getBoundingClientRect().top };
+    } catch (error) {
+        result.error = String(error);
+    }
+    const probe = document.createElement("pre");
+    probe.id = "probe";
+    probe.textContent = JSON.stringify(result);
+    document.body.append(probe);
+})();
+</script>`;
+
+test(
+    "expanding the decision graph pushes the menu text right without covering the decision body, under a controls bar that stays put",
+    { skip: SKIP },
+    async () => {
+        const built = await decisionGraphBuild();
+        const out = join(SCRATCH, "probe-decision-graph-expanded");
+        await mkdir(out, { recursive: true });
+        const html = await readFile(join(built, "index.html"), "utf8");
+        await writeFile(
+            join(out, "index.html"),
+            html.replace("</body>", `${EXPAND_PROBE}</body>`),
+        );
+
+        const { html: dumped } = await renderPage(
+            CHROME,
+            `${fileUrl(join(out, "index.html"))}#/?page=adrs&adr=4`,
+        );
+        const probe = parseDocument(dumped).querySelector("#probe");
+        assert.ok(probe, "the probe should have finished");
+        const result = JSON.parse(probe.textContent);
+        assert.equal(
+            result.error,
+            undefined,
+            `the probe failed: ${result.error}`,
+        );
+
+        const { collapsed, expanded } = result;
+        assert.equal(result.state, "expanded");
+        assert.ok(result.stretches > 0, "the expanded graph draws its lanes");
+        const grown = expanded.graph - collapsed.graph;
+        assert.ok(
+            Math.abs(expanded.text - collapsed.text - grown) <= 1,
+            `the menu text moves right by the ${grown}px the graph grew: from ${collapsed.text} to ${expanded.text}`,
+        );
+        assert.ok(
+            expanded.menu <= expanded.body,
+            `the menu ends at ${expanded.menu}, after the body starts at ${expanded.body}`,
+        );
+        assert.ok(
+            result.scrolled > 0,
+            "the menu scrolls, or this checks nothing",
+        );
+        assert.equal(
+            result.bar.after,
+            result.bar.before,
+            "the controls bar stays in view while the menu scrolls",
+        );
+    },
+);

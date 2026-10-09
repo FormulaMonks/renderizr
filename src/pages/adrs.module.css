@@ -68,20 +68,52 @@ superseded no longer is. */
     color: var(--color-superseded-strong);
 }
 
+/* ---- controls bar ---- */
+
+/* One bar above the menu, outside the menu's scroll area, so its buttons stay
+in reach however far the reader scrolls the menu. */
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.3rem 0 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
 .summaryLink {
-    display: block;
-    width: 100%;
-    text-align: left;
     font: inherit;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--color-primary);
     background: none;
     border: 0;
-    border-bottom: 1px solid var(--color-border);
-    padding: 0.3rem 0.5rem 0.6rem;
-    margin-bottom: 0.5rem;
+    padding: 0 0.5rem;
     cursor: pointer;
+}
+
+/* A small square button, quiet until hovered, so it never competes with
+"All decisions". The narrow-screen select has no decision graph to expand. */
+.expand {
+    display: none;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-foreground);
+    }
+
+    & svg {
+        width: 0.8rem;
+        height: 0.8rem;
+    }
 }
 
 /* ---- summary index ---- */
@@ -165,12 +197,30 @@ superseded no longer is. */
         align-items: flex-start;
     }
 
+    /* The menu is as wide as the decision graph and the entries together, so
+    expanding the graph widens the sidebar and pushes the menu text right
+    rather than drawing over the decision body. Collapsed, it is 17rem as
+    before. */
     .menu {
         position: sticky;
         top: calc(var(--header-height, 5rem) + 0.75rem);
         flex: none;
-        width: 17rem;
+        display: flex;
+        flex-direction: column;
         max-height: calc(100dvh - var(--header-height, 5rem) - 2rem);
+    }
+
+    .controls {
+        flex: none;
+    }
+
+    .expand {
+        display: grid;
+    }
+
+    /* The menu's own scroll area, below the controls bar. */
+    .scroll {
+        min-height: 0;
         overflow-y: auto;
     }
 
@@ -190,4 +240,13 @@ the titles and grow away from them. */
 .entries {
     flex: 1;
     min-width: 0;
+}
+
+/* Beside the decision graph, the entries keep the width the menu always had,
+less the collapsed gutter, so the sidebar grows by the graph's width. */
+@media (min-width: 900px) {
+    .entries {
+        flex: none;
+        width: calc(17rem - 34px);
+    }
 }

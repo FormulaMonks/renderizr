@@ -87,3 +87,20 @@
     stroke: var(--color-muted);
     stroke-width: 1.5px;
 }
+
+/* ---- expanded ---- */
+
+/* Every dot shows at full strength on its lane, with a halo that keeps it
+apart from the lane running through it. */
+.graph[data-state="expanded"] .dot {
+    fill-opacity: 1;
+    stroke-width: 1.5px;
+}
+
+/* Expanded, a reference is dotted and thin, so it never reads as a lane of
+its own and leaves supersede and amend to carry the graph. */
+.graph[data-state="expanded"] .edge[data-kind="reference"] {
+    stroke-width: 1px;
+    stroke-dasharray: 1.5 2.5;
+    stroke-opacity: 0.9;
+}
