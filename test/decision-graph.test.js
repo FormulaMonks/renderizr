@@ -50,6 +50,24 @@ test("decisions run newest first, by date and then by number", () => {
     );
 });
 
+test("undated decisions run last, by number, whatever order they arrive in", () => {
+    const decisions = [
+        decision(1, "2024-01-10T00:00:00Z"),
+        decision(4, ""),
+        decision(2, "2024-03-01T00:00:00Z"),
+        decision(3, undefined),
+        decision(5, "2024-02-01T00:00:00Z"),
+    ];
+
+    for (const order of [decisions, decisions.toReversed()]) {
+        assert.deepEqual(
+            layoutDecisionGraph(order).rows.map((row) => row.id),
+            ["2", "5", "1", "4", "3"],
+            "dated decisions newest first, then the undated, higher number first",
+        );
+    }
+});
+
 /* ---------------- link kinds */
 
 const WORDINGS = [
