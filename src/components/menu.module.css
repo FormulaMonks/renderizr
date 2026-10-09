@@ -44,6 +44,33 @@
         border-radius: 4px;
     }
 
+    /* A numbered entry, such as a decision, sets the number in a column of
+       its own, so wrapped lines keep to the title's edge rather than running
+       back under the number. The clamp moves to the title, since it has to
+       count the title's lines. */
+    a.numbered {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        column-gap: 0.5rem;
+        align-items: baseline;
+    }
+
+    /* Muted and monospaced, so numbers line up down the menu and leave the
+       title to carry the entry. */
+    .number {
+        font-family: var(--font-mono);
+        font-size: 0.9em;
+        color: var(--color-muted);
+    }
+
+    .title {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow: hidden;
+    }
+
     a:hover {
         color: var(--color-foreground);
         background-color: var(--color-surface);
