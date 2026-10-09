@@ -18,7 +18,7 @@ import { DOMEvent } from "./support/dom.js";
 import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
-const { default: Decisions } = await importSrc("pages/adrs");
+const { default: Decisions, indexColumnCap } = await importSrc("pages/adrs");
 
 const { document, window } = dom;
 
@@ -64,33 +64,57 @@ const menuLinks = () =>
         .querySelectorAll("#adrs-menu a[data-item-id]")
         .map((link) => link.textContent);
 
-const summaryLinks = () =>
-    document
-        .querySelectorAll("#decision-content li a")
-        .map((link) => link.textContent);
+const index = () => document.getElementById("adrs-index");
+const menuSection = () => document.getElementById("adrs-menu");
+const decisionSection = () => document.getElementById("decision");
+
+const indexRows = () => index().querySelectorAll("a[data-item-id]");
+
+/** Each index row as a reader sees it: number, status and title. */
+const indexEntries = () =>
+    indexRows().map((row) =>
+        row
+            .querySelectorAll("span")
+            .map((span) => span.textContent)
+            .join(" | "),
+    );
 
 const title = () => document.getElementById("decision-title");
 const content = () => document.getElementById("decision-content");
 
-/* ---------------------------------------------------------------- summary -- */
+/* ------------------------------------------------------------------ index -- */
 
-test("the landing view is every decision, not the first one", () => {
+test("with no decision open, the page shows the index and hides the menu", () => {
     renderPage();
 
+    assert.equal(index().hidden, false, "the index shows");
+    assert.equal(menuSection().hidden, true, "the menu hides");
+    assert.equal(decisionSection().hidden, true, "no decision body shows");
     assert.equal(title().innerHTML, "");
-    assert.deepEqual(summaryLinks(), [
-        "0002 Inline every asset for single-file output",
-        "0001 Render diagrams in the browser",
+    assert.equal(
+        content().querySelector("li"),
+        null,
+        "the summary list is gone",
+    );
+});
+
+test("the index lists every decision with its four-digit number, status and full title", () => {
+    renderPage();
+
+    assert.equal(index().querySelector("h2").textContent, "Decisions");
+    assert.deepEqual(indexEntries(), [
+        "0002 | Proposed | Inline every asset for single-file output",
+        "0001 | Accepted | Render diagrams in the browser",
     ]);
 });
 
-test("the summary counts how many decisions are still in force", () => {
+test("the index counts how many decisions are still in force", () => {
     renderPage();
 
     // One Accepted, one Proposed: only the first governs anything.
     assert.equal(
-        content().querySelector("p").textContent,
-        "2 recorded, 1 currently in force.",
+        index().querySelector("p").textContent,
+        "2 recorded, 1 in force",
     );
 });
 
@@ -104,12 +128,12 @@ test("amended decisions count as in force; rejected and superseded do not", () =
     ]);
 
     assert.equal(
-        content().querySelector("p").textContent,
-        "5 recorded, 2 currently in force.",
+        index().querySelector("p").textContent,
+        "5 recorded, 2 in force",
     );
 });
 
-test("decisions are grouped by year, newest year first", () => {
+test("the index groups decisions by year, newest year first", () => {
     renderPage([
         decision("1", { date: "2022-06-01T12:00:00Z" }),
         decision("2", { date: "2024-03-01T12:00:00Z" }),
@@ -117,7 +141,7 @@ test("decisions are grouped by year, newest year first", () => {
     ]);
 
     assert.deepEqual(
-        content()
+        index()
             .querySelectorAll("h3")
             .map((heading) => heading.textContent),
         ["2024", "2023", "2022"],
@@ -128,14 +152,24 @@ test("a decision with no date is grouped as Undated", () => {
     renderPage([decision("1", { date: "" })]);
 
     assert.deepEqual(
-        content()
+        index()
             .querySelectorAll("h3")
             .map((heading) => heading.textContent),
         ["Undated"],
     );
+    assert.equal(indexRows()[0].title, "", "with no date for a tooltip");
 });
 
-test("each status gets the class its color comes from", () => {
+test("a row's date is its tooltip", () => {
+    renderPage();
+
+    const expected = new Date("2024-01-15").toLocaleDateString(undefined, {
+        dateStyle: "long",
+    });
+    assert.equal(index().querySelector('a[data-item-id="1"]').title, expected);
+});
+
+test("each status in the index gets the class its color comes from", () => {
     renderPage([
         decision("1", { status: "Accepted" }),
         decision("2", { status: "Proposed" }),
@@ -146,11 +180,11 @@ test("each status gets the class its color comes from", () => {
         decision("7", { status: "" }),
     ]);
 
-    const pills = content()
-        .querySelectorAll("li span[class*=status]")
-        .map((pill) => `${pill.textContent}:${pill.className.split(" ")[1]}`);
+    const statuses = index()
+        .querySelectorAll("a span[class*=indexStatus]")
+        .map((span) => `${span.textContent}:${span.className.split(" ")[1]}`);
 
-    assert.deepEqual(pills.toSorted(), [
+    assert.deepEqual(statuses.toSorted(), [
         "Accepted:accepted",
         "Amended:amended",
         "Deprecated:superseded",
@@ -159,6 +193,29 @@ test("each status gets the class its color comes from", () => {
         "Superseded:superseded",
         "Unknown:draft",
     ]);
+});
+
+test("clicking a row opens the decision with the menu and records it in the URL", () => {
+    renderPage();
+
+    index().querySelector('a[data-item-id="1"]').click();
+
+    assert.equal(new URLSearchParams(history.location.search).get("adr"), "1");
+    assert.equal(index().hidden, true, "the index hides");
+    assert.equal(menuSection().hidden, false, "the menu shows");
+    assert.equal(decisionSection().hidden, false, "the decision shows");
+    assert.equal(
+        title().querySelector("h2").textContent,
+        "0001 Render diagrams in the browser",
+    );
+});
+
+test("a decision opened from the URL shows the menu, not the index", () => {
+    history.replace({ search: "?page=adrs&adr=1" });
+    renderPage();
+
+    assert.equal(index().hidden, true);
+    assert.equal(menuSection().hidden, false);
 });
 
 /* ------------------------------------------------------------------ order -- */
@@ -217,17 +274,6 @@ test("decision numbers read as four digits wherever they appear", () => {
             `the heading of ${id} reads number, then title`,
         );
     }
-});
-
-test("the summary rows show the four-digit number before the title", () => {
-    renderPage();
-
-    assert.deepEqual(
-        content()
-            .querySelectorAll("li a span.number")
-            .map((span) => span.textContent),
-        ["0002", "0001"],
-    );
 });
 
 test("the narrow-screen select shows four-digit numbers", () => {
@@ -924,6 +970,7 @@ test("All decisions turns Related only off and shows every decision", () => {
     document.getElementById("adrs-summary").click();
 
     assert.equal(relatedOnly().getAttribute("aria-pressed"), "false");
+    assert.equal(relatedOnly().hidden, true, "and never shows on the index");
     assert.deepEqual(menuIds(), ["7", "6", "4", "3", "2", "5", "1"]);
 
     open("4");
@@ -936,6 +983,146 @@ test("Related only hides while no decision is open", () => {
     assert.equal(relatedOnly().hidden, true);
     open("2");
     assert.equal(relatedOnly().hidden, false);
+});
+
+/* ---------------------------------------------- the index's decision graph -- */
+
+const indexGraph = () =>
+    document.querySelector("#adrs-index [data-decision-graph]");
+
+/** The index's marks that light or dim, by what they mean. */
+const indexMarks = (emphasis) =>
+    document
+        .querySelectorAll(`#adrs-index [data-mark][data-${emphasis}]`)
+        .map((mark) => {
+            const name = mark.getAttribute("data-mark");
+            const decision = mark.getAttribute("data-decision");
+            if (decision) return `${name} ${decision}`;
+            return `${name} ${mark.getAttribute("data-from")}-${mark.getAttribute("data-to")}`;
+        })
+        .sort();
+
+const indexRow = (id) => index().querySelector(`a[data-item-id="${id}"]`);
+
+const point = (element, type) =>
+    element.dispatchEvent(new DOMEvent(type, { bubbles: true }));
+
+test("the index draws the decision graph expanded, beside its rows", () => {
+    renderPage([...LINKED, LONE]);
+
+    assert.equal(indexGraph().getAttribute("data-state"), "expanded");
+    assert.deepEqual(
+        document
+            .querySelectorAll('#adrs-index [data-mark="dot"]')
+            .map((dot) => dot.getAttribute("data-decision")),
+        ["5", "4", "3", "2", "1"],
+        "a dot per row, in the index's order",
+    );
+    assert.ok(
+        document.querySelectorAll('#adrs-index [data-mark="stretch"]').length >
+            0,
+        "with every lane",
+    );
+});
+
+test("the index stays expanded whatever the menu's decision graph was left as", () => {
+    window.localStorage.setItem("renderizr:decision-graph", "collapsed");
+
+    renderPage(LINKED);
+
+    assert.equal(indexGraph().getAttribute("data-state"), "expanded");
+});
+
+test("the index has no expand toggle and no Related only", () => {
+    renderPage(LINKED);
+
+    assert.equal(index().querySelector("button"), null);
+});
+
+test("pointing at a row lights its edges and dims the rest, and nothing dims once it leaves", () => {
+    renderPage([...LINKED, LONE]);
+
+    assert.deepEqual(indexMarks("dimmed"), [], "nothing dims at first");
+
+    point(indexRow("3"), "mouseover");
+
+    assert.deepEqual(indexMarks("highlighted"), [
+        "dot 1",
+        "dot 3",
+        "dot 4",
+        "join 3-1",
+        "join 4-3",
+        "stretch 3-1",
+        "stretch 4-3",
+    ]);
+    assert.deepEqual(indexMarks("dimmed"), [
+        "dot 2",
+        "dot 5",
+        "stretch 2-1",
+        "stretch 4-2",
+    ]);
+
+    point(index().querySelector("[data-index-rows]"), "mouseleave");
+
+    assert.deepEqual(indexMarks("highlighted"), []);
+    assert.deepEqual(indexMarks("dimmed"), []);
+});
+
+test("focusing a row lights its edges, and moving focus away puts them out", () => {
+    renderPage([...LINKED, LONE]);
+
+    point(indexRow("5"), "focusin");
+    assert.deepEqual(indexMarks("highlighted"), ["dot 5"]);
+
+    point(indexRow("5"), "focusout");
+    assert.deepEqual(indexMarks("dimmed"), []);
+});
+
+test("pointing at a row of the index leaves the menu's decision graph alone", () => {
+    renderPage([...LINKED, LONE]);
+
+    point(indexRow("3"), "mouseover");
+
+    assert.equal(
+        document.querySelectorAll("#adrs-menu [data-mark][data-dimmed]").length,
+        0,
+    );
+});
+
+test("All decisions returns to the index with nothing lit", () => {
+    renderPage([...LINKED, LONE]);
+
+    point(indexRow("3"), "mouseover");
+    indexRow("3").click();
+    document.getElementById("adrs-summary").click();
+
+    assert.equal(index().hidden, false);
+    assert.equal(menuSection().hidden, true);
+    assert.deepEqual(indexMarks("dimmed"), []);
+});
+
+test("on a narrow screen, the index keeps its decision graph", () => {
+    dom.setViewportWidth(600);
+    renderPage(LINKED);
+
+    assert.equal(
+        document.querySelectorAll('#adrs-index [data-mark="dot"]').length,
+        4,
+    );
+    assert.deepEqual(dots(), [], "the menu's select has none");
+});
+
+test("the index's decision graph takes up to half the index's width", () => {
+    const cases = [
+        { width: 1120, cap: 35 },
+        { width: 343, cap: 10 },
+        // Never less than the column the lone dots sit in.
+        { width: 0, cap: 1 },
+    ];
+
+    for (const { width, cap } of cases) {
+        assert.equal(indexColumnCap(width), cap, `at ${width}px`);
+    }
 });
 
 /* -------------------------------------------------------------- selection -- */
@@ -1122,16 +1309,17 @@ test("a relative link to another decision is routed through the resolver", () =>
     assert.ok(content().querySelector('a[href="#/?page=adrs&adr=1"]'));
 });
 
-/* ------------------------------------------------------- back to summary -- */
+/* --------------------------------------------------------- back to index -- */
 
-test("All decisions returns to the summary and drops the decision from the URL", () => {
+test("All decisions returns to the index and drops the decision from the URL", () => {
     renderPage();
 
     document.querySelector('#adrs-menu a[data-item-id="2"]').click();
     document.getElementById("adrs-summary").click();
 
     assert.equal(title().innerHTML, "");
-    assert.equal(summaryLinks().length, 2);
+    assert.equal(index().hidden, false);
+    assert.equal(indexRows().length, 2);
     assert.equal(
         new URLSearchParams(history.location.search).has("adr"),
         false,

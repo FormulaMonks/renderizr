@@ -16,7 +16,8 @@
  * the positions, which only a real browser lays out.
  *
  * With a decision open, the expanded graph lights that decision's edges, as
- * `edgesOfDecision` works them out, and dims everything else.
+ * `edgesOfDecision` works them out, and dims everything else. On the index,
+ * where nothing is open, the row a reader points at lights the same way.
  */
 
 import {
@@ -33,6 +34,9 @@ import styles from "./decision-graph.module.css";
 /** Collapsed is a narrow gutter; expanded shows every lane. */
 export type DecisionGraphState = "collapsed" | "expanded";
 
+/** How a drawing differs from the menu's: the index spaces its columns wider. */
+export type DecisionGraphOptions = { columnWidth?: number };
+
 /** The collapsed gutter's width: room enough for an elbow to read as one. */
 const COLLAPSED_WIDTH = 34;
 /** Where the collapsed gutter's dots sit, a little way in from the titles. */
@@ -47,7 +51,7 @@ const OPEN_DOT_RADIUS = 4.5;
 /** How far the ring around the open decision's dot stands off it. */
 const RING_GAP = 2.5;
 
-/** How far apart the expanded graph's columns sit. */
+/** How far apart the expanded graph's columns sit in the menu. */
 const COLUMN_WIDTH = 12;
 /** The room on either side of the expanded graph's outer columns. */
 const PADDING = 9;
@@ -115,12 +119,19 @@ export default class DecisionGraph extends Component {
     readonly #entries: HTMLElement;
     #layout: DecisionGraphLayout | null = null;
     #open: string | null = null;
+    #hover: string | null = null;
+    readonly #columnWidth: number;
     #state: DecisionGraphState = "collapsed";
     #resizeObserver: ResizeObserver | null = null;
 
-    constructor(element: HTMLElement, entries: HTMLElement) {
+    constructor(
+        element: HTMLElement,
+        entries: HTMLElement,
+        { columnWidth = COLUMN_WIDTH }: DecisionGraphOptions = {},
+    ) {
         super(element);
         this.#entries = entries;
+        this.#columnWidth = columnWidth;
     }
 
     setLayout(layout: DecisionGraphLayout) {
@@ -132,6 +143,22 @@ export default class DecisionGraph extends Component {
     setOpen(id: string | null) {
         this.#open = id;
         this.draw();
+    }
+
+    /**
+     * Light the edges of the decision a reader points at, or of none. It wins
+     * over the open decision while it lasts.
+     */
+    setHover(id: string | null) {
+        if (this.#hover === id) return;
+        this.#hover = id;
+        this.draw();
+    }
+
+    /** The row whose edges light: the one pointed at, else the open one. */
+    #litRow(layout: DecisionGraphLayout): number {
+        const id = this.#hover ?? this.#open;
+        return layout.rows.findIndex((row) => row.id === id);
     }
 
     get state(): DecisionGraphState {
@@ -197,7 +224,7 @@ export default class DecisionGraph extends Component {
     /** The collapsed gutter: dots, and elbows for the open decision's links. */
     #drawCollapsed(layout: DecisionGraphLayout, ys: Map<string, number>) {
         const { rows } = layout;
-        const open = rows.findIndex((row) => row.id === this.#open);
+        const open = this.#litRow(layout);
         const links = open < 0 ? [] : edgesOfDecision(layout, open).links;
         const linked = new Set(links.flatMap((edge) => [edge.from, edge.to]));
 
@@ -217,9 +244,9 @@ export default class DecisionGraph extends Component {
         const dots = rows.map((row, index) => {
             const isOpen = row.id === this.#open;
             const emphasis =
-                this.#open === null
+                open < 0
                     ? ""
-                    : linked.has(index) || isOpen
+                    : linked.has(index) || index === open
                       ? " data-highlighted"
                       : " data-dimmed";
             return this.#dot(
@@ -244,12 +271,13 @@ export default class DecisionGraph extends Component {
      */
     #drawExpanded(layout: DecisionGraphLayout, ys: Map<string, number>) {
         const { rows, edges, lanes, laneOf } = layout;
+        const columnWidth = this.#columnWidth;
         const width =
-            2 * PADDING + Math.max(1, layout.columns - 1) * COLUMN_WIDTH;
+            2 * PADDING + Math.max(1, layout.columns - 1) * columnWidth;
         // Column 0 sits next to the titles, and the graph grows to the left.
-        const x = (col: number) => width - PADDING - col * COLUMN_WIDTH;
+        const x = (col: number) => width - PADDING - col * columnWidth;
         const y = (row: number) => ys.get(rows[row].id) ?? 0;
-        const open = rows.findIndex((row) => row.id === this.#open);
+        const open = this.#litRow(layout);
         const lit = open < 0 ? null : edgesOfDecision(layout, open);
 
         // A stretch runs up the lane from the older decision's dot to `topY`.

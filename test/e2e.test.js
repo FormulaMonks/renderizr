@@ -281,7 +281,7 @@ test(
 );
 
 test(
-    "a link to the decisions page opens the decision log",
+    "a link to the decisions page opens the decisions index",
     { skip: SKIP },
     async () => {
         const out = await singleFile();
@@ -290,8 +290,20 @@ test(
         );
 
         assert.match(
-            document.querySelector("#decision-content").textContent,
-            /2 recorded, 1 currently in force\./,
+            document.querySelector("#adrs-index").textContent,
+            /2 recorded, 1 in force/,
+        );
+        assert.deepEqual(
+            document
+                .querySelectorAll("#adrs-index a[data-item-id]")
+                .map((link) => link.getAttribute("data-item-id")),
+            ["2", "1"],
+            "the index lists every decision, newest first",
+        );
+        assert.equal(
+            document.querySelectorAll('#adrs-index [data-mark="dot"]').length,
+            2,
+            "beside the decision graph",
         );
         assert.deepEqual(
             document
@@ -1718,31 +1730,31 @@ const decisionGraphBuild = once(async () => {
 
 /**
  * Measures, in the page, where each dot sits and where its entry's first line
- * is. The first line's center comes from the title's first character, apart
+ * is, in the menu or on the index. The first line's center comes from the title's first character, apart
  * from anything the graph itself measures, so a dot that drifts to the middle
  * of a wrapped title shows up here.
  */
-const DOT_PROBE = `<script>
+const dotProbe = (scope) => `<script>
 (async () => {
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const result = { rows: [] };
     try {
         for (let tries = 0; tries < 400; tries++) {
-            if (document.querySelector('#adrs-menu [data-mark="dot"]')) break;
+            if (document.querySelector('${scope} [data-mark="dot"]')) break;
             await sleep(25);
         }
         await document.fonts.ready;
         // Let the graph hear about any rewrap the font caused.
         await sleep(200);
         const center = (rect) => (rect.top + rect.bottom) / 2;
-        for (const anchor of document.querySelectorAll("#adrs-menu a[data-item-id]")) {
+        for (const anchor of document.querySelectorAll("${scope} a[data-item-id]")) {
             const id = anchor.dataset.itemId;
             const title = anchor.lastElementChild;
             const range = document.createRange();
             range.setStart(title.firstChild, 0);
             range.setEnd(title.firstChild, 1);
             const dot = document.querySelector(
-                '#adrs-menu [data-mark="dot"][data-decision="' + id + '"]',
+                '${scope} [data-mark="dot"][data-decision="' + id + '"]',
             );
             const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
             result.rows.push({
@@ -1752,7 +1764,7 @@ const DOT_PROBE = `<script>
                 lines: Math.round(title.getBoundingClientRect().height / lineHeight),
             });
         }
-        result.elbows = document.querySelectorAll('#adrs-menu [data-mark="edge"]').length;
+        result.elbows = document.querySelectorAll('${scope} [data-mark="edge"]').length;
     } catch (error) {
         result.error = String(error);
     }
@@ -1773,7 +1785,7 @@ test(
         const html = await readFile(join(built, "index.html"), "utf8");
         await writeFile(
             join(out, "index.html"),
-            html.replace("</body>", `${DOT_PROBE}</body>`),
+            html.replace("</body>", `${dotProbe("#adrs-menu")}</body>`),
         );
 
         const { html: dumped } = await renderPage(
@@ -1799,6 +1811,39 @@ test(
         }
         // 4 supersedes 3, and 6 amends it.
         assert.equal(elbows, 2, "the open decision draws its elbows");
+    },
+);
+
+test(
+    "each dot of the index's decision graph lines up with its row's first line",
+    { skip: SKIP },
+    async () => {
+        const built = await decisionGraphBuild();
+        const out = join(SCRATCH, "probe-decision-index");
+        await mkdir(out, { recursive: true });
+        const html = await readFile(join(built, "index.html"), "utf8");
+        await writeFile(
+            join(out, "index.html"),
+            html.replace("</body>", `${dotProbe("#adrs-index")}</body>`),
+        );
+
+        const { html: dumped } = await renderPage(
+            CHROME,
+            `${fileUrl(join(out, "index.html"))}#/?page=adrs`,
+        );
+        const probe = parseDocument(dumped).querySelector("#probe");
+        assert.ok(probe, "the probe should have finished");
+        const { rows, error } = JSON.parse(probe.textContent);
+        assert.equal(error, undefined, `the probe failed: ${error}`);
+
+        assert.equal(rows.length, 46, "every decision has a row");
+        for (const row of rows) {
+            assert.notEqual(row.dot, null, `decision ${row.id} has a dot`);
+            assert.ok(
+                Math.abs(row.dot - row.line) <= 1.5,
+                `decision ${row.id}'s dot sits at ${row.dot}, its first line at ${row.line}`,
+            );
+        }
     },
 );
 
