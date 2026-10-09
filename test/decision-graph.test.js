@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { layoutDecisionGraph, linkKind } = await importSrc(
+const { edgesOfDecision, layoutDecisionGraph, linkKind } = await importSrc(
     "model/decision-graph",
 );
 
@@ -300,6 +300,83 @@ test("each row knows the lane it sits on", () => {
         [null, 1, 1],
         "3 references the lineage and stays lone; 2 and 1 sit on its lane",
     );
+});
+
+/* ---------------- the open decision's edges */
+
+/**
+ * 3 supersedes 1, so they share a lane; 2 and 5 reference 1 and join it; 4
+ * references 3; 6 references 3 and 1; 7 links to nothing.
+ */
+const JOINED = [
+    decision(1, "2024-01-01"),
+    decision(2, "2024-02-01", [[1, "References"]]),
+    decision(3, "2024-03-01", [[1, "Supersedes"]]),
+    decision(4, "2024-04-01", [[3, "References"]]),
+    decision(5, "2024-05-01", [[1, "References"]]),
+    decision(6, "2024-06-01", [
+        [3, "References"],
+        [1, "References"],
+    ]),
+    decision(7, "2024-07-01"),
+];
+
+/** What a decision's edges light up, by decision id, for readable failures. */
+const lit = (layout, id) => {
+    const idOf = (row) => layout.rows[row].id;
+    const row = layout.rows.findIndex((decision) => decision.id === id);
+    const edges = edgesOfDecision(layout, row);
+
+    return {
+        lane: edges.lane ? idOf(edges.lane.bottom) : null,
+        links: edges.links.map((edge) => `${idOf(edge.from)}-${idOf(edge.to)}`),
+        edges: [...edges.edges]
+            .map((edge) => `${idOf(edge.from)}-${idOf(edge.to)}`)
+            .sort(),
+        stretches: edges.stretches.map(
+            (stretch) =>
+                `${idOf(stretch.lane.bottom)}: ${idOf(stretch.from)}-${idOf(stretch.to)}`,
+        ),
+        dots: [...edges.dots].map(idOf).sort(),
+    };
+};
+
+test("a decision on a lane lights the whole lane, every link onto it and the dots on it", () => {
+    assert.deepEqual(lit(layoutDecisionGraph(JOINED), "3"), {
+        lane: "1",
+        links: ["6-3", "4-3", "3-1"],
+        edges: ["2-1", "3-1", "4-3", "5-1", "6-1", "6-3"],
+        stretches: [],
+        // The decisions that join the lane are not its own, so only the ones
+        // that link to the open decision itself light up.
+        dots: ["1", "3", "4", "6"],
+    });
+});
+
+test("a decision that joins another lane lights only its stretch of that lane, down to the decision it links to", () => {
+    assert.deepEqual(lit(layoutDecisionGraph(JOINED), "4"), {
+        lane: null,
+        links: ["4-3"],
+        edges: ["4-3"],
+        stretches: ["1: 4-3"],
+        dots: ["3", "4"],
+    });
+});
+
+test("a decision that links to several decisions of one lane lights its stretch down to the oldest", () => {
+    assert.deepEqual(lit(layoutDecisionGraph(JOINED), "6").stretches, [
+        "1: 6-1",
+    ]);
+});
+
+test("a decision with no links lights only its own dot", () => {
+    assert.deepEqual(lit(layoutDecisionGraph(JOINED), "7"), {
+        lane: null,
+        links: [],
+        edges: [],
+        stretches: [],
+        dots: ["7"],
+    });
 });
 
 /* ---------------- our own decisions */

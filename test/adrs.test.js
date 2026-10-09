@@ -593,6 +593,115 @@ test("the expanded decision graph draws no elbows, and collapsing brings them ba
     assert.deepEqual(marks("stretch"), [], "and the lanes go");
 });
 
+/** Each mark of the expanded graph that lights up, by what it means. */
+const lit = () =>
+    document
+        .querySelectorAll("#adrs-menu [data-mark][data-highlighted]")
+        .map((mark) => {
+            const name = mark.getAttribute("data-mark");
+            const decision = mark.getAttribute("data-decision");
+            if (decision) return `${name} ${decision}`;
+            const kind = mark.getAttribute("data-kind");
+            const from = mark.getAttribute("data-from");
+            const to = mark.getAttribute("data-to");
+            return `${name} ${kind} ${from}-${to} on ${mark.getAttribute("data-lane")}`;
+        })
+        .sort();
+
+/** Each mark of the expanded graph that dims, by what it means. */
+const dimmed = () =>
+    document
+        .querySelectorAll("#adrs-menu [data-mark][data-dimmed]")
+        .map((mark) => {
+            const name = mark.getAttribute("data-mark");
+            const decision = mark.getAttribute("data-decision");
+            if (decision) return `${name} ${decision}`;
+            return `${name} ${mark.getAttribute("data-from")}-${mark.getAttribute("data-to")}`;
+        })
+        .sort();
+
+const LONE = decision("5", { date: "2024-05-01T12:00:00Z" });
+
+test("opening a decision lights its lane with every join on it, its own joins, and only its stretch of other lanes", () => {
+    renderPage([...LINKED, LONE]);
+    expand();
+
+    open("3");
+
+    assert.deepEqual(
+        lit(),
+        [
+            "dot 1",
+            "dot 3",
+            "dot 4",
+            // 4 joins 3's lane, and 3's lane lights in full.
+            "join reference 4-3 on 3",
+            // 3's own join into 1's lane.
+            "join reference 3-1 on 1",
+            // Of 1's lane, only the stretch from 3's join down to 1.
+            "stretch reference 3-1 on 1",
+            "stretch reference 4-3 on 3",
+        ].sort(),
+    );
+    assert.deepEqual(
+        dimmed(),
+        ["dot 2", "dot 5", "stretch 2-1", "stretch 4-2"],
+        "the rest of 1's lane and every other dot dim",
+    );
+});
+
+test("opening a decision on a lineage lights every stretch of its lane", () => {
+    renderPage([...LINKED, LONE]);
+    expand();
+
+    open("2");
+
+    assert.deepEqual(
+        lit().filter((mark) => mark.startsWith("stretch")),
+        ["stretch amend 4-2 on 1", "stretch supersede 2-1 on 1"],
+    );
+    assert.deepEqual(
+        lit().filter((mark) => mark.startsWith("join")),
+        ["join reference 3-1 on 1"],
+        "3 joins 2's lane, so its join lights too",
+    );
+    assert.deepEqual(dimmed(), ["dot 3", "dot 5", "join 4-3", "stretch 4-3"]);
+});
+
+test("opening a decision with no links dims the whole graph but its own dot", () => {
+    renderPage([...LINKED, LONE]);
+    expand();
+
+    open("5");
+
+    assert.deepEqual(lit(), ["dot 5"]);
+    assert.deepEqual(dimmed(), [
+        "dot 1",
+        "dot 2",
+        "dot 3",
+        "dot 4",
+        "join 3-1",
+        "join 4-3",
+        "stretch 2-1",
+        "stretch 4-2",
+        "stretch 4-3",
+    ]);
+});
+
+test("nothing lights or dims until a decision opens", () => {
+    renderPage([...LINKED, LONE]);
+    expand();
+
+    assert.deepEqual(lit(), []);
+    assert.deepEqual(dimmed(), []);
+
+    open("3");
+    document.getElementById("adrs-summary").click();
+
+    assert.deepEqual(lit(), [], "All decisions puts out the light");
+    assert.deepEqual(dimmed(), []);
+});
+
 test("the expand toggle's state survives a reload", () => {
     const page = renderPage(LINKED);
     expand();

@@ -12,11 +12,19 @@
  * The layout comes from `model/decision-graph`; this draws it as SVG beside
  * the menu's entries. Each mark records what it means in `data-*` attributes
  * (what it is, which decisions, which kind, which status, which lane,
- * highlighted or not), so the page tests read the graph's meaning without the
- * positions, which only a real browser lays out.
+ * highlighted or dimmed), so the page tests read the graph's meaning without
+ * the positions, which only a real browser lays out.
+ *
+ * With a decision open, the expanded graph lights that decision's edges, as
+ * `edgesOfDecision` works them out, and dims everything else.
  */
 
-import type { DecisionGraphLayout, Lane } from "../model/decision-graph";
+import {
+    type DecisionEdges,
+    type DecisionGraphLayout,
+    edgesOfDecision,
+    type Lane,
+} from "../model/decision-graph";
 import { decisionStatus } from "../model/decisions";
 import type { Decision } from "../types/structurizr-documentation";
 import Component from "./_component";
@@ -90,6 +98,13 @@ function joinPath(fromX: number, laneX: number, y: number): string {
         `Q ${px(laneX)},${px(y)} ${px(laneX)},${px(y + JOIN_CORNER)}`,
     ].join(" ");
 }
+
+/**
+ * Whether a mark lights up or dims. With no decision open, every mark shows
+ * as it is and records neither.
+ */
+const emphasis = (lit: DecisionEdges | null, on: boolean) =>
+    lit === null ? "" : on ? " data-highlighted" : " data-dimmed";
 
 /** A lane's name on its marks: the id of its oldest decision. */
 const laneName = (layout: DecisionGraphLayout, lane: Lane) =>
@@ -181,16 +196,12 @@ export default class DecisionGraph extends Component {
 
     /** The collapsed gutter: dots, and elbows for the open decision's links. */
     #drawCollapsed(layout: DecisionGraphLayout, ys: Map<string, number>) {
-        const { rows, edges } = layout;
+        const { rows } = layout;
         const open = rows.findIndex((row) => row.id === this.#open);
-        const ownEdges = edges.filter(
-            (edge) => edge.from === open || edge.to === open,
-        );
-        const linked = new Set(
-            ownEdges.map((edge) => (edge.from === open ? edge.to : edge.from)),
-        );
+        const links = open < 0 ? [] : edgesOfDecision(layout, open).links;
+        const linked = new Set(links.flatMap((edge) => [edge.from, edge.to]));
 
-        const elbows = ownEdges.map((edge) => {
+        const elbows = links.map((edge) => {
             const newer = rows[edge.from];
             const older = rows[edge.to];
             const other = edge.from === open ? older : newer;
@@ -238,6 +249,8 @@ export default class DecisionGraph extends Component {
         // Column 0 sits next to the titles, and the graph grows to the left.
         const x = (col: number) => width - PADDING - col * COLUMN_WIDTH;
         const y = (row: number) => ys.get(rows[row].id) ?? 0;
+        const open = rows.findIndex((row) => row.id === this.#open);
+        const lit = open < 0 ? null : edgesOfDecision(layout, open);
 
         // A stretch runs up the lane from the older decision's dot to `topY`.
         const stretch = (
@@ -246,8 +259,9 @@ export default class DecisionGraph extends Component {
             newer: number,
             older: number,
             topY: number,
+            on = lit?.lane === lane,
         ) =>
-            `<path class="${styles.edge}" data-mark="stretch" data-kind="${kind}" data-from="${attribute(rows[newer].id)}" data-to="${attribute(rows[older].id)}" data-status="${decisionStatus(rows[older].status)}" data-lane="${laneName(layout, lane)}" d="M ${px(x(lane.col))},${px(y(older))} V ${px(topY)}"></path>`;
+            `<path class="${styles.edge}" data-mark="stretch" data-kind="${kind}" data-from="${attribute(rows[newer].id)}" data-to="${attribute(rows[older].id)}" data-status="${decisionStatus(rows[older].status)}" data-lane="${laneName(layout, lane)}"${emphasis(lit, on)} d="M ${px(x(lane.col))},${px(y(older))} V ${px(topY)}"></path>`;
 
         const stretches: string[] = [];
         for (const lane of lanes) {
@@ -293,6 +307,23 @@ export default class DecisionGraph extends Component {
             }
         }
 
+        // Of each other lane the open decision joins, only the stretch from
+        // its join down to the decision it links to lights, drawn over the
+        // lane's dimmed stretches. A link into another lineage's lane is
+        // always a reference, since supersede and amend join the lineages.
+        for (const { lane, from, to } of lit?.stretches ?? []) {
+            stretches.push(
+                stretch(
+                    lane,
+                    "reference",
+                    from,
+                    to,
+                    y(from) + JOIN_CORNER,
+                    true,
+                ),
+            );
+        }
+
         // A join for every link into another lineage's lane, from the
         // linker's own column across to the lane.
         const joins = edges.flatMap((edge) => {
@@ -301,7 +332,7 @@ export default class DecisionGraph extends Component {
             const fromX = x(laneOf[edge.from]?.col ?? 0);
             const d = joinPath(fromX, x(lane.col), y(edge.from));
             return [
-                `<path class="${styles.edge}" data-mark="join" data-kind="${edge.kind}" data-from="${attribute(rows[edge.from].id)}" data-to="${attribute(rows[edge.to].id)}" data-status="${decisionStatus(rows[edge.to].status)}" data-lane="${laneName(layout, lane)}" d="${d}"></path>`,
+                `<path class="${styles.edge}" data-mark="join" data-kind="${edge.kind}" data-from="${attribute(rows[edge.from].id)}" data-to="${attribute(rows[edge.to].id)}" data-status="${decisionStatus(rows[edge.to].status)}" data-lane="${laneName(layout, lane)}"${emphasis(lit, lit?.edges.has(edge) ?? false)} d="${d}"></path>`,
             ];
         });
 
@@ -319,7 +350,7 @@ export default class DecisionGraph extends Component {
                 y(index),
                 radius,
                 EXPANDED_RING_GAP,
-                lane ? ` data-lane="${laneName(layout, lane)}"` : "",
+                `${lane ? ` data-lane="${laneName(layout, lane)}"` : ""}${emphasis(lit, lit?.dots.has(index) ?? false)}`,
             );
         });
 

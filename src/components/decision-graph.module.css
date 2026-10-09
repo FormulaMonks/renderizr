@@ -104,3 +104,16 @@ its own and leaves supersede and amend to carry the graph. */
     stroke-dasharray: 1.5 2.5;
     stroke-opacity: 0.9;
 }
+
+/* With a decision open, everything outside its edges drops back, so the
+reader sees at a glance what the open decision links to. */
+.graph[data-state="expanded"] [data-dimmed] {
+    opacity: 0.3;
+}
+
+/* A lit reference grows a little but stays dotted, so it never reads as a
+lane. */
+.graph[data-state="expanded"] .edge[data-kind="reference"][data-highlighted] {
+    stroke-width: 1.5px;
+    stroke-opacity: 1;
+}

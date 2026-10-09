@@ -223,3 +223,69 @@ export function layoutDecisionGraph(
         referenceColumn: null,
     };
 }
+
+/** A stretch of another decision's lane, by row: from a join down to `to`. */
+export type LaneStretch = { lane: Lane; from: number; to: number };
+
+/**
+ * What one decision lights up in the decision graph, by row: the open
+ * decision in the menu, or the row a reader points at on the index.
+ */
+export type DecisionEdges = {
+    row: number;
+    /** The decision's own links, both ways. */
+    links: Edge[];
+    /** Its lineage's lane, which lights in full, or null for a lone dot. */
+    lane: Lane | null;
+    /** Its links, and every link that joins its lane. */
+    edges: Set<Edge>;
+    /**
+     * Of each other lane it joins, the stretch from its join down to the
+     * oldest decision it links to there, so the light never ends at a
+     * decision it does not link to.
+     */
+    stretches: LaneStretch[];
+    /** The decision, the decisions it links to and its lane's decisions. */
+    dots: Set<number>;
+};
+
+/**
+ * What a decision lights up: its own lineage's lane with every join on it,
+ * its own joins into other lanes and, of each such lane, only the stretch
+ * down to the decision it links to. Everything else dims; a decision with no
+ * links lights only its own dot.
+ */
+export function edgesOfDecision(
+    layout: DecisionGraphLayout,
+    row: number,
+): DecisionEdges {
+    const { edges, laneOf } = layout;
+    const lane = laneOf[row] ?? null;
+    const links = edges.filter((edge) => edge.from === row || edge.to === row);
+
+    const stretches = new Map<Lane, LaneStretch>();
+    for (const edge of links) {
+        const other = laneOf[edge.to];
+        if (edge.from !== row || !other || other === lane) continue;
+        const known = stretches.get(other);
+        if (!known || edge.to > known.to) {
+            stretches.set(other, { lane: other, from: row, to: edge.to });
+        }
+    }
+
+    const dots = new Set([row]);
+    for (const edge of links) dots.add(edge.from).add(edge.to);
+    for (const member of lane?.members ?? []) dots.add(member);
+
+    return {
+        row,
+        links,
+        lane,
+        edges: new Set([
+            ...links,
+            ...edges.filter((edge) => lane && laneOf[edge.to] === lane),
+        ]),
+        stretches: [...stretches.values()],
+        dots,
+    };
+}

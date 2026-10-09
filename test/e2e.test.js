@@ -1831,6 +1831,19 @@ const EXPAND_PROBE = `<script>
         result.expanded = edges();
         result.state = document.getElementById("adrs-graph").dataset.state;
         result.stretches = document.querySelectorAll('#adrs-menu [data-mark="stretch"]').length;
+        const style = (selector) => {
+            const mark = document.querySelector("#adrs-menu " + selector);
+            if (!mark) return null;
+            const computed = getComputedStyle(mark);
+            return {
+                dash: computed.strokeDasharray,
+                width: computed.strokeWidth,
+                opacity: computed.opacity,
+            };
+        };
+        result.litReference = style('[data-kind="reference"][data-highlighted]');
+        result.quietReference = style('[data-kind="reference"][data-dimmed]');
+        result.dimmed = style("[data-dimmed]");
 
         const bar = document.getElementById("adrs-controls");
         const scroll = document.getElementById("adrs-scroll");
@@ -1878,6 +1891,20 @@ test(
         const { collapsed, expanded } = result;
         assert.equal(result.state, "expanded");
         assert.ok(result.stretches > 0, "the expanded graph draws its lanes");
+        // 4 supersedes 3, 6 amends 4, and 7 references 6: its join onto 4's
+        // lane lights up with the lane.
+        const { litReference, quietReference, dimmed } = result;
+        assert.ok(litReference, "a reference lights up with 4's lane");
+        assert.ok(quietReference, "and other references stay quiet");
+        assert.equal(
+            litReference.dash,
+            quietReference.dash,
+            "a lit reference stays dotted",
+        );
+        assert.notEqual(litReference.dash, "none");
+        assert.equal(litReference.width, "1.5px");
+        assert.equal(litReference.opacity, "1");
+        assert.equal(dimmed.opacity, "0.3", "everything else dims to 30%");
         const grown = expanded.graph - collapsed.graph;
         assert.ok(
             Math.abs(expanded.text - collapsed.text - grown) <= 1,
