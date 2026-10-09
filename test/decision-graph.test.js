@@ -14,6 +14,7 @@ import { syntheticDecisions } from "./support/decision-sets.js";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const {
+    continuesLane,
     edgesOfDecision,
     joinsLane,
     laneColumnsOfDecision,
@@ -845,4 +846,35 @@ test("the scrolling fixture scrolls its lanes under the menu's cap and a wide in
         assert.equal(layout.fallback, "scroll", `under a ${cap}-column cap`);
         assert.equal(layout.columns, 42, "40 lanes, the lone dots, column 1");
     }
+});
+
+/* ---------------- lineage links on their lane */
+
+test("both ends of every supersede and amend link sit on one lane, under any cap", () => {
+    const sets = [
+        ["the joined set", JOINED],
+        ["the capped set", CAPPED],
+        ["our own decisions", OURS],
+        ["the fixture", FIXTURE],
+        ["the scrolling fixture", SCROLL_FIXTURE],
+        ["the sparse 1,000-decision set", SPARSE_1000],
+    ];
+    for (const [name, decisions] of sets) {
+        for (const cap of [Number.POSITIVE_INFINITY, 30, 8, 2]) {
+            const { edges, laneOf } = layoutDecisionGraph(decisions, cap);
+            for (const edge of edges.filter((e) => continuesLane(e.kind))) {
+                assert.ok(
+                    laneOf[edge.from] !== null &&
+                        laneOf[edge.from] === laneOf[edge.to],
+                    `${name} under a cap of ${cap}: rows ${edge.from} and ${edge.to}`,
+                );
+            }
+        }
+    }
+});
+
+test("a reference never continues a lane", () => {
+    assert.equal(continuesLane("reference"), false);
+    assert.equal(continuesLane("supersede"), true);
+    assert.equal(continuesLane("amend"), true);
 });

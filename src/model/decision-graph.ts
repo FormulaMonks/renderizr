@@ -116,8 +116,12 @@ function mergeEdges(rows: Decision[]): Edge[] {
     return [...pairs.values()];
 }
 
-/** Supersede and amend continue a lane; a reference only joins one. */
-const continuesLane = (kind: LinkKind) => kind !== "reference";
+/**
+ * Supersede and amend continue a lane; a reference only joins one. They join
+ * their two ends into one lineage, so both ends always sit on one lane, and
+ * the lit decision's supersede and amend links light along it.
+ */
+export const continuesLane = (kind: LinkKind) => kind !== "reference";
 
 /**
  * The lineage of every row, as the row of one of its decisions: supersede and
@@ -292,8 +296,8 @@ export type DecisionEdges = {
     row: number;
     /**
      * The decision's own links, both ways, farthest first: drawn in that
-     * order on the reference column, the nearest sits on top where they
-     * overlap.
+     * order along a lane or on the reference column, the nearest sits on top
+     * where they overlap.
      */
     links: Edge[];
     /** The decision and the other end of each link; none without links. */

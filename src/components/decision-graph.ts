@@ -15,12 +15,13 @@
  * highlighted or dimmed), so the page tests read the graph's meaning without
  * the positions, which only a real browser lays out.
  *
- * With a decision open, the expanded graph draws every link of that decision
- * in full on the reference column, next to the lone dots, and dims everything
- * else: every lane, every join and every dot but the links' ends. On the
- * index, where nothing is open, the row a reader points at lights the same
- * way. The column takes its room whether a decision is open or not, so
- * opening one never moves a column.
+ * With a decision open, the expanded graph lights every link of that decision
+ * and dims everything else: every lane, every join and every dot but the
+ * links' ends. Its supersede and amend links light along their lane, from one
+ * end's dot to the other's; its references run in full on the reference
+ * column, next to the lone dots. On the index, where nothing is open, the row
+ * a reader points at lights the same way. The column takes its room whether a
+ * decision is open or not, so opening one never moves a column.
  *
  * Past its cap, the layout falls back, and references open no lanes.
  *
@@ -32,6 +33,7 @@
  */
 
 import {
+    continuesLane,
     type DecisionEdges,
     type DecisionGraphLayout,
     edgesOfDecision,
@@ -395,14 +397,15 @@ export default class DecisionGraph extends Component {
         const lit = open < 0 ? null : edgesOfDecision(layout, open);
 
         // A stretch runs up the lane from the older decision's dot to `topY`.
-        // Once a decision lights, every stretch dims: its links light on the
-        // reference column instead.
+        // Once a decision lights, every lane stretch dims; only its own
+        // supersede and amend links light along their lane, over it.
         const stretch = (
             lane: Lane,
             kind: string,
             newer: number,
             older: number,
             topY: number,
+            on = false,
         ) =>
             edgePath({
                 mark: "stretch",
@@ -410,7 +413,7 @@ export default class DecisionGraph extends Component {
                 newer: rows[newer],
                 older: rows[older],
                 lane: laneName(layout, lane),
-                emphasis: emphasis(lit, false),
+                emphasis: emphasis(lit, on),
                 d: `M ${px(x(lane.col))},${px(y(older))} V ${px(topY)}`,
             });
 
@@ -483,20 +486,40 @@ export default class DecisionGraph extends Component {
             ];
         });
 
-        // Every link of the lit decision runs in full on the reference
-        // column, lit, farthest first so the nearest sits on top where they
-        // overlap. The column stays empty while nothing is lit.
+        // The lit decision's links, farthest first so the nearest sits on top
+        // where they overlap. Supersede and amend are the lineage itself, so
+        // they light along their lane from one end's dot to the other's, and
+        // the members they pass stay dimmed. Both ends always share the lane.
+        const lineage = (lit?.links ?? []).flatMap((edge) => {
+            const lane = laneOf[edge.from];
+            if (!continuesLane(edge.kind) || !lane) return [];
+            return [
+                stretch(
+                    lane,
+                    edge.kind,
+                    edge.from,
+                    edge.to,
+                    y(edge.from),
+                    true,
+                ),
+            ];
+        });
+
+        // References run in full on the reference column instead, lit. The
+        // column stays empty while nothing is lit.
         const columnX = x(referenceColumn);
-        const links = (lit?.links ?? []).map((edge) =>
-            edgePath({
-                mark: "edge",
-                kind: edge.kind,
-                newer: rows[edge.from],
-                older: rows[edge.to],
-                emphasis: emphasis(lit, true),
-                d: columnPath(dot(edge.from), columnX, dot(edge.to)),
-            }),
-        );
+        const links = (lit?.links ?? [])
+            .filter((edge) => !continuesLane(edge.kind))
+            .map((edge) =>
+                edgePath({
+                    mark: "edge",
+                    kind: edge.kind,
+                    newer: rows[edge.from],
+                    older: rows[edge.to],
+                    emphasis: emphasis(lit, true),
+                    d: columnPath(dot(edge.from), columnX, dot(edge.to)),
+                }),
+            );
 
         const dots = rows.map((row, index) => {
             const lane = laneOf[index];
@@ -518,7 +541,7 @@ export default class DecisionGraph extends Component {
 
         return {
             width,
-            marks: `${stretches.join("")}${joins.join("")}${links.join("")}${dots.join("")}`,
+            marks: `${stretches.join("")}${joins.join("")}${lineage.join("")}${links.join("")}${dots.join("")}`,
             x,
         };
     }

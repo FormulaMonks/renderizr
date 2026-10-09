@@ -640,7 +640,7 @@ test("every dot in the expanded decision graph sits on its lane, or alone", () =
     );
 });
 
-test("expanded, the open decision's links run on the reference column, and collapsing brings the elbows back", () => {
+test("expanded, the open decision's references run on the reference column, and collapsing brings the elbows back", () => {
     history.replace({ search: "?page=adrs&adr=4" });
     renderPage(LINKED);
 
@@ -652,12 +652,8 @@ test("expanded, the open decision's links run on the reference column, and colla
                 (edge) =>
                     `${edge.getAttribute("data-kind")} ${edge.getAttribute("data-from")}-${edge.getAttribute("data-to")} ${edge.getAttribute("data-status")}`,
             ),
-        [
-            "supersede 4-1 superseded",
-            "amend 4-2 amended",
-            "reference 4-3 accepted",
-        ],
-        "every link of 4, farthest first, so the nearest draws on top",
+        ["reference 4-3 accepted"],
+        "only the reference leaves the lane for the reference column",
     );
     assert.ok(
         document
@@ -667,7 +663,7 @@ test("expanded, the open decision's links run on the reference column, and colla
                     edge.hasAttribute("data-highlighted") &&
                     !edge.hasAttribute("data-lane"),
             ),
-        "each lights, and runs on no lane",
+        "it lights, and runs on no lane",
     );
     assert.equal(
         document
@@ -745,7 +741,7 @@ test("opening a decision on a lineage lights its own links, not the rest of its 
 
     open("2");
 
-    assert.deepEqual(lit(), ["dot 2", "dot 4", "edge amend 4-2 on null"]);
+    assert.deepEqual(lit(), ["dot 2", "dot 4", "stretch amend 4-2 on 1"]);
     assert.deepEqual(
         dimmed(),
         [
@@ -759,6 +755,71 @@ test("opening a decision on a lineage lights its own links, not the rest of its 
             "stretch 4-3",
         ],
         "1 shares 2's lane but links to 4, not to 2",
+    );
+});
+
+test("opening a decision lights its supersede and amend links along its lane, not on the reference column", () => {
+    renderPage([...LINKED, LONE]);
+    expand();
+
+    open("4");
+
+    assert.deepEqual(lit(), [
+        "dot 1",
+        "dot 2",
+        "dot 3",
+        "dot 4",
+        "edge reference 4-3 on null",
+        // Farthest first, so the amend draws over the supersede it shares
+        // the lane with.
+        "stretch amend 4-2 on 1",
+        "stretch supersede 4-1 on 1",
+    ]);
+    assert.deepEqual(
+        document
+            .querySelectorAll(
+                '#adrs-menu [data-mark="stretch"][data-highlighted]',
+            )
+            .map(
+                (mark) =>
+                    `${mark.getAttribute("data-kind")} ${mark.getAttribute("data-status")}`,
+            ),
+        ["supersede superseded", "amend amended"],
+        "each takes its kind and the older decision's status",
+    );
+});
+
+test("opening a decision in the middle of an amend trunk lights only the stretches to its direct links", () => {
+    // From 2 on, each decision amends the one before, all on one lane.
+    const trunk = Array.from({ length: 6 }, (__, index) =>
+        decision(String(index + 1), {
+            date: `2024-0${index + 1}-01T12:00:00Z`,
+            links:
+                index === 0
+                    ? []
+                    : [{ id: String(index), description: "Amends" }],
+        }),
+    );
+    renderPage(trunk);
+    expand();
+
+    open("3");
+
+    assert.deepEqual(lit(), [
+        "dot 2",
+        "dot 3",
+        "dot 4",
+        "stretch amend 3-2 on 1",
+        "stretch amend 4-3 on 1",
+    ]);
+    assert.deepEqual(
+        document.querySelectorAll('#adrs-menu [data-mark="edge"]').length,
+        0,
+        "nothing runs on the reference column",
+    );
+    assert.deepEqual(
+        dimmed().filter((mark) => mark.startsWith("dot")),
+        ["dot 1", "dot 5", "dot 6"],
     );
 });
 
@@ -892,7 +953,11 @@ test("under the cap too, opening a decision never moves a column", () => {
     open("4");
 
     assert.deepEqual(geometry(), closed);
-    assert.equal(marks("edge").length, 3, "4's links draw on the kept column");
+    assert.equal(
+        marks("edge").length,
+        1,
+        "4's reference draws on the kept column",
+    );
 });
 
 test("the expand toggle's state survives a reload", () => {
