@@ -21,6 +21,7 @@ import yaml from "highlight.js/lib/languages/yaml";
 // hardcoded to one color scheme. The `hljs-*` token colors live in the module
 // CSS instead, where they follow `data-theme`.
 import type StateCore from "markdown-it/lib/rules_core/state_core.mjs";
+import type { ImageResolver } from "./doc-images";
 import { githubSlug, type LinkResolver } from "./doc-links";
 import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";
@@ -87,6 +88,7 @@ function headingIds(state: StateCore): void {
 export default class MarkdownRenderer extends Component {
     #markdownContent = "";
     #resolveLink: LinkResolver | null = null;
+    #resolveImage: ImageResolver | null = null;
     #md = markdownIt({
         html: true,
         typographer: true,
@@ -148,6 +150,7 @@ export default class MarkdownRenderer extends Component {
         this.#md.renderer.rules.table_close = () => "</table></div>";
 
         this.#md.core.ruler.push("doc_links", this.#rewriteLinks);
+        this.#md.core.ruler.push("doc_images", this.#rewriteImages);
     }
 
     /**
@@ -157,6 +160,27 @@ export default class MarkdownRenderer extends Component {
     setLinkResolver(resolve: LinkResolver | null): void {
         this.#resolveLink = resolve;
     }
+
+    /**
+     * Point relative image paths at the copy the workspace embeds. See
+     * `createImageResolver`.
+     */
+    setImageResolver(resolve: ImageResolver | null): void {
+        this.#resolveImage = resolve;
+    }
+
+    #rewriteImages = (state: StateCore): void => {
+        const resolve = this.#resolveImage;
+        if (!resolve) return;
+
+        for (const block of state.tokens) {
+            for (const token of block.children ?? []) {
+                if (token.type !== "image") continue;
+                const src = resolve(token.attrGet("src") ?? "");
+                if (src !== undefined) token.attrSet("src", src);
+            }
+        }
+    };
 
     /**
      * A link to a document the workspace does not contain stays readable but

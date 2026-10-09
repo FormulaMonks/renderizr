@@ -1,4 +1,5 @@
 import { asciidocToMarkdown, isAsciiDoc } from "../components/asciidoc";
+import type { ImageResolver } from "../components/doc-images";
 import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
@@ -239,6 +240,7 @@ export default class Docs extends Page {
     #headingIndex = new Map<string, number>();
     #modelBuilt = false;
     #resolveLink: LinkResolver | null;
+    #resolveImage: ImageResolver | null;
 
     #groups: PageGroup[] = [];
     #renderedSectionId: string | null = null;
@@ -257,9 +259,11 @@ export default class Docs extends Page {
         name = "Docs",
         sections: DocumentationSection[] = [],
         resolveLink: LinkResolver | null = null,
+        resolveImage: ImageResolver | null = null,
     ) {
         super(container, name);
         this.#resolveLink = resolveLink;
+        this.#resolveImage = resolveImage;
 
         this.#sections = sections
             .toSorted((a, b) => (a.order < b.order ? -1 : 1))
@@ -672,6 +676,7 @@ export default class Docs extends Page {
             new MarkdownRenderer(document.getElementById("docs-content")!),
         );
         this.#viewer.setLinkResolver(this.#resolveLink);
+        this.#viewer.setImageResolver(this.#resolveImage);
 
         this.#buildModel();
 

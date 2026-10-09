@@ -3,6 +3,7 @@ import { initTheme } from "./components/theme.ts";
 import "./main.css";
 import Router from "./components/router.ts";
 import Navigation from "./components/navigation.ts";
+import { createImageResolver } from "./components/doc-images.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
 import { takeSessionToken } from "./components/session-token.ts";
 import { summarizeWorkspace } from "./engine/workspace-summary";
@@ -77,15 +78,25 @@ async function init() {
 
     // Links between sections and decisions are written as relative file
     // paths; this maps them onto the routes below.
-    const { sections, decisions } = workspace.documentation;
+    const { sections, decisions, images } = workspace.documentation;
     const resolveLink = createLinkResolver({
         docs: nav.hasDocs ? { page: "docs", sections } : null,
         decisions: nav.hasDecisions ? { page: "adrs", decisions } : null,
     });
+    // Images they show come from the copies Structurizr embedded.
+    const resolveImage = createImageResolver(images);
 
     if (nav.hasDocs) {
         const DocsPage = (await import("./pages/docs.ts")).default;
-        routes.push(new DocsPage(null, "docs", sections, resolveLink("docs")));
+        routes.push(
+            new DocsPage(
+                null,
+                "docs",
+                sections,
+                resolveLink("docs"),
+                resolveImage,
+            ),
+        );
     }
 
     if (nav.hasDecisions) {
@@ -96,6 +107,7 @@ async function init() {
                 "adrs",
                 decisions,
                 resolveLink("decisions"),
+                resolveImage,
             ),
         );
     }
