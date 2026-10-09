@@ -153,6 +153,155 @@ test("a decision without links makes no edge", () => {
     assert.deepEqual(layout.edges, []);
 });
 
+/* ---------------- lanes */
+
+/**
+ * Each lane as its column, its ends, its members and its linkers by decision
+ * id, newest first, ordered by column and then from the top down.
+ */
+const lanesOf = (layout) =>
+    layout.lanes
+        .toSorted((a, b) => a.col - b.col || a.top - b.top)
+        .map((lane) => ({
+            col: lane.col,
+            top: layout.rows[lane.top].id,
+            bottom: layout.rows[lane.bottom].id,
+            members: lane.members.map((row) => layout.rows[row].id),
+            linkers: lane.linkers.map((row) => layout.rows[row].id),
+        }));
+
+/** The decisions drawn as lone dots, newest first. */
+const loneOf = (layout) =>
+    layout.rows
+        .filter((__, row) => layout.laneOf[row] === null)
+        .map((row) => row.id);
+
+test("a decision nobody links to is a lone dot in column 0", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01"),
+    ]);
+
+    assert.deepEqual(layout.lanes, []);
+    assert.deepEqual(loneOf(layout), ["2", "1"]);
+    assert.equal(layout.columns, 1, "column 0 holds the lone dots");
+});
+
+test("supersede and amend join decisions into one lineage on one lane", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01", [[1, "Supersedes"]]),
+        decision(3, "2024-03-01", [[2, "Amends"]]),
+    ]);
+
+    assert.deepEqual(lanesOf(layout), [
+        {
+            col: 1,
+            top: "3",
+            bottom: "1",
+            members: ["3", "2", "1"],
+            linkers: [],
+        },
+    ]);
+    assert.deepEqual(loneOf(layout), []);
+    assert.equal(layout.columns, 2);
+});
+
+test("a decision a later one references gets a lane up to its newest linker", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01", [[1, "References"]]),
+        decision(3, "2024-03-01"),
+        decision(4, "2024-04-01", [[1, "Clarifies"]]),
+    ]);
+
+    assert.deepEqual(lanesOf(layout), [
+        { col: 1, top: "4", bottom: "1", members: ["1"], linkers: ["4", "2"] },
+    ]);
+    assert.deepEqual(
+        loneOf(layout),
+        ["4", "3", "2"],
+        "the linkers stay lone dots and join the lane",
+    );
+});
+
+test("a lane runs up to its newest decision when that is newer than its newest linker", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01", [[1, "References"]]),
+        decision(3, "2024-03-01", [[1, "Supersedes"]]),
+    ]);
+
+    assert.deepEqual(lanesOf(layout), [
+        { col: 1, top: "3", bottom: "1", members: ["3", "1"], linkers: ["2"] },
+    ]);
+});
+
+test("a decision that references two decisions of one lineage joins its lane once", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01", [[1, "Amends"]]),
+        decision(3, "2024-03-01", [
+            [1, "References"],
+            [2, "References"],
+        ]),
+    ]);
+
+    assert.deepEqual(lanesOf(layout)[0].linkers, ["3"]);
+});
+
+test("lanes open to the left, newest first, in the lowest free column", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01"),
+        decision(3, "2024-03-01", [[1, "References"]]),
+        decision(4, "2024-04-01", [[2, "References"]]),
+    ]);
+
+    assert.deepEqual(
+        lanesOf(layout).map(({ col, bottom }) => [col, bottom]),
+        [
+            [1, "2"],
+            [2, "1"],
+        ],
+        "2's lane opens first, at 4, so it takes column 1",
+    );
+    assert.equal(layout.columns, 3);
+});
+
+test("a column comes back into use once its lane closes", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01", [[1, "References"]]),
+        decision(3, "2024-03-01"),
+        decision(4, "2024-04-01", [[3, "References"]]),
+    ]);
+
+    assert.deepEqual(
+        lanesOf(layout).map(({ col, bottom }) => [col, bottom]),
+        [
+            [1, "3"],
+            [1, "1"],
+        ],
+        "3's lane closes at 3, above where 1's lane opens, at 2",
+    );
+    assert.equal(layout.columns, 2);
+});
+
+test("each row knows the lane it sits on", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01", [[1, "Supersedes"]]),
+        decision(3, "2024-03-01", [[1, "References"]]),
+    ]);
+
+    assert.deepEqual(
+        layout.laneOf.map((lane) => lane?.col ?? null),
+        [null, 1, 1],
+        "3 references the lineage and stays lone; 2 and 1 sit on its lane",
+    );
+});
+
 /* ---------------- our own decisions */
 
 const OURS = JSON.parse(
@@ -183,6 +332,35 @@ test("our own decisions make one amend edge and 22 references", () => {
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
         ["14 amend 4"],
+    );
+});
+
+test("our own decisions need 8 columns", () => {
+    const layout = layoutDecisionGraph(OURS);
+    const lane = (col, members, linkers) => ({
+        col,
+        top: linkers[0] ?? members[0],
+        bottom: members.at(-1),
+        members,
+        linkers,
+    });
+
+    assert.equal(layout.columns, 8);
+    assert.deepEqual(lanesOf(layout), [
+        lane(1, ["7"], ["19", "17", "8"]),
+        lane(2, ["3"], ["18", "15", "6"]),
+        lane(3, ["14", "4"], ["17", "10", "9"]),
+        lane(4, ["9"], ["17", "10"]),
+        lane(5, ["10"], ["17"]),
+        lane(6, ["16"], ["17"]),
+        lane(6, ["2"], ["13", "12", "11", "9", "7", "5", "3"]),
+        lane(7, ["15"], ["16"]),
+        lane(7, ["11"], ["12"]),
+    ]);
+    assert.deepEqual(
+        loneOf(layout),
+        ["19", "18", "17", "13", "12", "8", "6", "5", "1"],
+        "every other decision is a lone dot",
     );
 });
 

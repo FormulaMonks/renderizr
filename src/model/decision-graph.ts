@@ -27,9 +27,12 @@ export type Lane = {
     col: number;
     top: number;
     bottom: number;
-    /** The rows that supersede or amend one another along the lane. */
+    /** The rows that supersede or amend one another, newest first. */
     members: number[];
-    /** The rows that reference a member and join the lane with an elbow. */
+    /**
+     * The rows that reference a member and join the lane, newest first and
+     * each once.
+     */
     linkers: number[];
 };
 
@@ -102,22 +105,120 @@ function mergeEdges(rows: Decision[]): Edge[] {
     return [...pairs.values()];
 }
 
+/** Supersede and amend continue a lane; a reference only joins one. */
+const continuesLane = (kind: LinkKind) => kind !== "reference";
+
 /**
- * Lay out the decision graph for a set of decisions. Lanes do not open yet:
- * every decision is a lone dot in column 0, which is all the collapsed graph
- * draws.
+ * The lineage of every row, as the row of one of its decisions: supersede and
+ * amend join decisions into one lineage, so a decision's whole history runs
+ * along one lane.
+ */
+function lineages(rows: Decision[], edges: Edge[]): number[] {
+    const parent = rows.map((__, row) => row);
+    const find = (row: number): number => {
+        let root = row;
+        while (parent[root] !== root) {
+            parent[root] = parent[parent[root]];
+            root = parent[root];
+        }
+        return root;
+    };
+
+    for (const edge of edges) {
+        if (continuesLane(edge.kind)) parent[find(edge.from)] = find(edge.to);
+    }
+
+    return rows.map((__, row) => find(row));
+}
+
+/**
+ * The lanes, without their columns yet. A lineage gets a lane when it has
+ * more than one decision or when a later decision references one of its
+ * decisions; the lane runs from its oldest decision up to its newest decision
+ * or newest linker, whichever is newer.
+ */
+function openLanes(rows: Decision[], edges: Edge[]) {
+    const lineageOf = lineages(rows, edges);
+    const members = new Map<number, number[]>();
+    const linkers = new Map<number, Set<number>>();
+
+    for (const [row, lineage] of lineageOf.entries()) {
+        members.set(lineage, [...(members.get(lineage) ?? []), row]);
+    }
+    for (const edge of edges) {
+        if (
+            continuesLane(edge.kind) &&
+            lineageOf[edge.from] === lineageOf[edge.to]
+        ) {
+            continue;
+        }
+        const lineage = lineageOf[edge.to];
+        linkers.set(
+            lineage,
+            (linkers.get(lineage) ?? new Set()).add(edge.from),
+        );
+    }
+
+    const lanes: Lane[] = [];
+    const laneOf: (Lane | null)[] = rows.map(() => null);
+    for (const [lineage, rowsOfLineage] of members) {
+        const joining = [...(linkers.get(lineage) ?? [])].sort((a, b) => a - b);
+        if (rowsOfLineage.length < 2 && joining.length === 0) continue;
+
+        const lane: Lane = {
+            col: 0,
+            top: Math.min(...rowsOfLineage, ...joining),
+            bottom: Math.max(...rowsOfLineage),
+            members: rowsOfLineage,
+            linkers: joining,
+        };
+        lanes.push(lane);
+        for (const row of rowsOfLineage) laneOf[row] = lane;
+    }
+
+    return { lanes, laneOf };
+}
+
+/**
+ * Give each lane a column. Column 0 holds the lone dots, next to the titles.
+ * Lanes open to the left of it, newest first, each in the lowest column free
+ * at its top row, and a column comes back into use once its lane closes.
+ * Returns how many columns the graph takes, column 0 included.
+ */
+function assignColumns(lanes: Lane[]): number {
+    // Newest first, and the longer lane first when two open on one row.
+    lanes.sort((a, b) => a.top - b.top || b.bottom - a.bottom);
+
+    const bottomOf: number[] = [];
+    for (const lane of lanes) {
+        let free = 0;
+        while (free < bottomOf.length && bottomOf[free] >= lane.top) free++;
+        bottomOf[free] = lane.bottom;
+        lane.col = free + 1;
+    }
+
+    return bottomOf.length + 1;
+}
+
+/**
+ * Lay out the decision graph for a set of decisions: the menu's order, one
+ * edge per linked pair, and a lane in its own column for every lineage that
+ * later decisions link to. Every other decision is a lone dot in column 0.
  */
 export function layoutDecisionGraph(
     decisions: Decision[],
 ): DecisionGraphLayout {
     const rows = decisionOrder(decisions);
+    const edges = mergeEdges(rows);
+    const { lanes, laneOf } = openLanes(rows, edges);
+    const columns = assignColumns(lanes);
 
     return {
         rows,
-        edges: mergeEdges(rows),
-        lanes: [],
-        laneOf: rows.map(() => null),
-        columns: 1,
+        edges,
+        lanes,
+        laneOf,
+        columns,
         fallback: "none",
         referenceColumn: null,
     };
