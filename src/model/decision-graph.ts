@@ -224,9 +224,10 @@ function placeLanes(rows: Decision[], edges: Edge[], references: boolean) {
 }
 
 /**
- * The decisions related to one decision, in decision order: its lineage, at
- * any distance, and every decision it links to or that links to it. A
- * decision missing from the set has no relatives.
+ * The decisions related to one decision, in decision order: its history, at
+ * any distance (what it amends or supersedes, what those do in turn, and the
+ * same for what amends or supersedes it), and every decision it links to or
+ * that links to it. A decision missing from the set has no relatives.
  */
 export function relatedDecisions(
     decisions: Decision[],
@@ -237,12 +238,25 @@ export function relatedDecisions(
     if (open < 0) return [];
 
     const edges = mergeEdges(rows);
-    const lineageOf = lineages(rows, edges);
-    const keep = new Set(
-        rows.flatMap((__, row) =>
-            lineageOf[row] === lineageOf[open] ? [row] : [],
-        ),
-    );
+    const lineage = edges.filter((edge) => continuesLane(edge.kind));
+    const keep = new Set([open]);
+    // Walk older through what each decision amends or supersedes, and newer
+    // through what amends or supersedes it. Each walk keeps one direction, so
+    // a sibling that only shares an older decision stays out.
+    for (const [near, far] of [
+        ["from", "to"],
+        ["to", "from"],
+    ] as const) {
+        const reached = [open];
+        for (const row of reached) {
+            for (const edge of lineage) {
+                if (edge[near] === row && !keep.has(edge[far])) {
+                    keep.add(edge[far]);
+                    reached.push(edge[far]);
+                }
+            }
+        }
+    }
     for (const edge of edges) {
         if (edge.from === open || edge.to === open) {
             keep.add(edge.from).add(edge.to);
