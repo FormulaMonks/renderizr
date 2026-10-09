@@ -639,6 +639,160 @@ test("a stored state the page does not know renders collapsed", () => {
     assert.equal(graph().getAttribute("data-state"), "collapsed");
 });
 
+/* ----------------------------------------------------------- related only -- */
+
+/**
+ * 2 supersedes 1 and 3 amends 2: one lineage. 2 references 5 and 4 references
+ * 2. 6 references 4 and 7 supersedes 5, each one step too far from 2. Each
+ * body links to every decision it names.
+ */
+const FAMILY = [
+    ["1", "2024-01-01", []],
+    ["5", "2024-01-05", []],
+    [
+        "2",
+        "2024-02-01",
+        [
+            ["1", "Supersedes"],
+            ["5", "References"],
+        ],
+    ],
+    ["3", "2024-03-01", [["2", "Amends"]]],
+    ["4", "2024-04-01", [["2", "References"]]],
+    ["6", "2024-06-01", [["4", "References"]]],
+    ["7", "2024-07-01", [["5", "Supersedes"]]],
+].map(([id, day, links]) =>
+    decision(id, {
+        date: `${day}T12:00:00Z`,
+        links: links.map(([to, description]) => ({ id: to, description })),
+        content: `# ${id}. Decision ${id}\n\nDate: ${day}\n\n## Status\n\nAccepted\n\n## Context\n\n${links.map(([to, description]) => `${description} [${to}. Decision ${to}](#${to}).`).join("\n\n")}\n`,
+    }),
+);
+
+const relatedOnly = () => document.getElementById("adrs-related");
+const menuIds = () =>
+    document
+        .querySelectorAll("#adrs-menu a[data-item-id]")
+        .map((link) => link.getAttribute("data-item-id"));
+const dotIds = () => dots().map((dot) => dot.decision);
+
+test("Related only sits at the right of the controls bar, unpressed", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+
+    // Compared by id: a failing comparison of two elements would print the
+    // whole document.
+    assert.equal(
+        controls().querySelectorAll("button").at(-1)?.id,
+        "adrs-related",
+    );
+    assert.equal(relatedOnly().textContent, "Related only");
+    assert.equal(relatedOnly().getAttribute("aria-pressed"), "false");
+});
+
+test("Related only keeps the open decision's lineage and direct references, and shows as pressed", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+
+    relatedOnly().click();
+
+    assert.equal(relatedOnly().getAttribute("aria-pressed"), "true");
+    assert.deepEqual(menuIds(), ["4", "3", "2", "5", "1"]);
+    assert.deepEqual(
+        dotIds(),
+        ["4", "3", "2", "5", "1"],
+        "and so does the graph",
+    );
+    assert.equal(
+        document
+            .querySelector('#adrs-menu a[aria-current="true"]')
+            ?.getAttribute("data-item-id"),
+        "2",
+        "the open decision stays open",
+    );
+});
+
+test("the filtered decision graph is laid out from the related decisions alone", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+
+    relatedOnly().click();
+    expand();
+
+    assert.ok(
+        marks("stretch").every((mark) => mark.from !== "7"),
+        "7 supersedes 5, but 7 is hidden",
+    );
+    assert.ok(
+        marks("join").every((mark) => mark.from !== "6"),
+        "6 references 4, but 6 is hidden",
+    );
+});
+
+test("opening another decision while filtered narrows the menu to its relatives, in decision order", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+
+    relatedOnly().click();
+    open("4");
+
+    assert.deepEqual(menuIds(), ["6", "4", "2"]);
+    assert.deepEqual(dotIds(), ["6", "4", "2"]);
+    assert.equal(relatedOnly().getAttribute("aria-pressed"), "true");
+});
+
+test("the open decision's body still links to decisions the filter hides", () => {
+    history.replace({ search: "?page=adrs&adr=4" });
+    renderPage(FAMILY);
+
+    relatedOnly().click();
+    open("2");
+    open("4");
+
+    assert.equal(menuIds().includes("5"), false, "5 is hidden");
+    open("2");
+    assert.ok(content().querySelector('a[href="#5"]'), "2's body links to 5");
+
+    // Following that link opens 5 and narrows the menu to 5's relatives.
+    content().querySelector('a[href="#5"]').click();
+    assert.equal(title().querySelector("h2").textContent, "0005 Decision 5");
+    assert.deepEqual(menuIds(), ["7", "2", "5"]);
+});
+
+test("pressing Related only again shows every decision", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+
+    relatedOnly().click();
+    relatedOnly().click();
+
+    assert.equal(relatedOnly().getAttribute("aria-pressed"), "false");
+    assert.deepEqual(menuIds(), ["7", "6", "4", "3", "2", "5", "1"]);
+    assert.equal(dots().length, 7);
+});
+
+test("All decisions turns Related only off and shows every decision", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderPage(FAMILY);
+
+    relatedOnly().click();
+    document.getElementById("adrs-summary").click();
+
+    assert.equal(relatedOnly().getAttribute("aria-pressed"), "false");
+    assert.deepEqual(menuIds(), ["7", "6", "4", "3", "2", "5", "1"]);
+
+    open("4");
+    assert.equal(menuIds().length, 7, "opening a decision keeps every one");
+});
+
+test("Related only hides while no decision is open", () => {
+    renderPage(FAMILY);
+
+    assert.equal(relatedOnly().hidden, true);
+    open("2");
+    assert.equal(relatedOnly().hidden, false);
+});
+
 /* -------------------------------------------------------------- selection -- */
 
 test("choosing a decision shows its title, date and status", () => {
