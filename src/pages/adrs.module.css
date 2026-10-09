@@ -120,7 +120,7 @@ in reach however far the reader scrolls the menu. */
 the lanes scroll, and the narrow-screen select has no lanes to scroll. */
 .laneButtons {
     display: none;
-    gap: 2px;
+    gap: 0.125rem;
 }
 
 .scrollLanes {
@@ -148,7 +148,7 @@ row, and stays in reach while the page scrolls. */
     position: sticky;
     top: var(--header-height, 5rem);
     z-index: 1;
-    gap: 2px;
+    gap: 0.125rem;
     background: var(--color-background);
 
     &[hidden] {
@@ -362,10 +362,11 @@ the titles and grow away from them. */
 }
 
 /* Beside the decision graph, the entries keep the width the menu always had,
-less the collapsed gutter, so the sidebar grows by the graph's width. */
+less the collapsed gutter, so the sidebar grows by the graph's width.
+`decision-graph.ts` sets `--collapsed-gutter`, the gutter's own width. */
 @media (min-width: 900px) {
     .entries {
         flex: none;
-        width: calc(17rem - 34px);
+        width: calc(17rem - var(--collapsed-gutter, 0px));
     }
 }

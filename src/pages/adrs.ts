@@ -1,3 +1,4 @@
+import history from "history/hash";
 import DecisionGraph, {
     type DecisionGraphState,
 } from "../components/decision-graph";
@@ -17,7 +18,6 @@ import Page from "./_page";
 import styles from "./adrs.module.css";
 import collapseIcon from "bootstrap-icons/icons/arrows-collapse-vertical.svg?raw";
 import expandIcon from "bootstrap-icons/icons/arrows-expand-vertical.svg?raw";
-import history from "history/hash";
 
 /**
  * The most columns the expanded decision graph takes beside the menu, from
@@ -85,6 +85,13 @@ const laneButtons = (graph: string) =>
         )
         .join("");
 
+/** A listener the page attached, kept so `clear()` can take it off again. */
+type BoundListener = {
+    target: EventTarget;
+    type: string;
+    handler: EventListener;
+};
+
 const statusPill = (status: string) =>
     `<span class="${styles.status} ${statusClass(status)}">${status || "Unknown"}</span>`;
 
@@ -93,13 +100,16 @@ export default class Decisions extends Page {
     #currentDecision: Decision | null = null;
     // Held directly rather than looked up by class name: the minifier renames
     // classes, so `components.get("Menu")` is undefined in a built file — which
-    // is why every link out of the old summary used to do nothing.
+    // is why every link out of the decisions summary once did nothing.
     #menu: Menu<Decision> | null = null;
     #graph: DecisionGraph | null = null;
     #indexGraph: DecisionGraph | null = null;
     #resolveLink: LinkResolver | null;
     /** Whether the menu keeps only the decisions related to the open one. */
     #relatedOnly = false;
+    /** The cap the index's decision graph last laid out under. */
+    #indexCap: number | null = null;
+    #listeners: BoundListener[] = [];
 
     constructor(
         container: HTMLElement | null = null,
@@ -257,8 +267,8 @@ export default class Decisions extends Page {
      * The index and an open decision take turns: the index hides the menu,
      * and an open decision hides the index.
      */
-    #showView(view: "index" | "decision") {
-        const index = view === "index";
+    #show(section: "index" | "decision") {
+        const index = section === "index";
         for (const [id, hidden] of [
             ["adrs-index", !index],
             ["adrs-menu", index],
@@ -268,8 +278,31 @@ export default class Decisions extends Page {
             if (section) section.hidden = hidden;
         }
         // A graph that was hidden measured nothing; draw it where it is now.
-        if (index) this.#indexGraph?.setHover(null);
+        if (index) {
+            this.#indexGraph?.setHover(null);
+            this.#layOutIndex();
+        }
         (index ? this.#indexGraph : this.#graph)?.draw();
+    }
+
+    /**
+     * Lay out the index's decision graph under its cap, half the index's
+     * width. The index measures 0 while it waits for a first paint or hides
+     * behind a decision opened from the URL, so the window stands in for it
+     * until it shows; then it lays out again at its own width. Only the
+     * index showing measures it, so scrolling never changes the cap.
+     */
+    #layOutIndex() {
+        const width =
+            document.getElementById("adrs-index")?.clientWidth ||
+            window.innerWidth;
+        const cap = indexColumnCap(width);
+        // A new layout sends the lanes back to the titles' edge, so the same
+        // cap keeps the one the index has.
+        if (cap === this.#indexCap) return;
+        this.#indexCap = cap;
+        this.#indexGraph?.setLayout(layoutDecisionGraph(this.#decisions, cap));
+        this.#renderLaneButtons();
     }
 
     #showIndex() {
@@ -280,7 +313,7 @@ export default class Decisions extends Page {
         this.#graph?.setOpen(null);
         this.#setRelatedOnly(false);
         this.#renderRelatedOnly();
-        this.#showView("index");
+        this.#show("index");
 
         const search = new URLSearchParams(history.location.search);
         if (search.has("adr")) {
@@ -365,20 +398,12 @@ export default class Decisions extends Page {
         );
         this.#indexGraph = indexGraph;
         indexGraph.setState("expanded");
-        // The index measures 0 while it waits for a first paint or hides
-        // behind an open decision; the window stands in for it until then.
-        const indexWidth =
-            document.getElementById("adrs-index")!.clientWidth ||
-            window.innerWidth;
-        indexGraph.setLayout(
-            layoutDecisionGraph(this.#decisions, indexColumnCap(indexWidth)),
-        );
-        this.#renderLaneButtons();
-        indexRows.addEventListener("mouseover", this.#handleIndexPoint);
-        indexRows.addEventListener("focusin", this.#handleIndexPoint);
-        indexRows.addEventListener("mouseleave", this.#handleIndexLeave);
-        indexRows.addEventListener("focusout", this.#handleIndexLeave);
-        indexRows.addEventListener("click", this.#handleIndexClick);
+        this.#layOutIndex();
+        this.#listen(indexRows, "mouseover", this.#handleIndexPoint);
+        this.#listen(indexRows, "focusin", this.#handleIndexPoint);
+        this.#listen(indexRows, "mouseleave", this.#handleIndexLeave);
+        this.#listen(indexRows, "focusout", this.#handleIndexLeave);
+        this.#listen(indexRows, "click", this.#handleIndexClick);
 
         const decisionViewer = this.addComponent(
             new MarkdownRenderer(document.getElementById("decision-content")!),
@@ -394,25 +419,21 @@ export default class Decisions extends Page {
             if (this.#relatedOnly) this.#showDecisions();
             graph.setOpen(item.id);
             this.#renderRelatedOnly();
-            this.#showView("decision");
+            this.#show("decision");
             this.#setAdrInUrl(item);
             window.scrollTo({ top: 0 });
         });
 
-        this.container.addEventListener("click", this.#handleDecisionLink);
-        document
-            .getElementById("adrs-summary")
-            ?.addEventListener("click", this.#handleSummaryClick);
-        document
-            .getElementById("adrs-expand")
-            ?.addEventListener("click", this.#handleExpandClick);
-        document
-            .getElementById("adrs-related")
-            ?.addEventListener("click", this.#handleRelatedClick);
-        for (const id of ["adrs-lanes", "adrs-index-controls"]) {
-            document
-                .getElementById(id)
-                ?.addEventListener("click", this.#handleLaneClick);
+        this.#listen(this.container, "click", this.#handleDecisionLink);
+        for (const [id, handler] of [
+            ["adrs-summary", this.#handleSummaryClick],
+            ["adrs-expand", this.#handleExpandClick],
+            ["adrs-related", this.#handleRelatedClick],
+            ["adrs-lanes", this.#handleLaneClick],
+            ["adrs-index-controls", this.#handleLaneClick],
+        ] as const) {
+            const target = document.getElementById(id);
+            if (target) this.#listen(target, "click", handler);
         }
 
         this.renderAllComponents();
@@ -430,6 +451,11 @@ export default class Decisions extends Page {
     }
 
     #handleSummaryClick = () => this.#select(null);
+
+    #listen(target: EventTarget, type: string, handler: EventListener) {
+        target.addEventListener(type, handler);
+        this.#listeners.push({ target, type, handler });
+    }
 
     /** The row under the pointer or the focus, if any. */
     #indexRowOf = (event: Event) =>
@@ -547,29 +573,11 @@ export default class Decisions extends Page {
         this.#menu = null;
         this.#graph = null;
         this.#indexGraph = null;
-        const indexRows = document.querySelector(
-            "#adrs-index [data-index-rows]",
-        );
-        indexRows?.removeEventListener("mouseover", this.#handleIndexPoint);
-        indexRows?.removeEventListener("focusin", this.#handleIndexPoint);
-        indexRows?.removeEventListener("mouseleave", this.#handleIndexLeave);
-        indexRows?.removeEventListener("focusout", this.#handleIndexLeave);
-        indexRows?.removeEventListener("click", this.#handleIndexClick);
-        this.container?.removeEventListener("click", this.#handleDecisionLink);
-        document
-            .getElementById("adrs-summary")
-            ?.removeEventListener("click", this.#handleSummaryClick);
-        document
-            .getElementById("adrs-expand")
-            ?.removeEventListener("click", this.#handleExpandClick);
-        document
-            .getElementById("adrs-related")
-            ?.removeEventListener("click", this.#handleRelatedClick);
-        for (const id of ["adrs-lanes", "adrs-index-controls"]) {
-            document
-                .getElementById(id)
-                ?.removeEventListener("click", this.#handleLaneClick);
+        this.#indexCap = null;
+        for (const { target, type, handler } of this.#listeners) {
+            target.removeEventListener(type, handler);
         }
+        this.#listeners = [];
         this.#relatedOnly = false;
         this.container!.innerHTML = "";
     }

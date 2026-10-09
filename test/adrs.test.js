@@ -1266,6 +1266,20 @@ test("the index lays out its decision graph under its own cap", () => {
     assert.equal(indexGraph().getAttribute("data-fallback"), "none");
 });
 
+test("a decision opened from the URL lays out the index at the index's own width once it shows", () => {
+    history.replace({ search: "?page=adrs&adr=46" });
+    renderPage(GRAPH_DECISIONS);
+    // Hidden behind the open decision, the index measures nothing, so its
+    // graph laid out at the window's 1,280px, room for all 37 columns.
+    assert.equal(indexGraph().getAttribute("data-fallback"), "none");
+
+    // Shown, the index measures 600px: 18 columns, fewer than 37.
+    document.getElementById("adrs-index").clientWidth = 600;
+    document.getElementById("adrs-summary").click();
+
+    assert.equal(indexGraph().getAttribute("data-fallback"), "lineage");
+});
+
 test("on a narrow index, the decision graph falls back", () => {
     dom.setViewportWidth(600);
     renderPage(GRAPH_DECISIONS);
