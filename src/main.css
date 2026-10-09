@@ -21,6 +21,10 @@
   --nav-button-height: 70px;
   --header-height: 4.5rem;
 
+  /* Fonts: numbers that line up down a column, such as decision numbers */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
   font-family: var(--renderizr-font, Helvetica, Arial, sans-serif);
   font-size: 14px;
   line-height: 1.5;

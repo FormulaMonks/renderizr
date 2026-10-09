@@ -22,6 +22,16 @@
     }
 }
 
+/* A decision's four-digit number, muted and monospaced as in the menu, so the
+title reads first and numbers line up down the index. */
+.number {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--color-muted);
+}
+
 .date {
     font-size: 0.9rem;
     color: var(--color-muted);
@@ -58,26 +68,138 @@ superseded no longer is. */
     color: var(--color-superseded-strong);
 }
 
+/* ---- controls bar ---- */
+
+/* One bar above the menu, outside the menu's scroll area, so its buttons stay
+in reach however far the reader scrolls the menu. */
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.3rem 0 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
 .summaryLink {
-    display: block;
-    width: 100%;
-    text-align: left;
     font: inherit;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--color-primary);
     background: none;
     border: 0;
-    border-bottom: 1px solid var(--color-border);
-    padding: 0.3rem 0.5rem 0.6rem;
-    margin-bottom: 0.5rem;
+    padding: 0 0.5rem;
     cursor: pointer;
 }
 
-/* ---- summary index ---- */
+/* A small square button, quiet until hovered, so it never competes with
+"All decisions". The narrow-screen select has no decision graph to expand. */
+.expand {
+    display: none;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
 
-.summary {
-    min-width: 0;
+    &:hover {
+        color: var(--color-foreground);
+    }
+
+    & svg {
+        width: 0.8rem;
+        height: 0.8rem;
+    }
+}
+
+/* The ‹ › buttons, a pair as quiet as the expand toggle. They show only while
+the lanes scroll, and the narrow-screen select has no lanes to scroll. */
+.laneButtons {
+    display: none;
+    gap: 0.125rem;
+}
+
+.scrollLanes {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    font: inherit;
+    line-height: 1;
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-foreground);
+    }
+}
+
+/* On the index, the bar holds only the ‹ › buttons, at the lanes' end of the
+row, and stays in reach while the page scrolls. */
+.indexControls {
+    position: sticky;
+    top: var(--header-height, 5rem);
+    z-index: 1;
+    gap: 0.125rem;
+    background: var(--color-background);
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+/* A pill at the right end of the bar, filled while it filters the menu. */
+.related {
+    margin-left: auto;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    background: none;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.15rem 0.65rem;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--color-foreground);
+    }
+
+    &[aria-pressed="true"] {
+        color: var(--color-surface);
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+    }
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+/* ---- index ---- */
+
+/* The index and an open decision take turns, and the sections' own display
+rules would otherwise show a hidden one anyway. */
+.index[hidden],
+.menu[hidden],
+.decision[hidden] {
+    display: none;
+}
+
+/* The menu's rows, enlarged, in a centered list with room to read the whole
+decision graph at once. */
+.index {
+    width: 100%;
+    max-width: 70rem;
+    margin: 0 auto;
     padding-bottom: 2rem;
 
     h2 {
@@ -87,64 +209,99 @@ superseded no longer is. */
     }
 }
 
-.summaryIntro {
+.indexIntro {
     color: var(--color-muted);
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
+.indexEntries {
+    flex: 1;
+    min-width: 0;
+}
+
+/* A heading per year; the lanes run straight through the gap it leaves. */
 .year {
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     color: var(--color-muted);
-    margin: 2rem 0 0.5rem;
+    padding: 1.5rem 0.75rem 0.25rem;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 0.25rem;
 }
 
-.summaryList {
+.year:first-child {
+    padding-top: 0.5rem;
+}
+
+.indexList {
     list-style: none;
     display: flex;
     flex-direction: column;
-    border-top: 1px solid var(--color-border);
+    gap: 0.25rem;
 }
 
-.summaryRow {
-    list-style: none;
-    display: flex;
+/* Number, status and title in fixed columns, so the numbers and the titles
+line up down the page. The title is never cut off. */
+.indexRow {
+    display: grid;
+    grid-template-columns: 3.2rem 7.5rem 1fr;
     align-items: baseline;
-    gap: 1rem;
-    padding: 0.7rem 0;
-    border-bottom: 1px solid var(--color-border);
+    font-size: 1rem;
+    line-height: 1.45;
+    padding: 0.55rem 0.75rem;
+    border-radius: 4px;
+    color: var(--color-foreground);
+    text-decoration: none;
 
-    & a {
-        font-weight: 600;
-        min-width: 0;
-    }
-
-    & .date {
-        flex: 1;
-        text-align: right;
-        white-space: nowrap;
-    }
-
-    & .status {
-        margin-top: 0;
-        flex: none;
+    &:hover,
+    &:focus-visible {
+        background: var(--color-surface);
     }
 }
 
+/* The full title, wrapping rather than cut off, even a long unbroken word. */
+.indexTitle {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The status in its own color, quiet beside the title. */
+.indexStatus {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-superseded);
+}
+
+.indexStatus.accepted {
+    color: var(--color-accepted);
+}
+
+.indexStatus.amended {
+    color: var(--color-amended);
+}
+
+.indexStatus.draft {
+    color: var(--color-draft);
+}
+
+.indexStatus.superseded {
+    color: var(--color-superseded-strong);
+}
+
+/* A phone keeps the index's layout, with narrower columns, so the titles
+keep room beside the decision graph. */
 @media (max-width: 599px) {
-    .summaryRow {
-        flex-wrap: wrap;
-        gap: 0.35rem 0.75rem;
+    .indexRow {
+        grid-template-columns: 2.6rem 5.25rem 1fr;
+        font-size: 0.9rem;
+        padding: 0.45rem 0.4rem;
+    }
 
-        & a {
-            flex-basis: 100%;
-        }
-
-        & .date {
-            flex: none;
-            text-align: left;
-        }
+    .indexStatus {
+        font-size: 0.6rem;
     }
 }
 
@@ -155,16 +312,73 @@ superseded no longer is. */
         align-items: flex-start;
     }
 
+    /* The menu is as wide as the decision graph and the entries together, so
+    expanding the graph widens the sidebar and pushes the menu text right
+    rather than drawing over the decision body. Collapsed, it is 17rem as
+    before. */
     .menu {
         position: sticky;
         top: calc(var(--header-height, 5rem) + 0.75rem);
         flex: none;
-        width: 17rem;
+        display: flex;
+        flex-direction: column;
         max-height: calc(100dvh - var(--header-height, 5rem) - 2rem);
+    }
+
+    .controls {
+        flex: none;
+    }
+
+    .expand {
+        display: grid;
+    }
+
+    .laneButtons:not([hidden]) {
+        display: flex;
+    }
+
+    /* The menu's own scroll area, below the controls bar. */
+    .scroll {
+        min-height: 0;
         overflow-y: auto;
     }
 
     .decision {
         flex: 1;
+    }
+}
+
+/* ---- decision graph ---- */
+
+/* The decision graph sits left of the menu's entries, so its dots line up with
+the titles and grow away from them. */
+.rows {
+    display: flex;
+}
+
+.entries {
+    flex: 1;
+    min-width: 0;
+}
+
+/* The decisions the open one links to: `decision-graph.ts` marks their
+entries, and their titles stand out beside the lit dots. The title is the
+entry's last span, after the number. */
+.entries a[data-linked] {
+    color: var(--color-foreground);
+}
+
+.entries a[data-linked] > span:last-child,
+.indexRow[data-linked] .indexTitle {
+    font-weight: 600;
+}
+
+/* Beside the decision graph, the entries keep the width the menu always had,
+less the collapsed gutter, so the sidebar grows by the graph's width.
+`decision-graph.ts` sets `--collapsed-gutter`, the gutter's own width. */
+@media (min-width: 900px) {
+    .entries {
+        flex: none;
+        width: calc(17rem - var(--collapsed-gutter, 0px));
     }
 }

@@ -30,6 +30,7 @@ export default class Menu<Item extends MenuItem> extends Component {
     #selectedItem: Item | null = null;
     #highlightedId: string | null = null;
     #listeners: BoundListener[] = [];
+    #redrawCallbacks = new Set<(orientation: Orientation) => void>();
 
     /** Set when the menu keeps one shape whatever the viewport's width. */
     readonly #fixedOrientation: Orientation | null;
@@ -45,6 +46,12 @@ export default class Menu<Item extends MenuItem> extends Component {
     }
 
     #textContentFn = (item: Item) => `${item.title}`;
+
+    /**
+     * Set when entries carry a number before their title, such as decisions.
+     * The number gets its own column so wrapped titles keep to one edge.
+     */
+    #numberFn: ((item: Item) => string) | null = null;
 
     #addListener(target: EventTarget, type: string, handler: EventListener) {
         target.addEventListener(type, handler);
@@ -136,7 +143,7 @@ export default class Menu<Item extends MenuItem> extends Component {
             link.dataset.itemId = `${item.id}`;
             link.dataset.depth = `${depth}`;
             link.href = `#${item.id}`;
-            link.textContent = this.#textContentFn(item);
+            this.#fillLink(link, item);
 
             listItem.appendChild(link);
             list.appendChild(listItem);
@@ -152,6 +159,33 @@ export default class Menu<Item extends MenuItem> extends Component {
         container.appendChild(list);
     }
 
+    #fillLink(link: HTMLAnchorElement, item: Item) {
+        if (!this.#numberFn) {
+            link.textContent = this.#textContentFn(item);
+            return;
+        }
+
+        const number = document.createElement("span");
+        number.className = styles.number;
+        number.textContent = this.#numberFn(item);
+
+        const title = document.createElement("span");
+        title.className = styles.title;
+        title.textContent = this.#textContentFn(item);
+
+        link.classList.add(styles.numbered);
+        // The grid drops this space from the layout, but a screen reader
+        // still reads "0007 Title" rather than "0007Title".
+        link.appendChild(number);
+        link.appendChild(document.createTextNode(" "));
+        link.appendChild(title);
+    }
+
+    #optionText(item: Item) {
+        const text = this.#textContentFn(item);
+        return this.#numberFn ? `${this.#numberFn(item)} ${text}` : text;
+    }
+
     #appendOptions(select: HTMLSelectElement, items: Item[], depth: number) {
         for (const item of items) {
             // Anchors into the page being read are not destinations; on a
@@ -163,7 +197,7 @@ export default class Menu<Item extends MenuItem> extends Component {
             const indent = "   ".repeat(depth);
 
             option.value = `${item.id}`;
-            option.textContent = `${indent}${depth > 0 ? "· " : ""}${this.#textContentFn(item)}`;
+            option.textContent = `${indent}${depth > 0 ? "· " : ""}${this.#optionText(item)}`;
             select.appendChild(option);
 
             const nested = item.items as Item[] | undefined;
@@ -194,6 +228,8 @@ export default class Menu<Item extends MenuItem> extends Component {
 
         this.element.scrollTop = scrollTop;
         this.#paint();
+
+        for (const callback of this.#redrawCallbacks) callback(orientation);
     }
 
     #matchOrientation(): Orientation {
@@ -245,6 +281,20 @@ export default class Menu<Item extends MenuItem> extends Component {
 
     setTextContentFn(fn: (item: Item) => string) {
         this.#textContentFn = fn;
+    }
+
+    /** Render each entry as this number followed by its title. */
+    setNumberFn(fn: (item: Item) => string) {
+        this.#numberFn = fn;
+    }
+
+    /**
+     * Called after every redraw: the first one, a switch between the list
+     * and the `<select>`, and `setItems`. Whatever the owner drew beside the
+     * entries no longer lines up with them afterwards.
+     */
+    onRedraw(callback: (orientation: Orientation) => void) {
+        this.#redrawCallbacks.add(callback);
     }
 
     /** Replace the rendered entries, keeping the current selection. */

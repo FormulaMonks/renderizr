@@ -93,6 +93,34 @@ test("a custom text function renames the entries", () => {
     assert.equal(anchorFor("3").textContent, "#3 - Use hash routing");
 });
 
+test("a number function puts the number before the title", () => {
+    const menu = new Menu(host, [{ id: "7", title: "Use hash routing" }]);
+    menu.setNumberFn((item) => item.id.padStart(4, "0"));
+    menu.render();
+
+    const [number, title] = anchorFor("7").querySelectorAll("span");
+
+    assert.equal(number?.className, "number", "the number needs its own span");
+    assert.equal(number.textContent, "0007");
+    assert.equal(title?.className, "title", "the title needs its own span");
+    assert.equal(title.textContent, "Use hash routing");
+    // A screen reader reads the link as one phrase, so the two parts need a
+    // space between them even though the layout sets them in columns.
+    assert.equal(anchorFor("7").textContent, "0007 Use hash routing");
+    assert.equal(anchorFor("7").classList.contains("numbered"), true);
+});
+
+test("without a number function an entry is plain text", () => {
+    renderMenu();
+
+    assert.equal(anchorFor("section:two").querySelectorAll("span").length, 0);
+    assert.equal(anchorFor("section:two").textContent, "Deployment");
+    assert.equal(
+        anchorFor("section:two").classList.contains("numbered"),
+        false,
+    );
+});
+
 /* -------------------------------------------------------------- selection -- */
 
 test("clicking a link selects it and reports the item", () => {
@@ -274,6 +302,18 @@ test("non-selectable entries are left out of the select entirely", () => {
     );
 });
 
+test("the select shows the number before the title", () => {
+    dom.setViewportWidth(600);
+    const menu = new Menu(host, [{ id: "7", title: "Use hash routing" }]);
+    menu.setNumberFn((item) => item.id.padStart(4, "0"));
+    menu.render();
+
+    assert.equal(
+        host.querySelector("option").textContent,
+        "0007 Use hash routing",
+    );
+});
+
 test("changing the select selects the entry it names", () => {
     dom.setViewportWidth(600);
     const menu = renderMenu();
@@ -302,6 +342,38 @@ test("growing the viewport swaps the select back for the tree", () => {
         true,
         "a resize is not a navigation; the selection has to survive it",
     );
+});
+
+/* ----------------------------------------------------------------- redraw -- */
+
+test("the menu reports each redraw with the shape it drew", () => {
+    const menu = new Menu(host, items());
+    const redraws = [];
+    menu.onRedraw((orientation) => redraws.push(orientation));
+    menu.render();
+
+    dom.setViewportWidth(600);
+    dom.setViewportWidth(700);
+    dom.setViewportWidth(1200);
+    menu.setItems(items());
+
+    assert.deepEqual(
+        redraws,
+        ["wide", "narrow", "wide", "wide"],
+        "a resize that keeps the shape draws nothing, so it reports nothing",
+    );
+});
+
+test("clear() stops redraw reports", () => {
+    const menu = new Menu(host, items());
+    const redraws = [];
+    menu.onRedraw((orientation) => redraws.push(orientation));
+    menu.render();
+    menu.clear();
+
+    dom.setViewportWidth(600);
+
+    assert.deepEqual(redraws, ["wide"]);
 });
 
 /* ------------------------------------------------------------------ clear -- */

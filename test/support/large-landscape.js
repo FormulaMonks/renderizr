@@ -68,7 +68,7 @@ const GROUP_GAP = 500;
 const MARGIN = 100;
 
 /** Mulberry32: a small seeded generator, uniform in [0, 1). */
-function random(seed) {
+export function random(seed) {
     let state = seed >>> 0;
     return () => {
         state = (state + 0x6d2b79f5) >>> 0;

@@ -281,7 +281,7 @@ test(
 );
 
 test(
-    "a link to the decisions page opens the decision log",
+    "a link to the decisions page opens the decisions index",
     { skip: SKIP },
     async () => {
         const out = await singleFile();
@@ -290,16 +290,28 @@ test(
         );
 
         assert.match(
-            document.querySelector("#decision-content").textContent,
-            /2 recorded, 1 currently in force\./,
+            document.querySelector("#adrs-index").textContent,
+            /2 recorded, 1 in force/,
+        );
+        assert.deepEqual(
+            document
+                .querySelectorAll("#adrs-index a[data-item-id]")
+                .map((link) => link.getAttribute("data-item-id")),
+            ["2", "1"],
+            "the index lists every decision, newest first",
+        );
+        assert.equal(
+            document.querySelectorAll('#adrs-index [data-mark="dot"]').length,
+            2,
+            "beside the decision graph",
         );
         assert.deepEqual(
             document
                 .querySelectorAll("#adrs-menu a[data-item-id]")
                 .map((link) => link.textContent),
             [
-                "#2 - Inline every asset for single-file output",
-                "#1 - Render diagrams in the browser",
+                "0002 Inline every asset for single-file output",
+                "0001 Render diagrams in the browser",
             ],
         );
     },
@@ -316,7 +328,7 @@ test(
 
         assert.equal(
             document.querySelector("#decision-title h2").textContent,
-            "#1 - Render diagrams in the browser",
+            "0001 Render diagrams in the browser",
         );
         assert.match(
             document.querySelector("#decision-content").textContent,
@@ -1695,5 +1707,430 @@ test(
                 `${shot.name}: still step 1`,
             );
         }
+    },
+);
+
+/* --------------------------------------------------------- decision graph */
+
+/** The committed decision graph fixture, built once as a single file. */
+const decisionGraphBuild = once(async () => {
+    const out = join(SCRATCH, "decision-graph");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/decision-graph.json"),
+            "--out",
+            out,
+            "--single-file",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return out;
+});
+
+/**
+ * Measures, in the page, where each dot sits and where its entry's first line
+ * is, in the menu or on the index. The first line's center comes from the title's first character, apart
+ * from anything the graph itself measures, so a dot that drifts to the middle
+ * of a wrapped title shows up here.
+ */
+const dotProbe = (scope) => `<script>
+(async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const result = { rows: [] };
+    try {
+        for (let tries = 0; tries < 400; tries++) {
+            if (document.querySelector('${scope} [data-mark="dot"]')) break;
+            await sleep(25);
+        }
+        await document.fonts.ready;
+        // Let the graph hear about any rewrap the font caused.
+        await sleep(200);
+        const center = (rect) => (rect.top + rect.bottom) / 2;
+        for (const anchor of document.querySelectorAll("${scope} a[data-item-id]")) {
+            const id = anchor.dataset.itemId;
+            const title = anchor.lastElementChild;
+            const range = document.createRange();
+            range.setStart(title.firstChild, 0);
+            range.setEnd(title.firstChild, 1);
+            const dot = document.querySelector(
+                '${scope} [data-mark="dot"][data-decision="' + id + '"]',
+            );
+            const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
+            result.rows.push({
+                id,
+                line: center(range.getClientRects()[0]),
+                dot: dot ? center(dot.getBoundingClientRect()) : null,
+                lines: Math.round(title.getBoundingClientRect().height / lineHeight),
+            });
+        }
+        result.elbows = document.querySelectorAll('${scope} [data-mark="edge"]').length;
+    } catch (error) {
+        result.error = String(error);
+    }
+    const probe = document.createElement("pre");
+    probe.id = "probe";
+    probe.textContent = JSON.stringify(result);
+    document.body.append(probe);
+})();
+</script>`;
+
+test(
+    "each dot of the decision graph lines up with its entry's first line, wrapped titles included",
+    { skip: SKIP },
+    async () => {
+        const built = await decisionGraphBuild();
+        const out = join(SCRATCH, "probe-decision-graph");
+        await mkdir(out, { recursive: true });
+        const html = await readFile(join(built, "index.html"), "utf8");
+        await writeFile(
+            join(out, "index.html"),
+            html.replace("</body>", `${dotProbe("#adrs-menu")}</body>`),
+        );
+
+        const { html: dumped } = await renderPage(
+            CHROME,
+            `${fileUrl(join(out, "index.html"))}#/?page=adrs&adr=4`,
+        );
+        const probe = parseDocument(dumped).querySelector("#probe");
+        assert.ok(probe, "the probe should have finished");
+        const { rows, elbows, error } = JSON.parse(probe.textContent);
+        assert.equal(error, undefined, `the probe failed: ${error}`);
+
+        assert.equal(rows.length, 46, "every decision has an entry");
+        assert.ok(
+            rows.some((row) => row.lines > 1),
+            "some titles wrap, or this checks nothing about them",
+        );
+        for (const row of rows) {
+            assert.notEqual(row.dot, null, `decision ${row.id} has a dot`);
+            assert.ok(
+                Math.abs(row.dot - row.line) <= 1.5,
+                `decision ${row.id}'s dot sits at ${row.dot}, its first line at ${row.line}`,
+            );
+        }
+        // 4 supersedes 3, and 6 amends it.
+        assert.equal(elbows, 2, "the open decision draws its elbows");
+    },
+);
+
+test(
+    "each dot of the index's decision graph lines up with its row's first line",
+    { skip: SKIP },
+    async () => {
+        const built = await decisionGraphBuild();
+        const out = join(SCRATCH, "probe-decision-index");
+        await mkdir(out, { recursive: true });
+        const html = await readFile(join(built, "index.html"), "utf8");
+        await writeFile(
+            join(out, "index.html"),
+            html.replace("</body>", `${dotProbe("#adrs-index")}</body>`),
+        );
+
+        const { html: dumped } = await renderPage(
+            CHROME,
+            `${fileUrl(join(out, "index.html"))}#/?page=adrs`,
+        );
+        const probe = parseDocument(dumped).querySelector("#probe");
+        assert.ok(probe, "the probe should have finished");
+        const { rows, error } = JSON.parse(probe.textContent);
+        assert.equal(error, undefined, `the probe failed: ${error}`);
+
+        assert.equal(rows.length, 46, "every decision has a row");
+        for (const row of rows) {
+            assert.notEqual(row.dot, null, `decision ${row.id} has a dot`);
+            assert.ok(
+                Math.abs(row.dot - row.line) <= 1.5,
+                `decision ${row.id}'s dot sits at ${row.dot}, its first line at ${row.line}`,
+            );
+        }
+    },
+);
+
+/**
+ * Expands the decision graph the way a reader does, then measures where the
+ * menu text and the decision body sit, and whether the controls bar stays put
+ * while the menu scrolls.
+ */
+const EXPAND_PROBE = `<script>
+(async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const result = {};
+    try {
+        for (let tries = 0; tries < 400; tries++) {
+            if (document.querySelector('#adrs-menu [data-mark="dot"]')) break;
+            await sleep(25);
+        }
+        await document.fonts.ready;
+        await sleep(200);
+        const edges = () => ({
+            text: document.querySelector("#adrs-menu a[data-item-id]").getBoundingClientRect().left,
+            menu: document.getElementById("adrs-menu").getBoundingClientRect().right,
+            body: document.getElementById("decision").getBoundingClientRect().left,
+            graph: document.querySelector("#adrs-graph svg").getBoundingClientRect().width,
+        });
+        result.collapsed = edges();
+        const style = (selector) => {
+            const mark = document.querySelector("#adrs-menu " + selector);
+            if (!mark) return null;
+            const computed = getComputedStyle(mark);
+            return {
+                dash: computed.strokeDasharray,
+                width: computed.strokeWidth,
+                opacity: computed.opacity,
+                fillOpacity: computed.fillOpacity,
+            };
+        };
+        result.collapsedLit = style('[data-mark="dot"][data-highlighted]');
+        result.collapsedDimmed = style('[data-mark="dot"][data-dimmed]');
+
+        document.getElementById("adrs-expand").click();
+        await sleep(200);
+        result.expanded = edges();
+        result.state = document.getElementById("adrs-graph").dataset.state;
+        result.stretches = document.querySelectorAll('#adrs-menu [data-mark="stretch"]').length;
+        result.litReference = style('[data-kind="reference"][data-highlighted]');
+        result.fallback = document.getElementById("adrs-graph").dataset.fallback;
+        result.dimmed = style("[data-dimmed]");
+
+        const bar = document.getElementById("adrs-controls");
+        const scroll = document.getElementById("adrs-scroll");
+        const before = bar.getBoundingClientRect().top;
+        scroll.scrollTop = scroll.scrollHeight;
+        await sleep(100);
+        result.scrolled = scroll.scrollTop;
+        result.bar = { before, after: bar.getBoundingClientRect().top };
+    } catch (error) {
+        result.error = String(error);
+    }
+    const probe = document.createElement("pre");
+    probe.id = "probe";
+    probe.textContent = JSON.stringify(result);
+    document.body.append(probe);
+})();
+</script>`;
+
+test(
+    "expanding the decision graph pushes the menu text right without covering the decision body, under a controls bar that stays put",
+    { skip: SKIP },
+    async () => {
+        const built = await decisionGraphBuild();
+        const out = join(SCRATCH, "probe-decision-graph-expanded");
+        await mkdir(out, { recursive: true });
+        const html = await readFile(join(built, "index.html"), "utf8");
+        await writeFile(
+            join(out, "index.html"),
+            html.replace("</body>", `${EXPAND_PROBE}</body>`),
+        );
+
+        const { html: dumped } = await renderPage(
+            CHROME,
+            `${fileUrl(join(out, "index.html"))}#/?page=adrs&adr=7`,
+        );
+        const probe = parseDocument(dumped).querySelector("#probe");
+        assert.ok(probe, "the probe should have finished");
+        const result = JSON.parse(probe.textContent);
+        assert.equal(
+            result.error,
+            undefined,
+            `the probe failed: ${result.error}`,
+        );
+
+        const { collapsed, expanded } = result;
+        assert.equal(result.state, "expanded");
+        assert.ok(result.stretches > 0, "the expanded graph draws its lanes");
+        // Decision 46 builds on 35 others, past the menu's cap, so only
+        // supersede and amend lanes draw. 7 references 6, and that reference
+        // lights up on the reference column.
+        const { litReference, dimmed } = result;
+        assert.equal(result.fallback, "lineage");
+        assert.ok(litReference, "7's reference lights up on the column");
+        assert.notEqual(
+            litReference.dash,
+            "none",
+            "a lit reference stays dotted",
+        );
+        assert.equal(litReference.width, "1.5px");
+        assert.equal(litReference.opacity, "1");
+        assert.equal(dimmed.opacity, "0.3", "everything else dims to 30%");
+        const { collapsedLit, collapsedDimmed } = result;
+        assert.equal(
+            collapsedLit.opacity,
+            "1",
+            "collapsed, a linked dot shows in full",
+        );
+        assert.equal(collapsedLit.fillOpacity, "1", "in its full color");
+        assert.equal(
+            collapsedDimmed.opacity,
+            "0.3",
+            "collapsed, the rest dims to the same 30% as expanded",
+        );
+        const grown = expanded.graph - collapsed.graph;
+        assert.ok(
+            Math.abs(expanded.text - collapsed.text - grown) <= 1,
+            `the menu text moves right by the ${grown}px the graph grew: from ${collapsed.text} to ${expanded.text}`,
+        );
+        assert.ok(
+            expanded.menu <= expanded.body,
+            `the menu ends at ${expanded.menu}, after the body starts at ${expanded.body}`,
+        );
+        assert.ok(
+            result.scrolled > 0,
+            "the menu scrolls, or this checks nothing",
+        );
+        assert.equal(
+            result.bar.after,
+            result.bar.before,
+            "the controls bar stays in view while the menu scrolls",
+        );
+    },
+);
+
+/* ------------------------------------------ decision graph lanes that scroll */
+
+/** The scrolling fixture, built once as a single file. */
+const decisionGraphScrollBuild = once(async () => {
+    const out = join(SCRATCH, "decision-graph-scroll");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/decision-graph-scroll.json"),
+            "--out",
+            out,
+            "--single-file",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(result.code, 0, `build failed:\n${result.stderr}`);
+    return out;
+});
+
+/**
+ * Measures the scrolling lanes in the page: where the lanes' view starts,
+ * whether a scrollbar takes room, and what stays pinned while the lanes
+ * scroll. In the menu it expands the decision graph first, the way a reader
+ * does.
+ */
+const lanesProbe = (scope) => `<script>
+(async () => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const result = {};
+    try {
+        for (let tries = 0; tries < 400; tries++) {
+            if (document.querySelector('${scope} [data-mark="dot"]')) break;
+            await sleep(25);
+        }
+        await document.fonts.ready;
+        await sleep(200);
+        if ("${scope}" === "#adrs-menu") {
+            document.getElementById("adrs-expand").click();
+            await sleep(200);
+        }
+        const view = document.querySelector("${scope} [data-lanes]");
+        const strip = document.querySelector("${scope} [data-pinned]");
+        const left = (id) =>
+            document
+                .querySelector('${scope} [data-lanes] [data-mark="dot"][data-decision="' + id + '"]')
+                .getBoundingClientRect().left;
+        const measure = () => ({
+            scrollLeft: view.scrollLeft,
+            end: view.scrollWidth - view.clientWidth,
+            view: view.getBoundingClientRect().toJSON(),
+            strip: strip.getBoundingClientRect().toJSON(),
+            dot41: left("41"),
+            dot80: left("80"),
+        });
+        result.fallback = document.querySelector("${scope} [data-decision-graph]").dataset.fallback;
+        result.scrollbar = {
+            style: getComputedStyle(view).scrollbarWidth,
+            height: view.offsetHeight - view.clientHeight,
+        };
+        result.buttons = [...document.querySelectorAll("${scope} [data-scroll-lanes]")].filter(
+            (button) => button.offsetParent !== null,
+        ).length;
+        result.first = measure();
+        // A swipe would scroll the view itself. (The buttons scroll it
+        // smoothly, which virtual time never animates.)
+        view.scrollLeft += 48;
+        await sleep(100);
+        result.right = measure();
+    } catch (error) {
+        result.error = String(error);
+    }
+    const probe = document.createElement("pre");
+    probe.id = "probe";
+    probe.textContent = JSON.stringify(result);
+    document.body.append(probe);
+})();
+</script>`;
+
+/** Load the scrolling fixture with the probe, and return what it measured. */
+const probeLanes = async (scope, route) => {
+    const built = await decisionGraphScrollBuild();
+    const out = join(SCRATCH, `probe-lanes-${scope.slice(1)}`);
+    await mkdir(out, { recursive: true });
+    const html = await readFile(join(built, "index.html"), "utf8");
+    await writeFile(
+        join(out, "index.html"),
+        html.replace("</body>", `${lanesProbe(scope)}</body>`),
+    );
+    const { html: dumped } = await renderPage(
+        CHROME,
+        `${fileUrl(join(out, "index.html"))}#/?${route}`,
+    );
+    const probe = parseDocument(dumped).querySelector("#probe");
+    assert.ok(probe, "the probe should have finished");
+    const result = JSON.parse(probe.textContent);
+    assert.equal(result.error, undefined, `the probe failed: ${result.error}`);
+    return result;
+};
+
+/** Whether a dot sits in the lanes' view, clear of the pinned strip. */
+const inLanes = ({ view, strip }, x) => x >= view.left && x < strip.left;
+
+test(
+    "past the menu's cap, the lanes scroll under pinned columns with no scrollbar, following the open decision",
+    { skip: SKIP },
+    async () => {
+        const result = await probeLanes("#adrs-menu", "page=adrs&adr=41");
+        const { first, right } = result;
+
+        assert.equal(result.fallback, "scroll");
+        assert.equal(result.scrollbar.style, "none");
+        assert.equal(result.scrollbar.height, 0, "no scrollbar takes room");
+        assert.equal(result.buttons, 2, "‹ › show in the controls bar");
+
+        // 41's lane is the last; its reference to 40 reaches the first lane,
+        // too far to show both, so 41's own lane wins.
+        assert.ok(first.end > 0, "the lanes overflow their view");
+        assert.equal(first.scrollLeft, 0);
+        assert.ok(inLanes(first, first.dot41), "41's lane is in view");
+        assert.equal(
+            Math.round(first.strip.right),
+            Math.round(first.view.right),
+            "the pinned strip covers the view's right edge",
+        );
+
+        // Four columns toward the titles, the lanes move under a pinned
+        // strip that stays where it was.
+        assert.equal(right.scrollLeft, 48);
+        assert.equal(Math.round(first.dot41 - right.dot41), 48);
+        assert.deepEqual(right.strip, first.strip, "the pinned strip stays");
+    },
+);
+
+test(
+    "on the index, the lanes start at the titles' edge, with ‹ › in a bar of their own",
+    { skip: SKIP },
+    async () => {
+        const result = await probeLanes("#adrs-index", "page=adrs");
+        const { first } = result;
+
+        assert.equal(result.fallback, "scroll");
+        assert.equal(result.scrollbar.height, 0, "no scrollbar takes room");
+        assert.equal(result.buttons, 2);
+        assert.ok(first.end > 0, "the lanes overflow their view");
+        assert.equal(first.scrollLeft, first.end, "at the titles' edge");
+        assert.ok(inLanes(first, first.dot80), "the first lane is in view");
+        assert.ok(!inLanes(first, first.dot41), "the last lane is not");
     },
 );
