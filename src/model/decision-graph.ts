@@ -27,11 +27,16 @@ export type Lane = {
     col: number;
     top: number;
     bottom: number;
-    /** The rows that supersede or amend one another, newest first. */
+    /**
+     * The rows that continue one another along the lane, newest first: each
+     * supersedes or amends the next, so every stretch is a real link.
+     */
     members: number[];
     /**
-     * The rows that reference a member and join the lane, newest first and
-     * each once.
+     * The rows that link to a member without continuing the lane, and join
+     * it, newest first and each once: a second decision that supersedes or
+     * amends a member, or one that references a member while references open
+     * lanes.
      */
     linkers: number[];
 };
@@ -116,79 +121,88 @@ function mergeEdges(rows: Decision[]): Edge[] {
     return [...pairs.values()];
 }
 
-/**
- * Supersede and amend continue a lane; a reference only joins one. They join
- * their two ends into one lineage, so both ends always sit on one lane, and
- * the lit decision's supersede and amend links light along it.
- */
-export const continuesLane = (kind: LinkKind) => kind !== "reference";
+/** Whether a link's kind can continue a lane: supersede and amend can. */
+const canContinue = (kind: LinkKind) => kind !== "reference";
 
 /**
- * The lineage of every row, as the row of one of its decisions: supersede and
- * amend join decisions into one lineage, so a decision's whole history runs
- * along one lane.
+ * The run of decisions each row sits on, as the row of the run's oldest
+ * decision, and the links that continue a run. Like a version control log
+ * drawn as a graph, it walks the decisions oldest first: a decision that
+ * supersedes or amends an older decision continues that decision's run while
+ * nobody has continued it yet, preferring a supersede over an amend and then
+ * the newest such decision. Otherwise it starts a run of its own. Every other
+ * supersede or amend link joins the older decision's run instead.
  */
-function lineages(rows: Decision[], edges: Edge[]): number[] {
-    const parent = rows.map((__, row) => row);
-    const find = (row: number): number => {
-        let root = row;
-        while (parent[root] !== root) {
-            parent[root] = parent[parent[root]];
-            root = parent[root];
-        }
-        return root;
-    };
-
+function runs(rows: Decision[], edges: Edge[]) {
+    const runOf = rows.map((__, row) => row);
+    const continued = new Set<number>();
+    const continuing = new Set<Edge>();
+    const linksOf = new Map<number, Edge[]>();
     for (const edge of edges) {
-        if (continuesLane(edge.kind)) parent[find(edge.from)] = find(edge.to);
+        if (!canContinue(edge.kind)) continue;
+        linksOf.set(edge.from, [...(linksOf.get(edge.from) ?? []), edge]);
     }
 
-    return rows.map((__, row) => find(row));
+    for (let row = rows.length - 1; row >= 0; row--) {
+        const [link] = (linksOf.get(row) ?? [])
+            .filter((edge) => !continued.has(edge.to))
+            .sort(
+                (a, b) => KIND_RANK[b.kind] - KIND_RANK[a.kind] || a.to - b.to,
+            );
+        if (!link) continue;
+        runOf[row] = runOf[link.to];
+        continued.add(link.to);
+        continuing.add(link);
+    }
+
+    return { runOf, continuing };
 }
 
 /**
- * The lanes, without their columns yet. A lineage gets a lane when it has
- * more than one decision or, while `references` open lanes, when a later
- * decision references one of its decisions; the lane runs from its oldest
- * decision up to its newest decision or newest linker, whichever is newer.
+ * The lanes, without their columns yet. A run gets a lane when it has more
+ * than one decision, when its decision supersedes or amends one it doesn't
+ * continue, or when a later decision joins it: through a supersede or amend
+ * link that doesn't continue it or, while `references` open lanes, through a
+ * reference. The lane runs from its oldest decision up to its newest
+ * decision or newest linker, whichever is newer.
  */
 function openLanes(rows: Decision[], edges: Edge[], references: boolean) {
-    const lineageOf = lineages(rows, edges);
+    const { runOf, continuing } = runs(rows, edges);
     const members = new Map<number, number[]>();
     const linkers = new Map<number, Set<number>>();
+    const joiningOthers = new Set<number>();
 
-    for (const [row, lineage] of lineageOf.entries()) {
-        members.set(lineage, [...(members.get(lineage) ?? []), row]);
+    for (const [row, run] of runOf.entries()) {
+        members.set(run, [...(members.get(run) ?? []), row]);
     }
-    for (const edge of references ? edges : []) {
-        if (
-            continuesLane(edge.kind) &&
-            lineageOf[edge.from] === lineageOf[edge.to]
-        ) {
-            continue;
-        }
-        const lineage = lineageOf[edge.to];
-        linkers.set(
-            lineage,
-            (linkers.get(lineage) ?? new Set()).add(edge.from),
-        );
+    for (const edge of edges) {
+        if (continuing.has(edge)) continue;
+        if (canContinue(edge.kind)) joiningOthers.add(runOf[edge.from]);
+        else if (!references) continue;
+        if (runOf[edge.from] === runOf[edge.to]) continue;
+        const run = runOf[edge.to];
+        linkers.set(run, (linkers.get(run) ?? new Set()).add(edge.from));
     }
 
     const lanes: Lane[] = [];
     const laneOf: (Lane | null)[] = rows.map(() => null);
-    for (const [lineage, rowsOfLineage] of members) {
-        const joining = [...(linkers.get(lineage) ?? [])].sort((a, b) => a - b);
-        if (rowsOfLineage.length < 2 && joining.length === 0) continue;
+    for (const [run, rowsOfRun] of members) {
+        const joining = [...(linkers.get(run) ?? [])].sort((a, b) => a - b);
+        const linked =
+            rowsOfRun.length > 1 ||
+            joiningOthers.has(run) ||
+            joining.length > 0;
+        if (!linked) continue;
 
         const lane: Lane = {
             col: 0,
-            top: Math.min(...rowsOfLineage, ...joining),
-            bottom: Math.max(...rowsOfLineage),
-            members: rowsOfLineage,
+            top: Math.min(...rowsOfRun, ...joining),
+            bottom: Math.max(...rowsOfRun),
+            members: rowsOfRun,
             linkers: joining,
         };
         lanes.push(lane);
-        for (const row of rowsOfLineage) laneOf[row] = lane;
+        for (const row of rowsOfRun) laneOf[row] = lane;
     }
 
     return { lanes, laneOf };
@@ -259,9 +273,10 @@ export function relatedDecisions(
 
 /**
  * Lay out the decision graph for a set of decisions: the menu's order, one
- * edge per linked pair, and a lane in its own column for every lineage that
- * later decisions link to. Every other decision is a lone dot in column 0,
- * and column 1 stays free for the lit decision's links.
+ * edge per linked pair, and a lane in its own column for every run of
+ * decisions that supersede or amend one another, or that later decisions
+ * link to. Every other decision is a lone dot in column 0, and column 1 stays
+ * free for the lit decision's links.
  *
  * The graph takes at most `cap` columns. Past it, references stop opening
  * lanes; past it even then, the lanes scroll. The whole set decides this
@@ -280,11 +295,11 @@ export function layoutDecisionGraph(
         return { ...base, ...everyLane, fallback: "none" };
     }
 
-    const lineageLanes = placeLanes(rows, edges, false);
+    const linkLanes = placeLanes(rows, edges, false);
     return {
         ...base,
-        ...lineageLanes,
-        fallback: lineageLanes.columns <= cap ? "lineage" : "scroll",
+        ...linkLanes,
+        fallback: linkLanes.columns <= cap ? "lineage" : "scroll",
     };
 }
 
@@ -310,6 +325,23 @@ export type DecisionEdges = {
  */
 export function joinsLane(layout: DecisionGraphLayout, edge: Edge): boolean {
     return layout.fallback === "none" || edge.kind !== "reference";
+}
+
+/**
+ * Whether a link continues a lane: its two decisions sit next to each other
+ * on one lane, so it draws as the stretch between their dots. Any other
+ * supersede or amend link joins the older decision's lane instead.
+ */
+export function continuesLane(
+    layout: DecisionGraphLayout,
+    edge: Edge,
+): boolean {
+    const lane = layout.laneOf[edge.from];
+    if (!canContinue(edge.kind) || !lane || layout.laneOf[edge.to] !== lane) {
+        return false;
+    }
+    const newer = lane.members.indexOf(edge.from);
+    return lane.members[newer + 1] === edge.to;
 }
 
 /**

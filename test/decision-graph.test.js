@@ -216,7 +216,7 @@ test("a decision nobody links to is a lone dot in column 0", () => {
     );
 });
 
-test("supersede and amend join decisions into one lineage on one lane", () => {
+test("a decision that supersedes or amends the newest decision of a lane continues that lane", () => {
     const layout = layoutDecisionGraph([
         decision(1, "2024-01-01"),
         decision(2, "2024-02-01", [[1, "Supersedes"]]),
@@ -315,6 +315,74 @@ test("a column comes back into use once its lane closes", () => {
         "3's lane closes at 3, above where 1's lane opens, at 2",
     );
     assert.equal(layout.columns, 3);
+});
+
+/**
+ * The branch in the IEEPA workspace: 15 and 17 both amend 13, 38 amends 15
+ * and 39 amends 38.
+ */
+const BRANCHED = [
+    decision(13, "2024-01-01"),
+    decision(15, "2024-02-01", [[13, "Amends"]]),
+    decision(17, "2024-03-01", [[13, "Amends"]]),
+    decision(38, "2024-04-01", [[15, "Amends"]]),
+    decision(39, "2024-05-01", [[38, "Amends"]]),
+];
+
+test("a second decision that amends the same older decision opens its own lane and joins the older one's", () => {
+    const layout = layoutDecisionGraph(BRANCHED);
+
+    assert.deepEqual(lanesOf(layout), [
+        {
+            col: 2,
+            top: "39",
+            bottom: "13",
+            members: ["39", "38", "15", "13"],
+            linkers: ["17"],
+        },
+        { col: 3, top: "17", bottom: "17", members: ["17"], linkers: [] },
+    ]);
+    assert.deepEqual(loneOf(layout), [], "17 amends 13, so it is no lone dot");
+});
+
+test("a decision that amends two older decisions continues the newer one's lane and joins the other's", () => {
+    // IEEPA's 41 amends 35 and 5; 35 is newer.
+    const layout = layoutDecisionGraph([
+        decision(5, "2024-01-01"),
+        decision(35, "2024-02-01"),
+        decision(41, "2024-03-01", [
+            [5, "Amends"],
+            [35, "Amends"],
+        ]),
+    ]);
+
+    assert.deepEqual(
+        lanesOf(layout).map(({ members, linkers }) => [members, linkers]),
+        [
+            [["5"], ["41"]],
+            [["41", "35"], []],
+        ],
+        "5's lane reaches further down, so it opens first",
+    );
+});
+
+test("a decision continues the lane of the decision it supersedes over the one it amends", () => {
+    const layout = layoutDecisionGraph([
+        decision(1, "2024-01-01"),
+        decision(2, "2024-02-01"),
+        decision(3, "2024-03-01", [
+            [1, "Supersedes"],
+            [2, "Amends"],
+        ]),
+    ]);
+
+    assert.deepEqual(
+        lanesOf(layout).map(({ members, linkers }) => [members, linkers]),
+        [
+            [["3", "1"], []],
+            [["2"], ["3"]],
+        ],
+    );
 });
 
 test("each row knows the lane it sits on", () => {
@@ -692,7 +760,16 @@ test("the sparse 1,000-decision set falls back to supersede and amend lanes at 1
     assert.equal(layout.columns, 12);
     assert.equal(layout.referenceColumn, 1);
     assert.ok(
-        layout.lanes.every((lane) => lane.linkers.length === 0),
+        layout.lanes.every((lane) =>
+            lane.linkers.every((linker) =>
+                layout.edges.some(
+                    (edge) =>
+                        edge.from === linker &&
+                        edge.kind !== "reference" &&
+                        lane.members.includes(edge.to),
+                ),
+            ),
+        ),
         "no lane carries references",
     );
 });
@@ -701,7 +778,7 @@ test("the sparse 1,000-decision set falls back to supersede and amend lanes at 1
 const SCROLLING = [
     ["the sparse 1,000-decision set", SPARSE_1000, 11, 12],
     ["the sparse 300-decision set", syntheticDecisions(300, 0.2, 11), 8, 10],
-    ["the sparse 100-decision set", syntheticDecisions(100, 0.2, 7), 8, 10],
+    ["the sparse 100-decision set", syntheticDecisions(100, 0.2, 7), 8, 11],
 ];
 
 for (const [name, decisions, cap, columns] of SCROLLING) {
@@ -848,33 +925,127 @@ test("the scrolling fixture scrolls its lanes under the menu's cap and a wide in
     }
 });
 
-/* ---------------- lineage links on their lane */
+/* ---------------- lanes follow real links */
 
-test("both ends of every supersede and amend link sit on one lane, under any cap", () => {
-    const sets = [
-        ["the joined set", JOINED],
-        ["the capped set", CAPPED],
-        ["our own decisions", OURS],
-        ["the fixture", FIXTURE],
-        ["the scrolling fixture", SCROLL_FIXTURE],
-        ["the sparse 1,000-decision set", SPARSE_1000],
-    ];
-    for (const [name, decisions] of sets) {
-        for (const cap of [Number.POSITIVE_INFINITY, 30, 8, 2]) {
-            const { edges, laneOf } = layoutDecisionGraph(decisions, cap);
-            for (const edge of edges.filter((e) => continuesLane(e.kind))) {
+/**
+ * Every supersede and amend link among the IEEPA workspace's decisions, as
+ * newer and older: a set whose lineages branch and merge again and again.
+ */
+// biome-ignore format: the pairs read as a table, several to a line
+const IEEPA_LINKS = [
+    [11, 6], [12, 10], [15, 13], [17, 13], [20, 2], [21, 18], [29, 10],
+    [30, 8], [33, 3], [34, 4], [35, 29], [35, 5], [36, 10], [36, 34],
+    [37, 33], [38, 15], [39, 38], [40, 5], [41, 35], [41, 5], [43, 5],
+    [44, 3], [45, 10], [45, 42], [46, 44], [47, 5], [48, 46], [49, 47],
+    [50, 44], [50, 48], [51, 41], [52, 47], [53, 52], [56, 36], [57, 42],
+    [57, 45], [58, 47], [59, 46], [60, 35], [60, 36], [61, 36], [61, 60],
+    [62, 47], [63, 53], [64, 29], [64, 35], [64, 41], [65, 50], [66, 60],
+    [67, 58], [68, 67], [69, 47], [69, 58], [70, 12], [71, 3], [71, 69],
+    [72, 69], [74, 30], [74, 8], [75, 29], [76, 69], [76, 71],
+];
+const IEEPA_LIKE = Array.from({ length: 76 }, (__, index) => {
+    const id = index + 1;
+    const day = new Date(Date.UTC(2024, 0, id)).toISOString().slice(0, 10);
+    const links = IEEPA_LINKS.filter(([newer]) => newer === id).map(
+        ([, older]) => [older, "Amends"],
+    );
+    return decision(id, day, links);
+});
+
+/** Every set the lane invariants hold for. */
+const LANE_SETS = [
+    ["the joined set", JOINED],
+    ["the capped set", CAPPED],
+    ["the branched set", BRANCHED],
+    ["the IEEPA-like set", IEEPA_LIKE],
+    ["our own decisions", OURS],
+    ["the fixture", FIXTURE],
+    ["the scrolling fixture", SCROLL_FIXTURE],
+    ["the sparse 1,000-decision set", SPARSE_1000],
+];
+const CAPS = [Number.POSITIVE_INFINITY, 30, 8, 2];
+
+test("every stretch of every lane is a real supersede or amend link, under any cap", () => {
+    for (const [name, decisions] of LANE_SETS) {
+        for (const cap of CAPS) {
+            const layout = layoutDecisionGraph(decisions, cap);
+            for (const { members } of layout.lanes) {
+                for (const [index, newer] of members.slice(0, -1).entries()) {
+                    const older = members[index + 1];
+                    const link = layout.edges.find(
+                        (edge) => edge.from === newer && edge.to === older,
+                    );
+                    const where = `${name} under a cap of ${cap}: rows ${newer} and ${older}`;
+                    assert.ok(link && link.kind !== "reference", where);
+                    assert.ok(continuesLane(layout, link), where);
+                }
+            }
+        }
+    }
+});
+
+test("every other supersede and amend link joins the older decision's lane from a lane of its own, under any cap", () => {
+    for (const [name, decisions] of LANE_SETS) {
+        for (const cap of CAPS) {
+            const layout = layoutDecisionGraph(decisions, cap);
+            const branches = layout.edges.filter(
+                (edge) =>
+                    edge.kind !== "reference" && !continuesLane(layout, edge),
+            );
+            for (const edge of branches) {
+                const where = `${name} under a cap of ${cap}: rows ${edge.from} and ${edge.to}`;
+                const lane = layout.laneOf[edge.to];
+                assert.ok(lane && layout.laneOf[edge.from], where);
                 assert.ok(
-                    laneOf[edge.from] !== null &&
-                        laneOf[edge.from] === laneOf[edge.to],
-                    `${name} under a cap of ${cap}: rows ${edge.from} and ${edge.to}`,
+                    layout.laneOf[edge.from] === lane ||
+                        lane.linkers.includes(edge.from),
+                    `${where}: the newer decision joins the lane`,
+                );
+                assert.ok(
+                    lane.top <= edge.from,
+                    `${where}: the lane reaches it`,
                 );
             }
         }
     }
 });
 
+test("a decision with no supersede or amend link that nobody links to is a lone dot", () => {
+    for (const [name, decisions] of LANE_SETS) {
+        const layout = layoutDecisionGraph(decisions);
+        for (const [row] of layout.rows.entries()) {
+            const linked = layout.edges.some(
+                (edge) =>
+                    edge.to === row ||
+                    (edge.from === row && edge.kind !== "reference"),
+            );
+            assert.equal(
+                layout.laneOf[row] !== null,
+                linked,
+                `${name}: row ${row}`,
+            );
+        }
+    }
+});
+
+test("the IEEPA branch draws 39, 38, 15 and 13 on one lane, and 17 joins it from its own", () => {
+    const layout = layoutDecisionGraph(BRANCHED);
+    const row = (id) => layout.rows.findIndex((d) => d.id === id);
+    const edge = (from, to) =>
+        layout.edges.find((e) => e.from === row(from) && e.to === row(to));
+
+    assert.equal(continuesLane(layout, edge("38", "15")), true);
+    assert.equal(continuesLane(layout, edge("15", "13")), true);
+    assert.equal(
+        continuesLane(layout, edge("17", "13")),
+        false,
+        "17 joins 13's lane rather than continuing it",
+    );
+});
+
 test("a reference never continues a lane", () => {
-    assert.equal(continuesLane("reference"), false);
-    assert.equal(continuesLane("supersede"), true);
-    assert.equal(continuesLane("amend"), true);
+    const layout = layoutDecisionGraph(JOINED);
+    for (const edge of layout.edges.filter((e) => e.kind === "reference")) {
+        assert.equal(continuesLane(layout, edge), false);
+    }
 });

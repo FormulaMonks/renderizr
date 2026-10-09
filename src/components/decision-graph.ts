@@ -5,7 +5,9 @@
  * Collapsed, it is a narrow gutter, and the open decision shows each link as
  * a small elbow out to the left and across to the decision it links to.
  * Expanded, every lane shows: supersede and amend stretches along a lane,
- * references joining a lane with a quiet elbow, and lone dots next to the
+ * each one real link between neighbors; other supersede and amend links
+ * joining a lane with an elbow that runs down it to the older decision;
+ * references joining a lane with a quiet elbow; and lone dots next to the
  * titles. The gutter takes the expanded graph's width, so the menu text moves
  * right rather than under the drawing.
  *
@@ -17,8 +19,9 @@
  *
  * With a decision open, the expanded graph lights every link of that decision
  * and dims everything else: every lane, every join and every dot but the
- * links' ends. Its supersede and amend links light along their lane, from one
- * end's dot to the other's; its references run in full on the reference
+ * links' ends. A supersede or amend link that continues a lane lights its
+ * stretch, and one that joins a lane lights the join and the lane down to the
+ * older decision; its references run in full on the reference
  * column, next to the lone dots. On the index, where nothing is open, the row
  * a reader points at lights the same way. The column takes its room whether a
  * decision is open or not, so opening one never moves a column.
@@ -36,6 +39,7 @@ import {
     continuesLane,
     type DecisionEdges,
     type DecisionGraphLayout,
+    type Edge,
     edgesOfDecision,
     joinsLane,
     type Lane,
@@ -417,45 +421,45 @@ export default class DecisionGraph extends Component {
                 d: `M ${px(x(lane.col))},${px(y(older))} V ${px(topY)}`,
             });
 
+        // Every two neighbors on a lane are a real supersede or amend link,
+        // so each stretch draws that link's kind and the older decision's
+        // status.
         const stretches: string[] = [];
         for (const lane of lanes) {
-            const members = lane.members.toSorted((a, b) => a - b);
-            // Between two decisions of the lineage, the stretch takes the
-            // strongest link that spans it: the newer decision's own link
-            // to the older, or, in a lineage that branches, a link that
-            // passes over both.
+            const { members } = lane;
             for (const [index, newer] of members.slice(0, -1).entries()) {
                 const older = members[index + 1];
-                const own = edges.find(
+                const link = edges.find(
                     (edge) => edge.from === newer && edge.to === older,
                 );
-                const spanning = edges.filter(
-                    (edge) =>
-                        edge.kind !== "reference" &&
-                        edge.from <= newer &&
-                        edge.to >= older &&
-                        laneOf[edge.from] === lane &&
-                        laneOf[edge.to] === lane,
+                if (!link) continue;
+                stretches.push(
+                    stretch(lane, link.kind, newer, older, y(newer)),
                 );
-                const kind =
-                    own && own.kind !== "reference"
-                        ? own.kind
-                        : spanning.some((edge) => edge.kind === "supersede")
-                          ? "supersede"
-                          : "amend";
-                stretches.push(stretch(lane, kind, newer, older, y(newer)));
             }
-            // Above the newest decision, the lane only carries references up
-            // to its newest linker; it stops where that join turns into it.
+            // Above its newest decision, the lane carries references up to
+            // its newest referencing linker; it stops where that join turns
+            // into it. A supersede or amend join draws its own way down.
             const newest = members[0];
-            if (lane.top < newest) {
+            const referenceTop = Math.min(
+                ...edges
+                    .filter(
+                        (edge) =>
+                            edge.kind === "reference" &&
+                            laneOf[edge.to] === lane &&
+                            laneOf[edge.from] !== lane &&
+                            joinsLane(layout, edge),
+                    )
+                    .map((edge) => edge.from),
+            );
+            if (referenceTop < newest) {
                 stretches.push(
                     stretch(
                         lane,
                         "reference",
-                        lane.top,
+                        referenceTop,
                         newest,
-                        y(lane.top) + JOIN_CORNER,
+                        y(referenceTop) + JOIN_CORNER,
                     ),
                 );
             }
@@ -467,12 +471,26 @@ export default class DecisionGraph extends Component {
             y: y(row),
         });
 
-        // A join for every link into another lineage's lane, from the
-        // linker's own column across to the lane.
-        const joins = edges.flatMap((edge) => {
+        // A join, from the newer decision's dot across to the older
+        // decision's lane. A reference turns into the lane and stops; a
+        // supersede or amend that doesn't continue the lane runs on down it
+        // to the older decision's dot. One on the newer decision's own lane
+        // has nothing to cross, so it draws only while lit.
+        const join = (edge: Edge, on: boolean) => {
             const lane = laneOf[edge.to];
-            if (!lane || laneOf[edge.from] === lane) return [];
-            if (!joinsLane(layout, edge)) return [];
+            if (!lane || !joinsLane(layout, edge)) return [];
+            const own = laneOf[edge.from] === lane;
+            if (own && (!on || edge.kind === "reference")) return [];
+            const across = joinPath(
+                dot(edge.from).x,
+                x(lane.col),
+                y(edge.from),
+            );
+            const d = own
+                ? `M ${px(x(lane.col))},${px(y(edge.from))} V ${px(y(edge.to))}`
+                : edge.kind === "reference"
+                  ? across
+                  : `${across} V ${px(y(edge.to))}`;
             return [
                 edgePath({
                     mark: "join",
@@ -480,19 +498,32 @@ export default class DecisionGraph extends Component {
                     newer: rows[edge.from],
                     older: rows[edge.to],
                     lane: laneName(layout, lane),
-                    emphasis: emphasis(lit, false),
-                    d: joinPath(dot(edge.from).x, x(lane.col), y(edge.from)),
+                    emphasis: emphasis(lit, on),
+                    d,
                 }),
             ];
-        });
+        };
+        // Supersede and amend joins sit under the stretches, so a lane's
+        // own links read where a join runs down it.
+        const branches = edges
+            .filter(
+                (edge) =>
+                    edge.kind !== "reference" && !continuesLane(layout, edge),
+            )
+            .flatMap((edge) => join(edge, false));
+        const references = edges
+            .filter((edge) => edge.kind === "reference")
+            .flatMap((edge) => join(edge, false));
 
-        // The lit decision's links, farthest first so the nearest sits on top
-        // where they overlap. Supersede and amend are the lineage itself, so
-        // they light along their lane from one end's dot to the other's, and
-        // the members they pass stay dimmed. Both ends always share the lane.
-        const lineage = (lit?.links ?? []).flatMap((edge) => {
+        // The lit decision's supersede and amend links, farthest first so
+        // the nearest sits on top where they overlap. A link that continues
+        // a lane lights its stretch, and one that joins a lane lights the
+        // join and the lane down to the older decision; the dots they pass
+        // stay dimmed.
+        const litLanes = (lit?.links ?? []).flatMap((edge) => {
+            if (edge.kind === "reference") return [];
             const lane = laneOf[edge.from];
-            if (!continuesLane(edge.kind) || !lane) return [];
+            if (!continuesLane(layout, edge) || !lane) return join(edge, true);
             return [
                 stretch(
                     lane,
@@ -509,7 +540,7 @@ export default class DecisionGraph extends Component {
         // column stays empty while nothing is lit.
         const columnX = x(referenceColumn);
         const links = (lit?.links ?? [])
-            .filter((edge) => !continuesLane(edge.kind))
+            .filter((edge) => edge.kind === "reference")
             .map((edge) =>
                 edgePath({
                     mark: "edge",
@@ -541,7 +572,7 @@ export default class DecisionGraph extends Component {
 
         return {
             width,
-            marks: `${stretches.join("")}${joins.join("")}${lineage.join("")}${links.join("")}${dots.join("")}`,
+            marks: `${branches.join("")}${stretches.join("")}${references.join("")}${litLanes.join("")}${links.join("")}${dots.join("")}`,
             x,
         };
     }

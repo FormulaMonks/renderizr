@@ -574,16 +574,15 @@ test("the expanded decision graph draws each lane's stretches by kind and the ol
     expand();
 
     assert.deepEqual(marks("stretch"), [
-        // 4 supersedes 1 and amends 2, so 1, 2 and 4 share a lane: 4 amends
-        // 2 along it, and 4's supersede of 1 carries the stretch below 2.
+        // 4 supersedes 1 and amends 2: it continues 1's lane, since a
+        // supersede wins, and 2 never sits between them.
         {
             kind: "supersede",
-            from: "2",
+            from: "4",
             to: "1",
             status: "superseded",
             lane: "1",
         },
-        { kind: "amend", from: "4", to: "2", status: "amended", lane: "1" },
         // 4 references 3, so 3 gets a lane that only carries references.
         {
             kind: "reference",
@@ -595,7 +594,7 @@ test("the expanded decision graph draws each lane's stretches by kind and the ol
     ]);
 });
 
-test("a reference joins the lane of the decision it links to", () => {
+test("a reference, or a supersede or amend that doesn't continue a lane, joins the lane of the decision it links to", () => {
     renderPage(LINKED);
 
     expand();
@@ -608,6 +607,8 @@ test("a reference joins the lane of the decision it links to", () => {
             status: "superseded",
             lane: "1",
         },
+        // 4 continues 1's lane, so its amend of 2 joins 2's own lane.
+        { kind: "amend", from: "4", to: "2", status: "amended", lane: "2" },
         {
             kind: "reference",
             from: "4",
@@ -634,7 +635,7 @@ test("every dot in the expanded decision graph sits on its lane, or alone", () =
             ["5", null],
             ["4", "1"],
             ["3", "3"],
-            ["2", "1"],
+            ["2", "2"],
             ["1", "1"],
         ],
     );
@@ -726,22 +727,22 @@ test("opening a decision lights its links on the reference column and the dots a
             "dot 2",
             "dot 5",
             "join 3-1",
+            "join 4-2",
             "join 4-3",
-            "stretch 2-1",
-            "stretch 4-2",
+            "stretch 4-1",
             "stretch 4-3",
         ],
         "every lane stretch and join dims, its own joins too",
     );
 });
 
-test("opening a decision on a lineage lights its own links, not the rest of its lane", () => {
+test("opening a decision that a second decision amends lights the join down to it", () => {
     renderPage([...LINKED, LONE]);
     expand();
 
     open("2");
 
-    assert.deepEqual(lit(), ["dot 2", "dot 4", "stretch amend 4-2 on 1"]);
+    assert.deepEqual(lit(), ["dot 2", "dot 4", "join amend 4-2 on 2"]);
     assert.deepEqual(
         dimmed(),
         [
@@ -749,16 +750,16 @@ test("opening a decision on a lineage lights its own links, not the rest of its 
             "dot 3",
             "dot 5",
             "join 3-1",
+            "join 4-2",
             "join 4-3",
-            "stretch 2-1",
-            "stretch 4-2",
+            "stretch 4-1",
             "stretch 4-3",
         ],
-        "1 shares 2's lane but links to 4, not to 2",
+        "4 continues 1's lane, not 2's",
     );
 });
 
-test("opening a decision lights its supersede and amend links along its lane, not on the reference column", () => {
+test("opening a decision lights the link that continues its lane along it, and its other links as joins", () => {
     renderPage([...LINKED, LONE]);
     expand();
 
@@ -770,16 +771,13 @@ test("opening a decision lights its supersede and amend links along its lane, no
         "dot 3",
         "dot 4",
         "edge reference 4-3 on null",
-        // Farthest first, so the amend draws over the supersede it shares
-        // the lane with.
-        "stretch amend 4-2 on 1",
+        "join amend 4-2 on 2",
         "stretch supersede 4-1 on 1",
     ]);
     assert.deepEqual(
         document
-            .querySelectorAll(
-                '#adrs-menu [data-mark="stretch"][data-highlighted]',
-            )
+            .querySelectorAll("#adrs-menu [data-highlighted][data-kind]")
+            .filter((mark) => mark.getAttribute("data-kind") !== "reference")
             .map(
                 (mark) =>
                     `${mark.getAttribute("data-kind")} ${mark.getAttribute("data-status")}`,
@@ -787,6 +785,68 @@ test("opening a decision lights its supersede and amend links along its lane, no
         ["supersede superseded", "amend amended"],
         "each takes its kind and the older decision's status",
     );
+});
+
+/**
+ * The branch in the IEEPA workspace: 15 and 17 both amend 13, 38 amends 15
+ * and 39 amends 38.
+ */
+const BRANCHED = [
+    ["13", "2024-01-01T12:00:00Z", null],
+    ["15", "2024-02-01T12:00:00Z", "13"],
+    ["17", "2024-03-01T12:00:00Z", "13"],
+    ["38", "2024-04-01T12:00:00Z", "15"],
+    ["39", "2024-05-01T12:00:00Z", "38"],
+].map(([id, date, amends]) =>
+    decision(id, {
+        date,
+        status: "Amended",
+        links: amends ? [{ id: amends, description: "Amends" }] : [],
+    }),
+);
+
+test("a lane that branches draws only real links: the second decision to amend one joins its lane", () => {
+    renderPage(BRANCHED);
+    expand();
+
+    assert.deepEqual(
+        marks("stretch").map(({ kind, from, to }) => `${kind} ${from}-${to}`),
+        ["amend 15-13", "amend 38-15", "amend 39-38"],
+        "no stretch runs from 38 to 17",
+    );
+    assert.deepEqual(marks("join"), [
+        { kind: "amend", from: "17", to: "13", status: "amended", lane: "13" },
+    ]);
+    assert.notEqual(
+        document
+            .querySelector('#adrs-menu [data-mark="dot"][data-decision="17"]')
+            ?.getAttribute("data-lane"),
+        "13",
+        "17 sits on a lane of its own",
+    );
+});
+
+test("opening a decision on a branching lane lights its stretches and the joins into it", () => {
+    renderPage(BRANCHED);
+    expand();
+
+    open("13");
+    assert.deepEqual(lit(), [
+        "dot 13",
+        "dot 15",
+        "dot 17",
+        "join amend 17-13 on 13",
+        "stretch amend 15-13 on 13",
+    ]);
+
+    open("38");
+    assert.deepEqual(lit(), [
+        "dot 15",
+        "dot 38",
+        "dot 39",
+        "stretch amend 38-15 on 13",
+        "stretch amend 39-38 on 13",
+    ]);
 });
 
 test("opening a decision in the middle of an amend trunk lights only the stretches to its direct links", () => {
@@ -837,9 +897,9 @@ test("opening a decision with no links dims the whole graph, its own dot too, an
         "dot 4",
         "dot 5",
         "join 3-1",
+        "join 4-2",
         "join 4-3",
-        "stretch 2-1",
-        "stretch 4-2",
+        "stretch 4-1",
         "stretch 4-3",
     ]);
     assert.equal(
@@ -1310,9 +1370,9 @@ test("pointing at a row lights its edges and dims the rest, and nothing dims onc
         "dot 2",
         "dot 5",
         "join 3-1",
+        "join 4-2",
         "join 4-3",
-        "stretch 2-1",
-        "stretch 4-2",
+        "stretch 4-1",
         "stretch 4-3",
     ]);
 
