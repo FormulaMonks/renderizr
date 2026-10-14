@@ -28,6 +28,7 @@ export type ToolbarEngine = Pick<
     | "setColorScheme"
     | "setLabels"
     | "fit"
+    | "exportView"
     | "zoomIn"
     | "zoomOut"
     | "play"
@@ -160,6 +161,9 @@ export default class CurrentView extends Component {
         ["zoom-in", () => this.#engine.zoomIn()],
         ["zoom-out", () => this.#engine.zoomOut()],
         ["reset-zoom", () => this.#engine.fit()],
+        // PROTOTYPE (#160): stand-ins for the "Export view" menu.
+        ["export-png", () => void this.#engine.exportView("png")],
+        ["export-svg", () => void this.#engine.exportView("svg")],
         [
             "dark-mode",
             () =>
@@ -353,6 +357,10 @@ export default class CurrentView extends Component {
                 <button class="prev-step" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
                 <button class="play-animation"></button>
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
+            </div>
+            <div class="export-buttons ${styles.btnGroup}">
+                <button class="export-png" title="Export view as PNG" aria-label="Export view as PNG">PNG</button>
+                <button class="export-svg" title="Export view as SVG" aria-label="Export view as SVG">SVG</button>
             </div>
         `;
 

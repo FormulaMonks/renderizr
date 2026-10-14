@@ -204,6 +204,9 @@ export type Engine = AnimationControls &
         setLabels(labels: Labels): void;
         getCurrentView(): ModelView;
 
+        /** PROTOTYPE (#160): save the view as drawn as an SVG or PNG file. */
+        exportView(format: "svg" | "png"): Promise<void>;
+
         fit(): void;
         zoomIn(): void;
         zoomOut(): void;

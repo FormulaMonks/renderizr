@@ -16,7 +16,10 @@ import {
     type SelectionState,
     whenMeasurable,
 } from "../contract";
-import { AnimationPlayer } from "./animation";
+import { canvasOf } from "../../model";
+import { AnimationPlayer, stepStateOf } from "./animation";
+import { exportBlob, saveFile, textSetting } from "./export-file";
+import { exportSvg } from "./export-svg";
 import type { Graph } from "./graph";
 import {
     type IslandCommands,
@@ -92,6 +95,8 @@ export function mountEngine(
          * again, which keeps the step shown when the view still has it.
          */
         let reloading = false;
+        /** PROTOTYPE (#160): the graph last drawn, which an export serializes. */
+        let drawn: Graph | null = null;
         player.onChanged(({ step }) => {
             if (step !== store.get().step) store.set({ step });
         });
@@ -209,6 +214,52 @@ export function mountEngine(
                 store.set({ labels: { ...labels } });
             },
             getCurrentView,
+            async exportView(format) {
+                const graph = drawn;
+                if (!graph) return;
+                const view = getCurrentView();
+                const { step, scheme } = store.get();
+                // The canvas frames an export; a view with no dimensions
+                // takes the frame Auto would set around what is drawn.
+                const framed = view.dimensions || view.paperSize;
+                const canvas = graph.canvas.width
+                    ? graph.canvas
+                    : canvasOf(view);
+                const frame = framed
+                    ? { x: 0, y: 0, ...canvas }
+                    : {
+                          x: Math.floor(graph.bounds.x) - 200,
+                          y: Math.floor(graph.bounds.y) - 200,
+                          width: Math.ceil(graph.bounds.width) + 400,
+                          height: Math.ceil(graph.bounds.height) + 400,
+                      };
+                const svg = exportSvg({
+                    graph,
+                    step: step === null ? undefined : stepStateOf(graph, step),
+                    frame,
+                    text: textSetting(__RENDERIZR_FONT__),
+                });
+                const blob = await exportBlob(
+                    svg,
+                    format,
+                    frame.width,
+                    frame.height,
+                );
+                const slug = (text: string) =>
+                    text
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-|-$/g, "");
+                const name = [
+                    slug(model.name) || "workspace",
+                    slug(view.key),
+                    step === null ? "" : `step-${step}`,
+                    scheme === "dark" ? "dark" : "",
+                ]
+                    .filter(Boolean)
+                    .join("-");
+                saveFile(blob, `${name}.${format}`);
+            },
             fit: () => commands.fit(),
             zoomIn: () => commands.zoomIn(),
             zoomOut: () => commands.zoomOut(),
@@ -248,6 +299,7 @@ export function mountEngine(
         };
 
         const onPainted = (key: string, graph: Graph) => {
+            drawn = graph;
             // Compiled out of every build but the acceptance harness's (spec 15.1).
             if (__RENDERIZR_ENGINE_REPORT__) {
                 writeReport(document, engineReport(graph));
@@ -275,6 +327,7 @@ export function mountEngine(
         };
 
         const onRedrawn = (graph: Graph) => {
+            drawn = graph;
             if (__RENDERIZR_ENGINE_REPORT__) {
                 writeReport(document, engineReport(graph));
             }
