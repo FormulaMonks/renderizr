@@ -10,6 +10,8 @@ References [3. Mount React Flow as an island behind the engine contract](0003-mo
 
 Referenced by [16. Open workspace.dsl through Structurizr's merge](0016-open-workspace-dsl-through-structurizrs-merge.md).
 
+Referenced by [22. Read branding from renderizr workspace properties](0022-read-branding-from-renderizr-workspace-properties.md).
+
 ## Context
 
 Authors want Structurizr Local's diagram editing in the React Flow engine, so the layout they arrange is the layout Renderizr draws. The published CLI has one command, the build, which writes a static site or a single file that runs from `file://` with no network. Saving a layout needs something that writes to disk, and the page can't save its own copy of the workspace: the build merges themes into styles, inlines icons and images and injects fonts before the page sees it. Vite and `src/` already ship in the package, and `scripts/` stays plain ESM with no build step so that `npx` works. Any web page the author has open can send requests to a server on localhost.

@@ -3,6 +3,11 @@ import { statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { createServer } from "vite";
 import { loadWorkspace } from "./assets.js";
+import {
+    brandingProperties,
+    loadBranding,
+    NO_BRANDING_FLAGS,
+} from "./branding.js";
 import { createConfig, version } from "./config.js";
 import { DslPipeline } from "./dsl-pipeline.js";
 import { editMode } from "./edit-plugin.js";
@@ -142,14 +147,17 @@ export function sessionNotices(session) {
  * error doesn't stop it (spec 5.3). `output` takes the tools' output and
  * `debounce` the pipeline's wait after a change.
  *
+ * `branding` holds the branding flags `cli.js` parses. Edit mode applies
+ * branding at start, from the flags and the workspace it opens, and an
+ * invalid workspace value stops it before the server starts.
+ *
  * Resolves with the Vite `server`, the `url` to open, the `token`, the DSL
- * `pipeline` or `null`, and a `close` that stops the server.
+ * `pipeline` or `null`, the branding `notices` to print, and a `close` that
+ * stops the server.
  */
 export async function startEditServer({
     session,
-    logo = null,
-    font = null,
-    primaryColor = null,
+    branding = NO_BRANDING_FLAGS,
     port = DEFAULT_PORT,
     open = false,
     logLevel = "info",
@@ -173,14 +181,22 @@ export async function startEditServer({
         });
         await pipeline.run();
         // The page shows the error until a run succeeds.
-        workspace = await loadWorkspace(session.json, { font }).catch(
-            () => null,
-        );
+        workspace = await loadWorkspace(session.json).catch(() => null);
     } else {
         // Read once up front, so a workspace that won't load stops edit
         // mode before a server starts.
-        workspace = await loadWorkspace(session.json, { font });
+        workspace = await loadWorkspace(session.json);
     }
+    // The branding plugin and the `define` constants bake branding into the
+    // page when Vite starts, so edit mode applies it at start only.
+    const { logo, font, primaryColor, notices } = await loadBranding({
+        flags: branding,
+        workspace,
+        source: session.json,
+    }).catch(async (error) => {
+        await pipeline?.close();
+        throw error;
+    });
     // The page's title names the workspace.
     process.env.VITE_WORKSPACE_NAME = workspace?.name ?? "Workspace";
 
@@ -195,7 +211,10 @@ export async function startEditServer({
             mode: "edit",
             editMode: editMode({
                 workspace: session.json,
-                font,
+                branding: {
+                    flags: branding,
+                    properties: brandingProperties(workspace),
+                },
                 token,
                 agent,
                 writer,
@@ -221,6 +240,7 @@ export async function startEditServer({
         server,
         token,
         pipeline,
+        notices,
         url: `http://127.0.0.1:${listening}${entry}`,
         close: async () => {
             await pipeline?.close();

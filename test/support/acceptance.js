@@ -167,10 +167,16 @@ function withCopiedIcon({ icon, ...style }, icons) {
  * fetched, and dropped when there is no copy. A theme's icons are file names
  * relative to the theme's URL; each is inlined from the copy's icons folder.
  * Image views keep their content: offline, the build warns and keeps a URL,
- * and the engine draws the view as its placeholder.
+ * and the engine draws the view as its placeholder. Its `renderizr.*`
+ * branding properties are dropped.
  */
 export function prepareWorkspace(entry) {
     const workspace = JSON.parse(readFileSync(entry.source, "utf-8"));
+
+    // Branding would fetch a font from Google Fonts and read a logo beside
+    // the source; the harness checks drawing alone.
+    for (const name of Object.keys(workspace.properties ?? {}))
+        if (name.startsWith("renderizr.")) delete workspace.properties[name];
 
     const configuration = workspace.views?.configuration;
     const themes = configuration?.themes ?? [];

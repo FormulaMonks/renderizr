@@ -79,10 +79,10 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 | `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. The build empties it first |
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
 | `--base <path>` | Base public path for the multi-file build. Default is empty, which emits relative URLs (`./assets/…`) that work from any subdirectory. Set it to something like `/renderizr/` when the assets must be referenced absolutely |
-| `--logo <path\|url>` | Image shown at the top left of the header. The build fetches it, minifies it if it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes rather than their extension, and rejects an SVG containing script |
+| `--logo <path\|url>` | Image shown at the top left of the header: a path relative to the current directory, a URL or a `data:` URI. The build fetches it, minifies it if it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes rather than their extension, and rejects an SVG containing script |
 | `--logo-alt <text>` | Alt text for the logo. Default empty |
 | `--logo-href <url>` | Wraps the logo in a link |
-| `--font <family>` | A [Google Web Font](https://fonts.google.com) family, e.g. `Inter` or `"Source Sans 3"`. The build downloads it as woff2 and embeds it, including into the diagram labels |
+| `--font <family>` | A [Google Web Font](https://fonts.google.com) family, e.g. `Inter` or `"Source Sans 3"`. The build downloads it from Google Fonts, its one font source, as woff2 and embeds it, including into the diagram labels |
 | `--font-weights <list>` | Comma-separated weights. Default `400,700`. The build prefers a variable font covering the range when the family has one |
 | `--font-subsets <list>` | Comma-separated subsets. Default `latin` |
 | `--font-italic` | Also embed the italic faces, which roughly doubles the font's contribution |
@@ -90,6 +90,36 @@ The one required argument is the workspace: a local path or an `http(s)` URL to 
 | `-h, --help` | Print this reference as text and exit |
 
 A font is the one option with a real cost: Inter at latin, weights 400–700, adds about 50KB gzipped. Everything else is a few kilobytes at most.
+
+### Branding from the workspace
+
+Set the logo, the font and the primary color once in the workspace, and every run of `renderizr` and `renderizr edit` uses them without flags:
+
+```
+workspace {
+    properties {
+        "renderizr.logo" "logo.svg"
+        "renderizr.logoAlt" "Acme"
+        "renderizr.logoHref" "https://acme.example"
+        "renderizr.font" "Inter"
+        "renderizr.primaryColor" "#e4572e"
+    }
+}
+```
+
+| Property | Holds | Flag that overrides it |
+| --- | --- | --- |
+| `renderizr.logo` | The header logo: a path relative to the workspace file, or to the workspace URL when you render from one, a URL or a `data:` URI | `--logo` |
+| `renderizr.logoAlt` | The logo's alt text | `--logo-alt` |
+| `renderizr.logoHref` | The link around the logo | `--logo-href` |
+| `renderizr.font` | A Google Fonts family name, the value `--font` takes | `--font` |
+| `renderizr.primaryColor` | A CSS color | `--primary-color` |
+
+- A flag overrides its property for that run. When a run passes a flag whose value differs from the workspace, Renderizr prints a `properties` block to paste into the workspace, with a logo path relative to the workspace file.
+- Renderizr checks a property the way it checks its flag. An invalid value fails the build, or the start of edit mode, and the error names the property and the workspace.
+- Renderizr reads these properties and never writes them. It skips Structurizr's `branding` block, and prints a notice when that block sets a logo or a font that no property sets.
+- Edit mode applies branding when it starts. When you change a property while it runs, it asks you to restart `renderizr edit`.
+- `--font-weights`, `--font-subsets` and `--font-italic` have no properties yet.
 
 ## Edit mode
 
@@ -284,6 +314,7 @@ pnpm exec biome ci .       # lint and format
 | `scripts/dsl-pipeline.js`, `scripts/structurizr-tools.js` | Running Structurizr's tools on a `workspace.dsl` in edit mode |
 | `scripts/workspace-writer.js`, `scripts/structurizr-schema.js` | Writing `workspace.json` the way Structurizr does |
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, icons, logo and font |
+| `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
 | `scripts/config.js` | The Vite configuration, shared with the dev server |
 | `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
 | `scripts/escapes.js` | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive |

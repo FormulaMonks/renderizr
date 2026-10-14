@@ -7,19 +7,35 @@ const BROWSER_UA =
 
 export const isUrl = (value) => /^https?:\/\//i.test(value);
 
+const DATA_URI = /^data:[^,]*?(;base64)?,/is;
+
+/** Whether `value` is a `data:` URI. */
+export const isDataUri = (value) => DATA_URI.test(value);
+
+/** The bytes a `data:` URI carries. */
+const decodeDataUri = (uri) => {
+    const [head, base64] = DATA_URI.exec(uri);
+    const data = uri.slice(head.length);
+    return base64
+        ? Buffer.from(data, "base64")
+        : Buffer.from(decodeURIComponent(data), "utf8");
+};
+
 const readSource = async (source) =>
-    isUrl(source)
-        ? Buffer.from(
-              await fetch(source).then((response) => {
-                  if (!response.ok) {
-                      throw new Error(
-                          `${source} responded ${response.status} ${response.statusText}`,
-                      );
-                  }
-                  return response.arrayBuffer();
-              }),
-          )
-        : readFile(resolve(process.cwd(), source));
+    isDataUri(source)
+        ? decodeDataUri(source)
+        : isUrl(source)
+          ? Buffer.from(
+                await fetch(source).then((response) => {
+                    if (!response.ok) {
+                        throw new Error(
+                            `${source} responded ${response.status} ${response.statusText}`,
+                        );
+                    }
+                    return response.arrayBuffer();
+                }),
+            )
+          : readFile(resolve(process.cwd(), source));
 
 /* ------------------------------------------------------------------ images */
 
@@ -130,6 +146,11 @@ export function toDataUri(buffer, mime) {
 
 const SVG_SCRIPT = /<script[\s>]|\son\w+\s*=/i;
 
+/**
+ * The logo at `logo.source`, a path, a URL or a `data:` URI, as a data URI
+ * with its sniffed size. Whatever the source, its type comes from its bytes,
+ * an SVG carrying script is refused and an oversized one warns.
+ */
 export async function loadLogo(logo) {
     if (!logo) return null;
 
@@ -137,8 +158,12 @@ export async function loadLogo(logo) {
     const { mime, width, height } = describeImage(buffer);
 
     if (mime === "image/svg+xml" && SVG_SCRIPT.test(buffer.toString("utf8"))) {
+        // A data: URI would fill the terminal.
+        const name = isDataUri(logo.source)
+            ? "The data: URI logo"
+            : logo.source;
         throw new Error(
-            `${logo.source} contains script, which would run in the page. Export a flattened SVG instead.`,
+            `${name} contains script, which would run in the page. Export a flattened SVG instead.`,
         );
     }
 
@@ -296,8 +321,8 @@ function withThemeIcon(style, themeUrl) {
 }
 
 /**
- * Themes, element icons, image views and the branding logo are all fetched
- * by Structurizr's own pages at runtime. A self-contained page cannot do
+ * Themes, element icons and image views are all fetched by Structurizr's
+ * own pages at runtime. A self-contained page cannot do
  * that, so every one of them is resolved here and folded into the
  * workspace. An image that cannot be inlined keeps its URL, and the engine
  * draws its placeholder.
@@ -343,7 +368,6 @@ async function inlineWorkspaceAssets(workspace) {
     };
 
     for (const style of styles.elements ?? []) collect(style.icon);
-    collect(configuration.branding?.logo);
     const imageViews = views.imageViews ?? [];
     for (const view of imageViews) {
         for (const field of IMAGE_FIELDS) collect(view[field]);
@@ -366,12 +390,6 @@ async function inlineWorkspaceAssets(workspace) {
         if (style.icon && remote.get(style.icon)) {
             style.icon = remote.get(style.icon);
         }
-    }
-    if (
-        configuration.branding?.logo &&
-        remote.get(configuration.branding.logo)
-    ) {
-        configuration.branding.logo = remote.get(configuration.branding.logo);
     }
     for (const view of imageViews) {
         for (const field of IMAGE_FIELDS) {
@@ -449,7 +467,7 @@ export function validateWorkspace(workspace) {
     }
 }
 
-export async function loadWorkspace(source, { font } = {}) {
+export async function loadWorkspace(source) {
     const raw = isUrl(source)
         ? await fetch(source).then((response) => {
               if (!response.ok) {
@@ -470,15 +488,6 @@ export async function loadWorkspace(source, { font } = {}) {
 
     validateWorkspace(workspace);
     await inlineWorkspaceAssets(workspace);
-
-    if (font) {
-        // Makes the diagram engine render its labels in the chosen face too.
-        workspace.views ??= {};
-        const configuration = workspace.views.configuration ?? {};
-        configuration.branding ??= {};
-        configuration.branding.font = { name: font.family };
-        workspace.views.configuration = configuration;
-    }
 
     return workspace;
 }

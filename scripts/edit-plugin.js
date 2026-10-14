@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { loadWorkspace } from "./assets.js";
+import {
+    brandingChanges,
+    brandingProperties,
+    checkBranding,
+} from "./branding.js";
 import { triggersRun } from "./dsl-pipeline.js";
 import {
     RESOLVED_WORKSPACE_MODULE,
@@ -19,7 +24,7 @@ import {
  *
  * It serves the workspace as the page's workspace module, read from disk on
  * each load with the build's transforms applied (themes merged into styles,
- * icons and images inlined, the font named), in place of the workspace a
+ * icons and images inlined), in place of the workspace a
  * build compiles in, together with the version of the file it read. The page
  * never sees the file itself: the transforms change it, so the page's copy is
  * never one to save.
@@ -40,6 +45,10 @@ import {
  * change under the DSL's folder runs it, each good run reaches the pages as
  * a workspace event and each failed one as an error event, and the module
  * carries the error while the last run failed.
+ *
+ * Branding applies at start only: a reload that changes a `renderizr.*`
+ * property asks the author to restart edit mode, and one that brings an
+ * invalid value reports it and keeps the session as it is.
  *
  * Pages read the events with `import.meta.hot.on`. `flushPages` asks them to
  * save what waits before something else writes the file, and waits for
@@ -201,11 +210,12 @@ const emptyWorkspace = (folder) => ({
  * plugin runs it on changes under the DSL's folder, gives it the pages to
  * flush and tells them what each run made, and serves its error with the
  * workspace module (spec 5.3). `writer` writes the file, one made here when
- * left out.
+ * left out. `branding` holds the run's branding `flags` and the
+ * `properties` edit mode started with.
  */
 export function editMode({
     workspace,
-    font = null,
+    branding = null,
     token = null,
     agent,
     writer = new WorkspaceWriter(resolve(workspace), { agent }),
@@ -226,12 +236,48 @@ export function editMode({
     /** The workspace module's workspace in a DSL session that has none. */
     const loadOrEmpty = async () => {
         try {
-            return await loadWorkspace(file, { font });
+            return await loadWorkspace(file);
         } catch (error) {
             if (pipeline && !pipeline.succeeded)
                 return emptyWorkspace(pipeline.folder);
             throw error;
         }
+    };
+
+    /** The branding properties the last reload reported on. */
+    let brandingSeen = branding?.properties ?? null;
+
+    /**
+     * Tell the author when `reloaded` changes a branding property no flag
+     * overrides: that a restart applies it, or why its value is invalid.
+     */
+    const reportBranding = async (server, reloaded) => {
+        if (!branding) return;
+        if (!brandingChanges(brandingSeen, reloaded, branding.flags).length)
+            return;
+        brandingSeen = brandingProperties(reloaded);
+        const { logger } = server.config;
+        try {
+            await checkBranding({
+                flags: branding.flags,
+                workspace: reloaded,
+                source: file,
+            });
+        } catch (error) {
+            logger.error(
+                `${error.message} Edit mode keeps the branding it started with.`,
+            );
+            return;
+        }
+        const changed = brandingChanges(
+            branding.properties,
+            reloaded,
+            branding.flags,
+        );
+        if (changed.length)
+            logger.warn(
+                `${changed.join(", ")} changed in ${file}; restart renderizr edit to apply ${changed.length === 1 ? "it" : "them"}.`,
+            );
     };
 
     const dropModule = (server) => {
@@ -271,7 +317,7 @@ export function editMode({
         if (text === null) return;
         let loaded;
         for (let look = 1; ; look++) {
-            loaded = await loadWorkspace(file, { font }).then(
+            loaded = await loadWorkspace(file).then(
                 (workspace) => ({ workspace }),
                 (error) => ({ error }),
             );
@@ -285,13 +331,14 @@ export function editMode({
             text = again;
         }
         const version = versionOf(text);
-        if (loaded.workspace)
+        if (loaded.workspace) {
+            await reportBranding(server, loaded.workspace);
             server.ws.send(WORKSPACE_EVENT, {
                 version,
                 workspace: loaded.workspace,
                 ...(savers.has(version) && { source: savers.get(version) }),
             });
-        else {
+        } else {
             const { message } = loaded.error;
             server.config.logger.error(`${file} won't load: ${message}`);
             server.ws.send(ERROR_EVENT, { version, error: message });

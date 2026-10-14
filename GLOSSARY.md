@@ -163,3 +163,7 @@ _Avoid_: timeline, history graph
 **Lane**:
 The vertical line in the decision graph that runs from a decision up to the newest decision that links to it. A decision that supersedes or amends the lane's newest decision continues the same lane instead of opening its own, so every stretch of a lane is a real link. A second decision that supersedes or amends a decision on the lane joins it from a lane of its own, with an elbow that runs down the lane to that decision; a decision that references it joins the lane with a short elbow.
 _Avoid_: branch, track
+
+**Branding**:
+What makes the rendered site look like the author's own: the header logo with its alt text and link, the font family and the primary color. The author sets it with the workspace properties `renderizr.logo`, `renderizr.logoAlt`, `renderizr.logoHref`, `renderizr.font` and `renderizr.primaryColor`, and a flag overrides each one for a run. Renderizr skips Structurizr's `branding` block.
+_Avoid_: theme (that is a Structurizr style set), skin

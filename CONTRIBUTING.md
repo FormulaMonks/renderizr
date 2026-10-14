@@ -93,7 +93,7 @@ pnpm dev -- test/__fixtures__/edge-routing.json
 RENDERIZR_WORKSPACE=./ws.json pnpm dev    # or set it in the environment
 ```
 
-The dev server also accepts `--logo <path|url>`, `--font <family>` and `--single-file`, in any order before or after the workspace path:
+The dev server also accepts the branding flags `--logo <path|url>`, `--logo-alt <text>`, `--logo-href <url>`, `--font <family>` and `--primary-color <color>`, and `--single-file`, in any order before or after the workspace path. It takes the workspace's `renderizr.*` branding properties the way `pnpm render` does, through `scripts/branding.js`:
 
 ```bash
 pnpm dev -- --font Inter --logo ./logo.svg architecture/workspace.json
@@ -102,7 +102,7 @@ pnpm dev -- architecture/workspace.json --font Inter
 
 Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know: `pnpm dev test/__fixtures__/edge-routing.json --font Inter` exits with ``Unknown option `--font` ``.
 
-`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of `--font` or `--logo`. It reads `RENDERIZR_WORKSPACE` only when you pass no such argument, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
+`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of a branding flag. It reads `RENDERIZR_WORKSPACE` only when you pass no such argument, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
 
 ### Build
 
@@ -231,6 +231,7 @@ public/         static files copied into every build (currently the favicon)
 | `scripts/build.js` | CLI entry point (`bin: renderizr`). Enforces the Node floor, parses arguments, loads assets, runs Vite |
 | `scripts/cli.js` | Option definitions and `--help` text |
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
+| `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
 | `scripts/config.js` | The Vite configuration, shared by the build and the dev server |
 | `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
 | `scripts/escapes.js` | Rewrites escape sequences a Claude artifact upload rejects; fails the build if any survive |

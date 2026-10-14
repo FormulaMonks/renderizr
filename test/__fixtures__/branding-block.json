@@ -1,0 +1,71 @@
+{
+    "id": 1,
+    "name": "Branding block",
+    "description": "A Structurizr branding block with a logo and a font and no renderizr.* property, which Renderizr skips with a notice.",
+    "properties": {},
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Customer",
+                "tags": "Element,Person",
+                "relationships": [
+                    {
+                        "id": "3",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Places orders with",
+                        "tags": "Relationship"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "name": "Shop",
+                "description": "Sells Acme's products.",
+                "tags": "Element,Software System"
+            }
+        ]
+    },
+    "views": {
+        "systemContextViews": [
+            {
+                "key": "Context",
+                "softwareSystemId": "2",
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [
+                    {
+                        "id": "1"
+                    },
+                    {
+                        "id": "2"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "3"
+                    }
+                ]
+            }
+        ],
+        "configuration": {
+            "branding": {
+                "logo": "structurizr-logo.png",
+                "font": {
+                    "name": "Lora"
+                }
+            },
+            "styles": {}
+        }
+    },
+    "documentation": {}
+}

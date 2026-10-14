@@ -418,22 +418,10 @@ test("the page loads with edit mode compiled in", async () => {
     });
 });
 
-test("the workspace module serves workspace.json from disk with the build's transforms", async () => {
-    // A font already loaded, as `loadFont` hands it over, so nothing here
-    // reaches the network.
-    const font = { family: "Fixture Sans", css: "@font-face{}" };
-    await withEditServer({ font }, async ({ url, json }) => {
+test("the workspace module serves workspace.json from disk", async () => {
+    await withEditServer({}, async ({ url }) => {
         const module = await fetchWorkspaceModule(new URL(url).origin);
         assert.match(module, /"name": ?"View types"/);
-        assert.match(
-            module,
-            /"font": ?\{ ?"name": ?"Fixture Sans" ?\}/,
-            "the build's font transform did not reach the workspace",
-        );
-        assert.ok(
-            !(await readFile(json, "utf8")).includes("Fixture Sans"),
-            "the transform reached the file on disk",
-        );
     });
 });
 
@@ -665,9 +653,8 @@ function recordHotUpdates(server, file) {
     return handled;
 }
 
-test("a save reaches every page once, as a workspace event naming the page that saved, and an outside change arrives as one with its version and the build's transforms", async () => {
-    const font = { family: "Fixture Sans", css: "@font-face{}" };
-    await withEditServer({ font }, async ({ server, url, token, json }) => {
+test("a save reaches every page once, as a workspace event naming the page that saved, and an outside change arrives as one with its version", async () => {
+    await withEditServer({}, async ({ server, url, token, json }) => {
         const sent = recordEvents(server);
         const handled = recordHotUpdates(server, json);
         const version = await servedVersion(new URL(url).origin);
@@ -718,11 +705,6 @@ test("a save reaches every page once, as a workspace event naming the page that 
         const { data } = outsideEvent;
         assert.equal(data.source, undefined);
         assert.equal(data.workspace.description, "Changed outside edit mode");
-        assert.match(
-            JSON.stringify(data.workspace),
-            /"font":\{"name":"Fixture Sans"\}/,
-            "the build's font transform did not reach the event",
-        );
         // Vite reloads pages for files of its own too; only the workspace's
         // reloads count here.
         assert.ok(
@@ -869,6 +851,88 @@ test("a flush with no page open resolves at once and sends nothing", async () =>
     const pages = fakePages([]);
     assert.equal(await flushPages(pages.ws), true);
     assert.deepEqual(pages.sent, []);
+});
+
+/* ------------------------------------------------------------- branding */
+
+/** What `server` logs as warnings and as errors from now on. */
+function recordLog(server) {
+    const log = { warn: [], error: [] };
+    const { logger } = server.config;
+    for (const level of ["warn", "error"]) {
+        const write = logger[level].bind(logger);
+        logger[level] = (message, ...rest) => {
+            log[level].push(message);
+            return write(message, ...rest);
+        };
+    }
+    return log;
+}
+
+test("a reload that changes a branding property asks for a restart, and an invalid one is reported", async () => {
+    await withEditServer({}, async ({ server, json }) => {
+        const log = recordLog(server);
+        const sent = recordEvents(server);
+        const workspace = JSON.parse(await readFile(json, "utf8"));
+        const withColor = (color) =>
+            JSON.stringify({
+                ...workspace,
+                properties: {
+                    ...workspace.properties,
+                    "renderizr.primaryColor": color,
+                },
+            });
+
+        await writeUntil(
+            json,
+            withColor("#000"),
+            sent,
+            () =>
+                log.warn.some((message) =>
+                    /renderizr\.primaryColor.*restart renderizr edit/.test(
+                        message,
+                    ),
+                ),
+            "a changed branding property asked for no restart",
+        );
+
+        await writeUntil(
+            json,
+            withColor("not a color!"),
+            sent,
+            () =>
+                log.error.some((message) =>
+                    /renderizr\.primaryColor in .* takes a CSS color/.test(
+                        message,
+                    ),
+                ),
+            "an invalid branding property went unreported",
+        );
+        assert.ok(
+            sent.some(({ event }) => event === WORKSPACE_EVENT),
+            "the session stopped serving the workspace",
+        );
+    });
+});
+
+test("edit mode fails to start on an invalid branding property", async () => {
+    await withTempDir(async (dir) => {
+        const json = join(dir, "workspace.json");
+        const workspace = JSON.parse(await readFile(VIEW_TYPES, "utf8"));
+        workspace.properties = {
+            ...workspace.properties,
+            "renderizr.primaryColor": "red; }",
+        };
+        await writeFile(json, JSON.stringify(workspace));
+        await assert.rejects(
+            startEditServer({
+                session: resolveSession(dir),
+                port: await freePort(),
+                logLevel: "silent",
+            }),
+            /renderizr\.primaryColor in .*workspace\.json takes a CSS color/,
+        );
+    });
 });
 
 /* ------------------------------------------------------------ DSL sessions */

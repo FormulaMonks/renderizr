@@ -2,7 +2,8 @@
 
 import { resolve } from "node:path";
 import { build } from "vite";
-import { loadFont, loadLogo, loadWorkspace } from "./assets.js";
+import { loadWorkspace } from "./assets.js";
+import { loadBranding } from "./branding.js";
 import { parseCliArgs, parseEditArgs, withoutSeparator } from "./cli.js";
 import { createConfig } from "./config.js";
 import { sessionNotices, startEditServer } from "./edit.js";
@@ -24,11 +25,13 @@ if (Number.parseInt(process.versions.node, 10) < MINIMUM_NODE) {
 async function buildSite() {
     const options = parseCliArgs();
 
-    const font = await loadFont(options.font);
-    const [workspace, logo] = await Promise.all([
-        loadWorkspace(options.workspace, { font }),
-        loadLogo(options.logo),
-    ]);
+    const workspace = await loadWorkspace(options.workspace);
+    const { logo, font, primaryColor, notices } = await loadBranding({
+        flags: options.branding,
+        workspace,
+        source: options.workspace,
+    });
+    for (const notice of notices) process.stderr.write(`${notice}\n`);
 
     process.env.VITE_WORKSPACE_NAME = workspace.name ?? "Workspace";
 
@@ -40,7 +43,7 @@ async function buildSite() {
             workspace,
             logo,
             font,
-            primaryColor: options.primaryColor,
+            primaryColor,
             singleFile: options.singleFile,
             out: options.out,
             base: options.base,
@@ -68,19 +71,15 @@ async function startEditMode(args) {
         process.stdout.write(`${style.yellow(notice)}\n`);
     }
 
-    const [font, logo] = await Promise.all([
-        loadFont(options.font),
-        loadLogo(options.logo),
-    ]);
     const { session } = options;
-    const { url, pipeline } = await startEditServer({
+    const { url, pipeline, notices } = await startEditServer({
         session,
-        logo,
-        font,
-        primaryColor: options.primaryColor,
+        branding: options.branding,
         port: options.port,
         open: options.open,
     });
+    for (const notice of notices)
+        process.stderr.write(`${styles(process.stderr).yellow(notice)}\n`);
 
     // What edit mode opened, and, in a DSL session, the workspace.json it
     // saves beside the DSL (spec 4.2).

@@ -272,6 +272,37 @@ test("a remote logo that 404s names the status", async () => {
     );
 });
 
+test("a data: URI logo is sniffed, checked and re-encoded like a file", async () => {
+    const svg = await readFile(fixture("logo.svg"), "utf8");
+    const cases = [
+        `data:image/png;base64,${PNG.toString("base64")}`,
+        `data:image/svg+xml,${encodeURIComponent(svg)}`,
+        // A mislabeled type is sniffed from the bytes all the same.
+        `data:image/gif;base64,${PNG.toString("base64")}`,
+    ];
+    for (const source of cases) {
+        const logo = await loadLogo({ source });
+        assert.equal(logo.width, 120, source.slice(0, 30));
+        assert.equal(logo.height, 40, source.slice(0, 30));
+    }
+
+    const scripted = await readFile(fixture("logo-scripted.svg"));
+    await assert.rejects(
+        loadLogo({
+            source: `data:image/svg+xml;base64,${scripted.toString("base64")}`,
+        }),
+        /^Error: The data: URI logo contains script/,
+    );
+
+    const oversized = await readFile(fixture("logo-oversized.png"));
+    const { text } = await captured(process.stderr, () =>
+        loadLogo({
+            source: `data:image/png;base64,${oversized.toString("base64")}`,
+        }),
+    );
+    assert.match(text, /warning: logo is 600x400px/);
+});
+
 /* ---------------------------------------------------------------- loadFont */
 
 const FONT_CSS = (family, faces) =>
@@ -726,14 +757,13 @@ test("a theme that cannot be loaded warns and the build carries on", async () =>
     );
 });
 
-test("remote icons and the branding logo are inlined", async () => {
+test("remote icons are inlined, and the branding block's logo is left alone", async () => {
     await withFetch(
         {
             "https://example.test/icons/themed.png": { body: PNG },
-            "https://example.test/branding/logo.png": { body: PNG },
             default: { body: { elements: [] } },
         },
-        async () => {
+        async (calls) => {
             const workspace = await loadWorkspace(
                 fixture("workspace-remote-assets.json"),
             );
@@ -746,10 +776,14 @@ test("remote icons and the branding logo are inlined", async () => {
             );
 
             assert.ok(byTag.Themed.icon.startsWith("data:image/png;base64,"));
+            // Renderizr reads its logo from `renderizr.logo` alone.
+            assert.equal(
+                configuration.branding.logo,
+                "https://example.test/branding/logo.png",
+            );
             assert.ok(
-                configuration.branding.logo.startsWith(
-                    "data:image/png;base64,",
-                ),
+                !calls.some(({ url }) => url.includes("/branding/")),
+                "the branding block's logo was fetched",
             );
             // An icon that is already inline is left exactly as it was.
             assert.equal(byTag.Local.icon, "data:image/png;base64,AAAA");
@@ -982,29 +1016,14 @@ test("a filtered view of a plain view, or of a missing one, is accepted", async 
     });
 });
 
-test("a chosen font is handed to the diagram engine too", async () => {
-    const workspace = await loadWorkspace(fixture("workspace.json"), {
-        font: { family: "Inter", css: "@font-face{}" },
-    });
-
-    assert.deepEqual(workspace.views.configuration.branding.font, {
-        name: "Inter",
-    });
-});
-
-test("a workspace with no views at all still receives the font", async () => {
-    await withTempDir(async (dir) => {
-        const path = join(dir, "bare.json");
-        await writeFile(path, JSON.stringify({ name: "Bare" }));
-
-        const workspace = await loadWorkspace(path, {
-            font: { family: "Lora", css: "" },
-        });
-
-        assert.deepEqual(workspace.views.configuration.branding.font, {
-            name: "Lora",
-        });
-    });
+test("a workspace's branding block comes back as written", async () => {
+    const path = fixture("workspace.json");
+    const written = JSON.parse(await readFile(path, "utf8"));
+    const workspace = await loadWorkspace(path);
+    assert.deepEqual(
+        workspace.views.configuration.branding,
+        written.views.configuration.branding,
+    );
 });
 
 /* ------------------------------------------------------------ known defects */
@@ -1017,10 +1036,8 @@ test("a workspace with no views comes back un-normalized", async () => {
     // which binds a *fresh* object when the workspace has no `views`, so the
     // `views.configuration ??= {}` and `configuration.styles ??= {}` that
     // follow are written to a throwaway and the workspace itself is never
-    // normalized. Nothing downstream notices today: the only caller that needs
-    // `views.configuration` is the font branch of `loadWorkspace`, which does
-    // the normalization again on the workspace itself — which is why the test
-    // above this one passes.
+    // normalized. Nothing downstream notices today: the page normalizes the
+    // workspace again when it loads it.
     //
     // The fix is two lines:
     //
