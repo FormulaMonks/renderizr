@@ -166,17 +166,11 @@ function withCopiedIcon({ icon, ...style }, icons) {
  * the styles from its committed copy, the way `loadWorkspace` folds in one it
  * fetched, and dropped when there is no copy. A theme's icons are file names
  * relative to the theme's URL; each is inlined from the copy's icons folder.
+ * Image views keep their content: offline, the build warns and keeps a URL,
+ * and the engine draws the view as its placeholder.
  */
 export function prepareWorkspace(entry) {
     const workspace = JSON.parse(readFileSync(entry.source, "utf-8"));
-
-    // An image view whose content is a URL needs the network, which these
-    // builds never reach; the engine draws such a view as its placeholder.
-    for (const view of workspace.views?.imageViews ?? []) {
-        for (const field of ["content", "contentLight", "contentDark"]) {
-            if (/^https?:/i.test(view[field] ?? "")) delete view[field];
-        }
-    }
 
     const configuration = workspace.views?.configuration;
     const themes = configuration?.themes ?? [];

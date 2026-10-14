@@ -18,19 +18,16 @@ after(() => rm(SCRATCH, { recursive: true, force: true }));
 const AWS_THEME =
     "https://static.structurizr.com/themes/amazon-web-services-2020.04.30/theme.json";
 
-/** Prepare a workspace that uses the AWS theme and nothing else. */
-async function prepareWithAwsTheme(name) {
+/** Prepare a workspace with no model and `views`. */
+async function prepareWithViews(name, views) {
     const source = join(SCRATCH, `${name}.json`);
-    await writeFile(
-        source,
-        JSON.stringify({
-            name,
-            model: {},
-            views: { configuration: { themes: [AWS_THEME] } },
-        }),
-    );
+    await writeFile(source, JSON.stringify({ name, model: {}, views }));
     return prepareWorkspace({ name, source });
 }
+
+/** Prepare a workspace that uses the AWS theme and nothing else. */
+const prepareWithAwsTheme = (name) =>
+    prepareWithViews(name, { configuration: { themes: [AWS_THEME] } });
 
 const styleFor = (workspace, tag) =>
     workspace.views.configuration.styles.elements.find(
@@ -72,6 +69,21 @@ test("a theme icon with no committed copy is left out rather than fetched", asyn
         "an icon with no copy kept its relative name",
     );
 });
+
+for (const field of ["content", "contentLight", "contentDark"]) {
+    test(`the harness keeps an image view's remote ${field} for the build to inline`, async () => {
+        const url = "https://example.test/picture.png";
+        const workspace = await prepareWithViews(`image-${field}`, {
+            imageViews: [{ key: "Picture", [field]: url }],
+        });
+
+        assert.equal(
+            workspace.views.imageViews[0][field],
+            url,
+            `the harness dropped the image view's ${field}, so the build never sees it`,
+        );
+    });
+}
 
 for (const { name, source, message } of INVALID_SET) {
     test(`the build refuses ${name} with the spec's message`, async () => {
