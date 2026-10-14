@@ -19,6 +19,8 @@ import playIcon from "bootstrap-icons/icons/play-fill.svg?raw";
 import pauseIcon from "bootstrap-icons/icons/pause-fill.svg?raw";
 import prevStepIcon from "bootstrap-icons/icons/skip-start-fill.svg?raw";
 import nextStepIcon from "bootstrap-icons/icons/skip-end-fill.svg?raw";
+import exportPngIcon from "bootstrap-icons/icons/filetype-png.svg?raw";
+import exportSvgIcon from "bootstrap-icons/icons/filetype-svg.svg?raw";
 import Component from "./_component";
 import { type EditingRoute, editButtons } from "./edit-buttons";
 
@@ -359,8 +361,8 @@ export default class CurrentView extends Component {
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
             </div>
             <div class="export-buttons ${styles.btnGroup}">
-                <button class="export-png" title="Export view as PNG" aria-label="Export view as PNG">PNG</button>
-                <button class="export-svg" title="Export view as SVG" aria-label="Export view as SVG">SVG</button>
+                <button class="export-png" title="Export view as PNG" aria-label="Export view as PNG">${exportPngIcon}</button>
+                <button class="export-svg" title="Export view as SVG" aria-label="Export view as SVG">${exportSvgIcon}</button>
             </div>
         `;
 
