@@ -757,6 +757,89 @@ test("remote icons and the branding logo are inlined", async () => {
     );
 });
 
+test("a theme's icon names resolve against the theme's URL and are inlined", async () => {
+    await withFetch(
+        {
+            "https://example.test/themes/one/theme.json": {
+                body: {
+                    elements: [
+                        { tag: "Named", icon: "named.png" },
+                        { tag: "Nested", icon: "../shared/nested.png" },
+                        {
+                            tag: "Absolute",
+                            icon: "https://example.test/icons/themed.png",
+                        },
+                        { tag: "Inline", icon: "data:image/png;base64,BBBB" },
+                    ],
+                },
+            },
+            "https://example.test/themes/two/theme.json": {
+                body: { elements: [] },
+            },
+            "https://example.test/themes/one/named.png": { body: PNG },
+            "https://example.test/themes/shared/nested.png": { body: PNG },
+            "https://example.test/icons/themed.png": { body: PNG },
+            "https://example.test/branding/logo.png": { body: PNG },
+        },
+        async (calls) => {
+            const workspace = await loadWorkspace(
+                fixture("workspace-remote-assets.json"),
+            );
+            const byTag = Object.fromEntries(
+                workspace.views.configuration.styles.elements.map((style) => [
+                    style.tag,
+                    style,
+                ]),
+            );
+
+            for (const tag of ["Named", "Nested", "Absolute"]) {
+                assert.ok(
+                    byTag[tag].icon.startsWith("data:image/png;base64,"),
+                    `${tag} kept ${byTag[tag].icon}`,
+                );
+            }
+            assert.equal(byTag.Inline.icon, "data:image/png;base64,BBBB");
+            assert.ok(
+                !calls.some((call) => call.url.includes("BBBB")),
+                "an inline icon was fetched",
+            );
+        },
+    );
+});
+
+test("a theme icon name that cannot be inlined is left as its resolved URL", async () => {
+    const { value: workspace, text } = await captured(process.stderr, () =>
+        withFetch(
+            {
+                "https://example.test/themes/one/theme.json": {
+                    body: { elements: [{ tag: "Named", icon: "named.png" }] },
+                },
+                "https://example.test/themes/two/theme.json": {
+                    body: { elements: [] },
+                },
+                "https://example.test/themes/one/named.png": {
+                    ok: false,
+                    status: 404,
+                    statusText: "Not Found",
+                },
+                default: { body: PNG },
+            },
+            () => loadWorkspace(fixture("workspace-remote-assets.json")),
+        ),
+    );
+
+    assert.match(
+        text,
+        /warning: could not inline https:\/\/example\.test\/themes\/one\/named\.png/,
+    );
+    assert.equal(
+        workspace.views.configuration.styles.elements.find(
+            (style) => style.tag === "Named",
+        ).icon,
+        "https://example.test/themes/one/named.png",
+    );
+});
+
 test("an icon that cannot be inlined warns and is left as a URL", async () => {
     const { value: workspace, text } = await captured(process.stderr, () =>
         withFetch(

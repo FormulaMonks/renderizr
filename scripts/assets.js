@@ -277,6 +277,25 @@ export async function loadFont(font) {
 const IMAGE_FIELDS = ["content", "contentLight", "contentDark"];
 
 /**
+ * `style` with its icon resolved against `themeUrl`. A published theme names
+ * its icons relative to its own URL (`AWS-Cloud_light-bg.png`). Once
+ * `inlineWorkspaceAssets` folds the theme in, nothing remains to resolve them
+ * against.
+ */
+function withThemeIcon(style, themeUrl) {
+    const { icon } = style;
+    if (
+        typeof icon !== "string" ||
+        !icon.trim() ||
+        isUrl(icon) ||
+        icon.startsWith("data:")
+    ) {
+        return style;
+    }
+    return { ...style, icon: new URL(icon, themeUrl).href };
+}
+
+/**
  * Themes, element icons, image views and the branding logo are all fetched
  * by Structurizr's own pages at runtime. A self-contained page cannot do
  * that, so every one of them is resolved here and folded into the
@@ -297,7 +316,9 @@ async function inlineWorkspaceAssets(workspace) {
                 response.json(),
             );
             styles.elements = [
-                ...(theme.elements ?? []),
+                ...(theme.elements ?? []).map((style) =>
+                    withThemeIcon(style, themeUrl),
+                ),
                 ...(styles.elements ?? []),
             ];
             styles.relationships = [
