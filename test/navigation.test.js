@@ -204,6 +204,50 @@ test("a logo with a href is wrapped in a link that opens away from the page", ()
     assert.equal(link.querySelector("img").getAttribute("alt"), "Acme");
 });
 
+test("a logo named after the workspace takes the title's place in the h1", () => {
+    globalThis.__RENDERIZR_LOGO__ = {
+        src: "data:image/svg+xml;base64,PHN2Zy8+",
+        alt: "fixture workspace",
+    };
+
+    render();
+    const titles = host.querySelectorAll("h1");
+
+    assert.equal(titles.length, 1);
+    assert.equal(titles[0].textContent.trim(), "");
+    assert.equal(
+        titles[0].querySelector("img").getAttribute("alt"),
+        "fixture workspace",
+    );
+});
+
+test("a linked logo named after the workspace keeps its link inside the h1", () => {
+    globalThis.__RENDERIZR_LOGO__ = {
+        src: "data:image/png;base64,AA==",
+        alt: "Fixture Workspace",
+        href: "https://example.com",
+    };
+
+    render();
+
+    assert.equal(
+        host.querySelector("h1 a").getAttribute("href"),
+        "https://example.com",
+    );
+});
+
+test("a logo with other alt text sits beside the title", () => {
+    globalThis.__RENDERIZR_LOGO__ = {
+        src: "data:image/png;base64,AA==",
+        alt: "Acme",
+    };
+
+    render();
+
+    assert.equal(host.querySelector("h1").textContent, "Fixture Workspace");
+    assert.equal(host.querySelectorAll("h1 img").length, 0);
+});
+
 /* ------------------------------------------------------------ theme toggle */
 
 const toggle = () => host.querySelector("#theme-toggle");

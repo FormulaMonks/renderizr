@@ -133,18 +133,27 @@ export default class Navigation extends Component {
                   logo.width ? ` width="${logo.width}"` : ""
               }${logo.height ? ` height="${logo.height}"` : ""}>`
             : "";
+        const brandMark = logo?.href
+            ? `<a href="${logo.href}" target="_blank" rel="noreferrer">${logoImg}</a>`
+            : logoImg;
+
+        // A logo whose alt text is the workspace name already says it, so it
+        // takes the title's place in the h1 instead of repeating it beside it.
+        const name = this.#workspace.name ?? "";
+        const logoIsTitle =
+            !!logo &&
+            logo.alt.trim().toLowerCase() === name.trim().toLowerCase() &&
+            name.trim() !== "";
 
         this.element.innerHTML = `
             <div class="${styles.titleAndDesc}">
                 <div class="${styles.brand}">
                     ${
-                        logo
-                            ? logo.href
-                                ? `<a href="${logo.href}" target="_blank" rel="noreferrer">${logoImg}</a>`
-                                : logoImg
-                            : ""
+                        logoIsTitle
+                            ? `<h1 class="${styles.logoTitle}">${brandMark}</h1>`
+                            : `${brandMark}
+                    <h1 class="${styles.workspaceTitle}">${name}</h1>`
                     }
-                    <h1 class="${styles.workspaceTitle}">${this.#workspace.name}</h1>
                 </div>
                 <section>
                     <p>${this.#workspace.description}</p>

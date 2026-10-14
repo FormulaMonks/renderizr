@@ -69,6 +69,11 @@
     flex: none;
 }
 
+.logoTitle {
+    display: flex;
+    line-height: 0;
+}
+
 .workspaceTitle {
     font-size: 1.75rem;
     min-width: 0;
