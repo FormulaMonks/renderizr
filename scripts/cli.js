@@ -29,7 +29,8 @@ Options
       --base <path>        Base public path for the multi-file build (default: "")
 
   --logo <path|url>        Image shown top-left in the header. Embedded as a data URI
-  --logo-alt <text>        Alt text for the logo
+  --logo-alt <text>        Alt text for the logo. When it matches the workspace
+                           name, the logo stands in for the header title
   --logo-href <url>        Wrap the logo in a link
 
   --font <family>          Google Web Font family, e.g. "Inter" or "Source Sans 3".
@@ -229,7 +230,8 @@ Options
                            otherwise only prints it
 
   --logo <path|url>        Image shown top-left in the header
-  --logo-alt <text>        Alt text for the logo
+  --logo-alt <text>        Alt text for the logo. When it matches the workspace
+                           name, the logo stands in for the header title
   --logo-href <url>        Wrap the logo in a link
   --font <family>          Google Web Font family, e.g. "Inter"
   --font-weights <list>    Comma-separated weights (default: 400,700)

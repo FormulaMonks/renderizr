@@ -24,7 +24,7 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
 | `--base <path>` | Base public path for the multi-file build. The default is empty, which emits relative URLs (`./assets/…`) that work from any folder. Set it to a path such as `/renderizr/` when the page must reference its assets absolutely |
 | `--logo <path\|url>` | Image at the top left of the header. The build fetches it, minifies it when it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes, and rejects an SVG that holds a script |
-| `--logo-alt <text>` | Alt text for the logo. Default empty |
+| `--logo-alt <text>` | Alt text for the logo. Default empty. When it matches the workspace name, the logo stands in for the title in the header, so a logo that spells the name does not repeat it |
 | `--logo-href <url>` | Wraps the logo in a link |
 | `--font <family>` | A [Google Fonts](https://fonts.google.com) family, such as `Inter` or `"Source Sans 3"`. The build downloads it as woff2 and embeds it, diagram labels included |
 | `--font-weights <list>` | Comma-separated weights. Default `400,700`. The build prefers a variable font that covers the range when the family has one |
