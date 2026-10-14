@@ -124,6 +124,14 @@ _Avoid_: overlay, draft, patch
 The area a view's `dimensions` set, which frames an export and which edit mode draws behind the view.
 _Avoid_: paper, page, artboard
 
+**Export**:
+A file of one view as drawn, framed by its canvas, with its title block below, that a reader saves to use outside Renderizr.
+_Avoid_: screenshot, download
+
+**Title block**:
+The band below an export's canvas that names the workspace and view and gives the view's description, the last modifying user and the date the workspace was last modified. Only an export carries one.
+_Avoid_: legend, key, metadata
+
 **Selection**:
 The elements the author has picked to move or arrange together in edit mode. A boundary is never part of it.
 _Avoid_: highlight, focus (keyboard focus is another thing)
