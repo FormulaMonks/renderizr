@@ -375,8 +375,8 @@
     } ]
   },
   "id" : 0,
-  "lastModifiedAgent" : "renderizr/2.2.0",
-  "lastModifiedDate" : "2026-10-15T15:12:29Z",
+  "lastModifiedAgent" : "renderizr/2.3.0",
+  "lastModifiedDate" : "2026-10-15T16:49:26Z",
   "model" : {
     "people" : [ {
       "description" : "Develops a solution",
@@ -880,7 +880,8 @@
     "structurizr.inspection.info" : "0",
     "structurizr.inspection.ignore" : "0",
     "renderizr.primaryColor" : "#1168BD",
-    "structurizr.inspection.warning" : "0"
+    "structurizr.inspection.warning" : "0",
+    "renderizr.logoHref" : "https://github.com/FormulaMonks/renderizr"
   },
   "views" : {
     "componentViews" : [ {
