@@ -1877,3 +1877,26 @@ test("focusing an off-screen item pans it into view without changing zoom", () =
     assert.equal(1000 * 2 + panned.x + 100, 800 - 16);
     assert.equal(100 * 2 + panned.y, 16);
 });
+
+test("a view's stored canvas is the frame the page fits, and a view that stores none fits its content", () => {
+    const exportModel = new WorkspaceModel(
+        JSON.parse(
+            readFileSync(
+                new URL("./__fixtures__/export.json", import.meta.url),
+                "utf8",
+            ),
+        ),
+    );
+    const graph = (key) => buildGraph(exportModel, key, "light", LABELS);
+    assert.deepEqual(
+        graph("Request").frame,
+        { x: 0, y: 0, width: 2480, height: 1748 },
+        "a paper size is the frame",
+    );
+    assert.deepEqual(
+        graph("Containers").frame,
+        { x: 0, y: 0, width: 2400, height: 1800 },
+        "dimensions are the frame",
+    );
+    assert.equal(graph("AutoFrame").frame, undefined);
+});

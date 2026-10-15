@@ -1298,11 +1298,18 @@ const NOTHING: Drawing = { nodes: [], bounds: undefined };
  * What the canvas draws for `graph`. An image view draws nothing but its
  * picture, or the placeholder once it has failed, and fits that box; nothing
  * while it loads (spec 12). Any other view draws its boundaries and elements
- * and fits its bounds.
+ * and fits the canvas it stores, so the content sits where the author put it
+ * on that canvas, with anything outside it; a view that stores none fits its
+ * bounds.
  */
 function drawingOf(graph: Graph | undefined, image: ImageState): Drawing {
     if (!graph) return NOTHING;
-    if (!graph.image) return { nodes: toNodes(graph), bounds: graph.bounds };
+    if (!graph.image) {
+        const bounds = graph.frame
+            ? boundsOf([graph.frame, graph.bounds])
+            : graph.bounds;
+        return { nodes: toNodes(graph), bounds };
+    }
     const box = imageBox(graph.image, graph.color, image);
     if (!box) return NOTHING;
     return {
