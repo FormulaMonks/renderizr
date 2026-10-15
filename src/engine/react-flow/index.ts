@@ -248,7 +248,7 @@ export function mountEngine(
                     storedCanvasOf(view, edited),
                     graph.bounds,
                 );
-                const { svg, width, height } = exportSvg({
+                const exported = exportSvg({
                     graph,
                     step: step === null ? undefined : stepStateOf(graph, step),
                     frame,
@@ -259,7 +259,7 @@ export function mountEngine(
                     ),
                     text: textSetting(__RENDERIZR_FONT__),
                 });
-                return exportBlob(svg, format, width, height);
+                return exportBlob(exported, format);
             },
             fit: () => commands.fit(),
             zoomIn: () => commands.zoomIn(),

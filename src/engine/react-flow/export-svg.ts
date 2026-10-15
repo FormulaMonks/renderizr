@@ -44,6 +44,7 @@ import {
 } from "../geometry/label";
 import { lineDashes } from "../geometry/line";
 import { borderDashes, paintPart } from "../geometry/paint";
+import { escapeXml } from "../geometry/xml";
 import { PRESENCE_OPACITY, type StepState } from "./animation";
 import type { BoundaryBox, EdgeLine, ElementBox, Graph } from "./graph";
 
@@ -86,14 +87,11 @@ export type ExportInput = {
 /** The SVG and its size, title block included, in model units. */
 export type ExportedSvg = { svg: string; width: number; height: number };
 
-const escapeXml = (text: string) =>
-    text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-
-const n = (value: number) => String(Math.round(value * 100) / 100);
+/**
+ * `value` as an SVG attribute writes it: rounded to two decimals, which is
+ * finer than any screen or PNG pixel and keeps the file short.
+ */
+const svgNumber = (value: number) => String(Math.round(value * 100) / 100);
 
 /** SVG attributes from a record, dropping the undefined ones. */
 const attrs = (record: Record<string, string | number | undefined>) =>
@@ -102,7 +100,7 @@ const attrs = (record: Record<string, string | number | undefined>) =>
             value === undefined
                 ? []
                 : [
-                      `${key}="${escapeXml(typeof value === "number" ? n(value) : value)}"`,
+                      `${key}="${escapeXml(typeof value === "number" ? svgNumber(value) : value)}"`,
                   ],
         )
         .join(" ");
@@ -497,7 +495,7 @@ function element(element: ElementBox, text: TextSetting): string {
         .join("");
     return [
         `<g ${attrs({ "data-element-id": element.id })}>`,
-        `<g transform="translate(${n(element.x)} ${n(element.y)})" opacity="${n(element.opacity)}">${parts}</g>`,
+        `<g transform="translate(${svgNumber(element.x)} ${svgNumber(element.y)})" opacity="${svgNumber(element.opacity)}">${parts}</g>`,
         elementLabel(element, text),
         element.instances
             ? block(element.instances, element, element.color, text, true)
@@ -551,7 +549,7 @@ function boundary(box: BoundaryBox, text: TextSetting): string {
 
 /** An edge's line and arrowhead under the edge's opacity. */
 function edgeLine(edge: EdgeLine): string {
-    return `<g opacity="${n(edge.opacity)}"><path ${attrs({
+    return `<g opacity="${svgNumber(edge.opacity)}"><path ${attrs({
         d: edge.path,
         fill: "none",
         stroke: edge.color,
@@ -761,7 +759,7 @@ export function exportSvg({
         `<svg xmlns="http://www.w3.org/2000/svg" ${attrs({
             width,
             height,
-            viewBox: `${n(frame.x)} ${n(frame.y)} ${n(width)} ${n(height)}`,
+            viewBox: `${svgNumber(frame.x)} ${svgNumber(frame.y)} ${svgNumber(width)} ${svgNumber(height)}`,
             "font-family": text.family,
         })}>`,
         `<title>${escapeXml(graph.title)}</title>`,

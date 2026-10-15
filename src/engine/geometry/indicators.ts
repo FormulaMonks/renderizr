@@ -7,6 +7,7 @@
  */
 
 import type { TargetKind } from "../../model/index";
+import { escapeXml } from "./xml";
 
 /** One glyph's width and height, in model units. */
 export const INDICATOR_SIZE = 20;
@@ -65,14 +66,10 @@ export const GLYPHS: Readonly<Record<TargetKind, readonly string[]>> = {
     link: ["M11 3h6v6", "M17 3l-8 8", "M15 12v5h-12v-12h5"],
 };
 
-/** `value` with the characters an XML attribute value cannot hold escaped. */
-const attribute = (value: string) =>
-    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-
 /** One glyph as a standalone SVG document, stroked in `color`. */
 export function glyphSvg(kind: TargetKind, color: string): string {
     const paths = GLYPHS[kind].map((d) => `<path d="${d}"/>`).join("");
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${GLYPH_BOX}" height="${GLYPH_BOX}" viewBox="0 0 ${GLYPH_BOX} ${GLYPH_BOX}" fill="none" stroke="${attribute(color)}" stroke-width="${GLYPH_STROKE}" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${GLYPH_BOX}" height="${GLYPH_BOX}" viewBox="0 0 ${GLYPH_BOX} ${GLYPH_BOX}" fill="none" stroke="${escapeXml(color)}" stroke-width="${GLYPH_STROKE}" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 }
 
 /** One glyph as a `data:` URL an `<image>` can draw, fetching nothing. */

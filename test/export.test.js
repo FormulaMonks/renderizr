@@ -301,9 +301,9 @@ describe("export-file", () => {
             "a workspace without a user gives none",
         );
     });
-});
 
-describe("the PNG's size", () => {
+    /* ---------------- the PNG's size */
+
     test("a PNG is twice the export's size while that stays under the cap", () => {
         assert.deepEqual(pngSize(1200, 900), { width: 2400, height: 1800 });
         assert.deepEqual(pngSize(2048, 2048), { width: 4096, height: 4096 });

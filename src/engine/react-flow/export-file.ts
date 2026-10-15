@@ -7,7 +7,7 @@
 
 import { splitAuthor } from "../../model";
 import type { ExportFormat } from "../contract";
-import type { TextSetting, TitleBlockText } from "./export-svg";
+import type { ExportedSvg, TextSetting, TitleBlockText } from "./export-svg";
 import { canvasMeasure, diagramFontFamily } from "./fonts";
 
 /** The ascent and descent of a sans-serif, for a browser that gives none. */
@@ -180,12 +180,10 @@ async function rasterize(
     );
 }
 
-/** The export, `width` by `height`, as a file's contents. */
+/** The serializer's export as a file's contents in `format`. */
 export async function exportBlob(
-    svg: string,
+    { svg, width, height }: ExportedSvg,
     format: ExportFormat,
-    width: number,
-    height: number,
 ): Promise<Blob> {
     if (format === "png") return rasterize(svg, width, height);
     return new Blob([svg], { type: "image/svg+xml;charset=utf-8" });

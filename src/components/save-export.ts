@@ -4,7 +4,7 @@
  * how to save: the browser's own download, or the Claude artifact viewer's.
  */
 
-import type { ExportFormat } from "../engine/contract";
+import type { ColorScheme, ExportFormat } from "../engine/contract";
 
 /** What the reader sees when they export, which the file's name says. */
 export type ExportedView = {
@@ -15,7 +15,7 @@ export type ExportedView = {
     /** The animation step shown, or null (or left out) for the full view. */
     step?: number | null;
     /** The diagram color scheme; only dark shows in the name. */
-    scheme?: "light" | "dark";
+    scheme?: ColorScheme;
     format: ExportFormat;
 };
 
