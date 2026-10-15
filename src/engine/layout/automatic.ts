@@ -20,16 +20,21 @@
  */
 
 import dagre from "@dagrejs/dagre";
-import addSubgraphConstraints from "@dagrejs/dagre/lib/order/add-subgraph-constraints";
-import buildLayerGraph from "@dagrejs/dagre/lib/order/build-layer-graph";
-import crossCount from "@dagrejs/dagre/lib/order/cross-count";
-import initOrder from "@dagrejs/dagre/lib/order/init-order";
-import sortSubgraph from "@dagrejs/dagre/lib/order/sort-subgraph";
-import util from "@dagrejs/dagre/lib/util";
 
 import type { AutomaticLayoutSettings } from "../../model/index";
 import type { Bounds, Size } from "../geometry/bounds";
 import type { Point } from "../geometry/shapes/types";
+import {
+    addSubgraphConstraints,
+    buildLayerGraph,
+    buildLayerMatrix,
+    crossCount,
+    type Graph,
+    initOrder,
+    maxRank as maxRankOf,
+    range,
+    sortSubgraph,
+} from "./dagre-order";
 
 export type { Point };
 
@@ -276,7 +281,6 @@ export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
     return { boxes, edges: routes };
 }
 
-type Graph = dagre.graphlib.Graph;
 /** What Dagre keeps on each node while it orders them. */
 type Ranked = {
     rank?: number;
@@ -287,8 +291,8 @@ type Ranked = {
 const ranked = (g: Graph, v: string) => g.node(v) as unknown as Ranked;
 
 /**
- * Dagre's ordering step (`lib/order/index.js` in 1.1.8), step for step and
- * with Dagre's own pieces, with one change: the constraint graph never
+ * Dagre's ordering step (`lib/order/index.js` in 2.0.4), step for step and
+ * with Dagre's own pieces (ported in `dagre-order.ts`), with one change: the constraint graph never
  * closes a cycle.
  *
  * Each sweep keeps a constraint graph between sibling boundaries: once a
@@ -311,7 +315,7 @@ const ranked = (g: Graph, v: string) => g.node(v) as unknown as Ranked;
  * whose sweeps dropped a group on the way.
  */
 function order(g: Graph): void {
-    const maxRank = util.maxRank(g);
+    const maxRank = maxRankOf(g);
     const nodesByRank = new Map<number, string[]>();
     const addToRank = (rank: number, v: string) => {
         const nodes = nodesByRank.get(rank);
@@ -332,20 +336,22 @@ function order(g: Graph): void {
         ranks.map((rank) =>
             buildLayerGraph(g, rank, relationship, nodesByRank.get(rank) ?? []),
         );
-    const down = layerGraphs(util.range(1, maxRank + 1), "inEdges");
-    const up = layerGraphs(util.range(maxRank - 1, -1, -1), "outEdges");
+    const down = layerGraphs(range(1, maxRank + 1), "inEdges");
+    const up = layerGraphs(range(maxRank - 1, -1, -1), "outEdges");
 
     assignOrder(g, initOrder(g));
     let bestCrossings = Number.POSITIVE_INFINITY;
     let best: string[][] = [];
     for (let i = 0, lastBest = 0; lastBest < 4; ++i, ++lastBest) {
         sweep(i % 2 ? down : up, i % 4 >= 2);
-        const layering = util.buildLayerMatrix(g);
+        const layering = buildLayerMatrix(g);
         const crossings = crossCount(g, layering);
         if (crossings < bestCrossings) {
             lastBest = 0;
             best = layering;
             bestCrossings = crossings;
+        } else if (crossings === bestCrossings) {
+            best = layering;
         }
     }
     assignOrder(g, best);
@@ -360,7 +366,7 @@ function placesEachOnce(g: Graph): boolean {
     }
     // A layer is a sparse array: two nodes in one place leave a hole, which
     // `every` would skip, so each index is read.
-    return util.buildLayerMatrix(g).every((layer, rank) => {
+    return buildLayerMatrix(g).every((layer, rank) => {
         if (layer.length !== (counts.get(rank) ?? 0)) return false;
         for (let i = 0; i < layer.length; i++)
             if (layer[i] === undefined) return false;

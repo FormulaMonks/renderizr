@@ -178,22 +178,31 @@ test("an edge's label height adds to the gap between the ranks it joins", () => 
     }
 });
 
-test("one boundary level triples the gap between ranks, as Dagre nests it", () => {
-    const { boxes } = layOut(
-        {
-            nodes: [node("a", "s"), node("b", "s")],
-            boundaries: [{ id: "s" }],
-            edges: [{ id: "ab", source: "a", target: "b" }],
-        },
-        SETTINGS,
-    );
-    const a = boxes.get("a");
-    const b = boxes.get("b");
-    assert.equal(
-        b.y - (a.y + a.height),
-        3 * SETTINGS.rankSeparation,
-        "a boundary should nest the ranks one level deep, no more",
-    );
+test("boundaries leave the gap between ranks at one rank separation", () => {
+    // Dagre nests each boundary level in empty ranks of its own and drops
+    // the ones nothing sits on. Dagre 1.1.8 dropped none, which tripled the
+    // gap at one level and quintupled it at two.
+    for (const boundaries of [
+        [{ id: "s" }],
+        [{ id: "s" }, { id: "t", parent: "s" }],
+    ]) {
+        const inner = boundaries[boundaries.length - 1].id;
+        const { boxes } = layOut(
+            {
+                nodes: [node("a", inner), node("b", inner)],
+                boundaries,
+                edges: [{ id: "ab", source: "a", target: "b" }],
+            },
+            SETTINGS,
+        );
+        const a = boxes.get("a");
+        const b = boxes.get("b");
+        assert.equal(
+            b.y - (a.y + a.height),
+            SETTINGS.rankSeparation,
+            `${boundaries.length} boundary levels should leave one rank separation`,
+        );
+    }
 });
 
 /* ------------------------------------------------------------------- order */
