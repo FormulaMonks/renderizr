@@ -176,6 +176,11 @@ export type EdgeEnd = {
      * (ADR 19).
      */
     routed?: boolean;
+    /**
+     * PROTOTYPE (issue 192): a Mermaid edge's end, spread evenly around the
+     * side's center, in aim order, in place of aiming at the far end.
+     */
+    centered?: boolean;
 };
 
 /** Where an end sorts on its side: loop ends at either extreme. */
@@ -302,9 +307,27 @@ export function spreadEnds(
         const aim = (end: EdgeEnd) => aims.get(end)!;
         const sorted = onSide.sort((a, b) => compareEnds(a, b, aim));
         const gap = (span.to - span.from) / (sorted.length + 1);
-        const wanted = sorted.map((end, i) =>
-            end.toward ? span.from + (i + 1) * gap : aim(end),
+        let wanted = sorted.map((end, i) =>
+            end.toward || end.centered ? span.from + (i + 1) * gap : aim(end),
         );
+        // PROTOTYPE (issue 192): the bottom center holds an entity's toggle,
+        // so an odd number of Mermaid ends there takes one slot more and
+        // leaves out the one on the far side from where they aim.
+        if (
+            side === "bottom" &&
+            sorted.length % 2 === 1 &&
+            sorted.every((end) => end.centered)
+        ) {
+            const slot = (span.to - span.from) / (sorted.length + 2);
+            const slots = Array.from(
+                { length: sorted.length + 1 },
+                (_, i) => span.from + (i + 1) * slot,
+            );
+            const middle = (span.from + span.to) / 2;
+            const mean =
+                sorted.reduce((sum, end) => sum + aim(end), 0) / sorted.length;
+            wanted = mean < middle ? slots.slice(0, -1) : slots.slice(1);
+        }
         const placed = keepApart(wanted, gap, span);
         for (const [i, end] of sorted.entries()) along.set(end.id, placed[i]);
     }

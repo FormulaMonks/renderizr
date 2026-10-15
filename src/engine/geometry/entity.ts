@@ -32,7 +32,7 @@ export type EntityLayout = {
 const CELL_PADDING = 12;
 const HEADER_PADDING = 15;
 /** The band at the bottom of an entity that holds its plus or minus toggle. */
-export const TOGGLE_ROOM = 34;
+export const TOGGLE_ROOM = 24;
 
 const isKey = (attribute: Attribute) =>
     attribute.keys.includes("PK") || attribute.keys.includes("FK");

@@ -407,14 +407,14 @@ function EntityBody({ data }: { data: ElementBox }) {
             style={{
                 position: "absolute",
                 left: "50%",
-                bottom: 5,
+                bottom: 4,
                 transform: "translateX(-50%)",
-                width: 24,
-                height: 24,
+                width: 16,
+                height: 16,
                 padding: 0,
                 display: "grid",
                 placeItems: "center",
-                border: "1.5px solid currentColor",
+                border: "1px solid currentColor",
                 borderRadius: "50%",
                 background: "transparent",
                 color: "inherit",
@@ -422,7 +422,7 @@ function EntityBody({ data }: { data: ElementBox }) {
                 pointerEvents: "all",
             }}
         >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true">
                 <path
                     d={entity.collapsed ? "M3 8h10M8 3v10" : "M3 8h10"}
                     fill="none"

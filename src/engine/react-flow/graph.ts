@@ -729,9 +729,11 @@ function drawView(
                 : layOutEntity(
                       placed.element.name,
                       JSON.parse(attributes) as Attribute[],
-                      labels.entityOverrides?.[entityId] ??
-                          labels.entitiesCollapsed ??
-                          true,
+                      // An entity with no attributes never expands.
+                      attributes === "[]" ||
+                          (labels.entityOverrides?.[entityId] ??
+                              labels.entitiesCollapsed ??
+                              true),
                       labels.descriptions,
                       style.fontSize,
                       measure,
