@@ -514,6 +514,56 @@ async function artifactToolbar(granted, key = "SystemContext") {
     }
 }
 
+test("the toolbar draws while the viewer has not answered for downloads, and shows the export group once it grants them", async () => {
+    window.localStorage.clear();
+    theme.setMode("light");
+    const answer = deferred();
+    const element = document.createElement("section");
+    const toolbar = new CurrentView(
+        element,
+        stubEngine(),
+        model,
+        null,
+        answer.promise,
+    );
+    toolbar.render(model.findViewByKey("SystemContext"));
+    const group = () => element.querySelector(".export-buttons");
+    assert.match(element.querySelector("h2").textContent, /System Context/);
+    assert.ok(
+        group().hasAttribute("hidden"),
+        "hidden until the viewer answers",
+    );
+
+    const saved = [];
+    answer.resolve((blob, name) => saved.push(name));
+    await settle();
+    assert.equal(group().hasAttribute("hidden"), false, "shown once granted");
+    element.querySelector(".export-svg").click();
+    await settle();
+    assert.deepEqual(saved, ["big-bank-plc-system-context.svg"]);
+
+    toolbar.render(model.findViewByKey("Containers"));
+    assert.equal(group().hasAttribute("hidden"), false, "a new view keeps it");
+    toolbar.clear();
+});
+
+test("a viewer that answers without downloads keeps the export group hidden", async () => {
+    const answer = deferred();
+    const element = document.createElement("section");
+    const toolbar = new CurrentView(
+        element,
+        stubEngine(),
+        model,
+        null,
+        answer.promise,
+    );
+    toolbar.render(model.findViewByKey("SystemContext"));
+    answer.resolve(null);
+    await settle();
+    assert.ok(element.querySelector(".export-buttons").hasAttribute("hidden"));
+    toolbar.clear();
+});
+
 test("an artifact without downloads shows no export buttons, on any view", async () => {
     const { toolbar, element, button } = await artifactToolbar(null);
     const group = () => element.querySelector(".export-buttons");

@@ -86,13 +86,11 @@ export default class Diagrams extends Page {
     #targetMenu: TargetMenu | null = null;
 
     /**
-     * How the toolbar saves an export, asked for once when the page loads so
-     * the toolbar knows before the reader exports anything.
+     * How the toolbar saves an export, asked for once when the page loads.
+     * Nothing waits on it: a viewer that never answers leaves the diagrams
+     * drawn and the export group hidden.
      */
     readonly #saving: Promise<SaveExport | null> = exportSaver();
-
-    /** How the toolbar saves an export, once `#saving` settles. */
-    #save: SaveExport | null = null;
 
     render() {
         if (!this.container) return;
@@ -146,33 +144,26 @@ export default class Diagrams extends Page {
         const abort = new AbortController();
         this.#abort = abort;
 
-        Promise.all([
-            mountEngine(
-                target,
-                {
-                    workspace,
-                    view: first,
-                    colorScheme: getDiagramTheme(),
-                    labels: readLabelState(),
-                    // The edit session's layouts, so a page render keeps them.
-                    ...(__RENDERIZR_EDIT_MODE__
-                        ? {
-                              editing: editing(),
-                              layouts: editSession().layouts(),
-                          }
-                        : {}),
-                },
-                abort.signal,
-            ),
-            this.#saving,
-        ]).then(
-            ([engine, save]) => {
+        mountEngine(
+            target,
+            {
+                workspace,
+                view: first,
+                colorScheme: getDiagramTheme(),
+                labels: readLabelState(),
+                // The edit session's layouts, so a page render keeps them.
+                ...(__RENDERIZR_EDIT_MODE__
+                    ? { editing: editing(), layouts: editSession().layouts() }
+                    : {}),
+            },
+            abort.signal,
+        ).then(
+            (engine) => {
                 if (abort.signal.aborted) {
                     engine.unmount();
                     return;
                 }
                 this.#engine = engine;
-                this.#save = save;
                 this.#start(engine, model, reachable);
             },
             (error) => {
@@ -239,7 +230,7 @@ export default class Diagrams extends Page {
                 engine,
                 model,
                 __RENDERIZR_EDIT_MODE__ ? editingRoute(engine, model) : null,
-                this.#save,
+                this.#saving,
             ),
         );
 

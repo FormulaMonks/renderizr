@@ -166,9 +166,13 @@ export default class CurrentView extends Component {
 
     /**
      * How the toolbar saves an export, or null where nothing can save one
-     * (an artifact published without `downloads`), which hides the group.
+     * (an artifact published without `downloads`) or until the page knows
+     * how, which hides the group.
      */
-    readonly #save: SaveExport | null;
+    #save: SaveExport | null = null;
+
+    /** Whether the view shown has anything of the engine's own to export. */
+    #exportable = false;
 
     /** The key of the view the toolbar shows. */
     #viewKey: string | null = null;
@@ -221,13 +225,20 @@ export default class CurrentView extends Component {
         engine: ToolbarEngine,
         model: WorkspaceModel,
         editingRoute: EditingRoute | null = null,
-        save: SaveExport | null = saveWithLink,
+        save: SaveExport | null | Promise<SaveExport | null> = saveWithLink,
     ) {
         super(element);
         this.#engine = engine;
         this.#model = model;
         this.#editingRoute = editingRoute;
-        this.#save = save;
+        // The page may still be asking the artifact viewer how to save; the
+        // toolbar draws meanwhile and shows the group once it knows.
+        if (save instanceof Promise) {
+            void save.then((answer) => {
+                this.#save = answer;
+                this.#paintExportButtons();
+            });
+        } else this.#save = save;
 
         // Seed the engine from the persisted preferences. Both setters are
         // idempotent, so this costs nothing when the engine was mounted with
@@ -403,10 +414,15 @@ export default class CurrentView extends Component {
     }
 
     /**
-     * Paints the export buttons: every one disabled while an export runs,
-     * the one exporting marked busy, and the failure line under them.
+     * Paints the export buttons: the group hidden while nothing can export,
+     * every one disabled while an export runs, the one exporting marked
+     * busy, and the failure line under them.
      */
     #paintExportButtons() {
+        const group =
+            this.element?.querySelector<HTMLElement>(".export-buttons");
+        if (!this.#exportable || !this.#save) group?.setAttribute("hidden", "");
+        else group?.removeAttribute("hidden");
         for (const format of ["png", "svg"] as const) {
             const button = this.#button(`export-${format}`);
             if (!button) continue;
@@ -436,7 +452,7 @@ export default class CurrentView extends Component {
                 <button class="play-animation"></button>
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
             </div>
-            <div class="export-buttons ${styles.btnGroup}" role="group" aria-label="Export"${view.type === "Image" || !this.#save ? " hidden" : ""}>
+            <div class="export-buttons ${styles.btnGroup}" role="group" aria-label="Export" hidden>
                 <button class="export-png" title="Export view as PNG" aria-label="Export view as PNG">${exportPngIcon}</button>
                 <button class="export-svg" title="Export view as SVG" aria-label="Export view as SVG">${exportSvgIcon}</button>
             </div>
@@ -497,6 +513,8 @@ export default class CurrentView extends Component {
         // A failure belongs to the view it happened on.
         if (this.#viewKey !== view.key) this.#exportFailed = null;
         this.#viewKey = view.key;
+        // An image view has nothing of the engine's own to export (ADR 21).
+        this.#exportable = view.type !== "Image";
         this.#subscribe();
         const { description, author } = splitAuthor(view.description);
         // Structurizr's own naming: an explicit title when the view has one,
