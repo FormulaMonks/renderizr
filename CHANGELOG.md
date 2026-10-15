@@ -21,6 +21,25 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.3.0](https://github.com/FormulaMonks/renderizr/compare/v2.2.0...v2.3.0) (2026-10-15)
+
+
+### Added
+
+* add a Renderizr logo and let it stand in for the header title ([#170](https://github.com/FormulaMonks/renderizr/issues/170)) ([e4ec4ae](https://github.com/FormulaMonks/renderizr/commit/e4ec4ae7b7de4096efa389d8660520b342169fe2))
+* read the logo, font and primary color from the workspace ([#173](https://github.com/FormulaMonks/renderizr/issues/173)) ([5465a71](https://github.com/FormulaMonks/renderizr/commit/5465a7128b1abd9d5aa83a180060860f73a3a0ec)), closes [#167](https://github.com/FormulaMonks/renderizr/issues/167)
+
+
+### Fixed
+
+* keep image view content in the acceptance harness ([#164](https://github.com/FormulaMonks/renderizr/issues/164)) ([e20e344](https://github.com/FormulaMonks/renderizr/commit/e20e344c083f0e7abab3fdc4f3e6890f46cec982)), closes [#60](https://github.com/FormulaMonks/renderizr/issues/60)
+* resolve a theme's icon names against the theme's URL ([#165](https://github.com/FormulaMonks/renderizr/issues/165)) ([2885c9d](https://github.com/FormulaMonks/renderizr/commit/2885c9d1d847d23194efc3302243459c4023e608)), closes [#61](https://github.com/FormulaMonks/renderizr/issues/61)
+
+
+### Documentation
+
+* add export and title block to the glossary, and ADR 21 on building exports from geometry ([#172](https://github.com/FormulaMonks/renderizr/issues/172)) ([7262e33](https://github.com/FormulaMonks/renderizr/commit/7262e33fa24762e8e50d373b527201af045e401e))
+
 ## [2.2.0](https://github.com/FormulaMonks/renderizr/compare/v2.1.1...v2.2.0) (2026-10-09)
 
 
