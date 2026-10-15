@@ -261,15 +261,19 @@ describe("export-file", () => {
         }
     });
 
-    test("the title block reads the name, user and date from the workspace and keeps the view's description as stored", () => {
+    test("the title block reads the name, user and date from the workspace and the view's description as the page shows it", () => {
         const text = titleBlockText(
             WORKSPACE,
             "Export in context",
-            "Author: Ada\nAbout the view",
+            "About the view\nAuthor: Ada <ada@example.com>",
         );
         assert.equal(text.workspace, "Export Workspace");
         assert.equal(text.view, "Export in context");
-        assert.equal(text.description, "Author: Ada\nAbout the view");
+        assert.equal(
+            text.description,
+            "About the view",
+            "the author the page shows apart stays out of the description",
+        );
         assert.equal(text.user, "ada@example.com");
         assert.equal(text.modified, modifiedDate(WORKSPACE.lastModifiedDate));
         assert.equal(

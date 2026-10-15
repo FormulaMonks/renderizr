@@ -22,7 +22,7 @@
  * Registered by `./ts.js`; never imported directly by a test.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -46,7 +46,11 @@ const isPath = (specifier) =>
     specifier.startsWith("/") ||
     specifier.startsWith("file:");
 
-/** The first of `specifier`, `specifier.ts`, `specifier/index.ts` that exists. */
+/**
+ * The first of `specifier`, `specifier.ts`, `specifier/index.ts` that is a
+ * file. A directory is no match, so a barrel import (`../../model`) reaches
+ * its `index.ts`, as it does under Vite.
+ */
 function resolveTs(specifier, parentURL) {
     for (const candidate of [
         specifier,
@@ -54,7 +58,8 @@ function resolveTs(specifier, parentURL) {
         `${specifier}/index.ts`,
     ]) {
         const url = new URL(candidate, parentURL);
-        if (existsSync(fileURLToPath(url))) return url.href;
+        if (statSync(fileURLToPath(url), { throwIfNoEntry: false })?.isFile())
+            return url.href;
     }
     return null;
 }

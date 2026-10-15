@@ -15,7 +15,7 @@
  * so it runs under `node --test`.
  */
 
-import type { TargetKind } from "../../model/index";
+import type { TargetKind } from "../../model";
 import type { Bounds } from "../geometry/bounds";
 import type { MeasureText, TextBlock } from "../geometry/boundary";
 import { wrapLines } from "../geometry/boundary";

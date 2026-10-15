@@ -5,6 +5,7 @@
  * it is, or a PNG drawn from it.
  */
 
+import { splitAuthor } from "../../model";
 import type { ExportFormat } from "../contract";
 import type { TextSetting, TitleBlockText } from "./export-svg";
 import { canvasMeasure, diagramFontFamily } from "./fonts";
@@ -76,7 +77,8 @@ export function modifiedDate(value: unknown, locale?: string): string {
 
 /**
  * What the title block says for view `title`, described as `description`,
- * in `workspace`, the raw workspace JSON as it was last saved.
+ * in `workspace`, the raw workspace JSON as it was last saved. The
+ * description leaves out its author, as the toolbar's does.
  */
 export function titleBlockText(
     workspace: Record<string, unknown>,
@@ -86,7 +88,7 @@ export function titleBlockText(
     return {
         workspace: field(workspace.name),
         view: title,
-        description,
+        description: splitAuthor(description).description,
         user: field(workspace.lastModifiedUser),
         modified: modifiedDate(workspace.lastModifiedDate),
     };

@@ -22,6 +22,7 @@ const {
     getMetadataForRelationship,
     resolveView,
     shadeColor,
+    splitAuthor,
 } = await importSrc("model/index");
 
 const BIG_BANK = JSON.parse(
@@ -654,5 +655,31 @@ describe("resolveView", () => {
             orders,
             [...orders].sort((a, b) => a - b),
         );
+    });
+});
+
+describe("view descriptions", () => {
+    test('a description splits at "Author: " into what it says and who wrote it', () => {
+        const cases = [
+            {
+                stored: "About the view",
+                description: "About the view",
+                author: undefined,
+            },
+            {
+                stored: "About the view\nAuthor: Ada <ada@example.com>",
+                description: "About the view",
+                author: "Ada <ada@example.com>",
+            },
+            { stored: "Author: Ada", description: "", author: "Ada" },
+            { stored: "", description: "", author: undefined },
+        ];
+        for (const { stored, description, author } of cases) {
+            assert.deepEqual(
+                splitAuthor(stored),
+                { description, author },
+                JSON.stringify(stored),
+            );
+        }
     });
 });

@@ -1,6 +1,7 @@
 export * from "./animation";
 export * from "./boundaries";
 export * from "./canvas";
+export * from "./description";
 export * from "./editable";
 export * from "./edited-layout";
 export * from "./filter";

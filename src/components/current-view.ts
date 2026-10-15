@@ -6,7 +6,7 @@ import {
     type Labels,
     NOT_ANIMATING,
 } from "../engine/contract";
-import type { ModelView, WorkspaceModel } from "../model";
+import { type ModelView, splitAuthor, type WorkspaceModel } from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
 import styles from "./current-view.module.css";
 import lightModeIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
@@ -498,7 +498,7 @@ export default class CurrentView extends Component {
         if (this.#viewKey !== view.key) this.#exportFailed = null;
         this.#viewKey = view.key;
         this.#subscribe();
-        const [description, author] = view.description.split("Author: ");
+        const { description, author } = splitAuthor(view.description);
         // Structurizr's own naming: an explicit title when the view has one,
         // otherwise "Container View: Internet Banking System" and the like.
         const title = this.#model.getTitleForView(view);
