@@ -16,7 +16,6 @@ import resetZoomIcon from "bootstrap-icons/icons/aspect-ratio.svg?raw";
 import zoomInIcon from "bootstrap-icons/icons/zoom-in.svg?raw";
 import zoomOutIcon from "bootstrap-icons/icons/zoom-out.svg?raw";
 import expandAllIcon from "bootstrap-icons/icons/arrows-expand.svg?raw";
-import collapseAllIcon from "bootstrap-icons/icons/arrows-collapse.svg?raw";
 import playIcon from "bootstrap-icons/icons/play-fill.svg?raw";
 import pauseIcon from "bootstrap-icons/icons/pause-fill.svg?raw";
 import prevStepIcon from "bootstrap-icons/icons/skip-start-fill.svg?raw";
@@ -351,18 +350,16 @@ export default class CurrentView extends Component {
                 ? "Hide technologies in diagrams"
                 : "Show technologies in diagrams",
         );
-        // PROTOTYPE (issue 192): one button flips every entity of an ERD.
-        const entities = this.#button("toggle-entities");
-        if (entities) {
-            const label = this.#labels.entitiesCollapsed
-                ? "Expand all"
-                : "Collapse all";
-            entities.innerHTML = this.#labels.entitiesCollapsed
-                ? expandAllIcon
-                : collapseAllIcon;
-            entities.title = `${label} entities`;
-            entities.setAttribute("aria-label", `${label} entities`);
-        }
+        // PROTOTYPE (issue 192): one button flips every entity of an ERD,
+        // pressed while they are expanded, as the label toggles are while
+        // their labels show.
+        this.#paintToggleButton(
+            "toggle-entities",
+            !this.#labels.entitiesCollapsed,
+            this.#labels.entitiesCollapsed
+                ? "Expand all entities"
+                : "Collapse all entities",
+        );
     }
 
     #addControlButtons(container: HTMLElement, view: ModelView) {
@@ -376,7 +373,7 @@ export default class CurrentView extends Component {
                 <button class="toggle-technologies">${toggleTechnologiesIcon}</button>
                 ${
                     view.properties?.["renderizr.mermaid.erd"] === "true"
-                        ? `<button class="toggle-entities"></button>`
+                        ? `<button class="toggle-entities">${expandAllIcon}</button>`
                         : ""
                 }
             </div>

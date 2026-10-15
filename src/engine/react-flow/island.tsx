@@ -2192,16 +2192,27 @@ function Canvas({
         [family, fontsLoaded],
     );
     const { key: viewKey, scheme, labels: stored, step } = state;
-    // PROTOTYPE (issue 192): the entities a chevron flipped, for this view
-    // and this preference only; a new view or the toolbar button clears them.
+    // PROTOTYPE (issue 192): the entities a toggle flipped, for this view
+    // until the preference next changes: a new view or every click of the
+    // toolbar button clears them. Each change of the preference starts a new
+    // generation, so overrides never come back with an earlier value.
+    const preference = useRef({
+        collapsed: stored.entitiesCollapsed,
+        generation: 0,
+    });
+    if (preference.current.collapsed !== stored.entitiesCollapsed)
+        preference.current = {
+            collapsed: stored.entitiesCollapsed,
+            generation: preference.current.generation + 1,
+        };
+    const { generation } = preference.current;
     const [overrides, setOverrides] = useState<{
         key: string;
-        collapsed: boolean | undefined;
+        generation: number;
         ids: Record<string, boolean>;
-    }>({ key: viewKey, collapsed: stored.entitiesCollapsed, ids: {} });
+    }>({ key: viewKey, generation, ids: {} });
     const entityOverrides =
-        overrides.key === viewKey &&
-        overrides.collapsed === stored.entitiesCollapsed
+        overrides.key === viewKey && overrides.generation === generation
             ? overrides.ids
             : NO_OVERRIDES;
     const labels = useMemo(
@@ -2348,19 +2359,14 @@ function Canvas({
             moved.current = false;
             setOverrides((before) => {
                 const ids =
-                    before.key === viewKey &&
-                    before.collapsed === stored.entitiesCollapsed
+                    before.key === viewKey && before.generation === generation
                         ? before.ids
                         : {};
                 const now = !(ids[id] ?? stored.entitiesCollapsed ?? true);
-                return {
-                    key: viewKey,
-                    collapsed: stored.entitiesCollapsed,
-                    ids: { ...ids, [id]: now },
-                };
+                return { key: viewKey, generation, ids: { ...ids, [id]: now } };
             });
         },
-        [viewKey, stored.entitiesCollapsed],
+        [viewKey, generation, stored.entitiesCollapsed],
     );
     const [size, setSize] = useState({ width: 0, height: 0 });
     /** The key of the last view fully painted; `data-ready` is true only for it. */
