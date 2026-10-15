@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Andrés Zorro | [@andreszorro](https://github.com/andreszorro) | Everything: the build pipeline in `scripts/`, the app and the React Flow engine in `src/`, releases |
 
-[Formula.Monks](https://www.monks.com) stewards Renderizr and licenses it under [MIT](LICENSE). Contact for anything that needs to reach a human privately: **andres.zorro@monks.com**.
+[Monks Tech Services](https://www.monks.com) stewards Renderizr and licenses it under [MIT](LICENSE). Contact for anything that needs to reach a human privately: **andres.zorro@monks.com**.
 
 That table has exactly one row, and it is worth saying so plainly rather than implying a committee: this is a small project with a single maintainer today. It is why review turnaround takes days rather than hours, and it is the main reason the second half of this document exists.
 
