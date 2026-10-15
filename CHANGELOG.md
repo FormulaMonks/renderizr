@@ -21,6 +21,18 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.4.0](https://github.com/FormulaMonks/renderizr/compare/v2.3.0...v2.4.0) (2026-10-15)
+
+
+### Added
+
+* export a view as SVG or PNG from the diagrams toolbar ([#183](https://github.com/FormulaMonks/renderizr/issues/183)) ([cf97062](https://github.com/FormulaMonks/renderizr/commit/cf9706236cdd774c63229e45bcfe3398ac91bfb6))
+
+
+### Fixed
+
+* upgrade Dagre to 2.0.4 so automatic layouts drop empty ranks ([#188](https://github.com/FormulaMonks/renderizr/issues/188)) ([3c37672](https://github.com/FormulaMonks/renderizr/commit/3c376729219bbe9a5b0543b9e46bdebd13fd689f))
+
 ## [2.3.0](https://github.com/FormulaMonks/renderizr/compare/v2.2.0...v2.3.0) (2026-10-15)
 
 
