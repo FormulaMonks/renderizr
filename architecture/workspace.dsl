@@ -8,6 +8,7 @@ workspace "Renderizr" {
     properties {
         "renderizr.logo" "docs/assets/logo.svg"
         "renderizr.logoAlt" "Renderizr"
+        "renderizr.logoHref" "https://github.com/FormulaMonks/renderizr"
         "renderizr.font" "Inter"
         "renderizr.primaryColor" "#1168BD"
     }
