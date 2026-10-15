@@ -13,7 +13,7 @@ import { DslPipeline } from "./dsl-pipeline.js";
 import { editMode } from "./edit-plugin.js";
 import {
     checkTools as runVersion,
-    TOOLS_README,
+    TOOLS_DOCS,
     toolsCommand,
     toolsMessage,
 } from "./structurizr-tools.js";
@@ -123,7 +123,7 @@ export function sessionNotices(session) {
     if (kind !== "json" || !dsl) return [];
     if (session.fallback) {
         const notices = [
-            `Structurizr's tools didn't answer "${session.command} version", so edit mode opened ${json}. Changes to ${basename(dsl)} won't show until the tools are set up: set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH, with Java 21 to 25. See ${TOOLS_README}`,
+            `Structurizr's tools didn't answer "${session.command} version", so edit mode opened ${json}. Changes to ${basename(dsl)} won't show until the tools are set up: set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH, with Java 21 to 25. See ${TOOLS_DOCS}`,
         ];
         if (modified(dsl) > modified(json))
             notices.push(
