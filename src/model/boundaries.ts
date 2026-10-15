@@ -61,6 +61,8 @@ const GROUPED: Partial<Record<ViewType, ElementType[]>> = {
     SystemContext: ["Person", "SoftwareSystem", "Custom"],
     Container: ["Container"],
     Component: ["Component"],
+    // PROTOTYPE (issue 179): Mermaid subgraphs arrive as groups in a custom view.
+    Custom: ["Custom"],
     Deployment: [
         "DeploymentNode",
         "InfrastructureNode",

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { readMermaidDiagrams } from "./mermaid/index.js";
 
 /** Google only serves woff2 to browsers it recognizes. */
 const BROWSER_UA =
@@ -487,6 +488,7 @@ export async function loadWorkspace(source) {
     }
 
     validateWorkspace(workspace);
+    readMermaidDiagrams(workspace);
     await inlineWorkspaceAssets(workspace);
 
     return workspace;

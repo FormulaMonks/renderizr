@@ -1,0 +1,71 @@
+{
+    "configuration": {},
+    "description": "Image views that carry Mermaid flowchart source, for the prototype in issue 179.",
+    "documentation": {},
+    "id": 0,
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Customer",
+                "properties": {
+                    "structurizr.dsl.identifier": "customer"
+                },
+                "tags": "Element,Person"
+            }
+        ]
+    },
+    "name": "Mermaid flowcharts",
+    "views": {
+        "configuration": {
+            "properties": {
+                "mermaid.url": "https://mermaid.ink"
+            },
+            "styles": {},
+            "terminology": {}
+        },
+        "imageViews": [
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxdUstOwzAQ_JWVT6lE6YkDVVskKiFuRBSJg5uD42wbEyeObKdQpfl3_Egf4IM9Xs3MrnfdA-GqQDInO6m-ecm0hY_nbQNu8c5YVaNO6HpE2QSm09WplYyjAaUL1CcwpWrpJ-YBZFHqoafCgUlR9G-eGfHTEBnhEtyOaE7QsmONjaU0jQAM6oPgmGV_6PeO36gTaPxCblfv4YiFjMTRCJbLVYwbmoT0BgpmWc4MTs5Fdvles7aEXSd3QgYZfbngkRVMBa-S1G0gLNYmdMFl4lXfp253UHOUw3BVXLxNKdpWNHugmxHd-PolWY6SzlItXPpwmWXBn6tOC9f9ZB3BZHIVYlPcVOdL8IqgjvEL4dyPULF7wTjaaOmiUKAUB9-ekHMc9M0UFz7uoryiycYf5_bFGTiZ-icb6_mJqhgrUbZ0S17d4TKaapHr2eqR1WAVPLT1lvg3T0PGbUPugDi3momCzHtiS6z9Dy1wxzppyTD8Ar7O4kA=",
+                "contentType": "image/svg+xml",
+                "description": "Silent source: the workspace's styles and font fill in.",
+                "key": "plain",
+                "name": "Order flow",
+                "order": 2,
+                "title": "Order flow"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxlVF1v2jAU_StWEBJIUNp07SBqmVSmaW9DZdoeEh4c56bxcGLLNl8K_Pf5C5p1eYivr8-59_he2y2KCC8gSqJ-v6UN1Qlqs0hXUEMWJSiLcqyMNULB-QtLinMGyq4apJC0xvK44IxLT-iVJUwJ8Zyw_MJlAbILKmbTOM49iNEGumtT_IDt2tkulozvSYWlDgnJVu6CNKVBGNT53O9nzRWHfr5kDTIf2SrNa5CDdBGs9RCNx_OTYJiAQk7TCamKi_Q35M5Ye6o1LRTtMKNF-8Mivf3l7BFu4qIdQZ2QwMcaGp2mS28gBXJHCazX_8BvDL7hJyThDxA9f3WDFxKAIRB6fp57v0oHLr1CBdbYdmN4EbnN3yQWFSq3rKTM0dJvVzugXFBKNoOl-SGqoVauCiYT2bTt0vyNKQmw8_mdcY2tKioEbd5QugpWJ679GM6BpZOlpCa9m0zWLj7hW0lN9QcLbwyH70Roio46K8EyHNv7r4BLPZxis4PQWh_SeFEBjO5seVzO0OhOF5-s33jJJh2s7HApn--BofEPtKDn4FneVwETaRZ9N4PJqDZPuZzMZ7hGmqMHUWeR3fPYZQwKGVbqK5Roj2WDTEtY0isLiCEeKS35BpIeub2fxfmI2JOf9D7n8ac70iH7MzMKMm2YsCt9ZBDORghcPAIup9fAMUwfyV2Yjve00FVyLw6X2PYcuNJU0ujLokproZLJBA64FgxuCK8nbiORZ5jruVm5pLfog_b_U5gLHZlK1pgWUdL6N8M8LgWUeMu0uax_AepMdGU=",
+                "contentType": "image/svg+xml",
+                "description": "The source's init directive, classDef, style, linkStyle and click win.",
+                "key": "styled",
+                "name": "Order flow, styled",
+                "order": 3,
+                "title": "Order flow, styled"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxdUj1vwjAQ_SsnT0EqZepQBHRAqjpUagRDB5PBcS7ExYkj26FFIf-9_ggfrQf7-fTeu_OdeyBcFUjmpJTqm1dMW3jf7Bpwi3fGqhp1QtcjyiYwna7OrWQcDShdoD6DqVRLPzEPIItSDz0VjkyKov_wzIhfhsgIl-B2QnOGlp1qbCylaQRgUB8Fxyz7Q390_EadQeMXcrvahCMWMhJHI1guVzFuaBLSGyiYZTkzOLkU2eV7zdoKyk6WQgYZfb3ikRVMBT8kqdtAWKxN6ILLxA99n7rdQc1RDsNNcfU2lWhb0eyBbkd05-uXZDlKOku1cOnDZZYFf646LVz3k3UEk8lNiE1xV50vwSuCOsavhEs_QsXuBeNoo6WLQoFSHH17Qs5x0HdTXPi4i_IDTbb-uLQvzsDJ1D_ZWM9PVMVYhbKlO_LmDpfRHBa5nq2eWQ1WwVNb74h_8zRk3DXkAYhzq5koyLwntsLa_9ACS9ZJS4bhF9PO4kg=",
+                "contentType": "image/svg+xml",
+                "key": "left-right",
+                "name": "Order flow, left to right",
+                "order": 4,
+                "title": "Order flow, left to right"
+            }
+        ],
+        "systemLandscapeViews": [
+            {
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "enterpriseBoundaryVisible": true,
+                "key": "landscape",
+                "name": "System Landscape View",
+                "order": 1
+            }
+        ]
+    }
+}

@@ -1,0 +1,25 @@
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#ffe8cc", "primaryBorderColor": "#d9822b", "lineColor": "#8a5a2b"}, "flowchart": {"curve": "step"}}}%%
+flowchart TB
+    customer([Customer]) -->|places order| shop[Web shop]
+    shop --> valid{Order valid?}
+    valid -->|yes| payment[[Payment service]]
+    valid -.->|no| reject>Reject order]
+    payment ==> orders[(Orders database)]
+    subgraph fulfilment [Fulfilment]
+        pick(Pick items) --> pack{{Pack parcel}}
+        subgraph shipping [Shipping]
+            label[/Print label/] --> courier((Courier))
+        end
+        pack --> label
+    end
+    payment --> pick
+    courier -- delivers --> customer
+    shop <--> stock[(Stock)]
+    reject --o customer
+    pack --x stock
+    help["Help desk<br/>9am to 5pm"] --- shop
+    classDef warn fill:#fde2e2,stroke:#c0392b,color:#7b241c
+    class valid,reject warn
+    style orders fill:#d6eaf8,stroke:#2e86c1,stroke-width:3px
+    click shop href "https://example.com/shop"
+    linkStyle 0 stroke:#c0392b,stroke-width:3px
