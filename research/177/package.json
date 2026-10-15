@@ -1,0 +1,16 @@
+{
+    "name": "research-177-reading-mermaid-source",
+    "private": true,
+    "type": "module",
+    "description": "Measurements behind research/177-reading-mermaid-source.md. Run ./setup.sh once, then the scripts in scripts/ with Node 24.",
+    "dependencies": {
+        "@mermaid-js/parser": "2.0.1",
+        "dompurify": "3.4.17",
+        "esbuild": "0.28.2",
+        "fastdom": "1.0.12",
+        "jison": "0.4.18",
+        "js-yaml": "5.4.3",
+        "jsdom": "26.1.0",
+        "mermaid": "12.2.0"
+    }
+}

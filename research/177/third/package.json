@@ -1,0 +1,11 @@
+{
+    "name": "research-177-third-party-parsers",
+    "private": true,
+    "type": "module",
+    "description": "Third-party parse-only packages, installed apart from the harness with --ignore-scripts.",
+    "dependencies": {
+        "@zombie-mermaid/mermaid-parser": "5.6.1",
+        "mermaid-ast": "0.8.2",
+        "mermaid-parser-bundle": "0.2.1"
+    }
+}
