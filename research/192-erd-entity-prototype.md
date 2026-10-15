@@ -25,7 +25,7 @@ Open the **Shop** or **Shop, left to right** view.
 | --- | --- | --- |
 | Collapsed (first visit) | ![](192/light-shop-collapsed.png) | ![](192/dark-shop-collapsed.png) |
 | Expanded (Expand all) | ![](192/light-shop-expanded.png) | ![](192/dark-shop-expanded.png) |
-| Expanded, ORDER collapsed by its chevron | ![](192/light-shop-order-collapsed.png) | ![](192/dark-shop-order-collapsed.png) |
+| Expanded, Order collapsed by its toggle | ![](192/light-shop-order-collapsed.png) | ![](192/dark-shop-order-collapsed.png) |
 | Left to right, collapsed | ![](192/light-shop-lr-collapsed.png) | ![](192/dark-shop-lr-collapsed.png) |
 | Left to right, expanded | ![](192/light-shop-lr-expanded.png) | ![](192/dark-shop-lr-expanded.png) |
 
@@ -38,9 +38,9 @@ Open the **Shop** or **Shop, left to right** view.
 - **Collapsed entities as C4 boxes.** One size for every collapsed entity makes a collapsed ERD read like a C4 view, and the box comes close to the expanded size, so a toggle moves less. An entity with no attributes never toggles; it draws the collapsed box while the others are collapsed and a bare header while they are expanded.
 - **Spacing.** With the flowchart's spacing, routes and labels crowded between close entities and hugged their sides. Mermaid's ERD spacing leaves room for two straight ends and a label in every gap of the fixture. Where a route's straight end lands near another entity, the router now keeps as much clearance as still leaves the end outside it, in place of none.
 - **Markers need straight ends.** Without a rule, the router bent routes closer to an entity than a marker is long, so markers broke across the knee, worst where entities sit close together. Two router changes fix every edge in the fixture: a stub as long as the marker at each end, and side choice that counts bends from the stubs (otherwise a side whose stub points away from the other entity wins on its midpoint and the route doubles back). Mermaid's rank separation (75) just fits two stubs at the default thickness (36 each).
-- **An entity with no key attribute** collapses to its header and keeps a toggle, which reads well (DELIVERY-ADDRESS). An entity with no attributes draws no chevron (CATEGORY).
+- **An entity with no key attribute** collapses to its bold name alone and keeps its toggle (Delivery address). An entity with no attributes draws no chevron (Category).
 - **Shared sides** still crowd where two ends meet one side (CUSTOMER's `uses` and `places` in some states); the spacing rule from the edge ends decision covers that.
 
 ## Left out
 
-Entity styling from `style` and `classDef`, entity aliases with brackets, attribute keys spaced along shared sides, keyboard focus order for chevrons, export, edit mode.
+Entity styling from `style` and `classDef`, attribute keys spaced along shared sides, keyboard focus order for toggles, export, edit mode.
