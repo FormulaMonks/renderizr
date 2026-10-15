@@ -181,15 +181,28 @@ describe("export-svg", () => {
         assert.deepEqual(texts(band), [
             "Export in context",
             "A short description",
-            "ada@example.com",
+            "Author: ada@example.com",
             "Last updated: 10/1/2026",
         ]);
+    });
+
+    test("the title block sets the author and date apart from the description", () => {
+        const band = titleBlockOf(exported("AutoFrame").svg);
+        const ys = [...band.matchAll(/<text [^>]*\by="([\d.]+)"/g)].map(
+            ([, y]) => Number(y),
+        );
+        const [, description, author, date] = ys;
+        const step = date - author;
+        assert.ok(
+            author - description >= 2 * step - 0.01,
+            "a gap of at least a line opens before the author",
+        );
     });
 
     test("the title block leaves out each line that has no value", () => {
         const cases = [
             { field: "description", gone: "A short description" },
-            { field: "user", gone: "ada@example.com" },
+            { field: "user", gone: "Author: ada@example.com" },
             { field: "modified", gone: "Last updated: 10/1/2026" },
         ];
         const full = exported("AutoFrame");

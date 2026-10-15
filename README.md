@@ -72,7 +72,7 @@ An export shows the view as drawn: the diagram color scheme, the animation step 
 
 1. The view's title in bold.
 2. The view's description, wrapped to the canvas width and cut to four lines.
-3. The user who last modified the workspace.
+3. "Author:" and the user who last modified the workspace.
 4. "Last updated:" and the date the workspace was last modified, in the reader's locale.
 
 The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.

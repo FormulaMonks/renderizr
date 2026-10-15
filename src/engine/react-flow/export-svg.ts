@@ -622,8 +622,8 @@ function edgeLabel(edge: EdgeLine, background: string, text: TextSetting) {
 
 /* ---------------- title block */
 
-/** The title block's font size, a little under the default element's. */
-export const TITLE_BLOCK_FONT_SIZE = 20;
+/** The title block's font size, well under the default element's. */
+export const TITLE_BLOCK_FONT_SIZE = 18;
 
 /** Space between the title block's text and its edges, the canvas included. */
 export const TITLE_BLOCK_PADDING = 40;
@@ -636,8 +636,9 @@ export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
  * in the export's font and the scheme's text `color`, as its height and its
  * SVG. Line 1 is the view's title in bold, at an element name's size, scaled
  * from the band's. Under it come the view's description, wrapped to the band
- * and clamped after 4 lines, the user, and "Last updated:" with the date. A line with no value is left out, and a band with no lines at all
- * takes no room.
+ * and clamped after 4 lines, "Author:" with the user, and "Last updated:"
+ * with the date. A line with no value is left out, and a band with no lines
+ * at all takes no room.
  */
 export function titleBlock(
     content: TitleBlockText,
@@ -670,21 +671,29 @@ export function titleBlock(
 
     const wrapped = (line: string) =>
         line.trim() ? wrap(line.trim(), width, fontSize, false, measure) : [];
-    const lines = [
-        ...clamp(
-            wrapped(content.description),
-            TITLE_BLOCK_DESCRIPTION_LINES,
-            width,
-            fontSize,
-            measure,
-        ),
-        ...wrapped(content.user),
+    const description = clamp(
+        wrapped(content.description),
+        TITLE_BLOCK_DESCRIPTION_LINES,
+        width,
+        fontSize,
+        measure,
+    );
+    const details = [
+        ...(content.user.trim()
+            ? wrapped(`Author: ${content.user.trim()}`)
+            : []),
         ...(content.modified.trim()
             ? wrapped(`Last updated: ${content.modified.trim()}`)
             : []),
     ];
-    if (lines.length) {
-        if (parts.length) top += NAME_GAP;
+    // The author and date sit a line apart from what comes above them.
+    const blocks = [
+        { lines: description, gap: NAME_GAP },
+        { lines: details, gap: fontSize * LINE_HEIGHT },
+    ];
+    for (const { lines, gap } of blocks) {
+        if (!lines.length) continue;
+        if (parts.length) top += gap;
         parts.push(
             textLines(
                 { lines, fontSize, x, y: top, width, align: "start", color },
@@ -695,7 +704,8 @@ export function titleBlock(
     }
     if (!parts.length) return { height: 0, svg: "" };
     return {
-        height: top + TITLE_BLOCK_PADDING - bottom,
+        // Whole pixels, so fractional line heights leave no sliver of a row.
+        height: Math.ceil(top + TITLE_BLOCK_PADDING - bottom),
         svg: `<g data-title-block="">${parts.join("")}</g>`,
     };
 }
