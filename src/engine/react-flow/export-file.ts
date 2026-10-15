@@ -14,6 +14,16 @@ import { canvasMeasure, diagramFontFamily } from "./fonts";
 const FALLBACK_METRICS = { ascent: 0.9, descent: 0.22 };
 
 /**
+ * Whether `declared`, an `@font-face` rule's `font-family`, names `family`:
+ * the same name, quoted or not. A family whose name only starts the same,
+ * as "Inter Tight" does "Inter", is another font.
+ */
+export function declaresFamily(declared: string, family: string): boolean {
+    const name = declared.trim().replace(/^(["'])(.*)\1$/, "$2");
+    return name !== "" && name === family;
+}
+
+/**
  * The `@font-face` rules the page holds for `family`, as text. Builds embed
  * each face as a `data:` URL, so the SVG that carries them fetches nothing.
  */
@@ -31,7 +41,10 @@ function fontFaces(family: string | null): string {
         for (const rule of Array.from(list)) {
             if (
                 rule instanceof CSSFontFaceRule &&
-                rule.cssText.includes(family)
+                declaresFamily(
+                    rule.style.getPropertyValue("font-family"),
+                    family,
+                )
             )
                 rules.push(rule.cssText);
         }

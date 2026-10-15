@@ -19,9 +19,8 @@ const { exportFrame } = await importSrc("engine/geometry/canvas");
 const { exportSvg, TITLE_BLOCK_DESCRIPTION_LINES } = await importSrc(
     "engine/react-flow/export-svg",
 );
-const { MAX_PIXELS, modifiedDate, pngSize, titleBlockText } = await importSrc(
-    "engine/react-flow/export-file",
-);
+const { MAX_PIXELS, declaresFamily, modifiedDate, pngSize, titleBlockText } =
+    await importSrc("engine/react-flow/export-file");
 
 const WORKSPACE = JSON.parse(
     readFileSync(
@@ -239,6 +238,26 @@ describe("export-svg", () => {
 });
 
 describe("export-file", () => {
+    test("an @font-face rule embeds only for the family its font-family names, quoted or not", () => {
+        const cases = [
+            { declared: "Inter", family: "Inter", embeds: true },
+            { declared: '"Inter"', family: "Inter", embeds: true },
+            { declared: "'Inter'", family: "Inter", embeds: true },
+            { declared: ' "Inter" ', family: "Inter", embeds: true },
+            { declared: '"Inter Tight"', family: "Inter", embeds: false },
+            { declared: "Inter Tight", family: "Inter", embeds: false },
+            { declared: '"Inter"', family: "Inter Tight", embeds: false },
+            { declared: "", family: "Inter", embeds: false },
+        ];
+        for (const { declared, family, embeds } of cases) {
+            assert.equal(
+                declaresFamily(declared, family),
+                embeds,
+                `font-family: ${declared} for ${family}`,
+            );
+        }
+    });
+
     test("the date last modified is formatted in the reader's locale, and missing or broken dates give none", () => {
         const cases = [
             {
