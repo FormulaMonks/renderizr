@@ -539,8 +539,11 @@ export class WorkspaceModel {
                 ? this.findViewByKey(given.baseViewKey)
                 : given;
         if (!view) return "";
+        // A name may break its label with `\n`; a title keeps to one line.
+        const oneLine = (text: string | undefined) =>
+            (text ?? "").replace(/\\n/g, " ");
         const name = (id: string | undefined) =>
-            this.findElementById(id)?.name ?? "";
+            oneLine(this.findElementById(id)?.name);
 
         switch (view.type) {
             case "Custom":
@@ -555,7 +558,7 @@ export class WorkspaceModel {
                 return `Container View: ${name(view.softwareSystemId)}`;
             case "Component": {
                 const container = this.findElementById(view.containerId);
-                return `Component View: ${name(container?.parentId)} - ${container?.name ?? ""}`;
+                return `Component View: ${name(container?.parentId)} - ${oneLine(container?.name)}`;
             }
             case "Dynamic": {
                 const element =
@@ -563,10 +566,10 @@ export class WorkspaceModel {
                     this.findElementById(view.softwareSystemId);
                 if (!element) return "Dynamic View";
                 if (element.type === "SoftwareSystem") {
-                    return `Dynamic View: ${element.name}`;
+                    return `Dynamic View: ${oneLine(element.name)}`;
                 }
                 if (element.type === "Container") {
-                    return `Dynamic View: ${name(element.parentId)} - ${element.name}`;
+                    return `Dynamic View: ${name(element.parentId)} - ${oneLine(element.name)}`;
                 }
                 return "";
             }

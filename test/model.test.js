@@ -164,6 +164,31 @@ describe("workspace model", () => {
         );
     });
 
+    test("titles views on one line, turning a name's \\n breaks into spaces", () => {
+        const model = bigBank((json) => {
+            const system = json.model.softwareSystems.find(
+                (s) => s.name === "Internet Banking System",
+            );
+            system.name = "Internet Banking\\nSystem";
+            system.containers.find((c) => c.name === "API Application").name =
+                "API\\nApplication";
+        });
+        const title = (key) => model.getTitleForView(model.findViewByKey(key));
+
+        assert.equal(
+            title("Containers"),
+            "Container View: Internet Banking System",
+        );
+        assert.equal(
+            title("SignIn"),
+            "Dynamic View: Internet Banking System - API Application",
+        );
+        assert.equal(
+            title("Components"),
+            "Component View: Internet Banking System - API Application",
+        );
+    });
+
     test("does not mutate the JSON it is given", () => {
         const json = clone(BIG_BANK);
         new WorkspaceModel(json);
