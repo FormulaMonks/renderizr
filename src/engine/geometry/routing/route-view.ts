@@ -31,6 +31,7 @@ import {
     type DrawnRoute,
     endHeading,
     onOutline,
+    outward,
     polylinePath,
     type RoutingMode,
     SIDES,
@@ -70,6 +71,11 @@ export type RoutingEdge = {
      * it, and the line ends this far short of its target end.
      */
     thickness: number;
+    /**
+     * PROTOTYPE (issue 192): how long each end runs straight out of its
+     * side before the route may bend, so an end marker never sits on a knee.
+     */
+    endRoom?: number;
 };
 
 /**
@@ -147,8 +153,12 @@ export function routeView(
                   source: facingSide(from, vertices[0]),
                   target: facingSide(to, vertices[vertices.length - 1]),
               }
-            : chooseSides(from, to, edge.routing, (a, b) =>
-                  isStraightClear(a, b, others, [from, to], padding),
+            : chooseSides(
+                  from,
+                  to,
+                  edge.routing,
+                  (a, b) => isStraightClear(a, b, others, [from, to], padding),
+                  edge.endRoom,
               );
         sides.set(index, chosen);
         addEnd(source.id, {
@@ -318,7 +328,28 @@ function routeOf(
     const { vertices } = edge;
 
     let points: Point[];
-    if (edge.routing === "Orthogonal") {
+    const room = edge.endRoom ?? 0;
+    if (edge.routing === "Orthogonal" && room > 0 && !vertices.length) {
+        // Route between two stubs `room` out from each side, then add the
+        // ends back: the first and last legs are at least `room` long.
+        const stub = (point: Point, side: typeof sides.source) => {
+            const out = outward(side);
+            return { x: point.x + out.x * room, y: point.y + out.y * room };
+        };
+        points = [
+            start,
+            ...orthogonalRoute(
+                stub(start, sides.source),
+                sides.source,
+                stub(end, sides.target),
+                sides.target,
+                others,
+                [from, to],
+                padding,
+            ),
+            end,
+        ];
+    } else if (edge.routing === "Orthogonal") {
         points = vertices.length
             ? orthogonalThrough(
                   [start, ...vertices, end],

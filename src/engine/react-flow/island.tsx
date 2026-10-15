@@ -371,10 +371,6 @@ const Activate = createContext<IslandProps["onActivate"]>(() => {});
  */
 const Editing = createContext(false);
 const NO_OVERRIDES: Record<string, boolean> = {};
-/** PROTOTYPE (issue 192): `?entity-motion` eases entities to their new places. */
-const ENTITY_MOTION =
-    typeof location !== "undefined" &&
-    new URLSearchParams(location.search).has("entity-motion");
 
 /** PROTOTYPE (issue 192): flips one entity, from its header's chevron. */
 const EntityToggle = createContext<
@@ -479,11 +475,10 @@ function EntityBody({ data }: { data: ElementBox }) {
                         height: entity.rowHeight,
                         alignItems: "center",
                         fontSize: entity.rowSize,
-                        borderTop: `1px solid ${data.stroke}`,
-                        background:
-                            index % 2 === 0
-                                ? "rgba(255,255,255,0.10)"
-                                : "rgba(255,255,255,0.04)",
+                        borderTop: `1px solid color-mix(in srgb, ${data.background ?? "#ffffff"} 40%, #ffffff)`,
+                        // A tint of the fill: odd rows lighter than even ones.
+                        background: `color-mix(in srgb, ${data.background ?? "#ffffff"} ${index % 2 === 0 ? 18 : 26}%, #ffffff)`,
+                        color: `color-mix(in srgb, ${data.background ?? "#000000"} 70%, #000000)`,
                     }}
                 >
                     {cells.map(([cell, width]) =>
@@ -2309,15 +2304,11 @@ function Canvas({
 
     const flow = useReactFlow();
     const wrapper = useRef<HTMLDivElement>(null);
-    /** PROTOTYPE (issue 192): where the flipped entity was, to pan it back under the pointer. */
-    const pendingPan = useRef<{ id: string; x: number; y: number } | null>(
-        null,
-    );
+    // PROTOTYPE (issue 192): every expand or collapse, from a chevron or the
+    // toolbar, refits the diagram as a new view would.
     const toggleEntity = useCallback(
         (id: string) => {
-            const box = graph?.elements.find((element) => element.id === id);
-            pendingPan.current = box ? { id, x: box.x, y: box.y } : null;
-            moved.current = true;
+            moved.current = false;
             setOverrides((before) => {
                 const ids =
                     before.key === viewKey &&
@@ -2332,29 +2323,18 @@ function Canvas({
                 };
             });
         },
-        [graph, viewKey, stored.entitiesCollapsed],
+        [viewKey, stored.entitiesCollapsed],
     );
-    useLayoutEffect(() => {
-        const pan = pendingPan.current;
-        if (!pan || !graph) return;
-        pendingPan.current = null;
-        const box = graph.elements.find((element) => element.id === pan.id);
-        if (!box) return;
-        const viewport = flow.getViewport();
-        flow.setViewport(
-            {
-                x: viewport.x - (box.x - pan.x) * viewport.zoom,
-                y: viewport.y - (box.y - pan.y) * viewport.zoom,
-                zoom: viewport.zoom,
-            },
-            { duration: ENTITY_MOTION ? TRANSITION_MS : 0 },
-        );
-    }, [graph, flow]);
     const [size, setSize] = useState({ width: 0, height: 0 });
     /** The key of the last view fully painted; `data-ready` is true only for it. */
     const [readyKey, setReadyKey] = useState<string | null>(null);
     /** Set once the reader zooms or pans; refits on resize stop until `fit()`. */
     const moved = useRef(false);
+    const shownCollapsed = useRef(stored.entitiesCollapsed);
+    if (shownCollapsed.current !== stored.entitiesCollapsed) {
+        shownCollapsed.current = stored.entitiesCollapsed;
+        moved.current = false;
+    }
     const painted = useRef<string | null>(null);
     // A change to the edited layout never refits, and align, distribute,
     // nudge and select all arrange the selection, by command or by key
@@ -3114,9 +3094,6 @@ function Canvas({
             <Activate.Provider value={onActivate}>
                 <Editing.Provider value={editable}>
                     <EntityToggle.Provider value={toggleEntity}>
-                        {ENTITY_MOTION && (
-                            <style>{`.react-flow__node { transition: transform ${TRANSITION_MS}ms ease-in-out, width ${TRANSITION_MS}ms, height ${TRANSITION_MS}ms; }`}</style>
-                        )}
                         <CanvasBackground.Provider
                             value={graph?.background ?? "#ffffff"}
                         >

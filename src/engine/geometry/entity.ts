@@ -81,8 +81,14 @@ export function layOutEntity(
     const headerHeight = Math.round(nameSize * 1.2 + 2 * HEADER_PADDING);
     const rowHeight = Math.round(rowSize * 1.8);
     const width = Math.max(header, rowsWidth);
-    // The name column takes whatever the header leaves over.
-    if (rows.length > 0 && width > rowsWidth) columns.name += width - rowsWidth;
+    // The last column shown takes whatever the header leaves over, so keys
+    // sit right after the name.
+    if (rows.length > 0 && width > rowsWidth) {
+        const last = (["comment", "keys", "name"] as const).find(
+            (cell) => columns[cell] > 0,
+        );
+        if (last) columns[last] += width - rowsWidth;
+    }
     return {
         width,
         height: headerHeight + rows.length * rowHeight,

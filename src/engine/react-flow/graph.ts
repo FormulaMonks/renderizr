@@ -876,6 +876,8 @@ function drawView(
             style: style.style,
             opacity: style.opacity / 100,
             ...(relationship.properties?.["renderizr.mermaid.end"] && {
+                // The longest marker (zero or more) plus a little.
+                endRoom: 28 * Math.max(1, style.thickness / 2) + 8,
                 ends: [
                     relationship.properties["renderizr.mermaid.start"],
                     relationship.properties["renderizr.mermaid.end"],

@@ -95,6 +95,7 @@ export function chooseSides(
     to: Rect,
     mode: RoutingMode,
     isClear: (a: Point, b: Point) => boolean = () => true,
+    room = 0,
 ): EdgeSides {
     if (mode !== "Orthogonal") {
         const source = facingSide(from, centerOf(to));
@@ -116,8 +117,19 @@ export function chooseSides(
                 mode === "Orthogonal"
                     ? Math.abs(b.x - a.x) + Math.abs(b.y - a.y)
                     : Math.hypot(b.x - a.x, b.y - a.y);
+            // PROTOTYPE (issue 192): bends counted from the stubs `room` out
+            // of each side, where the route may first turn.
+            const out = outward(source);
+            const into = outward(target);
             const cost =
-                length + BEND_PENALTY * bendsBetween(a, source, b, target);
+                length +
+                BEND_PENALTY *
+                    bendsBetween(
+                        { x: a.x + out.x * room, y: a.y + out.y * room },
+                        source,
+                        { x: b.x + into.x * room, y: b.y + into.y * room },
+                        target,
+                    );
             if (cost < lowest - CLEARANCE) {
                 lowest = cost;
                 best = { source, target };
