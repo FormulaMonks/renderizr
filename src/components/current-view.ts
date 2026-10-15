@@ -401,12 +401,10 @@ export default class CurrentView extends Component {
         this.#paintExportButtons();
         try {
             await save(await this.#engine.exportView(format), name);
-        } catch (error) {
+        } catch {
+            // The failure line is the report (CODING_STANDARDS.md: no
+            // console in shipped code).
             this.#exportFailed = view;
-            // A deliberate exception to CODING_STANDARDS.md, like the
-            // island's `warnAuthor`: the toolbar's line says only that the
-            // export failed, and the console is where the cause can go.
-            console.error(error);
         } finally {
             this.#exporting = null;
             this.#paintExportButtons();

@@ -462,7 +462,7 @@ test("a failed export says so in the toolbar until the next try or view", async 
     }
     assert.equal(failure().textContent, "Couldn't export this view");
     assert.equal(saved.length, 0);
-    assert.equal(logged.length, 1, "the cause goes to the console");
+    assert.equal(logged.length, 0, "the failure line is the report");
     assert.equal(button("export-png").disabled, false);
 
     engine.exported = () => new Promise(() => {});
@@ -472,13 +472,8 @@ test("a failed export says so in the toolbar until the next try or view", async 
 
     engine.exported = () => Promise.reject(new Error("again"));
     const second = exportToolbar(engine);
-    console.error = () => {};
-    try {
-        second.button("export-png").click();
-        await settle();
-    } finally {
-        console.error = error;
-    }
+    second.button("export-png").click();
+    await settle();
     assert.equal(second.failure().textContent, "Couldn't export this view");
     second.toolbar.render(model.findViewByKey("Containers"));
     assert.equal(second.failure().textContent, "", "a view change clears it");
@@ -621,14 +616,8 @@ test("a save the viewer refuses for another reason says the export failed", asyn
         save: () => Promise.reject({ code: "unavailable" }),
     };
     const { toolbar, button, failure } = await artifactToolbar(downloads);
-    const error = console.error;
-    console.error = () => {};
-    try {
-        button("export-png").click();
-        await settle();
-    } finally {
-        console.error = error;
-    }
+    button("export-png").click();
+    await settle();
     assert.equal(failure().textContent, "Couldn't export this view");
     assert.equal(button("export-png").getAttribute("aria-busy"), null);
     toolbar.clear();
