@@ -407,7 +407,7 @@ function EntityBody({ data }: { data: ElementBox }) {
             style={{
                 position: "absolute",
                 left: "50%",
-                bottom: 8,
+                bottom: 12,
                 transform: "translateX(-50%)",
                 width: 16,
                 height: 16,
