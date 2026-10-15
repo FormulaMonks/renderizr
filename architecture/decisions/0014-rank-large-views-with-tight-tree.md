@@ -8,6 +8,8 @@ Accepted
 
 Amends [4. Use Dagre for automatic layout](0004-use-dagre-for-automatic-layout.md): the ranker for a view of more than 100 elements.
 
+Referenced by [23. Lay out with Dagre 2.0.4](0023-lay-out-with-dagre-2-0-4.md).
+
 ## Context
 
 Dagre ranks a graph with network simplex by default, and the Structurizr renderer does the same, so [4. Use Dagre for automatic layout](0004-use-dagre-for-automatic-layout.md) gives every automatic layout that ranker. Network simplex stops scaling on large views with groups. The large acceptance view (a system landscape with 300 elements, 600 relationships and 20 groups) reaches `data-ready` after 10.6 s in headless Chrome against a budget of 5 s, and network simplex takes about 9 s of that. Routing takes about 1.3 s, so faster routing or rendering cannot bring the view under budget.

@@ -81,6 +81,6 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 
 ## Dependencies
 
-- Pin `@dagrejs/*` to exact versions: `src/engine/layout/automatic.ts` imports Dagre's internal `lib/order` modules, which carry no semver promise. Everything else uses a caret range.
+- Pin `@dagrejs/*` to exact versions: `src/engine/layout/dagre-order.ts` ports Dagre's internal `lib/order` modules from the pinned version, and those carry no semver promise. Everything else uses a caret range.
 - Updates arrive through Renovate. Every patch and minor update auto-merges once `ci` passes, and majors wait for a person; packages inlined into rendered output get one pull request each, and Renovate groups dev tooling; no bot ever bumps the `engines` range.
 - `pnpm-workspace.yaml` allows build scripts for `@biomejs/biome` and `esbuild` only. Add a package that needs a postinstall step to that list deliberately.
