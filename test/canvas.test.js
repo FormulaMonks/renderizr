@@ -15,13 +15,13 @@ after(() => {
     globalThis.__RENDERIZR_EDIT_MODE__ = false;
 });
 
-const { WorkspaceModel, canvasOf, mergeLayouts, PAPER_SIZES } =
+const { WorkspaceModel, canvasOf, mergeLayouts, PAPER_SIZES, storedCanvasOf } =
     await importSrc("model/index");
 const { buildGraph } = await importSrc("engine/react-flow/graph");
 const { canvasChange, bringBackChange } = await importSrc(
     "engine/react-flow/commands",
 );
-const { resizedCanvas, centeringShift } = await importSrc(
+const { resizedCanvas, centeringShift, exportFrame } = await importSrc(
     "engine/geometry/canvas",
 );
 
@@ -126,6 +126,63 @@ test("an edited layout's dimensions and deleted paper size win over the stored o
         canvasOf(paper, { dimensions: { width: 900, height: 700 } }),
         { width: 900, height: 700 },
     );
+});
+
+test("only a view that stores dimensions or a paper size has a stored canvas", () => {
+    const cases = [
+        {
+            view: view({ dimensions: { width: 3000, height: 1200 } }),
+            stored: { width: 3000, height: 1200 },
+        },
+        {
+            view: view({ paperSize: "A4_Landscape" }),
+            stored: PAPER_SIZES.A4_Landscape,
+        },
+        {
+            view: view({ dimensions: { width: 499, height: 800 } }),
+            stored: { width: 2000, height: 800 },
+        },
+        { view: view(), stored: undefined },
+        {
+            view: view(),
+            edited: { dimensions: { width: 900, height: 700 } },
+            stored: { width: 900, height: 700 },
+        },
+        {
+            view: view({ paperSize: "A4_Landscape" }),
+            edited: { paperSize: null },
+            stored: undefined,
+        },
+    ];
+    for (const { view, edited, stored } of cases) {
+        assert.deepEqual(
+            storedCanvasOf(view, edited),
+            stored,
+            `${JSON.stringify(view)} edited as ${JSON.stringify(edited)}`,
+        );
+    }
+});
+
+test("an export frames the stored canvas from the origin", () => {
+    const content = { x: 300, y: 200, width: 1000, height: 600 };
+    assert.deepEqual(exportFrame({ width: 2400, height: 1800 }, content), {
+        x: 0,
+        y: 0,
+        width: 2400,
+        height: 1800,
+    });
+});
+
+test("an export of a view with no stored canvas takes Auto's frame, centered on the content", () => {
+    const content = { x: 300, y: 200, width: 1000.4, height: 600 };
+    const frame = exportFrame(undefined, content);
+    assert.deepEqual(
+        { width: frame.width, height: frame.height },
+        resizedCanvas("auto", content, content),
+        "the content plus 400, as Auto sets it",
+    );
+    assert.equal(frame.x + frame.width / 2, content.x + content.width / 2);
+    assert.equal(frame.y + frame.height / 2, content.y + content.height / 2);
 });
 
 test("the graph carries the canvas it would draw", () => {

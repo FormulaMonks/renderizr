@@ -284,6 +284,28 @@
     }
 }
 
+/*
+ * An export in progress: its button stays disabled and shows the wait. A
+ * failed export says so on a row of its own under the buttons, and takes no
+ * room while it says nothing.
+ */
+.btnGroup button[aria-busy="true"] {
+    cursor: progress;
+    animation: savePulse 1s ease-in-out infinite alternate;
+}
+
+.exportFailure {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 0.8rem;
+    text-align: end;
+    color: var(--color-alert-caution);
+
+    &:empty {
+        display: none;
+    }
+}
+
 /* What the editing route of a view without coordinates says (spec 8). */
 .editNotice {
     margin: 0.25rem 0 0;

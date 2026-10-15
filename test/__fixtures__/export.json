@@ -1,0 +1,199 @@
+{
+    "id": 1,
+    "name": "Export Workspace",
+    "description": "A workspace whose views exercise every part of an export: the Auto frame, dimensions, a paper size, the title block and an animation.",
+    "lastModifiedUser": "ada@example.com",
+    "lastModifiedDate": "2026-10-01T12:00:00Z",
+    "configuration": {},
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Reader",
+                "description": "Reads the diagrams and pastes them into slides",
+                "location": "Unspecified",
+                "tags": "Element,Person",
+                "relationships": [
+                    {
+                        "id": "10",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Exports views from",
+                        "technology": "HTTPS",
+                        "tags": "Relationship"
+                    },
+                    {
+                        "id": "12",
+                        "sourceId": "1",
+                        "destinationId": "3",
+                        "description": "Exports views from",
+                        "technology": "HTTPS",
+                        "tags": "Relationship"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "name": "Export\\nSystem",
+                "description": "Draws each view of the workspace and saves it as a file the reader can paste into slides and other documents, framed by the view's canvas, with the title block below it, in the scheme the reader sees.",
+                "url": "https://example.com/export-system",
+                "location": "Unspecified",
+                "tags": "Element,Software System",
+                "relationships": [
+                    {
+                        "id": "11",
+                        "sourceId": "2",
+                        "destinationId": "5",
+                        "description": "Sends a note about each export using",
+                        "technology": "SMTP",
+                        "tags": "Relationship"
+                    }
+                ],
+                "containers": [
+                    {
+                        "id": "3",
+                        "name": "Diagram Page",
+                        "description": "Draws the view and builds the export from its geometry",
+                        "technology": "TypeScript and React Flow",
+                        "tags": "Element,Container,Page",
+                        "relationships": [
+                            {
+                                "id": "13",
+                                "sourceId": "3",
+                                "destinationId": "4",
+                                "description": "Reads the workspace from",
+                                "technology": "JSON",
+                                "tags": "Relationship"
+                            },
+                            {
+                                "id": "14",
+                                "sourceId": "3",
+                                "destinationId": "5",
+                                "description": "Sends a note using",
+                                "technology": "SMTP",
+                                "tags": "Relationship"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "4",
+                        "name": "Workspace Store",
+                        "description": "Holds the workspace JSON",
+                        "technology": "File",
+                        "tags": "Element,Container,Store"
+                    }
+                ]
+            },
+            {
+                "id": "5",
+                "name": "Mail Server",
+                "description": "Delivers email",
+                "location": "External",
+                "tags": "Element,Software System,External"
+            }
+        ]
+    },
+    "views": {
+        "configuration": {
+            "branding": {},
+            "lastSavedView": "AutoFrame",
+            "metadataSymbols": "SquareBrackets",
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Person",
+                        "background": "#08427b",
+                        "color": "#ffffff",
+                        "shape": "Person"
+                    },
+                    {
+                        "tag": "Software System",
+                        "background": "#1168bd",
+                        "color": "#ffffff",
+                        "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMCAxMCI+PGNpcmNsZSBjeD0iNSIgY3k9IjUiIHI9IjQiIGZpbGw9IiM4ODg4ODgiLz48L3N2Zz4="
+                    },
+                    {
+                        "tag": "External",
+                        "background": "#999999",
+                        "iconPosition": "Bottom"
+                    },
+                    {
+                        "tag": "Container",
+                        "background": "#438dd5",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Page",
+                        "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMCAxMCI+PGNpcmNsZSBjeD0iNSIgY3k9IjUiIHI9IjQiIGZpbGw9IiM4ODg4ODgiLz48L3N2Zz4=",
+                        "iconPosition": "Left"
+                    },
+                    {
+                        "tag": "Store",
+                        "shape": "Cylinder"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    }
+                ]
+            },
+            "terminology": {}
+        },
+        "systemContextViews": [
+            {
+                "key": "AutoFrame",
+                "order": 1,
+                "softwareSystemId": "2",
+                "title": "Export in context",
+                "description": "A view that stores neither dimensions nor a paper size, so its export takes the frame Auto would set: the content plus 400, centered. Its description runs long enough that the title block clamps it after four lines, which leaves the rest of this sentence out of the file and ends the last line it keeps with an ellipsis. More words follow here so that even a wide canvas needs more than four lines to hold them all, and the clamp shows in every export of this view. The reader never sees these last sentences in the file, only in the toolbar's description, which keeps the whole text. They exist to make the description long, in any font the export uses and at any width the canvas has, so that a test and a person checking an export by hand both see where the title block stops.",
+                "elements": [
+                    { "id": "1", "x": 625, "y": 0 },
+                    { "id": "2", "x": 575, "y": 700 },
+                    { "id": "5", "x": 1400, "y": 700 }
+                ],
+                "relationships": [{ "id": "10" }, { "id": "11" }]
+            }
+        ],
+        "containerViews": [
+            {
+                "key": "Containers",
+                "order": 2,
+                "softwareSystemId": "2",
+                "dimensions": { "width": 2400, "height": 1800 },
+                "elements": [
+                    { "id": "1", "x": 625, "y": 0 },
+                    { "id": "3", "x": 575, "y": 700 },
+                    { "id": "4", "x": 575, "y": 1250 },
+                    { "id": "5", "x": 1500, "y": 700 }
+                ],
+                "relationships": [
+                    { "id": "12" },
+                    { "id": "13" },
+                    { "id": "14" }
+                ]
+            }
+        ],
+        "dynamicViews": [
+            {
+                "key": "Request",
+                "order": 3,
+                "elementId": "2",
+                "description": "One export, step by step",
+                "paperSize": "A5_Landscape",
+                "elements": [
+                    { "id": "1", "x": 625, "y": 0 },
+                    { "id": "3", "x": 575, "y": 700 },
+                    { "id": "4", "x": 575, "y": 1250 }
+                ],
+                "relationships": [
+                    { "id": "12", "order": "1" },
+                    { "id": "13", "order": "2" }
+                ]
+            }
+        ]
+    }
+}

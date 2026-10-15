@@ -7,6 +7,7 @@ import CurrentView, {
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
 import { isEditingRoute, readingSearch } from "../components/editing-route";
+import { exportSaver, type SaveExport } from "../components/save-export";
 import TargetMenu from "../components/target-menu";
 import { type Engine, isAbortError, mountEngine } from "../engine";
 import {
@@ -83,6 +84,13 @@ export default class Diagrams extends Page {
     #abort: AbortController | null = null;
     #unsubscribe: (() => void)[] = [];
     #targetMenu: TargetMenu | null = null;
+
+    /**
+     * How the toolbar saves an export, asked for once when the page loads.
+     * Nothing waits on it: a viewer that never answers leaves the diagrams
+     * drawn and the export group hidden.
+     */
+    readonly #saving: Promise<SaveExport | null> = exportSaver();
 
     render() {
         if (!this.container) return;
@@ -222,6 +230,7 @@ export default class Diagrams extends Page {
                 engine,
                 model,
                 __RENDERIZR_EDIT_MODE__ ? editingRoute(engine, model) : null,
+                this.#saving,
             ),
         );
 
