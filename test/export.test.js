@@ -19,7 +19,7 @@ const { exportFrame } = await importSrc("engine/geometry/canvas");
 const { exportSvg, TITLE_BLOCK_DESCRIPTION_LINES } = await importSrc(
     "engine/react-flow/export-svg",
 );
-const { modifiedDate, titleBlockText } = await importSrc(
+const { MAX_PIXELS, modifiedDate, pngSize, titleBlockText } = await importSrc(
     "engine/react-flow/export-file",
 );
 
@@ -277,5 +277,44 @@ describe("export-file", () => {
             "",
             "a workspace without a user gives none",
         );
+    });
+});
+
+describe("the PNG's size", () => {
+    test("a PNG is twice the export's size while that stays under the cap", () => {
+        assert.deepEqual(pngSize(1200, 900), { width: 2400, height: 1800 });
+        assert.deepEqual(pngSize(2048, 2048), { width: 4096, height: 4096 });
+    });
+
+    test("a PNG lowers its scale to hold at most 16,777,216 pixels", () => {
+        assert.equal(MAX_PIXELS, 16_777_216);
+        const sizes = [
+            [2049, 2048],
+            [4000, 3000],
+            [8193, 8191],
+            [30_000, 700],
+            [12_345, 6789],
+            [16_777_217, 1],
+        ];
+        for (const [width, height] of sizes) {
+            const png = pngSize(width, height);
+            const label = `${width}x${height}`;
+            assert.ok(png.width * png.height <= MAX_PIXELS, label);
+            assert.ok(
+                png.width * png.height > MAX_PIXELS * 0.99,
+                `${label} should lose no more than it has to`,
+            );
+            assert.ok(
+                Math.abs(png.width / png.height - width / height) <
+                    (width / height) * 0.01,
+                `${label} should keep its shape`,
+            );
+        }
+    });
+
+    test("a PNG is at least one pixel each way", () => {
+        const png = pngSize(100_000_000, 1);
+        assert.ok(png.width >= 1 && png.height >= 1);
+        assert.ok(png.width * png.height <= MAX_PIXELS);
     });
 });

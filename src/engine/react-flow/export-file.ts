@@ -1,7 +1,8 @@
 /**
  * The page side of an export (ADR 21): how the page sets its text, which
  * the pure serializer in `export-svg.ts` takes as a `TextSetting`, what the
- * title block says, and the file the serializer's SVG becomes.
+ * title block says, and the file the serializer's SVG becomes: the SVG as
+ * it is, or a PNG drawn from it.
  */
 
 import type { ExportFormat } from "../contract";
@@ -91,11 +92,86 @@ export function titleBlockText(
     };
 }
 
-/** The export as a file's contents. Only SVG is built: a PNG rejects. */
+/* ---------------- PNG (ADR 21) */
+
+/** The most pixels a PNG holds: every browser draws a canvas this large. */
+export const MAX_PIXELS = 16_777_216;
+
+/** How many PNG pixels a PNG gives each of the export's pixels, at most. */
+const PNG_SCALE = 2;
+
+/**
+ * The PNG's size for an export `width` by `height`: twice as large, or as
+ * large as `MAX_PIXELS` allows, keeping its shape.
+ */
+export function pngSize(
+    width: number,
+    height: number,
+): { width: number; height: number } {
+    const scale = Math.min(PNG_SCALE, Math.sqrt(MAX_PIXELS / (width * height)));
+    const png = {
+        width: Math.max(1, Math.floor(width * scale)),
+        height: Math.max(1, Math.floor(height * scale)),
+    };
+    // A side held at one pixel can leave the other past the cap.
+    if (png.width * png.height > MAX_PIXELS) {
+        if (png.width >= png.height)
+            png.width = Math.floor(MAX_PIXELS / png.height);
+        else png.height = Math.floor(MAX_PIXELS / png.width);
+    }
+    return png;
+}
+
+/**
+ * The SVG as a `data:` URL. Chrome taints a canvas that draws an SVG from a
+ * `blob:` URL, and a tainted canvas gives no PNG.
+ */
+const svgDataUrl = (svg: string) =>
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+/** The next animation frame. */
+const nextFrame = () =>
+    new Promise((resolve) => requestAnimationFrame(resolve));
+
+/** The SVG, `width` by `height`, drawn onto a canvas and encoded as PNG. */
+async function rasterize(
+    svg: string,
+    width: number,
+    height: number,
+): Promise<Blob> {
+    const image = new Image();
+    image.src = svgDataUrl(svg);
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    const size = pngSize(width, height);
+    canvas.width = size.width;
+    canvas.height = size.height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("The browser gives no canvas to draw on");
+    // Safari draws an SVG's embedded font only from the second drawing on:
+    // draw, wait a frame and draw again.
+    context.drawImage(image, 0, 0, size.width, size.height);
+    await nextFrame();
+    context.clearRect(0, 0, size.width, size.height);
+    context.drawImage(image, 0, 0, size.width, size.height);
+    return new Promise((resolve, reject) =>
+        canvas.toBlob(
+            (blob) =>
+                blob
+                    ? resolve(blob)
+                    : reject(new Error("The canvas gave no PNG")),
+            "image/png",
+        ),
+    );
+}
+
+/** The export, `width` by `height`, as a file's contents. */
 export async function exportBlob(
     svg: string,
     format: ExportFormat,
+    width: number,
+    height: number,
 ): Promise<Blob> {
-    if (format === "png") throw new Error("PNG export is not built yet");
+    if (format === "png") return rasterize(svg, width, height);
     return new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
 }

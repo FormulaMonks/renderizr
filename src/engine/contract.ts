@@ -209,8 +209,9 @@ export type Engine = AnimationControls &
         /**
          * The view as drawn, as an export (glossary): the scheme, step and
          * label toggles the reader sees, framed by its canvas, with the
-         * title block below, as an SVG or PNG file. The page names and
-         * saves it. Rejects when no view is drawn yet, and for an image
+         * title block below, as an SVG or PNG file. A PNG is twice the
+         * export's size, lowered to hold at most 16,777,216 pixels. The page
+         * names and saves it. Rejects when no view is drawn yet, and for an image
          * view or a view that cannot be drawn, which have nothing of the
          * engine's own to export (ADR 21).
          */
