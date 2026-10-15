@@ -82,6 +82,12 @@ function stubEngine(animation = stubAnimation()) {
         fit() {},
         zoomIn() {},
         zoomOut() {},
+        exports: [],
+        exported: () => Promise.resolve(new Blob(["<svg/>"])),
+        exportView(format) {
+            engine.exports.push(format);
+            return engine.exported(format);
+        },
     };
     return engine;
 }
@@ -303,4 +309,177 @@ test("the toolbar's scheme and label buttons set the engine's state", () => {
     );
     toolbar.clear();
     window.localStorage.clear();
+});
+
+/* ---------------------------------------------------------------- export */
+
+/** Let every promise the toolbar is waiting on settle. */
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+/** A promise and the functions that settle it. */
+function deferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((yes, no) => {
+        resolve = yes;
+        reject = no;
+    });
+    return { promise, resolve, reject };
+}
+
+/**
+ * A toolbar over `engine`, rendered for view `key`, saving through a stub
+ * that records each file.
+ */
+function exportToolbar(engine = stubEngine(), key = "SystemContext") {
+    window.localStorage.clear();
+    theme.setMode("light");
+    const element = document.createElement("section");
+    const saved = [];
+    const save = (blob, name) => {
+        saved.push({ blob, name });
+    };
+    const toolbar = new CurrentView(element, engine, model, null, save);
+    toolbar.render(model.findViewByKey(key));
+    const button = (name) => element.querySelector(`.${name}`);
+    const failure = () => element.querySelector(".export-failure");
+    return { toolbar, element, engine, saved, button, failure };
+}
+
+test("the toolbar ends with a group that exports the view as PNG or SVG", () => {
+    const { toolbar, element, button } = exportToolbar();
+    const groups = [...element.querySelectorAll(".export-buttons")];
+    assert.equal(groups.length, 1);
+    const group = groups[0];
+    assert.equal(group.hasAttribute("hidden"), false);
+    assert.equal(group.getAttribute("role"), "group");
+    assert.equal(group.getAttribute("aria-label"), "Export");
+    const container = group.parentNode;
+    assert.equal(
+        [...container.children]
+            .filter((child) => child.tagName === "DIV")
+            .at(-1),
+        group,
+        "the group sits at the far end",
+    );
+    for (const [name, label] of [
+        ["export-png", "Export view as PNG"],
+        ["export-svg", "Export view as SVG"],
+    ]) {
+        assert.equal(button(name).title, label);
+        assert.equal(button(name).getAttribute("aria-label"), label);
+        assert.match(button(name).innerHTML, /<svg/, "an icon");
+    }
+    toolbar.clear();
+});
+
+test("an image view shows no export buttons", () => {
+    const { toolbar, element } = exportToolbar(
+        stubEngine(),
+        "MainframeBankingSystemFacade",
+    );
+    assert.ok(element.querySelector(".export-buttons").hasAttribute("hidden"));
+    toolbar.clear();
+});
+
+test("exporting saves the engine's file under the view's name", async () => {
+    const engine = stubEngine();
+    const blob = new Blob(["png"]);
+    engine.exported = () => Promise.resolve(blob);
+    const { toolbar, button, saved } = exportToolbar(engine);
+
+    button("export-png").click();
+    await settle();
+    assert.deepEqual(engine.exports, ["png"]);
+    assert.deepEqual(saved, [
+        { blob, name: "big-bank-plc-system-context.png" },
+    ]);
+
+    button("dark-mode").click();
+    button("export-svg").click();
+    await settle();
+    assert.deepEqual(engine.exports, ["png", "svg"]);
+    assert.equal(saved[1].name, "big-bank-plc-system-context-dark.svg");
+    toolbar.clear();
+});
+
+test("an export names the animation step shown", async () => {
+    const animation = stubAnimation({ steps: 6, step: 3, playing: false });
+    const { toolbar, button, saved } = exportToolbar(
+        stubEngine(animation),
+        "SignIn",
+    );
+    button("export-png").click();
+    await settle();
+    assert.equal(saved[0].name, "big-bank-plc-sign-in-step-3.png");
+    toolbar.clear();
+});
+
+test("the export buttons stay busy until the file is saved, across a repaint", async () => {
+    const engine = stubEngine();
+    const pending = deferred();
+    engine.exported = () => pending.promise;
+    const { toolbar, button, saved } = exportToolbar(engine);
+
+    button("export-svg").click();
+    assert.equal(button("export-svg").disabled, true);
+    assert.equal(button("export-svg").getAttribute("aria-busy"), "true");
+    assert.equal(button("export-png").disabled, true, "one export at a time");
+    assert.equal(button("export-png").getAttribute("aria-busy"), null);
+
+    toolbar.render(model.findViewByKey("SystemContext"));
+    assert.equal(button("export-svg").disabled, true, "still busy");
+    assert.equal(button("export-svg").getAttribute("aria-busy"), "true");
+
+    button("export-png").click();
+    assert.deepEqual(engine.exports, ["svg"], "a busy toolbar exports nothing");
+
+    pending.resolve(new Blob(["<svg/>"]));
+    await settle();
+    assert.equal(saved.length, 1);
+    assert.equal(button("export-svg").disabled, false);
+    assert.equal(button("export-svg").getAttribute("aria-busy"), null);
+    assert.equal(button("export-png").disabled, false);
+    toolbar.clear();
+});
+
+test("a failed export says so in the toolbar until the next try or view", async () => {
+    const engine = stubEngine();
+    engine.exported = () => Promise.reject(new Error("nothing drawn"));
+    const { toolbar, button, failure, saved } = exportToolbar(engine);
+    assert.equal(failure().getAttribute("role"), "status");
+    assert.equal(failure().textContent, "");
+
+    const logged = [];
+    const error = console.error;
+    console.error = (...args) => logged.push(args);
+    try {
+        button("export-png").click();
+        await settle();
+    } finally {
+        console.error = error;
+    }
+    assert.equal(failure().textContent, "Couldn't export this view");
+    assert.equal(saved.length, 0);
+    assert.equal(logged.length, 1, "the cause goes to the console");
+    assert.equal(button("export-png").disabled, false);
+
+    engine.exported = () => new Promise(() => {});
+    button("export-svg").click();
+    assert.equal(failure().textContent, "", "a new try clears it");
+    toolbar.clear();
+
+    engine.exported = () => Promise.reject(new Error("again"));
+    const second = exportToolbar(engine);
+    console.error = () => {};
+    try {
+        second.button("export-png").click();
+        await settle();
+    } finally {
+        console.error = error;
+    }
+    assert.equal(second.failure().textContent, "Couldn't export this view");
+    second.toolbar.render(model.findViewByKey("Containers"));
+    assert.equal(second.failure().textContent, "", "a view change clears it");
+    second.toolbar.clear();
 });

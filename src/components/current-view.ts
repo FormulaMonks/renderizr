@@ -2,6 +2,7 @@ import { readSetting, writeSetting } from "../storage";
 import {
     type AnimationState,
     type Engine,
+    type ExportFormat,
     type Labels,
     NOT_ANIMATING,
 } from "../engine/contract";
@@ -19,8 +20,11 @@ import playIcon from "bootstrap-icons/icons/play-fill.svg?raw";
 import pauseIcon from "bootstrap-icons/icons/pause-fill.svg?raw";
 import prevStepIcon from "bootstrap-icons/icons/skip-start-fill.svg?raw";
 import nextStepIcon from "bootstrap-icons/icons/skip-end-fill.svg?raw";
+import exportPngIcon from "bootstrap-icons/icons/filetype-png.svg?raw";
+import exportSvgIcon from "bootstrap-icons/icons/filetype-svg.svg?raw";
 import Component from "./_component";
 import { type EditingRoute, editButtons } from "./edit-buttons";
+import { exportFileName, type SaveExport, saveWithLink } from "./save-export";
 
 /** The part of the engine the toolbar drives. */
 export type ToolbarEngine = Pick<
@@ -35,7 +39,11 @@ export type ToolbarEngine = Pick<
     | "stepForward"
     | "stepBack"
     | "onAnimationChanged"
+    | "exportView"
 >;
+
+/** What the toolbar says when an export fails. */
+const EXPORT_FAILED = "Couldn't export this view";
 
 /* -------------------------------------------------------------------------
  * Diagram color scheme
@@ -156,6 +164,21 @@ export default class CurrentView extends Component {
 
     #unsubscribeTheme: (() => void) | null = null;
 
+    /** How the toolbar saves an export. */
+    #save: SaveExport;
+
+    /** The key of the view the toolbar shows. */
+    #viewKey: string | null = null;
+
+    /**
+     * The format being exported, until the browser starts saving it. Lives
+     * on the component, so a toolbar rebuilt meanwhile still shows it busy.
+     */
+    #exporting: ExportFormat | null = null;
+
+    /** The view whose last export failed, until the next try or view. */
+    #exportFailed: string | null = null;
+
     #actions = new Map<string, () => void>([
         ["zoom-in", () => this.#engine.zoomIn()],
         ["zoom-out", () => this.#engine.zoomOut()],
@@ -186,6 +209,8 @@ export default class CurrentView extends Component {
         ],
         ["prev-step", () => this.#engine.stepBack()],
         ["next-step", () => this.#engine.stepForward()],
+        ["export-png", () => void this.#export("png")],
+        ["export-svg", () => void this.#export("svg")],
     ]);
 
     constructor(
@@ -193,11 +218,13 @@ export default class CurrentView extends Component {
         engine: ToolbarEngine,
         model: WorkspaceModel,
         editingRoute: EditingRoute | null = null,
+        save: SaveExport = saveWithLink,
     ) {
         super(element);
         this.#engine = engine;
         this.#model = model;
         this.#editingRoute = editingRoute;
+        this.#save = save;
 
         // Seed the engine from the persisted preferences. Both setters are
         // idempotent, so this costs nothing when the engine was mounted with
@@ -339,6 +366,57 @@ export default class CurrentView extends Component {
         );
     }
 
+    /**
+     * Exports the view as drawn and saves it (ADR 21). The engine builds the
+     * file; the toolbar names it from what the reader sees, shows the button
+     * busy until the browser starts saving and says so when it fails.
+     */
+    async #export(format: ExportFormat) {
+        const view = this.#viewKey;
+        if (this.#exporting || !view) return;
+        const name = exportFileName({
+            workspace: this.#model.name,
+            view,
+            step: this.#animationState.step,
+            scheme: this.#scheme,
+            format,
+        });
+        this.#exporting = format;
+        this.#exportFailed = null;
+        this.#paintExportButtons();
+        try {
+            await this.#save(await this.#engine.exportView(format), name);
+        } catch (error) {
+            this.#exportFailed = view;
+            // A deliberate exception to CODING_STANDARDS.md, like the
+            // island's `warnAuthor`: the toolbar's line says only that the
+            // export failed, and the console is where the cause can go.
+            console.error(error);
+        } finally {
+            this.#exporting = null;
+            this.#paintExportButtons();
+        }
+    }
+
+    /**
+     * Paints the export buttons: every one disabled while an export runs,
+     * the one exporting marked busy, and the failure line under them.
+     */
+    #paintExportButtons() {
+        for (const format of ["png", "svg"] as const) {
+            const button = this.#button(`export-${format}`);
+            if (!button) continue;
+            button.disabled = this.#exporting !== null;
+            if (this.#exporting === format)
+                button.setAttribute("aria-busy", "true");
+            else button.removeAttribute("aria-busy");
+        }
+        const line = this.element?.querySelector(".export-failure");
+        if (line)
+            line.textContent =
+                this.#exportFailed === this.#viewKey ? EXPORT_FAILED : "";
+    }
+
     #addControlButtons(container: HTMLElement, view: ModelView) {
         container.innerHTML = `
             <div class="actions ${styles.btnGroup}">
@@ -354,6 +432,10 @@ export default class CurrentView extends Component {
                 <button class="play-animation"></button>
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
             </div>
+            <div class="export-buttons ${styles.btnGroup}" role="group" aria-label="Export"${view.type === "Image" ? " hidden" : ""}>
+                <button class="export-png" title="Export view as PNG" aria-label="Export view as PNG">${exportPngIcon}</button>
+                <button class="export-svg" title="Export view as SVG" aria-label="Export view as SVG">${exportSvgIcon}</button>
+            </div>
         `;
 
         // Builds compile edit mode out, so no pencil reaches them (ADR 15).
@@ -362,8 +444,15 @@ export default class CurrentView extends Component {
             if (group) container.appendChild(group);
         }
 
+        // Under every group, the edit groups too, on a row of its own.
+        const failure = document.createElement("p");
+        failure.className = `export-failure ${styles.exportFailure}`;
+        failure.setAttribute("role", "status");
+        container.appendChild(failure);
+
         this.#paintControlButtons();
         this.#paintAnimationButtons();
+        this.#paintExportButtons();
 
         for (const [id, action] of this.#actions) {
             const button = container.querySelector(`.${id}`);
@@ -401,6 +490,9 @@ export default class CurrentView extends Component {
         const view = this.#model.findViewByKey(currentView.key);
         if (!view) return;
         this.clear();
+        // A failure belongs to the view it happened on.
+        if (this.#viewKey !== view.key) this.#exportFailed = null;
+        this.#viewKey = view.key;
         this.#subscribe();
         const [description, author] = view.description.split("Author: ");
         // Structurizr's own naming: an explicit title when the view has one,
