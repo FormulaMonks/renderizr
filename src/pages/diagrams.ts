@@ -7,6 +7,7 @@ import CurrentView, {
 } from "../components/current-view";
 import DiagramNavigation from "../components/diagram-navigation";
 import { isEditingRoute, readingSearch } from "../components/editing-route";
+import { exportSaver, type SaveExport } from "../components/save-export";
 import TargetMenu from "../components/target-menu";
 import { type Engine, isAbortError, mountEngine } from "../engine";
 import {
@@ -84,6 +85,15 @@ export default class Diagrams extends Page {
     #unsubscribe: (() => void)[] = [];
     #targetMenu: TargetMenu | null = null;
 
+    /**
+     * How the toolbar saves an export, asked for once when the page loads so
+     * the toolbar knows before the reader exports anything.
+     */
+    readonly #saving: Promise<SaveExport | null> = exportSaver();
+
+    /** How the toolbar saves an export, once `#saving` settles. */
+    #save: SaveExport | null = null;
+
     render() {
         if (!this.container) return;
         this.clear();
@@ -136,26 +146,33 @@ export default class Diagrams extends Page {
         const abort = new AbortController();
         this.#abort = abort;
 
-        mountEngine(
-            target,
-            {
-                workspace,
-                view: first,
-                colorScheme: getDiagramTheme(),
-                labels: readLabelState(),
-                // The edit session's layouts, so a page render keeps them.
-                ...(__RENDERIZR_EDIT_MODE__
-                    ? { editing: editing(), layouts: editSession().layouts() }
-                    : {}),
-            },
-            abort.signal,
-        ).then(
-            (engine) => {
+        Promise.all([
+            mountEngine(
+                target,
+                {
+                    workspace,
+                    view: first,
+                    colorScheme: getDiagramTheme(),
+                    labels: readLabelState(),
+                    // The edit session's layouts, so a page render keeps them.
+                    ...(__RENDERIZR_EDIT_MODE__
+                        ? {
+                              editing: editing(),
+                              layouts: editSession().layouts(),
+                          }
+                        : {}),
+                },
+                abort.signal,
+            ),
+            this.#saving,
+        ]).then(
+            ([engine, save]) => {
                 if (abort.signal.aborted) {
                     engine.unmount();
                     return;
                 }
                 this.#engine = engine;
+                this.#save = save;
                 this.#start(engine, model, reachable);
             },
             (error) => {
@@ -222,6 +239,7 @@ export default class Diagrams extends Page {
                 engine,
                 model,
                 __RENDERIZR_EDIT_MODE__ ? editingRoute(engine, model) : null,
+                this.#save,
             ),
         );
 

@@ -164,8 +164,11 @@ export default class CurrentView extends Component {
 
     #unsubscribeTheme: (() => void) | null = null;
 
-    /** How the toolbar saves an export. */
-    #save: SaveExport;
+    /**
+     * How the toolbar saves an export, or null where nothing can save one
+     * (an artifact published without `downloads`), which hides the group.
+     */
+    readonly #save: SaveExport | null;
 
     /** The key of the view the toolbar shows. */
     #viewKey: string | null = null;
@@ -218,7 +221,7 @@ export default class CurrentView extends Component {
         engine: ToolbarEngine,
         model: WorkspaceModel,
         editingRoute: EditingRoute | null = null,
-        save: SaveExport = saveWithLink,
+        save: SaveExport | null = saveWithLink,
     ) {
         super(element);
         this.#engine = engine;
@@ -373,7 +376,8 @@ export default class CurrentView extends Component {
      */
     async #export(format: ExportFormat) {
         const view = this.#viewKey;
-        if (this.#exporting || !view) return;
+        const save = this.#save;
+        if (this.#exporting || !view || !save) return;
         const name = exportFileName({
             workspace: this.#model.name,
             view,
@@ -385,7 +389,7 @@ export default class CurrentView extends Component {
         this.#exportFailed = null;
         this.#paintExportButtons();
         try {
-            await this.#save(await this.#engine.exportView(format), name);
+            await save(await this.#engine.exportView(format), name);
         } catch (error) {
             this.#exportFailed = view;
             // A deliberate exception to CODING_STANDARDS.md, like the
@@ -432,7 +436,7 @@ export default class CurrentView extends Component {
                 <button class="play-animation"></button>
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
             </div>
-            <div class="export-buttons ${styles.btnGroup}" role="group" aria-label="Export"${view.type === "Image" ? " hidden" : ""}>
+            <div class="export-buttons ${styles.btnGroup}" role="group" aria-label="Export"${view.type === "Image" || !this.#save ? " hidden" : ""}>
                 <button class="export-png" title="Export view as PNG" aria-label="Export view as PNG">${exportPngIcon}</button>
                 <button class="export-svg" title="Export view as SVG" aria-label="Export view as SVG">${exportSvgIcon}</button>
             </div>

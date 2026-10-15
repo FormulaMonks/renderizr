@@ -1,7 +1,7 @@
 /**
  * The page's side of an export (ADR 21): the engine builds the file, and the
- * page names it and saves it. `exportFileName` is pure; `saveWithLink` saves
- * through the browser's own download.
+ * page names it and saves it. `exportFileName` is pure; `exportSaver` picks
+ * how to save: the browser's own download, or the Claude artifact viewer's.
  */
 
 import type { ExportFormat } from "../engine/contract";
@@ -21,7 +21,8 @@ export type ExportedView = {
 
 /**
  * Saves an export's `blob` as a file called `name`. Settles once the browser
- * starts saving it, which ends the export button's busy state.
+ * starts saving it or the reader declines the save, which ends the export
+ * button's busy state, and rejects when the save fails.
  */
 export type SaveExport = (blob: Blob, name: string) => void | Promise<void>;
 
@@ -55,6 +56,56 @@ export function exportFileName(exported: ExportedView): string {
     if (step !== null && step !== undefined) parts.push(`step-${step}`);
     if (scheme === "dark") parts.push("dark");
     return `${parts.join("-")}.${format}`;
+}
+
+/**
+ * The Claude artifact viewer's `downloads` capability: it confirms each save
+ * with the reader and resolves once they accept, or rejects with a `code`
+ * (`declined`, `rate_limited`, `unavailable` and others).
+ */
+type Downloads = {
+    save(file: { filename: string; data: Blob }): Promise<unknown>;
+};
+
+/** What the artifact viewer puts on `window.claude`, as far as export goes. */
+type ArtifactViewer = {
+    use(capability: "downloads"): Promise<Downloads | null>;
+};
+
+/** The rejection code of a save the reader turned down. */
+const DECLINED = "declined";
+
+/**
+ * How the page saves an export, settled once at page load: through a link
+ * outside a Claude artifact, through the viewer's `downloads` inside one,
+ * and null inside an artifact published without `downloads`, where nothing
+ * saves a file and the toolbar hides its export group.
+ */
+export async function exportSaver(): Promise<SaveExport | null> {
+    // Only the artifact viewer defines `window.claude`.
+    const viewer = (window as Window & { claude?: ArtifactViewer }).claude;
+    if (!viewer) return saveWithLink;
+    // A viewer that fails to answer grants nothing, and the page still loads.
+    const downloads = await viewer.use("downloads").catch(() => null);
+    if (!downloads) return null;
+    return (blob, name) => saveWithDownloads(downloads, blob, name);
+}
+
+/**
+ * Saves `blob` as `name` through the viewer's `downloads`. A save the reader
+ * declines settles quietly; every other refusal is a failure.
+ */
+async function saveWithDownloads(
+    downloads: Downloads,
+    blob: Blob,
+    name: string,
+): Promise<void> {
+    try {
+        await downloads.save({ filename: name, data: blob });
+    } catch (error) {
+        if ((error as { code?: unknown } | null)?.code !== DECLINED)
+            throw error;
+    }
 }
 
 /** Saves `blob` as `name` through an `<a download>` on a `blob:` URL. */

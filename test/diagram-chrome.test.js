@@ -16,6 +16,7 @@ const { default: CurrentView, DIAGRAM_THEME_STORAGE_KEY } = await importSrc(
     "components/current-view",
 );
 const theme = await importSrc("components/theme");
+const { exportSaver } = await importSrc("components/save-export");
 
 const { document, window } = dom;
 
@@ -482,4 +483,103 @@ test("a failed export says so in the toolbar until the next try or view", async 
     second.toolbar.render(model.findViewByKey("Containers"));
     assert.equal(second.failure().textContent, "", "a view change clears it");
     second.toolbar.clear();
+});
+
+/* ------------------------------------------------- export in an artifact */
+
+/**
+ * A toolbar saving the way the page does inside a Claude artifact whose
+ * viewer grants `downloads` as `granted`, over a stubbed `window.claude`.
+ */
+async function artifactToolbar(granted, key = "SystemContext") {
+    window.claude = { use: () => Promise.resolve(granted) };
+    try {
+        const save = await exportSaver();
+        window.localStorage.clear();
+        theme.setMode("light");
+        const element = document.createElement("section");
+        const toolbar = new CurrentView(
+            element,
+            stubEngine(),
+            model,
+            null,
+            save,
+        );
+        toolbar.render(model.findViewByKey(key));
+        const button = (name) => element.querySelector(`.${name}`);
+        const failure = () => element.querySelector(".export-failure");
+        return { toolbar, element, button, failure };
+    } finally {
+        window.claude = undefined;
+    }
+}
+
+test("an artifact without downloads shows no export buttons, on any view", async () => {
+    const { toolbar, element, button } = await artifactToolbar(null);
+    const group = () => element.querySelector(".export-buttons");
+    assert.ok(group().hasAttribute("hidden"));
+    button("export-png").click();
+    await settle();
+    toolbar.render(model.findViewByKey("Containers"));
+    assert.ok(group().hasAttribute("hidden"), "a new view keeps it hidden");
+    toolbar.clear();
+});
+
+test("an artifact with downloads saves the export through it", async () => {
+    const files = [];
+    const downloads = {
+        save(file) {
+            files.push(file);
+            return Promise.resolve();
+        },
+    };
+    const { toolbar, element, button, failure } =
+        await artifactToolbar(downloads);
+    assert.equal(
+        element.querySelector(".export-buttons").hasAttribute("hidden"),
+        false,
+    );
+    button("export-svg").click();
+    await settle();
+    assert.deepEqual(
+        files.map((file) => file.filename),
+        ["big-bank-plc-system-context.svg"],
+    );
+    assert.ok(files[0].data instanceof Blob);
+    assert.equal(failure().textContent, "");
+    toolbar.clear();
+});
+
+test("a declined save ends the export quietly", async () => {
+    const pending = deferred();
+    const downloads = { save: () => pending.promise };
+    const { toolbar, button, failure } = await artifactToolbar(downloads);
+    button("export-png").click();
+    await settle();
+    assert.equal(button("export-png").getAttribute("aria-busy"), "true");
+
+    pending.reject({ code: "declined" });
+    await settle();
+    assert.equal(button("export-png").getAttribute("aria-busy"), null);
+    assert.equal(button("export-png").disabled, false);
+    assert.equal(failure().textContent, "", "no failure line");
+    toolbar.clear();
+});
+
+test("a save the viewer refuses for another reason says the export failed", async () => {
+    const downloads = {
+        save: () => Promise.reject({ code: "unavailable" }),
+    };
+    const { toolbar, button, failure } = await artifactToolbar(downloads);
+    const error = console.error;
+    console.error = () => {};
+    try {
+        button("export-png").click();
+        await settle();
+    } finally {
+        console.error = error;
+    }
+    assert.equal(failure().textContent, "Couldn't export this view");
+    assert.equal(button("export-png").getAttribute("aria-busy"), null);
+    toolbar.clear();
 });
