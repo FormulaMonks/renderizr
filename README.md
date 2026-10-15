@@ -38,6 +38,7 @@ It renders a workspace. It does not define one — the model, the views and the 
 - **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions (`02-containers.md#api`, `../decisions/0005-foo.md`) open the matching page; Renderizr shows a link to a file the workspace doesn't include as plain text. Markdown gets GitHub-style alerts, permalinks and highlighting, and images show from the copies Structurizr embeds in the workspace; AsciiDoc is converted, not dumped as `:toc:` noise.
 - **The decision log**: status pills, supersessions and amendments, grouped by year, headed by how many are recorded and how many still stand.
 - **Light and dark**, following the reader's system setting until they override it. Page and diagrams keep separate preferences.
+- **Export** of any drawn view as an SVG or PNG file, framed by its canvas, with a title block below.
 - **Deep links that survive**: routing lives in the URL hash, so a link to a view, document or decision still works after a reload, over `file://`, and inside a sandboxed frame.
 
 Renderizr reads documentation and decisions from the workspace level (`documentation.sections` and `documentation.decisions`). It does not render sections attached to an individual software system or container as pages.
@@ -62,6 +63,25 @@ The Big Bank example comes out at about 920KB, or 300KB gzipped, with the engine
 This mode exists because a directory of files is not always something you can hand over. A single file goes in a chat message, an email, a wiki attachment or an S3 bucket with no build step. It opens off a USB stick on a machine with no network, and it survives being copied somewhere nobody remembers to point a static server at.
 
 The build fetches themes, element icons and a logo referenced by URL, and folds them all in. The rendered page never reaches for the network, which is also what makes it work under a strict content security policy.
+
+## Export
+
+Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them; an image view shows none.
+
+An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors, with one line for each of these the workspace has:
+
+1. The workspace's name, then the view's title in bold.
+2. The view's description, wrapped to the canvas width and cut to four lines.
+3. The user who last modified the workspace.
+4. The date the workspace was last modified, in the reader's locale.
+
+The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
+
+The file takes the workspace's name and the view's key in kebab-case, then the step and the scheme when they apply: `big-bank-plc-system-context.png` for the full view in light, `big-bank-plc-sign-in-step-2-dark.svg` for step 2 of a dynamic view in dark. While an export runs, its button shows busy; when one fails, the toolbar says "Couldn't export this view" and the browser console gives the cause.
+
+In edit mode, an export shows the layout as you left it, saved or not, without the selection, guides or canvas fill.
+
+An element icon given as an `http(s)` URL stays blank in an export. A build embeds every icon in the page, so this only happens on the dev server, which leaves such icons as URLs.
 
 ## Options
 
