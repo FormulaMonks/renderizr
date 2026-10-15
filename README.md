@@ -81,6 +81,8 @@ The file takes the workspace's name and the view's key in kebab-case, then the s
 
 In edit mode, an export shows the layout as you left it, saved or not, without the selection, guides or canvas fill.
 
+Inside a Claude artifact, the page saves an export through the artifact viewer's `downloads` capability, which asks the reader to confirm each file. A save the reader declines ends quietly. An artifact published without `downloads` can't save a file, so its toolbar shows no export buttons: declare `downloads` when you publish `artifact.html`.
+
 An element icon given as an `http(s)` URL stays blank in an export. A build embeds every icon in the page, so this only happens on the dev server, which leaves such icons as URLs.
 
 ## Options

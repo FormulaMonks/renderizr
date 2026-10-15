@@ -22,6 +22,8 @@ npx github:FormulaMonks/renderizr ./architecture/workspace.json --single-file --
 
 **Upload `artifact.html`.** The host wraps a Claude artifact in a document skeleton at publish time, so handing over `index.html` nests a document inside a document. It usually still renders, which is what makes the mistake easy to miss and worth getting right the first time.
 
+**Declare the `downloads` capability when you publish `artifact.html`**, for example `capabilities: {downloads: true}`. The artifact viewer saves a file only through `downloads`, so the page saves each export through it and hides its export buttons when the artifact did not declare it.
+
 Use `index.html` when the user wants a file to email, drop in a bucket, or open by double-clicking.
 
 ## What is inside
@@ -49,6 +51,7 @@ With the default flags, the page weighs about a twentieth of the 16 MB a Claude 
 - Diagrams drawn by Renderizr's own engine from the workspace's layout and styles: pan, zoom, dynamic-view animation, and the description and technology labels toggling.
 - Workspace documentation as pages, with a table of contents and heading anchors.
 - The decision log, with status pills, supersessions and decisions grouped by year.
+- Export of the view on screen as PNG or SVG, which the artifact viewer asks the reader to confirm before it saves the file. This needs the `downloads` capability.
 - Light and dark, following the reader's system setting.
 - Hash-based routing, so a link to a particular view, document or decision survives a reload and works over `file://`.
 
