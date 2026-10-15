@@ -41,7 +41,7 @@
         ],
         "imageViews": [
             {
-                "content": "https://mermaid.ink/svg/pako:eJyNk9Fu4jAQRX_lys_QD8gbIukKlRYUoKtKefHa08QSsVN7oqpK-PdVCNEC3q7WL1HG13PPzNgdhHKaRCLIp0aWXtaFBYDlYbffPGc5-n4-dx02eZrlSNAcpaJwpzn1Dw99hzRbr16z_G2-SNM82-2QoA2TeEwwZOs7rFcv2Xy1z56RQDnL0tiLbJtv0sNyP9leCwvhvCZPGsYW4oKw2Gc_NvkbenfWT8cTlN61zT1oN_4PK7A3toTR2D5FUStrioJUS3PE4QmFWLvSWEir4UmRaThMQMPSkgnKk2TSCx7jp-suXGEYyziX9dLWv8j_DUa1gV1NfqXxOJj_rNw4Bg3Dke-4M9lepQksuQ0ohPbynWdopNEzhMo0DembNKRMLY9gx_J4Q_9nGv-sYIbHuIrGO90qXjpNkWRI8dFKy4a_Yo7GG0UoxPb8_azI4nIRJurT7d2Jp6xG1_-bs5JMpfNf535_gxMd0hSUNw0bZ1GIXeU-LZwFVzRVjkaWdEccvZgYPbAniqepblo19dgFHkq98ZieSGHFDKImX0ujRdIJrqgeXr6md9keWZxOvwHYdDfr",
+                "content": "https://mermaid.ink/svg/pako:eJyNlMFu4jAQhl9l5DP0AXJDJF2h0oIC7KrCPXjtaTJSYqf2pBVKePdVCFkBodr1JZL9e-b7Z8ZpQGhnUEQCfUwq86qUFgBgvttsV89JCm07nboGVmmcpBBBVSiN4UZzbB8e2gbiZLn4maSv01kcp8lmAxHUYRD3AbpobQPLxUsyXWyTZ4hAO8uK7Fm2Tlfxbr4d0l4KpXDeoEcDZKU4I8y2yY9V-gqtO-mH6xFk3tXVDeheinkd2JXopXiDpj_tVmBPNgMysH4a7VpV4mgTS0UF7J5AiqXLyIKyBjxqpIrDgNctoxhBe1SMZsb9_vGiJnspVp2vGyKyDCe_L3X5G_09Ln32sjDw2HH8yl3fHwPEI4T-ZCC4CBNYcR1ACuPVO0-gUmQmEHKqKjRXYVBTqQpgx6q4MvK3TXsplmQRiLH8p6EJPI5NVd6ZWvPcGRxJuhAftbJMfBhjVZ40ghTr0_crRwvngRlMHK9mbN9JT8nuD4PuEf5vHLRizJw_nHrxDdvoksGgPVVMzoIUm9x9WXAWOMehDFCpDG_wb5_ZXooYC_pEfwBljMcQ7hsK7BHH_ddX1Rza4AJ3BbjKPLy27h2d_UrxJq2YgCjRl4qMiBrBOZbdL8Xgu6oLFsfjH3bXVzE",
                 "contentType": "image/svg+xml",
                 "description": "Six entities: composite keys, an entity without keys, one without attributes, every cardinality.",
                 "key": "shop",
@@ -52,7 +52,7 @@
                 }
             },
             {
-                "content": "https://mermaid.ink/svg/pako:eJyNlNFuozAQRX_lys9JP4C3KtBV1LSJSLKrSrx47SlYCjZrD6oqyL-vgKBN4u1qeUEM13PPzNjuIJTTJBJBPjWy9LIuLABo40mxcRabfIqsjvvD9iXL0ffLpeuwzdMsR4LmJBWFO825f3joO6TZZv09y9-Wj2maZ_s9ErRhFk8Jhmx9h836NVuuD9kLEihnWRp7ke3ybXpcHWbba2EhnNfkScPYQlwQHg_Zt23-ht6N-nl5gtK7trkH7abv4QnsjS1hNHbPUdTKmqIg1dKccHxGITauNBbSanhSZBoOM9DYTckE5Uky6Uee4ufrLlxhGMsYy3pt65_k_waj2sCuJr_WeBrMf1RuGoOG4ch3-jPbXqUJLLkNKIT28p0XaKTRC4TKNA3pmzSkTC1PYMfydEP_Zxr_rGCBp7iKxjvdKl45TZFkSPGrlZYNf8YcjTeKUIjd-P6oyOKyEWbq8-3eiaesJtf_m7OSTKXzn2O_v8CJFmkKyptmPEOF2Ffuw8JZcEVz5WhkSXfE0YmJ0QN7onia6qZVc49d4KHUG4_5iBRWLCBq8rU0WiSd4Irq4S7Q9C7bE4vz-TeIBj20",
+                "content": "https://mermaid.ink/svg/pako:eJyNlN1uozAQhV9l5OukD8BdFOgqatpEJNlVFffCa09hJLBZe9gqgrz7CgirJqTa5QZpfBh_Z35oQGhnUEQCfUwq86qUFgDAkEfN5Cys0yGyPOz2m-ckhbadz10DmzROUoigKpTGcKM5tw8PbQNxsl59T9LX-SKO02S3gwjqMIqHBF22toH16iWZr_bJM0SgnWVF9iLbppv4sNyP134WSuG8QY8GyEpxQVjsk2-b9BVa1-vHzyPIvKurG9CjFMs6sCvRS_EGzXDaPYE92QzIwPZpErWqxEkQS0UFHJ5AirXLyIKyBjxqpIrDiNfXVjGC9qgYzYKH-PlTTY5SbDpfN0RkGXq_L3X5E_09Ln3xsjLw2HH8yN3QHwPEE4ThZCT4lCaw4jqAFMard55BpcjMIORUVWiu0qCmUhXAjlVxZeRvm45SrMkiEGP5T0MzeJyaqrwztealMziRdCl-1coy8WmKVXnSCFJs-_dHjhYuAzOaOF_N2LGT9pfdHwY9IPzfOGjFmDl_6nvxBdvkI4NBe6r6xZNil7sPC84C5ziWASqV4Q3-7ZodpYixoN_oT6CM8RjCfUOBPeK0__qqmmMbXOCuAFc3j9vW7dHFrxRv0ooZiBJ9qciIqBGcY9n9ZAy-q7pgcT7_ASloXPo",
                 "contentType": "image/svg+xml",
                 "key": "shop-lr",
                 "order": 3,

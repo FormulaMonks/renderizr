@@ -76,6 +76,7 @@ import {
 } from "../geometry/label";
 import {
     type Attribute,
+    collapsedContent,
     type EntityLayout,
     endMarkerPaths,
     layOutEntity,
@@ -692,6 +693,28 @@ function drawView(
         string,
         { box: ElementBox; geometry: ShapeGeometry }
     >();
+    // PROTOTYPE (issue 192): every collapsed entity takes the size the
+    // largest one needs.
+    const sized = view.elements.flatMap((placed) => {
+        const attributes =
+            placed.element.properties?.["renderizr.mermaid.attributes"];
+        if (attributes === undefined) return [];
+        const style = findElementStyle(model, placed.element, colorScheme);
+        return [
+            collapsedContent(
+                placed.element.name,
+                JSON.parse(attributes) as Attribute[],
+                style.fontSize,
+                measure,
+            ),
+        ];
+    });
+    const collapsedSize = sized.length
+        ? {
+              width: Math.max(...sized.map((size) => size.width)),
+              height: Math.max(...sized.map((size) => size.height)),
+          }
+        : undefined;
     for (const placed of view.elements) {
         if (boundaries.has(placed.id)) continue;
         const style = findElementStyle(model, placed.element, colorScheme);
@@ -712,6 +735,7 @@ function drawView(
                       labels.descriptions,
                       style.fontSize,
                       measure,
+                      collapsedSize,
                   );
         const { width, height } =
             laidOut ?? shapeSize(shape, style.width, style.height);

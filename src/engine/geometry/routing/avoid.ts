@@ -44,6 +44,7 @@ export function obstaclesFor(
     elements: Rect[],
     endPoints: Point[],
     padding: number,
+    partial = false,
 ): Rect[] {
     const obstacles: Rect[] = [];
     for (const element of elements) {
@@ -51,10 +52,23 @@ export function obstaclesFor(
         if (!endPoints.some((point) => isInside(point, padded))) {
             obstacles.push(padded);
         } else if (!endPoints.some((point) => isInside(point, element))) {
-            obstacles.push(element);
+            // PROTOTYPE (issue 192): with `partial`, an element that close
+            // keeps as much padding as leaves every end point outside it.
+            const room = partial
+                ? Math.min(...endPoints.map((point) => gapTo(element, point))) -
+                  1
+                : 0;
+            obstacles.push(grow(element, Math.max(0, room)));
         }
     }
     return obstacles;
+}
+
+/** How far `point` sits outside `box`, along the farther axis. */
+function gapTo(box: Rect, point: Point): number {
+    const dx = Math.max(box.x - point.x, 0, point.x - (box.x + box.width));
+    const dy = Math.max(box.y - point.y, 0, point.y - (box.y + box.height));
+    return Math.max(dx, dy);
 }
 
 const isClear = (a: Point, b: Point, blockers: Rect[]) =>
@@ -127,10 +141,11 @@ function narrowingRoute(
         around: Rect[],
         padding: number,
     ) => Point[] | null,
+    partial = false,
 ): Point[] | null {
     for (const share of PADDING_SHARES) {
         const narrowed = padding * share;
-        const obstacles = obstaclesFor(elements, [from, to], narrowed);
+        const obstacles = obstaclesFor(elements, [from, to], narrowed, partial);
         const around = sourceAndTarget.map((box) => grow(box, narrowed));
         const route = withinReach(from, to, obstacles, narrowed, (active) =>
             router(
@@ -262,6 +277,7 @@ export function orthogonalRoute(
     elements: Rect[],
     sourceAndTarget: Rect[],
     padding: number,
+    partial = false,
 ): Point[] {
     return (
         narrowingRoute(
@@ -280,6 +296,7 @@ export function orthogonalRoute(
                     around,
                     narrowed,
                 ),
+            partial,
         ) ?? orthogonalThrough([from, to], fromSide, toSide)
     );
 }

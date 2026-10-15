@@ -5,35 +5,35 @@ erDiagram
     ORDER ||--|{ LINE-ITEM : contains
     PRODUCT ||--o{ LINE-ITEM : "ordered in"
     CATEGORY |o--o{ PRODUCT : groups
-    CUSTOMER {
+    CUSTOMER["Customer"] {
         string id PK
         string name
         string email UK "Login and receipts"
         date createdAt
     }
-    ORDER {
+    ORDER["Order"] {
         int orderNumber PK
         string customerId FK "Who placed it"
         date placedAt
         string status "draft, paid, shipped"
         decimal total
     }
-    LINE-ITEM {
+    LINE-ITEM["Line item"] {
         int orderNumber PK, FK
         string productCode PK, FK
         int quantity
         decimal price "Price when ordered"
     }
-    PRODUCT {
+    PRODUCT["Product"] {
         string code PK
         string name
         string categoryId FK
         decimal price
         string description "Shown on the product page"
     }
-    DELIVERY-ADDRESS {
+    DELIVERY-ADDRESS["Delivery address"] {
         string street
         string city
         string postcode
     }
-    CATEGORY
+    CATEGORY["Category"]

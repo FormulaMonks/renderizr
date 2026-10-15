@@ -392,6 +392,91 @@ function EntityBody({ data }: { data: ElementBox }) {
         ["comment", columns.comment],
     ] as const;
     const action = entity.collapsed ? "Expand" : "Collapse";
+    const chevron = entity.toggles && (
+        <button
+            type="button"
+            className="nodrag nopan"
+            data-entity-toggle=""
+            aria-expanded={!entity.collapsed}
+            aria-label={`${action} ${data.name}`}
+            title={`${action} ${data.name}`}
+            onClick={(event) => {
+                event.stopPropagation();
+                toggle?.(data.id, event);
+            }}
+            style={{
+                position: "absolute",
+                left: "50%",
+                bottom: 5,
+                transform: "translateX(-50%)",
+                width: 24,
+                height: 24,
+                padding: 0,
+                display: "grid",
+                placeItems: "center",
+                border: "1.5px solid currentColor",
+                borderRadius: "50%",
+                background: "transparent",
+                color: "inherit",
+                cursor: "pointer",
+                pointerEvents: "all",
+            }}
+        >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                    d={entity.collapsed ? "M3 8h10M8 3v10" : "M3 8h10"}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            </svg>
+        </button>
+    );
+    if (entity.collapsed)
+        return (
+            <div
+                data-entity=""
+                data-collapsed=""
+                style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: data.color,
+                    lineHeight: 1.2,
+                    textAlign: "center",
+                }}
+            >
+                <div style={{ fontSize: entity.nameSize, fontWeight: "bold" }}>
+                    {data.name}
+                </div>
+                {entity.rows.length > 0 && (
+                    <div
+                        style={{
+                            marginTop: 10,
+                            fontSize: entity.rowSize,
+                            lineHeight: 1.4,
+                        }}
+                    >
+                        {entity.rows.map((row) => (
+                            <div key={row.name} data-attribute={row.name}>
+                                {row.name}{" "}
+                                <span
+                                    style={{ fontSize: "0.8em", opacity: 0.85 }}
+                                >
+                                    [{row.keys.join(", ")}]
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {chevron}
+            </div>
+        );
     return (
         <div
             data-entity=""
@@ -415,55 +500,6 @@ function EntityBody({ data }: { data: ElementBox }) {
                 }}
             >
                 {data.name}
-                {entity.toggles && (
-                    <button
-                        type="button"
-                        className="nodrag nopan"
-                        data-entity-chevron=""
-                        aria-expanded={!entity.collapsed}
-                        aria-label={`${action} ${data.name}`}
-                        title={`${action} ${data.name}`}
-                        onClick={(event) => {
-                            event.stopPropagation();
-                            toggle?.(data.id, event);
-                        }}
-                        style={{
-                            position: "absolute",
-                            right: 8,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            width: 28,
-                            height: 28,
-                            padding: 0,
-                            border: "none",
-                            borderRadius: 4,
-                            background: "transparent",
-                            color: "inherit",
-                            cursor: "pointer",
-                            pointerEvents: "all",
-                        }}
-                    >
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 16 16"
-                            aria-hidden="true"
-                        >
-                            <path
-                                d={
-                                    entity.collapsed
-                                        ? "M5 3l5 5-5 5"
-                                        : "M3 5l5 5 5-5"
-                                }
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                        </svg>
-                    </button>
-                )}
             </div>
             {entity.rows.map((row, index) => (
                 <div
@@ -511,6 +547,7 @@ function EntityBody({ data }: { data: ElementBox }) {
                     )}
                 </div>
             ))}
+            {chevron}
         </div>
     );
 }

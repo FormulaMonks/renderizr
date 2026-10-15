@@ -31,7 +31,8 @@ export type EntityLayout = {
 
 const CELL_PADDING = 12;
 const HEADER_PADDING = 15;
-export const CHEVRON_ROOM = 32;
+/** The band at the bottom of an entity that holds its plus or minus toggle. */
+export const TOGGLE_ROOM = 34;
 
 const isKey = (attribute: Attribute) =>
     attribute.keys.includes("PK") || attribute.keys.includes("FK");
@@ -47,7 +48,34 @@ export function layOutEntity(
     comments: boolean,
     fontSize: number,
     measure: MeasureText,
+    collapsedSize?: { width: number; height: number },
 ): { width: number; height: number; entity: EntityLayout } {
+    // Collapsed, an entity draws like a C4 element box: every entity of the
+    // diagram at one size (`collapsedSize`), its name centered over its key
+    // attributes and the toggle at the bottom.
+    if (collapsed) {
+        const open = layOutEntity(
+            name,
+            attributes,
+            false,
+            comments,
+            fontSize,
+            measure,
+        );
+        return {
+            ...(collapsedSize ??
+                collapsedContent(name, attributes, fontSize, measure)),
+            entity: {
+                ...open.entity,
+                collapsed: true,
+                rows: attributes.filter(isKey).map((attribute) => ({
+                    ...attribute,
+                    type: "",
+                    comment: "",
+                })),
+            },
+        };
+    }
     const nameSize = fontSize * 1.4;
     const rowSize = fontSize * 1.1;
     const rows = (collapsed ? attributes.filter(isKey) : attributes).map(
@@ -73,9 +101,7 @@ export function layOutEntity(
     };
     const toggles = attributes.length > 0;
     const header =
-        Math.ceil(measure(name, nameSize, false)) +
-        2 * HEADER_PADDING * 2 +
-        (toggles ? 2 * CHEVRON_ROOM : 0);
+        Math.ceil(measure(name, nameSize, false)) + 2 * HEADER_PADDING * 2;
     const rowsWidth =
         columns.type + columns.name + columns.keys + columns.comment;
     const headerHeight = Math.round(nameSize * 1.2 + 2 * HEADER_PADDING);
@@ -91,7 +117,10 @@ export function layOutEntity(
     }
     return {
         width,
-        height: headerHeight + rows.length * rowHeight,
+        height:
+            headerHeight +
+            rows.length * rowHeight +
+            (toggles ? TOGGLE_ROOM : 0),
         entity: {
             collapsed,
             toggles,
@@ -156,4 +185,34 @@ export function endMarkerPaths(
         default:
             return { stroke: "", circles: "" };
     }
+}
+
+/**
+ * The box one collapsed entity needs for its name, its key attributes and
+ * its toggle, in a C4 element's proportions (450 by 300). The diagram draws
+ * every collapsed entity at the largest of these.
+ */
+export function collapsedContent(
+    name: string,
+    attributes: Attribute[],
+    fontSize: number,
+    measure: MeasureText,
+): { width: number; height: number } {
+    const nameSize = fontSize * 1.4;
+    const rowSize = fontSize * 1.1;
+    const keys = attributes.filter(isKey);
+    const widest = Math.max(
+        measure(name, nameSize, true),
+        ...keys.map((key) =>
+            measure(`${key.name} [${key.keys.join(", ")}]`, rowSize, false),
+        ),
+    );
+    const content =
+        nameSize * 1.2 + (keys.length ? 10 + keys.length * rowSize * 1.4 : 0);
+    const width = Math.ceil(widest) + 4 * HEADER_PADDING;
+    const height = Math.ceil(content + 2 * HEADER_PADDING + 2 * TOGGLE_ROOM);
+    return {
+        width: Math.round(Math.max(width, height * 1.5)),
+        height: Math.round(Math.max(height, width / 1.5)),
+    };
 }

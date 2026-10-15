@@ -527,7 +527,8 @@ function readErd(workspace, view, parsed) {
         if (own.length) element.relationships = own;
     }
     model.customElements.push(...elements);
-    const spacing = config.er ?? {};
+    // Mermaid's ERD spacing defaults (140 between nodes, 80 between ranks).
+    const spacing = { nodeSpacing: 140, rankSpacing: 80, ...config.er };
     views.customViews.push({
         key: view.key,
         order: view.order,

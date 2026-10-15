@@ -15,6 +15,8 @@ import toggleTechnologiesIcon from "bootstrap-icons/icons/code-square.svg?raw";
 import resetZoomIcon from "bootstrap-icons/icons/aspect-ratio.svg?raw";
 import zoomInIcon from "bootstrap-icons/icons/zoom-in.svg?raw";
 import zoomOutIcon from "bootstrap-icons/icons/zoom-out.svg?raw";
+import expandAllIcon from "bootstrap-icons/icons/arrows-expand.svg?raw";
+import collapseAllIcon from "bootstrap-icons/icons/arrows-collapse.svg?raw";
 import playIcon from "bootstrap-icons/icons/play-fill.svg?raw";
 import pauseIcon from "bootstrap-icons/icons/pause-fill.svg?raw";
 import prevStepIcon from "bootstrap-icons/icons/skip-start-fill.svg?raw";
@@ -355,7 +357,9 @@ export default class CurrentView extends Component {
             const label = this.#labels.entitiesCollapsed
                 ? "Expand all"
                 : "Collapse all";
-            entities.textContent = label;
+            entities.innerHTML = this.#labels.entitiesCollapsed
+                ? expandAllIcon
+                : collapseAllIcon;
             entities.title = `${label} entities`;
             entities.setAttribute("aria-label", `${label} entities`);
         }
@@ -370,12 +374,12 @@ export default class CurrentView extends Component {
                 <button class="dark-mode"></button>
                 <button class="toggle-description">${toggleDescriptionsIcon}</button>
                 <button class="toggle-technologies">${toggleTechnologiesIcon}</button>
+                ${
+                    view.properties?.["renderizr.mermaid.erd"] === "true"
+                        ? `<button class="toggle-entities"></button>`
+                        : ""
+                }
             </div>
-            ${
-                view.properties?.["renderizr.mermaid.erd"] === "true"
-                    ? `<div class="${styles.btnGroup}"><button class="toggle-entities" style="width:auto;padding:0 0.6em;font-size:0.85em"></button></div>`
-                    : ""
-            }
             <div class="animation-buttons ${styles.btnGroup}" hidden>
                 <button class="prev-step" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
                 <button class="play-animation"></button>

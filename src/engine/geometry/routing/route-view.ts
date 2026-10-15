@@ -346,6 +346,7 @@ function routeOf(
                 others,
                 [from, to],
                 padding,
+                true,
             ),
             end,
         ];
