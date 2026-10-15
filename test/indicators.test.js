@@ -6,9 +6,13 @@
  */
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
 const {
+    GLYPHS,
+    glyphDataUrl,
+    glyphSvg,
     INDICATOR_GAP,
     INDICATOR_MARGIN,
     INDICATOR_SIZE,
@@ -225,4 +229,36 @@ test("an edge with targets and nothing to say gets a label holding only its glyp
         undefined,
         "without targets it still has no label",
     );
+});
+
+/* ---------------------------------------------------------- shared glyphs */
+
+test("a glyph's data URL is a standalone SVG that strokes its paths in the color", () => {
+    for (const kind of ["view", "documentation", "decisions", "link"]) {
+        const url = glyphDataUrl(kind, "#123456");
+        assert.match(url, /^data:image\/svg\+xml,/, kind);
+        const svg = decodeURIComponent(url.slice(url.indexOf(",") + 1));
+        assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+        assert.match(svg, /viewBox="0 0 20 20"/, kind);
+        assert.match(svg, /stroke="#123456"/, kind);
+        for (const d of GLYPHS[kind]) {
+            assert.ok(svg.includes(`<path d="${d}"/>`), `${kind} draws ${d}`);
+        }
+    }
+});
+
+test("a glyph's color cannot break out of its attribute", () => {
+    assert.match(glyphSvg("link", 'a"b<c&'), /stroke="a&quot;b&lt;c&amp;"/);
+});
+
+test("the island and the export draw the glyphs from one place", () => {
+    const [path] = GLYPHS.view;
+    for (const file of ["react-flow/island.tsx", "react-flow/export-svg.ts"]) {
+        const source = readFileSync(
+            new URL(`../src/engine/${file}`, import.meta.url),
+            "utf-8",
+        );
+        assert.ok(!source.includes(path), `${file} keeps a copy of a glyph`);
+        assert.match(source, /from "\.\.\/geometry\/indicators"/, file);
+    }
 });

@@ -196,6 +196,9 @@ export type EditControls = {
     setWorkspace(workspace: Record<string, unknown>): void;
 };
 
+/** The file formats a view exports to (ADR 21). */
+export type ExportFormat = "svg" | "png";
+
 /** The engine contract of spec section 5. */
 export type Engine = AnimationControls &
     EditControls & {
@@ -203,6 +206,15 @@ export type Engine = AnimationControls &
         setColorScheme(scheme: ColorScheme): void;
         setLabels(labels: Labels): void;
         getCurrentView(): ModelView;
+        /**
+         * The view as drawn, as an export (glossary): the scheme, step and
+         * label toggles the reader sees, framed by its canvas, with the
+         * title block below, as an SVG or PNG file. The page names and
+         * saves it. Rejects when no view is drawn yet, and for an image
+         * view or a view that cannot be drawn, which have nothing of the
+         * engine's own to export (ADR 21).
+         */
+        exportView(format: ExportFormat): Promise<Blob>;
 
         fit(): void;
         zoomIn(): void;

@@ -4,6 +4,9 @@
  * is painted. Chrome's `--dump-dom` carries it out of the page, so the
  * acceptance harness reads it without a DevTools Protocol client (spec 15.1).
  *
+ * The same builds hand the engine's `exportView` out on `window`, where
+ * the export parity test reaches it.
+ *
  * Only a build made with `RENDERIZR_ENGINE_REPORT=1` calls these; everywhere
  * else the calls are compiled out (`__RENDERIZR_ENGINE_REPORT__`).
  */
@@ -32,4 +35,22 @@ export function writeReport(document: Document, report: EngineReport) {
 /** Take the report out of the document, as the engine unmounts. */
 export function removeReport(document: Document) {
     document.getElementById(REPORT_ID)?.remove();
+}
+
+/**
+ * The `window` property a report build hands the engine's `exportView` out
+ * on, so the export parity test can draw an export with no toolbar button.
+ */
+export const EXPORT_HOOK = "renderizrExportView";
+
+type Hooked = Record<typeof EXPORT_HOOK, unknown>;
+
+/** Hand `exportView` out on `target`, as the view paints. */
+export function exposeExport(target: object, exportView: unknown) {
+    (target as Hooked)[EXPORT_HOOK] = exportView;
+}
+
+/** Take `exportView` back off `target`, as the engine unmounts. */
+export function removeExport(target: object) {
+    delete (target as Partial<Hooked>)[EXPORT_HOOK];
 }

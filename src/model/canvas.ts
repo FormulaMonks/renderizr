@@ -51,18 +51,34 @@ const side = (value: number) =>
     value < MIN_CANVAS_SIDE ? DEFAULT_CANVAS_SIDE : Math.trunc(value);
 
 /**
- * The canvas `view` shows, with its `edited` layout laid over it: its
- * `dimensions`, else its paper size, else 2000 × 2000, and any side under
- * 500 as 2000.
+ * The canvas `view` stores, with its `edited` layout laid over it: its
+ * `dimensions`, else its paper size, with any side under 500 as 2000.
+ * `undefined` when it stores neither, which an export frames with Auto.
  */
-export function canvasOf(view: ModelView, edited?: EditedLayout): Dimensions {
+export function storedCanvasOf(
+    view: ModelView,
+    edited?: EditedLayout,
+): Dimensions | undefined {
     const paperSize =
         edited?.paperSize !== undefined ? edited.paperSize : view.paperSize;
     const dimensions =
         edited?.dimensions ??
         (isDimensions(view.dimensions) ? view.dimensions : undefined) ??
         (typeof paperSize === "string" ? PAPER_SIZES[paperSize] : undefined);
-    if (!dimensions)
-        return { width: DEFAULT_CANVAS_SIDE, height: DEFAULT_CANVAS_SIDE };
+    if (!dimensions) return undefined;
     return { width: side(dimensions.width), height: side(dimensions.height) };
+}
+
+/**
+ * The canvas `view` shows, with its `edited` layout laid over it: its
+ * `dimensions`, else its paper size, else 2000 × 2000, and any side under
+ * 500 as 2000.
+ */
+export function canvasOf(view: ModelView, edited?: EditedLayout): Dimensions {
+    return (
+        storedCanvasOf(view, edited) ?? {
+            width: DEFAULT_CANVAS_SIDE,
+            height: DEFAULT_CANVAS_SIDE,
+        }
+    );
 }

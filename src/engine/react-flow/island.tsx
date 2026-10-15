@@ -103,6 +103,9 @@ import {
     type SelectionOrder,
 } from "./selection";
 import {
+    GLYPH_BOX,
+    GLYPH_STROKE,
+    GLYPHS,
     INDICATOR_GAP,
     INDICATOR_INSET,
     INDICATOR_MARGIN,
@@ -269,31 +272,6 @@ function warnAuthor(message: string) {
 
 /* ---------------- indicators and activation (spec 6.1, 6.2, 9.2, 10.9) */
 
-/**
- * Each target kind's glyph, stroked in a 20-unit box: a magnifier for a
- * view to drill down to, a page for the documentation, a checked circle for
- * the decisions and an arrow out of a box for a link.
- */
-const GLYPHS: Record<TargetKind, string[]> = {
-    view: [
-        "M8.5 3a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11z",
-        "M12.6 12.6L17 17",
-        "M6 8.5h5",
-        "M8.5 6v5",
-    ],
-    documentation: [
-        "M4.5 2.5h7.5l3.5 3.5v11.5h-11z",
-        "M12 2.5v3.5h3.5",
-        "M7.5 10h5",
-        "M7.5 13h5",
-    ],
-    decisions: [
-        "M10 2.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15z",
-        "M6.5 10.2l2.5 2.5l4.5-5",
-    ],
-    link: ["M11 3h6v6", "M17 3l-8 8", "M15 12v5h-12v-12h5"],
-};
-
 type IndicatorsProps = {
     targets: TargetKind[];
     color: string;
@@ -323,10 +301,10 @@ function Indicators({ targets, color, box, style }: IndicatorsProps) {
                     data-indicator={kind}
                     width={INDICATOR_SIZE}
                     height={INDICATOR_SIZE}
-                    viewBox="0 0 20 20"
+                    viewBox={`0 0 ${GLYPH_BOX} ${GLYPH_BOX}`}
                     fill="none"
                     stroke={color}
-                    strokeWidth={1.6}
+                    strokeWidth={GLYPH_STROKE}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 >
@@ -468,6 +446,7 @@ function FixedParts({
         <>
             <div
                 ref={nameRef}
+                data-element-name=""
                 style={{
                     flexShrink: 0,
                     fontWeight: "bold",
@@ -480,6 +459,7 @@ function FixedParts({
             {metadata && (
                 <div
                     ref={metadataRef}
+                    data-element-metadata=""
                     style={{
                         flexShrink: 0,
                         marginTop: NAME_GAP,
