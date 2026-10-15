@@ -2,6 +2,7 @@ import { readSetting, writeSetting } from "../storage";
 import {
     type AnimationState,
     type Engine,
+    EXPORT_FORMATS,
     type ExportFormat,
     type Labels,
     NOT_ANIMATING,
@@ -44,6 +45,12 @@ export type ToolbarEngine = Pick<
 
 /** What the toolbar says when an export fails. */
 const EXPORT_FAILED = "Couldn't export this view";
+
+/** Each export format's button icon. */
+const EXPORT_ICONS: Record<ExportFormat, string> = {
+    png: exportPngIcon,
+    svg: exportSvgIcon,
+};
 
 /* -------------------------------------------------------------------------
  * Diagram color scheme
@@ -216,8 +223,10 @@ export default class CurrentView extends Component {
         ],
         ["prev-step", () => this.#engine.stepBack()],
         ["next-step", () => this.#engine.stepForward()],
-        ["export-png", () => void this.#export("png")],
-        ["export-svg", () => void this.#export("svg")],
+        ...EXPORT_FORMATS.map(
+            (format) =>
+                [`export-${format}`, () => void this.#export(format)] as const,
+        ),
     ]);
 
     constructor(
@@ -421,7 +430,7 @@ export default class CurrentView extends Component {
             this.element?.querySelector<HTMLElement>(".export-buttons");
         if (!this.#exportable || !this.#save) group?.setAttribute("hidden", "");
         else group?.removeAttribute("hidden");
-        for (const format of ["png", "svg"] as const) {
+        for (const format of EXPORT_FORMATS) {
             const button = this.#button(`export-${format}`);
             if (!button) continue;
             button.disabled = this.#exporting !== null;
@@ -451,8 +460,10 @@ export default class CurrentView extends Component {
                 <button class="next-step" title="Next step" aria-label="Next step">${nextStepIcon}</button>
             </div>
             <div class="export-buttons ${styles.btnGroup}" role="group" aria-label="Export" hidden>
-                <button class="export-png" title="Export view as PNG" aria-label="Export view as PNG">${exportPngIcon}</button>
-                <button class="export-svg" title="Export view as SVG" aria-label="Export view as SVG">${exportSvgIcon}</button>
+                ${EXPORT_FORMATS.map((format) => {
+                    const label = `Export view as ${format.toUpperCase()}`;
+                    return `<button class="export-${format}" title="${label}" aria-label="${label}">${EXPORT_ICONS[format]}</button>`;
+                }).join("")}
             </div>
         `;
 

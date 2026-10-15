@@ -196,8 +196,11 @@ export type EditControls = {
     setWorkspace(workspace: Record<string, unknown>): void;
 };
 
-/** The file formats a view exports to (ADR 21). */
-export type ExportFormat = "svg" | "png";
+/** The file formats a view exports to, in the toolbar's order (ADR 21). */
+export const EXPORT_FORMATS = ["png", "svg"] as const;
+
+/** One of the file formats a view exports to. */
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 /** The engine contract of spec section 5. */
 export type Engine = AnimationControls &
