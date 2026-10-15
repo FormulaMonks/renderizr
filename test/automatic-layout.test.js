@@ -19,6 +19,9 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { LARGE_VIEW_ELEMENTS, layOut, layoutOrder, rankerFor, simplify } =
     await importSrc("engine/layout/automatic");
+const { buildLayerMatrix, initOrder, maxRank } = await importSrc(
+    "engine/layout/dagre-order",
+);
 const { WorkspaceModel } = await importSrc("model/index");
 const { buildGraph } = await importSrc("engine/react-flow/graph");
 
@@ -529,6 +532,39 @@ for (const { name, points, expected } of SIMPLIFY)
             "the wrong points were kept",
         );
     });
+
+/* ---------------------------------------------------------- dagre-order */
+
+/**
+ * A stand-in for a ranked layout graph of `count` leaves with no edges, the
+ * last on rank 2 and the rest on rank 1: big enough that spreading its ranks
+ * into `Math.max` exceeds the engine's limit on arguments.
+ */
+const rankedLeaves = (count) => {
+    const ids = Array.from({ length: count }, (_, i) => `n${i}`);
+    const labels = new Map(
+        ids.map((id, i) => [id, { rank: i === count - 1 ? 2 : 1, order: i }]),
+    );
+    return {
+        nodes: () => ids,
+        node: (v) => labels.get(v),
+        children: () => [],
+        successors: () => [],
+    };
+};
+
+test("the ported ordering step reads the highest rank of any number of nodes", () => {
+    // Dagre splits long lists into chunks before it takes their maximum;
+    // the port has to survive the same lengths.
+    const g = rankedLeaves(200_000);
+
+    assert.equal(maxRank(g), 2);
+    assert.equal(buildLayerMatrix(g).length, 3);
+    assert.deepEqual(
+        initOrder(g).map((layer) => layer.length),
+        [0, 199_999, 1],
+    );
+});
 
 /* ------------------------------------------------------------------ ranker */
 

@@ -48,11 +48,20 @@ const label = (g: Graph, v: string) => g.node(v) as Ranked;
 const weightOf = (g: Graph, e: dagre.Edge) =>
     (g.edge(e) as { weight: number }).weight;
 
+/**
+ * The largest of `values`, as `Math.max` gives it. Dagre splits a long list
+ * into chunks before it spreads one into `Math.max`; reducing it keeps any
+ * length under the engine's limit on arguments.
+ */
+const largest = (values: number[]) =>
+    values.reduce(
+        (max, value) => Math.max(max, value),
+        Number.NEGATIVE_INFINITY,
+    );
+
 /** The highest rank of any node of `g`. */
 export function maxRank(g: Graph): number {
-    return Math.max(
-        ...g.nodes().map((v) => label(g, v).rank ?? Number.MIN_VALUE),
-    );
+    return largest(g.nodes().map((v) => label(g, v).rank ?? Number.MIN_VALUE));
 }
 
 /** The numbers from `start` up to `limit`, or down to it by a negative step. */
@@ -87,7 +96,7 @@ export function initOrder(g: Graph): string[][] {
     const visited = new Set<string>();
     const simpleNodes = g.nodes().filter((v) => !g.children(v).length);
     const ranks = simpleNodes.map((v) => label(g, v).rank as number);
-    const layers = range(Math.max(...ranks) + 1).map((): string[] => []);
+    const layers = range(largest(ranks) + 1).map((): string[] => []);
 
     const dfs = (v: string) => {
         if (visited.has(v)) return;
