@@ -187,6 +187,10 @@ export function readMermaidDiagrams(workspace) {
             kept.push(view);
             continue;
         }
+        if (parsed.kind === "er") {
+            readErd(workspace, view, parsed);
+            continue;
+        }
         if (parsed.kind !== "flowchart") {
             kept.push(view);
             continue;
@@ -408,4 +412,142 @@ export function readMermaidDiagrams(workspace) {
     }
     views.imageViews = kept;
     return workspace;
+}
+
+// PROTOTYPE (issue 192): Mermaid's cardinalities onto end marker names. Mermaid names an edge's ends backwards:
+// `cardA` sits at entity B and `cardB` at entity A.
+const CARDINALITIES = {
+    ONLY_ONE: "one",
+    ZERO_OR_ONE: "zeroOrOne",
+    ONE_OR_MORE: "oneOrMore",
+    ZERO_OR_MORE: "zeroOrMore",
+    MD_PARENT: "parent",
+};
+
+/**
+ * PROTOTYPE (issue 192): an ERD becomes a custom view of entities, each carrying its attributes as a property the
+ * page draws rows from, and relationships carrying their end markers. The page sizes every entity.
+ */
+function readErd(workspace, view, parsed) {
+    const { model, views } = workspace;
+    const styles = views.configuration.styles;
+    const prefix = `mermaid:${view.key}:`;
+    const config = parsed.config ?? {};
+    const silent = config.theme === undefined && !config.themeVariables;
+    const primary = workspace.properties?.["renderizr.primaryColor"];
+    if (silent && !styles.elements.some((s) => s.tag === "Mermaid:primary")) {
+        for (const [colorScheme, fill] of [
+            ["Light", primary ?? "#145b9e"],
+            ["Dark", primary ?? "#1168bd"],
+        ])
+            styles.elements.push({
+                tag: "Mermaid:primary",
+                colorScheme,
+                background: fill,
+                stroke: shade(fill, -50),
+                color: "#ffffff",
+            });
+        styles.relationships.push({
+            tag: "Mermaid:routing",
+            routing: "Orthogonal",
+        });
+    }
+    if (!styles.elements.some((s) => s.tag === "Mermaid:entity"))
+        styles.elements.push({
+            tag: "Mermaid:entity",
+            shape: "Box",
+            fontSize: FONT_SIZE,
+            metadata: false,
+            description: false,
+        });
+    if (!styles.relationships.some((s) => s.tag === "Mermaid:nonIdentifying"))
+        styles.relationships.push(
+            { tag: "Mermaid:nonIdentifying", style: "Dashed" },
+            { tag: "Mermaid:identifying", style: "Solid" },
+        );
+    const entities = parsed.db.getEntities();
+    const byId = new Map([...entities.values()].map((e) => [e.id, e]));
+    const elements = [];
+    for (const [name, entity] of entities) {
+        elements.push({
+            id: `${prefix}${entity.id}`,
+            name: entity.alias || plain(entity.label) || name,
+            tags: [
+                ...(silent ? ["Mermaid:primary"] : []),
+                "Element",
+                "Mermaid",
+                "Mermaid:entity",
+            ].join(","),
+            properties: {
+                "renderizr.mermaid": view.key,
+                "renderizr.mermaid.attributes": JSON.stringify(
+                    entity.attributes.map(({ type, name, keys, comment }) => ({
+                        type,
+                        name,
+                        keys,
+                        comment: plain(comment),
+                    })),
+                ),
+            },
+        });
+    }
+    const relationships = parsed.db
+        .getRelationships()
+        .flatMap((relationship, index) => {
+            if (
+                !byId.has(relationship.entityA) ||
+                !byId.has(relationship.entityB)
+            )
+                return [];
+            const { cardA, cardB, relType } = relationship.relSpec;
+            return [
+                {
+                    id: `${prefix}edge:${index}`,
+                    sourceId: `${prefix}${relationship.entityA}`,
+                    destinationId: `${prefix}${relationship.entityB}`,
+                    description: plain(relationship.roleA),
+                    tags: [
+                        ...(silent ? ["Mermaid:routing"] : []),
+                        "Relationship",
+                        "Mermaid",
+                        relType === "NON_IDENTIFYING"
+                            ? "Mermaid:nonIdentifying"
+                            : "Mermaid:identifying",
+                    ].join(","),
+                    properties: {
+                        "renderizr.mermaid.start":
+                            CARDINALITIES[cardB] ?? "none",
+                        "renderizr.mermaid.end": CARDINALITIES[cardA] ?? "none",
+                    },
+                },
+            ];
+        });
+    for (const element of elements) {
+        const own = relationships.filter((r) => r.sourceId === element.id);
+        if (own.length) element.relationships = own;
+    }
+    model.customElements.push(...elements);
+    const spacing = config.er ?? {};
+    views.customViews.push({
+        key: view.key,
+        order: view.order,
+        title: view.title ?? parsed.title,
+        description: view.description,
+        properties: {
+            ...view.properties,
+            "renderizr.mermaid": "true",
+            "renderizr.mermaid.erd": "true",
+            "renderizr.mermaid.directions": "{}",
+        },
+        elements: elements.map((e) => ({ id: e.id, x: 0, y: 0 })),
+        relationships: relationships.map((r) => ({ id: r.id })),
+        automaticLayout: {
+            implementation: "Dagre",
+            rankDirection: DIRECTIONS[parsed.db.getDirection()] ?? "TopBottom",
+            rankSeparation: (spacing.rankSpacing ?? 50) * SCALE,
+            nodeSeparation: (spacing.nodeSpacing ?? 50) * SCALE,
+            edgeSeparation: 20 * SCALE,
+            vertices: false,
+        },
+    });
 }

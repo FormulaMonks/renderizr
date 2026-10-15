@@ -1,0 +1,66 @@
+{
+    "id": 1,
+    "name": "Mermaid ERDs",
+    "description": "Image views that carry Mermaid entity relationship diagram source, for the prototype in issue 192.",
+    "configuration": {},
+    "documentation": {},
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Customer",
+                "location": "Unspecified",
+                "tags": "Element,Person",
+                "properties": {
+                    "structurizr.dsl.identifier": "customer"
+                }
+            }
+        ]
+    },
+    "views": {
+        "configuration": {
+            "properties": {
+                "mermaid.url": "https://mermaid.ink"
+            },
+            "styles": {},
+            "terminology": {}
+        },
+        "systemLandscapeViews": [
+            {
+                "key": "landscape",
+                "order": 1,
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "enterpriseBoundaryVisible": true
+            }
+        ],
+        "imageViews": [
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyNk9Fu4jAQRX_lys_QD8gbIukKlRYUoKtKefHa08QSsVN7oqpK-PdVCNEC3q7WL1HG13PPzNgdhHKaRCLIp0aWXtaFBYDlYbffPGc5-n4-dx02eZrlSNAcpaJwpzn1Dw99hzRbr16z_G2-SNM82-2QoA2TeEwwZOs7rFcv2Xy1z56RQDnL0tiLbJtv0sNyP9leCwvhvCZPGsYW4oKw2Gc_NvkbenfWT8cTlN61zT1oN_4PK7A3toTR2D5FUStrioJUS3PE4QmFWLvSWEir4UmRaThMQMPSkgnKk2TSCx7jp-suXGEYyziX9dLWv8j_DUa1gV1NfqXxOJj_rNw4Bg3Dke-4M9lepQksuQ0ohPbynWdopNEzhMo0DembNKRMLY9gx_J4Q_9nGv-sYIbHuIrGO90qXjpNkWRI8dFKy4a_Yo7GG0UoxPb8_azI4nIRJurT7d2Jp6xG1_-bs5JMpfNf535_gxMd0hSUNw0bZ1GIXeU-LZwFVzRVjkaWdEccvZgYPbAniqepblo19dgFHkq98ZieSGHFDKImX0ujRdIJrqgeXr6md9keWZxOvwHYdDfr",
+                "contentType": "image/svg+xml",
+                "description": "Six entities: composite keys, an entity without keys, one without attributes, every cardinality.",
+                "key": "shop",
+                "order": 2,
+                "title": "Shop",
+                "properties": {
+                    "mermaid.url": "https://mermaid.ink"
+                }
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyNlNFuozAQRX_lys9JP4C3KtBV1LSJSLKrSrx47SlYCjZrD6oqyL-vgKBN4u1qeUEM13PPzNjuIJTTJBJBPjWy9LIuLABo40mxcRabfIqsjvvD9iXL0ffLpeuwzdMsR4LmJBWFO825f3joO6TZZv09y9-Wj2maZ_s9ErRhFk8Jhmx9h836NVuuD9kLEihnWRp7ke3ybXpcHWbba2EhnNfkScPYQlwQHg_Zt23-ht6N-nl5gtK7trkH7abv4QnsjS1hNHbPUdTKmqIg1dKccHxGITauNBbSanhSZBoOM9DYTckE5Uky6Uee4ufrLlxhGMsYy3pt65_k_waj2sCuJr_WeBrMf1RuGoOG4ch3-jPbXqUJLLkNKIT28p0XaKTRC4TKNA3pmzSkTC1PYMfydEP_Zxr_rGCBp7iKxjvdKl45TZFkSPGrlZYNf8YcjTeKUIjd-P6oyOKyEWbq8-3eiaesJtf_m7OSTKXzn2O_v8CJFmkKyptmPEOF2Ffuw8JZcEVz5WhkSXfE0YmJ0QN7onia6qZVc49d4KHUG4_5iBRWLCBq8rU0WiSd4Irq4S7Q9C7bE4vz-TeIBj20",
+                "contentType": "image/svg+xml",
+                "key": "shop-lr",
+                "order": 3,
+                "title": "Shop, left to right",
+                "properties": {
+                    "mermaid.url": "https://mermaid.ink"
+                }
+            }
+        ]
+    }
+}

@@ -34,7 +34,14 @@ export type CanvasCommand = "decrease" | "increase" | "auto";
 export type ColorScheme = "light" | "dark";
 
 /** Visibility of the optional labels drawn inside elements. */
-export type Labels = { descriptions: boolean; technologies: boolean };
+export type Labels = {
+    descriptions: boolean;
+    technologies: boolean;
+    /** PROTOTYPE (issue 192): whether an ERD's entities start collapsed. */
+    entitiesCollapsed?: boolean;
+    /** PROTOTYPE (issue 192): entities a chevron click set otherwise, by id, for this visit. */
+    entityOverrides?: Readonly<Record<string, boolean>>;
+};
 
 export type EngineOptions = {
     /**

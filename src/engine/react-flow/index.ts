@@ -202,7 +202,8 @@ export function mountEngine(
                 const current = store.get().labels;
                 if (
                     labels.descriptions === current.descriptions &&
-                    labels.technologies === current.technologies
+                    labels.technologies === current.technologies &&
+                    labels.entitiesCollapsed === current.entitiesCollapsed
                 ) {
                     return;
                 }

@@ -104,6 +104,7 @@ export function applyDiagramTheme(theme: DiagramTheme): void {
 export const LABEL_DEFAULTS: Labels = {
     descriptions: true,
     technologies: true,
+    entitiesCollapsed: true,
 };
 
 export function readLabelState(): Labels {
@@ -121,6 +122,10 @@ export function readLabelState(): Labels {
                 typeof parsed.technologies === "boolean"
                     ? parsed.technologies
                     : LABEL_DEFAULTS.technologies,
+            entitiesCollapsed:
+                typeof parsed.entitiesCollapsed === "boolean"
+                    ? parsed.entitiesCollapsed
+                    : LABEL_DEFAULTS.entitiesCollapsed,
         };
     } catch {
         return { ...LABEL_DEFAULTS };
@@ -175,6 +180,13 @@ export default class CurrentView extends Component {
         [
             "toggle-technologies",
             () => this.#setLabels({ technologies: !this.#labels.technologies }),
+        ],
+        [
+            "toggle-entities",
+            () =>
+                this.#setLabels({
+                    entitiesCollapsed: !this.#labels.entitiesCollapsed,
+                }),
         ],
         // Play toggles pause, keeping the step (spec 11).
         [
@@ -337,6 +349,16 @@ export default class CurrentView extends Component {
                 ? "Hide technologies in diagrams"
                 : "Show technologies in diagrams",
         );
+        // PROTOTYPE (issue 192): one button flips every entity of an ERD.
+        const entities = this.#button("toggle-entities");
+        if (entities) {
+            const label = this.#labels.entitiesCollapsed
+                ? "Expand all"
+                : "Collapse all";
+            entities.textContent = label;
+            entities.title = `${label} entities`;
+            entities.setAttribute("aria-label", `${label} entities`);
+        }
     }
 
     #addControlButtons(container: HTMLElement, view: ModelView) {
@@ -349,6 +371,11 @@ export default class CurrentView extends Component {
                 <button class="toggle-description">${toggleDescriptionsIcon}</button>
                 <button class="toggle-technologies">${toggleTechnologiesIcon}</button>
             </div>
+            ${
+                view.properties?.["renderizr.mermaid.erd"] === "true"
+                    ? `<div class="${styles.btnGroup}"><button class="toggle-entities" style="width:auto;padding:0 0.6em;font-size:0.85em"></button></div>`
+                    : ""
+            }
             <div class="animation-buttons ${styles.btnGroup}" hidden>
                 <button class="prev-step" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
                 <button class="play-animation"></button>

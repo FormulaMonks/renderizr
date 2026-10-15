@@ -74,6 +74,12 @@ import {
     iconPositionOf,
     labelText,
 } from "../geometry/label";
+import {
+    type Attribute,
+    type EntityLayout,
+    endMarkerPaths,
+    layOutEntity,
+} from "../geometry/entity";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
     type RoutingElement,
@@ -168,6 +174,8 @@ export type ElementBox = {
      * Empty: no indicators, no pointer cursor, not focusable.
      */
     targets: TargetKind[];
+    /** PROTOTYPE (issue 192): an ERD entity's header and rows. */
+    entity?: EntityLayout;
 };
 
 /** A boundary drawn around its children, with its label band (spec 8). */
@@ -216,6 +224,8 @@ export type EdgeLine = {
     path: string;
     /** SVG path data for the filled arrowhead, its tip on `target`. */
     arrowhead: string;
+    /** PROTOTYPE (issue 192): an ERD edge's end markers, in place of the arrowhead. */
+    markers?: { stroke: string; circles: string };
     routing: RoutingMode;
     /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
     jump: boolean;
@@ -279,7 +289,10 @@ type EdgeDraft = Omit<
     | "labelBox"
     | "labelLines"
     | "labelIndicators"
+    | "markers"
 > & {
+    /** PROTOTYPE (issue 192): the start and end markers an ERD edge draws. */
+    ends?: [string, string];
     /** The view's stored position, which placement never nudges. */
     storedPosition?: number;
     /** Where the label search starts: the view's position, then the style's. */
@@ -684,7 +697,24 @@ function drawView(
         const style = findElementStyle(model, placed.element, colorScheme);
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
-        const { width, height } = shapeSize(shape, style.width, style.height);
+        const attributes =
+            placed.element.properties?.["renderizr.mermaid.attributes"];
+        const entityId = placed.id;
+        const laidOut =
+            attributes === undefined
+                ? undefined
+                : layOutEntity(
+                      placed.element.name,
+                      JSON.parse(attributes) as Attribute[],
+                      labels.entityOverrides?.[entityId] ??
+                          labels.entitiesCollapsed ??
+                          true,
+                      labels.descriptions,
+                      style.fontSize,
+                      measure,
+                  );
+        const { width, height } =
+            laidOut ?? shapeSize(shape, style.width, style.height);
         const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
         const geometry = shapeGeometry(shape, width, height, strokeWidth);
         const count = formatInstanceCount(placed.element.instances);
@@ -729,7 +759,8 @@ function drawView(
                 ? labelHeightClearOf(geometry.content, instances)
                 : geometry.content.height,
             ...(instances && { instances }),
-            targets: kindsFor(placed.element),
+            targets: laidOut ? [] : kindsFor(placed.element),
+            ...(laidOut && { entity: laidOut.entity }),
         };
         elements.push(box);
         drawn.set(box.id, { box, geometry });
@@ -844,6 +875,12 @@ function drawView(
             thickness: style.thickness,
             style: style.style,
             opacity: style.opacity / 100,
+            ...(relationship.properties?.["renderizr.mermaid.end"] && {
+                ends: [
+                    relationship.properties["renderizr.mermaid.start"],
+                    relationship.properties["renderizr.mermaid.end"],
+                ],
+            }),
         });
     }
 
@@ -925,9 +962,33 @@ function drawView(
         ],
     );
     const routed: EdgeLine[] = edges.map(
-        ({ storedPosition: _stored, startPosition, label, ...edge }, index) => {
+        (
+            { storedPosition: _stored, startPosition, label, ends, ...edge },
+            index,
+        ) => {
             const { route, path, heading } = routes[index];
             const target = route[route.length - 1];
+            const away = (from: Point, to: Point) => {
+                const length = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+                return {
+                    x: (to.x - from.x) / length,
+                    y: (to.y - from.y) / length,
+                };
+            };
+            const ended = ends && [
+                endMarkerPaths(
+                    ends[0],
+                    route[0],
+                    away(route[0], route[1]),
+                    edge.thickness,
+                ),
+                endMarkerPaths(
+                    ends[1],
+                    target,
+                    away(target, route[route.length - 2]),
+                    edge.thickness,
+                ),
+            ];
             const placedLabel = placedLabels[index];
             return {
                 ...edge,
@@ -935,7 +996,15 @@ function drawView(
                 target,
                 route,
                 path,
-                arrowhead: arrowheadPath(target, heading, edge.thickness),
+                arrowhead: ended
+                    ? ""
+                    : arrowheadPath(target, heading, edge.thickness),
+                ...(ended && {
+                    markers: {
+                        stroke: ended[0].stroke + ended[1].stroke,
+                        circles: ended[0].circles + ended[1].circles,
+                    },
+                }),
                 labelPosition: placedLabel?.position ?? startPosition,
                 ...(placedLabel && { labelBox: placedLabel.box }),
                 ...(label && {

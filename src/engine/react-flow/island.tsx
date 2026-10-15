@@ -370,6 +370,155 @@ const Activate = createContext<IslandProps["onActivate"]>(() => {});
  * activates (spec 10.3): pressing an element starts a drag.
  */
 const Editing = createContext(false);
+const NO_OVERRIDES: Record<string, boolean> = {};
+/** PROTOTYPE (issue 192): `?entity-motion` eases entities to their new places. */
+const ENTITY_MOTION =
+    typeof location !== "undefined" &&
+    new URLSearchParams(location.search).has("entity-motion");
+
+/** PROTOTYPE (issue 192): flips one entity, from its header's chevron. */
+const EntityToggle = createContext<
+    ((id: string, event: React.MouseEvent) => void) | null
+>(null);
+
+/**
+ * PROTOTYPE (issue 192): an entity's header, with its chevron, over its
+ * attribute rows: type, name, keys and comment, each a column.
+ */
+function EntityBody({ data }: { data: ElementBox }) {
+    const toggle = useContext(EntityToggle);
+    const entity = data.entity!;
+    const { columns } = entity;
+    const cells = [
+        ["type", columns.type],
+        ["name", columns.name],
+        ["keys", columns.keys],
+        ["comment", columns.comment],
+    ] as const;
+    const action = entity.collapsed ? "Expand" : "Collapse";
+    return (
+        <div
+            data-entity=""
+            data-collapsed={entity.collapsed ? "" : undefined}
+            style={{
+                position: "absolute",
+                inset: 0,
+                color: data.color,
+                lineHeight: 1.2,
+            }}
+        >
+            <div
+                data-entity-header=""
+                style={{
+                    height: entity.headerHeight,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: entity.nameSize,
+                    position: "relative",
+                }}
+            >
+                {data.name}
+                {entity.toggles && (
+                    <button
+                        type="button"
+                        className="nodrag nopan"
+                        data-entity-chevron=""
+                        aria-expanded={!entity.collapsed}
+                        aria-label={`${action} ${data.name}`}
+                        title={`${action} ${data.name}`}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            toggle?.(data.id, event);
+                        }}
+                        style={{
+                            position: "absolute",
+                            right: 8,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            width: 28,
+                            height: 28,
+                            padding: 0,
+                            border: "none",
+                            borderRadius: 4,
+                            background: "transparent",
+                            color: "inherit",
+                            cursor: "pointer",
+                            pointerEvents: "all",
+                        }}
+                    >
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d={
+                                    entity.collapsed
+                                        ? "M5 3l5 5-5 5"
+                                        : "M3 5l5 5 5-5"
+                                }
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
+                    </button>
+                )}
+            </div>
+            {entity.rows.map((row, index) => (
+                <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: rows are the entity's attributes, in source order
+                    key={index}
+                    data-attribute={row.name}
+                    style={{
+                        display: "flex",
+                        height: entity.rowHeight,
+                        alignItems: "center",
+                        fontSize: entity.rowSize,
+                        borderTop: `1px solid ${data.stroke}`,
+                        background:
+                            index % 2 === 0
+                                ? "rgba(255,255,255,0.10)"
+                                : "rgba(255,255,255,0.04)",
+                    }}
+                >
+                    {cells.map(([cell, width]) =>
+                        width > 0 ? (
+                            <div
+                                key={cell}
+                                style={{
+                                    width,
+                                    boxSizing: "border-box",
+                                    padding: "0 12px",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    fontWeight:
+                                        cell === "keys" ? "bold" : undefined,
+                                    opacity:
+                                        cell === "type" || cell === "comment"
+                                            ? 0.8
+                                            : undefined,
+                                    fontStyle:
+                                        cell === "comment"
+                                            ? "italic"
+                                            : undefined,
+                                }}
+                            >
+                                {cell === "keys"
+                                    ? row.keys.join(", ")
+                                    : row[cell]}
+                            </div>
+                        ) : null,
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
 
 /** An item as the focus order and the DOM find it. */
 type FocusRef = Pick<FocusItem, "type" | "id">;
@@ -784,12 +933,16 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                     ))}
                 </g>
             </svg>
-            {/* A new name, metadata or icon is a new label: its fitting
-                starts over from the icon drawn. */}
-            <ElementLabel
-                key={[data.name, data.metadata, data.icon].join("\n")}
-                {...data}
-            />
+            {data.entity ? (
+                <EntityBody data={data} />
+            ) : (
+                // A new name, metadata or icon is a new label: its fitting
+                // starts over from the icon drawn.
+                <ElementLabel
+                    key={[data.name, data.metadata, data.icon].join("\n")}
+                    {...data}
+                />
+            )}
             {data.instances && (
                 <TextLines
                     block={data.instances}
@@ -1101,6 +1254,24 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     fill={data.color}
                     stroke="none"
                 />
+                {data.markers && (
+                    <>
+                        <path
+                            data-end-markers=""
+                            d={data.markers.stroke}
+                            fill="none"
+                            stroke={data.color}
+                            strokeWidth={thickness}
+                            strokeLinecap="round"
+                        />
+                        <path
+                            d={data.markers.circles}
+                            fill={background}
+                            stroke={data.color}
+                            strokeWidth={thickness}
+                        />
+                    </>
+                )}
             </g>
             {labelBox && labelLines && (
                 <EdgeLabelRenderer>
@@ -1988,7 +2159,23 @@ function Canvas({
         () => canvasMeasure(document, family),
         [family, fontsLoaded],
     );
-    const { key: viewKey, scheme, labels, step } = state;
+    const { key: viewKey, scheme, labels: stored, step } = state;
+    // PROTOTYPE (issue 192): the entities a chevron flipped, for this view
+    // and this preference only; a new view or the toolbar button clears them.
+    const [overrides, setOverrides] = useState<{
+        key: string;
+        collapsed: boolean | undefined;
+        ids: Record<string, boolean>;
+    }>({ key: viewKey, collapsed: stored.entitiesCollapsed, ids: {} });
+    const entityOverrides =
+        overrides.key === viewKey &&
+        overrides.collapsed === stored.entitiesCollapsed
+            ? overrides.ids
+            : NO_OVERRIDES;
+    const labels = useMemo(
+        () => ({ ...stored, entityOverrides }),
+        [stored, entityOverrides],
+    );
     // Compiled out of builds, which never edit (ADR 15).
     const edited = __RENDERIZR_EDIT_MODE__
         ? state.layouts.get(viewKey)
@@ -2122,6 +2309,47 @@ function Canvas({
 
     const flow = useReactFlow();
     const wrapper = useRef<HTMLDivElement>(null);
+    /** PROTOTYPE (issue 192): where the flipped entity was, to pan it back under the pointer. */
+    const pendingPan = useRef<{ id: string; x: number; y: number } | null>(
+        null,
+    );
+    const toggleEntity = useCallback(
+        (id: string) => {
+            const box = graph?.elements.find((element) => element.id === id);
+            pendingPan.current = box ? { id, x: box.x, y: box.y } : null;
+            moved.current = true;
+            setOverrides((before) => {
+                const ids =
+                    before.key === viewKey &&
+                    before.collapsed === stored.entitiesCollapsed
+                        ? before.ids
+                        : {};
+                const now = !(ids[id] ?? stored.entitiesCollapsed ?? true);
+                return {
+                    key: viewKey,
+                    collapsed: stored.entitiesCollapsed,
+                    ids: { ...ids, [id]: now },
+                };
+            });
+        },
+        [graph, viewKey, stored.entitiesCollapsed],
+    );
+    useLayoutEffect(() => {
+        const pan = pendingPan.current;
+        if (!pan || !graph) return;
+        pendingPan.current = null;
+        const box = graph.elements.find((element) => element.id === pan.id);
+        if (!box) return;
+        const viewport = flow.getViewport();
+        flow.setViewport(
+            {
+                x: viewport.x - (box.x - pan.x) * viewport.zoom,
+                y: viewport.y - (box.y - pan.y) * viewport.zoom,
+                zoom: viewport.zoom,
+            },
+            { duration: ENTITY_MOTION ? TRANSITION_MS : 0 },
+        );
+    }, [graph, flow]);
     const [size, setSize] = useState({ width: 0, height: 0 });
     /** The key of the last view fully painted; `data-ready` is true only for it. */
     const [readyKey, setReadyKey] = useState<string | null>(null);
@@ -2885,79 +3113,92 @@ function Canvas({
         >
             <Activate.Provider value={onActivate}>
                 <Editing.Provider value={editable}>
-                    <CanvasBackground.Provider
-                        value={graph?.background ?? "#ffffff"}
-                    >
-                        {graph?.error ? (
-                            <ViewError graph={graph} />
-                        ) : (
-                            <ReactFlow
-                                nodes={nodes}
-                                edges={edges}
-                                nodeTypes={nodeTypes}
-                                edgeTypes={edgeTypes}
-                                nodeOrigin={nodeOrigin}
-                                connectionMode={ConnectionMode.Loose}
-                                nodesDraggable={editable}
-                                onNodesChange={
-                                    editable ? onNodesChange : undefined
-                                }
-                                nodesConnectable={false}
-                                nodesFocusable={false}
-                                edgesFocusable={false}
-                                // In editing a plain drag on the canvas or a
-                                // boundary draws a marquee, and Space, the
-                                // middle or the right button pans (spec 10.1).
-                                // React Flow's own selection key would turn
-                                // a Shift-click into a marquee.
-                                elementsSelectable={editable}
-                                selectionOnDrag={editable}
-                                selectionKeyCode={editable ? null : undefined}
-                                onSelectionStart={
-                                    editable ? startMarquee : undefined
-                                }
-                                onSelectionEnd={
-                                    editable ? endMarquee : undefined
-                                }
-                                onPaneClick={
-                                    editable ? () => select(NONE) : undefined
-                                }
-                                // The canvas owns the keys (spec 6.2).
-                                disableKeyboardA11y
-                                panOnDrag={editable ? EDIT_PAN_BUTTONS : true}
-                                panOnScroll
-                                zoomOnScroll={false}
-                                zoomOnPinch
-                                zoomOnDoubleClick={false}
-                                zoomActivationKeyCode={zoomKeys}
-                                minZoom={floor}
-                                maxZoom={ceiling}
-                                colorMode={state.scheme}
-                                proOptions={proOptions}
-                                onMoveStart={(event) => {
-                                    // Programmatic moves carry no event; only
-                                    // the reader's do.
-                                    if (event) moved.current = true;
-                                }}
-                            >
-                                {editable && drag && drag.key === viewKey && (
-                                    <Guides guides={drag.guides} />
-                                )}
-                                {editable && graph && (
-                                    <EdgeMarks
-                                        graph={graph}
-                                        stepState={stepState}
-                                        selected={selection.edge?.key}
-                                        side={drag?.side}
-                                        zoom={zoom}
-                                        onVertex={dragVertex}
-                                        onRemove={removeVertex}
-                                        onEnd={dragEnd}
-                                    />
-                                )}
-                            </ReactFlow>
+                    <EntityToggle.Provider value={toggleEntity}>
+                        {ENTITY_MOTION && (
+                            <style>{`.react-flow__node { transition: transform ${TRANSITION_MS}ms ease-in-out, width ${TRANSITION_MS}ms, height ${TRANSITION_MS}ms; }`}</style>
                         )}
-                    </CanvasBackground.Provider>
+                        <CanvasBackground.Provider
+                            value={graph?.background ?? "#ffffff"}
+                        >
+                            {graph?.error ? (
+                                <ViewError graph={graph} />
+                            ) : (
+                                <ReactFlow
+                                    nodes={nodes}
+                                    edges={edges}
+                                    nodeTypes={nodeTypes}
+                                    edgeTypes={edgeTypes}
+                                    nodeOrigin={nodeOrigin}
+                                    connectionMode={ConnectionMode.Loose}
+                                    nodesDraggable={editable}
+                                    onNodesChange={
+                                        editable ? onNodesChange : undefined
+                                    }
+                                    nodesConnectable={false}
+                                    nodesFocusable={false}
+                                    edgesFocusable={false}
+                                    // In editing a plain drag on the canvas or a
+                                    // boundary draws a marquee, and Space, the
+                                    // middle or the right button pans (spec 10.1).
+                                    // React Flow's own selection key would turn
+                                    // a Shift-click into a marquee.
+                                    elementsSelectable={editable}
+                                    selectionOnDrag={editable}
+                                    selectionKeyCode={
+                                        editable ? null : undefined
+                                    }
+                                    onSelectionStart={
+                                        editable ? startMarquee : undefined
+                                    }
+                                    onSelectionEnd={
+                                        editable ? endMarquee : undefined
+                                    }
+                                    onPaneClick={
+                                        editable
+                                            ? () => select(NONE)
+                                            : undefined
+                                    }
+                                    // The canvas owns the keys (spec 6.2).
+                                    disableKeyboardA11y
+                                    panOnDrag={
+                                        editable ? EDIT_PAN_BUTTONS : true
+                                    }
+                                    panOnScroll
+                                    zoomOnScroll={false}
+                                    zoomOnPinch
+                                    zoomOnDoubleClick={false}
+                                    zoomActivationKeyCode={zoomKeys}
+                                    minZoom={floor}
+                                    maxZoom={ceiling}
+                                    colorMode={state.scheme}
+                                    proOptions={proOptions}
+                                    onMoveStart={(event) => {
+                                        // Programmatic moves carry no event; only
+                                        // the reader's do.
+                                        if (event) moved.current = true;
+                                    }}
+                                >
+                                    {editable &&
+                                        drag &&
+                                        drag.key === viewKey && (
+                                            <Guides guides={drag.guides} />
+                                        )}
+                                    {editable && graph && (
+                                        <EdgeMarks
+                                            graph={graph}
+                                            stepState={stepState}
+                                            selected={selection.edge?.key}
+                                            side={drag?.side}
+                                            zoom={zoom}
+                                            onVertex={dragVertex}
+                                            onRemove={removeVertex}
+                                            onEnd={dragEnd}
+                                        />
+                                    )}
+                                </ReactFlow>
+                            )}
+                        </CanvasBackground.Provider>
+                    </EntityToggle.Provider>
                 </Editing.Provider>
             </Activate.Provider>
         </div>
