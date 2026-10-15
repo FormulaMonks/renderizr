@@ -44,23 +44,34 @@ const SHAPES = {
     hexagon: "Hexagon",
 };
 
-// Shapes whose content area is smaller than their box, so the label needs a bigger box.
-const ROOMY = { Diamond: 1.7, Circle: 1.45, Hexagon: 1.25, Cylinder: 1.1 };
+// Mermaid sizes text at 16 px; Renderizr draws Mermaid diagrams at 24 px, so every Mermaid length scales by 1.5.
+const SCALE = 1.5;
+const TEXT = 16 * SCALE;
+// The element font size whose name (drawn at 1.4 times) comes out at TEXT.
+const FONT_SIZE = Math.round(TEXT / 1.4);
 
-const FONT_SIZE = 24;
-const NAME = FONT_SIZE * 1.4;
-
-/** A rough box for a label, measured with an average glyph width (no canvas in the build). */
+/**
+ * A node's box the way Mermaid sizes it: the label plus 30 on each side and 15 above and below, at 16 px, scaled. The
+ * build has no text measurement, so it estimates the label from an average glyph width.
+ */
 function sizeFor(label, shape) {
     const lines = label.split("\n");
     const longest = Math.max(...lines.map((line) => line.length));
-    const scale = ROOMY[shape] ?? 1;
-    let width = Math.round((longest * NAME * 0.62 + 70) * scale);
-    let height = Math.round((lines.length * NAME * 1.2 + 70) * scale);
-    if (shape === "Circle" || shape === "Diamond") {
-        width = height = Math.max(width, height);
-    }
-    return { width: Math.max(width, 160), height: Math.max(height, 100) };
+    const text = {
+        width: longest * TEXT * 0.58,
+        height: lines.length * TEXT * 1.2,
+    };
+    const padding = 15 * SCALE;
+    let width = text.width + 4 * padding;
+    let height = text.height + 2 * padding;
+    // Mermaid's own rules: a diamond's side is the label's width plus its height plus padding (question.ts), a circle
+    // fits the label's width plus padding (circle.ts), a hexagon adds a quarter of its height on each side.
+    if (shape === "Diamond")
+        width = height = text.width + text.height + 2 * padding;
+    if (shape === "Circle") width = height = text.width + 2 * padding;
+    if (shape === "Hexagon") width = text.width + 2 * padding + height / 2;
+    if (shape === "Cylinder") height += 2 * padding;
+    return { width: Math.round(width), height: Math.round(height) };
 }
 
 function css(declarations) {
@@ -211,6 +222,17 @@ export function readMermaidDiagrams(workspace) {
             return names.length ? names.join(separator) : undefined;
         };
 
+        // A subgraph's own `direction`, by its group path.
+        const directions = {};
+        for (const subgraph of parsed.db.getSubGraphs()) {
+            const node = byId.get(subgraph.id);
+            if (!subgraph.dir || !node) continue;
+            const path = [groupPath(node), plain(node.label) || node.id]
+                .filter(Boolean)
+                .join(separator);
+            directions[path] = DIRECTIONS[subgraph.dir];
+        }
+
         const elements = [];
         for (const node of nodes) {
             if (node.isGroup) continue;
@@ -222,6 +244,7 @@ export function readMermaidDiagrams(workspace) {
                 styles.elements.push({
                     tag: `Mermaid:shape:${shape}`,
                     shape,
+                    fontSize: FONT_SIZE,
                     metadata: false,
                     description: false,
                 });
@@ -313,19 +336,20 @@ export function readMermaidDiagrams(workspace) {
             order: view.order,
             title: view.title ?? parsed.title,
             description: view.description,
-            properties: view.properties,
+            properties: {
+                ...view.properties,
+                "renderizr.mermaid": "true",
+                "renderizr.mermaid.directions": JSON.stringify(directions),
+            },
             elements: elements.map((e) => ({ id: e.id, x: 0, y: 0 })),
             relationships: relationships.map((r) => ({ id: r.id })),
             automaticLayout: {
                 implementation: "Dagre",
                 rankDirection:
                     DIRECTIONS[parsed.db.getDirection()] ?? "TopBottom",
-                ...(spacing.rankSpacing && {
-                    rankSeparation: spacing.rankSpacing,
-                }),
-                ...(spacing.nodeSpacing && {
-                    nodeSeparation: spacing.nodeSpacing,
-                }),
+                rankSeparation: (spacing.rankSpacing ?? 50) * SCALE,
+                nodeSeparation: (spacing.nodeSpacing ?? 50) * SCALE,
+                edgeSeparation: 20 * SCALE,
                 vertices: false,
             },
         });

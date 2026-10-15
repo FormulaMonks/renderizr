@@ -44,11 +44,29 @@
                 "title": "Order flow, styled"
             },
             {
+                "content": "https://mermaid.ink/svg/pako:eJxtVEtv4yAQ_ivIJ0fabKUee9hV-tAqUrut-jixORA8sVExWIC7azn57zsMOHGjcoBh-ObNzMgKaSsoroqdtn9lI1xgr9d_DMNVwUfJb-EDtO3AbRZsufyx73rfgN8zB53l5S8ViPIqWDcsNkkwcggcnKprcAiXahxv1qxTHWhl4HBISN9vaye6hskG5Ltn_IbOrCcuRAd-j9smamRh6MDzV9yTyAxJTwTqjQr8DTcWwIe5tvhCELgEfmeqZbBLMNUnHN4TIRVBowf55RKIU4sA40prVjsA8zPHErkUtbF7ZmxQu4Ff_KaTiT401l1kC-mRLb8jeKf-7WOmz3QMMcfbXumK8-t4MKyM2gmJbm7OcldZiZm7tbJvwQQRlDWzkCvlQEYeu38-cUWn-OppjaXagQMjIaW37lUF_M2DS-RMD90JhMWGaM4TdZ61k1vQaTugY3TONPkgamVqXr4kYpFs-9a-w_gS91QP1gnvp-ySIL0d0yO6ztkPGMcHYXqh813ow2EeJ2HIAFIVL59w7ykhi81XqmP1nNV6K-Q7f0aCRWoOnQK0W8wT6uaPiZhh4moBv7_0_CGdKUihwQVflis6F4vPItrWnt_jNgefIMccxxWjIVS288VLVHdWHfpSKd0p-edsB7XywQ28XOUPd2Qd2ztnhz5w_szpJTmc5oSoY42skULrkj-aZSTQETQKcZokifROEjhkDEooI_GjYdOvM5GtTvzUNjhyQmtdgHbWPZOjKT4pDH8B2TsVBrpNfYMkGdxqi7NmT02XO74RpsZxV-McytQmZ0WD8MCf0xmDhmlenHJ3FJ_cSWAqpTG2xzbDymcq1r74xooWXCtUVVyNRWigjaO4gp3odSgOh_9bJ9SQ",
+                "contentType": "image/svg+xml",
+                "description": "About 30 nodes: a subgraph no edge crosses, crossed and nested subgraphs, a subgraph with its own direction and long back edges.",
+                "key": "release",
+                "name": "Release pipeline",
+                "order": 4,
+                "title": "Release pipeline"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxlUstOwzAQ_JWVT4lEVQlx6gEE5dhbUTm4PRh7m1g43sp2WlDafyd-RC0QRZldz-xk7GQAJkkhW7C9oZNshQvw9rK1MF5H7XWo-CYCuV0Ns9kjGGGVtg1fZYSDaHCX9YWKsrM0Wn568Lqx0B_OsCfX8fXYzfpDaspMLJPvURithk18AnZCm6dLSZGWoqelM6Bz5Pi6pVMui02qk080_Dv4jX6c_NI--OFZSuptKO30ktxdxYYabfmKGtB2vH1AoXb_pDGQdCgC8mqZEES2r4s4sylY2hSfr9EqkGT32nUiaLLzyTfySVnYYZkRVQxx_9BOYQt_TXtCI6lD_p4RAvXTwdxqY1yHnbaKpxS5xkma29sEeb24J0IJ336QcKqqXqeyrsvnj2f2W7W17A5Yh-NWtWKLgYUWu_izKdyL3gR2ufwAKrHZSg==",
+                "contentType": "image/svg+xml",
+                "description": "No subgraphs: spacing and edge labels alone.",
+                "key": "signup",
+                "name": "Sign-up",
+                "order": 5,
+                "title": "Sign-up"
+            },
+            {
                 "content": "https://mermaid.ink/svg/pako:eJxdUj1vwjAQ_SsnT0EqZepQBHRAqjpUagRDB5PBcS7ExYkj26FFIf-9_ggfrQf7-fTeu_OdeyBcFUjmpJTqm1dMW3jf7Bpwi3fGqhp1QtcjyiYwna7OrWQcDShdoD6DqVRLPzEPIItSDz0VjkyKov_wzIhfhsgIl-B2QnOGlp1qbCylaQRgUB8Fxyz7Q390_EadQeMXcrvahCMWMhJHI1guVzFuaBLSGyiYZTkzOLkU2eV7zdoKyk6WQgYZfb3ikRVMBT8kqdtAWKxN6ILLxA99n7rdQc1RDsNNcfU2lWhb0eyBbkd05-uXZDlKOku1cOnDZZYFf646LVz3k3UEk8lNiE1xV50vwSuCOsavhEs_QsXuBeNoo6WLQoFSHH17Qs5x0HdTXPi4i_IDTbb-uLQvzsDJ1D_ZWM9PVMVYhbKlO_LmDpfRHBa5nq2eWQ1WwVNb74h_8zRk3DXkAYhzq5koyLwntsLa_9ACS9ZJS4bhF9PO4kg=",
                 "contentType": "image/svg+xml",
                 "key": "left-right",
                 "name": "Order flow, left to right",
-                "order": 4,
+                "order": 6,
                 "title": "Order flow, left to right"
             }
         ],

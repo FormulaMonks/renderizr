@@ -20,6 +20,8 @@
  */
 
 import dagre from "@dagrejs/dagre";
+// PROTOTYPE (issue 184): Dagre 2.0.4 removes the empty ranks 1.1.8 leaves around every boundary.
+import dagre2 from "dagre-2";
 import addSubgraphConstraints from "@dagrejs/dagre/lib/order/add-subgraph-constraints";
 import buildLayerGraph from "@dagrejs/dagre/lib/order/build-layer-graph";
 import crossCount from "@dagrejs/dagre/lib/order/cross-count";
@@ -188,8 +190,12 @@ const keyOf = (id: string) => `#${id}`;
  * (setting 'rank')`), which is how today's renderer loses Big Bank's whole
  * Live deployment layout (spec 10.6).
  */
-export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
-    const g = new dagre.graphlib.Graph({
+export function layOut(
+    graph: CompoundGraph,
+    settings: LayoutSettings,
+    engine: typeof dagre = dagre,
+): Layout {
+    const g = new engine.graphlib.Graph({
         compound: true,
         multigraph: true,
         directed: true,
@@ -238,7 +244,7 @@ export function layOut(graph: CompoundGraph, settings: LayoutSettings): Layout {
             edge.id,
         );
 
-    dagre.layout(g, {
+    engine.layout(g, {
         customOrder: (layoutGraph, dagreOrder) => {
             dagreOrder(layoutGraph, {});
             if (!placesEachOnce(layoutGraph)) order(layoutGraph);
@@ -430,4 +436,121 @@ export function simplify(points: Point[], threshold: number): Point[] {
     }
     kept.push(points[points.length - 1]);
     return kept;
+}
+
+/** PROTOTYPE (issue 184): what laying out a Mermaid diagram's subgraphs one at a time needs from the caller. */
+export type ClusterOptions = {
+    /** The box a boundary gets around `placed`, its padding and label band included. */
+    boxFor: (
+        id: string,
+        placed: ReadonlyMap<string, Bounds>,
+    ) => Bounds | undefined;
+    /** A subgraph's own direction, when its source sets one. */
+    direction: (id: string) => LayoutSettings["rankDirection"] | undefined;
+    /** Added to the rank separation inside a subgraph laid out on its own. */
+    rankBonus: number;
+};
+
+/**
+ * PROTOTYPE (issue 184): Mermaid's rule for subgraphs. A boundary no edge crosses is laid out on its own, in the
+ * flipped direction unless it sets one, and placed as one node of the graph around it; every other boundary stays
+ * in Dagre's compound graph.
+ */
+export function layOutClusters(
+    graph: CompoundGraph,
+    settings: LayoutSettings,
+    options: ClusterOptions,
+): Layout {
+    const parentOf = new Map<string, string | undefined>();
+    for (const b of graph.boundaries) parentOf.set(b.id, b.parent);
+    for (const n of graph.nodes) parentOf.set(n.id, n.parent);
+    const inside = (id: string, cluster: string) => {
+        for (let p = parentOf.get(id); p; p = parentOf.get(p))
+            if (p === cluster) return true;
+        return false;
+    };
+    const crossed = (cluster: string) =>
+        graph.edges.some(
+            (e) => inside(e.source, cluster) !== inside(e.target, cluster),
+        );
+    const own = graph.boundaries.filter(
+        (b) => !crossed(b.id) && graph.nodes.some((n) => inside(n.id, b.id)),
+    );
+    const top = own.filter(
+        (b) => !own.some((o) => o.id !== b.id && inside(b.id, o.id)),
+    );
+    const engine = dagre2 as unknown as typeof dagre;
+    if (!top.length) return layOut(graph, settings, engine);
+
+    const boxes = new Map<string, Bounds>();
+    const edges = new Map<string, Point[]>();
+    const placedInside = new Map<string, { layout: Layout; box: Bounds }>();
+    const flip = (d: LayoutSettings["rankDirection"]) =>
+        d === "TopBottom" || d === "BottomTop" ? "LeftRight" : "TopBottom";
+    for (const cluster of top) {
+        const lift = (p: string | undefined) =>
+            p === cluster.id ? undefined : p;
+        const sub: CompoundGraph = {
+            nodes: graph.nodes
+                .filter((n) => inside(n.id, cluster.id))
+                .map((n) => ({ ...n, parent: lift(n.parent) })),
+            boundaries: graph.boundaries
+                .filter((b) => inside(b.id, cluster.id))
+                .map((b) => ({ ...b, parent: lift(b.parent) })),
+            edges: graph.edges.filter((e) => inside(e.source, cluster.id)),
+        };
+        const layout = layOutClusters(
+            sub,
+            {
+                ...settings,
+                rankDirection:
+                    options.direction(cluster.id) ??
+                    flip(settings.rankDirection),
+                rankSeparation: settings.rankSeparation + options.rankBonus,
+            },
+            options,
+        );
+        const box = options.boxFor(cluster.id, layout.boxes);
+        if (box) placedInside.set(cluster.id, { layout, box });
+    }
+
+    const outside = (id: string) =>
+        !top.some((c) => c.id === id || inside(id, c.id));
+    const outer: CompoundGraph = {
+        nodes: [
+            ...graph.nodes.filter((n) => outside(n.id)),
+            ...top.flatMap((c) => {
+                const placed = placedInside.get(c.id);
+                return placed
+                    ? [
+                          {
+                              id: c.id,
+                              width: placed.box.width,
+                              height: placed.box.height,
+                              parent: c.parent,
+                          },
+                      ]
+                    : [];
+            }),
+        ],
+        boundaries: graph.boundaries.filter((b) => outside(b.id)),
+        edges: graph.edges.filter((e) => outside(e.source)),
+    };
+    const layout = layOut(outer, settings, engine);
+    for (const [id, box] of layout.boxes)
+        if (!placedInside.has(id)) boxes.set(id, box);
+    for (const [id, route] of layout.edges) edges.set(id, route);
+    for (const [id, { layout: inner, box }] of placedInside) {
+        const at = layout.boxes.get(id)!;
+        const dx = at.x - box.x;
+        const dy = at.y - box.y;
+        for (const [child, b] of inner.boxes)
+            boxes.set(child, { ...b, x: b.x + dx, y: b.y + dy });
+        for (const [edge, route] of inner.edges)
+            edges.set(
+                edge,
+                route.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+            );
+    }
+    return { boxes, edges };
 }

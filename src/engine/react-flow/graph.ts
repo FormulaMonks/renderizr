@@ -95,9 +95,11 @@ import {
     placeUnplaced,
 } from "../geometry/unplaced";
 import {
+    type CompoundGraph,
     type LayoutBoundary,
     type LayoutSettings,
     layOut,
+    layOutClusters,
 } from "../layout/automatic";
 
 export type { Bounds, ColorScheme, Labels, TargetKind };
@@ -746,12 +748,15 @@ function drawView(
             b.kind === "Element" ? kindsFor(b.element) : [],
         ]),
     );
+    const mermaid = isMermaid(view);
     const inputs = boundaryInputs(
         model,
         view.boundaries,
         styles,
         labels,
         boundaryTargets,
+    ).map((input) =>
+        mermaid ? { ...input, padding: MERMAID_GROUP_PADDING } : input,
     );
     const keys = edgeKeys(view.relationships, drawn);
     const edges: EdgeDraft[] = [];
@@ -850,11 +855,13 @@ function drawView(
             edges.map((edge) => [
                 edge.key,
                 {
-                    room: layoutLabelRoom(
-                        edge.label,
-                        edge.fontSize,
-                        edge.labelWidth,
-                    ),
+                    room: mermaid
+                        ? edge.label?.size ?? { width: 0, height: 0 }
+                        : layoutLabelRoom(
+                              edge.label,
+                              edge.fontSize,
+                              edge.labelWidth,
+                          ),
                     size: edge.label?.size,
                 },
             ]),
@@ -1168,7 +1175,16 @@ function layOutView(
     boundaries: DeriveBoundaries,
     settings: LayoutSettings,
 ): { moved: Map<string, Point>; vertices: Map<string, Point[]> } {
-    const layout = layOut(
+    const mermaid = isMermaid(view);
+    const lay = mermaid
+        ? (graph: CompoundGraph, s: LayoutSettings) =>
+              layOutClusters(graph, s, {
+                  boxFor: (id, placed) => boundaries(placed).get(id),
+                  direction: mermaidDirections(view),
+                  rankBonus: 25 * 1.5,
+              })
+        : layOut;
+    const layout = lay(
         {
             nodes: elements.map(({ id, width, height }) => ({
                 id,
@@ -1195,7 +1211,7 @@ function layOutView(
         parent,
         boundaries,
         vertices: layout.edges,
-        gap: BOUNDARY_PADDING,
+        gap: mermaid ? MERMAID_GROUP_PADDING : BOUNDARY_PADDING,
         rankAxis:
             rankDirection === "LeftRight" || rankDirection === "RightLeft"
                 ? "x"
@@ -1232,6 +1248,31 @@ function layoutBoundaries(view: ResolvedView): LayoutBoundary[] {
 /* ----------------------------------------------------------- boundaries */
 
 /** What deriving each boundary of the view needs: its children and label. */
+/** PROTOTYPE (issue 184): Mermaid's cluster padding, 8 at 16 px, scaled to the 24 px Renderizr draws at. */
+const MERMAID_GROUP_PADDING = 12;
+
+/** PROTOTYPE (issue 184): whether the build turned `view` from a Mermaid flowchart. */
+const isMermaid = (view: ResolvedView) =>
+    view.view.properties?.["renderizr.mermaid"] === "true";
+
+/** PROTOTYPE (issue 184): each group's own `direction` from the Mermaid source, by boundary id. */
+function mermaidDirections(view: ResolvedView) {
+    let byPath: Record<string, LayoutSettings["rankDirection"]> = {};
+    try {
+        byPath = JSON.parse(
+            view.view.properties?.["renderizr.mermaid.directions"] ?? "{}",
+        );
+    } catch {}
+    const byId = new Map(
+        view.boundaries.flatMap((b) =>
+            b.kind === "Group" && b.group && byPath[b.group]
+                ? [[b.id, byPath[b.group]] as const]
+                : [],
+        ),
+    );
+    return (id: string) => byId.get(id);
+}
+
 function boundaryInputs(
     model: WorkspaceModel,
     resolved: ResolvedBoundary[],

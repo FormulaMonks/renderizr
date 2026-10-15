@@ -123,6 +123,8 @@ export type BoundaryLabel = {
 
 export type BoundaryInput = {
     id: string;
+    /** PROTOTYPE (issue 184): the padding around its children; BOUNDARY_PADDING when absent. */
+    padding?: number;
     /** Ids of the elements and boundaries drawn directly inside it. */
     children: string[];
     label: BoundaryLabel;
@@ -380,17 +382,18 @@ export function deriveBoundaries(
         const around = boundsOf(boxes);
         if (!around) return null;
 
+        const padding = input.padding ?? BOUNDARY_PADDING;
         const width = Math.max(
-            around.width + 2 * BOUNDARY_PADDING,
+            around.width + 2 * padding,
             minimumWidth(input.label, measure),
         );
-        const bandTop = around.height + 2 * BOUNDARY_PADDING;
+        const bandTop = around.height + 2 * padding;
         const band = layoutBand(input.label, width, bandTop, measure);
         const boundary: DerivedBoundary = {
             id: input.id,
             children: input.children,
-            x: around.x - BOUNDARY_PADDING,
-            y: around.y - BOUNDARY_PADDING,
+            x: around.x - padding,
+            y: around.y - padding,
             width,
             height: bandTop + band.band.height,
             ...band,
