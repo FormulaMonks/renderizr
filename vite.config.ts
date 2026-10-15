@@ -1,6 +1,12 @@
 import { defineConfig } from "vite";
 // @ts-expect-error — plain ESM shared with scripts/build.js
-import { loadFont, loadLogo, loadWorkspace } from "./scripts/assets.js";
+import { loadWorkspace } from "./scripts/assets.js";
+// @ts-expect-error — plain ESM shared with scripts/build.js
+import {
+    colorError,
+    loadBranding,
+    NO_BRANDING_FLAGS,
+} from "./scripts/branding.js";
 // @ts-expect-error — plain ESM shared with scripts/build.js
 import { createConfig } from "./scripts/config.js";
 
@@ -13,11 +19,24 @@ const DEFAULT_WORKSPACE = "architecture/workspace.json";
  *
  *   pnpm dev                                    (this repo's own workspace)
  *   pnpm dev -- path/to/workspace.json [--logo x.svg] [--font Inter]
+ *
+ * The branding flags it reads take the workspace's `renderizr.*` properties
+ * the way `renderizr` does, through `scripts/branding.js`.
  */
+
+/** The branding flags `pnpm dev` reads, each taking a value. */
+const BRANDING_FLAGS = {
+    logo: "--logo",
+    logoAlt: "--logo-alt",
+    logoHref: "--logo-href",
+    font: "--font",
+    primaryColor: "--primary-color",
+};
+
 export default async () => {
     const args = process.argv.slice(2);
     const flag = (name: string) => {
-        const at = args.indexOf(`--${name}`);
+        const at = args.indexOf(name);
         return at === -1 ? undefined : args[at + 1];
     };
 
@@ -29,31 +48,31 @@ export default async () => {
             .filter(
                 (arg, at) =>
                     !arg.startsWith("-") &&
-                    !["--font", "--logo", "--primary-color"].includes(
-                        args[at - 1],
-                    ),
+                    !Object.values(BRANDING_FLAGS).includes(args[at - 1]),
             )
             .at(-1) ??
         process.env.RENDERIZR_WORKSPACE ??
         DEFAULT_WORKSPACE;
 
-    const fontFamily = flag("font");
-    const font = await loadFont(
-        fontFamily
-            ? {
-                  family: fontFamily,
-                  weights: ["400", "700"],
-                  subsets: ["latin"],
-                  italic: false,
-              }
-            : null,
-    );
-    const logoSource = flag("logo");
-
-    const [workspace, logo] = await Promise.all([
-        loadWorkspace(source, { font }),
-        loadLogo(logoSource ? { source: logoSource, alt: "" } : null),
-    ]);
+    const flags = {
+        ...NO_BRANDING_FLAGS,
+        ...Object.fromEntries(
+            Object.entries(BRANDING_FLAGS).map(([key, name]) => [
+                key,
+                flag(name) ?? null,
+            ]),
+        ),
+    };
+    // The build refuses the same flag with its usage.
+    const wrongColor = colorError(flags.primaryColor);
+    if (wrongColor) throw new Error(wrongColor);
+    const workspace = await loadWorkspace(source);
+    const { logo, font, primaryColor, notices } = await loadBranding({
+        flags,
+        workspace,
+        source,
+    });
+    for (const notice of notices) process.stderr.write(`${notice}\n`);
 
     process.env.VITE_WORKSPACE_NAME = workspace.name ?? "Workspace";
 
@@ -62,7 +81,7 @@ export default async () => {
             workspace,
             logo,
             font,
-            primaryColor: flag("primary-color") ?? null,
+            primaryColor,
             singleFile: args.includes("--single-file"),
             mode: "serve",
         }),

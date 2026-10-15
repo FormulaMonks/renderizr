@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
+import { isCssColor } from "./branding.js";
 import {
-    isCssColor,
     OPTIONS,
     parseCliArgs,
     parseEditArgs,
@@ -37,9 +37,16 @@ test("a bare workspace takes every default", () => {
         out: "structurizr-output",
         base: "",
         singleFile: false,
-        logo: null,
-        font: null,
-        primaryColor: null,
+        branding: {
+            logo: null,
+            logoAlt: null,
+            logoHref: null,
+            font: null,
+            fontWeights: ["400", "700"],
+            fontSubsets: ["latin"],
+            fontItalic: false,
+            primaryColor: null,
+        },
     });
 });
 
@@ -79,56 +86,47 @@ test("--single-file is a boolean flag", () => {
 
 /* --------------------------------------------------------------------- logo */
 
-test("--logo alone carries empty alt text and no link", () => {
-    assert.deepEqual(parseCliArgs(["w.json", "--logo", "./logo.svg"]).logo, {
-        source: "./logo.svg",
-        alt: "",
-        href: undefined,
-    });
-});
-
-test("--logo-alt and --logo-href ride along with the logo", () => {
-    const { logo } = parseCliArgs([
+test("each branding flag is handed over as passed, and the absent ones as null", () => {
+    const { branding } = parseCliArgs([
         "w.json",
         "--logo",
         "https://example.test/logo.png",
-        "--logo-alt",
-        "Acme",
         "--logo-href",
         "https://acme.test",
+        "--font",
+        "Inter",
     ]);
-
-    assert.deepEqual(logo, {
-        source: "https://example.test/logo.png",
-        alt: "Acme",
-        href: "https://acme.test",
-    });
+    assert.equal(branding.logo, "https://example.test/logo.png");
+    assert.equal(branding.logoAlt, null, "--logo-alt took a default");
+    assert.equal(branding.logoHref, "https://acme.test");
+    assert.equal(branding.font, "Inter");
+    assert.equal(branding.primaryColor, null);
 });
 
-test("logo options without --logo produce no logo at all", () => {
-    const { logo } = parseCliArgs([
+test("--logo-alt and --logo-href pass without --logo, for the workspace's logo", () => {
+    const { branding } = parseCliArgs([
         "w.json",
         "--logo-alt",
         "Acme",
         "--logo-href",
         "https://acme.test",
     ]);
-    assert.equal(logo, null);
+    assert.equal(branding.logo, null);
+    assert.equal(branding.logoAlt, "Acme");
+    assert.equal(branding.logoHref, "https://acme.test");
 });
 
 /* --------------------------------------------------------------------- font */
 
 test("--font takes the documented weight and subset defaults", () => {
-    assert.deepEqual(parseCliArgs(["w.json", "--font", "Inter"]).font, {
-        family: "Inter",
-        weights: ["400", "700"],
-        subsets: ["latin"],
-        italic: false,
-    });
+    const { branding } = parseCliArgs(["w.json", "--font", "Inter"]);
+    assert.deepEqual(branding.fontWeights, ["400", "700"]);
+    assert.deepEqual(branding.fontSubsets, ["latin"]);
+    assert.equal(branding.fontItalic, false);
 });
 
 test("weight and subset lists are trimmed, and empty entries dropped", () => {
-    const { font } = parseCliArgs([
+    const { branding } = parseCliArgs([
         "w.json",
         "--font",
         "Source Sans 3",
@@ -139,33 +137,21 @@ test("weight and subset lists are trimmed, and empty entries dropped", () => {
         "--font-italic",
     ]);
 
-    assert.deepEqual(font, {
-        family: "Source Sans 3",
-        weights: ["300", "600"],
-        subsets: ["latin", "latin-ext"],
-        italic: true,
-    });
+    assert.equal(branding.font, "Source Sans 3");
+    assert.deepEqual(branding.fontWeights, ["300", "600"]);
+    assert.deepEqual(branding.fontSubsets, ["latin", "latin-ext"]);
+    assert.equal(branding.fontItalic, true);
 });
 
 test("a weight list of nothing but separators leaves no weights", () => {
-    const { font } = parseCliArgs([
+    const { branding } = parseCliArgs([
         "w.json",
         "--font",
         "Inter",
         "--font-weights",
         " , , ",
     ]);
-    assert.deepEqual(font.weights, []);
-});
-
-test("font options without --font produce no font at all", () => {
-    const { font } = parseCliArgs([
-        "w.json",
-        "--font-weights",
-        "300",
-        "--font-italic",
-    ]);
-    assert.equal(font, null);
+    assert.deepEqual(branding.fontWeights, []);
 });
 
 /* -------------------------------------------------------------------- usage */
@@ -275,8 +261,8 @@ test("a leading -- that pnpm forwards is dropped, so the flags after it stay fla
         "x",
     ]);
     assert.equal(
-        parseCliArgs(withoutSeparator(["--", "w.json", "--logo=logo.svg"])).logo
-            .source,
+        parseCliArgs(withoutSeparator(["--", "w.json", "--logo=logo.svg"]))
+            .branding.logo,
         "logo.svg",
     );
 });
@@ -291,13 +277,14 @@ test("pnpm render -- <workspace> --flag reaches the CLI as one workspace and its
 
 test("--primary-color takes a CSS color, in the build and in edit mode", () => {
     assert.equal(
-        parseCliArgs(["w.json", "--primary-color", "#e4572e"]).primaryColor,
+        parseCliArgs(["w.json", "--primary-color", "#e4572e"]).branding
+            .primaryColor,
         "#e4572e",
     );
     assert.equal(
         parseEditArgs([fixture("workspace.json"), "--primary-color", "teal"], {
             cwd: REPO_ROOT,
-        }).primaryColor,
+        }).branding.primaryColor,
         "teal",
     );
     for (const color of [
@@ -361,7 +348,7 @@ test("the usage text lists the edit subcommand", () => {
 });
 
 test("renderizr edit opens the current folder on port 7341 and leaves the browser alone", () => {
-    const options = parseEditArgs([], { cwd: FIXTURES });
+    const { branding, ...options } = parseEditArgs([], { cwd: FIXTURES });
     assert.deepEqual(options, {
         session: {
             kind: "json",
@@ -370,10 +357,8 @@ test("renderizr edit opens the current folder on port 7341 and leaves the browse
         },
         port: 7341,
         open: false,
-        logo: null,
-        font: null,
-        primaryColor: null,
     });
+    assert.equal(branding.logo, null);
 });
 
 test("renderizr edit takes a path, --port and --open", () => {
@@ -387,7 +372,7 @@ test("renderizr edit takes a path, --port and --open", () => {
 });
 
 test("renderizr edit takes the branding flags the build takes", () => {
-    const { logo, font } = parseEditArgs(
+    const { branding } = parseEditArgs(
         [
             "--logo",
             "./logo.svg",
@@ -405,16 +390,15 @@ test("renderizr edit takes the branding flags the build takes", () => {
         ],
         { cwd: FIXTURES },
     );
-    assert.deepEqual(logo, {
-        source: "./logo.svg",
-        alt: "Acme",
-        href: "https://example.test",
-    });
-    assert.deepEqual(font, {
-        family: "Inter",
-        weights: ["300", "600"],
-        subsets: ["latin-ext"],
-        italic: true,
+    assert.deepEqual(branding, {
+        logo: "./logo.svg",
+        logoAlt: "Acme",
+        logoHref: "https://example.test",
+        font: "Inter",
+        fontWeights: ["300", "600"],
+        fontSubsets: ["latin-ext"],
+        fontItalic: true,
+        primaryColor: null,
     });
 });
 

@@ -4,6 +4,14 @@ workspace "Renderizr" {
     !adrs decisions
     !docs docs
 
+    # Branding Renderizr reads (ADR 22)
+    properties {
+        "renderizr.logo" "docs/assets/logo.svg"
+        "renderizr.logoAlt" "Renderizr"
+        "renderizr.font" "Inter"
+        "renderizr.primaryColor" "#1168BD"
+    }
+
     model {
         # Constants
 

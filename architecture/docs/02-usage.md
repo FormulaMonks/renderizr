@@ -23,10 +23,10 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. The build empties it first |
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
 | `--base <path>` | Base public path for the multi-file build. The default is empty, which emits relative URLs (`./assets/…`) that work from any folder. Set it to a path such as `/renderizr/` when the page must reference its assets absolutely |
-| `--logo <path\|url>` | Image at the top left of the header. The build fetches it, minifies it when it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes, and rejects an SVG that holds a script |
+| `--logo <path\|url>` | Image at the top left of the header: a path relative to the current directory, a URL or a `data:` URI. The build fetches it, minifies it when it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes, and rejects an SVG that holds a script |
 | `--logo-alt <text>` | Alt text for the logo. Default empty. When it matches the workspace name, the logo stands in for the title in the header, so a logo that spells the name does not repeat it |
 | `--logo-href <url>` | Wraps the logo in a link |
-| `--font <family>` | A [Google Fonts](https://fonts.google.com) family, such as `Inter` or `"Source Sans 3"`. The build downloads it as woff2 and embeds it, diagram labels included |
+| `--font <family>` | A [Google Fonts](https://fonts.google.com) family, such as `Inter` or `"Source Sans 3"`. The build downloads it from Google Fonts, its one font source, as woff2 and embeds it, diagram labels included |
 | `--font-weights <list>` | Comma-separated weights. Default `400,700`. The build prefers a variable font that covers the range when the family has one |
 | `--font-subsets <list>` | Comma-separated subsets. Default `latin` |
 | `--font-italic` | Also embed the italic faces, which roughly doubles the font's weight |
@@ -34,6 +34,36 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `-h, --help` | Print the reference as text and exit |
 
 A font is the one option with a real cost: an embedded family outweighs every other option together, and each extra weight, subset or italic face adds to it.
+
+## Branding from the workspace
+
+Set the logo, the font and the primary color once in the workspace, and every run of `renderizr` and `renderizr edit` uses them without flags:
+
+```
+workspace {
+    properties {
+        "renderizr.logo" "logo.svg"
+        "renderizr.logoAlt" "Acme"
+        "renderizr.logoHref" "https://acme.example"
+        "renderizr.font" "Inter"
+        "renderizr.primaryColor" "#e4572e"
+    }
+}
+```
+
+| Property | Holds | Flag that overrides it |
+| --- | --- | --- |
+| `renderizr.logo` | The header logo: a path relative to the workspace file, or to the workspace URL when you render from one, a URL or a `data:` URI | `--logo` |
+| `renderizr.logoAlt` | The logo's alt text | `--logo-alt` |
+| `renderizr.logoHref` | The link around the logo | `--logo-href` |
+| `renderizr.font` | A Google Fonts family name, the value `--font` takes | `--font` |
+| `renderizr.primaryColor` | A CSS color | `--primary-color` |
+
+- A flag overrides its property for that run. When a run passes a flag whose value differs from the workspace, Renderizr prints a `properties` block to paste into the workspace, with a logo path relative to the workspace file.
+- Renderizr checks a property the way it checks its flag. An invalid value fails the build, or the start of edit mode, and the error names the property and the workspace.
+- Renderizr reads these properties and never writes them. It skips Structurizr's `branding` block, and prints a notice when that block sets a logo or a font that no property sets.
+- Edit mode applies branding when it starts. When you change a property while it runs, it asks you to restart `renderizr edit`.
+- `--font-weights`, `--font-subsets` and `--font-italic` have no properties yet.
 
 ## Default output
 

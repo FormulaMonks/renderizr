@@ -14,7 +14,7 @@ Vite serves this repository's own workspace, `architecture/workspace.json`, on <
 pnpm dev -- test/__fixtures__/edge-routing.json --font Inter
 ```
 
-Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know. The dev server accepts `--logo <path|url>`, `--font <family>` and `--single-file`, before or after the workspace path, and reads `RENDERIZR_WORKSPACE` from the environment when you pass no workspace. Git tracks the fixtures, so `git status` shows whether anything changed one while you looked. When no fixture shows your change, add one in the same pull request.
+Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know. The dev server accepts the branding flags `--logo <path|url>`, `--logo-alt <text>`, `--logo-href <url>`, `--font <family>` and `--primary-color <color>`, and `--single-file`, before or after the workspace path, and reads `RENDERIZR_WORKSPACE` from the environment when you pass no workspace. It takes the workspace's `renderizr.*` branding properties the way `pnpm render` does, and prints the same branding notices. Git tracks the fixtures, so `git status` shows whether anything changed one while you looked. When no fixture shows your change, add one in the same pull request.
 
 To build what users get, run the production build:
 
@@ -87,6 +87,7 @@ Two behaviors come from Structurizr and stay as Structurizr has them:
 | `scripts/build.js` | The CLI entry point: checks the Node version, parses arguments, loads assets and runs Vite |
 | `scripts/cli.js` | Option definitions and `--help`, for the build and for `renderizr edit` |
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
+| `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
 | `scripts/edit.js`, `scripts/edit-plugin.js` | Edit mode: the session a path opens, the local server and its save endpoint |
 | `scripts/dsl-pipeline.js`, `scripts/structurizr-tools.js` | Running Structurizr's tools on a `workspace.dsl` |
 | `scripts/workspace-writer.js` | Writing `workspace.json` the way Structurizr does |

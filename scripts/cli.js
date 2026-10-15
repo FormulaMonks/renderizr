@@ -1,9 +1,11 @@
 import { parseArgs } from "node:util";
+import { colorError } from "./branding.js";
 import { DEFAULT_PORT, resolveSession, ToolsError } from "./edit.js";
 
 export const OPTIONS = {
     logo: { type: "string" },
-    "logo-alt": { type: "string", default: "" },
+    // No default: an absent flag leaves the workspace's value in place.
+    "logo-alt": { type: "string" },
     "logo-href": { type: "string" },
     font: { type: "string" },
     "font-weights": { type: "string", default: "400,700" },
@@ -33,8 +35,9 @@ Options
                            name, the logo stands in for the header title
   --logo-href <url>        Wrap the logo in a link
 
-  --font <family>          Google Web Font family, e.g. "Inter" or "Source Sans 3".
-                           Fetched at build time and embedded as woff2 data URIs.
+  --font <family>          Google Fonts family, e.g. "Inter" or "Source Sans 3".
+                           Fetched from Google Fonts, the one font source, at
+                           build time and embedded as woff2 data URIs.
                            Costs roughly 45-70KB gzipped
   --font-weights <list>    Comma-separated weights (default: 400,700). A variable
                            font covering the range is preferred when one exists
@@ -45,6 +48,21 @@ Options
                            marks, e.g. "#e4572e" (default: Renderizr's blue)
 
   -h, --help               Show this message
+
+Branding
+  Each branding flag overrides a workspace property for the run. Set them once
+  in the workspace, and every run of renderizr and renderizr edit uses them:
+
+    properties {
+        "renderizr.logo" "logo.svg"
+        "renderizr.logoAlt" "Acme"
+        "renderizr.logoHref" "https://acme.example"
+        "renderizr.font" "Inter"
+        "renderizr.primaryColor" "#e4572e"
+    }
+
+  renderizr.logo is relative to the workspace file. A run whose flags differ
+  from the workspace prints the properties to add.
 
 Edit options (renderizr edit [path]; renderizr edit --help says more)
       --port <n>           Port for the local server (default: ${DEFAULT_PORT})
@@ -125,55 +143,30 @@ export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
     };
 }
 
-/**
- * Whether `value` reads as one CSS color: a hex color, a color function such
- * as `rgb()`, `hsl()` or `oklch()`, or a color keyword. Anything else could
- * close the rule the page sets it in, so it never reaches the page.
- */
-export function isCssColor(value) {
-    return (
-        /^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(value) ||
-        /^(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\([\w\s.,%/+-]+\)$/i.test(
-            value,
-        ) ||
-        /^[a-z]+$/i.test(value)
-    );
-}
-
-/** What is wrong with `--primary-color <value>`, or `null` when nothing is. */
-const colorError = (value) =>
-    value === undefined || isCssColor(value)
-        ? null
-        : `--primary-color takes a CSS color, such as "#e4572e" or "rgb(228 87 46)"; got "${value}".`;
+/** Split a comma-separated flag value, trimmed and without empty entries. */
+const list = (value) =>
+    value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
 
 /**
- * The logo, font and primary color the branding flags ask for, each `null`
- * when not asked.
+ * The branding flags as `scripts/branding.js` takes them: each value the run
+ * passed, `null` for each it didn't, and the font options with their
+ * defaults.
  */
 function branding(values) {
     return {
-        primaryColor: values["primary-color"] ?? null,
-        logo: values.logo
-            ? {
-                  source: values.logo,
-                  alt: values["logo-alt"],
-                  href: values["logo-href"],
-              }
-            : null,
-        font: values.font
-            ? {
-                  family: values.font,
-                  weights: values["font-weights"]
-                      .split(",")
-                      .map((weight) => weight.trim())
-                      .filter(Boolean),
-                  subsets: values["font-subsets"]
-                      .split(",")
-                      .map((subset) => subset.trim())
-                      .filter(Boolean),
-                  italic: values["font-italic"],
-              }
-            : null,
+        branding: {
+            logo: values.logo ?? null,
+            logoAlt: values["logo-alt"] ?? null,
+            logoHref: values["logo-href"] ?? null,
+            font: values.font ?? null,
+            fontWeights: list(values["font-weights"]),
+            fontSubsets: list(values["font-subsets"]),
+            fontItalic: values["font-italic"],
+            primaryColor: values["primary-color"] ?? null,
+        },
     };
 }
 
@@ -233,11 +226,16 @@ Options
   --logo-alt <text>        Alt text for the logo. When it matches the workspace
                            name, the logo stands in for the header title
   --logo-href <url>        Wrap the logo in a link
-  --font <family>          Google Web Font family, e.g. "Inter"
+  --font <family>          Google Fonts family, e.g. "Inter", fetched from
+                           Google Fonts
   --font-weights <list>    Comma-separated weights (default: 400,700)
   --font-subsets <list>    Comma-separated subsets (default: latin)
   --font-italic            Also embed the italic faces
   --primary-color <color>  CSS color for links, active items and edit marks
+
+  The branding flags override the workspace's renderizr.* properties, which
+  renderizr --help lists. Edit mode applies branding when it starts: restart
+  it after you change one of those properties.
 
   -h, --help               Show this message
 
