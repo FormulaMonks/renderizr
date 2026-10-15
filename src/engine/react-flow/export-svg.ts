@@ -62,12 +62,11 @@ export type TextSetting = {
 
 /**
  * What the title block says, each line left out when it has no value: the
- * workspace's name and the view's title, the view's description, the user
- * who last modified the workspace, and the date it was last modified,
- * already formatted for the reader.
+ * view's title, the view's description, the user who last modified the
+ * workspace, and the date it was last modified, already formatted for the
+ * reader.
  */
 export type TitleBlockText = {
-    workspace: string;
     view: string;
     description: string;
     user: string;
@@ -623,8 +622,8 @@ function edgeLabel(edge: EdgeLine, background: string, text: TextSetting) {
 
 /* ---------------- title block */
 
-/** The title block's font size, the default element's. */
-export const TITLE_BLOCK_FONT_SIZE = 24;
+/** The title block's font size, a little under the default element's. */
+export const TITLE_BLOCK_FONT_SIZE = 20;
 
 /** Space between the title block's text and its edges, the canvas included. */
 export const TITLE_BLOCK_PADDING = 40;
@@ -635,10 +634,9 @@ export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
 /**
  * The title block (glossary): a band `frame.width` wide under the canvas,
  * in the export's font and the scheme's text `color`, as its height and its
- * SVG. Line 1 is the workspace's name, then the view's title in bold, at an
- * element name's size. Under it come the view's description, wrapped to the
- * band and clamped after 4 lines, the user, and "Last modified" with the
- * date. A line with no value is left out, and a band with no lines at all
+ * SVG. Line 1 is the view's title in bold, at an element name's size, scaled
+ * from the band's. Under it come the view's description, wrapped to the band
+ * and clamped after 4 lines, the user, and "Last updated:" with the date. A line with no value is left out, and a band with no lines at all
  * takes no room.
  */
 export function titleBlock(
@@ -656,28 +654,16 @@ export function titleBlock(
     let top = bottom + TITLE_BLOCK_PADDING;
     const parts: string[] = [];
 
-    const workspace = content.workspace.trim();
     const view = content.view.trim();
-    if (workspace || view) {
-        const spans = [
-            workspace ? `<tspan>${escapeXml(workspace)}</tspan>` : "",
-            view
-                ? `<tspan ${attrs({
-                      "font-weight": "bold",
-                      // A word space after the name, which SVG would collapse.
-                      dx: workspace
-                          ? measure(" ", titleSize, false)
-                          : undefined,
-                  })}>${escapeXml(view)}</tspan>`
-                : "",
-        ];
+    if (view) {
         parts.push(
             `<text ${attrs({
                 x,
                 y: top + baselineOf(titleSize, text),
                 "font-size": titleSize,
+                "font-weight": "bold",
                 fill: color,
-            })}>${spans.join("")}</text>`,
+            })}>${escapeXml(view)}</text>`,
         );
         top += titleSize * LINE_HEIGHT;
     }
@@ -694,7 +680,7 @@ export function titleBlock(
         ),
         ...wrapped(content.user),
         ...(content.modified.trim()
-            ? wrapped(`Last modified ${content.modified.trim()}`)
+            ? wrapped(`Last updated: ${content.modified.trim()}`)
             : []),
     ];
     if (lines.length) {

@@ -16,9 +16,8 @@ const { buildGraph } = await importSrc("engine/react-flow/graph");
 const { stepStateOf } = await importSrc("engine/react-flow/animation");
 const { estimateText } = await importSrc("engine/geometry/boundary");
 const { exportFrame } = await importSrc("engine/geometry/canvas");
-const { exportSvg, TITLE_BLOCK_DESCRIPTION_LINES } = await importSrc(
-    "engine/react-flow/export-svg",
-);
+const { exportSvg, TITLE_BLOCK_DESCRIPTION_LINES, TITLE_BLOCK_FONT_SIZE } =
+    await importSrc("engine/react-flow/export-svg");
 const { MAX_PIXELS, declaresFamily, modifiedDate, pngSize, titleBlockText } =
     await importSrc("engine/react-flow/export-file");
 
@@ -37,7 +36,6 @@ const TEXT = {
     fontFaces: "",
 };
 const TITLE_BLOCK = {
-    workspace: "Export Workspace",
     view: "Export in context",
     description: "A short description",
     user: "ada@example.com",
@@ -172,18 +170,19 @@ describe("export-svg", () => {
 
     /* -------------------------------------------------------- title block */
 
-    test("the title block gives the workspace and view, the description, the user and the date", () => {
+    test("the title block gives the view, the description, the user and the date", () => {
         const band = titleBlockOf(exported("AutoFrame").svg);
         assert.match(
             band,
-            /<tspan>Export Workspace<\/tspan><tspan font-weight="bold"[^>]*>Export in context<\/tspan>/,
+            /<text [^>]*font-weight="bold"[^>]*>Export in context<\/text>/,
             "the view's title is bold",
         );
+        assert.doesNotMatch(band, /Export Workspace/, "no workspace name");
         assert.deepEqual(texts(band), [
-            "Export Workspace Export in context",
+            "Export in context",
             "A short description",
             "ada@example.com",
-            "Last modified 10/1/2026",
+            "Last updated: 10/1/2026",
         ]);
     });
 
@@ -191,7 +190,7 @@ describe("export-svg", () => {
         const cases = [
             { field: "description", gone: "A short description" },
             { field: "user", gone: "ada@example.com" },
-            { field: "modified", gone: "Last modified 10/1/2026" },
+            { field: "modified", gone: "Last updated: 10/1/2026" },
         ];
         const full = exported("AutoFrame");
         for (const { field, gone } of cases) {
@@ -203,14 +202,6 @@ describe("export-svg", () => {
             assert.equal(lines.length, 3, `${field}: the other lines stay`);
             assert.ok(height < full.height, `${field}: the band shrinks`);
         }
-        const bare = exported("AutoFrame", {
-            titleBlock: { ...TITLE_BLOCK, workspace: "" },
-        });
-        assert.match(
-            titleBlockOf(bare.svg),
-            /<text [^>]*><tspan font-weight="bold">Export in context<\/tspan><\/text>/,
-            "the view's title stands alone without a workspace name",
-        );
     });
 
     test("the title block wraps the description to the canvas and clamps it after 4 lines", () => {
@@ -223,7 +214,8 @@ describe("export-svg", () => {
         assert.match(lines.at(-1), /…$/, "the last line ends in an ellipsis");
         for (const line of lines) {
             assert.ok(
-                estimateText(line, 24, false) <= frame.width - 80,
+                estimateText(line, TITLE_BLOCK_FONT_SIZE, false) <=
+                    frame.width - 80,
                 `"${line}" fits the band`,
             );
         }
@@ -231,7 +223,7 @@ describe("export-svg", () => {
 
     test("the title block's text is escaped", () => {
         const { svg } = exported("AutoFrame", {
-            titleBlock: { ...TITLE_BLOCK, workspace: "R&D <labs>" },
+            titleBlock: { ...TITLE_BLOCK, view: "R&D <labs>" },
         });
         assert.match(titleBlockOf(svg), /R&amp;D &lt;labs&gt;/);
     });
@@ -280,13 +272,13 @@ describe("export-file", () => {
         }
     });
 
-    test("the title block reads the name, user and date from the workspace and the view's description as the page shows it", () => {
+    test("the title block reads the user and date from the workspace and the view's description as the page shows it", () => {
         const text = titleBlockText(
             WORKSPACE,
             "Export in context",
             "About the view\nAuthor: Ada <ada@example.com>",
         );
-        assert.equal(text.workspace, "Export Workspace");
+        assert.equal("workspace" in text, false, "no workspace name");
         assert.equal(text.view, "Export in context");
         assert.equal(
             text.description,

@@ -99,7 +99,6 @@ export function titleBlockText(
     description: string,
 ): TitleBlockText {
     return {
-        workspace: field(workspace.name),
         view: title,
         description: splitAuthor(description).description,
         user: field(workspace.lastModifiedUser),

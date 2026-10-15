@@ -70,14 +70,14 @@ Two buttons at the end of the diagram toolbar save the view on screen as a file:
 
 An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors, with one line for each of these the workspace has:
 
-1. The workspace's name, then the view's title in bold.
+1. The view's title in bold.
 2. The view's description, wrapped to the canvas width and cut to four lines.
 3. The user who last modified the workspace.
-4. The date the workspace was last modified, in the reader's locale.
+4. "Last updated:" and the date the workspace was last modified, in the reader's locale.
 
 The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
 
-The file takes the workspace's name and the view's key in kebab-case, then the step and the scheme when they apply: `big-bank-plc-system-context.png` for the full view in light, `big-bank-plc-sign-in-step-2-dark.svg` for step 2 of a dynamic view in dark. While an export runs, its button shows busy; when one fails, the toolbar says "Couldn't export this view" and the browser console gives the cause.
+The file takes the workspace's name and the view's key in kebab-case, then the step and the scheme when they apply: `big-bank-plc-system-context.png` for the full view in light, `big-bank-plc-sign-in-step-2-dark.svg` for step 2 of a dynamic view in dark. While an export runs, its button shows busy; when one fails, the toolbar says "Couldn't export this view".
 
 In edit mode, an export shows the layout as you left it, saved or not, without the selection, guides or canvas fill.
 
