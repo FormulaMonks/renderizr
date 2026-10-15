@@ -73,8 +73,7 @@ function exported(key, options = {}) {
 const texts = (svg) =>
     [...svg.matchAll(/<text [^>]*>(.*?)<\/text>/g)].map(([, inner]) =>
         inner
-            .split(/<\/tspan>/)
-            .map((part) => part.replace(/<[^>]+>/g, ""))
+            .split(/<[^>]*>/)
             .filter(Boolean)
             .join(" "),
     );
@@ -109,14 +108,8 @@ describe("export-svg", () => {
         assert.equal(width, frame.width);
         assert.ok(height > frame.height, "the title block adds height");
         assert.match(svg, new RegExp(`width="${width}" height="${height}"`));
-        assert.match(
-            svg,
-            new RegExp(
-                `viewBox="${frame.x} ${frame.y} ${width} ${height}"`.replace(
-                    /\./g,
-                    "\\.",
-                ),
-            ),
+        assert.ok(
+            svg.includes(`viewBox="${frame.x} ${frame.y} ${width} ${height}"`),
         );
     });
 
