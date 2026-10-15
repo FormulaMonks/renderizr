@@ -47,6 +47,8 @@ Run every script from the repository root.
 | `pnpm release:pr` | Opens or updates the release pull request with your own `gh` login, for maintainers |
 | `pnpm release:tag` | Tags a merged release and creates its GitHub Release, for maintainers |
 
+The script that renders a workspace is `render`, never `build`. npm prepares a git dependency with a full `npm install --include dev` whenever its `package.json` has a `build`, `prepare`, `prepack`, `install`, `preinstall` or `postinstall` script, and that slows every cold `npx` by seconds. `scripts/install.test.js` fails when one of those names comes back.
+
 `pnpm architecture:merge` and `pnpm fixtures:acceptance` find Structurizr's tools the way [edit mode](#structurizrs-tools-for-a-dsl-session) does: `STRUCTURIZR_CLI` as a whole command, or `structurizr-cli` on the `PATH`.
 
 Biome is the only linter and the only formatter. It indents with 4 spaces, skips `architecture/` and the workspaces copied from Structurizr, and respects `.gitignore`; `biome.json` holds the rest.
@@ -90,7 +92,11 @@ Two behaviors come from Structurizr and stay as Structurizr has them:
 | `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
 | `scripts/edit.js`, `scripts/edit-plugin.js` | Edit mode: the session a path opens, the local server and its save endpoint |
 | `scripts/dsl-pipeline.js`, `scripts/structurizr-tools.js` | Running Structurizr's tools on a `workspace.dsl` |
-| `scripts/workspace-writer.js` | Writing `workspace.json` the way Structurizr does |
+| `scripts/workspace-writer.js`, `scripts/structurizr-schema.js` | Writing `workspace.json` the way Structurizr does |
+| `scripts/config.js` | The Vite configuration, shared with the dev server |
+| `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
+| `scripts/escapes.js` | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive |
+| `vite.config.ts` | The dev server only; the production build goes through `scripts/build.js` |
 | `src/` | The page that ships in the output, in TypeScript, bundled by Vite |
 | `src/model/` | The typed workspace model and style resolution, ported from Structurizr, and `resolveView` |
 | `src/engine/` | The React Flow engine: the diagram contract in `index.ts`, geometry, layout and the island |
@@ -98,6 +104,8 @@ Two behaviors come from Structurizr and stay as Structurizr has them:
 | `test/` | Tests for `src/`, and the DOM and module hooks they run on in `test/support/` |
 | `test/__fixtures__/` | Versioned workspaces for tests and for checking changes in the dev server |
 | `architecture/` | Renderizr's own workspace, which this site renders |
+
+The model layer in `src/model/` reads the workspace: a typed port of Structurizr's workspace model and style resolution, and `resolveView`, which turns any view key into a concrete view. `src/engine/geometry/` and `src/engine/layout/` are plain functions over that view: boundaries, shapes, unplaced elements, routes, and Dagre for automatic layout. The island in `src/engine/react-flow/` is a React root built on [React Flow](https://reactflow.dev) that draws the result inside the diagram target and nowhere else, and `src/engine/index.ts` is the only way in: `mountEngine` and the `Engine` it returns. The rest of the page stays plain TypeScript.
 
 `scripts/` stays JavaScript and `src/` stays TypeScript. `tsconfig.json` includes only `src`, so the tests in `scripts/` are what guard the pipeline.
 

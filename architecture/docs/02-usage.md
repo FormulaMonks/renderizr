@@ -88,6 +88,27 @@ Pick the single file when a folder of files is hard to hand over. One file goes 
 
 The build fetches themes, element icons and a logo referenced by URL, and folds them all in. The page never reaches for the network, so it also works under a strict content security policy.
 
+## Export
+
+Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them; an image view shows none.
+
+An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors, with one line for each of these the workspace has:
+
+1. The view's title in bold.
+2. The view's description, wrapped to the canvas width and cut to four lines.
+3. "Author:" and the user who last modified the workspace.
+4. "Last updated:" and the date the workspace was last modified, in the reader's locale.
+
+The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
+
+The file takes the workspace's name and the view's key in kebab-case, then the step and the scheme when they apply: `big-bank-plc-system-context.png` for the full view in light, `big-bank-plc-sign-in-step-2-dark.svg` for step 2 of a dynamic view in dark. While an export runs, its button shows busy; when one fails, the toolbar says "Couldn't export this view".
+
+In edit mode, an export shows the layout as you left it, saved or not, without the selection, guides or canvas fill.
+
+Inside a Claude artifact, the page saves an export through the artifact viewer's `downloads` capability, which asks the reader to confirm each file. A save the reader declines ends quietly. An artifact published without `downloads` can't save a file, so its toolbar shows no export buttons: declare `downloads` when you publish `artifact.html`.
+
+An element icon given as an `http(s)` URL stays blank in an export. A build embeds every icon in the page, so this only happens on the dev server, which leaves such icons as URLs.
+
 ## Edit mode
 
 Edit mode lets you arrange the layout of a workspace's views in a browser, with the editing features of Structurizr Local's diagram editor, and saves that layout into `workspace.json`. It changes layout only: element positions, vertices, routing modes, label positions and the canvas. You keep writing the model, styles, documentation and decisions in the DSL or the JSON. Builds stay read-only.
@@ -122,7 +143,7 @@ Edit mode saves 5 seconds after your last change, and at once on Cmd/Ctrl+S. A d
 | `--port <n>` | Port for the local server. Default `7341`, or the next free one when that one is taken |
 | `--open` | Also open the URL in your browser. Without it, edit mode only prints the URL |
 
-It refuses `--out`, `--single-file` and `--base`, because edit mode writes no output.
+It refuses `--out`, `--single-file`, `--base` and `--engine`: edit mode writes no output and always draws with the React Flow engine. `renderizr edit --help` lists the flags.
 
 The server listens on `127.0.0.1` only, so nothing but your machine reaches it, and every save carries a token that only the printed URL holds.
 

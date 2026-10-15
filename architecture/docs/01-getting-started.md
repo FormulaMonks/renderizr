@@ -69,12 +69,17 @@ Then open `structurizr-output/index.html` in a browser. It needs no server and m
 - **Workspace documentation** as pages, with a table of contents and heading anchors. Heading ids match GitHub's, and relative links between documentation files and decisions open the matching page. Markdown gets GitHub-style alerts, permalinks and highlighting, images show from the copies Structurizr embeds in the workspace, and Renderizr converts AsciiDoc to the same pages.
 - **The decision log**, with status pills, supersessions and amendments, grouped by year.
 - **Light and dark**, following the reader's system setting until they choose one. The page and the diagrams keep separate preferences.
+- **[Export](02-usage.md#export)** of any drawn view as an SVG or PNG file, framed by its canvas, with a title block below.
 - **Deep links that last**: routing lives in the URL hash, so a link to a view, document or decision still works after a reload, over `file://` and inside a sandboxed frame.
 
 Renderizr reads documentation and decisions from the workspace level (`documentation.sections` and `documentation.decisions`). It leaves out sections attached to an individual software system or container.
 
+## License
+
+Renderizr is MIT-licensed, copyright (c) 2024-2026 Monks Tech Services. Every rendered page bundles code Renderizr did not write: React and React Flow (MIT), Dagre (MIT), [Bootstrap Icons](https://icons.getbootstrap.com) (MIT) and the other libraries the page needs. Its model layer derives from Structurizr's own code (Apache 2.0). [THIRD-PARTY-NOTICES.md](https://github.com/FormulaMonks/renderizr/blob/main/THIRD-PARTY-NOTICES.md) lists each one with its version, license and copyright line, and says whether it ships in the output or only runs during the build. [NOTICE](https://github.com/FormulaMonks/renderizr/blob/main/NOTICE) is the short form.
+
 ## Next steps
 
-- [Usage](02-usage.md) covers every flag, the single file, edit mode and using Renderizr from an AI agent.
+- [Usage](02-usage.md) covers every flag, the single file, export, edit mode and using Renderizr from an AI agent.
 - [Contributing](03-contributing.md) takes you from a clone to a merged pull request.
 - [Reference](04-reference.md) covers local development, every pnpm script, Structurizr's tools for edit mode, the project layout and adding a test.

@@ -68,7 +68,7 @@ Then build something real, as [Local development](04-reference.md#local-developm
 - **Keep one concern per pull request.** Branch off `main` and name the branch as [Branches and commits](#branches-and-commits) says.
 - **Fill in the template**: what the change does and why, how a reviewer can see it work, and any additional notes. For anything visual, a screenshot before and after says more than a paragraph.
 - **Test anything in `scripts/`.** New behavior gets a test, and a fixed bug gets the test that would have caught it.
-- **Update the docs in the same pull request.** A new CLI flag changes `scripts/cli.js`, the flag table in the README and the [usage section](02-usage.md#options).
+- **Update the docs in the same pull request.** A new CLI flag changes `scripts/cli.js` and the flag table in the [usage section](02-usage.md#options).
 - **Justify every new runtime dependency.** Everything in `dependencies` ends up inlined into a file people email around, so its weight needs a sentence of reasoning.
 - **Open a draft** for work you want eyes on early, and mark it ready when CI passes.
 

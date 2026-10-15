@@ -31,9 +31,9 @@
         "directory": "."
     },
     "license": "MIT",
-    "author": "Formula.Monks (https://www.monks.com)",
+    "author": "Monks Tech Services (https://www.monkstechservices.com)",
     "contributors": [
-        "Andrés Zorro <andres.zorro@monks.com> (https://github.com/andreszorro)"
+        "Andrés Zorro <andres.zorro@monks.com> (https://github.com/andreszorro-monks)"
     ],
     "type": "module",
     "bin": {

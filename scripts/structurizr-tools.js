@@ -10,9 +10,9 @@ import { styles, takesColor } from "./terminal.js";
  * arguments and `$PWD`.
  */
 
-/** Where the README says how to set the tools up. */
-export const TOOLS_README =
-    "https://github.com/FormulaMonks/renderizr#edit-mode";
+/** Where the documentation says how to set the tools up. */
+export const TOOLS_DOCS =
+    "https://formulamonks.github.io/renderizr/#/?page=docs&section=04-reference&subsection=structurizrs-tools-for-a-dsl-session";
 
 /** The tools' command prefix in `env`. */
 export const toolsCommand = (env = process.env) =>
@@ -51,7 +51,7 @@ export function checkTools(command, { cwd = process.cwd() } = {}) {
  * fails and the README.
  */
 export const toolsMessage = (dsl, command) =>
-    `Edit mode opens ${dsl} with Structurizr's tools, and "${command} version" didn't run. Set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH. They need Java 21 to 25: Groovy !script blocks fail on Java 26. See ${TOOLS_README}`;
+    `Edit mode opens ${dsl} with Structurizr's tools, and "${command} version" didn't run. Set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH. They need Java 21 to 25: Groovy !script blocks fail on Java 26. See ${TOOLS_DOCS}`;
 
 /**
  * Run `command` with `args` from `cwd`, copying its output to `output` as it

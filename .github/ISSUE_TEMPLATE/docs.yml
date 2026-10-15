@@ -15,7 +15,7 @@ body:
     attributes:
       label: Where is it?
       description: A heading, a file path, or a link to the exact line.
-      placeholder: README.md — "Local development" › "Dev server"
+      placeholder: Reference › "Local development"
     validations:
       required: true
 

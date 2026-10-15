@@ -79,7 +79,7 @@ The single quotes are load-bearing: the snippet contains double quotes and backt
 That prints one line: a ready-to-paste JSON string value for `content`, fenced so the notice renders as preformatted text rather than being reflowed. Against the `NOTICE` in this repository it is 13,460 bytes and begins
 
 ````text
-"# Colophon\n\n```\nRenderizr\nCopyright (c) 2024-2026 Formula.Monks\n\nLicensed …
+"# Colophon\n\n```\nRenderizr\nCopyright (c) 2024-2026 Monks Tech Services\n\nLicensed …
 ````
 
 — outer quotes included, because the quoted string *is* the JSON value. If you generate the workspace from DSL or from a script, do the same read-and-inject there rather than maintaining a second copy by hand.

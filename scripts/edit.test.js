@@ -217,7 +217,7 @@ test("without the tools, a DSL with workspace.json beside it falls back to a JSO
             assert.match(notices, /opened .*workspace\.json/);
             assert.match(notices, /STRUCTURIZR_CLI/);
             assert.match(notices, /structurizr-cli/);
-            assert.match(notices, /github\.com\/FormulaMonks\/renderizr#/);
+            assert.match(notices, /formulamonks\.github\.io\/renderizr\/#/);
             assert.doesNotMatch(notices, /may be out of date/);
         }
 
@@ -255,7 +255,7 @@ test("without the tools, a DSL with no workspace.json stops with a message namin
                         "Groovy !script blocks fail on Java 26",
                     ) &&
                     error.message.includes(
-                        "github.com/FormulaMonks/renderizr#",
+                        "formulamonks.github.io/renderizr/#",
                     ),
             );
         }
