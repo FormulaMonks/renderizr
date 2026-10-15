@@ -50,3 +50,12 @@ Dagre 2.0.4 leaves widths alone and shortens every grouped automatic layout. Mea
 - Group titles draw at the C4 group size, larger than node text. Groups don't take the implied `Mermaid` tag yet, so `element "Mermaid"` and the Mermaid font size don't reach them.
 - Node sizes come from an average glyph width in the build. The page's own text measurement replaces that in the spec.
 - Edges still cross groups where Mermaid routes around them; the router's avoidance treats only elements as obstacles.
+
+## Primary color and Orthogonal routing
+
+A second pass gives a silent source two defaults, beneath the workspace's own `Element`, `Relationship` and `Mermaid` styles: nodes fill with the branding's primary color (`renderizr.primaryColor`, else the page's default for each scheme) with white text and a darker border, and edges route Orthogonal. A source with a `theme` or `themeVariables` keeps its own palette and `curve`. The layout sizes stay the same.
+
+| Light | Dark |
+| --- | --- |
+| ![Order flow](184/renderizr/primary/plain.png) | ![Order flow, dark](184/renderizr/primary/plain-dark.png) |
+| ![Release pipeline](184/renderizr/primary/release.png) | ![Release pipeline, dark](184/renderizr/primary/release-dark.png) |

@@ -85,6 +85,19 @@ function css(declarations) {
 
 const px = (value) => Number.parseFloat(value);
 
+/** `#rrggbb` with every channel moved by `by`, clamped. */
+const shade = (hex, by) =>
+    `#${[1, 3, 5]
+        .map((i) =>
+            Math.min(
+                255,
+                Math.max(0, Number.parseInt(hex.slice(i, i + 2), 16) + by),
+            )
+                .toString(16)
+                .padStart(2, "0"),
+        )
+        .join("")}`;
+
 function elementStyle(props, ignored) {
     const style = {};
     for (const [key, value] of Object.entries(props)) {
@@ -186,6 +199,30 @@ export function readMermaidDiagrams(workspace) {
         const config = parsed.config ?? {};
         const theme = config.themeVariables ?? {};
         const themeTag = tag("theme");
+        // PROTOTYPE (issue 184): a silent source starts from the branding's primary color and Orthogonal routing,
+        // beneath the workspace's own Element, Relationship and Mermaid styles.
+        const silent = config.theme === undefined && !config.themeVariables;
+        const primary = workspace.properties?.["renderizr.primaryColor"];
+        if (
+            silent &&
+            !styles.elements.some((s) => s.tag === "Mermaid:primary")
+        ) {
+            for (const [colorScheme, fill] of [
+                ["Light", primary ?? "#145b9e"],
+                ["Dark", primary ?? "#1168bd"],
+            ])
+                styles.elements.push({
+                    tag: "Mermaid:primary",
+                    colorScheme,
+                    background: fill,
+                    stroke: shade(fill, -50),
+                    color: "#ffffff",
+                });
+            styles.relationships.push({
+                tag: "Mermaid:routing",
+                routing: "Orthogonal",
+            });
+        }
         const themed =
             theme.primaryColor ||
             theme.primaryBorderColor ||
@@ -239,7 +276,12 @@ export function readMermaidDiagrams(workspace) {
             const shape = SHAPES[node.shape] ?? "Box";
             if (!SHAPES[node.shape]) ignored.add(`shape "${node.shape}"`);
             const name = plain(node.label) || node.id;
-            const tags = ["Element", "Mermaid", `Mermaid:shape:${shape}`];
+            const tags = [
+                ...(silent ? ["Mermaid:primary"] : []),
+                "Element",
+                "Mermaid",
+                `Mermaid:shape:${shape}`,
+            ];
             styles.elements.some((s) => s.tag === `Mermaid:shape:${shape}`) ||
                 styles.elements.push({
                     tag: `Mermaid:shape:${shape}`,
@@ -295,7 +337,12 @@ export function readMermaidDiagrams(workspace) {
                     `arrow ends ${edge.arrowTypeStart}/${edge.arrowTypeEnd}`,
                 );
             }
-            const tags = ["Relationship", "Mermaid", edgeTag];
+            const tags = [
+                ...(silent ? ["Mermaid:routing"] : []),
+                "Relationship",
+                "Mermaid",
+                edgeTag,
+            ];
             const pattern = edge.pattern ?? "normal";
             const lineTag = `Mermaid:line:${pattern}`;
             tags.push(lineTag);
