@@ -6,7 +6,7 @@
  */
 
 import { box, roundedBox } from "./box";
-import { bucket, cylinder, pipe } from "./cylinder";
+import { bucket, cylinder, cylinderWithLid, pipe } from "./cylinder";
 import { circle, ellipse } from "./ellipse";
 import { person, robot } from "./figure";
 import { component, folder } from "./folder";
@@ -75,6 +75,21 @@ export function shapeGeometry(
         width,
         height,
         SHAPE_REGISTRY[name].build(width, height, strokeWidth),
+    );
+}
+
+/** PROTOTYPE (issue 197): a Cylinder with a lid `lid` deep, at any size. */
+export function shallowCylinder(
+    width: number,
+    height: number,
+    lid: number,
+    strokeWidth = 2,
+): ShapeGeometry {
+    return finish(
+        "Cylinder",
+        width,
+        height,
+        cylinderWithLid(lid)(width, height, strokeWidth),
     );
 }
 

@@ -54,32 +54,41 @@ const lid = (width: number, depth: number) =>
         arcTo(width / 2, depth, 0, 0, depth),
     ].join(" ");
 
-export const cylinder: ShapeBuilder = (width, height) => {
-    const c = Math.min(LID, height / 2);
-    const d = [
-        lid(width, c),
-        `L 0 ${num(height - c)}`,
-        arcTo(width / 2, c, 0, width, height - c),
-        `L ${num(width)} ${num(c)}`,
-    ].join(" ");
-    const segments = [
-        arc(point(width / 2, c), width / 2, c, Math.PI, 2 * Math.PI),
-        line(point(width, c), point(width, height - c)),
-        arc(point(width / 2, height - c), width / 2, c, 0, Math.PI),
-        line(point(0, height - c), point(0, c)),
-    ];
-    return {
-        parts: [{ d, paint: "body" }],
-        segments,
-        content: rect(0, c, width, height - c),
-        spans: {
-            top: ellipseSpan(width / 2, width / 2),
-            right: span(c, height - c),
-            bottom: ellipseSpan(width / 2, width / 2),
-            left: span(c, height - c),
-        },
+export const cylinder: ShapeBuilder = (width, height, strokeWidth) =>
+    cylinderWithLid(LID)(width, height, strokeWidth);
+
+/**
+ * PROTOTYPE (issue 197): a Cylinder whose lid and base are `depth` deep in
+ * place of upstream's 30, for a sequence diagram's database.
+ */
+export const cylinderWithLid =
+    (depth: number): ShapeBuilder =>
+    (width, height) => {
+        const c = Math.min(depth, height / 2);
+        const d = [
+            lid(width, c),
+            `L 0 ${num(height - c)}`,
+            arcTo(width / 2, c, 0, width, height - c),
+            `L ${num(width)} ${num(c)}`,
+        ].join(" ");
+        const segments = [
+            arc(point(width / 2, c), width / 2, c, Math.PI, 2 * Math.PI),
+            line(point(width, c), point(width, height - c)),
+            arc(point(width / 2, height - c), width / 2, c, 0, Math.PI),
+            line(point(0, height - c), point(0, c)),
+        ];
+        return {
+            parts: [{ d, paint: "body" }],
+            segments,
+            content: rect(0, c, width, height - c),
+            spans: {
+                top: ellipseSpan(width / 2, width / 2),
+                right: span(c, height - c),
+                bottom: ellipseSpan(width / 2, width / 2),
+                left: span(c, height - c),
+            },
+        };
     };
-};
 
 /**
  * A Cylinder's lid on walls that slope in by a tenth of the width, closed by a

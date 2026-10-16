@@ -20,7 +20,7 @@ import {
     type SequenceScript,
     TAB,
 } from "../geometry/sequence";
-import { shapeGeometry } from "../geometry/shapes";
+import { shallowCylinder, shapeGeometry } from "../geometry/shapes";
 import type { Point } from "../geometry/shapes/types";
 import type { EdgeLine, ElementBox } from "./graph";
 
@@ -179,18 +179,30 @@ export function finishSequence(
                 y: box.y,
                 targets: [],
             };
-            // An actor and a database stand taller than the participant row:
-            // C4's Person at its own square proportions, and a Cylinder whose
-            // lid and base leave its body room. Each stands on the header
-            // row, so every lifeline still starts on one line, and hangs
-            // from the footer row.
-            const tall =
-                element.shape === "Person" || element.shape === "Cylinder";
-            if (!tall) return placed;
+            // A database keeps the row's box with a shallow lid, so its
+            // body reads as tall as the other participants'.
+            if (element.shape === "Cylinder") {
+                const geometry = shallowCylinder(
+                    box.width,
+                    box.height,
+                    12,
+                    element.strokeWidth,
+                );
+                return {
+                    ...placed,
+                    parts: geometry.parts,
+                    content: geometry.content,
+                    labelHeight: geometry.content.height,
+                };
+            }
+            if (element.shape !== "Person") return placed;
+            // An actor draws C4's Person at its own square proportions,
+            // standing on the header row, so every lifeline still starts on
+            // one line, and hanging from the footer row.
             const height = Math.round(box.height * 1.5);
-            const width = element.shape === "Person" ? height : box.width;
+            const width = height;
             const geometry = shapeGeometry(
-                element.shape,
+                "Person",
                 width,
                 height,
                 element.strokeWidth,
