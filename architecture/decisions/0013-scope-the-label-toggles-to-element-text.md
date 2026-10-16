@@ -4,7 +4,9 @@ Date: 2026-10-04
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [25. Draw Mermaid diagrams in the React Flow engine](0025-draw-mermaid-diagrams-in-the-react-flow-engine.md).
 
 References [2. Draw diagrams from workspace semantics](0002-draw-diagrams-from-workspace-semantics.md): it lets Renderizr choose how a diagram reads where the workspace says nothing.
 
