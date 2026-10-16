@@ -1690,70 +1690,77 @@ function SequenceLayer({ data }: NodeProps<SequenceNode>) {
                                 )}
                             </g>
                         ))}
-                        {drawing.fragments.map((f, i) => (
-                            // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
-                            <g key={i} data-fragment={f.fragment}>
-                                <rect
-                                    x={f.x}
-                                    y={f.y}
-                                    width={f.width}
-                                    height={f.height}
-                                    fill={f.fill}
-                                    stroke={f.stroke}
-                                    strokeWidth={2}
-                                    strokeDasharray="3 3"
-                                />
-                                {f.tab && (
-                                    <>
-                                        <polygon
-                                            points={f.tab}
-                                            fill={f.tabFill}
-                                            stroke={f.stroke}
-                                            strokeWidth={2}
-                                        />
-                                        <text
-                                            x={f.keyword.x}
-                                            y={f.keyword.y}
-                                            fill={f.color}
-                                            fontSize={drawing.fontSize * 0.8}
-                                            fontWeight="bold"
-                                            textAnchor="middle"
-                                            dominantBaseline="central"
-                                        >
-                                            {f.fragment}
-                                        </text>
-                                    </>
-                                )}
-                                {f.title && (
-                                    <SequenceLines
-                                        text={f.title}
-                                        drawing={drawing}
-                                        color={f.color}
+                        {/* A `rect` fills behind the lifelines and bars, other
+                            fragments draw over them, so their titles show. */}
+                        {drawing.fragments
+                            .filter((f) => f.fragment === "rect")
+                            .map((f, i) => (
+                                // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                                <g key={i} data-fragment={f.fragment}>
+                                    <rect
+                                        x={f.x}
+                                        y={f.y}
+                                        width={f.width}
+                                        height={f.height}
+                                        fill={f.fill}
+                                        fillOpacity={f.fillOpacity}
+                                        stroke={f.stroke}
+                                        strokeWidth={2}
+                                        strokeDasharray="3 3"
                                     />
-                                )}
-                                {f.sections.map((section, j) => (
-                                    // biome-ignore lint/suspicious/noArrayIndexKey: sections keep their order
-                                    <g key={j}>
-                                        <line
-                                            x1={f.x}
-                                            x2={f.x + f.width}
-                                            y1={section.y}
-                                            y2={section.y}
-                                            stroke={f.stroke}
-                                            strokeWidth={2}
-                                            strokeDasharray="4.5 4.5"
-                                        />
-                                        {section.title && (
-                                            <SequenceLines
-                                                text={section.title}
-                                                drawing={drawing}
-                                                color={f.color}
+                                    {f.tab && (
+                                        <>
+                                            <polygon
+                                                points={f.tab}
+                                                fill={f.tabFill}
+                                                stroke={f.stroke}
+                                                strokeWidth={2}
                                             />
-                                        )}
-                                    </g>
-                                ))}
-                            </g>
-                        ))}
+                                            <text
+                                                x={f.keyword.x}
+                                                y={f.keyword.y}
+                                                fill={f.color}
+                                                fontSize={
+                                                    drawing.fontSize * 0.8
+                                                }
+                                                fontWeight="bold"
+                                                textAnchor="middle"
+                                                dominantBaseline="central"
+                                            >
+                                                {f.fragment}
+                                            </text>
+                                        </>
+                                    )}
+                                    {f.title && (
+                                        <SequenceLines
+                                            text={f.title}
+                                            drawing={drawing}
+                                            color={f.color}
+                                        />
+                                    )}
+                                    {f.sections.map((section, j) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: sections keep their order
+                                        <g key={j}>
+                                            <line
+                                                x1={f.x}
+                                                x2={f.x + f.width}
+                                                y1={section.y}
+                                                y2={section.y}
+                                                stroke={f.stroke}
+                                                strokeWidth={2}
+                                                strokeDasharray="4.5 4.5"
+                                            />
+                                            {section.title && (
+                                                <SequenceLines
+                                                    text={section.title}
+                                                    drawing={drawing}
+                                                    color={f.color}
+                                                />
+                                            )}
+                                        </g>
+                                    ))}
+                                </g>
+                            ))}
                         {drawing.lifelines.map((line, i) => (
                             <line
                                 // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
@@ -1780,6 +1787,75 @@ function SequenceLayer({ data }: NodeProps<SequenceNode>) {
                                 stroke={bar.stroke}
                             />
                         ))}
+                        {drawing.fragments
+                            .filter((f) => f.fragment !== "rect")
+                            .map((f, i) => (
+                                // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                                <g key={i} data-fragment={f.fragment}>
+                                    <rect
+                                        x={f.x}
+                                        y={f.y}
+                                        width={f.width}
+                                        height={f.height}
+                                        fill={f.fill}
+                                        fillOpacity={f.fillOpacity}
+                                        stroke={f.stroke}
+                                        strokeWidth={2}
+                                        strokeDasharray="3 3"
+                                    />
+                                    {f.tab && (
+                                        <>
+                                            <polygon
+                                                points={f.tab}
+                                                fill={f.tabFill}
+                                                stroke={f.stroke}
+                                                strokeWidth={2}
+                                            />
+                                            <text
+                                                x={f.keyword.x}
+                                                y={f.keyword.y}
+                                                fill={f.color}
+                                                fontSize={
+                                                    drawing.fontSize * 0.8
+                                                }
+                                                fontWeight="bold"
+                                                textAnchor="middle"
+                                                dominantBaseline="central"
+                                            >
+                                                {f.fragment}
+                                            </text>
+                                        </>
+                                    )}
+                                    {f.title && (
+                                        <SequenceLines
+                                            text={f.title}
+                                            drawing={drawing}
+                                            color={f.color}
+                                        />
+                                    )}
+                                    {f.sections.map((section, j) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: sections keep their order
+                                        <g key={j}>
+                                            <line
+                                                x1={f.x}
+                                                x2={f.x + f.width}
+                                                y1={section.y}
+                                                y2={section.y}
+                                                stroke={f.stroke}
+                                                strokeWidth={2}
+                                                strokeDasharray="4.5 4.5"
+                                            />
+                                            {section.title && (
+                                                <SequenceLines
+                                                    text={section.title}
+                                                    drawing={drawing}
+                                                    color={f.color}
+                                                />
+                                            )}
+                                        </g>
+                                    ))}
+                                </g>
+                            ))}
                     </>
                 )}
             </g>

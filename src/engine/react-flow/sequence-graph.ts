@@ -7,7 +7,7 @@
  * layout in `geometry/sequence.ts` places everything.
  */
 
-import type { Bounds } from "../geometry/bounds";
+import { type Bounds, boundsOf } from "../geometry/bounds";
 import type { MeasureText } from "../geometry/boundary";
 import { EDGE_LABEL_PADDING } from "../geometry/edge-label";
 import { arrowheadPath } from "../geometry/line";
@@ -20,6 +20,7 @@ import {
     type SequenceScript,
     TAB,
 } from "../geometry/sequence";
+import { shapeGeometry } from "../geometry/shapes";
 import type { Point } from "../geometry/shapes/types";
 import type { EdgeLine, ElementBox } from "./graph";
 
@@ -43,6 +44,7 @@ export type SequenceDrawing = {
         title?: SequenceText;
         sections: { y: number; title?: SequenceText }[];
         fill: string;
+        fillOpacity: number;
         stroke: string;
         tabFill: string;
         color: string;
@@ -130,31 +132,6 @@ const unit = (from: Point, to: Point): Point => {
     return { x: (to.x - from.x) / length, y: (to.y - from.y) / length };
 };
 
-/** An actor's stick figure in a band at the top of its box, the label below. */
-function actorParts(width: number) {
-    const cx = width / 2;
-    const head = 15 * 1.5 * 0.6;
-    const top = 8;
-    const neck = top + 2 * head;
-    const hip = neck + 22;
-    const foot = hip + 18;
-    const arm = 20;
-    const circle = `M${cx - head},${top + head}a${head},${head} 0 1,0 ${2 * head},0a${head},${head} 0 1,0 ${-2 * head},0`;
-    const limbs = [
-        `M${cx},${neck}L${cx},${hip}`,
-        `M${cx - arm},${neck + 8}L${cx + arm},${neck + 8}`,
-        `M${cx},${hip}L${cx - arm * 0.8},${foot}`,
-        `M${cx},${hip}L${cx + arm * 0.8},${foot}`,
-    ].join("");
-    return {
-        parts: [
-            { d: circle, paint: "body" as const },
-            { d: limbs, paint: "rule" as const },
-        ],
-        labelTop: foot + 2,
-    };
-}
-
 export function finishSequence(
     script: SequenceScript,
     elements: ElementBox[],
@@ -185,36 +162,45 @@ export function finishSequence(
     const labels = new Map(edges.map((e) => [e.id, e.description]));
     const layout = layOutSequence(script, widths, labels, measure);
     const palette = script.palette;
-    const types = new Map(script.participants.map((p) => [p.id, p.type]));
+    // A source palette keeps its fills in both schemes; what draws straight
+    // on the canvas (lines and text) follows the scheme in dark mode.
+    const onCanvas = scheme === "dark" ? undefined : palette;
+    const themedDark = scheme === "dark" && palette !== undefined;
 
     const placedElements: ElementBox[] = [];
     for (const [id, { head, foot }] of layout.participants) {
         const element = byId.get(id);
         if (!element) continue;
-        const figure =
-            types.get(id) === "actor" ? actorParts(head.width) : undefined;
-        const place = (box: Bounds, suffix: string): ElementBox => ({
-            ...element,
-            id: `${id}${suffix}`,
-            x: box.x,
-            y: box.y,
-            targets: [],
-            ...(figure && {
-                parts: figure.parts,
-                content: {
-                    x: 0,
-                    y: figure.labelTop,
-                    width: box.width,
-                    height: box.height - figure.labelTop,
-                },
-                labelHeight: box.height - figure.labelTop,
-                // The figure's label reads in the text color, on the canvas,
-                // and a silent source draws the figure in the fill.
-                color: palette?.actorTextColor ?? defaults.color,
-                stroke: palette?.actorBorder ?? element.background,
-                strokeWidth: 3,
-            }),
-        });
+        const place = (box: Bounds, suffix: string): ElementBox => {
+            const placed = {
+                ...element,
+                id: `${id}${suffix}`,
+                x: box.x,
+                y: box.y,
+                targets: [],
+            };
+            if (element.shape !== "Person") return placed;
+            // An actor draws C4's Person at its own square proportions,
+            // standing on the header row, so every lifeline still starts on
+            // one line, and hanging from the footer row.
+            const side = Math.round(box.height * 1.5);
+            const geometry = shapeGeometry(
+                "Person",
+                side,
+                side,
+                element.strokeWidth,
+            );
+            return {
+                ...placed,
+                x: box.x + (box.width - side) / 2,
+                y: suffix ? box.y : box.y + box.height - side,
+                width: side,
+                height: side,
+                parts: geometry.parts,
+                content: geometry.content,
+                labelHeight: geometry.content.height,
+            };
+        };
         placedElements.push(place(head, ""));
         if (foot) placedElements.push(place(foot, "#footer"));
     }
@@ -237,7 +223,9 @@ export function finishSequence(
             startHeading,
             edge.thickness,
         );
-        const color = palette?.signalColor ?? edge.color;
+        const color = themedDark
+            ? defaults.color
+            : onCanvas?.signalColor ?? edge.color;
         if (message.number)
             numbers.push({
                 ...message.number.at,
@@ -285,7 +273,9 @@ export function finishSequence(
     // Colors: the source's palette, else what a silent source fills in
     // (issue 196): each participant's own fill and border, a scheme note
     // palette, fragments in the edge color.
-    const edgeColor = palette?.signalColor ?? edges[0]?.color ?? defaults.color;
+    const edgeColor = themedDark
+        ? defaults.color
+        : onCanvas?.signalColor ?? edges[0]?.color ?? defaults.color;
     const participantColors = (id: string) => {
         const element = byId.get(id);
         return {
@@ -336,19 +326,31 @@ export function finishSequence(
                       palette?.rectBkgColor ??
                       mix(firstFill, defaults.background, 0.85)
                     : "none",
+                // A source's `rect` color stays put, faded in dark mode so
+                // the scheme's text reads on it.
+                fillOpacity:
+                    rect && scheme === "dark" && (fragment.color || palette)
+                        ? 0.2
+                        : 1,
                 stroke: rect
                     ? "none"
-                    : palette?.labelBoxBorderColor ?? edgeColor,
+                    : themedDark
+                      ? edgeColor
+                      : onCanvas?.labelBoxBorderColor ?? edgeColor,
                 tabFill: palette?.labelBoxBkgColor ?? defaults.background,
-                color: palette?.loopTextColor ?? defaults.color,
+                color: themedDark
+                    ? defaults.color
+                    : onCanvas?.loopTextColor ?? defaults.color,
             };
         }),
         lifelines: layout.lifelines.map((lifeline) => ({
             x: lifeline.x,
             top: lifeline.top,
             bottom: lifeline.bottom,
-            stroke:
-                palette?.actorLineColor ?? participantColors(lifeline.id).fill,
+            stroke: themedDark
+                ? mix(defaults.color, defaults.background, 0.5)
+                : onCanvas?.actorLineColor ??
+                  participantColors(lifeline.id).fill,
         })),
         activations: layout.activations.map((bar) => {
             const own = participantColors(bar.id);
@@ -357,9 +359,11 @@ export function finishSequence(
                 y: bar.y,
                 width: bar.width,
                 height: bar.height,
+                // A tint of the participant's fill toward the canvas, so
+                // the bar sits back in either scheme.
                 fill:
                     palette?.activationBkgColor ??
-                    mix(own.fill, "#ffffff", 0.6),
+                    mix(own.fill, defaults.background, 0.55),
                 stroke: palette?.activationBorderColor ?? own.stroke,
             };
         }),
@@ -372,7 +376,8 @@ export function finishSequence(
         elements: placedElements,
         edges: lines,
         sequence,
-        bounds: layout.bounds,
+        // Actors stand taller than the participant row.
+        bounds: boundsOf([layout.bounds, ...placedElements]) ?? layout.bounds,
     };
 }
 

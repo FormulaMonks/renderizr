@@ -612,7 +612,7 @@ const FRAGMENTS = {
 
 const PARTICIPANT_SHAPES = {
     participant: "Box",
-    actor: "Box",
+    actor: "Person",
     database: "Cylinder",
     queue: "Pipe",
 };
@@ -826,7 +826,8 @@ function readSequence(workspace, view, parsed) {
     if (!styles.elements.some((s) => s.tag === "Mermaid:participant"))
         styles.elements.push({
             tag: "Mermaid:participant",
-            fontSize: FONT_SIZE,
+            // A little smaller than a flowchart node's name.
+            fontSize: 14,
             metadata: false,
             description: false,
         });

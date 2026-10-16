@@ -646,33 +646,39 @@ function sequenceLayer(drawing: SequenceDrawing, front: boolean): string {
                     box.title ? sequenceText(box.title, drawing, box.color) : ""
                 }`,
         ),
-        ...drawing.fragments.map((f) =>
-            [
-                `<rect ${attrs({ x: f.x, y: f.y, width: f.width, height: f.height, fill: f.fill, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "3 3" })}/>`,
-                f.tab
-                    ? `<polygon ${attrs({ points: f.tab, fill: f.tabFill, stroke: f.stroke, "stroke-width": 2 })}/><text ${attrs(
-                          {
-                              x: f.keyword.x,
-                              y: f.keyword.y,
-                              "font-size": drawing.fontSize * 0.8,
-                              "font-weight": "bold",
-                              "text-anchor": "middle",
-                              "dominant-baseline": "central",
-                              fill: f.color,
-                          },
-                      )}>${escapeXml(f.fragment)}</text>`
-                    : "",
-                f.title ? sequenceText(f.title, drawing, f.color) : "",
-                ...f.sections.map(
-                    (section) =>
-                        `<line ${attrs({ x1: f.x, x2: f.x + f.width, y1: section.y, y2: section.y, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "4.5 4.5" })}/>${
-                            section.title
-                                ? sequenceText(section.title, drawing, f.color)
-                                : ""
-                        }`,
-                ),
-            ].join(""),
-        ),
+        ...drawing.fragments
+            .filter((f) => f.fragment === "rect")
+            .map((f) =>
+                [
+                    `<rect ${attrs({ x: f.x, y: f.y, width: f.width, height: f.height, fill: f.fill, "fill-opacity": f.fillOpacity === 1 ? undefined : f.fillOpacity, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "3 3" })}/>`,
+                    f.tab
+                        ? `<polygon ${attrs({ points: f.tab, fill: f.tabFill, stroke: f.stroke, "stroke-width": 2 })}/><text ${attrs(
+                              {
+                                  x: f.keyword.x,
+                                  y: f.keyword.y,
+                                  "font-size": drawing.fontSize * 0.8,
+                                  "font-weight": "bold",
+                                  "text-anchor": "middle",
+                                  "dominant-baseline": "central",
+                                  fill: f.color,
+                              },
+                          )}>${escapeXml(f.fragment)}</text>`
+                        : "",
+                    f.title ? sequenceText(f.title, drawing, f.color) : "",
+                    ...f.sections.map(
+                        (section) =>
+                            `<line ${attrs({ x1: f.x, x2: f.x + f.width, y1: section.y, y2: section.y, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "4.5 4.5" })}/>${
+                                section.title
+                                    ? sequenceText(
+                                          section.title,
+                                          drawing,
+                                          f.color,
+                                      )
+                                    : ""
+                            }`,
+                    ),
+                ].join(""),
+            ),
         ...drawing.lifelines.map(
             (line) =>
                 `<line ${attrs({ x1: line.x, x2: line.x, y1: line.top, y2: line.bottom, stroke: line.stroke, "stroke-width": 1 })}/>`,
@@ -681,6 +687,39 @@ function sequenceLayer(drawing: SequenceDrawing, front: boolean): string {
             (bar) =>
                 `<rect ${attrs({ x: bar.x, y: bar.y, width: bar.width, height: bar.height, fill: bar.fill, stroke: bar.stroke })}/>`,
         ),
+        ...drawing.fragments
+            .filter((f) => f.fragment !== "rect")
+            .map((f) =>
+                [
+                    `<rect ${attrs({ x: f.x, y: f.y, width: f.width, height: f.height, fill: f.fill, "fill-opacity": f.fillOpacity === 1 ? undefined : f.fillOpacity, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "3 3" })}/>`,
+                    f.tab
+                        ? `<polygon ${attrs({ points: f.tab, fill: f.tabFill, stroke: f.stroke, "stroke-width": 2 })}/><text ${attrs(
+                              {
+                                  x: f.keyword.x,
+                                  y: f.keyword.y,
+                                  "font-size": drawing.fontSize * 0.8,
+                                  "font-weight": "bold",
+                                  "text-anchor": "middle",
+                                  "dominant-baseline": "central",
+                                  fill: f.color,
+                              },
+                          )}>${escapeXml(f.fragment)}</text>`
+                        : "",
+                    f.title ? sequenceText(f.title, drawing, f.color) : "",
+                    ...f.sections.map(
+                        (section) =>
+                            `<line ${attrs({ x1: f.x, x2: f.x + f.width, y1: section.y, y2: section.y, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "4.5 4.5" })}/>${
+                                section.title
+                                    ? sequenceText(
+                                          section.title,
+                                          drawing,
+                                          f.color,
+                                      )
+                                    : ""
+                            }`,
+                    ),
+                ].join(""),
+            ),
     ].join("");
 }
 

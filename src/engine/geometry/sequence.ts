@@ -15,10 +15,10 @@ import { wrapLines } from "./boundary";
 import type { Point } from "./shapes/types";
 
 const S = 1.5;
-/** Mermaid's text, 16 px, scaled. */
-export const SEQUENCE_TEXT = 16 * S;
-/** One line of text: Mermaid's 18 at 16 px. */
-export const SEQUENCE_LINE = 18 * S;
+/** Mermaid's text, 16 px, drawn a little smaller than the other lengths scale. */
+export const SEQUENCE_TEXT = 16 * 1.25;
+/** One line of text: Mermaid's 18 at 16 px, at the text's scale. */
+export const SEQUENCE_LINE = 18 * 1.25;
 const LINE = SEQUENCE_LINE;
 export const PARTICIPANT_WIDTH = 150 * S;
 /** `neo`'s participant row: max(65, 44 + 6 + label + 6) at 16 px. */
