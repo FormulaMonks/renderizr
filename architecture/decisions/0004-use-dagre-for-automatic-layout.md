@@ -16,6 +16,8 @@ Referenced by [10. Place unplaced elements around a stored layout](0010-place-un
 
 Referenced by [17. Save layout the way Structurizr reads and writes it](0017-save-layout-the-way-structurizr-reads-and-writes-it.md).
 
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
+
 ## Context
 
 Views without coordinates need a compound layout that nests elements inside boundaries. Five options were measured on Big Bank plc's views: Dagre 1.1.8 (already a dependency, MIT, 14 KB gzipped), elkjs 0.12.0 (EPL-2.0, 432 KB gzipped), Graphviz compiled to WebAssembly (617 KB gzipped), WebCola and d3-hierarchy. Dagre lands where today's renderer lands, because today's renderer uses it.

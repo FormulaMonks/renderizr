@@ -12,6 +12,8 @@ Referenced by [17. Save layout the way Structurizr reads and writes it](0017-sav
 
 Referenced by [22. Read branding from renderizr workspace properties](0022-read-branding-from-renderizr-workspace-properties.md).
 
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
+
 ## Context
 
 Most authors write `workspace.dsl`, and the DSL has no syntax for layout, so a view's layout lives only in `workspace.json`. Renderizr never parses DSL, and builds take `workspace.json` so that `npx renderizr` needs no JDK. Structurizr's `merge` rebuilds the workspace from the DSL and copies each view's layout from a saved `workspace.json` with `DefaultLayoutMergeStrategy`, the same way Structurizr Local does. It matches elements by canonical name, then by name and type, then by description and type, then by id and type. A cold JVM runs it in about 1.3 seconds. When the DSL shifts ids and renames an element, the id fallback can hand that element another element's position. The page keys the author's unsaved edits by id, and a DSL change can shift ids.

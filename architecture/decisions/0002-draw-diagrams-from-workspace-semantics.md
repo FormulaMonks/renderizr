@@ -20,6 +20,8 @@ Referenced by [12. Ship behind a flag, then cut over in one release](0012-ship-b
 
 Referenced by [13. Scope the label toggles to element text](0013-scope-the-label-toggles-to-element-text.md).
 
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
+
 ## Context
 
 Renderizr has drawn diagrams with Structurizr's own browser renderer, vendored from a submodule, and the README promises they look exactly as they do in Structurizr. That renderer is about 8,000 lines of sloppy-mode JavaScript on JointJS and jQuery, injected as a classic script. Owning the rendering gives typed, testable code, ends the vendor sync, and allows better diagrams: HTML labels, real text wrapping, embedded fonts and accessibility.

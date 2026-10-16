@@ -4,7 +4,9 @@ Date: 2026-10-04
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
 
 References [2. Draw diagrams from workspace semantics](0002-draw-diagrams-from-workspace-semantics.md): it lets Renderizr choose how a diagram reads where the workspace says nothing.
 

@@ -8,6 +8,8 @@ Accepted
 
 References [3. Mount React Flow as an island behind the engine contract](0003-mount-react-flow-as-an-island-behind-the-engine-contract.md): export joins the engine contract as one more thing the engine draws.
 
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
+
 ## Context
 
 Readers want to paste a view into slides and other documents, so the diagrams toolbar offers an export as SVG and as PNG. It must work in the single-file and artifact builds, under a strict CSP, with no network. The React Flow engine draws element labels as HTML over each shape. An SVG that carries HTML needs a `<foreignObject>`, and Safari taints any canvas that draws such an SVG, so a PNG made from it fails to save. Libraries that capture the DOM (html-to-image and its kind) wrap the page in exactly that `<foreignObject>`, and each adds a dependency. The Screen Capture API asks for permission on every call and sees only on-screen pixels.

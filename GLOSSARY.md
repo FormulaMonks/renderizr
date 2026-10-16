@@ -12,6 +12,18 @@ _Avoid_: project, architecture file
 One diagram definition in the workspace: a selection of elements and relationships with a type, a key and either a stored layout or an automatic layout. There are nine view types.
 _Avoid_: diagram (that is the drawn result), page
 
+**Mermaid diagram**:
+A flowchart, entity relationship diagram or sequence diagram that Renderizr draws from the Mermaid source an image view carries, styled by the source's own config and, where the source is silent, by the workspace. An image view of any other Mermaid type stays a picture.
+_Avoid_: Mermaid chart, Mermaid view, Mermaid image
+
+**Entity**:
+A box in an entity relationship diagram that names one kind of thing and lists its attributes. A reader collapses it to its key attributes or expands it to all of them.
+_Avoid_: table, element
+
+**Attribute**:
+One row of an entity: a type, a name, optional keys (`PK`, `FK`, `UK`) and an optional comment.
+_Avoid_: column, field
+
 **Engine**:
 The part of the page that draws a view: shapes, boundaries, edges, layout and animation. Renderizr draws with the React Flow engine in `src/engine/`.
 _Avoid_: renderer (ambiguous with Renderizr itself), canvas library
@@ -57,8 +69,8 @@ The `url` an element or relationship carries in the workspace. It points to a vi
 _Avoid_: hyperlink, href
 
 **Activation target**:
-One destination that activating an element or relationship offers the reader, by pointer or by keyboard. An element offers its element link, its drill-down views, its image views and then its properties whose value is an `http(s)` URL, each destination once and never the view on screen; a relationship offers its element link and its `http(s)` properties. An item with no activation targets is inert.
-_Avoid_: hotspot, link (one target kind)
+One destination that activating an element, a relationship or a Mermaid diagram's flowchart node offers the reader, by pointer or by keyboard. An element offers its element link, its drill-down views, its image views and then its properties whose value is an `http(s)` URL, each destination once and never the view on screen; a relationship offers its element link and its `http(s)` properties; a flowchart node offers the link its `click` line names. An item with no activation targets is inert.
+_Avoid_: hotspot, link (one target kind), activation (a sequence diagram's is an activation bar)
 
 **Target kind**:
 What an activation target leads to: a view, the documentation, the decisions or a link. A link is either an element link that leads outside the workspace or an `http(s)` property, and opens in a new tab.
@@ -69,7 +81,7 @@ The menu that lists an item's activation targets at the point of activation when
 _Avoid_: context menu, dropdown
 
 **Indicator**:
-A glyph drawn on an element, a boundary's label band or an edge's label for each target kind the item offers, so a sighted reader sees where activating it leads.
+A glyph drawn on an element, a Mermaid diagram's node, a boundary's label band or an edge's label for each target kind the item offers, so a sighted reader sees where activating it leads.
 _Avoid_: badge, affordance, icon (that is the element's own image)
 
 **Relationship**:
@@ -77,7 +89,7 @@ A connection from one element to another in the workspace, with a description, t
 _Avoid_: link, connector, arrow
 
 **Edge**:
-The drawn form of a relationship in one view: its route, line style, arrowhead and label.
+The drawn form of a relationship in one view: its route, line style, end markers and label. A Mermaid diagram draws its connections and a sequence diagram's messages as edges too.
 _Avoid_: line, connector, relationship (that is the workspace concept)
 
 **Route**:
@@ -100,6 +112,10 @@ _Avoid_: obstacle routing, collision avoidance
 Where an edge meets the outline of its source or target. The engine spreads the edge ends of edges without vertices that share a side of an element along that side. An edge with vertices keeps each edge end right under its nearest vertex when that vertex lies straight out from a side, and otherwise where the line from the element's center toward that vertex crosses the side; those ends never spread.
 _Avoid_: port, handle, anchor, connection point
 
+**End marker**:
+The shape an edge draws where it meets its source or its target: an arrowhead, a circle, a cross or a cardinality, or none.
+_Avoid_: arrowhead (as the general term), terminator, cap
+
 **Jump-over**:
 A small hop an edge draws where it crosses another edge, so the crossing does not read as a junction.
 _Avoid_: hop, bridge, line jump
@@ -109,7 +125,7 @@ Playing a view one step at a time. A dynamic view animates by its relationship o
 _Avoid_: playback, slideshow, sequence
 
 **Step**:
-One stage of an animation. In a dynamic view, every relationship sharing one order value; in a static view, one entry of the view's animation list, adding to what earlier steps revealed.
+One stage of an animation. In a dynamic view, every relationship sharing one order value; in a static view, one entry of the view's animation list, adding to what earlier steps revealed. A sequence diagram's message is an edge and never a step.
 _Avoid_: frame, stage, animation step
 
 **Edit mode**:
