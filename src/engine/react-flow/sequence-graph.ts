@@ -290,9 +290,10 @@ export function finishSequence(
                   stroke: palette.noteBorderColor,
                   color: palette.noteTextColor,
               }
-            : scheme === "dark"
+            : // Gray in both schemes, in place of Mermaid's yellow.
+              scheme === "dark"
               ? { fill: "#474949", stroke: "#2f2f2f", color: "#e6e6e6" }
-              : { fill: "#fff5ad", stroke: "#aaaa33", color: "#333333" };
+              : { fill: "#e6e6e6", stroke: "#b3b3b3", color: "#333333" };
     const firstFill = participantColors(script.participants[0]?.id ?? "").fill;
 
     const sequence: SequenceDrawing = {
@@ -359,12 +360,23 @@ export function finishSequence(
                 y: bar.y,
                 width: bar.width,
                 height: bar.height,
-                // A tint of the participant's fill toward the canvas, so
-                // the bar sits back in either scheme.
+                // A tint of the participant's fill toward the canvas, paler
+                // on the light canvas than on the dark one, so the bar sits
+                // back in either scheme.
                 fill:
                     palette?.activationBkgColor ??
-                    mix(own.fill, defaults.background, 0.55),
-                stroke: palette?.activationBorderColor ?? own.stroke,
+                    mix(
+                        own.fill,
+                        defaults.background,
+                        scheme === "dark" ? 0.55 : 0.85,
+                    ),
+                stroke:
+                    palette?.activationBorderColor ??
+                    mix(
+                        own.fill,
+                        defaults.background,
+                        scheme === "dark" ? 0.3 : 0.55,
+                    ),
             };
         }),
         notes: layout.notes.map((n) => ({ ...n, ...note })),
