@@ -191,6 +191,10 @@ export function readMermaidDiagrams(workspace) {
             readErd(workspace, view, parsed);
             continue;
         }
+        if (parsed.kind === "sequence") {
+            readSequence(workspace, view, parsed);
+            continue;
+        }
         if (parsed.kind !== "flowchart") {
             kept.push(view);
             continue;
@@ -551,4 +555,478 @@ function readErd(workspace, view, parsed) {
             vertices: false,
         },
     });
+}
+
+// PROTOTYPE (issue 197): a sequence diagram's line types (sequenceDb's LINETYPE) onto end markers and dotted lines.
+// Half arrows (41 to 58) fall back: a solid half head draws as an arrow, a barb as an open arrow, at the end the
+// syntax puts it.
+const LINES = {
+    0: ["none", "arrow", false],
+    1: ["none", "arrow", true],
+    3: ["none", "cross", false],
+    4: ["none", "cross", true],
+    5: ["none", "none", false],
+    6: ["none", "none", true],
+    24: ["none", "openArrow", false],
+    25: ["none", "openArrow", true],
+    33: ["arrow", "arrow", false],
+    34: ["arrow", "arrow", true],
+    41: ["none", "arrow", false],
+    42: ["none", "arrow", false],
+    43: ["none", "openArrow", false],
+    44: ["none", "openArrow", false],
+    45: ["arrow", "none", false],
+    46: ["arrow", "none", false],
+    47: ["openArrow", "none", false],
+    48: ["openArrow", "none", false],
+    51: ["none", "arrow", true],
+    52: ["none", "arrow", true],
+    53: ["none", "openArrow", true],
+    54: ["none", "openArrow", true],
+    55: ["arrow", "none", true],
+    56: ["arrow", "none", true],
+    57: ["openArrow", "none", true],
+    58: ["openArrow", "none", true],
+};
+
+const FRAGMENTS = {
+    10: ["open", "loop"],
+    11: ["close"],
+    12: ["open", "alt"],
+    13: ["section", "else"],
+    14: ["close"],
+    15: ["open", "opt"],
+    16: ["close"],
+    19: ["open", "par"],
+    20: ["section", "and"],
+    21: ["close"],
+    32: ["open", "par"],
+    22: ["open", "rect"],
+    23: ["close"],
+    27: ["open", "critical"],
+    28: ["section", "option"],
+    29: ["close"],
+    30: ["open", "break"],
+    31: ["close"],
+};
+
+const PARTICIPANT_SHAPES = {
+    participant: "Box",
+    actor: "Box",
+    database: "Cylinder",
+    queue: "Pipe",
+};
+
+// --- Mermaid's color helpers (khroma), enough to derive the sequence variables of the base theme ---
+
+function toHsl(hex) {
+    const [r, g, b] = [1, 3, 5].map(
+        (i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255,
+    );
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    if (max === min) return { h: 0, s: 0, l: l * 100 };
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    const h =
+        max === r
+            ? (g - b) / d + (g < b ? 6 : 0)
+            : max === g
+              ? (b - r) / d + 2
+              : (r - g) / d + 4;
+    return { h: h * 60, s: s * 100, l: l * 100 };
+}
+
+function toHex({ h, s, l }) {
+    const hue = ((h % 360) + 360) % 360;
+    const sat = Math.min(100, Math.max(0, s)) / 100;
+    const light = Math.min(100, Math.max(0, l)) / 100;
+    const c = (1 - Math.abs(2 * light - 1)) * sat;
+    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const m = light - c / 2;
+    const [r, g, b] =
+        hue < 60
+            ? [c, x, 0]
+            : hue < 120
+              ? [x, c, 0]
+              : hue < 180
+                ? [0, c, x]
+                : hue < 240
+                  ? [0, x, c]
+                  : hue < 300
+                    ? [x, 0, c]
+                    : [c, 0, x];
+    return `#${[r, g, b]
+        .map((v) =>
+            Math.round((v + m) * 255)
+                .toString(16)
+                .padStart(2, "0"),
+        )
+        .join("")}`;
+}
+
+const adjust = (hex, { h = 0, s = 0, l = 0 }) => {
+    const c = toHsl(hex);
+    return toHex({ h: c.h + h, s: c.s + s, l: c.l + l });
+};
+
+// The sequence variables of each named theme, as Mermaid resolves them (research for issue 195).
+const NAMED_PALETTES = {
+    default: {
+        actorBkg: "#ECECFF",
+        actorBorder: "#9370DB",
+        actorTextColor: "#000000",
+        actorLineColor: "#9370DB",
+        signalColor: "#333333",
+        signalTextColor: "#333333",
+        labelBoxBkgColor: "#ECECFF",
+        labelBoxBorderColor: "#9370DB",
+        labelTextColor: "#000000",
+        loopTextColor: "#000000",
+        noteBkgColor: "#fff5ad",
+        noteBorderColor: "#aaaa33",
+        noteTextColor: "#000000",
+        activationBkgColor: "#f4f4f4",
+        activationBorderColor: "#666666",
+        sequenceNumberColor: "#ffffff",
+        rectBkgColor: "#f9ffec",
+    },
+    dark: {
+        actorBkg: "#1f2020",
+        actorBorder: "#cccccc",
+        actorTextColor: "#d3d3d3",
+        actorLineColor: "#cccccc",
+        signalColor: "#d3d3d3",
+        signalTextColor: "#d3d3d3",
+        labelBoxBkgColor: "#1f2020",
+        labelBoxBorderColor: "#cccccc",
+        labelTextColor: "#d3d3d3",
+        loopTextColor: "#d3d3d3",
+        noteBkgColor: "#474949",
+        noteBorderColor: "#2f2f2f",
+        noteTextColor: "#b8b6b6",
+        activationBkgColor: "#474949",
+        activationBorderColor: "#cccccc",
+        sequenceNumberColor: "#000000",
+        rectBkgColor: "#201f1f",
+    },
+    forest: {
+        actorBkg: "#cde498",
+        actorBorder: "#a6cf47",
+        actorTextColor: "#000000",
+        actorLineColor: "#a6cf47",
+        signalColor: "#333333",
+        signalTextColor: "#333333",
+        labelBoxBkgColor: "#cde498",
+        labelBoxBorderColor: "#326932",
+        labelTextColor: "#000000",
+        loopTextColor: "#000000",
+        noteBkgColor: "#fff5ad",
+        noteBorderColor: "#6eaa49",
+        noteTextColor: "#000000",
+        activationBkgColor: "#f4f4f4",
+        activationBorderColor: "#666666",
+        sequenceNumberColor: "#ffffff",
+        rectBkgColor: "#e1efc0",
+    },
+    neutral: {
+        actorBkg: "#eeeeee",
+        actorBorder: "#d4d4d4",
+        actorTextColor: "#333333",
+        actorLineColor: "#d4d4d4",
+        signalColor: "#333333",
+        signalTextColor: "#333333",
+        labelBoxBkgColor: "#eeeeee",
+        labelBoxBorderColor: "#d4d4d4",
+        labelTextColor: "#333333",
+        loopTextColor: "#333333",
+        noteBkgColor: "#666666",
+        noteBorderColor: "#999999",
+        noteTextColor: "#ffffff",
+        activationBkgColor: "#f4f4f4",
+        activationBorderColor: "#666666",
+        sequenceNumberColor: "#ffffff",
+        rectBkgColor: "#eeeeee",
+    },
+};
+
+/** The base theme's sequence variables, derived from `primaryColor` the way `theme-base.js` does. */
+function basePalette(vars) {
+    const primary = vars.primaryColor ?? "#fff4dd";
+    const border = (c) => adjust(c, { s: -40, l: -10 });
+    const secondary = adjust(primary, { h: -120 });
+    const actorBorder = vars.primaryBorderColor ?? border(primary);
+    const text = vars.primaryTextColor ?? "#333333";
+    const note = vars.noteBkgColor ?? "#fff5ad";
+    return {
+        actorBkg: primary,
+        actorBorder,
+        actorTextColor: text,
+        actorLineColor: actorBorder,
+        signalColor: vars.textColor ?? "#333333",
+        signalTextColor: vars.textColor ?? "#333333",
+        labelBoxBkgColor: primary,
+        labelBoxBorderColor: actorBorder,
+        labelTextColor: text,
+        loopTextColor: text,
+        noteBkgColor: note,
+        noteBorderColor: border(note),
+        noteTextColor: "#333333",
+        activationBkgColor: secondary,
+        activationBorderColor: adjust(secondary, { l: -10 }),
+        sequenceNumberColor: "#f4f4f4",
+        rectBkgColor: adjust(primary, { h: 180, l: 5 }),
+    };
+}
+
+/** The sequence variables a source's config sets, or undefined for a silent source. */
+function sequencePalette(config) {
+    if (config.theme === undefined && !config.themeVariables) return undefined;
+    const vars = config.themeVariables ?? {};
+    const named =
+        config.theme === "base" || !NAMED_PALETTES[config.theme]
+            ? basePalette(vars)
+            : NAMED_PALETTES[config.theme];
+    const palette = { ...named };
+    for (const key of Object.keys(palette))
+        if (typeof vars[key] === "string") palette[key] = vars[key];
+    return palette;
+}
+
+/**
+ * PROTOTYPE (issue 197): a sequence diagram becomes a custom view of its participants and messages, so the style
+ * cascade reaches them, plus a script the page lays out on its own: Mermaid's flat message list with fragments,
+ * notes and activations, in order. No Dagre and no router: the page places everything.
+ */
+function readSequence(workspace, view, parsed) {
+    const { model, views } = workspace;
+    const styles = views.configuration.styles;
+    const prefix = `mermaid:${view.key}:`;
+    const config = parsed.config ?? {};
+    const sequence = config.sequence ?? {};
+    const ignored = new Set();
+    const db = parsed.db;
+    const silent = config.theme === undefined && !config.themeVariables;
+    const palette = sequencePalette(config);
+    const primary = workspace.properties?.["renderizr.primaryColor"];
+    if (silent && !styles.elements.some((s) => s.tag === "Mermaid:primary")) {
+        for (const [colorScheme, fill] of [
+            ["Light", primary ?? "#145b9e"],
+            ["Dark", primary ?? "#1168bd"],
+        ])
+            styles.elements.push({
+                tag: "Mermaid:primary",
+                colorScheme,
+                background: fill,
+                stroke: shade(fill, -50),
+                color: "#ffffff",
+            });
+    }
+    if (!styles.elements.some((s) => s.tag === "Mermaid:participant"))
+        styles.elements.push({
+            tag: "Mermaid:participant",
+            fontSize: FONT_SIZE,
+            metadata: false,
+            description: false,
+        });
+    for (const [type, shape] of Object.entries(PARTICIPANT_SHAPES)) {
+        const tag = `Mermaid:participant:${type}`;
+        if (!styles.elements.some((s) => s.tag === tag))
+            styles.elements.push({ tag, shape });
+    }
+    if (!styles.relationships.some((s) => s.tag === "Mermaid:message:dotted"))
+        styles.relationships.push(
+            { tag: "Mermaid:message:dotted", style: "Dotted" },
+            { tag: "Mermaid:message:solid", style: "Solid" },
+        );
+    const themeTag = `Mermaid:${view.key}:theme`;
+    if (palette) {
+        styles.elements.push({
+            tag: themeTag,
+            background: palette.actorBkg,
+            stroke: palette.actorBorder,
+            color: palette.actorTextColor,
+        });
+        styles.relationships.push({
+            tag: themeTag,
+            color: palette.signalColor,
+        });
+    }
+
+    const id = (name) => `${prefix}${name}`;
+    const actors = db.getActors();
+    const elements = [];
+    const participants = [];
+    for (const [name, actor] of actors) {
+        let type = actor.type ?? "participant";
+        if (!PARTICIPANT_SHAPES[type]) {
+            ignored.add(`participant type "${type}"`);
+            type = "participant";
+        }
+        participants.push({ id: id(name), type });
+        elements.push({
+            id: id(name),
+            name: plain(actor.description) || name,
+            tags: [
+                ...(silent ? ["Mermaid:primary"] : []),
+                "Element",
+                "Mermaid",
+                "Mermaid:participant",
+                `Mermaid:participant:${type}`,
+                ...(palette ? [themeTag] : []),
+            ].join(","),
+            properties: { "renderizr.mermaid": view.key },
+        });
+    }
+
+    const created = Object.fromEntries(
+        [...db.getCreatedActors()].map(([name, index]) => [id(name), index]),
+    );
+    const destroyed = Object.fromEntries(
+        [...db.getDestroyedActors()].map(([name, index]) => [id(name), index]),
+    );
+    const relationships = [];
+    const items = [];
+    const text = (value) => plain(value?.text ?? value);
+    for (const message of db.getMessages()) {
+        const index = Number(message.id);
+        const fragment = FRAGMENTS[message.type];
+        if (fragment) {
+            const [kind, name] = fragment;
+            items.push(
+                kind === "open"
+                    ? {
+                          kind,
+                          index,
+                          fragment: name,
+                          title: name === "rect" ? "" : text(message.message),
+                          ...(name === "rect" && {
+                              color: text(message.message),
+                          }),
+                      }
+                    : kind === "section"
+                      ? { kind, index, title: text(message.message) }
+                      : { kind, index },
+            );
+            continue;
+        }
+        switch (message.type) {
+            case 2:
+                items.push({
+                    kind: "note",
+                    index,
+                    placement: ["left", "right", "over"][message.placement],
+                    from: id(message.from),
+                    to: id(message.to ?? message.from),
+                    text: text(message.message),
+                    wrap: Boolean(message.wrap || config.wrap || sequence.wrap),
+                });
+                continue;
+            case 17:
+                items.push({ kind: "activate", index, who: id(message.from) });
+                continue;
+            case 18:
+                items.push({
+                    kind: "deactivate",
+                    index,
+                    who: id(message.from),
+                });
+                continue;
+            case 26:
+                items.push({
+                    kind: "autonumber",
+                    index,
+                    start: message.message?.start ?? 1,
+                    step: message.message?.step ?? 1,
+                    visible: message.message?.visible ?? true,
+                });
+                continue;
+        }
+        const line = LINES[message.type];
+        if (!line) {
+            ignored.add(`line type ${message.type}`);
+            continue;
+        }
+        if (message.type >= 41) ignored.add("half arrows");
+        const [start, end, dotted] = line;
+        const relationshipId = `${prefix}message:${index}`;
+        relationships.push({
+            id: relationshipId,
+            sourceId: id(message.from),
+            destinationId: id(message.to),
+            description: text(message.message),
+            tags: [
+                "Relationship",
+                "Mermaid",
+                dotted ? "Mermaid:message:dotted" : "Mermaid:message:solid",
+                ...(palette ? [themeTag] : []),
+            ].join(","),
+        });
+        const central = message.centralConnection;
+        items.push({
+            kind: "message",
+            index,
+            relationship: relationshipId,
+            from: id(message.from),
+            to: id(message.to),
+            start,
+            end,
+            wrap: Boolean(message.wrap || config.wrap || sequence.wrap),
+            ...(central === 59 && { dots: "end" }),
+            ...(central === 60 && { dots: "start" }),
+            ...(central === 61 && { dots: "both" }),
+        });
+    }
+    if (db.showSequenceNumbers() && !items.some((i) => i.kind === "autonumber"))
+        items.unshift({
+            kind: "autonumber",
+            index: -1,
+            start: 1,
+            step: 1,
+            visible: true,
+        });
+
+    for (const key of Object.keys(sequence))
+        if (/Font|messageMargin/.test(key)) ignored.add(`sequence.${key}`);
+    if (config.look) ignored.add("look");
+
+    for (const element of elements) {
+        const own = relationships.filter((r) => r.sourceId === element.id);
+        if (own.length) element.relationships = own;
+    }
+    model.customElements.push(...elements);
+    const script = {
+        participants,
+        boxes: db.getBoxes().map((box) => ({
+            title: plain(box.name ?? ""),
+            fill: box.fill === "transparent" ? undefined : box.fill,
+            participants: box.actorKeys.map(id),
+        })),
+        created,
+        destroyed,
+        mirror: sequence.mirrorActors ?? true,
+        rightAngles: sequence.rightAngles ?? false,
+        palette,
+        items,
+    };
+    views.customViews.push({
+        key: view.key,
+        order: view.order,
+        title: view.title ?? parsed.title,
+        description: view.description,
+        properties: {
+            ...view.properties,
+            "renderizr.mermaid": "true",
+            "renderizr.mermaid.sequence": JSON.stringify(script),
+            "renderizr.mermaid.directions": "{}",
+        },
+        elements: elements.map((e) => ({ id: e.id, x: 0, y: 0 })),
+        relationships: relationships.map((r) => ({ id: r.id })),
+    });
+    if (ignored.size) {
+        process.stderr.write(
+            `warning: Mermaid diagram "${view.key}": Renderizr supports only a subset of Mermaid; ignored: ${[...ignored].join(", ")}\n`,
+        );
+    }
 }

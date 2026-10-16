@@ -7839,18 +7839,11 @@ var SequenceDB = class {
     const match = /^((?:rgba?|hsla?)\s*\(.*\)|\w*)(.*)$/.exec(str);
     let color = match?.[1] ? match[1].trim() : "transparent";
     let title = match?.[2] ? match[2].trim() : void 0;
-    if (window?.CSS) {
-      if (!window.CSS.supports("color", color)) {
-        color = "transparent";
-        title = str.trim();
-      }
-    } else {
-      const style = new Option().style;
-      style.color = color;
-      if (style.color !== color) {
-        color = "transparent";
-        title = str.trim();
-      }
+    // PROTOTYPE (issue 197): the build has no window, so a stand-in checks the color: a CSS color function or a
+    // named color.
+    if (!/^(?:rgba?|hsla?)\s*\(/i.test(color) && !NAMED_COLORS.has(color.toLowerCase())) {
+      color = "transparent";
+      title = str.trim();
     }
     const { wrap, cleanedText } = this.extractWrap(title);
     return {
@@ -8139,6 +8132,7 @@ function readDirectives(text) {
     text: text.replace(new RegExp(directiveRegex.source, "gi"), "")
   };
 }
+const NAMED_COLORS = new Set("aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen transparent".split(" "));
 function read(source) {
   const front = extractFrontMatter(source.replace(/\r\n?/g, "\n"));
   const directives = readDirectives(front.text);

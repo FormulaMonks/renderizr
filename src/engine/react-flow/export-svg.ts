@@ -47,6 +47,7 @@ import { borderDashes, paintPart } from "../geometry/paint";
 import { escapeXml } from "../geometry/xml";
 import { PRESENCE_OPACITY, type StepState } from "./animation";
 import type { BoundaryBox, EdgeLine, ElementBox, Graph } from "./graph";
+import type { SequenceDrawing } from "./sequence-graph";
 
 /** What the serializer needs to set text the way CSS does. */
 export type TextSetting = {
@@ -555,7 +556,132 @@ function edgeLine(edge: EdgeLine): string {
         "stroke-width": edge.thickness,
         "stroke-dasharray": lineDashes(edge.style, edge.thickness),
         "stroke-linecap": edge.style === "Dotted" ? "round" : undefined,
-    })}/><path ${attrs({ d: edge.arrowhead, fill: edge.color })}/></g>`;
+    })}/><path ${attrs({ d: edge.arrowhead, fill: edge.color })}/>${
+        // PROTOTYPE (issue 197): end markers drawn as strokes.
+        edge.markers?.stroke
+            ? `<path ${attrs({
+                  d: edge.markers.stroke,
+                  fill: "none",
+                  stroke: edge.color,
+                  "stroke-width": edge.thickness,
+                  "stroke-linecap": "round",
+              })}/>`
+            : ""
+    }</g>`;
+}
+
+/* ---------------- sequence diagrams */
+
+/** PROTOTYPE (issue 197): lines of sequence text, each centered in its box. */
+function sequenceText(
+    block: { lines: string[]; box: Bounds },
+    drawing: SequenceDrawing,
+    color: string,
+): string {
+    const x = block.box.x + block.box.width / 2;
+    return block.lines
+        .map(
+            (line, i) =>
+                `<text ${attrs({
+                    x,
+                    y: block.box.y + drawing.lineHeight * (i + 0.5),
+                    "font-size": drawing.fontSize,
+                    "text-anchor": "middle",
+                    "dominant-baseline": "central",
+                    fill: color,
+                })}>${escapeXml(line)}</text>`,
+        )
+        .join("");
+}
+
+/**
+ * PROTOTYPE (issue 197): what a sequence diagram draws behind the messages
+ * (boxes, fragments, lifelines) or in front of them (activation bars,
+ * notes, sequence numbers), the way the island's `SequenceLayer` draws it.
+ */
+function sequenceLayer(drawing: SequenceDrawing, front: boolean): string {
+    if (front)
+        return [
+            ...drawing.notes.map(
+                (note) =>
+                    `<rect ${attrs({ x: note.x, y: note.y, width: note.width, height: note.height, fill: note.fill, stroke: note.stroke })}/>${sequenceText(
+                        {
+                            lines: note.lines,
+                            box: {
+                                ...note,
+                                y:
+                                    note.y +
+                                    (note.height -
+                                        note.lines.length *
+                                            drawing.lineHeight) /
+                                        2,
+                            },
+                        },
+                        drawing,
+                        note.color,
+                    )}`,
+            ),
+            ...drawing.dots.map(
+                (dot) =>
+                    `<circle ${attrs({ cx: dot.x, cy: dot.y, r: 7.5, fill: dot.fill })}/>`,
+            ),
+            ...drawing.numbers.map(
+                (n) =>
+                    `<circle ${attrs({ cx: n.x, cy: n.y, r: 16, fill: n.fill })}/><text ${attrs(
+                        {
+                            x: n.x,
+                            y: n.y,
+                            "font-size": n.text.length > 2 ? 13 : 18,
+                            "text-anchor": "middle",
+                            "dominant-baseline": "central",
+                            fill: n.color,
+                        },
+                    )}>${escapeXml(n.text)}</text>`,
+            ),
+        ].join("");
+    return [
+        ...drawing.boxes.map(
+            (box) =>
+                `<rect ${attrs({ x: box.x, y: box.y, width: box.width, height: box.height, fill: box.fill, stroke: box.stroke })}/>${
+                    box.title ? sequenceText(box.title, drawing, box.color) : ""
+                }`,
+        ),
+        ...drawing.fragments.map((f) =>
+            [
+                `<rect ${attrs({ x: f.x, y: f.y, width: f.width, height: f.height, fill: f.fill, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "3 3" })}/>`,
+                f.tab
+                    ? `<polygon ${attrs({ points: f.tab, fill: f.tabFill, stroke: f.stroke, "stroke-width": 2 })}/><text ${attrs(
+                          {
+                              x: f.keyword.x,
+                              y: f.keyword.y,
+                              "font-size": drawing.fontSize * 0.8,
+                              "font-weight": "bold",
+                              "text-anchor": "middle",
+                              "dominant-baseline": "central",
+                              fill: f.color,
+                          },
+                      )}>${escapeXml(f.fragment)}</text>`
+                    : "",
+                f.title ? sequenceText(f.title, drawing, f.color) : "",
+                ...f.sections.map(
+                    (section) =>
+                        `<line ${attrs({ x1: f.x, x2: f.x + f.width, y1: section.y, y2: section.y, stroke: f.stroke, "stroke-width": 2, "stroke-dasharray": "4.5 4.5" })}/>${
+                            section.title
+                                ? sequenceText(section.title, drawing, f.color)
+                                : ""
+                        }`,
+                ),
+            ].join(""),
+        ),
+        ...drawing.lifelines.map(
+            (line) =>
+                `<line ${attrs({ x1: line.x, x2: line.x, y1: line.top, y2: line.bottom, stroke: line.stroke, "stroke-width": 1 })}/>`,
+        ),
+        ...drawing.activations.map(
+            (bar) =>
+                `<rect ${attrs({ x: bar.x, y: bar.y, width: bar.width, height: bar.height, fill: bar.fill, stroke: bar.stroke })}/>`,
+        ),
+    ].join("");
 }
 
 /**
@@ -578,7 +704,9 @@ function edgeLabel(edge: EdgeLine, background: string, text: TextSetting) {
     };
     let top = box.y + EDGE_LABEL_PADDING;
     const parts = [
-        `<rect ${attrs({ x: box.x, y: box.y, width: box.width, height: box.height, fill: background })}/>`,
+        edge.bareLabel
+            ? ""
+            : `<rect ${attrs({ x: box.x, y: box.y, width: box.width, height: box.height, fill: background })}/>`,
     ];
     if (lines.description.length) {
         parts.push(
@@ -762,9 +890,11 @@ export function exportSvg({
         style,
         // The canvas and the band under it, in the scheme's canvas color.
         `<rect ${attrs({ x: frame.x, y: frame.y, width, height, fill: graph.background })}/>`,
+        graph.sequence ? sequenceLayer(graph.sequence, false) : "",
         ...boundaries,
         ...lines,
         ...labels,
+        graph.sequence ? sequenceLayer(graph.sequence, true) : "",
         ...elements,
         band.svg,
         "</svg>",

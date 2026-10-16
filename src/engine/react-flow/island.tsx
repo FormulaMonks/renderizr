@@ -162,6 +162,7 @@ import {
     type TargetKind,
     zoomLimits,
 } from "./graph";
+import type { SequenceDrawing } from "./sequence-graph";
 import styles from "./island.module.css";
 
 export type IslandState = {
@@ -581,12 +582,18 @@ type BoundaryNode = Node<BoundaryBox, "boundary">;
 type ImageNode = Node<{ src: string; alt: string }, "image">;
 type PlaceholderNode = Node<{ color: string }, "placeholder">;
 type CanvasNode = Node<Record<string, never>, "canvas">;
+/** PROTOTYPE (issue 197): one layer of a sequence diagram, behind or in front of the messages. */
+type SequenceNode = Node<
+    { drawing: SequenceDrawing; origin: Bounds; front: boolean },
+    "sequence"
+>;
 type DiagramNode =
     | BoxNode
     | BoundaryNode
     | ImageNode
     | PlaceholderNode
-    | CanvasNode;
+    | CanvasNode
+    | SequenceNode;
 type LineEdge = Edge<
     EdgeLine & { presence: Presence; transition: string | undefined },
     "line"
@@ -1304,7 +1311,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                             padding: EDGE_LABEL_PADDING,
                             lineHeight: LINE_HEIGHT,
                             color: data.color,
-                            background,
+                            background: data.bareLabel ? undefined : background,
                             textAlign: "center",
                             whiteSpace: "pre",
                             pointerEvents: hidden
@@ -1548,7 +1555,240 @@ function ViewError({ graph }: { graph: Graph }) {
     );
 }
 
+/** PROTOTYPE (issue 197): text lines drawn as SVG, each centered in `box`. */
+function SequenceLines({
+    text,
+    drawing,
+    color,
+    anchor = "middle",
+}: {
+    text: { lines: string[]; box: Bounds };
+    drawing: SequenceDrawing;
+    color: string;
+    anchor?: "middle" | "start";
+}) {
+    const x =
+        anchor === "middle" ? text.box.x + text.box.width / 2 : text.box.x;
+    return (
+        <text
+            fill={color}
+            fontSize={drawing.fontSize}
+            textAnchor={anchor}
+            dominantBaseline="central"
+        >
+            {text.lines.map((line, i) => (
+                <tspan
+                    // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
+                    key={i}
+                    x={x}
+                    y={text.box.y + drawing.lineHeight * (i + 0.5)}
+                >
+                    {line}
+                </tspan>
+            ))}
+        </text>
+    );
+}
+
+/**
+ * PROTOTYPE (issue 197): a sequence diagram's parts other than participants
+ * and messages. The back layer (boxes, fragments, lifelines, activation
+ * bars) sits under the edges; the front layer (notes, numbers) over them.
+ */
+function SequenceLayer({ data }: NodeProps<SequenceNode>) {
+    const { drawing, origin, front } = data;
+    return (
+        <svg
+            aria-hidden="true"
+            width={origin.width}
+            height={origin.height}
+            style={{ overflow: "visible", pointerEvents: "none" }}
+        >
+            <g transform={`translate(${-origin.x} ${-origin.y})`}>
+                {front ? (
+                    <>
+                        {drawing.notes.map((note, i) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                            <g key={i} data-note="">
+                                <rect
+                                    x={note.x}
+                                    y={note.y}
+                                    width={note.width}
+                                    height={note.height}
+                                    fill={note.fill}
+                                    stroke={note.stroke}
+                                />
+                                <SequenceLines
+                                    text={{
+                                        lines: note.lines,
+                                        box: {
+                                            ...note,
+                                            y:
+                                                note.y +
+                                                (note.height -
+                                                    note.lines.length *
+                                                        drawing.lineHeight) /
+                                                    2,
+                                        },
+                                    }}
+                                    drawing={drawing}
+                                    color={note.color}
+                                />
+                            </g>
+                        ))}
+                        {drawing.dots.map((dot, i) => (
+                            <circle
+                                // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                                key={i}
+                                cx={dot.x}
+                                cy={dot.y}
+                                r={7.5}
+                                fill={dot.fill}
+                            />
+                        ))}
+                        {drawing.numbers.map((n, i) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                            <g key={i} data-sequence-number="">
+                                <circle
+                                    cx={n.x}
+                                    cy={n.y}
+                                    r={16}
+                                    fill={n.fill}
+                                />
+                                <text
+                                    x={n.x}
+                                    y={n.y}
+                                    fill={n.color}
+                                    fontSize={n.text.length > 2 ? 13 : 18}
+                                    textAnchor="middle"
+                                    dominantBaseline="central"
+                                >
+                                    {n.text}
+                                </text>
+                            </g>
+                        ))}
+                    </>
+                ) : (
+                    <>
+                        {drawing.boxes.map((box, i) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                            <g key={i} data-sequence-box="">
+                                <rect
+                                    x={box.x}
+                                    y={box.y}
+                                    width={box.width}
+                                    height={box.height}
+                                    fill={box.fill}
+                                    stroke={box.stroke}
+                                />
+                                {box.title && (
+                                    <SequenceLines
+                                        text={box.title}
+                                        drawing={drawing}
+                                        color={box.color}
+                                    />
+                                )}
+                            </g>
+                        ))}
+                        {drawing.fragments.map((f, i) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                            <g key={i} data-fragment={f.fragment}>
+                                <rect
+                                    x={f.x}
+                                    y={f.y}
+                                    width={f.width}
+                                    height={f.height}
+                                    fill={f.fill}
+                                    stroke={f.stroke}
+                                    strokeWidth={2}
+                                    strokeDasharray="3 3"
+                                />
+                                {f.tab && (
+                                    <>
+                                        <polygon
+                                            points={f.tab}
+                                            fill={f.tabFill}
+                                            stroke={f.stroke}
+                                            strokeWidth={2}
+                                        />
+                                        <text
+                                            x={f.keyword.x}
+                                            y={f.keyword.y}
+                                            fill={f.color}
+                                            fontSize={drawing.fontSize * 0.8}
+                                            fontWeight="bold"
+                                            textAnchor="middle"
+                                            dominantBaseline="central"
+                                        >
+                                            {f.fragment}
+                                        </text>
+                                    </>
+                                )}
+                                {f.title && (
+                                    <SequenceLines
+                                        text={f.title}
+                                        drawing={drawing}
+                                        color={f.color}
+                                    />
+                                )}
+                                {f.sections.map((section, j) => (
+                                    // biome-ignore lint/suspicious/noArrayIndexKey: sections keep their order
+                                    <g key={j}>
+                                        <line
+                                            x1={f.x}
+                                            x2={f.x + f.width}
+                                            y1={section.y}
+                                            y2={section.y}
+                                            stroke={f.stroke}
+                                            strokeWidth={2}
+                                            strokeDasharray="4.5 4.5"
+                                        />
+                                        {section.title && (
+                                            <SequenceLines
+                                                text={section.title}
+                                                drawing={drawing}
+                                                color={f.color}
+                                            />
+                                        )}
+                                    </g>
+                                ))}
+                            </g>
+                        ))}
+                        {drawing.lifelines.map((line, i) => (
+                            <line
+                                // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                                key={i}
+                                data-lifeline=""
+                                x1={line.x}
+                                x2={line.x}
+                                y1={line.top}
+                                y2={line.bottom}
+                                stroke={line.stroke}
+                                strokeWidth={1}
+                            />
+                        ))}
+                        {drawing.activations.map((bar, i) => (
+                            <rect
+                                // biome-ignore lint/suspicious/noArrayIndexKey: drawn in layout order
+                                key={i}
+                                data-activation-bar=""
+                                x={bar.x}
+                                y={bar.y}
+                                width={bar.width}
+                                height={bar.height}
+                                fill={bar.fill}
+                                stroke={bar.stroke}
+                            />
+                        ))}
+                    </>
+                )}
+            </g>
+        </svg>
+    );
+}
+
 const nodeTypes = {
+    sequence: SequenceLayer,
     box: BoxElement,
     boundary: BoundaryElement,
     image: ImagePicture,
@@ -1806,8 +2046,28 @@ function toBoundaryNodes(graph: Graph): BoundaryNode[] {
 }
 
 /** Boundaries first, so that at equal depth they are drawn underneath. */
-function toNodes(graph: Graph): (BoxNode | BoundaryNode)[] {
-    return [...toBoundaryNodes(graph), ...toElementNodes(graph)];
+function toNodes(graph: Graph): (BoxNode | BoundaryNode | SequenceNode)[] {
+    return [
+        ...toSequenceNodes(graph),
+        ...toBoundaryNodes(graph),
+        ...toElementNodes(graph),
+    ];
+}
+
+/** PROTOTYPE (issue 197): a sequence diagram's back and front layers. */
+function toSequenceNodes(graph: Graph): SequenceNode[] {
+    if (!graph.sequence) return [];
+    const origin = graph.bounds;
+    return [false, true].map((front) => ({
+        ...STATIC_NODE_PROPS,
+        id: front ? "sequence:front" : "sequence:back",
+        type: "sequence",
+        position: { x: origin.x, y: origin.y },
+        width: origin.width,
+        height: origin.height,
+        zIndex: front ? 0 : BOUNDARY_Z,
+        data: { drawing: graph.sequence!, origin, front },
+    }));
 }
 
 function toElementNodes(graph: Graph): BoxNode[] {

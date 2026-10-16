@@ -49,6 +49,12 @@ import {
 
 import type { ColorScheme, Labels } from "../contract";
 import {
+    PARTICIPANT_ROW,
+    PARTICIPANT_WIDTH,
+    type SequenceScript,
+} from "../geometry/sequence";
+import { finishSequence, type SequenceDrawing } from "./sequence-graph";
+import {
     BOUNDARY_PADDING,
     type BoundaryInput,
     boundaryRadius,
@@ -74,6 +80,8 @@ import {
     type IconPosition,
     iconPositionOf,
     labelText,
+    NAME_SCALE,
+    SIDE_PADDING,
 } from "../geometry/label";
 import {
     type Attribute,
@@ -246,6 +254,8 @@ export type EdgeLine = {
     labelPosition: number;
     /** The label's opaque backing; absent when the label says nothing. */
     labelBox?: Bounds;
+    /** PROTOTYPE (issue 197): a sequence message's label draws with no backing, as Mermaid's. */
+    bareLabel?: boolean;
     /**
      * The lines `labelBox` was measured from, which the island draws as
      * they are; absent when the label says nothing.
@@ -311,6 +321,8 @@ export type Graph = {
     color: string;
     /** Set on an image view, which draws this and nothing else (spec 12). */
     image?: GraphImage;
+    /** PROTOTYPE (issue 197): a sequence diagram's lifelines, bars, notes and fragments. */
+    sequence?: SequenceDrawing;
     /**
      * Why the view cannot be drawn (spec 13); the canvas shows it in place
      * of the diagram, and the graph is otherwise empty.
@@ -700,6 +712,11 @@ function drawView(
         };
     }
     const boundaries = new Set(view.boundaries.map((b) => b.id));
+    // PROTOTYPE (issue 197): a sequence diagram lays itself out.
+    const sequenceSource = view.view.properties?.["renderizr.mermaid.sequence"];
+    const sequenceScript: SequenceScript | undefined = sequenceSource
+        ? JSON.parse(sequenceSource)
+        : undefined;
 
     const elements: ElementBox[] = [];
     /** Each element by id, with the geometry its edge ends touch. */
@@ -753,8 +770,22 @@ function drawView(
                       measure,
                       collapsedSize,
                   );
-        const { width, height } =
-            laidOut ?? shapeSize(shape, style.width, style.height);
+        const { width, height } = sequenceScript
+            ? {
+                  width: Math.max(
+                      PARTICIPANT_WIDTH,
+                      Math.ceil(
+                          measure(
+                              placed.element.name,
+                              style.fontSize * NAME_SCALE,
+                              true,
+                          ),
+                      ) +
+                          2 * SIDE_PADDING,
+                  ),
+                  height: PARTICIPANT_ROW,
+              }
+            : laidOut ?? shapeSize(shape, style.width, style.height);
         const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
         const geometry = shapeGeometry(shape, width, height, strokeWidth);
         const count = formatInstanceCount(placed.element.instances);
@@ -924,6 +955,34 @@ function drawView(
                 ],
             }),
         });
+    }
+
+    if (sequenceScript) {
+        const done = finishSequence(
+            sequenceScript,
+            elements,
+            edges.map(
+                ({
+                    ends: _ends,
+                    storedPosition: _stored,
+                    startPosition: _start,
+                    label: _label,
+                    ...edge
+                }) => edge,
+            ),
+            measure,
+            scheme,
+            defaults,
+        );
+        return {
+            ...empty(view),
+            elements: done.elements,
+            edges: done.edges,
+            bounds: done.bounds,
+            sequence: done.sequence,
+            layout: view.layout,
+            focusOrder: readingOrder(done.elements, [], done.edges),
+        };
     }
 
     const { moved, vertices, placements } = positionElements(
