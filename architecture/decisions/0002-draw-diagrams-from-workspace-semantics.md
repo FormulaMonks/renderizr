@@ -20,7 +20,7 @@ Referenced by [12. Ship behind a flag, then cut over in one release](0012-ship-b
 
 Referenced by [13. Scope the label toggles to element text](0013-scope-the-label-toggles-to-element-text.md).
 
-Referenced by [25. Draw Mermaid diagrams in the React Flow engine](0025-draw-mermaid-diagrams-in-the-react-flow-engine.md).
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
 
 ## Context
 

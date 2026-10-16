@@ -16,7 +16,7 @@ Referenced by [10. Place unplaced elements around a stored layout](0010-place-un
 
 Referenced by [17. Save layout the way Structurizr reads and writes it](0017-save-layout-the-way-structurizr-reads-and-writes-it.md).
 
-Referenced by [25. Draw Mermaid diagrams in the React Flow engine](0025-draw-mermaid-diagrams-in-the-react-flow-engine.md).
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
 
 ## Context
 

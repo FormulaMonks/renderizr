@@ -8,7 +8,7 @@ Accepted
 
 References [3. Mount React Flow as an island behind the engine contract](0003-mount-react-flow-as-an-island-behind-the-engine-contract.md): export joins the engine contract as one more thing the engine draws.
 
-Referenced by [25. Draw Mermaid diagrams in the React Flow engine](0025-draw-mermaid-diagrams-in-the-react-flow-engine.md).
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
 
 ## Context
 

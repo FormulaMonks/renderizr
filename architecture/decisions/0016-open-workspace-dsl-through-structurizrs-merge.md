@@ -12,7 +12,7 @@ Referenced by [17. Save layout the way Structurizr reads and writes it](0017-sav
 
 Referenced by [22. Read branding from renderizr workspace properties](0022-read-branding-from-renderizr-workspace-properties.md).
 
-Referenced by [24. Read Mermaid source from the image view's content](0024-read-mermaid-source-from-the-image-views-content.md).
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
 
 ## Context
 

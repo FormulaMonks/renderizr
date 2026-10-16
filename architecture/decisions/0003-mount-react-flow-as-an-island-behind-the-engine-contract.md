@@ -16,7 +16,7 @@ Referenced by [18. Let the page own edited layouts and drive a controlled engine
 
 Referenced by [21. Build exports from the view's geometry as a pure SVG](0021-build-exports-from-the-views-geometry-as-a-pure-svg.md).
 
-Referenced by [25. Draw Mermaid diagrams in the React Flow engine](0025-draw-mermaid-diagrams-in-the-react-flow-engine.md).
+Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
 
 ## Context
 
