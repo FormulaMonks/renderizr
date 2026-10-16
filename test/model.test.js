@@ -22,6 +22,7 @@ const {
     getMetadataForRelationship,
     resolveView,
     shadeColor,
+    splitAuthor,
 } = await importSrc("model/index");
 
 const BIG_BANK = JSON.parse(
@@ -160,6 +161,31 @@ describe("workspace model", () => {
         assert.equal(
             untitled.getTitleForView(untitled.findViewByKey("SystemLandscape")),
             "System Landscape View: Big Bank plc",
+        );
+    });
+
+    test("titles views on one line, turning a name's \\n breaks into spaces", () => {
+        const model = bigBank((json) => {
+            const system = json.model.softwareSystems.find(
+                (s) => s.name === "Internet Banking System",
+            );
+            system.name = "Internet Banking\\nSystem";
+            system.containers.find((c) => c.name === "API Application").name =
+                "API\\nApplication";
+        });
+        const title = (key) => model.getTitleForView(model.findViewByKey(key));
+
+        assert.equal(
+            title("Containers"),
+            "Container View: Internet Banking System",
+        );
+        assert.equal(
+            title("SignIn"),
+            "Dynamic View: Internet Banking System - API Application",
+        );
+        assert.equal(
+            title("Components"),
+            "Component View: Internet Banking System - API Application",
         );
     });
 
@@ -654,5 +680,31 @@ describe("resolveView", () => {
             orders,
             [...orders].sort((a, b) => a - b),
         );
+    });
+});
+
+describe("view descriptions", () => {
+    test('a description splits at "Author: " into what it says and who wrote it', () => {
+        const cases = [
+            {
+                stored: "About the view",
+                description: "About the view",
+                author: undefined,
+            },
+            {
+                stored: "About the view\nAuthor: Ada <ada@example.com>",
+                description: "About the view",
+                author: "Ada <ada@example.com>",
+            },
+            { stored: "Author: Ada", description: "", author: "Ada" },
+            { stored: "", description: "", author: undefined },
+        ];
+        for (const { stored, description, author } of cases) {
+            assert.deepEqual(
+                splitAuthor(stored),
+                { description, author },
+                JSON.stringify(stored),
+            );
+        }
     });
 });

@@ -91,7 +91,7 @@
             "labels": ["dependencies", "ships-to-users"]
         },
         {
-            "description": "@dagrejs/* is pinned to exact versions in package.json on purpose: `src/engine/layout/automatic.ts` imports Dagre's internal `lib/order` modules, which carry no semver promise. Renovate replaces the exact version with a new exact version; it must never widen the pin into a range.",
+            "description": "@dagrejs/* is pinned to exact versions in package.json on purpose: `src/engine/layout/dagre-order.ts` ports Dagre's internal `lib/order` modules from the pinned version, and those carry no semver promise. Renovate replaces the exact version with a new exact version; it must never widen the pin into a range.",
             "matchManagers": ["npm"],
             "matchPackageNames": ["@dagrejs/**"],
             "rangeStrategy": "auto",

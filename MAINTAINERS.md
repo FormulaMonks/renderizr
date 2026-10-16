@@ -4,9 +4,9 @@
 
 | Name | GitHub | Areas |
 | --- | --- | --- |
-| Andrés Zorro | [@andreszorro](https://github.com/andreszorro) | Everything: the build pipeline in `scripts/`, the app and the React Flow engine in `src/`, releases |
+| Andrés Zorro | [@andreszorro-monks](https://github.com/andreszorro-monks) | Everything: the build pipeline in `scripts/`, the app and the React Flow engine in `src/`, releases |
 
-[Formula.Monks](https://www.monks.com) stewards Renderizr and licenses it under [MIT](LICENSE). Contact for anything that needs to reach a human privately: **andres.zorro@monks.com**.
+[Monks Tech Services](https://www.monkstechservices.com) stewards Renderizr and licenses it under [MIT](LICENSE). Contact for anything that needs to reach a human privately: **andres.zorro@monks.com**.
 
 That table has exactly one row, and it is worth saying so plainly rather than implying a committee: this is a small project with a single maintainer today. It is why review turnaround takes days rather than hours, and it is the main reason the second half of this document exists.
 
@@ -14,8 +14,8 @@ That table has exactly one row, and it is worth saying so plainly rather than im
 
 Being listed above means holding the responsibilities below. It is not the same thing as holding a GitHub permission, and on this repository the two genuinely differ, so here is the real picture as of 2026-08-16 — reproduce it with `gh api repos/FormulaMonks/renderizr/collaborators --paginate --jq '.[] | [.login, .role_name] | @tsv'`:
 
-- **One direct collaborator**: `@andreszorro`, the maintainer in the table.
-- **Seven accounts with `admin`** — `@andreszorro`, `@juanwingo`, `@joshrobichaud`, `@Charlygm23`, `@AlejoRomero98`, `@sergio-correa-monks`, `@YinetC`. Six of those inherit it from FormulaMonks org membership rather than from any decision about this repository, and none of them has volunteered for the review, triage and release duties below.
+- **One direct collaborator**: `@andreszorro-monks`, the maintainer in the table.
+- **Seven accounts with `admin`** — `@andreszorro-monks`, `@juanwingo`, `@joshrobichaud`, `@Charlygm23`, `@AlejoRomero98`, `@sergio-correa-monks`, `@YinetC`. Six of those inherit it from FormulaMonks org membership rather than from any decision about this repository, and none of them has volunteered for the review, triage and release duties below.
 - **Ninety-eight accounts with `read`**, likewise inherited from the organization.
 
 So an account with the technical ability to push to `main` is not thereby a maintainer here, and the rules in the next section bind everyone with the ability regardless of whether they wanted the title. If you hold inherited admin and would like the row and the responsibilities, see [Becoming a maintainer](#becoming-a-maintainer); if you hold it and would rather not, say so and we will remove it.

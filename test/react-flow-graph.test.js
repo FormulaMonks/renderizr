@@ -622,15 +622,18 @@ for (const separation of [300, 100, 50])
 /**
  * The gaps between Big Bank's Containers ranks under upstream's renderer,
  * top to bottom, read off its Dagre call in Chrome: three rank separations
- * (one boundary level, which Dagre's nesting triples) plus the room it
+ * (one boundary level, which Dagre 1.1.8's nesting triples) plus the room it
  * keeps for the tallest label between them.
  */
 const UPSTREAM_CONTAINERS_GAPS = [980, 951, 1010, 982];
 
+/** Big Bank's rank separation in its Containers view. */
+const CONTAINERS_RANK_SEPARATION = 300;
+
 /** One label line at Big Bank's relationship font size, 24 × 1.2. */
 const LABEL_LINE = 28.8;
 
-test("Big Bank's Containers ranks are spaced as upstream spaces them, one boundary level deep", () => {
+test("Big Bank's Containers ranks are one rank separation apart plus the room upstream keeps for their labels", () => {
     const graph = buildGraph(
         new WorkspaceModel(BIG_BANK),
         "Containers",
@@ -654,12 +657,15 @@ test("Big Bank's Containers ranks are spaced as upstream spaces them, one bounda
     });
     assert.equal(gaps.length, UPSTREAM_CONTAINERS_GAPS.length, "rank count");
     for (const [i, gap] of gaps.entries()) {
-        const upstream = UPSTREAM_CONTAINERS_GAPS[i];
+        // Dagre drops the two empty ranks upstream's Dagre keeps around the
+        // boundary, and the rank separation each of them costs.
+        const upstream =
+            UPSTREAM_CONTAINERS_GAPS[i] - 2 * CONTAINERS_RANK_SEPARATION;
         // Text is estimated here and measured in Chrome, so a label may
         // wrap onto one more line or one fewer.
         assert.ok(
             Math.abs(gap - upstream) <= LABEL_LINE + 0.01,
-            `gap ${i + 1} is ${gap}, upstream's is ${upstream}`,
+            `gap ${i + 1} is ${gap}, upstream's less its empty ranks is ${upstream}`,
         );
     }
 });
@@ -1876,4 +1882,27 @@ test("focusing an off-screen item pans it into view without changing zoom", () =
     // Its right edge lands 16 inside the right side, its top 16 below the top.
     assert.equal(1000 * 2 + panned.x + 100, 800 - 16);
     assert.equal(100 * 2 + panned.y, 16);
+});
+
+test("a view's stored canvas is the frame the page fits, and a view that stores none fits its content", () => {
+    const exportModel = new WorkspaceModel(
+        JSON.parse(
+            readFileSync(
+                new URL("./__fixtures__/export.json", import.meta.url),
+                "utf8",
+            ),
+        ),
+    );
+    const graph = (key) => buildGraph(exportModel, key, "light", LABELS);
+    assert.deepEqual(
+        graph("Request").frame,
+        { x: 0, y: 0, width: 2480, height: 1748 },
+        "a paper size is the frame",
+    );
+    assert.deepEqual(
+        graph("Containers").frame,
+        { x: 0, y: 0, width: 2400, height: 1800 },
+        "dimensions are the frame",
+    );
+    assert.equal(graph("AutoFrame").frame, undefined);
 });

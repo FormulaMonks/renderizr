@@ -1,5 +1,5 @@
 Renderizr
-Copyright (c) 2024-2026 Formula.Monks
+Copyright (c) 2024-2026 Monks Tech Services
 
 Licensed under the MIT License. See LICENSE.
 
@@ -80,8 +80,8 @@ Attribution for the components that ship inside every page Renderizr renders
   All rights reserved.
   Licensed under the BSD 3-Clause License (text below)
 
-  @dagrejs/dagre: version 1.1.8
-  @dagrejs/graphlib: version 2.2.4
+  @dagrejs/dagre: version 2.0.4, with @dagrejs/graphlib 3.0.4 bundled inside it,
+  and portions of its ordering step ported to src/engine/layout/dagre-order.ts
   Copyright (c) 2012-2014 Chris Pettitt
   Licensed under the MIT License (text below)
 

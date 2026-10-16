@@ -1,8 +1,8 @@
 /**
  * Canvas geometry for edit mode (spec 14, 15): the three canvas commands
  * with Structurizr Local's numbers, re-centering, and the clamp behind
- * "Bring elements back onto the diagram". Pure, so it runs under
- * `node --test`.
+ * "Bring elements back onto the diagram". Also the frame of an export
+ * (ADR 21). Pure, so it runs under `node --test`.
  */
 
 import { MIN_CANVAS_SIDE } from "../../model/canvas";
@@ -70,3 +70,18 @@ export const clampPoint = (point: Point, canvas: Size): Point => ({
     x: clamp(point.x, 0, canvas.width),
     y: clamp(point.y, 0, canvas.height),
 });
+
+/**
+ * The box an export frames, in model units: the `stored` canvas from the
+ * origin, or, for a view that stores none, the canvas Auto would set
+ * (`content` plus 400) centered on `content`.
+ */
+export function exportFrame(stored: Size | undefined, content: Bounds): Bounds {
+    if (stored) return { x: 0, y: 0, ...stored };
+    const size = resizedCanvas("auto", content, content);
+    return {
+        x: content.x - (size.width - content.width) / 2,
+        y: content.y - (size.height - content.height) / 2,
+        ...size,
+    };
+}

@@ -9,20 +9,14 @@ importers:
   .:
     dependencies:
       '@dagrejs/dagre':
-        specifier: 1.1.8
-        version: 1.1.8
-      '@dagrejs/graphlib':
-        specifier: 2.2.4
-        version: 2.2.4
+        specifier: 2.0.4
+        version: 2.0.4
       '@xyflow/react':
         specifier: ^12.12.0
         version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       bootstrap-icons:
         specifier: ^1.13.1
         version: 1.13.1
-      dagre-2:
-        specifier: npm:@dagrejs/dagre@2.0.4
-        version: '@dagrejs/dagre@2.0.4'
       highlight.js:
         specifier: ^11.12.0
         version: 11.12.0
@@ -241,15 +235,8 @@ packages:
       conventional-commits-parser:
         optional: true
 
-  '@dagrejs/dagre@1.1.8':
-    resolution: {integrity: sha512-5SEDlndt4W/LaVzPYJW+bSmSEZc9EzTf8rJ20WCKvjS5EAZAN0b+x0Yww7VMT4R3Wootkg+X9bUfUxazYw6Blw==}
-
   '@dagrejs/dagre@2.0.4':
     resolution: {integrity: sha512-J6vCWTNpicHF4zFlZG1cS5DkGzMr9941gddYkakjrg3ZNev4bbqEgLHFTWiFrcJm7UCRu7olO3K6IRDd9gSGhA==}
-
-  '@dagrejs/graphlib@2.2.4':
-    resolution: {integrity: sha512-mepCf/e9+SKYy1d02/UkvSy6+6MoyXhVxP8lLDfA7BPE1X1d4dR0sZznmbM8/XVJ1GPM+Svnx7Xj6ZweByWUkw==}
-    engines: {node: '>17.0.0'}
 
   '@dagrejs/graphlib@3.0.4':
     resolution: {integrity: sha512-HxZ7fCvAwTLCWCO0WjDkzAFQze8LdC6iOpKbetDKHIuDfIgMlIzYzqZ4nxwLlclQX+3ZVeZ1K2OuaOE2WWcyOg==}
@@ -1443,15 +1430,9 @@ snapshots:
     optionalDependencies:
       conventional-commits-parser: 6.4.0
 
-  '@dagrejs/dagre@1.1.8':
-    dependencies:
-      '@dagrejs/graphlib': 2.2.4
-
   '@dagrejs/dagre@2.0.4':
     dependencies:
       '@dagrejs/graphlib': 3.0.4
-
-  '@dagrejs/graphlib@2.2.4': {}
 
   '@dagrejs/graphlib@3.0.4': {}
 

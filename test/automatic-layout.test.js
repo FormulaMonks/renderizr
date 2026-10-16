@@ -19,6 +19,9 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 
 const { LARGE_VIEW_ELEMENTS, layOut, layoutOrder, rankerFor, simplify } =
     await importSrc("engine/layout/automatic");
+const { buildLayerMatrix, initOrder, maxRank } = await importSrc(
+    "engine/layout/dagre-order",
+);
 const { WorkspaceModel } = await importSrc("model/index");
 const { buildGraph } = await importSrc("engine/react-flow/graph");
 
@@ -178,22 +181,31 @@ test("an edge's label height adds to the gap between the ranks it joins", () => 
     }
 });
 
-test("one boundary level triples the gap between ranks, as Dagre nests it", () => {
-    const { boxes } = layOut(
-        {
-            nodes: [node("a", "s"), node("b", "s")],
-            boundaries: [{ id: "s" }],
-            edges: [{ id: "ab", source: "a", target: "b" }],
-        },
-        SETTINGS,
-    );
-    const a = boxes.get("a");
-    const b = boxes.get("b");
-    assert.equal(
-        b.y - (a.y + a.height),
-        3 * SETTINGS.rankSeparation,
-        "a boundary should nest the ranks one level deep, no more",
-    );
+test("boundaries leave the gap between ranks at one rank separation", () => {
+    // Dagre nests each boundary level in empty ranks of its own and drops
+    // the ones nothing sits on. Dagre 1.1.8 dropped none, which tripled the
+    // gap at one level and quintupled it at two.
+    for (const boundaries of [
+        [{ id: "s" }],
+        [{ id: "s" }, { id: "t", parent: "s" }],
+    ]) {
+        const inner = boundaries[boundaries.length - 1].id;
+        const { boxes } = layOut(
+            {
+                nodes: [node("a", inner), node("b", inner)],
+                boundaries,
+                edges: [{ id: "ab", source: "a", target: "b" }],
+            },
+            SETTINGS,
+        );
+        const a = boxes.get("a");
+        const b = boxes.get("b");
+        assert.equal(
+            b.y - (a.y + a.height),
+            SETTINGS.rankSeparation,
+            `${boundaries.length} boundary levels should leave one rank separation`,
+        );
+    }
 });
 
 /* ------------------------------------------------------------------- order */
@@ -520,6 +532,39 @@ for (const { name, points, expected } of SIMPLIFY)
             "the wrong points were kept",
         );
     });
+
+/* ---------------------------------------------------------- dagre-order */
+
+/**
+ * A stand-in for a ranked layout graph of `count` leaves with no edges, the
+ * last on rank 2 and the rest on rank 1: big enough that spreading its ranks
+ * into `Math.max` exceeds the engine's limit on arguments.
+ */
+const rankedLeaves = (count) => {
+    const ids = Array.from({ length: count }, (_, i) => `n${i}`);
+    const labels = new Map(
+        ids.map((id, i) => [id, { rank: i === count - 1 ? 2 : 1, order: i }]),
+    );
+    return {
+        nodes: () => ids,
+        node: (v) => labels.get(v),
+        children: () => [],
+        successors: () => [],
+    };
+};
+
+test("the ported ordering step reads the highest rank of any number of nodes", () => {
+    // Dagre splits long lists into chunks before it takes their maximum;
+    // the port has to survive the same lengths.
+    const g = rankedLeaves(200_000);
+
+    assert.equal(maxRank(g), 2);
+    assert.equal(buildLayerMatrix(g).length, 3);
+    assert.deepEqual(
+        initOrder(g).map((layer) => layer.length),
+        [0, 199_999, 1],
+    );
+});
 
 /* ------------------------------------------------------------------ ranker */
 

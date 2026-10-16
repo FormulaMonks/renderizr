@@ -29,7 +29,7 @@ Screenshots or a before/after pair help a lot for visual changes. -->
 - [ ] `pnpm exec tsc --noEmit` is clean.
 - [ ] `pnpm test` passes.
 - [ ] Tests cover the change, or there is a note below explaining why they cannot.
-- [ ] `README.md` and `--help` in `scripts/cli.js` match the new behavior — a renamed flag needs both.
+- [ ] `architecture/docs/` and `--help` in `scripts/cli.js` match the new behavior — a renamed flag needs both.
 - [ ] I rendered a real workspace and looked at it, in both default and `--single-file` modes if either could be affected.
 
 <!--

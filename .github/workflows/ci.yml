@@ -72,7 +72,7 @@ concurrency:
 
 env:
   # Committed, a byte-for-byte copy of Structurizr's, and the same workspace
-  # the README tells people to try first.
+  # the README and the documentation tell people to try first.
   BIG_BANK: test/__fixtures__/big-bank-plc.json
   PNPM_VERSION: "11"
 
@@ -224,7 +224,7 @@ jobs:
         run: test -s "$BIG_BANK"
 
       # `pnpm render` is `tsc && node scripts/build.js` — the same command the
-      # README and CONTRIBUTING document. No `--` before the arguments: pnpm
+      # documentation and CONTRIBUTING document. No `--` before the arguments: pnpm
       # forwards them, and node:util parseArgs would read everything after a
       # `--` as a positional workspace.
       - name: Render Big Bank plc (multi-file)

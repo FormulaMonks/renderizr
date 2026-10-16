@@ -5,6 +5,7 @@ import {
     isEditable,
     type LayoutChange,
     type ModelView,
+    storedCanvasOf,
     WorkspaceModel,
 } from "../../model";
 import {
@@ -16,7 +17,10 @@ import {
     type SelectionState,
     whenMeasurable,
 } from "../contract";
-import { AnimationPlayer } from "./animation";
+import { exportFrame } from "../geometry/canvas";
+import { AnimationPlayer, stepStateOf } from "./animation";
+import { exportBlob, textSetting, titleBlockText } from "./export-file";
+import { exportSvg } from "./export-svg";
 import type { Graph } from "./graph";
 import {
     type IslandCommands,
@@ -25,7 +29,12 @@ import {
     Island,
 } from "./island";
 import { engineReport } from "./report";
-import { removeReport, writeReport } from "./report-script";
+import {
+    exposeExport,
+    removeExport,
+    removeReport,
+    writeReport,
+} from "./report-script";
 import { ShownListeners } from "./shown";
 
 /** Hears that an element or a relationship was activated, and where. */
@@ -55,6 +64,13 @@ export function mountEngine(
 
         // Edit mode swaps the workspace in place (`setWorkspace`).
         let model = new WorkspaceModel(options.workspace);
+        /**
+         * The workspace as last saved, whose `lastModifiedUser` and
+         * `lastModifiedDate` the title block gives, which the model drops.
+         * Edit mode swaps it only on a save, so unsaved changes keep the
+         * saved date.
+         */
+        let workspace = options.workspace;
         const editableKey = (key: string) => {
             const view = model.findViewByKey(key);
             return view !== undefined && isEditable(view);
@@ -92,6 +108,11 @@ export function mountEngine(
          * again, which keeps the step shown when the view still has it.
          */
         let reloading = false;
+        /**
+         * The graph the island last drew, edited layout, scheme and labels
+         * included, which an export serializes (ADR 21).
+         */
+        let drawn: Graph | null = null;
         player.onChanged(({ step }) => {
             if (step !== store.get().step) store.set({ step });
         });
@@ -152,8 +173,9 @@ export function mountEngine(
             setRouting(mode) {
                 commands.setRouting?.(mode);
             },
-            setWorkspace(workspace) {
-                model = new WorkspaceModel(workspace);
+            setWorkspace(saved) {
+                workspace = saved;
+                model = new WorkspaceModel(saved);
                 const { key, editing } = store.get();
                 const kept = model.findViewByKey(key) !== undefined;
                 const shownKey = kept ? key : model.getViews()[0]?.key ?? key;
@@ -210,6 +232,36 @@ export function mountEngine(
                 store.set({ labels: { ...labels } });
             },
             getCurrentView,
+            async exportView(format) {
+                const graph = drawn;
+                if (!graph || graph.image || graph.error) {
+                    throw new Error("The view has nothing drawn to export");
+                }
+                const view = model.findViewByKey(graph.key);
+                if (!view) throw new Error(`No view ${graph.key}`);
+                const { step, layouts } = store.get();
+                // The canvas frames the export, as edited and unsaved in
+                // edit mode; a view that stores none takes Auto's frame.
+                const edited = __RENDERIZR_EDIT_MODE__
+                    ? layouts.get(graph.key)
+                    : undefined;
+                const frame = exportFrame(
+                    storedCanvasOf(view, edited),
+                    graph.bounds,
+                );
+                const exported = exportSvg({
+                    graph,
+                    step: step === null ? undefined : stepStateOf(graph, step),
+                    frame,
+                    titleBlock: titleBlockText(
+                        workspace,
+                        graph.title,
+                        view.description,
+                    ),
+                    text: textSetting(__RENDERIZR_FONT__),
+                });
+                return exportBlob(exported, format);
+            },
             fit: () => commands.fit(),
             zoomIn: () => commands.zoomIn(),
             zoomOut: () => commands.zoomOut(),
@@ -244,14 +296,20 @@ export function mountEngine(
                 }
                 root?.unmount();
                 root = null;
-                if (__RENDERIZR_ENGINE_REPORT__) removeReport(document);
+                drawn = null;
+                if (__RENDERIZR_ENGINE_REPORT__) {
+                    removeReport(document);
+                    removeExport(window);
+                }
             },
         };
 
         const onPainted = (key: string, graph: Graph) => {
+            drawn = graph;
             // Compiled out of every build but the acceptance harness's (spec 15.1).
             if (__RENDERIZR_ENGINE_REPORT__) {
                 writeReport(document, engineReport(graph));
+                exposeExport(window, engine.exportView);
             }
             painted = { key, steps: graph.animation?.steps.length ?? 0 };
             if (__RENDERIZR_EDIT_MODE__ && reloading) {
@@ -276,6 +334,7 @@ export function mountEngine(
         };
 
         const onRedrawn = (graph: Graph) => {
+            drawn = graph;
             if (__RENDERIZR_ENGINE_REPORT__) {
                 writeReport(document, engineReport(graph));
             }

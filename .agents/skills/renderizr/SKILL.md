@@ -7,7 +7,7 @@ allowed-tools: Bash(npx:*), Bash(node:*)
 disable-model-invocation: true
 metadata:
   author: Andrés Zorro <andres.zorro@monks.com>
-  version: 2.3.0 # x-release-please-version
+  version: 2.4.0 # x-release-please-version
 ---
 
 # Renderizr — a Structurizr workspace as one shareable file
@@ -70,7 +70,7 @@ In a Scaffoldizr repository `workspace.json` holds the views' layout as well as 
    ```
 
 3. **Check it is genuinely self-contained** before handing it over — see [verifying](./references/verifying.md). One command, and it is the difference between an artifact that opens and one that renders blank for the recipient.
-4. **Hand over `artifact.html`.** Say which file it is and roughly how big; a real model lands around 1 MB.
+4. **Hand over `artifact.html`.** Say which file it is and roughly how big; a real model lands around 1 MB. When you publish it as a Claude artifact yourself, declare the `downloads` capability (for example `capabilities: {downloads: true}`), so the reader can export views.
 
 ## Flags
 
@@ -92,6 +92,7 @@ We verified each of these against the tool:
 
 - **Node 20 is a hard floor.** `npx` runs against whatever Node is first on `PATH`, which is often not the one the shell reports. Renderizr checks and exits with a clear message rather than failing deep inside the build.
 - **`artifact.html` and `index.html` are not interchangeable.** See the table above.
+- **An artifact without `downloads` can't export.** The artifact viewer lets a page save a file only through its `downloads` capability. Publish `artifact.html` without declaring it and the page hides its export buttons.
 - **Renderizr empties the output directory** before writing. Never point `--out` at a directory holding anything you want to keep.
 - **`https://` in the output is not a leak.** A rendered page contains ordinary hyperlinks to `structurizr.com`, `c4model.com` and the like. Self-containment is about *asset* references — `<script src>`, `<link href>`, `<img src>` — of which there are none. Check the right thing; see [verifying](./references/verifying.md).
 - **Working inside a clone of the Renderizr repository is different.** `pnpm render <workspace> [flags]` — and specifically *not* `pnpm render -- <workspace> --flag`, which makes the flag arrive as a second workspace. `pnpm dev` is the opposite and does want the `--`. This only applies inside the repository; `npx` users are unaffected.

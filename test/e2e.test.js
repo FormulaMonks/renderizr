@@ -189,6 +189,41 @@ test(
 );
 
 test(
+    "artifact.html draws its diagrams, drawer and toolbar while the viewer never answers for downloads",
+    { skip: SKIP },
+    async () => {
+        // A viewer whose `downloads` answer hangs must not hold the page
+        // back; the export group stays hidden until an answer that never
+        // comes.
+        const out = await singleFile();
+        const hung = join(out, "artifact-hung-downloads.html");
+        await writeFile(
+            hung,
+            `<script>window.claude = { use: () => new Promise(() => {}) };</script>${await readFile(join(out, "artifact.html"), "utf-8")}`,
+        );
+        const document = await render(fileUrl(hung));
+
+        assert.ok(
+            document.querySelectorAll(
+                "#structurizr-diagram-target [data-element-id]",
+            ).length > 0,
+            "the engine should have drawn the view",
+        );
+        assert.ok(
+            document.querySelectorAll(
+                "#structurizr-diagram-navigation li[data-viewkey]",
+            ).length > 0,
+            "the drawer should list the views",
+        );
+        const group = document.querySelector(
+            "#structurizr-current-view .export-buttons",
+        );
+        assert.ok(group, "the toolbar should be drawn");
+        assert.ok(group.hasAttribute("hidden"), "export waits for the viewer");
+    },
+);
+
+test(
     "every tab in the header is reachable from the rendered page",
     { skip: SKIP },
     async () => {

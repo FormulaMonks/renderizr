@@ -17,9 +17,10 @@ import {
     animationOf,
     type BoundaryKind,
     canvasOf,
+    type ColorScheme as ModelColorScheme,
     type EditedLayout,
     type ElementStyle,
-    type ColorScheme as ModelColorScheme,
+    elementTargets,
     findBoundaryStyle,
     findElementStyle,
     findEnterpriseStyle,
@@ -30,7 +31,6 @@ import {
     getMetadataForRelationship,
     type ImageContent,
     type LayoutMode,
-    elementTargets,
     type ModelElement,
     type ModelRelationship,
     type ModelView,
@@ -41,6 +41,7 @@ import {
     type ResolvedView,
     resolveView,
     SCHEME_DEFAULTS,
+    storedCanvasOf,
     type TargetKind,
     type ViewAnimation,
     type WorkspaceModel,
@@ -327,6 +328,12 @@ export type Graph = {
      * edit, leave it empty (ADR 15).
      */
     canvas: Size;
+    /**
+     * The canvas the view stores, its `dimensions` or its paper size, as the
+     * box the page fits and an export frames; none when it stores neither,
+     * and the page fits the content instead.
+     */
+    frame?: Bounds;
     /** The paper size the view stores, which Decrease and Increase delete. */
     paperSize?: string;
     /**
@@ -351,6 +358,12 @@ const SCHEME = { light: "Light", dark: "Dark" } as const;
 
 /** The canvas of a build, which never draws one. */
 const NO_CANVAS: Size = { width: 0, height: 0 };
+
+/** The `frame` of a view that stores a canvas, at the origin; else nothing. */
+function frameOf(view: ModelView, edited: EditedLayout | undefined) {
+    const stored = storedCanvasOf(view, edited);
+    return stored ? { frame: { x: 0, y: 0, ...stored } } : {};
+}
 
 /** The bounds of an empty view: nothing, at the origin. */
 const NO_BOUNDS: Bounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -642,6 +655,7 @@ function drawView(
         canvas: __RENDERIZR_EDIT_MODE__
             ? canvasOf(view.view, edited)
             : NO_CANVAS,
+        ...frameOf(view.view, edited),
         layout: "stored",
         placements: [],
         warnings: [],
@@ -1066,6 +1080,7 @@ function drawView(
         canvas: __RENDERIZR_EDIT_MODE__
             ? canvasOf(view.view, edited)
             : NO_CANVAS,
+        ...frameOf(view.view, edited),
         ...(__RENDERIZR_EDIT_MODE__ &&
             typeof view.view.paperSize === "string" && {
                 paperSize: view.view.paperSize,

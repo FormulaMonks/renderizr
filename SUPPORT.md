@@ -8,7 +8,7 @@ Something already written down answers most questions:
 
 | If you are wondering | Read |
 | --- | --- |
-| How do I run it? What do the flags do? | [README.md](README.md) — usage, the full flag table, `--single-file` |
+| How do I run it? What do the flags do? | [The documentation](https://formulamonks.github.io/renderizr/#/?page=docs&section=02-usage) — usage, the full flag table, `--single-file` |
 | What does flag *x* do exactly? | `npx github:FormulaMonks/renderizr --help` — the authoritative list, generated from `scripts/cli.js` |
 | How do I work on Renderizr itself? | [CONTRIBUTING.md](CONTRIBUTING.md) — clone, install, dev server, tests, commits, review |
 | Who maintains this, and how do I join? | [MAINTAINERS.md](MAINTAINERS.md) |

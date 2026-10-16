@@ -104,8 +104,8 @@ Everything in this section is present, minified, inside every `index.html` Rende
 | [d3-timer](https://github.com/d3/d3-timer) | 3.0.1 | ISC | Copyright 2010-2021 Mike Bostock |
 | [d3-transition](https://github.com/d3/d3-transition) | 3.0.1 | ISC | Copyright 2010-2021 Mike Bostock |
 | [d3-zoom](https://github.com/d3/d3-zoom) | 3.0.0 | ISC | Copyright 2010-2021 Mike Bostock |
-| [@dagrejs/dagre](https://github.com/dagrejs/dagre) | 1.1.8 | MIT | Copyright (c) 2012-2014 Chris Pettitt |
-| [@dagrejs/graphlib](https://github.com/dagrejs/graphlib) | 2.2.4 | MIT | Copyright (c) 2012-2014 Chris Pettitt |
+| [@dagrejs/dagre](https://github.com/dagrejs/dagre) | 2.0.4 | MIT | Copyright (c) 2012-2014 Chris Pettitt |
+| [@dagrejs/graphlib](https://github.com/dagrejs/graphlib) | 3.0.4 | MIT | Copyright (c) 2012-2014 Chris Pettitt |
 | [Bootstrap Icons](https://github.com/twbs/icons) (`bootstrap-icons`) | 1.13.1, 28 icons | MIT | Copyright (c) 2019-2024 The Bootstrap Authors |
 | [highlight.js](https://github.com/highlightjs/highlight.js) | 11.12.0 | BSD-3-Clause | Copyright (c) 2006, Ivan Sagalaev. All rights reserved. |
 | [history](https://github.com/remix-run/history) | 5.3.0 | MIT | Copyright (c) React Training 2016-2020; Copyright (c) Remix Software 2020-2021 |
@@ -124,7 +124,7 @@ Everything in this section is present, minified, inside every `index.html` Rende
 
 **React and React Flow**: React Flow (`@xyflow/react`) draws every diagram inside a React root. `@xyflow/system` is its framework-independent core, `zustand` holds its store, `classcat` builds its class names, and the eight `d3-*` modules handle panning, zooming, dragging and the transitions between viewports. React brings `scheduler`, and zustand brings `use-sync-external-store`. React Flow's "React Flow" attribution badge is turned off; the footer of every page credits React Flow by name instead.
 
-**dagre / graphlib**: imported by `src/engine/layout/automatic.ts` for automatic layout, at the exact versions `package.json` pins.
+**dagre / graphlib**: imported by `src/engine/layout/automatic.ts` for automatic layout, at the exact version of dagre `package.json` pins. Dagre's build bundles graphlib, at the version Dagre depends on. `src/engine/layout/dagre-order.ts` also ports the pieces of Dagre's ordering step that `automatic.ts` runs itself, and carries Dagre's MIT notice in its header.
 
 **Bootstrap Icons**: the 28 SVGs the page imports from the `bootstrap-icons` package by Vite's `?raw` imports, so the SVG markup is embedded directly in the JavaScript. Every file carries the `class="bi bi-<name>"` marker.
 
