@@ -30,5 +30,11 @@ workspace "Mermaid sequence diagrams" "Image views that carry Mermaid sequence d
             title "Sign-in"
             description "The source's own theme, mirrorActors off, create and destroy, stacked activations, a wrapped note and a long label."
         }
+
+        image * "shapes" {
+            mermaid shapes.mmd
+            title "Participant shapes"
+            description "Every participant type: actor, participant, boundary, control, entity, database, collections and queue."
+        }
     }
 }

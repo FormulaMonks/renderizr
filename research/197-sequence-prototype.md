@@ -8,7 +8,7 @@ A rough sequence diagram in the React Flow engine, laid out by our own code, to 
 pnpm dev -- test/__fixtures__/mermaid-sequence.json
 ```
 
-Open **Checkout**, **Export retry** or **Sign-in**, in either color scheme.
+Open **Checkout**, **Export retry**, **Sign-in** or **Participant shapes**, in either color scheme.
 
 ## What the prototype does
 
@@ -27,6 +27,10 @@ Mermaid 12.2.0 with Structurizr's payload (`theme: default`), then Renderizr in 
 | Checkout | ![](197/side-by-side-checkout.png) |
 | Export retry | ![](197/side-by-side-retry.png) |
 | Sign-in (`theme: base`, `primaryColor`) | ![](197/side-by-side-sign-in.png) |
+
+Participant shapes, stacked: Mermaid, then Renderizr in light and dark.
+
+![](197/side-by-side-shapes.png)
 
 Full-size pictures sit next to these in `research/197/`.
 
@@ -53,6 +57,7 @@ Every fixture sits within the 1.25 the flowcharts reached. Text draws at 20 (Mer
 - **Silent lifelines and bars**: the participant's border color nearly disappears on the dark canvas, so a silent source's lifelines take the participant's fill. A silent source's activation bars take the participant's fill mixed toward the canvas, 85 percent on the light canvas and 55 percent on the dark one, with a border mixed less; one mix for both schemes left the bar too heavy in one of them. A silent source's notes draw gray in both schemes (`#e6e6e6` on light, `#474949` on dark) in place of Mermaid's yellow.
 - **A source palette in dark mode**: with the palette fixed in both schemes, Sign-in's `#333` messages and labels nearly vanished on the dark canvas. Fills keep the source's colors (participants, notes, activation bars, the fragment tab); in dark mode, what draws straight on the canvas follows the scheme (message lines and labels, sequence numbers, lifelines, fragment lines and titles). A `rect` with a source color fades to 20 percent in dark mode, so the scheme's text reads on it.
 - **Label toggles**: drawn as they are. Descriptions hide nothing, since participants carry no description and messages keep theirs; technologies hide nothing either.
+- **Participant shapes**: an actor draws as C4's Person, `database` as `Cylinder` and `queue` as `Pipe`. The Pipe's content area is narrow, so a two-word name such as "Event bus" wraps. `boundary`, `control`, `entity` and `collections` fall back to the participant box and warn, where Mermaid draws its own symbols: a circle with a bar, a circle with an arrowhead, a circle on a line, and stacked boxes.
 - **Export**: the PNG and SVG buttons export what the canvas draws, lifelines, bars, fragments, boxes, notes and numbers included.
 
 ## Left out

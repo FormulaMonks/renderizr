@@ -63,6 +63,14 @@
                 "key": "sign-in",
                 "order": 4,
                 "title": "Sign-in"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eNplUl1LwzAU_SuXvA3cH-iDOJ3KQNhAxJe-pMndGkyTmtw4xth_96ZdJzZ9aZPzkZxzewahvEZRiYjfCZ3CtZGHILvaAT9SkQ_wETGM614GMsr00hF8YgMyDq_Y-r4kvErChzPUgk491qLir8Ynp2U41QIuWbzabeDAtKM8lfoX648zvfKOgreT_KlF9eUTwZ6ppcE2aAwzB3Rk6Hb-wCiF62am0pJkIyP-00W4bRcOG8IuFpe3FhUZ7-Lk82Ycgsnc0uIxzQ14QOl2hecfjgJNuirzjJb39zyNaqwFuJcR4j1G8jQqeE9NZwioRVB81kjIEDNy38wg3gd1bXYkZIQJQ2q2D8gC8H_dDQAT1nz4xvFNCMI0kAkbGqlgpTXYWerBfsF5K9ilxprYjubQW6lQjySGl8vFkG9bgDkin5FL4AStPwL_KXsTOpnrFncgOuSF0aI6Cw7f5T9e414mS-Jy-QVLGQHY",
+                "contentType": "image/svg+xml",
+                "description": "Every participant type: actor, participant, boundary, control, entity, database, collections and queue.",
+                "key": "shapes",
+                "order": "5",
+                "title": "Participant shapes"
             }
         ]
     }
