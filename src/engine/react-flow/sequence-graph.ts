@@ -179,23 +179,29 @@ export function finishSequence(
                 y: box.y,
                 targets: [],
             };
-            if (element.shape !== "Person") return placed;
-            // An actor draws C4's Person at its own square proportions,
-            // standing on the header row, so every lifeline still starts on
-            // one line, and hanging from the footer row.
-            const side = Math.round(box.height * 1.5);
+            // An actor and a database stand taller than the participant row:
+            // C4's Person at its own square proportions, and a Cylinder whose
+            // lid and base leave its body room. Each stands on the header
+            // row, so every lifeline still starts on one line, and hangs
+            // from the footer row.
+            const tall =
+                element.shape === "Person" || element.shape === "Cylinder";
+            if (!tall) return placed;
+            const height = Math.round(box.height * 1.5);
+            const width = element.shape === "Person" ? height : box.width;
             const geometry = shapeGeometry(
-                "Person",
-                side,
-                side,
+                element.shape,
+                width,
+                height,
                 element.strokeWidth,
             );
             return {
                 ...placed,
-                x: box.x + (box.width - side) / 2,
-                y: suffix ? box.y : box.y + box.height - side,
-                width: side,
-                height: side,
+                x: box.x + (box.width - width) / 2,
+                y: suffix ? box.y : box.y + box.height - height,
+                width,
+                height,
+                shape: geometry.shape,
                 parts: geometry.parts,
                 content: geometry.content,
                 labelHeight: geometry.content.height,
