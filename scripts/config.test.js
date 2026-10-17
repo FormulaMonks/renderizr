@@ -108,6 +108,14 @@ test("the footer's version comes from package.json, not from a literal", () => {
     assert.notEqual(manifest.version, undefined);
 });
 
+test("the build stamps its date, which the export's title block falls back to", () => {
+    const before = Date.now();
+    const { define } = createConfig({ workspace: WORKSPACE });
+    const built = Date.parse(JSON.parse(define.__RENDERIZR_BUILD_DATE__));
+
+    assert.ok(built >= before && built <= Date.now(), "the date of the build");
+});
+
 test("a logo is embedded whole, but only the font's family name is", () => {
     const logo = { src: "data:image/png;base64,AAAA", alt: "Acme", href: null };
     const { define } = createConfig({

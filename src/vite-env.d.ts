@@ -18,6 +18,13 @@ declare const __RENDERIZR_FONT__: string | null;
 declare const __RENDERIZR_VERSION__: string | null;
 
 /**
+ * When the site was built (or the dev server or edit mode started), as an
+ * ISO timestamp: the export's title block gives its date when the workspace
+ * holds no `lastModifiedDate`.
+ */
+declare const __RENDERIZR_BUILD_DATE__: string;
+
+/**
  * Whether the engine writes its geometry report (spec 15.1). Set only by the
  * acceptance harness, through `RENDERIZR_ENGINE_REPORT=1`.
  */
