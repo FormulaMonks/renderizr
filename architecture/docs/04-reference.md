@@ -94,6 +94,7 @@ A diagram Renderizr can't draw prints its reason, and the page shows the same te
 | a parse error at line N: … | Mermaid's own grammar stops on the source. The line counts from the top of the `.mmd` file, frontmatter included, and the message says what the parser stopped after |
 | the content fields disagree | The image view fills more than one of `content`, `contentLight` and `contentDark`, and they hold different sources once CRLF becomes LF, or one holds a picture beside the Mermaid source |
 | an edge to a subgraph isn't something Renderizr draws yet | An edge starts or ends at a subgraph rather than at a node. A construct that carries meaning fails the whole diagram rather than draw it wrong |
+| the arrow end "…" isn't something Renderizr draws yet | An edge ends in a marker Renderizr has no End marker for. Flowcharts today only write arrows, circles and crosses, so this guards against a newer Mermaid |
 
 A diagram that draws but uses what Renderizr leaves out prints one warning that lists it, each entry once, in this order: the config's entries, then the subgraphs' and nodes', then the links', then the classes': `Image view "<key>": Renderizr supports only a subset of Mermaid styling; ignored: <entries>`.
 

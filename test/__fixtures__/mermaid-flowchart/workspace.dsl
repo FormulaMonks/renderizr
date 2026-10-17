@@ -51,5 +51,11 @@ workspace "Mermaid flowcharts" "Image views that carry Mermaid flowchart source,
             title "Click links"
             description "Nodes that link to other views, to URLs and to this view itself, and a click callback."
         }
+
+        image * "markers" {
+            mermaid markers.mmd
+            title "End markers"
+            description "Every flowchart End marker at both ends, on solid, dotted and thick lines."
+        }
     }
 }

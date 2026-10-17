@@ -74,7 +74,8 @@ function fromCorner(box: Rect, side: Side, along: number, corner: Corner) {
  * shape of `mode`: Direct cuts across outside the corner, Orthogonal goes
  * round it square, and Curved gives the end points and the two control
  * points of one cubic Bézier that reaches about as far. Both ends sit on the
- * drawn outline.
+ * drawn outline. The innermost loop reaches out `room` at least, so a
+ * Mermaid edge's legs run straight past its end markers (spec: End markers).
  */
 export function selfLoop(
     box: Rect,
@@ -84,6 +85,7 @@ export function selfLoop(
     enterAlong: number,
     nest: number,
     mode: RoutingMode,
+    room = 0,
 ): Point[] {
     const [leave, enter] = corner;
     // A loop whose edge ends sit far from the corner has to reach farther
@@ -93,7 +95,7 @@ export function selfLoop(
         fromCorner(box, leave, leaveAlong, corner) *
             fromCorner(box, enter, enterAlong, corner),
     );
-    const reach = LOOP_REACH + LOOP_STEP * nest + clear;
+    const reach = Math.max(LOOP_REACH, room) + LOOP_STEP * nest + clear;
     // A cubic's control points sit a third farther out than the curve
     // reaches, so a Curved loop is as big as the others.
     const distance = mode === "Curved" ? (reach * 4) / 3 : reach;

@@ -180,8 +180,9 @@ export type MermaidShape =
     | "Hexagon";
 
 /**
- * An end of a Mermaid edge, as an End marker name: `none`, `arrow`,
- * `circle`, `cross`, or Mermaid's own name for one Renderizr doesn't know.
+ * An end of a Mermaid edge, as an End marker name (`EndMarker` in
+ * `engine/geometry/markers.ts`): a flowchart's `none`, `arrow`, `circle` or
+ * `cross`. The build fails a diagram with any end Renderizr doesn't know.
  */
 export type MermaidEnd = string;
 

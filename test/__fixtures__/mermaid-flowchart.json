@@ -83,6 +83,15 @@
                 "name": "Click links",
                 "order": 8,
                 "title": "Click links"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxdks1qhDAURl_lI-umpP8wVFdddtV2l3EhSQal6oXklhGGeffi1YCZ7fm8J2fhBcqRD-qgTgOdXddGxufXcQKAZOw3Db1voLVGerATTaHJG7SukR5tGyOd95SQnqzroxuKj2ekZ-sipZTpy3qbGryLy2z8dbtODUh0eXhb75dhFuE2eGM_iDkspfcavij1ZoE1fJm6YoK_aV35DF_G-n2s6PLbRa0Y81LkinNb2Nifrne_DaqqAhe5bFBVNbisFUrgm1jBM7hs5V2ruPKz-1TR5WFfKkJznNQd1Bji2PZeHS6KuzAuv4kPp_ZvYHW9_gOqwqx-",
+                "contentType": "image/svg+xml",
+                "description": "Every flowchart End marker at both ends, on solid, dotted and thick lines.",
+                "key": "markers",
+                "name": "End markers",
+                "order": 9,
+                "title": "End markers"
             }
         ],
         "systemLandscapeViews": [

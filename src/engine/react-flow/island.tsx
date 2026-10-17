@@ -1095,6 +1095,18 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     fill={data.color}
                     stroke="none"
                 />
+                {data.markerStroke && (
+                    // A Mermaid edge's stroked End markers: solid on any line.
+                    <path
+                        data-end-markers=""
+                        d={data.markerStroke}
+                        fill="none"
+                        stroke={data.color}
+                        strokeWidth={thickness}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                )}
             </g>
             {labelBox && labelLines && (
                 <EdgeLabelRenderer>
