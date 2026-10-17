@@ -80,7 +80,7 @@ const build = async (name, args) => {
 const runNode = (args) =>
     new Promise((resolve) => {
         execFile(process.execPath, args, (error, stdout, stderr) =>
-            resolve({ code: error ? error.code ?? 1 : 0, stdout, stderr }),
+            resolve({ code: error ? (error.code ?? 1) : 0, stdout, stderr }),
         );
     });
 

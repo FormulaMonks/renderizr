@@ -213,7 +213,7 @@ function drillDownViews(model: WorkspaceModel, element: ModelElement) {
             const id =
                 element.type === "SoftwareSystem"
                     ? element.id
-                    : element.softwareSystemId ?? "";
+                    : (element.softwareSystemId ?? "");
             return [
                 ...model.findSystemContextViewsForSoftwareSystem(id),
                 ...model.findContainerViewsForSoftwareSystem(id),
@@ -224,7 +224,7 @@ function drillDownViews(model: WorkspaceModel, element: ModelElement) {
             return model.findComponentViewsForContainer(
                 element.type === "Container"
                     ? element.id
-                    : element.containerId ?? "",
+                    : (element.containerId ?? ""),
             );
         default:
             return [];

@@ -87,7 +87,7 @@ const ENTITIES = {
 const entity = (__, name) =>
     /^\d+$/.test(name)
         ? String.fromCodePoint(Number(name))
-        : ENTITIES[name] ?? `#${name};`;
+        : (ENTITIES[name] ?? `#${name};`);
 
 /** `text` with every tag gone, removed again until none is left. */
 function withoutTags(text) {

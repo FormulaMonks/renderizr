@@ -366,7 +366,7 @@ function layerShapes(
                     y: f.y,
                     width: f.width,
                     height: f.height,
-                    fill: rect ? f.color ?? colors.rect : "none",
+                    fill: rect ? (f.color ?? colors.rect) : "none",
                     "fill-opacity": rect
                         ? colors.rectOpacity(f.color !== undefined)
                         : undefined,

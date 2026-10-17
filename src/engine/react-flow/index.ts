@@ -180,7 +180,7 @@ export function mountEngine(
                 model = new WorkspaceModel(saved);
                 const { key, editing } = store.get();
                 const kept = model.findViewByKey(key) !== undefined;
-                const shownKey = kept ? key : model.getViews()[0]?.key ?? key;
+                const shownKey = kept ? key : (model.getViews()[0]?.key ?? key);
                 reloading = kept;
                 // One store change, so the island never draws the new
                 // workspace with the view or edited layouts of the old one.

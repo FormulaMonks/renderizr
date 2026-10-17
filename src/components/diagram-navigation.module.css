@@ -168,11 +168,7 @@ glyph and nothing else distinguishes them. */
 
 .active button {
     color: var(--color-primary);
-    background-color: color-mix(
-        in srgb,
-        var(--color-primary) 12%,
-        transparent
-    );
+    background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
     border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 

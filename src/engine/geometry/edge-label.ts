@@ -262,9 +262,9 @@ export function placeEdgeLabels(
             !placed.some((o) => overlaps(box, o));
         const found = stored
             ? position
-            : labelPositions(position).find((p) =>
+            : (labelPositions(position).find((p) =>
                   clear(boxAt(route, size, p)),
-              ) ?? position;
+              ) ?? position);
         const box = boxAt(route, size, found);
         placed.push(box);
         return { position: found, box };

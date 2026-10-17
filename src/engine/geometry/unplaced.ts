@@ -299,7 +299,7 @@ export function placeUnplaced(input: UnplacedInput): Placement[] {
             fallback(
                 element,
                 view,
-                centroid ? centroid.y - element.height / 2 : view?.y ?? 0,
+                centroid ? centroid.y - element.height / 2 : (view?.y ?? 0),
                 input.separation,
                 reach,
                 fits,

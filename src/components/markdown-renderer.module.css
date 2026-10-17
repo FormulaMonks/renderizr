@@ -19,7 +19,11 @@
 .markdownRenderer {
     --md-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
         "Liberation Mono", monospace;
-    --md-table-fade: color-mix(in srgb, var(--color-foreground) 20%, transparent);
+    --md-table-fade: color-mix(
+        in srgb,
+        var(--color-foreground) 20%,
+        transparent
+    );
 
     /* highlight.js palette — light. Every color is at least 5:1 against
     --color-code-block-background (rgb(246, 248, 250)). */
@@ -54,7 +58,9 @@
      * of it. Only the top-level blocks are constrained, so nested content
      * follows whatever contains it.
      */
-    & > :global(.markdown-renderer) > :is(p, ul, ol, dl, blockquote, hr, h1, h2, h3, h4, h5, h6),
+    &
+        > :global(.markdown-renderer)
+        > :is(p, ul, ol, dl, blockquote, hr, h1, h2, h3, h4, h5, h6),
     & > :global(.markdown-renderer) > .alert {
         max-width: var(--md-measure);
     }
@@ -130,7 +136,8 @@
         margin-bottom: 1rem;
     }
 
-    ul, ol {
+    ul,
+    ol {
         margin: 0.75rem 0 1rem 1.5rem;
     }
 
