@@ -32,6 +32,7 @@ import {
     swapWorkspace,
 } from "./diagrams-edit";
 import styles from "./diagrams.module.css";
+import { disclaimerKind, showDisclaimer } from "../components/disclaimer";
 
 /** Whether the page shows the editing route now (spec 4.6). */
 const editing = () =>
@@ -259,6 +260,7 @@ export default class Diagrams extends Page {
                     });
                 }
                 currentView.render(view);
+                showDisclaimer(disclaimerKind(view));
             }),
             engine.onElementActivated((id, anchor) => {
                 const element = model.findElementById(id);

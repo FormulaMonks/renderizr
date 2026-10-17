@@ -19,6 +19,7 @@ import Page from "./_page";
 import styles from "./adrs.module.css";
 import collapseIcon from "bootstrap-icons/icons/arrows-collapse-vertical.svg?raw";
 import expandIcon from "bootstrap-icons/icons/arrows-expand-vertical.svg?raw";
+import { showDisclaimer } from "../components/disclaimer";
 
 /**
  * The most columns the expanded decision graph takes beside the menu, from
@@ -333,6 +334,7 @@ export default class Decisions extends Page {
 
     render() {
         if (!this.container) return;
+        showDisclaimer("adrs");
 
         this.#currentDecision = this.#getAdrFromUrl() ?? null;
         // The first view shows at once, before the deferred first paint, so

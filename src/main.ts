@@ -1,4 +1,5 @@
 import workspaceData from "virtual:renderizr/workspace";
+import { disclaimerHtml } from "./components/disclaimer.ts";
 import { initTheme } from "./components/theme.ts";
 import "./main.css";
 import Router from "./components/router.ts";
@@ -50,11 +51,6 @@ async function init() {
 
     const workspace = summarizeWorkspace(workspaceData);
 
-    // Which Renderizr produced this page. A site outlives the version that
-    // built it, and the first question about a stale-looking render is which
-    // one that was. Omitted rather than faked when the manifest was unreadable.
-    const version = __RENDERIZR_VERSION__ ? ` v${__RENDERIZR_VERSION__}` : "";
-
     document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         <main>
             <section class="workspace-header">
@@ -62,7 +58,7 @@ async function init() {
                 <hr />
             </section>
             <section id="page-content"></section>
-            <footer id="disclaimer">Diagrams from a <a href="https://structurizr.com/" target="_blank">Structurizr</a> workspace, in <a href="https://c4model.com/" target="_blank">C4 notation</a>, drawn with <a href="https://reactflow.dev/" target="_blank">React Flow</a>. Created with <a href="https://github.com/FormulaMonks/renderizr" target="_blank">Renderizr</a>${version}.</footer>
+            <footer id="disclaimer">${disclaimerHtml("c4", __RENDERIZR_VERSION__)}</footer>
         </main>
     `;
 
