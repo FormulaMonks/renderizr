@@ -76,6 +76,7 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 - Flat `test(...)` calls grouped under section dividers; `describe` only where one file covers several modules. Import `srcTest as test` so a file skips itself, with a reason on stderr, on a Node too old for the module hooks.
 - Name a test as a lowercase sentence stating behavior a reader could observe: "the footer's version comes from package.json", "--help wins even when the workspace is missing". Flags and identifiers appear verbatim.
 - Drive cases through a `const` table and a `for` loop, as `scripts/escapes.test.js` does.
+- When a function has to hold for any input, add a property test with `fast-check` beside the table, as `scripts/escapes.test.js` does. Keep each counterexample it finds as a row of the table, so the case stays covered whatever seed runs next. OpenSSF Scorecard counts these tests as fuzzing.
 - Assert through the real surface: dispatch events on the DOM, read what the code rendered, run the CLI in a child process with `runCli` when the path calls `process.exit`. Give an assertion a message that says what went wrong.
 - Tests are offline by construction: `no-network.js` poisons `fetch` in child builds and `helpers.js` throws on an unstubbed URL.
 

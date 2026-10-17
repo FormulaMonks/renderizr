@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import fc from "fast-check";
 import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 
 const FFFD = String.fromCharCode(65533);
@@ -220,5 +221,247 @@ test("a regex in every position it can occupy is rewritten, never refused", () =
 
         assert.ok(rewritten.includes("RegExp("), rewritten);
         assert.deepEqual(findUnspellable(rewritten), [], source);
+    }
+});
+
+/* ------------------------------------------------- regression: escapes read whole */
+
+/**
+ * Each case once came out of `makeArtifactSafe` wrong, and the properties
+ * below cover all three. A template kept a surrogate escape the upload
+ * rejects; a string kept an escaped U+FFFD; and a template lifted the U+FFFD
+ * out from behind its backslash, which then escaped the `$` of the
+ * interpolation and turned the value into the text `${String.fromCharCode(…)}`.
+ */
+const BACKTICK = "`";
+const ESCAPED = {
+    "a surrogate escape in a template": `(${BACKTICK}a\\uD800b${BACKTICK})`,
+    "an escaped U+FFFD in a string": `("a\\${FFFD}b")`,
+    "an escaped U+FFFD in a template": `(${BACKTICK}a\\${FFFD}b${BACKTICK})`,
+};
+
+for (const [what, source] of Object.entries(ESCAPED)) {
+    test(`rewrites ${what} and keeps its value`, () => {
+        const rewritten = makeArtifactSafe(source);
+
+        assert.deepEqual(
+            findUnspellable(rewritten),
+            [],
+            `rewritten code still says something the upload rejects: ${rewritten}`,
+        );
+        assert.equal(
+            // biome-ignore lint/security/noGlobalEval: comparing results is the test
+            eval(rewritten),
+            // biome-ignore lint/security/noGlobalEval: same
+            eval(source),
+            `rewriting changed what the expression evaluates to: ${rewritten}`,
+        );
+    });
+}
+
+/* -------------------------------------------------------------- properties */
+
+/**
+ * The tables above hold the literals the bundle is known to carry. These run
+ * `makeArtifactSafe` over literals fast-check builds from any code unit, each
+ * spelled the ways JavaScript allows: as itself, as `\uXXXX` in either case,
+ * as `\u{X}`, or behind a backslash that only stands for it. Lone surrogates
+ * and U+FFFD come up often on purpose, as do the characters a literal has to
+ * escape. A surrogate is never spelled as itself without its partner: source
+ * holding one cannot be written to a file, and `makeArtifactSafe` refuses it.
+ */
+
+/** Characters `\` turns into something else, or into nothing at all. */
+const NOT_AN_IDENTITY_ESCAPE = new Set([
+    ..."bfnrtvux0123456789",
+    "\n",
+    "\r",
+    " ",
+    " ",
+]);
+
+const isSurrogate = (code) => code >= 0xd800 && code <= 0xdfff;
+const hex = (code, upper) => {
+    const digits = code.toString(16).padStart(4, "0");
+    return upper ? digits.toUpperCase() : digits;
+};
+
+const codeUnit = fc.oneof(
+    { weight: 4, arbitrary: fc.integer({ min: 0x20, max: 0x7e }) },
+    { weight: 2, arbitrary: fc.integer({ min: 0, max: 0xffff }) },
+    {
+        weight: 3,
+        arbitrary: fc.constantFrom(
+            0xfffd,
+            0xd800,
+            0xdbff,
+            0xdc00,
+            0xdfff,
+            ..."\\\"'`${\n".split("").map((c) => c.charCodeAt(0)),
+        ),
+    },
+);
+
+/** One code unit, or one character above the BMP, with how to spell it. */
+const token = fc.oneof(
+    {
+        weight: 5,
+        arbitrary: fc.record({
+            code: codeUnit,
+            spelling: fc.constantFrom("itself", "u", "U", "brace", "identity"),
+        }),
+    },
+    {
+        weight: 1,
+        arbitrary: fc.record({
+            point: fc.integer({ min: 0x10000, max: 0x10ffff }),
+            spelling: fc.constantFrom("itself", "brace", "pair"),
+        }),
+    },
+);
+
+/** `token` written inside a literal quoted with `quote`. */
+function spell({ code, point, spelling }, quote) {
+    if (point !== undefined) {
+        if (spelling === "itself") return String.fromCodePoint(point);
+        if (spelling === "brace") return `\\u{${point.toString(16)}}`;
+        const pair = String.fromCodePoint(point);
+        return `\\u${hex(pair.charCodeAt(0))}\\u${hex(pair.charCodeAt(1))}`;
+    }
+
+    const character = String.fromCharCode(code);
+    const special =
+        isSurrogate(code) ||
+        code < 0x20 ||
+        code === 0x2028 ||
+        code === 0x2029 ||
+        character === "\\" ||
+        character === quote ||
+        (quote === "`" && character === "$");
+    if (spelling === "itself" && !special) return character;
+    if (
+        spelling === "identity" &&
+        !isSurrogate(code) &&
+        !NOT_AN_IDENTITY_ESCAPE.has(character)
+    )
+        return `\\${character}`;
+    if (spelling === "brace") return `\\u{${code.toString(16)}}`;
+    return `\\u${hex(code, spelling === "U")}`;
+}
+
+/** The string `tokens` spell. */
+const spelledValue = (tokens) =>
+    tokens
+        .map(({ code, point }) =>
+            point === undefined
+                ? String.fromCharCode(code)
+                : String.fromCodePoint(point),
+        )
+        .join("");
+
+/** A high-surrogate escape, as the last thing spelled so far. */
+const ENDS_IN_HIGH_SURROGATE_ESCAPE = /\\u[dD][89abAB][0-9a-fA-F]{2}$/;
+
+/**
+ * `tokens` as a literal quoted with `quote`. A brace escape right after a
+ * high-surrogate escape is spelled `\uXXXX` instead: Rollup's parser rejects
+ * that pair, and the test after the properties pins the refusal.
+ */
+function literal(tokens, quote) {
+    let body = "";
+    for (const each of tokens) {
+        const brace = each.spelling === "brace";
+        const spelling =
+            brace && ENDS_IN_HIGH_SURROGATE_ESCAPE.test(body)
+                ? { ...each, spelling: each.point === undefined ? "u" : "pair" }
+                : each;
+        body += spell(spelling, quote);
+    }
+    return `(${quote}${body}${quote})`;
+}
+
+for (const quote of [`"`, `'`, "`"]) {
+    test(`a ${quote}-quoted literal keeps its value and spells nothing the upload rejects`, () => {
+        fc.assert(
+            fc.property(fc.array(token, { maxLength: 16 }), (tokens) => {
+                const source = literal(tokens, quote);
+                const rewritten = makeArtifactSafe(source);
+
+                assert.deepEqual(
+                    findUnspellable(rewritten),
+                    [],
+                    `${source} became ${rewritten}`,
+                );
+                assert.equal(
+                    // biome-ignore lint/security/noGlobalEval: comparing results is the test
+                    eval(rewritten),
+                    spelledValue(tokens),
+                    `${source} became ${rewritten}`,
+                );
+            }),
+        );
+    });
+
+    test(`rewriting a ${quote}-quoted literal twice changes nothing the second time`, () => {
+        fc.assert(
+            fc.property(fc.array(token, { maxLength: 16 }), (tokens) => {
+                const once = makeArtifactSafe(literal(tokens, quote));
+                assert.equal(makeArtifactSafe(once), once);
+            }),
+        );
+    });
+}
+
+test("a regular expression keeps its source and flags and spells nothing the upload rejects", () => {
+    const piece = fc.oneof(
+        fc.constantFrom(..."abcxyz019"),
+        fc
+            .record({ code: codeUnit, upper: fc.boolean() })
+            .map(({ code, upper }) => `\\u${hex(code, upper)}`),
+    );
+    const flags = fc
+        .subarray(["g", "i", "m", "s", "y"])
+        .map((each) => each.join(""));
+
+    fc.assert(
+        fc.property(
+            fc.array(piece, { minLength: 1, maxLength: 12 }),
+            flags,
+            (pieces, flag) => {
+                const source = `(/(?:${pieces.join("")})/${flag})`;
+                const rewritten = makeArtifactSafe(source);
+
+                assert.deepEqual(
+                    findUnspellable(rewritten),
+                    [],
+                    `${source} became ${rewritten}`,
+                );
+                // biome-ignore lint/security/noGlobalEval: comparing results is the test
+                const [before, after] = [eval(source), eval(rewritten)];
+                assert.equal(after.source, before.source, rewritten);
+                assert.equal(after.flags, before.flags, rewritten);
+            },
+        ),
+    );
+});
+
+/**
+ * Rollup's native parser rejects a high-surrogate escape followed directly by
+ * a brace escape, `"\uD800\u{20}"`, with "expected 4 hex characters", though
+ * the JavaScript is valid. fast-check found it, and it holds in strings and
+ * templates. As with the directive prologue above, what matters is the
+ * guarantee: the build stops rather than emit an artifact the upload would
+ * reject.
+ */
+test("a high-surrogate escape before a brace escape is refused, never passed through", () => {
+    for (const source of [
+        String.raw`("\uD800\u{20}")`,
+        `(${BACKTICK}\\uDBFF\\u{20}${BACKTICK})`,
+    ]) {
+        assert.throws(
+            () => makeArtifactSafe(source),
+            /Cannot make this bundle artifact-safe:/,
+            source,
+        );
     }
 });

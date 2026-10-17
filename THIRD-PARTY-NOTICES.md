@@ -151,6 +151,7 @@ These run on the machine performing the build. None of their code appears in the
 | [czg](https://github.com/Zhengqbbb/cz-git) | 1.14.0 | MIT | Zhengqbbb |
 | [husky](https://github.com/typicode/husky) | 9.1.7 | MIT | typicode |
 | [lint-staged](https://github.com/lint-staged/lint-staged) | 16.4.0 | MIT | Andrey Okonetchnikov |
+| [fast-check](https://github.com/dubzzz/fast-check) | 4.10.2 | MIT | Copyright (c) 2017 Nicolas DUBIEN |
 | [@types/markdown-it](https://github.com/DefinitelyTyped/DefinitelyTyped) | 14.2.0 | MIT | DefinitelyTyped contributors |
 | [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 22.20.5 | MIT | DefinitelyTyped contributors |
 | [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT | DefinitelyTyped contributors |
