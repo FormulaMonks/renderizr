@@ -12,7 +12,11 @@ const { disclaimerHtml, disclaimerKind } = await importSrc(
 );
 
 /** The footer's text, links and all, as a reader sees it. */
-const text = (html) => html.replace(/<[^>]*>/g, "");
+function text(html) {
+    const footer = document.createElement("footer");
+    footer.innerHTML = html;
+    return footer.textContent;
+}
 
 test("the footer says what is on screen, and credits Renderizr with its version", () => {
     const cases = [
