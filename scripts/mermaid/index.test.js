@@ -341,3 +341,28 @@ test("invisible links, link length, Markdown strings and fa: icons fall back and
         ]),
     ]);
 });
+
+test("click callbacks are ignored and warn once, and a click link stays", () => {
+    const { mermaid, notices } = readOne(
+        [
+            "flowchart TD",
+            "  A --> B --> C",
+            "  click A callback",
+            '  click B call notify("B")',
+            '  click C href "https://example.test/c" "Open C"',
+        ].join("\n"),
+    );
+    const byId = Object.fromEntries(mermaid.nodes.map((n) => [n.id, n]));
+    assert.equal(byId.A.link, undefined);
+    assert.equal(byId.B.link, undefined);
+    assert.equal(byId.C.link, "https://example.test/c");
+    assert.equal(byId.C.tooltip, "Open C");
+    assert.deepEqual(notices, [ignoredWarning("flow", ["click callbacks"])]);
+});
+
+test("a click link reads under securityLevel loose, so the page decides what a script link offers", () => {
+    const { mermaid } = readOne(
+        'flowchart TD\n  A\n  click A "javascript:alert(1)"\n',
+    );
+    assert.equal(mermaid.nodes[0].link, "javascript:alert(1)");
+});

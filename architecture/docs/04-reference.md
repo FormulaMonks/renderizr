@@ -111,6 +111,7 @@ A diagram that draws but uses what Renderizr leaves out prints one warning that 
 | `link length` | Lays a longer link (`--->`) out as an ordinary one |
 | `Markdown strings` | Draws the text of a Markdown string without its emphasis |
 | `fa: icons` | Draws a label without its Font Awesome icons |
+| `click callbacks` | Leaves out a `click` line that calls a function (`click A callback`, `click A call notify()`); a `click` link still leads where it says |
 
 ## The Mermaid parser
 

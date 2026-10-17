@@ -36,6 +36,7 @@ import {
     mermaidEdgeStyle,
     mermaidGroupStyle,
     mermaidNodeStyle,
+    mermaidNodeTargets,
     type ModelElement,
     type ModelRelationship,
     type ModelView,
@@ -84,6 +85,7 @@ import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
     MERMAID_GROUP_PADDING,
     MERMAID_RANK_BONUS,
+    mermaidLabelHeight,
     mermaidNodeSize,
     nameIsBold,
 } from "../geometry/mermaid";
@@ -174,11 +176,14 @@ export type ElementBox = {
     content: Bounds;
     /**
      * How tall the label may grow, centered in `content`: all of it, or less
-     * on a deployment node so the label ends above its instance count.
+     * on a deployment node so the label ends above its instance count, and
+     * on a Mermaid cylinder so its indicator row clears the bottom lid.
      */
     labelHeight: number;
     /** A deployment node's `x<instances>`, bottom-right inside its box. */
     instances?: TextBlock;
+    /** A Mermaid node's `click` tooltip, its hover title in place of its text. */
+    tooltip?: string;
     /**
      * The kind of each target activating it offers, in order (spec 6.1).
      * Empty: no indicators, no pointer cursor, not focusable.
@@ -725,18 +730,31 @@ function drawView(
     for (const placed of view.elements) {
         if (boundaries.has(placed.id)) continue;
         const node = mermaid?.nodes.get(placed.id);
+        // The workspace's model doesn't know a Mermaid node; its one link
+        // comes from the diagram's own model.
+        const targets = node
+            ? mermaidNodeTargets(model, node.link, key).map((t) => t.kind)
+            : kindsFor(placed.element);
         const style: MermaidNodeStyle =
             mermaid && node
                 ? mermaidNodeStyle(model, mermaid, node, colorScheme)
                 : findElementStyle(model, placed.element, colorScheme);
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
-        // A Mermaid node is as big as its label needs, in its own font.
+        // A Mermaid node is as big as its label and indicator row need, in
+        // its own font.
         const { width, height } = node
-            ? mermaidNodeSize(node.shape, node.label, style.fontSize, measure, {
-                  bold: nameIsBold(style.fontWeight),
-                  family: style.fontFamily,
-              })
+            ? mermaidNodeSize(
+                  node.shape,
+                  node.label,
+                  style.fontSize,
+                  measure,
+                  indicatorKinds(targets).length,
+                  {
+                      bold: nameIsBold(style.fontWeight),
+                      family: style.fontFamily,
+                  },
+              )
             : shapeSize(shape, style.width, style.height);
         const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
         const geometry = shapeGeometry(shape, width, height, strokeWidth);
@@ -782,10 +800,16 @@ function drawView(
             content: geometry.content,
             labelHeight: instances
                 ? labelHeightClearOf(geometry.content, instances)
-                : geometry.content.height,
+                : node
+                  ? mermaidLabelHeight(
+                        node.shape,
+                        geometry.content,
+                        targets.length > 0,
+                    )
+                  : geometry.content.height,
             ...(instances && { instances }),
-            // The workspace's model doesn't know a Mermaid node.
-            targets: node ? [] : kindsFor(placed.element),
+            ...(node?.tooltip && { tooltip: node.tooltip }),
+            targets,
         };
         elements.push(box);
         drawn.set(box.id, { box, geometry });
