@@ -57,6 +57,16 @@ const ENDS = {
     arrow_cross: "cross",
 };
 
+/**
+ * The End marker for one of Mermaid's arrow ends. An end Renderizr doesn't
+ * know carries meaning, so it fails the diagram (spec: End markers).
+ */
+function endOf(type) {
+    const end = Object.hasOwn(ENDS, type) ? ENDS[type] : undefined;
+    if (!end) throw new NotDrawnYet(`the arrow end "${type}"`);
+    return end;
+}
+
 /** Mermaid's directions; `TD` is `TB`. */
 const DIRECTIONS = { TB: "TB", TD: "TB", BT: "BT", LR: "LR", RL: "RL" };
 
@@ -180,8 +190,8 @@ export function readFlowchart(db, ignored) {
                 link.pattern === "dotted" || link.pattern === "thick"
                     ? link.pattern
                     : "normal",
-            start: ENDS[link.arrowTypeStart] ?? link.arrowTypeStart,
-            end: ENDS[link.arrowTypeEnd] ?? link.arrowTypeEnd,
+            start: endOf(link.arrowTypeStart),
+            end: endOf(link.arrowTypeEnd),
             styles: link.style ?? [],
         });
     }

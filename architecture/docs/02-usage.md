@@ -144,9 +144,13 @@ Renderizr lays a flowchart out with Dagre, the way Mermaid does at Renderizr's l
 | `<br>` in a label | A new line |
 | `-->`, `-.->` and `==>` | A solid line, a dotted line and a line about twice as thick, with an arrow |
 | `---` | A solid line with no arrow |
+| `--o` and `--x` | A line ending in a filled circle and in a cross |
+| `<-->`, `o--o` and `x--x` | The same marker at both ends, on any line: `<-.->`, `o==o` |
 | `subgraph … end` | A group around its nodes |
 
-Every other shape falls back to a rectangle and warns: stadium, subroutine, asymmetric, parallelogram, trapezoid, double circle and every other `@{ shape }` name. An invisible link (`~~~`) draws nothing and leaves the layout, a longer link (`--->`) lays out as an ordinary one, and Markdown strings and `fa:` icons draw their text plain; each of them warns. Ends other than an arrow, such as `--o` and `--x`, draw with no marker yet.
+Every other shape falls back to a rectangle and warns: stadium, subroutine, asymmetric, parallelogram, trapezoid, double circle and every other `@{ shape }` name. An invisible link (`~~~`) draws nothing and leaves the layout, a longer link (`--->`) lays out as an ordinary one, and Markdown strings and `fa:` icons draw their text plain; each of them warns.
+
+End markers take the edge's color and draw solid on a dotted line, sized to the line as the arrow is. Each end with a marker leaves its node straight before the line may turn, and ranks sit far enough apart for the markers of a thick line to fit.
 
 A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draws as any flowchart. The HTML in its labels draws as plain text lines.
 

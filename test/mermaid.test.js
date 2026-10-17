@@ -81,6 +81,7 @@ test("an image view with a mermaid model draws as a Mermaid diagram, in the imag
         [
             "landscape",
             "left-right",
+            "markers",
             "plain",
             "release",
             "signup",
@@ -450,7 +451,7 @@ test("a node's default font draws its name at Mermaid's 24 px", () => {
     assert.equal(group.name.fontSize, 17 * 1.4, "and a subgraph's name too");
 });
 
-test("arrow syntax sets the line: solid, dotted, about twice as thick, and the arrowhead only at an arrow end", () => {
+test("arrow syntax sets the line: solid, dotted, about twice as thick, and what fills at the end", () => {
     const graph = graphOf(
         modelOf(
             "flowchart LR\n  A --> B\n  B -.-> C\n  C ==> D\n  D --- E\n  E --o F\n",
@@ -474,7 +475,8 @@ test("arrow syntax sets the line: solid, dotted, about twice as thick, and the a
         ["Dotted", 3, true],
         ["Solid", 6, true],
         ["Solid", 3, false],
-        ["Solid", 3, false],
+        // A circle end fills (test/end-markers.test.js).
+        ["Solid", 3, true],
     ]);
     assert.ok(
         graph.edges.every((e) => e.centered),

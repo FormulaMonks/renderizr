@@ -546,8 +546,21 @@ function boundary(box: BoundaryBox, text: TextSetting): string {
 
 /* ---------------- edges */
 
-/** An edge's line and arrowhead under the edge's opacity. */
+/**
+ * An edge's line and arrowhead under the edge's opacity, and a Mermaid
+ * edge's stroked End markers as the canvas draws them.
+ */
 function edgeLine(edge: EdgeLine): string {
+    const markers = edge.markerStroke
+        ? `<path ${attrs({
+              d: edge.markerStroke,
+              fill: "none",
+              stroke: edge.color,
+              "stroke-width": edge.thickness,
+              "stroke-linecap": "round",
+              "stroke-linejoin": "round",
+          })}/>`
+        : "";
     return `<g opacity="${svgNumber(edge.opacity)}"><path ${attrs({
         d: edge.path,
         fill: "none",
@@ -555,7 +568,7 @@ function edgeLine(edge: EdgeLine): string {
         "stroke-width": edge.thickness,
         "stroke-dasharray": lineDashes(edge.style, edge.thickness),
         "stroke-linecap": edge.style === "Dotted" ? "round" : undefined,
-    })}/><path ${attrs({ d: edge.arrowhead, fill: edge.color })}/></g>`;
+    })}/><path ${attrs({ d: edge.arrowhead, fill: edge.color })}/>${markers}</g>`;
 }
 
 /**

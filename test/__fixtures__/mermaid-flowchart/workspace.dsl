@@ -45,5 +45,11 @@ workspace "Mermaid flowcharts" "Image views that carry Mermaid flowchart source,
         image * "untitled" {
             mermaid untitled.mmd
         }
+
+        image * "markers" {
+            mermaid markers.mmd
+            title "End markers"
+            description "Every flowchart End marker at both ends, on solid, dotted and thick lines."
+        }
     }
 }

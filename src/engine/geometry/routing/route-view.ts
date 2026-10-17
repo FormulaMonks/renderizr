@@ -10,6 +10,12 @@
  * is written ending short of its target end, where the arrowhead takes over
  * (spec 10.10).
  *
+ * A Mermaid edge carries `ends`, its End markers' fit (spec: End markers):
+ * each end with a marker runs straight out of its side for its `room`
+ * before the route may bend, side choice counts bends from there, no
+ * jump-over sits on a straight end, and the line stops each end's `inset`
+ * short of it. C4 edges carry none and route as they always have.
+ *
  * Pure: elements and edges in, routes out, so the layout editor can rerun it
  * when something moves.
  */
@@ -24,13 +30,15 @@ import {
     orthogonalThrough,
 } from "./avoid";
 import { type Cubic, cubicRoute, curvedRoute, curvePath } from "./curve";
-import { jumpOversOf, jumpPath, jumpRadius } from "./jumps";
+import { type JumpOver, jumpOversOf, jumpPath, jumpRadius } from "./jumps";
 import { type Corner, cornerEnd, loopCorner, selfLoop } from "./loops";
 import {
     centerOf,
     type DrawnRoute,
+    distance,
     endHeading,
     onOutline,
+    outward,
     polylinePath,
     type RoutingMode,
     SIDES,
@@ -39,8 +47,10 @@ import {
 import {
     chooseSides,
     type EdgeEnd,
+    type EdgeRoom,
     type EdgeSides,
     facingSide,
+    fitRoom,
     spreadEnds,
 } from "./sides";
 
@@ -72,6 +82,27 @@ export type RoutingEdge = {
     thickness: number;
     /** A Mermaid edge's: its ends spread evenly around their sides' middles. */
     centered?: boolean;
+    /**
+     * A Mermaid edge's: how each end fits its End marker. Without it the
+     * source end takes no room and the line stops `thickness` short of the
+     * target end, under the arrowhead.
+     */
+    ends?: { source: EndFit; target: EndFit };
+};
+
+/** How one end of an edge fits its End marker (spec: End markers). */
+export type EndFit = {
+    /** How far the end runs straight out of its side before it may bend. */
+    room: number;
+    /**
+     * The marker's length, the least `room` shrinks to between two sides
+     * that face each other close (`fitRoom`).
+     */
+    length: number;
+    /** How far short of the end the line stops. */
+    inset: number;
+    /** The marker's width across the line, which spreading keeps apart. */
+    width: number;
 };
 
 /**
@@ -111,6 +142,32 @@ const boxOf = ({ x, y, geometry }: RoutingElement): Rect => ({
 const sourceEnd = (index: number) => `${index}:source`;
 const targetEnd = (index: number) => `${index}:target`;
 
+/** How far each end of `edge` runs straight before its route may bend. */
+const roomOf = ({ ends }: RoutingEdge): EdgeRoom => ({
+    source: ends?.source.room ?? 0,
+    target: ends?.target.room ?? 0,
+    ...(ends && {
+        least: { source: ends.source.length, target: ends.target.length },
+    }),
+});
+
+/** `point` moved `by` along the unit vector `direction`. */
+const offset = (point: Point, direction: Point, by: number): Point => ({
+    x: point.x + direction.x * by,
+    y: point.y + direction.y * by,
+});
+
+/** A straight line as a cubic piece, so a curve can start or end with one. */
+const straightCubic = (from: Point, to: Point): Cubic => ({
+    from,
+    c1: { x: from.x + (to.x - from.x) / 3, y: from.y + (to.y - from.y) / 3 },
+    c2: {
+        x: from.x + ((to.x - from.x) * 2) / 3,
+        y: from.y + ((to.y - from.y) * 2) / 3,
+    },
+    to,
+});
+
 /** Route every edge of a view, returned in the order given. */
 export function routeView(
     elements: RoutingElement[],
@@ -131,6 +188,8 @@ export function routeView(
     /* ---------------- sides */
 
     const sides = new Map<number, EdgeSides>();
+    // Each edge's straight ends, fitted to the sides it was given.
+    const rooms = new Map<number, EdgeRoom>();
     const edgeEndsOn = new Map<string, EdgeEnd[]>();
     const addEnd = (elementId: string, end: EdgeEnd) =>
         edgeEndsOn.set(elementId, [...(edgeEndsOn.get(elementId) ?? []), end]);
@@ -149,10 +208,20 @@ export function routeView(
                   source: facingSide(from, vertices[0]),
                   target: facingSide(to, vertices[vertices.length - 1]),
               }
-            : chooseSides(from, to, edge.routing, (a, b) =>
-                  isStraightClear(a, b, others, [from, to], padding),
+            : chooseSides(
+                  from,
+                  to,
+                  edge.routing,
+                  (a, b) => isStraightClear(a, b, others, [from, to], padding),
+                  roomOf(edge),
               );
         sides.set(index, chosen);
+        rooms.set(
+            index,
+            vertices.length
+                ? roomOf(edge)
+                : fitRoom(from, to, chosen, roomOf(edge)),
+        );
         addEnd(source.id, {
             id: sourceEnd(index),
             side: chosen.source,
@@ -160,6 +229,7 @@ export function routeView(
             order: index,
             routed: vertices.length > 0,
             ...(edge.centered && { centered: true }),
+            ...(edge.ends && { apart: edge.ends.source.width }),
         });
         addEnd(target.id, {
             id: targetEnd(index),
@@ -168,6 +238,7 @@ export function routeView(
             order: index,
             routed: vertices.length > 0,
             ...(edge.centered && { centered: true }),
+            ...(edge.ends && { apart: edge.ends.target.width }),
         });
     }
 
@@ -226,6 +297,7 @@ export function routeView(
         );
         for (const [id, position] of spread) along.set(id, position);
     }
+    const roomAt = (index: number) => rooms.get(index) ?? roomOf(edges[index]);
     const sourceAlong = (index: number) => along.get(sourceEnd(index)) ?? 0;
     const targetAlong = (index: number) => along.get(targetEnd(index)) ?? 0;
 
@@ -241,6 +313,7 @@ export function routeView(
                 loop,
                 sourceAlong(index),
                 targetAlong(index),
+                roomOf(edge),
             );
         }
         return routeOf(
@@ -252,30 +325,58 @@ export function routeView(
             sourceAlong(index),
             targetAlong(index),
             elements,
+            roomAt(index),
         );
     });
 
     /* ---------------- jump-overs */
 
     const jumps = (edge: RoutingEdge) => edge.jump && edge.routing !== "Curved";
+    // Every straight end, as the segment it runs along: no jump-over sits
+    // on one, whichever edge would draw it.
+    const straightEnds: [Point, Point][] = [];
+    for (const index of edges.keys()) {
+        const { route } = drafts[index];
+        const room = roomAt(index);
+        if (room.source > 0) {
+            const back = endHeading([...route].reverse());
+            straightEnds.push([route[0], offset(route[0], back, -room.source)]);
+        }
+        if (room.target > 0) {
+            const end = route[route.length - 1];
+            straightEnds.push([
+                end,
+                offset(end, endHeading(route), -room.target),
+            ]);
+        }
+    }
     return edges.map((edge, index) => {
         const { route, cubics } = drafts[index];
         const { key, thickness } = edge;
         const heading = endHeading(route);
         const end = route[route.length - 1];
-        const lineEnd = {
-            x: end.x - heading.x * thickness,
-            y: end.y - heading.y * thickness,
-        };
+        const lineEnd = offset(
+            end,
+            heading,
+            -(edge.ends?.target.inset ?? thickness),
+        );
+        const startInset = edge.ends?.source.inset ?? 0;
+        const lineStart = startInset
+            ? offset(route[0], endHeading([...route].reverse()), -startInset)
+            : route[0];
         if (cubics) {
-            const last = cubics[cubics.length - 1];
+            const pieces = [
+                { ...cubics[0], from: lineStart },
+                ...cubics.slice(1),
+            ];
+            const last = pieces[pieces.length - 1];
             const path = curvePath([
-                ...cubics.slice(0, -1),
+                ...pieces.slice(0, -1),
                 { ...last, to: lineEnd },
             ]);
             return { key, route, heading, path };
         }
-        const line = [...route.slice(0, -1), lineEnd];
+        const line = [lineStart, ...route.slice(1, -1), lineEnd];
         if (!jumps(edge)) {
             return { key, route, heading, path: polylinePath(line) };
         }
@@ -289,13 +390,64 @@ export function routeView(
             others.push(theirs);
         }
         const radius = jumpRadius(thickness);
+        const room = roomAt(index);
+        const jumpOvers = jumpOversOf(route, others, radius).filter(
+            (jump) =>
+                !onStraightEnd(jump, route, room, radius) &&
+                !straightEnds.some(([a, b]) => isOnSegment(jump.at, a, b)),
+        );
         return {
             key,
             route,
             heading,
-            path: jumpPath(line, jumpOversOf(route, others, radius), radius),
+            path: jumpPath(line, jumpOvers, radius),
         };
     });
+}
+
+/** How close a point counts as on a segment, in model units. */
+const ON_SEGMENT = 1e-3;
+
+/** Whether `point` lies on the segment from `a` to `b`. */
+function isOnSegment(point: Point, a: Point, b: Point): boolean {
+    const length = distance(a, b);
+    if (!length) return distance(point, a) < ON_SEGMENT;
+    const ux = (b.x - a.x) / length;
+    const uy = (b.y - a.y) / length;
+    const dx = point.x - a.x;
+    const dy = point.y - a.y;
+    const t = dx * ux + dy * uy;
+    return (
+        Math.abs(dx * uy - dy * ux) < ON_SEGMENT &&
+        t > -ON_SEGMENT &&
+        t < length + ON_SEGMENT
+    );
+}
+
+/**
+ * Whether the jump-over `jump` on `route` would reach into one of the
+ * route's own straight ends: its semicircle, `radius` either side of it,
+ * comes within `room` of an end along the route.
+ */
+function onStraightEnd(
+    { segment, at }: JumpOver,
+    route: Point[],
+    room: EdgeRoom,
+    radius: number,
+): boolean {
+    if (!(room.source > 0 || room.target > 0)) return false;
+    let before = distance(route[segment], at);
+    for (let i = 0; i < segment; i++) {
+        before += distance(route[i], route[i + 1]);
+    }
+    let total = 0;
+    for (let i = 0; i + 1 < route.length; i++) {
+        total += distance(route[i], route[i + 1]);
+    }
+    return (
+        (room.source > 0 && before - radius < room.source) ||
+        (room.target > 0 && total - before - radius < room.target)
+    );
 }
 
 /**
@@ -310,6 +462,7 @@ function routeOf(
     sourceAlong: number,
     targetAlong: number,
     elements: RoutingElement[],
+    room: EdgeRoom,
 ): RouteDraft {
     const from = boxOf(source);
     const to = boxOf(target);
@@ -320,6 +473,18 @@ function routeOf(
         .map(boxOf);
     const padding = obstaclePadding(edge.thickness);
     const { vertices } = edge;
+    if (!vertices.length && (room.source > 0 || room.target > 0)) {
+        return straightEndRoute(
+            edge,
+            source,
+            target,
+            sides,
+            sourceAlong,
+            targetAlong,
+            others,
+            room,
+        );
+    }
 
     let points: Point[];
     if (edge.routing === "Orthogonal") {
@@ -363,8 +528,68 @@ function routeOf(
 }
 
 /**
+ * A Mermaid edge without vertices whose ends run straight (spec: End
+ * markers): routed in its mode between two stubs, `room` straight out of
+ * each end's side, then joined to the ends on the outlines. Elements near a
+ * stub keep as much clearance as leaves the stub outside them. A Curved
+ * route curves between the stubs and runs straight along them.
+ */
+function straightEndRoute(
+    edge: RoutingEdge,
+    source: RoutingElement,
+    target: RoutingElement,
+    sides: EdgeSides,
+    sourceAlong: number,
+    targetAlong: number,
+    others: Rect[],
+    room: EdgeRoom,
+): RouteDraft {
+    const from = boxOf(source);
+    const to = boxOf(target);
+    const stub = (box: Rect, side: Side, at: number, by: number) =>
+        offset(sidePoint(box, side, at), outward(side), by);
+    const leave = stub(from, sides.source, sourceAlong, room.source);
+    const enter = stub(to, sides.target, targetAlong, room.target);
+    const padding = obstaclePadding(edge.thickness);
+    const between =
+        edge.routing === "Orthogonal"
+            ? orthogonalRoute(
+                  leave,
+                  sides.source,
+                  enter,
+                  sides.target,
+                  others,
+                  [from, to],
+                  padding,
+                  true,
+              )
+            : directRoute(leave, enter, others, [from, to], padding, true);
+    // Each end moves inward from the box, perpendicular to its side, onto
+    // the drawn shape, so the stubs stay straight (spec 10.5).
+    const start = onOutline(source, source.geometry, sides.source, sourceAlong);
+    const end = onOutline(target, target.geometry, sides.target, targetAlong);
+    if (edge.routing !== "Curved") {
+        return { route: [start, ...between, end] };
+    }
+    const curve = curvedRoute(
+        between,
+        obstaclesFor(others, [leave, enter], padding, true),
+    );
+    return {
+        route: [start, ...curve.route, end],
+        cubics: [
+            straightCubic(start, leave),
+            ...curve.cubics,
+            straightCubic(enter, end),
+        ],
+    };
+}
+
+/**
  * A self-relationship's loop on `element`, round its corner at its nest,
- * between the two edge ends spreading placed on the corner's sides.
+ * between the two edge ends spreading placed on the corner's sides. A
+ * Mermaid edge's legs reach out past its straight ends, and a Curved one
+ * runs straight along them before it bows.
  */
 function loopOf(
     element: RoutingElement,
@@ -372,7 +597,9 @@ function loopOf(
     { corner, nest }: Loop,
     leaveAlong: number,
     enterAlong: number,
+    room: EdgeRoom,
 ): RouteDraft {
+    const reach = Math.max(room.source, room.target);
     const points = selfLoop(
         boxOf(element),
         element.geometry,
@@ -381,8 +608,28 @@ function loopOf(
         enterAlong,
         nest,
         mode,
+        reach,
     );
     if (mode !== "Curved") return { route: points };
     const [start, c1, c2, end] = points;
-    return cubicRoute(start, c1, c2, end);
+    if (!reach) return cubicRoute(start, c1, c2, end);
+    const [leave, enter] = corner;
+    const out = outward(leave);
+    const into = outward(enter);
+    const first = offset(start, out, reach);
+    const last = offset(end, into, reach);
+    const bow = cubicRoute(
+        first,
+        offset(c1, out, reach),
+        offset(c2, into, reach),
+        last,
+    );
+    return {
+        route: [start, ...bow.route, end],
+        cubics: [
+            straightCubic(start, first),
+            ...bow.cubics,
+            straightCubic(last, end),
+        ],
+    };
 }

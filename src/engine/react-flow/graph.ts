@@ -10,7 +10,8 @@
  * children, before React renders (spec 8, ADR 9). Every edge is then routed
  * by `routeView` (spec 10), through Dagre's vertices where the automatic
  * layout keeps them, then its label is placed along the route and its
- * arrowhead drawn at its target (spec 10.8, 10.10).
+ * arrowhead drawn at its target (spec 10.8, 10.10), or a Mermaid edge's End
+ * markers at both ends (spec: End markers).
  */
 
 import {
@@ -80,11 +81,18 @@ import {
 } from "../geometry/label";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
+    type EndMarker,
+    edgeMarkers,
+    endFit,
+    isEndMarker,
+} from "../geometry/markers";
+import {
     MERMAID_GROUP_PADDING,
     MERMAID_RANK_BONUS,
     mermaidNodeSize,
 } from "../geometry/mermaid";
 import {
+    type RoutingEdge,
     type RoutingElement,
     type RoutingMode,
     routeView,
@@ -223,8 +231,16 @@ export type EdgeLine = {
      * ending short of the arrowhead's tip by the thickness (`routeView`).
      */
     path: string;
-    /** SVG path data for the filled arrowhead, its tip on `target`. */
+    /**
+     * SVG path data for what fills at the ends: the arrowhead, its tip on
+     * `target`, or a Mermaid edge's filled End markers at either end.
+     */
     arrowhead: string;
+    /**
+     * A Mermaid edge's stroked End markers at either end, drawn at the
+     * line's thickness with no dashes; absent when it has none.
+     */
+    markerStroke?: string;
     routing: RoutingMode;
     /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
     jump: boolean;
@@ -297,12 +313,44 @@ type EdgeDraft = Omit<
     startPosition: number;
     /** The label's lines and size; absent when it says nothing. */
     label?: EdgeLabelLayout;
-    /**
-     * Whether it draws its arrowhead: every edge but a Mermaid edge whose
-     * end the source leaves without an arrow.
-     */
-    arrow: boolean;
+    /** A Mermaid edge's End markers, which its `ends` fit the route to. */
+    markers?: { start: EndMarker; end: EndMarker };
+    ends?: RoutingEdge["ends"];
 };
+
+/** A Mermaid edge end as an End marker; the build fails any other. */
+/**
+ * The room Dagre keeps for a Mermaid edge: its label's, grown along the
+ * rank direction so that the ranks it joins sit at least both straight
+ * ends apart (`rankSeparation` plus this room, as Dagre spaces an edge's
+ * label rank), and both markers fit between them.
+ */
+function markerRoom(
+    label: Size,
+    ends: RoutingEdge["ends"],
+    {
+        rankDirection,
+        rankSeparation,
+    }: { rankDirection: string; rankSeparation: number },
+): Size {
+    const needed = (ends?.source.room ?? 0) + (ends?.target.room ?? 0);
+    const extra = needed - rankSeparation;
+    if (extra <= 0) return label;
+    // Dagre keeps a label's rank only for a label with both sides, so the
+    // side across takes one unit at least.
+    return rankDirection === "LeftRight" || rankDirection === "RightLeft"
+        ? {
+              width: Math.max(label.width, extra),
+              height: Math.max(label.height, 1),
+          }
+        : {
+              width: Math.max(label.width, 1),
+              height: Math.max(label.height, extra),
+          };
+}
+
+const markerOf = (name: string): EndMarker =>
+    isEndMarker(name) ? name : "none";
 
 export type Graph = {
     key: string;
@@ -888,11 +936,18 @@ function drawView(
             thickness: style.thickness,
             style: style.style,
             opacity: style.opacity / 100,
-            // End markers beyond today's arrowhead are the next slice's
-            // (spec: Build order): a Mermaid edge draws its arrow only at
-            // an `arrow` end, and its start end bare.
-            arrow: line ? line.end === "arrow" : true,
-            ...(line && { centered: true }),
+            ...(line && {
+                centered: true,
+                markers: {
+                    start: markerOf(line.start),
+                    end: markerOf(line.end),
+                },
+                ends: endFit(
+                    markerOf(line.start),
+                    markerOf(line.end),
+                    style.thickness,
+                ),
+            }),
         });
     }
 
@@ -905,9 +960,15 @@ function drawView(
                 edge.key,
                 {
                     // A Mermaid edge keeps the room its label needs, and
-                    // none without one (spec: Flowchart and ERD layout).
+                    // none without one (spec: Flowchart and ERD layout),
+                    // but its ranks never come closer than its straight
+                    // ends (spec: End markers).
                     room: mermaid
-                        ? edge.label?.size ?? { width: 0, height: 0 }
+                        ? markerRoom(
+                              edge.label?.size ?? { width: 0, height: 0 },
+                              edge.ends,
+                              view.automaticLayout,
+                          )
                         : layoutLabelRoom(
                               edge.label,
                               edge.fontSize,
@@ -977,21 +1038,32 @@ function drawView(
     );
     const routed: EdgeLine[] = edges.map(
         (
-            { storedPosition: _stored, startPosition, label, arrow, ...edge },
+            {
+                storedPosition: _stored,
+                startPosition,
+                label,
+                markers,
+                ends: _ends,
+                ...edge
+            },
             index,
         ) => {
             const { route, path, heading } = routes[index];
             const target = route[route.length - 1];
             const placedLabel = placedLabels[index];
+            const drawn =
+                markers &&
+                edgeMarkers(markers.start, markers.end, route, edge.thickness);
             return {
                 ...edge,
                 source: route[0],
                 target,
                 route,
                 path,
-                arrowhead: arrow
-                    ? arrowheadPath(target, heading, edge.thickness)
-                    : "",
+                arrowhead: drawn
+                    ? drawn.fill
+                    : arrowheadPath(target, heading, edge.thickness),
+                ...(drawn?.stroke && { markerStroke: drawn.stroke }),
                 labelPosition: placedLabel?.position ?? startPosition,
                 ...(placedLabel && { labelBox: placedLabel.box }),
                 ...(label && {
