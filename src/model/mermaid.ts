@@ -97,15 +97,42 @@ export function mermaidNodeOf(
 export type InertToggles = { descriptions: boolean; technologies: boolean };
 
 /**
+ * The label toggles each Mermaid kind hides. A flowchart's labels are its
+ * source's text alone, so both hide on one; an ERD's descriptions toggle
+ * shows and hides its attributes' comments, and nothing on it is a
+ * technology.
+ */
+const INERT_TOGGLES: Record<string, InertToggles> = {
+    flowchart: { descriptions: true, technologies: true },
+    er: { descriptions: false, technologies: true },
+};
+
+/** Every toggle changes something on a C4 view. */
+const NO_INERT_TOGGLES: InertToggles = {
+    descriptions: false,
+    technologies: false,
+};
+
+/**
  * The label toggles that would change nothing on `view`, which the toolbar
  * hides as it hides the animation and export groups, leaving the reader's
- * preference as it is (spec: Toolbar and label toggles, ADR 24). A
- * flowchart's labels are its source's text alone, so both hide on one.
+ * preference as it is (spec: Toolbar and label toggles, ADR 24).
  */
 export function inertToggles(view: ModelView): InertToggles {
     const kind = view.type === "Mermaid" ? view.mermaid?.kind : undefined;
-    const flowchart = kind === "flowchart";
-    return { descriptions: flowchart, technologies: flowchart };
+    return { ...((kind && INERT_TOGGLES[kind]) || NO_INERT_TOGGLES) };
+}
+
+/**
+ * Whether `view` is an ERD with at least one entity toggle, an entity with
+ * attributes, where the toolbar shows its button that sets every entity
+ * (spec: ERD entities).
+ */
+export function hasEntityToggles(view: ModelView): boolean {
+    const diagram = view.type === "Mermaid" ? view.mermaid : undefined;
+    if (!diagram || diagram.error !== undefined || diagram.kind !== "er")
+        return false;
+    return diagram.entities.some((entity) => entity.attributes.length > 0);
 }
 
 /** What the export buttons say on a Mermaid diagram that couldn't be drawn. */

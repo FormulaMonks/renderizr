@@ -290,6 +290,7 @@ test("the toolbar's scheme and label buttons set the engine's state", () => {
     assert.deepEqual(engine.labels.at(-1), {
         descriptions: true,
         technologies: true,
+        entitiesCollapsed: true,
     });
 
     button("dark-mode").click();
@@ -299,11 +300,13 @@ test("the toolbar's scheme and label buttons set the engine's state", () => {
     button("toggle-description").click();
     button("toggle-technologies").click();
     button("toggle-technologies").click();
+    const collapsed = { entitiesCollapsed: true };
     assert.deepEqual(engine.labels.slice(-3), [
-        { descriptions: false, technologies: true },
-        { descriptions: false, technologies: false },
-        { descriptions: false, technologies: true },
+        { descriptions: false, technologies: true, ...collapsed },
+        { descriptions: false, technologies: false, ...collapsed },
+        { descriptions: false, technologies: true, ...collapsed },
     ]);
+    assert.equal(button("toggle-entities").hidden, true, "not an ERD");
     assert.equal(
         button("toggle-description").getAttribute("aria-pressed"),
         "false",

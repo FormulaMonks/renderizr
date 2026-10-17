@@ -164,6 +164,8 @@ The round plus button at the bottom of an entity expands it. An expanded entity 
 
 Each button is a stop in the canvas's Tab order, in reading order by its entity. Enter or Space flips the entity, and focus stays on the button. In edit mode only Enter does, since Space pans there.
 
+The toolbar's "Expand all entities" button sets every entity of the diagram at once, drops the flips made with each entity's own button and fits the diagram to the canvas again. It shows pressed while the entities are expanded, and then it reads "Collapse all entities". Your choice applies to every ERD and stays after a reload, while an entity's own flip lasts only for the visit. The button shows only on an ERD that has an entity with attributes.
+
 | Source | Draws as |
 | --- | --- |
 | `--` | An identifying relationship: a solid line |
@@ -214,7 +216,7 @@ The build prints one warning per diagram that lists what of its source Renderizr
 
 A diagram Renderizr can't draw shows why in place of the canvas, and the build prints the same text and finishes: `Mermaid diagram "order-flow": a parse error at line 4: the source ends too early.` Its export buttons show disabled and say "Nothing to export: the diagram couldn't be drawn". In edit mode the reason shows on the view and in the terminal, and the next save of the source that fixes it draws the diagram again. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every reason.
 
-The description and technology toggles hide on a flowchart, whose labels hold the source's text alone. Your choice stays and applies again on the next C4 view.
+The description and technology toggles hide on a flowchart, whose labels hold the source's text alone. On an ERD the description toggle shows and hides the attributes' comment column, on the canvas and in an export, and the technology toggle hides, since nothing on an ERD is a technology. A toggle that hides keeps your choice, which applies again on the next view where it shows.
 
 ## Edit mode
 
