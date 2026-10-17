@@ -2238,7 +2238,7 @@ function Canvas({
         [family, fontsLoaded],
     );
     const { key: viewKey, scheme, labels: stored, step } = state;
-    const { labels, toggleEntity, toggled } = useEntityOverrides(
+    const { labels, toggleEntity, toggled, generation } = useEntityOverrides(
         viewKey,
         stored,
     );
@@ -2407,6 +2407,16 @@ function Canvas({
     const [readyKey, setReadyKey] = useState<string | null>(null);
     /** Set once the reader zooms or pans; refits on resize stop until `fit()`. */
     const moved = useRef(false);
+    /**
+     * The toolbar's button sets every entity, which refits the whole
+     * diagram as an entity's own toggle does, even after the reader moved
+     * it (spec: ERD entities).
+     */
+    const fittedGeneration = useRef(generation);
+    if (fittedGeneration.current !== generation) {
+        fittedGeneration.current = generation;
+        moved.current = false;
+    }
     // The descriptions toggle lays a sequence diagram out again with or
     // without its notes, which refits it (spec: Toolbar and label toggles).
     const notes = useRef(labels.descriptions);
@@ -3328,7 +3338,7 @@ function useEntityOverrides(viewKey: string, stored: Labels) {
             }),
         [viewKey, generation, stored.entitiesCollapsed],
     );
-    return { labels, toggleEntity, toggled: overrides.toggled };
+    return { labels, toggleEntity, toggled: overrides.toggled, generation };
 }
 
 export function Island(props: IslandProps) {
