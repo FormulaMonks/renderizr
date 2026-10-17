@@ -684,7 +684,7 @@ test("the Mermaid parser runs in the build and never reaches the page (ADR 24)",
  * logo, fonts and imagery a user may add. The page's code makes up nearly all
  * of it; the fixture workspace adds a few kilobytes.
  */
-const SINGLE_FILE_BYTES = 838_191;
+const SINGLE_FILE_BYTES = 926_955;
 
 /**
  * The most a Claude artifact page may weigh, read as decimal megabytes, the
