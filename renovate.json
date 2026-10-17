@@ -65,7 +65,7 @@
             "pinDigests": true
         },
         {
-            "description": "Development tooling: lint, types, commit plumbing. None of it reaches a rendered workspace, so one grouped PR per week is enough review surface.",
+            "description": "Development tooling: lint, types, commit plumbing, property tests. None of it reaches a rendered workspace, so one grouped PR per week is enough review surface.",
             "matchManagers": ["npm"],
             "matchDepTypes": ["devDependencies"],
             "matchPackageNames": [
@@ -75,7 +75,8 @@
                 "@commitlint/**",
                 "husky",
                 "lint-staged",
-                "czg"
+                "czg",
+                "fast-check"
             ],
             "groupName": "dev tooling"
         },

@@ -170,11 +170,76 @@ function unitsOf(body) {
             continue;
         }
 
-        units.push({ text: body.slice(at, at + 2) });
-        at += 2;
+        // Any other escape is opaque, with two exceptions. A backslash before
+        // U+FFFD stands for U+FFFD itself, so it has to go like the bare
+        // character, which is how `"\�"` used to survive the rewrite. A
+        // backslash before a surrogate pair takes the whole pair, so the
+        // pair's low half never reads as lone.
+        const pair =
+            isHighSurrogate(body.charCodeAt(at + 1)) &&
+            isLowSurrogate(body.charCodeAt(at + 2));
+        const text = body.slice(at, at + (pair ? 3 : 2));
+        units.push({
+            text,
+            code:
+                body.charCodeAt(at + 1) === REPLACEMENT_CHARACTER
+                    ? REPLACEMENT_CHARACTER
+                    : undefined,
+        });
+        at += text.length;
     }
 
     return units;
+}
+
+/**
+ * The text of a template quasi, `raw`, with each unspellable unit turned into
+ * an interpolation that evaluates to it.
+ *
+ * An escape is read whole, as `unitsOf` reads a string's. A live surrogate
+ * escape goes, as a string's does, since the upload rejects its spelling; an
+ * escaped U+FFFD goes too, backslash and all. Lifting the character out from
+ * behind its backslash would leave the backslash to escape the `$` of the
+ * interpolation, and the template would then spell `${…}` as text, which is
+ * how `` `\�` `` used to come out as a different string.
+ */
+function quoteQuasi(raw) {
+    const interpolation = (code) => `\${String.fromCharCode(${code})}`;
+    let text = "";
+
+    for (let at = 0; at < raw.length; ) {
+        if (raw[at] !== "\\") {
+            text += isUnspellable(raw, at)
+                ? interpolation(raw.charCodeAt(at))
+                : raw[at];
+            at += 1;
+            continue;
+        }
+
+        const surrogate = /^\\u([dD][89abAB][0-9a-fA-F]{2})/.exec(
+            raw.slice(at, at + 6),
+        );
+        if (surrogate) {
+            text += interpolation(Number.parseInt(surrogate[1], 16));
+            at += 6;
+            continue;
+        }
+
+        if (raw.charCodeAt(at + 1) === REPLACEMENT_CHARACTER) {
+            text += interpolation(REPLACEMENT_CHARACTER);
+            at += 2;
+            continue;
+        }
+
+        const pair =
+            isHighSurrogate(raw.charCodeAt(at + 1)) &&
+            isLowSurrogate(raw.charCodeAt(at + 2));
+        const width = pair ? 3 : 2;
+        text += raw.slice(at, at + width);
+        at += width;
+    }
+
+    return text;
 }
 
 /**
@@ -334,7 +399,7 @@ function collectEdits(code) {
     walk(parse(code), null, (node, parent, grandparent) => {
         if (node.type === "TemplateElement") {
             const raw = node.value.raw;
-            if (!hasUnspellable(raw)) return;
+            if (!hasUnspellable(raw) && !hasLiveSurrogateEscape(raw)) return;
             // The quasi's parent is the TemplateLiteral; the tag, if there is
             // one, is the level above that.
             if (grandparent?.type === "TaggedTemplateExpression") {
@@ -343,14 +408,11 @@ function collectEdits(code) {
 
             // A quasi cannot hold an expression, but the template around it
             // can: each unit becomes an interpolation and the text stays put.
-            let text = "";
-            for (let at = 0; at < raw.length; at++) {
-                text += isUnspellable(raw, at)
-                    ? `\${String.fromCharCode(${raw.charCodeAt(at)})}`
-                    : raw[at];
-            }
-
-            edits.push({ start: node.start, end: node.end, text });
+            edits.push({
+                start: node.start,
+                end: node.end,
+                text: quoteQuasi(raw),
+            });
             return;
         }
 

@@ -87,6 +87,7 @@
         "@types/react": "^19.3.0",
         "@types/react-dom": "^19.3.0",
         "czg": "^1.14.0",
+        "fast-check": "^4.10.2",
         "husky": "^9.1.7",
         "lint-staged": "^16.4.0",
         "rollup": "4.64.5",
