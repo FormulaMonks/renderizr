@@ -349,16 +349,13 @@ export function routedAlong(
  * end of the side (`compareEnds`), aiming at their even share of it. A
  * Mermaid edge's ends (`centered`) aim evenly around the side's middle in
  * that order instead, at least their widest marker apart when the side
- * holds them all that far apart (spec: End markers). On `toggleSide`, which
- * holds an ERD entity's toggle at its middle, an odd count of centered ends
- * takes one slot more and leaves the center free, dropping the slot on the
- * far side from where they aim (spec: End markers).
+ * holds them all that far apart (spec: End markers). An ERD entity's
+ * toggle sits inside its box, so the side under it spreads like any other.
  */
 export function spreadEnds(
     ends: EdgeEnd[],
     spans: Partial<Record<Side, Span>>,
     box: Rect,
-    toggleSide?: Side,
 ): Map<string, number> {
     const along = new Map<string, number>();
     for (const side of SIDES) {
@@ -377,13 +374,7 @@ export function spreadEnds(
         const aim = (end: EdgeEnd) => aims.get(end)!;
         const sorted = onSide.sort((a, b) => compareEnds(a, b, aim));
         const length = span.to - span.from;
-        // An odd count around a toggle spreads as one end more would, so
-        // the middle slot, where the toggle sits, stays empty.
-        const aroundToggle =
-            side === toggleSide &&
-            sorted.length % 2 === 1 &&
-            sorted.every((end) => end.centered);
-        const slots = sorted.length + (aroundToggle ? 1 : 0);
+        const slots = sorted.length;
         const even = length / (slots + 1);
         // Centered ends sit evenly around the middle, a marker width apart
         // at least where the side holds them all that far apart.
@@ -394,16 +385,11 @@ export function spreadEnds(
         const gap =
             apart > even && (slots - 1) * apart <= length ? apart : even;
         const middle = (span.from + span.to) / 2;
-        // Around a toggle, the ends shift one slot toward where they aim
-        // on average, leaving out the slot on the far side.
-        const mean =
-            sorted.reduce((sum, end) => sum + aim(end), 0) / sorted.length;
-        const shift = aroundToggle ? (mean < middle ? -0.5 : 0.5) : 0;
         const wanted = sorted.map((end, i) =>
             end.toward
                 ? span.from + (i + 1) * even
                 : end.centered
-                  ? middle + (i - (sorted.length - 1) / 2 + shift) * gap
+                  ? middle + (i - (sorted.length - 1) / 2) * gap
                   : aim(end),
         );
         const placed = keepApart(wanted, gap, span);

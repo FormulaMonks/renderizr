@@ -369,6 +369,70 @@ test("ranks sit far enough apart that no relationship doubles back between its c
     }
 });
 
+/** Every axis-aligned piece of `route`, as its fixed axis, value and span. */
+const runsOf = (route) =>
+    route.slice(1).flatMap((b, i) => {
+        const a = route[i];
+        if (Math.abs(a.y - b.y) < 0.5 && Math.abs(a.x - b.x) > 0.5)
+            return [
+                {
+                    axis: "y",
+                    at: a.y,
+                    from: Math.min(a.x, b.x),
+                    to: Math.max(a.x, b.x),
+                },
+            ];
+        if (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) > 0.5)
+            return [
+                {
+                    axis: "x",
+                    at: a.x,
+                    from: Math.min(a.y, b.y),
+                    to: Math.max(a.y, b.y),
+                },
+            ];
+        return [];
+    });
+
+test("no two relationships run along the same line", () => {
+    for (const key of ["shop", "shop-lr", "styled"]) {
+        for (const labels of [LABELS, EXPANDED]) {
+            const { edges } = graphOf(FIXTURE, labels, key);
+            for (const [i, a] of edges.entries()) {
+                for (const b of edges.slice(i + 1)) {
+                    for (const p of runsOf(a.route)) {
+                        for (const q of runsOf(b.route)) {
+                            const shared =
+                                p.axis === q.axis &&
+                                Math.abs(p.at - q.at) < 0.5 &&
+                                Math.min(p.to, q.to) -
+                                    Math.max(p.from, q.from) >
+                                    0.5;
+                            assert.ok(
+                                !shared,
+                                `${key}: ${a.description} and ${b.description} share ${JSON.stringify(p)}`,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+});
+
+test("a relationship between facing sides runs straight when its end on one side is alone there", () => {
+    for (const labels of [LABELS, EXPANDED]) {
+        for (const edge of graphOf(FIXTURE, labels, "styled").edges) {
+            const xs = new Set(edge.route.map((point) => point.x));
+            assert.equal(
+                xs.size,
+                1,
+                `${edge.description}: ${JSON.stringify(edge.route)}`,
+            );
+        }
+    }
+});
+
 test("each toggle is a focus item in reading order by its entity, and an entity without one stays out", () => {
     const graph = graphOf(FIXTURE, LABELS, "shop");
     const toggles = graph.focusOrder.filter((item) => item.type === "toggle");
@@ -383,25 +447,18 @@ test("each toggle is a focus item in reading order by its entity, and an entity 
 
 /* ------------------------------------------------------------ spreading */
 
-test("an odd count of centered ends on a toggle's side leaves its middle free", () => {
-    const box = { x: 0, y: 0, width: 300, height: 200 };
-    const spans = { bottom: { from: 0, to: 300 } };
-    const ends = [0, 1, 2].map((i) => ({
-        id: `e${i}`,
-        side: "bottom",
-        far: { x: 100 + i * 50, y: 500 },
-        order: i,
-        centered: true,
-    }));
-    const plain = spreadEnds(ends, spans, box);
-    assert.equal(plain.get("e1"), 150, "the middle end sits at the middle");
-    const toggled = spreadEnds(ends, spans, box, "bottom");
-    assert.ok(
-        [...toggled.values()].every((x) => Math.abs(x - 150) > 10),
-        "no end at the toggle",
-    );
-    const elsewhere = spreadEnds(ends, spans, box, "top");
-    assert.deepEqual(elsewhere, plain, "another side spreads as before");
+test("a lone end on the side that holds an entity's toggle sits at the middle, outside the toggle", () => {
+    for (const labels of [LABELS, EXPANDED]) {
+        const graph = graphOf(FIXTURE, labels, "styled");
+        for (const edge of graph.edges) {
+            const source = graph.elements.find((e) => e.id === edge.sourceId);
+            const middle = source.x + source.width / 2;
+            assert.ok(
+                edge.route.every((point) => Math.abs(point.x - middle) < 0.5),
+                `${edge.description}: ${JSON.stringify(edge.route)}`,
+            );
+        }
+    }
 });
 
 /* ------------------------------------------------------------ export */

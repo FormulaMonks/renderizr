@@ -1138,8 +1138,6 @@ function drawView(
                 x: box.x,
                 y: box.y,
                 geometry,
-                // Ends leave the middle of the side the toggle sits on free.
-                ...(box.entity?.toggle && { toggle: "bottom" as const }),
             }),
         ),
         edges,

@@ -37,6 +37,7 @@ import {
     type DrawnRoute,
     distance,
     endHeading,
+    isHorizontal,
     onOutline,
     outward,
     polylinePath,
@@ -64,8 +65,6 @@ export type RoutingElement = {
     y: number;
     /** The shape it is drawn as, which its edge ends touch. */
     geometry: ShapeGeometry;
-    /** The side whose middle holds an ERD entity's toggle, which ends leave free. */
-    toggle?: Side;
 };
 
 /** One edge to route. Its source and target are among the view's elements. */
@@ -296,17 +295,18 @@ export function routeView(
             edgeEndsOn.get(element.id) ?? [],
             element.geometry.spans,
             boxOf(element),
-            element.toggle,
         );
         for (const [id, position] of spread) along.set(id, position);
     }
+    alignFacingEnds(edges, sides, loops, edgeEndsOn, elementsOf, along);
     const roomAt = (index: number) => rooms.get(index) ?? roomOf(edges[index]);
     const sourceAlong = (index: number) => along.get(sourceEnd(index)) ?? 0;
     const targetAlong = (index: number) => along.get(targetEnd(index)) ?? 0;
 
     /* ---------------- routes */
 
-    const drafts = edges.map((edge, index): RouteDraft => {
+    const draftOf = (index: number): RouteDraft => {
+        const edge = edges[index];
         const { source, target } = elementsOf(edge);
         const loop = loops.get(index);
         if (loop) {
@@ -330,7 +330,82 @@ export function routeView(
             elements,
             roomAt(index),
         );
-    });
+    };
+    const drafts = edges.map((_, index) => draftOf(index));
+
+    /* ---------------- shared lines */
+
+    // Two Mermaid edges never run along the same line: where they do, one
+    // end alone on its side moves along it, toward where its edge heads,
+    // and the edge routes again; the move stays only when it parts the two
+    // and joins its edge to no other.
+    const separable = (index: number) =>
+        edges[index].centered === true &&
+        !loops.has(index) &&
+        !edges[index].vertices.length;
+    const sharesWithAny = (index: number) =>
+        drafts.some(
+            (other, j) =>
+                j !== index &&
+                separable(j) &&
+                sharesRun(drafts[index].route, other.route),
+        );
+    const separate = (index: number, from: number): boolean => {
+        const chosen = sides.get(index);
+        if (!chosen) return false;
+        const { source, target } = elementsOf(edges[index]);
+        const ends = [
+            {
+                element: source,
+                side: chosen.source,
+                id: sourceEnd(index),
+                far: target,
+            },
+            {
+                element: target,
+                side: chosen.target,
+                id: targetEnd(index),
+                far: source,
+            },
+        ];
+        for (const end of ends) {
+            const onSide = (edgeEndsOn.get(end.element.id) ?? []).filter(
+                (e) => e.side === end.side,
+            );
+            const span = end.element.geometry.spans[end.side];
+            if (onSide.length !== 1 || !span) continue;
+            const was = along.get(end.id) ?? 0;
+            const axis = isHorizontal(end.side) ? "x" : "y";
+            const toward = Math.sign(
+                centerOf(boxOf(end.far))[axis] -
+                    centerOf(boxOf(end.element))[axis],
+            );
+            const moved = Math.min(
+                span.to,
+                Math.max(span.from, was + (toward || 1) * SHARED_LINE_STEP),
+            );
+            if (moved === was) continue;
+            const before = drafts[index];
+            along.set(end.id, moved);
+            drafts[index] = draftOf(index);
+            if (
+                !sharesRun(drafts[index].route, drafts[from].route) &&
+                !sharesWithAny(index)
+            ) {
+                return true;
+            }
+            along.set(end.id, was);
+            drafts[index] = before;
+        }
+        return false;
+    };
+    for (const i of edges.keys()) {
+        for (let j = i + 1; j < edges.length; j++) {
+            if (!separable(i) || !separable(j)) continue;
+            if (!sharesRun(drafts[i].route, drafts[j].route)) continue;
+            if (!separate(j, i)) separate(i, j);
+        }
+    }
 
     /* ---------------- jump-overs */
 
@@ -451,6 +526,102 @@ function onStraightEnd(
         (room.source > 0 && before - radius < room.source) ||
         (room.target > 0 && total - before - radius < room.target)
     );
+}
+
+/** How far an end moves along its side to part two edges on one line. */
+const SHARED_LINE_STEP = 30;
+
+/** Whether two routes run along the same line for more than a point. */
+function sharesRun(a: Point[], b: Point[]): boolean {
+    const runs = (route: Point[]) =>
+        route.slice(1).flatMap((end, i) => {
+            const start = route[i];
+            if (
+                Math.abs(start.y - end.y) < 0.5 &&
+                Math.abs(start.x - end.x) > 0.5
+            ) {
+                return [
+                    {
+                        horizontal: true,
+                        at: start.y,
+                        from: Math.min(start.x, end.x),
+                        to: Math.max(start.x, end.x),
+                    },
+                ];
+            }
+            if (
+                Math.abs(start.x - end.x) < 0.5 &&
+                Math.abs(start.y - end.y) > 0.5
+            ) {
+                return [
+                    {
+                        horizontal: false,
+                        at: start.x,
+                        from: Math.min(start.y, end.y),
+                        to: Math.max(start.y, end.y),
+                    },
+                ];
+            }
+            return [];
+        });
+    const theirs = runs(b);
+    return runs(a).some((p) =>
+        theirs.some(
+            (q) =>
+                p.horizontal === q.horizontal &&
+                Math.abs(p.at - q.at) < 0.5 &&
+                Math.min(p.to, q.to) - Math.max(p.from, q.from) > 0.5,
+        ),
+    );
+}
+
+/**
+ * A Mermaid edge between facing sides runs straight where it can: when
+ * one of its ends is alone on its side and the partner side's other ends
+ * put its partner off the middle, the lone end moves to face it, as long as
+ * its own side reaches that far. `along` holds every end's place on its
+ * side and changes in place.
+ */
+function alignFacingEnds(
+    edges: RoutingEdge[],
+    sides: Map<number, EdgeSides>,
+    loops: Map<number, Loop>,
+    edgeEndsOn: Map<string, EdgeEnd[]>,
+    elementsOf: (edge: RoutingEdge) => {
+        source: RoutingElement;
+        target: RoutingElement;
+    },
+    along: Map<string, number>,
+): void {
+    const facing = (a: Side, b: Side) =>
+        outward(a).x === -outward(b).x && outward(a).y === -outward(b).y;
+    const alone = (element: RoutingElement, side: Side) =>
+        (edgeEndsOn.get(element.id) ?? []).filter((end) => end.side === side)
+            .length === 1;
+    for (const [index, edge] of edges.entries()) {
+        const chosen = sides.get(index);
+        if (!edge.centered || loops.has(index) || !chosen) continue;
+        if (!facing(chosen.source, chosen.target)) continue;
+        const { source, target } = elementsOf(edge);
+        const ends = [
+            { element: source, side: chosen.source, id: sourceEnd(index) },
+            { element: target, side: chosen.target, id: targetEnd(index) },
+        ];
+        // A point on a top or bottom side is placed by x, otherwise by y.
+        const origin = (element: RoutingElement, side: Side) =>
+            isHorizontal(side) ? boxOf(element).x : boxOf(element).y;
+        for (const [mover, partner] of [ends, [...ends].reverse()]) {
+            if (!alone(mover.element, mover.side)) continue;
+            const span = mover.element.geometry.spans[mover.side];
+            const at =
+                origin(partner.element, partner.side) +
+                (along.get(partner.id) ?? 0) -
+                origin(mover.element, mover.side);
+            if (!span || at < span.from || at > span.to) continue;
+            along.set(mover.id, at);
+            break;
+        }
+    }
 }
 
 /**
