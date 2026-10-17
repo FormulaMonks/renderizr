@@ -65,7 +65,8 @@ export function branding({ font, primaryColor = null }) {
     };
 }
 
-const SCRIPT_TAG = /<script[^>]*\ssrc="([^"]+)"[^>]*><\/script>/g;
+const SCRIPT_TAG = /<script\b[^>]*\ssrc="([^"]+)"[^>]*>\s*<\/script\s*>/gi;
+const SCRIPT_ELEMENT = /<script\b[\s\S]*?<\/script\s*>/gi;
 const STYLE_TAG =
     /<link[^>]*\shref="([^"]+)"[^>]*\srel="stylesheet"[^>]*>|<link[^>]*\srel="stylesheet"[^>]*\shref="([^"]+)"[^>]*>/g;
 const PRELOAD_TAG = /<link[^>]*rel="modulepreload"[^>]*>/g;
@@ -141,17 +142,21 @@ export function singleFile() {
                 // markup — Structurizr's SVG export builds one reading
                 // `<style>@import url("+font.url+");</style>` — and scraping
                 // those into the document turns an unevaluated string
-                // concatenation into two live stylesheet requests.
+                // concatenation into two live stylesheet requests. They go
+                // again until none is left, so no removal joins the halves of
+                // another script tag.
                 const inlineCode = [];
-                const withoutCode = html.replace(
-                    /<script\b[\s\S]*?<\/script>/g,
-                    (tag) => {
+                let previous;
+                let withoutCode = html;
+                do {
+                    previous = withoutCode;
+                    withoutCode = withoutCode.replace(SCRIPT_ELEMENT, (tag) => {
                         if (tag.startsWith('<script type="module">')) {
                             inlineCode.push(tag);
                         }
                         return "";
-                    },
-                );
+                    });
+                } while (withoutCode !== previous);
 
                 const inlineStyles =
                     withoutCode.match(/<style>[\s\S]*?<\/style>/g) ?? [];

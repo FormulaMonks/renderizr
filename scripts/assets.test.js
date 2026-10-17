@@ -362,7 +362,7 @@ test("a font is fetched, its faces embedded, and a CSS variable declared", async
                 ),
                 "the woff2 was not inlined",
             );
-            assert.ok(!font.css.includes("https://fonts.gstatic.com"));
+            assert.doesNotMatch(font.css, /https:\/\/fonts\.gstatic\.com\//);
             assert.ok(
                 font.css.endsWith(
                     "--renderizr-font:'Inter',Helvetica,Arial,sans-serif}",
@@ -418,7 +418,7 @@ test("the candidate ladder falls back when a family has no variable range", asyn
         {
             default: (url) => {
                 seen.push(url);
-                if (url.startsWith("https://fonts.gstatic.com")) {
+                if (new URL(url).host === "fonts.gstatic.com") {
                     return { body: WOFF2 };
                 }
                 if (url === GOOGLE("Lora:wght@400;700")) {

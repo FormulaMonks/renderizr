@@ -172,8 +172,8 @@ export async function withFetch(routes, body) {
  */
 export const htmlSkeleton = (html) =>
     html
-        .replace(/(<script\b[^>]*>)[\s\S]*?<\/script>/gi, "$1</script>")
-        .replace(/(<style\b[^>]*>)[\s\S]*?<\/style>/gi, "$1</style>");
+        .replace(/(<script\b[^>]*>)[\s\S]*?<\/script\s*>/gi, "$1</script>")
+        .replace(/(<style\b[^>]*>)[\s\S]*?<\/style\s*>/gi, "$1</style>");
 
 /**
  * Every `src`/`href`/`srcset`/`data`/`poster` attribute value in `html`, as
