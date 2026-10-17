@@ -300,3 +300,18 @@ export function relationshipTargets(
         current,
     );
 }
+
+/**
+ * What activating a Mermaid flowchart node offers, from the view `current`:
+ * its one `click` link, classified as an element link would be (spec:
+ * Activation targets). A link to the view on screen, to a view the
+ * workspace lacks or to a script offers nothing. The graph and the page
+ * both ask here, since `findElementById` doesn't know the node.
+ */
+export function mermaidNodeTargets(
+    model: WorkspaceModel,
+    link: string | undefined,
+    current: string,
+): Target[] {
+    return distinct([classifyLink(model, link)], current);
+}

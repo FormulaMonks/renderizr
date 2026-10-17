@@ -17,9 +17,19 @@ export const FALLBACK_FONT = "Helvetica, Arial, sans-serif";
 /** `family` as a quoted CSS family name, any quotes in it dropped. */
 const quoted = (family: string) => `"${family.replace(/"/g, "")}"`;
 
-/** The CSS `font-family` the diagram is drawn and measured in. */
-export function diagramFontFamily(family: string | null): string {
-    return family ? `${quoted(family)}, ${FALLBACK_FONT}` : FALLBACK_FONT;
+/**
+ * The CSS `font-family` the diagram is drawn and measured in: a Mermaid
+ * diagram's `source` family, then the `--font` `family`, then the
+ * fallback stack.
+ */
+export function diagramFontFamily(
+    family: string | null,
+    source?: string,
+): string {
+    const stack = family
+        ? `${quoted(family)}, ${FALLBACK_FONT}`
+        : FALLBACK_FONT;
+    return source ? `${source}, ${stack}` : stack;
 }
 
 /** The part of `document.fonts` the swap needs. */
@@ -71,8 +81,8 @@ export function canvasMeasure(
 ): MeasureText {
     const context = document.createElement("canvas").getContext("2d");
     if (!context) return estimateText;
-    return (text, fontSize, bold) => {
-        context.font = `${bold ? "bold " : ""}${fontSize}px ${family}`;
+    return (text, fontSize, bold, ahead) => {
+        context.font = `${bold ? "bold " : ""}${fontSize}px ${ahead ? `${ahead}, ${family}` : family}`;
         return context.measureText(text).width;
     };
 }

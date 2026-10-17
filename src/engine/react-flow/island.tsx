@@ -65,6 +65,7 @@ import {
     isEditable,
     type LayoutChange,
     mergeLayouts,
+    mermaidFontFamily,
     type WorkspaceModel,
 } from "../../model";
 import type {
@@ -422,6 +423,8 @@ type ElementLabelProps = Pick<
     | "icon"
     | "iconPosition"
     | "fontSize"
+    | "fontFamily"
+    | "fontWeight"
     | "color"
     | "targets"
 >;
@@ -430,6 +433,8 @@ type FixedPartsProps = {
     name: string;
     metadata: string;
     fontSize: number;
+    /** The name's weight: bold unless a Mermaid node's source says. */
+    fontWeight?: string;
     nameRef: RefObject<HTMLDivElement | null>;
     metadataRef: RefObject<HTMLDivElement | null>;
 };
@@ -439,6 +444,7 @@ function FixedParts({
     name,
     metadata,
     fontSize,
+    fontWeight = "bold",
     nameRef,
     metadataRef,
 }: FixedPartsProps) {
@@ -449,7 +455,7 @@ function FixedParts({
                 data-element-name=""
                 style={{
                     flexShrink: 0,
-                    fontWeight: "bold",
+                    fontWeight,
                     fontSize: fontSize * NAME_SCALE,
                     whiteSpace: "pre-line",
                 }}
@@ -504,6 +510,8 @@ function ElementLabel({
     icon,
     iconPosition,
     fontSize,
+    fontFamily,
+    fontWeight,
     color,
     targets,
 }: ElementLabelProps) {
@@ -618,6 +626,10 @@ function ElementLabel({
                 textAlign: "center",
                 color,
                 fontSize,
+                // A Mermaid node's own family, ahead of the diagram's.
+                fontFamily: fontFamily
+                    ? `${fontFamily}, var(--diagram-font)`
+                    : undefined,
                 lineHeight: LINE_HEIGHT,
             }}
         >
@@ -646,6 +658,7 @@ function ElementLabel({
                             name={name}
                             metadata={metadata}
                             fontSize={fontSize}
+                            fontWeight={fontWeight}
                             nameRef={probeNameRef}
                             metadataRef={probeMetadataRef}
                         />
@@ -663,6 +676,7 @@ function ElementLabel({
                         name={name}
                         metadata={metadata}
                         fontSize={fontSize}
+                        fontWeight={fontWeight}
                         nameRef={nameRef}
                         metadataRef={metadataRef}
                     />
@@ -729,7 +743,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
         <div
             data-element-id={data.id}
             data-shape={data.shape}
-            title={fullText}
+            title={data.tooltip ?? fullText}
             aria-label={fullText}
             {...target}
             style={{ position: "relative", width: "100%", height: "100%" }}
@@ -1112,8 +1126,8 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                             height: labelBox.height,
                             padding: EDGE_LABEL_PADDING,
                             lineHeight: LINE_HEIGHT,
-                            color: data.color,
-                            background,
+                            color: data.labelColor ?? data.color,
+                            background: data.labelBackground ?? background,
                             textAlign: "center",
                             whiteSpace: "pre",
                             pointerEvents: hidden
@@ -1974,7 +1988,11 @@ function Canvas({
 }: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
     const model = (__RENDERIZR_EDIT_MODE__ && state.model) || mounted;
-    const family = diagramFontFamily(font);
+    // A Mermaid diagram's source may name a family of its own, ahead of --font.
+    const family = diagramFontFamily(
+        font,
+        mermaidFontFamily(model.findViewByKey(state.key)?.mermaid),
+    );
     // Set once the --font faces load; a new measure re-derives the
     // boundaries with them (spec 9.5).
     const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -2868,6 +2886,7 @@ function Canvas({
                     height: "100%",
                     background: graph?.background,
                     fontFamily: family,
+                    "--diagram-font": family,
                     "--focus-ring": graph?.color,
                     // In editing, the selection outline keeps its width on
                     // screen, and what lies off the canvas is shaded toward

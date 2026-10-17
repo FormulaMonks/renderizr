@@ -1,0 +1,16 @@
+flowchart LR
+    pipeline[Release pipeline] --> shop(Web shop)
+    shop --> check{Order valid?}
+    check -->|yes| signup((Sign-up))
+    check -->|no| orders[(Orders)]
+    orders --> prepare{{Prepare}}
+    prepare --> here[This diagram]
+    here --> notify[Notify]
+    click pipeline href "#release" "Open the release pipeline"
+    click shop "https://example.com/shop" "Open the shop"
+    click check href "#signup"
+    click signup href "{workspace}/diagrams#signup"
+    click orders "https://example.com/orders"
+    click prepare href "#plain"
+    click here href "#links"
+    click notify call notify()

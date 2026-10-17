@@ -1,0 +1,15 @@
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#ffe8cc", "primaryBorderColor": "#d9822b", "lineColor": "#8a5a2b"}, "flowchart": {"curve": "step"}}}%%
+flowchart LR
+    customer(Customer) -->|places order| shop[Web shop]
+    shop --> valid{Order valid?}
+    valid -->|yes| orders[(Orders database)]
+    valid -.->|no| reject[Reject order]
+    subgraph fulfilment [Fulfilment]
+        pick(Pick items) --> pack{{Pack parcel}}
+    end
+    orders ==> pick
+    classDef warn fill:#fde2e2,stroke:#c0392b,color:#7b241c
+    class valid,reject warn
+    style orders fill:#d6eaf8,stroke:#2e86c1,stroke-width:3px
+    style fulfilment fill:#eef6ee,stroke:#5a8f5a
+    linkStyle 0 stroke:#c0392b,stroke-width:3px,color:#c0392b

@@ -43,6 +43,7 @@ import {
     textWidth,
 } from "../geometry/label";
 import { lineDashes } from "../geometry/line";
+import { nameIsBold } from "../geometry/mermaid";
 import { borderDashes, paintPart } from "../geometry/paint";
 import { escapeXml } from "../geometry/xml";
 import { PRESENCE_OPACITY, type StepState } from "./animation";
@@ -111,6 +112,10 @@ type Lines = {
     lines: string[];
     fontSize: number;
     bold?: boolean;
+    /** A weight other than bold or normal, as a Mermaid node's source writes it. */
+    weight?: string;
+    /** A family ahead of the diagram's, as a Mermaid node's source names it. */
+    family?: string;
     /** Left edge and width of the column the lines align in. */
     x: number;
     width: number;
@@ -140,7 +145,11 @@ function textLines(block: Lines, text: TextSetting): string {
                       x,
                       y: block.y + index * box + baseline,
                       "font-size": fontSize,
-                      "font-weight": block.bold ? "bold" : undefined,
+                      "font-weight":
+                          block.weight ?? (block.bold ? "bold" : undefined),
+                      "font-family": block.family
+                          ? `${block.family}, ${text.family}`
+                          : undefined,
                       "text-anchor": block.align,
                       fill: block.color,
                       "fill-opacity": block.opacity,
@@ -234,8 +243,13 @@ const labelPart = (part: string, lines: string) =>
 
 /** One element's label template (spec 9.2), as the island lays it out. */
 function elementLabel(element: ElementBox, text: TextSetting): string {
-    const { measure } = text;
-    const { fontSize, iconPosition, color, targets } = element;
+    const { fontSize, iconPosition, color, targets, fontFamily, fontWeight } =
+        element;
+    // A Mermaid node's own family and weight, which the island draws too.
+    const measure: MeasureText = fontFamily
+        ? (line, size, bold) => text.measure(line, size, bold, fontFamily)
+        : text.measure;
+    const nameBold = nameIsBold(fontWeight);
     const content = {
         x: element.x + element.content.x,
         y: element.y + element.content.y,
@@ -254,7 +268,7 @@ function elementLabel(element: ElementBox, text: TextSetting): string {
             breakLines(element.name),
             width,
             nameSize,
-            true,
+            nameBold,
             measure,
         );
         const metadata = metadataText
@@ -389,7 +403,9 @@ function elementLabel(element: ElementBox, text: TextSetting): string {
                     ...column,
                     lines: drawn.name,
                     fontSize: nameSize,
-                    bold: true,
+                    bold: nameBold,
+                    ...(fontWeight && { weight: fontWeight }),
+                    ...(fontFamily && { family: fontFamily }),
                     y: top,
                 },
                 text,
@@ -586,12 +602,12 @@ function edgeLabel(edge: EdgeLine, background: string, text: TextSetting) {
         x: left,
         width,
         align: "middle" as const,
-        color: edge.color,
+        color: edge.labelColor ?? edge.color,
         opacity: edge.opacity < 1 ? edge.opacity : undefined,
     };
     let top = box.y + EDGE_LABEL_PADDING;
     const parts = [
-        `<rect ${attrs({ x: box.x, y: box.y, width: box.width, height: box.height, fill: background })}/>`,
+        `<rect ${attrs({ x: box.x, y: box.y, width: box.width, height: box.height, fill: edge.labelBackground ?? background })}/>`,
     ];
     if (lines.description.length) {
         parts.push(

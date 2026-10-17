@@ -24,7 +24,7 @@ import {
     writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { trim } from "./plugins.js";
@@ -121,9 +121,17 @@ ${license}
 `;
 }
 
-export async function generate(
-    work = join(tmpdir(), `renderizr-mermaid-${MERMAID_VERSION}`),
-) {
+/**
+ * Where the checkout and the bundling tools are kept between runs: the
+ * user's own cache folder, not a shared temp folder another user could fill
+ * first, and outside the repo, whose `tsconfig.json` would change the bundle.
+ */
+const CACHE = join(
+    process.env.XDG_CACHE_HOME || join(homedir(), ".cache"),
+    `renderizr-mermaid-${MERMAID_VERSION}`,
+);
+
+export async function generate(work = CACHE) {
     mkdirSync(work, { recursive: true });
     prepare(work);
     const require = createRequire(join(work, "package.json"));

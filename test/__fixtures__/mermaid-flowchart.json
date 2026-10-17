@@ -76,12 +76,21 @@
                 "order": 7
             },
             {
+                "content": "https://mermaid.ink/svg/pako:eJxtUkFuwyAQ_MqKXmypqe85tB-omiit1IPJgeJ1QMaAgDSNHP-9MuAosXJiNTM7uztiAMJNg2RNWmVOXDAX4H1HNQCAlRaV1FjvUCHzeAX2sFq9ghfGFt_4E4sytUxlJLlA3g0b16CDX6Zk8zYmRSQmyeWM_gJeHvTRFsWnPOjV0ZblUqXNBcxk4-si2vlynzQJjdOsQ8scDsM2FWMelvGoEeiw_hLSQyPZwbE-20x4FGgTZHuuP-KTSa4k7653g3DYAiVPLgVCCVCysaghCAS3SImSW4-YDCUiBOvXVYV_rLcKX7jpq4m6t0rIbXsKZJ6fUlsMiNgsGU7Gdd4yjmOV7_UP23KKjzdL5H3DnOm8i1VM6ntJjHTmldTdwiIlDZwpleuipJo8A-nR9Uw2ZD2QILCf_mWDLTuqQMbxH6f65sI",
+                "contentType": "image/svg+xml",
+                "description": "Nodes that link to other views, to URLs and to this view itself, and a click callback.",
+                "key": "links",
+                "name": "Click links",
+                "order": 8,
+                "title": "Click links"
+            },
+            {
                 "content": "https://mermaid.ink/svg/pako:eJxdks1qhDAURl_lI-umpP8wVFdddtV2l3EhSQal6oXklhGGeffi1YCZ7fm8J2fhBcqRD-qgTgOdXddGxufXcQKAZOw3Db1voLVGerATTaHJG7SukR5tGyOd95SQnqzroxuKj2ekZ-sipZTpy3qbGryLy2z8dbtODUh0eXhb75dhFuE2eGM_iDkspfcavij1ZoE1fJm6YoK_aV35DF_G-n2s6PLbRa0Y81LkinNb2Nifrne_DaqqAhe5bFBVNbisFUrgm1jBM7hs5V2ruPKz-1TR5WFfKkJznNQd1Bji2PZeHS6KuzAuv4kPp_ZvYHW9_gOqwqx-",
                 "contentType": "image/svg+xml",
                 "description": "Every flowchart End marker at both ends, on solid, dotted and thick lines.",
                 "key": "markers",
                 "name": "End markers",
-                "order": 8,
+                "order": 9,
                 "title": "End markers"
             }
         ],

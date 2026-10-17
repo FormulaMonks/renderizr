@@ -8,7 +8,11 @@
  * the diagram means throws `NotDrawnYet`, which fails the whole diagram.
  */
 
+import { checkCss, checkEdgeCss, NODE_CSS } from "./styling.js";
 import { NotDrawnYet } from "./warnings.js";
+
+/** An HTML tag other than a line break, which Mermaid reads anyway. */
+const HTML_TAG = /<(?!br\s*\/?>)\/?[a-z][^>]*>/i;
 
 /**
  * Mermaid's shape names, from the flowchart grammar and `@{ shape: … }`,
@@ -85,6 +89,17 @@ const entity = (__, name) =>
         ? String.fromCodePoint(Number(name))
         : ENTITIES[name] ?? `#${name};`;
 
+/** `text` with every tag gone, removed again until none is left. */
+function withoutTags(text) {
+    let previous;
+    let current = text;
+    do {
+        previous = current;
+        current = current.replace(/<[^>]*>/g, "");
+    } while (current !== previous);
+    return current;
+}
+
 /**
  * A label as plain text lines: `<br>` and the end of each block element
  * break the line, every other tag goes (Structurizr's `mermaid <viewKey>`
@@ -92,10 +107,11 @@ const entity = (__, name) =>
  * Markdown backticks around a string go.
  */
 export function plainLabel(label) {
-    return String(label ?? "")
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/(div|p|li|h\d)>/gi, "\n")
-        .replace(/<[^>]*>/g, "")
+    return withoutTags(
+        String(label ?? "")
+            .replace(/<br\s*\/?>/gi, "\n")
+            .replace(/<\/(div|p|li|h\d)>/gi, "\n"),
+    )
         .replace(/[#&](\w+);/g, entity)
         .split("\n")
         .map((line) => line.trim())
@@ -106,6 +122,10 @@ export function plainLabel(label) {
 
 /** A label, with what of it Renderizr leaves out added to `ignored`. */
 function labelOf(item, ignored) {
+    // Structurizr's `mermaid <viewKey>` export writes HTML into its labels,
+    // which draw as plain text lines.
+    if (HTML_TAG.test(String(item.label ?? item.title ?? "")))
+        ignored.add("htmlLabels");
     let label = plainLabel(item.label ?? item.title);
     if (/(^|\s)fa[bklrs]?:fa-[\w-]+/.test(label)) {
         ignored.add("fa: icons");
@@ -143,6 +163,7 @@ export function readFlowchart(db, ignored) {
     const nodes = [];
     for (const item of items) {
         const parent = item.parentId && { parent: item.parentId };
+        checkCss(item.cssStyles, NODE_CSS, ignored);
         if (item.isGroup) {
             const direction = DIRECTIONS[directions.get(item.id)];
             subgraphs.push({
@@ -155,6 +176,9 @@ export function readFlowchart(db, ignored) {
             });
             continue;
         }
+        // A callback runs the page's own script; only a link leads anywhere.
+        if (db.vertices?.get(item.id)?.haveCallback)
+            ignored.add("click callbacks");
         const shape = SHAPES[item.shape];
         if (!shape)
             ignored.add(`shape "${FALLBACK_NAMES[item.shape] ?? item.shape}"`);
@@ -181,6 +205,7 @@ export function readFlowchart(db, ignored) {
             continue;
         }
         if ((link.minlen ?? 1) > 1) ignored.add("link length");
+        checkEdgeCss(link.style, ignored);
         edges.push({
             id: String(index),
             source: link.start,
@@ -196,6 +221,8 @@ export function readFlowchart(db, ignored) {
         });
     }
 
+    for (const definition of db.getClasses().values())
+        checkCss(definition.styles, NODE_CSS, ignored);
     const classDefs = Object.fromEntries(
         [...db.getClasses()].map(([name, definition]) => [
             name,

@@ -243,6 +243,25 @@ export type MermaidConfig = {
     [key: string]: unknown;
 };
 
+/**
+ * The palette a source's `theme` and `themeVariables` give, which the build
+ * derives with Mermaid's own theme code (spec: Styling): only the colors
+ * the honored theme variables reach, as Mermaid draws them.
+ */
+export type MermaidPalette = {
+    /** Whether it is a dark palette, which then applies in both schemes. */
+    dark: boolean;
+    node: { background: string; stroke: string; color: string };
+    edge: { color: string; labelColor: string; labelBackground: string };
+    group: { background: string; stroke: string; color: string };
+    /** An ERD's attribute rows. */
+    rows: { odd: string; even: string };
+    /** The source's `fontSize`, in Mermaid's px, when it sets one. */
+    fontSize?: number;
+    /** The source's `fontFamily`, when it sets one. */
+    fontFamily?: string;
+};
+
 /** The plain model of a Mermaid flowchart the build parsed (spec: Parsing in the build). */
 export type MermaidFlowchart = {
     kind: "flowchart";
@@ -255,6 +274,8 @@ export type MermaidFlowchart = {
     /** The frontmatter `title`. */
     title?: string;
     config: MermaidConfig;
+    /** Absent on a silent source, which sets no `theme` and no `themeVariables`. */
+    palette?: MermaidPalette;
     error?: undefined;
 };
 

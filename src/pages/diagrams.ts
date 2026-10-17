@@ -13,6 +13,8 @@ import { type Engine, isAbortError, mountEngine } from "../engine";
 import {
     elementTargets,
     isEditable,
+    mermaidNodeOf,
+    mermaidNodeTargets,
     relationshipTargets,
     type Target,
     WorkspaceModel,
@@ -260,9 +262,19 @@ export default class Diagrams extends Page {
             }),
             engine.onElementActivated((id, anchor) => {
                 const element = model.findElementById(id);
-                if (!element) return;
+                if (element) {
+                    menu.activate(
+                        elementTargets(model, element, current()),
+                        anchor,
+                    );
+                    return;
+                }
+                // A Mermaid node isn't in the model; its diagram holds its link.
+                const view = model.findViewByKey(current());
+                const node = mermaidNodeOf(view, id);
+                if (!node) return;
                 menu.activate(
-                    elementTargets(model, element, current()),
+                    mermaidNodeTargets(model, node.link, current()),
                     anchor,
                 );
             }),

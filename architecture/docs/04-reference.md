@@ -96,15 +96,23 @@ A diagram Renderizr can't draw prints its reason, and the page shows the same te
 | an edge to a subgraph isn't something Renderizr draws yet | An edge starts or ends at a subgraph rather than at a node. A construct that carries meaning fails the whole diagram rather than draw it wrong |
 | the arrow end "…" isn't something Renderizr draws yet | An edge ends in a marker Renderizr has no End marker for. Flowcharts today only write arrows, circles and crosses, so this guards against a newer Mermaid |
 
-A diagram that draws but uses what Renderizr leaves out prints one warning that lists it, each entry once, nodes before links: `Image view "<key>": Renderizr supports only a subset of Mermaid styling; ignored: <entries>`.
+A diagram that draws but uses what Renderizr leaves out prints one warning that lists it, each entry once, in this order: the config's entries, then the subgraphs' and nodes', then the links', then the classes': `Image view "<key>": Renderizr supports only a subset of Mermaid styling; ignored: <entries>`.
 
 | Entry | What Renderizr does instead |
 | --- | --- |
+| `theme "<name>"` | Draws Mermaid's `default` theme in place of a theme Mermaid doesn't know |
+| A theme variable, such as `mainBkg` | Derives the palette without a theme variable that [Styles](02-usage.md#styles) doesn't list |
+| `look` | Draws Mermaid's `classic` look in place of `handDrawn` or `neo` |
+| `htmlLabels` | Draws every label as plain text lines, whatever `htmlLabels` says; also named for a label that holds HTML, as Structurizr's `mermaid <viewKey>` writes it |
+| `layout: elk` | Lays the diagram out with Dagre, since Renderizr doesn't bundle ELK |
+| `elk.<option>` | Leaves out each ELK option |
+| A CSS property, such as `opacity` | Leaves out a property that a node's or subgraph's `style`, a `classDef` or a `linkStyle` sets and that [Styles](02-usage.md#styles) doesn't list. A link's `fill:none` names nothing, since a line draws no fill |
 | `shape "<name>"` | Draws a rectangle in place of a stadium, subroutine, asymmetric, parallelogram, trapezoid or double circle node, or of any other `@{ shape }` name |
 | `invisible links` | Leaves each `~~~` link out of the drawing and the layout |
 | `link length` | Lays a longer link (`--->`) out as an ordinary one |
 | `Markdown strings` | Draws the text of a Markdown string without its emphasis |
 | `fa: icons` | Draws a label without its Font Awesome icons |
+| `click callbacks` | Leaves out a `click` line that calls a function (`click A callback`, `click A call notify()`); a `click` link still leads where it says |
 
 ## The Mermaid parser
 

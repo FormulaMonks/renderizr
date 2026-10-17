@@ -7,8 +7,13 @@
 import assert from "node:assert/strict";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { WorkspaceModel, elementTargets, relationshipTargets, classifyLink } =
-    await importSrc("model/index");
+const {
+    WorkspaceModel,
+    elementTargets,
+    relationshipTargets,
+    classifyLink,
+    mermaidNodeTargets,
+} = await importSrc("model/index");
 
 /** A small workspace with every kind of destination an element can offer. */
 const workspace = () => ({
@@ -348,4 +353,31 @@ test("documentation and decisions are labeled by what they are", () => {
         "mailto:team@example.com",
         "a link with no host is labeled with itself",
     );
+});
+
+/* ------------------------------------------------------- Mermaid nodes */
+
+test("a Mermaid node's link offers what an element link would, from the view on screen", () => {
+    const m = model();
+    const cases = [
+        ["a URL", "https://example.com/shop", ["link: example.com"]],
+        ["a view by hash", "#Context", ["view: System in context"]],
+        [
+            "a view under the workspace's address",
+            "{workspace}/diagrams#Containers",
+            ["view: Container View: System"],
+        ],
+        ["the view on screen", "#Landscape", []],
+        ["the view on screen by route", "?view=Landscape", []],
+        ["a view the workspace lacks", "#Nowhere", []],
+        ["a script", "javascript:alert(1)", []],
+        ["no link", undefined, []],
+    ];
+    for (const [name, link, expected] of cases) {
+        assert.deepEqual(
+            labeled(mermaidNodeTargets(m, link, "Landscape")),
+            expected,
+            name,
+        );
+    }
 });

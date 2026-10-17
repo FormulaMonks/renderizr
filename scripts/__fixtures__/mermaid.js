@@ -15,7 +15,9 @@ export function encodeMermaid(
     source,
     { url = MERMAID_URL, kind = "svg" } = {},
 ) {
-    const escaped = source.replace(/"/g, '\\"').replace(/\n/g, "\\n");
+    // Structurizr escapes only double quotes and newlines and leaves
+    // backslashes as they are: the template the decoder reads.
+    const escaped = source.split('"').join('\\"').split("\n").join("\\n");
     const json = `{ "code":"${escaped}", "mermaid":{"theme":"default"}}`;
     const encoded = deflateSync(Buffer.from(json, "utf8")).toString(
         "base64url",
