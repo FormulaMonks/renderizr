@@ -729,7 +729,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
         <div
             data-element-id={data.id}
             data-shape={data.shape}
-            title={fullText}
+            title={data.tooltip ?? fullText}
             aria-label={fullText}
             {...target}
             style={{ position: "relative", width: "100%", height: "100%" }}

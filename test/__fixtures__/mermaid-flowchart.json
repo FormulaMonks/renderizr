@@ -74,6 +74,15 @@
                 "contentType": "image/svg+xml",
                 "key": "untitled",
                 "order": 7
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxtUkFuwyAQ_MqKXmypqe85tB-omiit1IPJgeJ1QMaAgDSNHP-9MuAosXJiNTM7uztiAMJNg2RNWmVOXDAX4H1HNQCAlRaV1FjvUCHzeAX2sFq9ghfGFt_4E4sytUxlJLlA3g0b16CDX6Zk8zYmRSQmyeWM_gJeHvTRFsWnPOjV0ZblUqXNBcxk4-si2vlynzQJjdOsQ8scDsM2FWMelvGoEeiw_hLSQyPZwbE-20x4FGgTZHuuP-KTSa4k7653g3DYAiVPLgVCCVCysaghCAS3SImSW4-YDCUiBOvXVYV_rLcKX7jpq4m6t0rIbXsKZJ6fUlsMiNgsGU7Gdd4yjmOV7_UP23KKjzdL5H3DnOm8i1VM6ntJjHTmldTdwiIlDZwpleuipJo8A-nR9Uw2ZD2QILCf_mWDLTuqQMbxH6f65sI",
+                "contentType": "image/svg+xml",
+                "description": "Nodes that link to other views, to URLs and to this view itself, and a click callback.",
+                "key": "links",
+                "name": "Click links",
+                "order": 8,
+                "title": "Click links"
             }
         ],
         "systemLandscapeViews": [

@@ -18,17 +18,22 @@ const {
     WorkspaceModel,
     findViewError,
     inertToggles,
+    mermaidNodeOf,
     resolveView,
     whyNotEditable,
     NOTHING_TO_EXPORT,
 } = await importSrc("model/index");
 const { buildGraph } = await importSrc("engine/react-flow/graph");
 const { estimateText } = await importSrc("engine/geometry/boundary");
-const { mermaidNodeSize, mermaidLabelSize } = await importSrc(
-    "engine/geometry/mermaid",
-);
+const { mermaidNodeSize, mermaidLabelSize, mermaidLabelHeight } =
+    await importSrc("engine/geometry/mermaid");
 const { shapeGeometry } = await importSrc("engine/geometry/shapes/index");
-const { SIDE_PADDING } = await importSrc("engine/geometry/label");
+const { SIDE_PADDING, INDICATOR_ROW_HEIGHT } = await importSrc(
+    "engine/geometry/label",
+);
+const { INDICATOR_INSET, INDICATOR_SIZE, glyphDataUrl } = await importSrc(
+    "engine/geometry/indicators",
+);
 const { layOutClusters, sourcesFirst } = await importSrc(
     "engine/layout/automatic",
 );
@@ -81,6 +86,7 @@ test("an image view with a mermaid model draws as a Mermaid diagram, in the imag
         [
             "landscape",
             "left-right",
+            "links",
             "plain",
             "release",
             "signup",
@@ -288,6 +294,98 @@ test("a node with more lines is taller, and the workspace's fontSize sizes it", 
     const big = mermaidNodeSize("Box", "Help desk", 34, estimateText);
     assert.ok(two.height > one.height);
     assert.ok(big.width > one.width && big.height > one.height);
+});
+
+test("a node with a target grows by its indicator row, the diamond most", () => {
+    const label = "Order valid?";
+    const growth = (shape) => {
+        const plain = mermaidNodeSize(shape, label, 17, estimateText);
+        const linked = mermaidNodeSize(shape, label, 17, estimateText, 1);
+        return {
+            width: linked.width - plain.width,
+            height: linked.height - plain.height,
+        };
+    };
+    assert.deepEqual(growth("Box"), {
+        width: 0,
+        height: INDICATOR_ROW_HEIGHT,
+    });
+    const diamond = growth("Diamond");
+    assert.equal(diamond.width, diamond.height, "a diamond stays square");
+    for (const shape of [
+        "Box",
+        "RoundedBox",
+        "Circle",
+        "Cylinder",
+        "Hexagon",
+    ]) {
+        assert.ok(growth(shape).height > 0, `${shape} grows`);
+        assert.ok(
+            diamond.height >= growth(shape).height,
+            `the diamond grows at least as much as ${shape}`,
+        );
+    }
+});
+
+/** Whether `point`, relative to a `width` x `height` box, is inside `shape`'s outline. */
+function inside(shape, width, height, { x, y }) {
+    const dx = Math.abs(x - width / 2) / (width / 2);
+    const dy = Math.abs(y - height / 2) / (height / 2);
+    if (shape === "Diamond") return dx + dy <= 1 + 1e-9;
+    if (shape === "Circle") return dx * dx + dy * dy <= 1 + 1e-9;
+    if (shape === "Hexagon")
+        return (
+            dy <= 1 && Math.abs(x - width / 2) <= width / 2 - (dy * width) / 4
+        );
+    return x >= 0 && x <= width && y >= 0 && y <= height;
+}
+
+test("every shape fits its indicator row inside its outline, and the cylinder's above its bottom curve", () => {
+    for (const label of ["A", "Order valid?", "Help desk\n9am to 5pm"]) {
+        for (const shape of [
+            "Box",
+            "RoundedBox",
+            "Diamond",
+            "Circle",
+            "Cylinder",
+            "Hexagon",
+        ]) {
+            const name = `${shape} "${label}"`;
+            const { width, height } = mermaidNodeSize(
+                shape,
+                label,
+                17,
+                estimateText,
+                1,
+            );
+            const { content } = shapeGeometry(shape, width, height);
+            const labelHeight = mermaidLabelHeight(shape, content, true);
+            const text = mermaidLabelSize(label, 17, estimateText);
+            assert.ok(
+                text.height + INDICATOR_ROW_HEIGHT <= labelHeight + 1e-6,
+                `${name}: the label and the row fit`,
+            );
+            const bottom = content.y + labelHeight - INDICATOR_INSET;
+            const top = bottom - INDICATOR_SIZE;
+            const left = content.x + (content.width - INDICATOR_SIZE) / 2;
+            const right = left + INDICATOR_SIZE;
+            for (const point of [
+                { x: left, y: top },
+                { x: right, y: top },
+                { x: left, y: bottom },
+                { x: right, y: bottom },
+            ])
+                assert.ok(
+                    inside(shape, width, height, point),
+                    `${name}: the row is inside at ${point.x},${point.y}`,
+                );
+            if (shape === "Cylinder")
+                assert.ok(
+                    bottom <= height - content.y + 1e-6,
+                    `${name}: the row sits above the bottom curve`,
+                );
+        }
+    }
 });
 
 /* ------------------------------------------------------------------ layout */
@@ -503,6 +601,131 @@ test("an edge's label is its text alone, and a Mermaid node offers no activation
     assert.equal(graph.edges[0].technology, "");
     assert.ok(graph.elements.every((e) => e.targets.length === 0));
     assert.deepEqual(graph.focusOrder, []);
+});
+
+/** A flowchart `flow` whose nodes link to another view, a URL and itself, beside a view `other`. */
+const linkedModel = () =>
+    modelOf(
+        [
+            "flowchart LR",
+            "  view[Other view] --> url[Web shop] --> self[This view]",
+            "  self --> none[Nothing]",
+            "  subgraph group[Group]",
+            "    none",
+            "  end",
+            '  click view href "#other"',
+            '  click url "https://example.com/shop" "Open the shop"',
+            '  click self href "#flow"',
+            '  click group href "https://example.com/group"',
+        ].join("\n"),
+        {
+            edit: (json) => {
+                json.views.imageViews.push({
+                    key: "other",
+                    title: "Other",
+                    content: "https://example.test/other.png",
+                });
+            },
+        },
+    );
+
+test("a Mermaid node with a click link offers it, and one linking to itself or nowhere offers nothing", () => {
+    const graph = graphOf(linkedModel());
+    assert.deepEqual(box(graph, "view").targets, ["view"]);
+    assert.deepEqual(box(graph, "url").targets, ["link"]);
+    assert.deepEqual(box(graph, "self").targets, []);
+    assert.deepEqual(box(graph, "none").targets, []);
+    assert.ok(
+        graph.boundaries.every((b) => b.targets.length === 0),
+        "subgraphs offer nothing",
+    );
+    assert.ok(
+        graph.edges.every((e) => e.targets.length === 0),
+        "edges offer nothing",
+    );
+});
+
+test("a linked node joins the Tab order in reading order, and grows by its row", () => {
+    const graph = graphOf(linkedModel());
+    assert.deepEqual(
+        graph.focusOrder.map((item) => item.id),
+        ["mermaid:view", "mermaid:url"],
+    );
+    assert.deepEqual(graph.focusOrder[0].activation, {
+        type: "element",
+        id: "mermaid:view",
+    });
+    assert.ok(box(graph, "url").height > box(graph, "self").height);
+});
+
+test("the fixture's click links offer views, URLs and nothing for this view, in every shape", () => {
+    const graph = graphOf(new WorkspaceModel(FLOWCHART), "light", "links");
+    const offered = Object.fromEntries(
+        graph.elements.map((e) => [e.id.slice("mermaid:".length), e.targets]),
+    );
+    assert.deepEqual(offered, {
+        pipeline: ["view"],
+        shop: ["link"],
+        check: ["view"],
+        signup: ["view"],
+        orders: ["link"],
+        prepare: ["view"],
+        here: [],
+        notify: [],
+    });
+    assert.equal(graph.focusOrder.length, 6);
+});
+
+test("the page finds an activated node's link in the diagram's model, and nothing on any other view", () => {
+    const model = linkedModel();
+    const flow = model.findViewByKey("flow");
+    assert.equal(
+        mermaidNodeOf(flow, "mermaid:url")?.link,
+        "https://example.com/shop",
+    );
+    assert.equal(mermaidNodeOf(flow, "mermaid-group:group"), undefined);
+    assert.equal(
+        mermaidNodeOf(model.findViewByKey("other"), "mermaid:url"),
+        undefined,
+    );
+    assert.equal(
+        mermaidNodeOf(
+            new WorkspaceModel(ERRORS).findViewByKey("parse-error"),
+            "mermaid:A",
+        ),
+        undefined,
+    );
+});
+
+test("a node's tooltip is its hover title", () => {
+    const graph = graphOf(linkedModel());
+    assert.equal(box(graph, "url").tooltip, "Open the shop");
+    assert.equal(box(graph, "view").tooltip, undefined);
+});
+
+test("a linked node exports its indicator glyph", () => {
+    const graph = graphOf(linkedModel());
+    const { svg } = exportSvg({
+        graph,
+        frame: exportFrame(undefined, graph.bounds),
+        titleBlock: {
+            view: "Flow",
+            description: "",
+            user: "Unknown",
+            modified: "10/16/2026",
+        },
+        text: {
+            measure: estimateText,
+            ascent: 0.9,
+            descent: 0.22,
+            family: "Helvetica, Arial, sans-serif",
+            fontFaces: "",
+        },
+    });
+    const color = box(graph, "url").color;
+    const glyph = (kind) => glyphDataUrl(kind, color).replaceAll("&", "&amp;");
+    assert.ok(svg.includes(glyph("link")), "the URL node's glyph");
+    assert.ok(svg.includes(glyph("view")), "the view node's glyph");
 });
 
 /* ----------------------------------------------------------------- toolbar */

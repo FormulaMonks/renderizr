@@ -145,6 +145,9 @@ export function readFlowchart(db, ignored) {
             });
             continue;
         }
+        // A callback runs the page's own script; only a link leads anywhere.
+        if (db.vertices?.get(item.id)?.haveCallback)
+            ignored.add("click callbacks");
         const shape = SHAPES[item.shape];
         if (!shape)
             ignored.add(`shape "${FALLBACK_NAMES[item.shape] ?? item.shape}"`);
