@@ -97,13 +97,55 @@ function pixels(value) {
 }
 
 /**
- * The palette `config` gives, from the theme it names (Mermaid's default
- * when none) and the honored theme variables it sets; `undefined` for a
- * silent source, which sets neither. Adds to `ignored` what of the config
- * Renderizr leaves out: an unknown theme, theme variables outside the list,
- * `look`, `htmlLabels`, `layout: elk` and every `elk` key.
+ * The theme variables a sequence diagram's colors come from (spec: Sequence
+ * diagrams), in the palette under these names.
  */
-export function readPalette(config, ignored) {
+export const SEQUENCE_COLORS = [
+    "actorBkg",
+    "actorBorder",
+    "actorTextColor",
+    "actorLineColor",
+    "signalColor",
+    "signalTextColor",
+    "noteBkgColor",
+    "noteBorderColor",
+    "noteTextColor",
+    "labelBoxBkgColor",
+    "labelBoxBorderColor",
+    "labelTextColor",
+    "loopTextColor",
+    "activationBkgColor",
+    "activationBorderColor",
+    "sequenceNumberColor",
+    "rectBkgColor",
+];
+
+/**
+ * The theme variables a sequence diagram's source may set: its colors, the
+ * ones Mermaid derives them from, and the font.
+ */
+const SEQUENCE_VARIABLES = new Set([
+    ...SEQUENCE_COLORS,
+    "primaryColor",
+    "primaryBorderColor",
+    "primaryTextColor",
+    "fontSize",
+    "fontFamily",
+    "darkMode",
+]);
+
+/** The themes whose participants each take colors of their own, by participant order. */
+const COLOR_THEMES = new Set(["redux-color", "redux-dark-color"]);
+
+/**
+ * The theme `config` names (Mermaid's default when none) with the
+ * variables Mermaid's theme code derives from the ones in `honoredList` it
+ * sets; `undefined` for a silent source, which sets no `theme` and no
+ * `themeVariables`. Adds to `ignored` what of the config Renderizr leaves
+ * out: an unknown theme, theme variables outside the list, `look`,
+ * `htmlLabels`, `layout: elk` and every `elk` key.
+ */
+function readTheme(config, honoredList, ignored) {
     const { theme, themeVariables } = config;
     const named = typeof theme === "string" && theme in themes;
     if (theme !== undefined && !named) ignored.add(`theme "${theme}"`);
@@ -113,7 +155,7 @@ export function readPalette(config, ignored) {
             : {};
     const honored = {};
     for (const [name, value] of Object.entries(set)) {
-        if (THEME_VARIABLES.has(name)) honored[name] = value;
+        if (honoredList.has(name)) honored[name] = value;
         else ignored.add(name);
     }
     if (config.look !== undefined && config.look !== "classic")
@@ -131,16 +173,39 @@ export function readPalette(config, ignored) {
     const name = named ? theme : DEFAULT_THEME;
     const v = themes[name].getThemeVariables(honored);
     const fontSize = pixels(honored.fontSize);
-    // An ERD's rows take a tint of the entity's fill unless the source sets
-    // their colors: `rowOdd` and `rowEven`, or their older names.
-    const odd = honored.rowOdd ?? honored.attributeBackgroundColorOdd;
-    const even = honored.rowEven ?? honored.attributeBackgroundColorEven;
     const fontFamily =
         typeof honored.fontFamily === "string" && honored.fontFamily.trim()
             ? honored.fontFamily.trim()
             : undefined;
     return {
+        name,
+        honored,
+        v,
         dark: DARK_THEMES.has(name) || v.darkMode === true,
+        font: {
+            ...(fontSize !== undefined && { fontSize }),
+            ...(fontFamily !== undefined && { fontFamily }),
+        },
+    };
+}
+
+/**
+ * The palette `config` gives, from the theme it names (Mermaid's default
+ * when none) and the honored theme variables it sets; `undefined` for a
+ * silent source, which sets neither. Adds to `ignored` what of the config
+ * Renderizr leaves out: an unknown theme, theme variables outside the list,
+ * `look`, `htmlLabels`, `layout: elk` and every `elk` key.
+ */
+export function readPalette(config, ignored) {
+    const theme = readTheme(config, THEME_VARIABLES, ignored);
+    if (!theme) return undefined;
+    const { honored, v } = theme;
+    // An ERD's rows take a tint of the entity's fill unless the source sets
+    // their colors: `rowOdd` and `rowEven`, or their older names.
+    const odd = honored.rowOdd ?? honored.attributeBackgroundColorOdd;
+    const even = honored.rowEven ?? honored.attributeBackgroundColorEven;
+    return {
+        dark: theme.dark,
         node: {
             background: v.mainBkg,
             stroke: v.nodeBorder,
@@ -164,7 +229,55 @@ export function readPalette(config, ignored) {
                 ...(even !== undefined && { even: String(even) }),
             },
         }),
-        ...(fontSize !== undefined && { fontSize }),
-        ...(fontFamily !== undefined && { fontFamily }),
+        ...theme.font,
+    };
+}
+
+/** The color a theme's per-participant `colors` give the participant at `index`, cycling. */
+const nth = (colors, index) =>
+    Array.isArray(colors) && colors.length
+        ? String(colors[index % colors.length]).trim()
+        : undefined;
+
+/**
+ * A sequence diagram's palette (spec: Sequence diagrams): the sequence
+ * colors its `theme` and `themeVariables` give, and under `redux-color` or
+ * `redux-dark-color` each of its `count` participants' own fill and
+ * border, as Mermaid assigns them by participant order; `undefined` for a
+ * silent source, which never takes them. Adds to `ignored` what
+ * `readPalette` does, plus the sequence settings Renderizr leaves out:
+ * `curve`, each `sequence.*FontSize` and `sequence.*FontFamily`, and
+ * `messageMargin`.
+ */
+export function readSequencePalette(config, count, ignored) {
+    const theme = readTheme(config, SEQUENCE_VARIABLES, ignored);
+    const sequence =
+        config.sequence && typeof config.sequence === "object"
+            ? config.sequence
+            : {};
+    if (config.curve !== undefined || sequence.curve !== undefined)
+        ignored.add("curve");
+    for (const key of Object.keys(sequence))
+        if (/Font(Size|Family)$/.test(key)) ignored.add(`sequence.${key}`);
+    if (sequence.messageMargin !== undefined) ignored.add("messageMargin");
+    if (!theme) return undefined;
+    const { v } = theme;
+    const participants = COLOR_THEMES.has(theme.name)
+        ? Array.from({ length: count }, (_, i) => {
+              const background = nth(v.bkgColorArray, i);
+              const stroke = nth(v.borderColorArray, i);
+              return {
+                  ...(background && { background }),
+                  ...(stroke && { stroke }),
+              };
+          })
+        : undefined;
+    return {
+        dark: theme.dark,
+        colors: Object.fromEntries(
+            SEQUENCE_COLORS.map((name) => [name, String(v[name])]),
+        ),
+        ...(participants && { participants }),
+        ...theme.font,
     };
 }

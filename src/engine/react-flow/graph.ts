@@ -797,6 +797,7 @@ function drawView(
             { ...view, sequence: view.sequence },
             colorScheme,
             measure,
+            labels.descriptions,
         );
         return { ...empty(view), ...drawn, layout: view.layout };
     }

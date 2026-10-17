@@ -11,8 +11,9 @@
  * and one in front of them, which the island renders and the export
  * serializes as they are, so the two can't drift apart.
  *
- * Colors are a silent source's (spec: Sequence diagrams); a source's own
- * palette is a layer for later, over `colorsOf`.
+ * Colors are a silent source's (spec: Sequence diagrams), or the source's
+ * palette's: its fills in both schemes, its canvas colors where
+ * `sequenceOnCanvas` says.
  */
 
 import {
@@ -20,6 +21,7 @@ import {
     type ElementStyle,
     type MermaidMessage,
     type MermaidSequence,
+    type MermaidSequencePalette,
     messageStyle,
     mermaidEdgeId,
     mermaidNodeId,
@@ -29,6 +31,7 @@ import {
     SCHEME_DEFAULTS,
     SEQUENCE_FONT_SIZE,
     sequenceBoxStyle,
+    sequenceOnCanvas,
     type WorkspaceModel,
 } from "../../model/index";
 import type { MeasureText } from "../geometry/boundary";
@@ -248,29 +251,65 @@ function textShapes(
 /** The colors the layer draws in. */
 type Colors = {
     canvas: string;
+    /** Fragment titles and conditions, and box titles. */
     text: string;
+    /** Fragment lines. */
     line: string;
-    primary: string;
+    /** A fragment's tab and the keyword on it. */
+    tab: { fill: string; color: string };
+    /** A `rect` with no color of its own. */
+    rect: string;
+    /** How opaque a `rect`'s fill draws: a color from the source fades in dark mode. */
+    rectOpacity: (sourced: boolean) => number | undefined;
+    /** A sequence number's text, on its circle in the message's color. */
+    number: string;
     note: { fill: string; stroke: string; color: string };
     box: ElementStyle;
-    bar: { fill: number; stroke: number };
 };
 
-/** A silent source's colors in `scheme` (spec: Sequence diagrams). */
+/** Each participant's lifeline color and activation bar colors. */
+type Lanes = ReadonlyMap<
+    string,
+    { line: string; fill: string; stroke: string }
+>;
+
+/**
+ * The colors in `scheme`: a silent source's (spec: Sequence diagrams), or
+ * its `palette`'s fills in both schemes and its canvas colors where
+ * `sequenceOnCanvas` says, the scheme's elsewhere.
+ */
 function colorsOf(
     model: WorkspaceModel,
     scheme: ModelColorScheme,
     line: string,
+    palette: MermaidSequencePalette | undefined,
 ): Colors {
     const defaults = SCHEME_DEFAULTS[scheme];
+    const canvas = defaults.background;
+    const own = sequenceOnCanvas(palette, scheme) ? palette.colors : undefined;
+    const colors = palette?.colors;
+    const dark = scheme === "Dark";
     return {
-        canvas: defaults.background,
-        text: defaults.color,
-        line,
-        primary: mermaidPrimaryColor(scheme),
-        note: NOTE_COLORS[scheme],
+        canvas,
+        text: own?.loopTextColor ?? defaults.color,
+        line: own?.labelBoxBorderColor ?? line,
+        tab: colors
+            ? { fill: colors.labelBoxBkgColor, color: colors.labelTextColor }
+            : { fill: canvas, color: defaults.color },
+        rect:
+            colors?.rectBkgColor ??
+            mix(mermaidPrimaryColor(scheme), canvas, RECT_TINT),
+        rectOpacity: (sourced) =>
+            dark && (sourced || (palette && !palette.dark)) ? 0.2 : undefined,
+        number: own?.sequenceNumberColor ?? canvas,
+        note: colors
+            ? {
+                  fill: colors.noteBkgColor,
+                  stroke: colors.noteBorderColor,
+                  color: colors.noteTextColor,
+              }
+            : NOTE_COLORS[scheme],
         box: sequenceBoxStyle(model, scheme),
-        bar: BAR_MIX[scheme],
     };
 }
 
@@ -278,14 +317,13 @@ function colorsOf(
 function layerShapes(
     layout: SequenceLayout,
     colors: Colors,
-    fills: ReadonlyMap<string, string>,
+    lanes: Lanes,
     edges: ReadonlyMap<string, EdgeLine>,
 ): SequenceDrawing {
     const { size, line } = layout.text;
     const font = { "font-size": size };
     const back: SequenceShape[] = [];
     const front: SequenceShape[] = [];
-    const fillOf = (id: string) => fills.get(id) ?? colors.primary;
 
     for (const box of layout.boxes) {
         const style = colors.box;
@@ -298,6 +336,8 @@ function layerShapes(
                 width: box.width,
                 height: box.height,
                 fill: box.fill ?? "none",
+                // Behind the lines and text as a `rect` is, so it fades alike.
+                "fill-opacity": box.fill ? colors.rectOpacity(true) : undefined,
                 stroke: style.stroke ?? colors.text,
                 "stroke-width": style.strokeWidth ?? 1,
                 "stroke-dasharray": borderDashes(
@@ -326,10 +366,10 @@ function layerShapes(
                     y: f.y,
                     width: f.width,
                     height: f.height,
-                    fill: rect
-                        ? f.color ??
-                          mix(colors.primary, colors.canvas, RECT_TINT)
-                        : "none",
+                    fill: rect ? f.color ?? colors.rect : "none",
+                    "fill-opacity": rect
+                        ? colors.rectOpacity(f.color !== undefined)
+                        : undefined,
                     stroke: rect ? "none" : colors.line,
                     "stroke-width": rect ? undefined : 2,
                     "stroke-dasharray": rect ? undefined : "3 3",
@@ -351,7 +391,7 @@ function layerShapes(
                     ]
                         .map(([px, py]) => `${num(px)},${num(py)}`)
                         .join(" "),
-                    fill: colors.canvas,
+                    fill: colors.tab.fill,
                     stroke: colors.line,
                     "stroke-width": 2,
                 },
@@ -365,7 +405,7 @@ function layerShapes(
                     "font-weight": "bold",
                     "text-anchor": "middle",
                     "dominant-baseline": "central",
-                    fill: colors.text,
+                    fill: colors.tab.color,
                 },
                 text: f.fragment,
             },
@@ -411,12 +451,12 @@ function layerShapes(
                 x2: lifeline.x,
                 y1: lifeline.top,
                 y2: lifeline.bottom,
-                stroke: fillOf(lifeline.id),
+                stroke: lanes.get(lifeline.id)?.line,
                 "stroke-width": 1,
             },
         });
     for (const bar of layout.activations) {
-        const fill = fillOf(bar.id);
+        const lane = lanes.get(bar.id);
         back.push({
             tag: "rect",
             attrs: {
@@ -425,8 +465,8 @@ function layerShapes(
                 y: bar.y,
                 width: bar.width,
                 height: bar.height,
-                fill: mix(fill, colors.canvas, colors.bar.fill),
-                stroke: mix(fill, colors.canvas, colors.bar.stroke),
+                fill: lane?.fill,
+                stroke: lane?.stroke,
             },
         });
     }
@@ -511,7 +551,7 @@ function layerShapes(
                                   : 18,
                         "text-anchor": "middle",
                         "dominant-baseline": "central",
-                        fill: colors.canvas,
+                        fill: colors.number,
                     },
                     text,
                 },
@@ -529,18 +569,29 @@ export type SequenceGraph = {
     bounds: Bounds;
 };
 
-/** The sequence diagram `view` resolved to, as the graph draws it in `scheme`. */
+/**
+ * The sequence diagram `view` resolved to, as the graph draws it in
+ * `scheme`. With `notes` off (the descriptions toggle) it lays out as if
+ * the source had none, so the gaps they leave close.
+ */
 export function drawSequence(
     model: WorkspaceModel,
     view: ResolvedView & { sequence: MermaidSequence },
     scheme: ModelColorScheme,
     measure: MeasureText,
+    notes = true,
 ): SequenceGraph {
-    const script = view.sequence;
+    const script = notes
+        ? view.sequence
+        : {
+              ...view.sequence,
+              items: view.sequence.items.filter((i) => i.kind !== "note"),
+          };
+    const { palette } = script;
     const styles = new Map(
-        script.participants.map((p) => [
+        script.participants.map((p, i) => [
             p.id,
-            participantStyle(model, p, scheme),
+            participantStyle(model, p, scheme, palette, i),
         ]),
     );
     const widths = new Map(
@@ -565,7 +616,7 @@ export function drawSequence(
         end: "none",
         wrap: false,
     };
-    const text = messageStyle(model, solid, scheme);
+    const text = messageStyle(model, solid, scheme, palette);
     const layout = layOutSequence(
         script,
         widths,
@@ -598,7 +649,7 @@ export function drawSequence(
     const edges: EdgeLine[] = layout.messages.flatMap((placed) => {
         const message = messages.get(placed.id);
         if (!message) return [];
-        const style = messageStyle(model, message, scheme);
+        const style = messageStyle(model, message, scheme, palette);
         const key = mermaidEdgeId(placed.id);
         const { route } = placed;
         const markers = edgeMarkers(
@@ -631,6 +682,7 @@ export function drawSequence(
                 fontSize: layout.text.size,
                 labelWidth: style.width,
                 color: style.color,
+                ...(style.labelColor && { labelColor: style.labelColor }),
                 thickness: style.thickness,
                 style: style.style,
                 opacity: style.opacity / 100,
@@ -638,15 +690,37 @@ export function drawSequence(
         ];
     });
 
+    const canvas = SCHEME_DEFAULTS[scheme].background;
+    const own = sequenceOnCanvas(palette, scheme) ? palette.colors : undefined;
+    const lanes: Lanes = new Map(
+        script.participants.map((p, i) => {
+            const fill = styles.get(p.id)!.background;
+            const redux = palette?.participants?.[i];
+            const mixed = BAR_MIX[scheme];
+            // A lifeline takes the palette's line color where it applies,
+            // else the participant's fill; a bar the palette's colors, a
+            // redux-color participant's own, else a tint of the fill.
+            const bar = redux
+                ? {
+                      fill: redux.background ?? palette.colors.actorBkg,
+                      stroke: redux.stroke ?? palette.colors.actorBorder,
+                  }
+                : palette
+                  ? {
+                        fill: palette.colors.activationBkgColor,
+                        stroke: palette.colors.activationBorderColor,
+                    }
+                  : {
+                        fill: mix(fill, canvas, mixed.fill),
+                        stroke: mix(fill, canvas, mixed.stroke),
+                    };
+            return [p.id, { line: own?.actorLineColor ?? fill, ...bar }];
+        }),
+    );
     const sequence = layerShapes(
         layout,
-        colorsOf(model, scheme, text.color),
-        new Map(
-            script.participants.map((p) => [
-                p.id,
-                styles.get(p.id)!.background,
-            ]),
-        ),
+        colorsOf(model, scheme, text.color, palette),
+        lanes,
         new Map(edges.map((edge) => [edge.key, edge])),
     );
     return {

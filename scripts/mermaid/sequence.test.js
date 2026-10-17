@@ -422,3 +422,257 @@ test("the sequence fixture reads every view with only the fallbacks it means to 
         ignoredWarning("constructs", ["half arrows"]),
     ]);
 });
+
+/* ----------------------------------------------------------------- palette */
+
+const init = (config) => `%%{init: ${JSON.stringify(config)}}%%\n`;
+
+/** `color`, as Mermaid's theme code writes it, in `#rrggbb`, to compare against measured tables. */
+function hex(color) {
+    const names = { black: "#000000", white: "#ffffff", lightgrey: "#d3d3d3" };
+    const value = String(color).trim().toLowerCase();
+    if (names[value]) return names[value];
+    const short = /^#([\da-f])([\da-f])([\da-f])$/.exec(value);
+    if (short)
+        return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`;
+    if (/^#[\da-f]{6}$/.test(value)) return value;
+    const channels = (rgb) =>
+        `#${rgb.map((c) => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
+    const rgb = /^rgb\(([\d.]+),\s*([\d.]+),\s*([\d.]+)\)$/.exec(value);
+    if (rgb) return channels(rgb.slice(1).map(Number));
+    const hsl = /^hsl\((-?[\d.]+),\s*([\d.]+)%,\s*([\d.]+)%\)$/.exec(value);
+    assert.ok(hsl, `a color: ${color}`);
+    const h = (((Number(hsl[1]) % 360) + 360) % 360) / 360;
+    const s = Number(hsl[2]) / 100;
+    const l = Number(hsl[3]) / 100;
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const channel = (t) => {
+        const u = t < 0 ? t + 1 : t > 1 ? t - 1 : t;
+        if (u < 1 / 6) return p + (q - p) * 6 * u;
+        if (u < 1 / 2) return q;
+        if (u < 2 / 3) return p + (q - p) * (2 / 3 - u) * 6;
+        return p;
+    };
+    return channels([h + 1 / 3, h, h - 1 / 3].map((t) => channel(t) * 255));
+}
+
+const inHex = (colors) =>
+    Object.fromEntries(Object.entries(colors).map(([k, v]) => [k, hex(v)]));
+
+/**
+ * The sequence variables of each named theme as research 195 measured them
+ * on Mermaid 12.2.0's own pictures, and the base theme's with
+ * `primaryColor: "#d6eaf8"` (the sign-in fixture).
+ */
+const MEASURED = {
+    default: {
+        actorBkg: "#ececff",
+        actorBorder: "#9370db",
+        actorTextColor: "#000000",
+        actorLineColor: "#9370db",
+        signalColor: "#333333",
+        signalTextColor: "#333333",
+        noteBkgColor: "#fff5ad",
+        noteBorderColor: "#aaaa33",
+        noteTextColor: "#000000",
+        labelBoxBkgColor: "#ececff",
+        labelBoxBorderColor: "#9370db",
+        labelTextColor: "#000000",
+        loopTextColor: "#000000",
+        activationBkgColor: "#f4f4f4",
+        activationBorderColor: "#666666",
+        sequenceNumberColor: "#ffffff",
+        rectBkgColor: "#f9ffec",
+    },
+    dark: {
+        actorBkg: "#1f2020",
+        actorBorder: "#cccccc",
+        actorTextColor: "#d3d3d3",
+        actorLineColor: "#cccccc",
+        signalColor: "#d3d3d3",
+        signalTextColor: "#d3d3d3",
+        noteBkgColor: "#474949",
+        noteBorderColor: "#2f2f2f",
+        noteTextColor: "#b8b6b6",
+        labelBoxBkgColor: "#1f2020",
+        labelBoxBorderColor: "#cccccc",
+        labelTextColor: "#d3d3d3",
+        loopTextColor: "#d3d3d3",
+        activationBkgColor: "#474949",
+        activationBorderColor: "#cccccc",
+        sequenceNumberColor: "#000000",
+        rectBkgColor: "#201f1f",
+    },
+    forest: {
+        actorBkg: "#cde498",
+        actorBorder: "#a6cf47",
+        actorTextColor: "#000000",
+        actorLineColor: "#a6cf47",
+        signalColor: "#333333",
+        signalTextColor: "#333333",
+        noteBkgColor: "#fff5ad",
+        noteBorderColor: "#6eaa49",
+        noteTextColor: "#000000",
+        labelBoxBkgColor: "#cde498",
+        labelBoxBorderColor: "#326932",
+        labelTextColor: "#000000",
+        loopTextColor: "#000000",
+        activationBkgColor: "#f4f4f4",
+        activationBorderColor: "#666666",
+        sequenceNumberColor: "#ffffff",
+        rectBkgColor: "#e1efc0",
+    },
+    neutral: {
+        actorBkg: "#eeeeee",
+        actorBorder: "#d4d4d4",
+        actorTextColor: "#333333",
+        actorLineColor: "#d4d4d4",
+        signalColor: "#333333",
+        signalTextColor: "#333333",
+        noteBkgColor: "#666666",
+        noteBorderColor: "#999999",
+        noteTextColor: "#ffffff",
+        labelBoxBkgColor: "#eeeeee",
+        labelBoxBorderColor: "#d4d4d4",
+        labelTextColor: "#333333",
+        loopTextColor: "#333333",
+        activationBkgColor: "#f4f4f4",
+        activationBorderColor: "#666666",
+        sequenceNumberColor: "#ffffff",
+        rectBkgColor: "#eeeeee",
+    },
+};
+
+test("a silent sequence diagram carries no palette, and warns about nothing", () => {
+    const { mermaid, notices } = sequence("  A->>B: hi");
+    assert.equal(mermaid.palette, undefined);
+    assert.deepEqual(notices, []);
+});
+
+test("each named theme gives the sequence colors Mermaid draws, to the hex digit", () => {
+    for (const [theme, colors] of Object.entries(MEASURED)) {
+        const { mermaid } = readOne(
+            `${init({ theme })}sequenceDiagram\n  A->>B: hi\n`,
+        );
+        assert.deepEqual(inHex(mermaid.palette.colors), colors, theme);
+        assert.equal(mermaid.palette.dark, theme === "dark", theme);
+        assert.equal(mermaid.palette.participants, undefined, theme);
+    }
+});
+
+test("the base theme derives the sequence colors from primaryColor, as the sign-in fixture shows", () => {
+    const { mermaid } = readOne(
+        `${init({ theme: "base", themeVariables: { primaryColor: "#d6eaf8" } })}sequenceDiagram\n  A->>B: hi\n`,
+    );
+    assert.deepEqual(inHex(mermaid.palette.colors), {
+        actorBkg: "#d6eaf8",
+        actorBorder: "#bed0dd",
+        actorTextColor: "#333333",
+        actorLineColor: "#bed0dd",
+        signalColor: "#333333",
+        signalTextColor: "#333333",
+        noteBkgColor: "#fff5ad",
+        noteBorderColor: "#e4db95",
+        noteTextColor: "#333333",
+        labelBoxBkgColor: "#d6eaf8",
+        labelBoxBorderColor: "#bed0dd",
+        labelTextColor: "#333333",
+        loopTextColor: "#333333",
+        activationBkgColor: "#eaf8d6",
+        activationBorderColor: "#d4f1aa",
+        sequenceNumberColor: "#f4f4f4",
+        rectBkgColor: "#fcf2ec",
+    });
+});
+
+test("a sequence theme variable the source sets wins over the theme's", () => {
+    const { mermaid, notices } = readOne(
+        `${init({ theme: "forest", themeVariables: { noteBkgColor: "#123456", signalColor: "#654321" } })}sequenceDiagram\n  A->>B: hi\n`,
+    );
+    assert.equal(mermaid.palette.colors.noteBkgColor, "#123456");
+    assert.equal(mermaid.palette.colors.signalColor, "#654321");
+    assert.deepEqual(notices, []);
+});
+
+test("redux-color gives each participant its own fill and border, by participant order", () => {
+    const { mermaid } = sequence(
+        "  participant C\n  participant B\n  participant A\n  A->>B: hi",
+    );
+    assert.equal(mermaid.palette, undefined, "a silent source never takes it");
+    const color = readOne(
+        `${init({ theme: "redux-color" })}sequenceDiagram\n  participant C\n  participant B\n  A->>B: hi\n`,
+    ).mermaid;
+    assert.deepEqual(color.palette.participants, [
+        { background: "#FDF4FF", stroke: "#E879F9" },
+        { background: "#F0FDFA", stroke: "#2DD4BF" },
+        { background: "#FFF7ED", stroke: "#FB923C" },
+    ]);
+    const dark = readOne(
+        `${init({ theme: "redux-dark-color" })}sequenceDiagram\n  A->>B: hi\n`,
+    ).mermaid;
+    assert.equal(dark.palette.dark, true);
+    assert.deepEqual(
+        dark.palette.participants,
+        [{ stroke: "#E879F9" }, { stroke: "#2DD4BF" }],
+        "redux-dark-color outlines its participants and fills none",
+    );
+    const plain = readOne(
+        `${init({ theme: "redux" })}sequenceDiagram\n  A->>B: hi\n`,
+    ).mermaid;
+    assert.equal(plain.palette.participants, undefined);
+});
+
+test("the palette carries fontSize and fontFamily only when the source sets them", () => {
+    const { mermaid } = readOne(
+        `${init({ themeVariables: { fontSize: "20px", fontFamily: "Georgia, serif" } })}sequenceDiagram\n  A->>B: hi\n`,
+    );
+    assert.equal(mermaid.palette.fontSize, 20);
+    assert.equal(mermaid.palette.fontFamily, "Georgia, serif");
+    assert.equal(mermaid.palette.dark, false);
+});
+
+test("a sequence diagram warns about the sequence fonts, messageMargin, curve and flowchart theme variables", () => {
+    const { notices } = readOne(
+        [
+            "---",
+            "config:",
+            "  look: handDrawn",
+            "  curve: linear",
+            "  themeVariables:",
+            "    clusterBkg: '#ffcc00'",
+            "    actorBkg: '#ffeeee'",
+            "  sequence:",
+            "    actorFontSize: 20",
+            "    noteFontFamily: Georgia",
+            "    messageFontWeight: bold",
+            "    messageMargin: 40",
+            "    mirrorActors: false",
+            "---",
+            "sequenceDiagram",
+            "  A->>B: hi",
+        ].join("\n"),
+    );
+    assert.deepEqual(notices, [
+        ignoredWarning("seq", [
+            "clusterBkg",
+            "look",
+            "curve",
+            "sequence.actorFontSize",
+            "sequence.noteFontFamily",
+            "messageMargin",
+        ]),
+    ]);
+});
+
+test("a flowchart still warns about the sequence theme variables", () => {
+    const workspace = mermaidWorkspace([
+        mermaidView(
+            "flow",
+            `${init({ themeVariables: { actorBkg: "#ffeeee" } })}flowchart TD\n  A --> B\n`,
+        ),
+    ]);
+    assert.deepEqual(readMermaidDiagrams(workspace), [
+        ignoredWarning("flow", ["actorBkg"]),
+    ]);
+});

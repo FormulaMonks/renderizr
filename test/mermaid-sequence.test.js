@@ -536,7 +536,7 @@ test("a sequence diagram draws no animation, and only its technologies toggle hi
 
 test("every fixture view draws in both schemes, every construct on the constructs view", () => {
     const model = new WorkspaceModel(FIXTURE);
-    for (const key of ["checkout", "retry", "sign-in", "shapes", "constructs"])
+    for (const key of FIXTURE.views.imageViews.map((v) => v.key))
         for (const scheme of ["light", "dark"]) {
             const graph = buildGraph(model, key, scheme, LABELS, measure);
             assert.equal(graph.error, undefined, `${key} ${scheme}`);
@@ -597,4 +597,254 @@ test("a sequence diagram exports its layers around the edges, as the canvas draw
     assert.match(svg, />Place order<\/text>/, "message labels as text");
     assert.match(svg, />1<\/text>/, "sequence numbers");
     assert.doesNotMatch(svg, /data-sequence/, "no page hooks in the file");
+});
+
+test("an export with descriptions off leaves the notes out", () => {
+    const graph = buildGraph(
+        new WorkspaceModel(FIXTURE),
+        "checkout",
+        "light",
+        { ...LABELS, descriptions: false },
+        measure,
+    );
+    const { svg } = exportSvg({
+        graph,
+        frame: exportFrame(undefined, graph.bounds),
+        titleBlock: {
+            view: "Checkout",
+            description: "",
+            user: "Unknown",
+            modified: "10/16/2026",
+        },
+        text: {
+            measure,
+            ascent: 0.9,
+            descent: 0.22,
+            family: "Helvetica, Arial, sans-serif",
+            fontFaces: "",
+        },
+    });
+    assert.doesNotMatch(svg, />Waits for email<\/text>/);
+    assert.match(svg, />Place order<\/text>/);
+});
+
+/* ------------------------------------------------- styling from the source */
+
+const init = (config) => `%%{init: ${JSON.stringify(config)}}%%\n`;
+
+/** Every part a palette colors: participants, a bar, a note, a loop, a rect and numbers. */
+const STYLED =
+    "sequenceDiagram\n  autonumber\n  A->>+B: hi\n  Note over A: n\n  loop L\n    B-->>-A: bye\n  end\n  rect\n    A->>B: c\n  end\n";
+
+/** The shape `offset` places after `shape` in `layer`. */
+const after = (layer, shape, offset) => layer[layer.indexOf(shape) + offset];
+
+const paletteOf = (model) => model.findViewByKey("seq").mermaid.palette;
+
+test("a themed source colors every part from its palette, over the workspace's styles", () => {
+    const json = mermaidWorkspace([
+        mermaidView("seq", `${init({ theme: "forest" })}${STYLED}`),
+    ]);
+    json.views.configuration.styles = {
+        elements: [{ tag: "Mermaid", background: "#008800", fontSize: 20 }],
+        relationships: [{ tag: "Mermaid", color: "#880000" }],
+    };
+    readMermaidDiagrams(json);
+    const model = new WorkspaceModel(json);
+    const { colors } = paletteOf(model);
+    const graph = graphOf(model);
+    const a = graph.elements.find((e) => e.id === "mermaid:A");
+    assert.equal(
+        a.background,
+        colors.actorBkg,
+        "the config over the workspace",
+    );
+    assert.equal(a.stroke, colors.actorBorder);
+    assert.equal(a.color, colors.actorTextColor);
+    assert.equal(a.fontSize, 20, "what the palette leaves alone");
+    assert.equal(graph.edges[0].color, colors.signalColor);
+    assert.equal(graph.edges[0].labelColor, colors.signalTextColor);
+    const { back, front } = graph.sequence;
+    assert.equal(
+        shapes(back, "lifeline")[0].attrs.stroke,
+        colors.actorLineColor,
+    );
+    const [bar] = shapes(back, "activation");
+    assert.equal(bar.attrs.fill, colors.activationBkgColor);
+    assert.equal(bar.attrs.stroke, colors.activationBorderColor);
+    const [note] = shapes(front, "note");
+    assert.equal(note.attrs.fill, colors.noteBkgColor);
+    assert.equal(note.attrs.stroke, colors.noteBorderColor);
+    assert.equal(after(front, note, 1).attrs.fill, colors.noteTextColor);
+    const [loop] = shapes(back, "fragment loop");
+    assert.equal(loop.attrs.stroke, colors.labelBoxBorderColor);
+    assert.equal(after(back, loop, 1).attrs.fill, colors.labelBoxBkgColor);
+    assert.equal(after(back, loop, 2).attrs.fill, colors.labelTextColor);
+    assert.equal(after(back, loop, 3).attrs.fill, colors.loopTextColor);
+    const [rect] = shapes(back, "fragment rect");
+    assert.equal(rect.attrs.fill, colors.rectBkgColor);
+    assert.equal(rect.attrs["fill-opacity"], undefined);
+    const [number] = shapes(front, "number");
+    assert.equal(number.attrs.fill, colors.signalColor);
+    assert.equal(
+        after(front, number, 1).attrs.fill,
+        colors.sequenceNumberColor,
+    );
+});
+
+test("in dark mode a light palette keeps its fills, and what draws on the canvas follows the scheme", () => {
+    const model = modelOf(`${init({ theme: "forest" })}${STYLED}`);
+    const { colors } = paletteOf(model);
+    const silent = graphOf(modelOf(STYLED), "dark");
+    const graph = graphOf(model, "dark");
+    const a = graph.elements.find((e) => e.id === "mermaid:A");
+    assert.equal(a.background, colors.actorBkg, "fills keep the source's");
+    const { back, front } = graph.sequence;
+    assert.equal(shapes(front, "note")[0].attrs.fill, colors.noteBkgColor);
+    assert.equal(
+        shapes(back, "activation")[0].attrs.fill,
+        colors.activationBkgColor,
+    );
+    assert.equal(graph.edges[0].color, silent.edges[0].color, "messages");
+    assert.equal(graph.edges[0].labelColor, undefined);
+    const [loop] = shapes(back, "fragment loop");
+    assert.equal(loop.attrs.stroke, graph.edges[0].color, "fragment lines");
+    assert.equal(after(back, loop, 3).attrs.fill, "#cccccc", "their titles");
+    assert.equal(
+        shapes(back, "lifeline")[0].attrs.stroke,
+        colors.actorBkg,
+        "lifelines in the participant's fill",
+    );
+    const [number] = shapes(front, "number");
+    assert.equal(number.attrs.fill, graph.edges[0].color);
+    assert.equal(after(front, number, 1).attrs.fill, "#111111");
+    const [rect] = shapes(back, "fragment rect");
+    assert.equal(rect.attrs.fill, colors.rectBkgColor);
+    assert.equal(rect.attrs["fill-opacity"], 0.2, "a sourced rect fades");
+});
+
+test("a dark palette draws its own canvas colors in both schemes", () => {
+    const model = modelOf(`${init({ theme: "dark" })}${STYLED}`);
+    const { colors } = paletteOf(model);
+    for (const scheme of ["light", "dark"]) {
+        const graph = graphOf(model, scheme);
+        assert.equal(graph.edges[0].color, colors.signalColor, scheme);
+        const [rect] = shapes(graph.sequence.back, "fragment rect");
+        assert.equal(rect.attrs["fill-opacity"], undefined, scheme);
+    }
+});
+
+test("a rect's own color fades to 20 percent in dark mode only, on a silent source too", () => {
+    const model = modelOf(
+        "sequenceDiagram\n  rect rgb(1, 2, 3)\n    A->>B: c\n  end\n  rect\n    A->>B: d\n  end\n",
+    );
+    const [light] = shapes(graphOf(model).sequence.back, "fragment rect");
+    assert.equal(light.attrs["fill-opacity"], undefined);
+    const [colored, plain] = shapes(
+        graphOf(model, "dark").sequence.back,
+        "fragment rect",
+    );
+    assert.equal(colored.attrs.fill, "rgb(1, 2, 3)");
+    assert.equal(colored.attrs["fill-opacity"], 0.2);
+    assert.equal(plain.attrs["fill-opacity"], undefined, "a tint doesn't");
+});
+
+test("redux-color fills and outlines each participant and its bars in its own color", () => {
+    const body = "sequenceDiagram\n  A->>+B: hi\n  B-->>-A: bye\n";
+    const model = modelOf(`${init({ theme: "redux-color" })}${body}`);
+    const { participants } = paletteOf(model);
+    for (const scheme of ["light", "dark"]) {
+        const graph = graphOf(model, scheme);
+        const [a, b] = ["A", "B"].map((id) =>
+            graph.elements.find((e) => e.id === `mermaid:${id}`),
+        );
+        assert.equal(a.background, participants[0].background, scheme);
+        assert.equal(a.stroke, participants[0].stroke);
+        assert.equal(b.background, participants[1].background);
+        const [bar] = shapes(graph.sequence.back, "activation");
+        assert.equal(bar.attrs.fill, participants[1].background);
+        assert.equal(bar.attrs.stroke, participants[1].stroke);
+    }
+    const dark = modelOf(`${init({ theme: "redux-dark-color" })}${body}`);
+    const palette = paletteOf(dark);
+    const a = graphOf(dark).elements.find((e) => e.id === "mermaid:A");
+    assert.equal(a.background, palette.colors.actorBkg, "no fill of its own");
+    assert.equal(a.stroke, palette.participants[0].stroke);
+});
+
+test("the source's fontSize scales every sequence text from Mermaid's 16 px", () => {
+    const graph = graphOf(
+        modelOf(
+            `${init({ themeVariables: { fontSize: "24px" } })}sequenceDiagram\n  A->>B: hi\n`,
+        ),
+    );
+    const a = graph.elements.find((e) => e.id === "mermaid:A");
+    assert.equal(a.fontSize, 21);
+    assert.equal(graph.edges[0].fontSize, 30);
+});
+
+test("the fixture draws one source themed, in redux-color and silent, in both schemes", () => {
+    const model = new WorkspaceModel(FIXTURE);
+    const fill = (graph, id) =>
+        graph.elements.find((e) => e.id === `mermaid:${id}`).background;
+    const themed = model.findViewByKey("themed").mermaid.palette;
+    const redux = model.findViewByKey("redux").mermaid.palette;
+    assert.equal(model.findViewByKey("silent").mermaid.palette, undefined);
+    for (const [scheme, primary] of [
+        ["light", "#145b9e"],
+        ["dark", "#1168bd"],
+    ]) {
+        const draw = (key) => buildGraph(model, key, scheme, LABELS, measure);
+        assert.equal(fill(draw("themed"), "Web"), themed.colors.actorBkg);
+        assert.deepEqual(
+            ["Customer", "Web", "Orders", "Stock"].map((id) =>
+                fill(draw("redux"), id),
+            ),
+            redux.participants.map((p) => p.background),
+            scheme,
+        );
+        assert.equal(fill(draw("silent"), "Web"), primary, scheme);
+        for (const key of ["themed", "redux", "silent"]) {
+            const { back } = draw(key).sequence;
+            const [rect] = shapes(back, "fragment rect");
+            const [box] = shapes(back, "box");
+            assert.equal(rect.attrs.fill, "rgb(255, 230, 200)", key);
+            assert.equal(box.attrs.fill, "rgb(230, 240, 255)", key);
+            for (const shape of [rect, box])
+                assert.equal(
+                    shape.attrs["fill-opacity"],
+                    scheme === "dark" ? 0.2 : undefined,
+                    `${key} ${scheme}: a source's backdrop fades in dark mode`,
+                );
+        }
+    }
+});
+
+/* ---------------------------------------------------- descriptions toggle */
+
+test("descriptions off hides the notes, lays out without them and keeps a notes-only fragment", () => {
+    const model = modelOf(
+        "sequenceDiagram\n  A->>B: a\n  Note right of B: beside\n  opt Only a note\n    Note over A: n\n  end\n  A->>B: b\n",
+    );
+    const on = graphOf(model);
+    const off = buildGraph(
+        model,
+        "seq",
+        "light",
+        { ...LABELS, descriptions: false },
+        measure,
+    );
+    assert.equal(shapes(on.sequence.front, "note").length, 2);
+    assert.equal(shapes(off.sequence.front, "note").length, 0);
+    assert.ok(off.bounds.height < on.bounds.height, "the gaps close");
+    assert.equal(shapes(off.sequence.back, "fragment opt").length, 1);
+    assert.ok(
+        off.sequence.back.some((s) => s.text === "[Only a note]"),
+        "with its title",
+    );
+    assert.deepEqual(
+        off.edges.map((e) => e.description),
+        ["a", "b"],
+        "message labels always draw",
+    );
 });

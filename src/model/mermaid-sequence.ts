@@ -5,10 +5,10 @@
  * script the page lays out in place of placement and routing (spec:
  * Sequence diagrams). None of them enter `WorkspaceModel`.
  *
- * The styles here are a silent source's (spec: Sequence diagrams): the
- * participants take the primary color fill, the messages and boxes the
- * scheme's defaults, all beneath the workspace's tag styles. A source's
- * own palette is a layer for later.
+ * The styles layer as the spec's Styling says: a silent source's
+ * participants take the primary color fill, its messages and boxes the
+ * scheme's defaults; the workspace's tag styles go over those, and the
+ * source's palette over them both.
  */
 
 import {
@@ -20,6 +20,7 @@ import {
     MERMAID_EDGE_TAGS,
     MERMAID_GROUP_TAGS,
     MERMAID_NODE_TAGS,
+    type MermaidEdgeStyle,
     mermaidPrimaryColor,
     shiftChannels,
 } from "./mermaid-styles";
@@ -30,7 +31,6 @@ import {
     findElementStyle,
     findRelationshipStyle,
     findTaggedGroupStyle,
-    type RelationshipStyle,
     shadeColor,
 } from "./styles";
 import type {
@@ -39,6 +39,7 @@ import type {
     MermaidParticipant,
     MermaidParticipantType,
     MermaidSequence,
+    MermaidSequencePalette,
     ModelElement,
     ModelRelationship,
     ModelView,
@@ -123,11 +124,33 @@ export function resolveSequence(
     };
 }
 
-/** A participant's style: its shape by type, the primary color fill, then the workspace's. */
+/**
+ * Whether `palette`'s colors for what draws straight on the canvas (message
+ * lines and labels, sequence numbers, lifelines, fragment lines and titles)
+ * apply in `scheme`: a dark palette's always, a light one's in light mode;
+ * in dark mode those follow the scheme (spec: Styling).
+ */
+export const sequenceOnCanvas = (
+    palette: MermaidSequencePalette | undefined,
+    scheme: ColorScheme,
+): palette is MermaidSequencePalette =>
+    palette !== undefined && (palette.dark || scheme === "Light");
+
+/** `size` scaled by the source's `fontSize` over Mermaid's 16 px. */
+const scaled = (size: number, palette: MermaidSequencePalette | undefined) =>
+    palette?.fontSize === undefined ? size : (size * palette.fontSize) / 16;
+
+/**
+ * A participant's style: its shape by type, the primary color fill, then
+ * the workspace's, then the source's palette, where `index` picks a
+ * `redux-color` participant's own colors.
+ */
 export function participantStyle(
     model: WorkspaceModel,
     participant: MermaidParticipant,
     scheme: ColorScheme,
+    palette?: MermaidSequencePalette,
+    index = 0,
 ): ElementStyle {
     const primary = mermaidPrimaryColor(scheme);
     const {
@@ -148,6 +171,14 @@ export function participantStyle(
     // darker, rather than the stroke of the fill beneath it.
     if (workspace.background !== undefined && workspace.stroke === undefined)
         style.stroke = shadeColor(workspace.background, -10);
+    if (palette) {
+        const { colors } = palette;
+        const own = palette.participants?.[index];
+        style.background = own?.background ?? colors.actorBkg;
+        style.stroke = own?.stroke ?? colors.actorBorder;
+        style.color = colors.actorTextColor;
+        style.fontSize = scaled(style.fontSize, palette);
+    }
     return {
         ...style,
         tags: [...MERMAID_NODE_TAGS],
@@ -158,17 +189,26 @@ export function participantStyle(
     };
 }
 
-/** A message's style: the scheme's, then the workspace's; its arrow syntax picks the line. */
+/**
+ * A message's style: the scheme's, then the workspace's, then the source's
+ * palette where it applies (`sequenceOnCanvas`); its arrow syntax picks the line.
+ */
 export function messageStyle(
     model: WorkspaceModel,
     message: MermaidMessage,
     scheme: ColorScheme,
-): RelationshipStyle {
-    const style: RelationshipStyle = {
+    palette?: MermaidSequencePalette,
+): MermaidEdgeStyle {
+    const style: MermaidEdgeStyle = {
         ...findRelationshipStyle(model, { tags: "" }, scheme),
         fontSize: SEQUENCE_FONT_SIZE,
         ...explicitRelationshipStyle(model, MERMAID_EDGE_TAGS, scheme),
     };
+    if (sequenceOnCanvas(palette, scheme)) {
+        style.color = palette.colors.signalColor;
+        style.labelColor = palette.colors.signalTextColor;
+    }
+    style.fontSize = scaled(style.fontSize, palette);
     const line = message.line === "dotted" ? "Dotted" : "Solid";
     return {
         ...style,
