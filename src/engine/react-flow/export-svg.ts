@@ -65,14 +65,16 @@ export type TextSetting = {
 /**
  * What the title block says, each line left out when it has no value: the
  * view's title, the view's description, who last modified the workspace,
- * and the date it was last modified, already formatted for the reader.
- * `titleBlockText` always gives the last two a value, "Unknown" at worst.
+ * the date it was last modified, already formatted for the reader, and the
+ * credit to the Renderizr that drew it. `titleBlockText` always gives the
+ * last three a value, "Unknown" at worst.
  */
 export type TitleBlockText = {
     view: string;
     description: string;
     user: string;
     modified: string;
+    credit?: string;
 };
 
 export type ExportInput = {
@@ -737,6 +739,12 @@ export const TITLE_BLOCK_FONT_SIZE = 18;
 /** Space between the title block's text and its edges, the canvas included. */
 export const TITLE_BLOCK_PADDING = 40;
 
+/** The credit's font size, under the rest of the title block's. */
+export const CREDIT_FONT_SIZE = 14;
+
+/** How strongly the credit draws: the text color, faded toward the canvas. */
+export const CREDIT_OPACITY = 0.6;
+
 /** The most lines of the view's description the title block shows. */
 export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
 
@@ -746,8 +754,9 @@ export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
  * SVG. Line 1 is the view's title in bold, at an element name's size, scaled
  * from the band's. Under it come the view's description, wrapped to the band
  * and clamped after 4 lines, "Author:" with the user, and "Last updated:"
- * with the date. A line with no value is left out, and a band with no lines
- * at all takes no room.
+ * with the date. The credit closes it a line apart, smaller and lighter. A
+ * line with no value is left out, and a band with no lines at all takes no
+ * room.
  */
 export function titleBlock(
     content: TitleBlockText,
@@ -810,6 +819,27 @@ export function titleBlock(
             ),
         );
         top += lines.length * fontSize * LINE_HEIGHT;
+    }
+    const credit = content.credit?.trim()
+        ? wrap(content.credit.trim(), width, CREDIT_FONT_SIZE, false, measure)
+        : [];
+    if (credit.length) {
+        if (parts.length) top += fontSize * LINE_HEIGHT;
+        parts.push(
+            `<g opacity="${CREDIT_OPACITY}">${textLines(
+                {
+                    lines: credit,
+                    fontSize: CREDIT_FONT_SIZE,
+                    x,
+                    y: top,
+                    width,
+                    align: "start",
+                    color,
+                },
+                text,
+            )}</g>`,
+        );
+        top += credit.length * CREDIT_FONT_SIZE * LINE_HEIGHT;
     }
     if (!parts.length) return { height: 0, svg: "" };
     return {

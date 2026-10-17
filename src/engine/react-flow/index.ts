@@ -260,6 +260,7 @@ export function mountEngine(
                         graph.title,
                         view.description,
                         __RENDERIZR_BUILD_DATE__,
+                        __RENDERIZR_VERSION__,
                     ),
                     text: textSetting(
                         __RENDERIZR_FONT__,

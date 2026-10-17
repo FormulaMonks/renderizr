@@ -219,6 +219,27 @@ describe("export-svg", () => {
         }
     });
 
+    test("the title block ends with the credit, smaller, lighter and a line apart", () => {
+        const credit = "Created with Renderizr v2.4.0";
+        const plain = exported("AutoFrame");
+        const { svg, height } = exported("AutoFrame", {
+            titleBlock: { ...TITLE_BLOCK, credit },
+        });
+        const band = titleBlockOf(svg);
+        assert.equal(texts(band).at(-1), credit, "the credit comes last");
+        const tag = band.match(
+            /<text [^>]*>[^<]*Created with[^<]*<\/text>/,
+        )?.[0];
+        const size = Number(tag?.match(/font-size="([\d.]+)"/)?.[1]);
+        assert.ok(size < TITLE_BLOCK_FONT_SIZE, "smaller than the other lines");
+        assert.match(
+            band,
+            /<g opacity="0\.\d+">(?:(?!<\/g>).)*Created with/,
+            "lighter: drawn at an opacity under 1",
+        );
+        assert.ok(height > plain.height, "the band grows by the credit");
+    });
+
     test("the title block wraps the description to the canvas and clamps it after 4 lines", () => {
         const description = WORKSPACE.views.systemContextViews[0].description;
         const { svg, frame } = exported("AutoFrame", {
@@ -303,6 +324,17 @@ describe("export-file", () => {
         );
         assert.equal(text.user, "ada@example.com");
         assert.equal(text.modified, modifiedDate(WORKSPACE.lastModifiedDate));
+    });
+
+    test("the title block credits Renderizr, with its version when the build knows it", () => {
+        assert.equal(
+            titleBlockText(WORKSPACE, "View", "", BUILT, "2.4.0").credit,
+            "Created with Renderizr v2.4.0",
+        );
+        assert.equal(
+            titleBlockText(WORKSPACE, "View", "", BUILT, "").credit,
+            "Created with Renderizr",
+        );
     });
 
     test("the title block's author falls back to the agent, then to Unknown", () => {

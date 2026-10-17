@@ -101,13 +101,15 @@ export const UNKNOWN = "Unknown";
  * built at `built`. The description leaves out its author, as the
  * toolbar's does. The author is the workspace's `lastModifiedUser`, else its
  * `lastModifiedAgent`; the date is its `lastModifiedDate`, else `built`.
- * Either prints "Unknown" only when its fallback is empty too.
+ * Either prints "Unknown" only when its fallback is empty too. The credit
+ * names Renderizr, with its `version` when the build knows it.
  */
 export function titleBlockText(
     workspace: Record<string, unknown>,
     title: string,
     description: string,
     built: unknown,
+    version?: string | null,
 ): TitleBlockText {
     return {
         view: title,
@@ -120,6 +122,9 @@ export function titleBlockText(
             modifiedDate(workspace.lastModifiedDate) ||
             modifiedDate(built) ||
             UNKNOWN,
+        credit: version
+            ? `Created with Renderizr v${version}`
+            : "Created with Renderizr",
     };
 }
 
