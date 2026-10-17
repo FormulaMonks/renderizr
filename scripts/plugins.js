@@ -65,8 +65,8 @@ export function branding({ font, primaryColor = null }) {
     };
 }
 
-const SCRIPT_TAG = /<script\b[^>]*\ssrc="([^"]+)"[^>]*>\s*<\/script\b[^>]*>/gi;
 const SCRIPT_ELEMENT = /<script\b[\s\S]*?<\/script\b[^>]*>/gi;
+const SCRIPT_SRC = /^<script\b[^>]*\ssrc="([^"]+)"/i;
 const STYLE_TAG =
     /<link[^>]*\shref="([^"]+)"[^>]*\srel="stylesheet"[^>]*>|<link[^>]*\srel="stylesheet"[^>]*\shref="([^"]+)"[^>]*>/g;
 const PRELOAD_TAG = /<link[^>]*rel="modulepreload"[^>]*>/g;
@@ -123,8 +123,9 @@ export function singleFile() {
                             ? tag
                             : `<style>${css}</style>`;
                     })
-                    .replace(SCRIPT_TAG, (tag, src) => {
-                        const code = scripts.get(basename(src));
+                    .replace(SCRIPT_ELEMENT, (tag) => {
+                        const src = tag.match(SCRIPT_SRC)?.[1];
+                        const code = src && scripts.get(basename(src));
                         return code === undefined
                             ? tag
                             : `<script type="module">${code}</script>`;
