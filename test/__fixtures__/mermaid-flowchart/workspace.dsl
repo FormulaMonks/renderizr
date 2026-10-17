@@ -45,5 +45,11 @@ workspace "Mermaid flowcharts" "Image views that carry Mermaid flowchart source,
         image * "untitled" {
             mermaid untitled.mmd
         }
+
+        image * "links" {
+            mermaid links.mmd
+            title "Click links"
+            description "Nodes that link to other views, to URLs and to this view itself, and a click callback."
+        }
     }
 }

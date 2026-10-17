@@ -67,6 +67,21 @@ export const mermaidGroupId = (id: string) => `mermaid-group:${id}`;
 /** The relationship id an edge draws under. */
 export const mermaidEdgeId = (id: string) => `mermaid-edge:${id}`;
 
+/**
+ * The flowchart node of `view` drawn as element `elementId`, which the page
+ * reads a node's link from when it is activated, since `findElementById`
+ * doesn't know the node; `undefined` on any other view or element.
+ */
+export function mermaidNodeOf(
+    view: ModelView | undefined,
+    elementId: string,
+): MermaidNode | undefined {
+    const diagram = view?.type === "Mermaid" ? view.mermaid : undefined;
+    if (!diagram || diagram.error !== undefined) return undefined;
+    if (diagram.kind !== "flowchart") return undefined;
+    return diagram.nodes.find((node) => mermaidNodeId(node.id) === elementId);
+}
+
 /** Which of the two label toggles a view hides. */
 export type InertToggles = { descriptions: boolean; technologies: boolean };
 
