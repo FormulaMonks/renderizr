@@ -69,6 +69,8 @@ workspace {
 
 Without `--single-file`, the build writes `index.html`, an `assets/` folder and a favicon. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
 
+The footer of every page says what is on screen and which Renderizr built it: a C4 view is in C4 notation and drawn with React Flow, a Mermaid diagram comes from Mermaid source and is drawn with React Flow, a picture names only the workspace, and the documentation and decisions pages say whose they are.
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself into one document that makes no network requests at all:
@@ -98,8 +100,9 @@ An export shows the view as drawn: the diagram color scheme, the animation step 
 2. The view's description, wrapped to the canvas width and cut to four lines, when it has one.
 3. "Author:" and the workspace's `lastModifiedUser`, else its `lastModifiedAgent`.
 4. "Last updated:" and the workspace's `lastModifiedDate`, else the date of the build, in the reader's locale.
+5. "Created with Renderizr" and the version that built the site, smaller and lighter than the lines above it.
 
-Every export carries the author and date lines. Each one prints "Unknown" only when the workspace holds neither of its values.
+Every export carries the author, date and credit lines. Each one prints "Unknown" only when the workspace holds neither of its values.
 
 The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
 

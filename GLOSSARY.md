@@ -145,7 +145,7 @@ A file of one view as drawn, framed by its canvas, with its title block below, t
 _Avoid_: screenshot, download
 
 **Title block**:
-The band below an export's canvas that names the view and gives its description, who last modified the workspace and the date it was last modified. Only an export carries one.
+The band below an export's canvas that names the view and gives its description, who last modified the workspace, the date it was last modified and the Renderizr that drew it. Only an export carries one.
 _Avoid_: legend, key, metadata
 
 **Selection**:
