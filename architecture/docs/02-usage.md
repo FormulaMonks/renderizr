@@ -143,6 +143,8 @@ The view's `title` names the diagram, then the source's frontmatter `title`, the
 
 Renderizr lays a flowchart out with Dagre, the way Mermaid does at Renderizr's larger text: every length Mermaid uses grows by 1.5. Nodes sit 75 apart, ranks 75 apart and edges 30 apart, and a source's own `nodeSpacing` and `rankSpacing` grow the same way. Each node takes the size its label needs. A subgraph that no edge crosses lays out on its own and turns its direction (top to bottom becomes left to right) unless it sets `direction`. Every other subgraph stays part of the graph around it.
 
+![The flowchart of how the build reads an image view, drawn in Renderizr's primary color: decisions as diamonds, with Yes and No edges to an ordinary image view, a ViewError or a Mermaid diagram.](images/mermaid-flowchart.png)
+
 | Source | Draws as |
 | --- | --- |
 | `A[text]`, `A(text)`, `A{text}`, `A((text))`, `A[(text)]`, `A{{text}}` | A rectangle, a rounded rectangle, a diamond, a circle, a cylinder and a hexagon |
@@ -162,6 +164,8 @@ A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draw
 ### ERDs
 
 Renderizr lays an ERD out with Dagre as it lays a flowchart out, with Mermaid's ERD spacing grown by 1.5: entities sit 210 apart and ranks 120 apart, and the source's `er.nodeSpacing` and `er.rankSpacing` grow the same way. Each relationship points from its first entity to its second, as written.
+
+![The ERD of the layout data in workspace.json with every entity expanded: a header, one row per attribute and a toggle band, joined by cardinality markers.](images/mermaid-erd.png)
 
 An ERD draws its **Entities** collapsed at first. A collapsed entity draws like a C4 element: every collapsed entity of the diagram takes one size in a C4 element's proportions, with its name in bold at the center over its `PK` and `FK` **Attributes** (`id [PK]`). A `UK` alone doesn't show. Its name draws as written, the alias first: `CUSTOMER["Customer"]` reads "Customer".
 
@@ -189,6 +193,9 @@ A `click` line that gives a node a link, `click A href "#orders"` or `click A "h
 A node with a link draws the indicator for where it leads under its label and grows to fit it, joins the Tab order in reading order, and exports with its indicator. Subgraphs and edges never lead anywhere. A `click` line that calls a function, `click A callback` or `click A call notify()`, does nothing and warns, since the page runs no script from the source. In edit mode nothing activates, as on every view.
 
 ### Styles
+
+> [!TIP]
+> Choose every color on purpose, and give it a meaning. The C4 model asks that a diagram's colors say something, and so Renderizr derives its whole palette from one primary color. Renderizr honors a Mermaid source's own styles, and a source draws at its best when it sets none: with no `theme`, `themeVariables`, `classDef` or `style`, the diagram takes the workspace's primary color and styles, and reads like the C4 views beside it. Give a node a color of its own when the reader needs to tell it apart, and say what the color means in the view's description.
 
 A flowchart's styles layer from the least specific to the most: the color scheme's defaults, then the workspace's tag styles with the themes they come from, then the source's config (a named `theme` or `themeVariables`), then its classes (`classDef default` first, then each `classDef` in the order the source defines it), then its own `style` and `linkStyle`.
 
@@ -220,6 +227,8 @@ The build prints one warning per diagram that lists what of its source Renderizr
 ### Sequence diagrams
 
 Renderizr lays a sequence diagram out with its own code, the way Mermaid does at Renderizr's larger text: every length grows by 1.5. Participants stand at least 75 apart and widen to fit their names and the labels between them, messages sit 69 apart, and a fragment's title wraps to the fragment's width. Messages run as straight lines; the router and the `routing` style don't apply. Text draws at 20 and participant names in the C4 label template.
+
+![The sequence diagram of how edit mode saves and redraws: participants at the top and bottom, messages between their lifelines, activation bars and two alt fragments.](images/mermaid-sequence.png)
 
 | Source | Draws as |
 | --- | --- |
