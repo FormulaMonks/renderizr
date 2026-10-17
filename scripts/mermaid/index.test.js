@@ -55,10 +55,6 @@ test("image views that carry no Mermaid source Renderizr draws stay ordinary, wi
         ["inlined Mermaid", { content: "data:image/svg+xml;base64,PHN2Zy8+" }],
         ["a pie chart", { content: encodeMermaid('pie\n  "a": 1\n') }],
         [
-            "an ERD, until its slice",
-            { content: encodeMermaid("erDiagram\n  A ||--o{ B : has\n") },
-        ],
-        [
             "a sequence diagram, until its slice",
             { content: encodeMermaid("sequenceDiagram\n  A->>B: hi\n") },
         ],

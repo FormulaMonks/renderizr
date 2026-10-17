@@ -1,0 +1,36 @@
+{
+    "name": "Mermaid ERDs",
+    "description": "Image views that carry Mermaid entity relationship diagram source.",
+    "model": {},
+    "documentation": {},
+    "views": {
+        "configuration": {
+            "properties": {
+                "mermaid.url": "https://mermaid.ink"
+            },
+            "styles": {},
+            "terminology": {}
+        },
+        "imageViews": [
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyNlMFu4jAQhl9l5DP0AXJDJF2h0oIC7KrCPXjtaTJSYqf2pBVKePdVCFkBodr1JZL9e-b7Z8ZpQGhnUEQCfUwq86qUFgBgvttsV89JCm07nboGVmmcpBBBVSiN4UZzbB8e2gbiZLn4maSv01kcp8lmAxHUYRD3AbpobQPLxUsyXWyTZ4hAO8uK7Fm2Tlfxbr4d0l4KpXDeoEcDZKU4I8y2yY9V-gqtO-mH6xFk3tXVDeheinkd2JXopXiDpj_tVmBPNgMysH4a7VpV4mgTS0UF7J5AiqXLyIKyBjxqpIrDgNctoxhBe1SMZsb9_vGiJnspVp2vGyKyDCe_L3X5G_09Ln32sjDw2HH8yl3fHwPEI4T-ZCC4CBNYcR1ACuPVO0-gUmQmEHKqKjRXYVBTqQpgx6q4MvK3TXsplmQRiLH8p6EJPI5NVd6ZWvPcGRxJuhAftbJMfBhjVZ40ghTr0_crRwvngRlMHK9mbN9JT8nuD4PuEf5vHLRizJw_nHrxDdvoksGgPVVMzoIUm9x9WXAWOMehDFCpDG_wb5_ZXooYC_pEfwBljMcQ7hsK7BHH_ddX1Rza4AJ3BbjKPLy27h2d_UrxJq2YgCjRl4qMiBrBOZbdL8Xgu6oLFsfjH3bXVzE",
+                "description": "Six entities: composite keys, an entity without keys, one without attributes, every cardinality.",
+                "key": "shop",
+                "order": 1,
+                "title": "Shop"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyNlN1uozAQhV9l5OukD8BdFOgqatpEJNlVFffCa09hJLBZe9gqgrz7CgirJqTa5QZpfBh_Z35oQGhnUEQCfUwq86qUFgDAkEfN5Cys0yGyPOz2m-ckhbadz10DmzROUoigKpTGcKM5tw8PbQNxsl59T9LX-SKO02S3gwjqMIqHBF22toH16iWZr_bJM0SgnWVF9iLbppv4sNyP134WSuG8QY8GyEpxQVjsk2-b9BVa1-vHzyPIvKurG9CjFMs6sCvRS_EGzXDaPYE92QzIwPZpErWqxEkQS0UFHJ5AirXLyIKyBjxqpIrDiNfXVjGC9qgYzYKH-PlTTY5SbDpfN0RkGXq_L3X5E_09Ln3xsjLw2HH8yN3QHwPEE4ThZCT4lCaw4jqAFMard55BpcjMIORUVWiu0qCmUhXAjlVxZeRvm45SrMkiEGP5T0MzeJyaqrwztealMziRdCl-1coy8WmKVXnSCFJs-_dHjhYuAzOaOF_N2LGT9pfdHwY9IPzfOGjFmDl_6nvxBdvkI4NBe6r6xZNil7sPC84C5ziWASqV4Q3-7ZodpYixoN_oT6CM8RjCfUOBPeK0__qqmmMbXOCuAFc3j9vW7dHFrxRv0ooZiBJ9qciIqBGcY9n9ZAy-q7pgcT7_ASloXPo",
+                "key": "shop-lr",
+                "order": 2,
+                "title": "Shop, left to right"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyFUktPAjEQ_iuT4com8ojEXmVJCOgafB2oh-52Co3dFtuuxiz8d7MsElATe_xe03nUgIWThAyTJOE26miIwX38NCQhrN2G28JZpVeMW4C4ppKehNciNxT2EIB3H5mUDDh2lFIjuuB4JNJ3sgeGqOg3zL4O-bEWKy_KVnn9eP-Q3aQL2G6TxNWQLcbpAhhsjCgotJoWawTbGubT2zSZPqQ3wKBwNgptw3nUkuN1FaIryXN8YYy96w3UraZ5IXptV6Al3M1-oVaU1IK7k-JLjpmX-7zTJG0juAa_rcqc_F95xeEnUwmTGXB8Xru2Nwk6fo_rUOrY2pLjXFsCHan8t2QXJrNz_q0SzTo_z8ILI0IYk4JmGkobwzojMaAr2Q3Ru1dinWHev7jsdQtnnGfNQpVSrTc0R3Ey-dbep5Ec9I_2Xj6UPfppxy5gSb4UWiKrcX9GyFCSEpWJuNt9AUmHyDw",
+                "description": "A classDef and a style fill two entities; rowOdd and rowEven color every entity's rows.",
+                "key": "styled",
+                "order": 3
+            }
+        ]
+    }
+}

@@ -35,8 +35,8 @@ import type {
     MermaidConfig,
     MermaidDiagram,
     MermaidEdge,
-    MermaidFlowchart,
     MermaidNode,
+    MermaidSource,
     MermaidSubgraph,
 } from "./types";
 import type { WorkspaceModel } from "./workspace";
@@ -194,12 +194,12 @@ export const mermaidFontFamily = (
     diagram: MermaidDiagram | undefined,
 ): string | undefined =>
     diagram?.error === undefined
-        ? (diagram as MermaidFlowchart | undefined)?.palette?.fontFamily
+        ? (diagram as MermaidSource | undefined)?.palette?.fontFamily
         : undefined;
 
 /** The CSS layers of an item's classes: `classDef default`, then each class it takes, as the source defines them. */
 function classLayers<T>(
-    diagram: MermaidFlowchart,
+    diagram: MermaidSource,
     classes: readonly string[],
     read: (declarations: readonly string[]) => Partial<T>,
     withDefault: boolean,
@@ -313,9 +313,14 @@ export function mermaidEdgeStyle(
     for (const layer of layers) Object.assign(style, layer);
     const thickness = Math.min(10, Math.max(1, style.thickness));
     // The arrow syntax always wins: `-.->` dotted, `==>` about twice as
-    // thick; only the source's own `stroke-dasharray` dashes the rest.
+    // thick, an ERD's non-identifying relationship dashed; only the
+    // source's own `stroke-dasharray` dashes the rest.
     const line =
-        edge.line === "dotted" ? "Dotted" : own.dashes ? "Dashed" : "Solid";
+        edge.line === "dotted"
+            ? "Dotted"
+            : edge.line === "dashed" || own.dashes
+              ? "Dashed"
+              : "Solid";
     return {
         ...style,
         tags: [...MERMAID_EDGE_TAGS],

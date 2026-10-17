@@ -3,7 +3,7 @@
  * `mermaid` model the page draws as a Mermaid diagram (ADR 24): the source
  * comes from the content fields under `mermaid.url`, Mermaid's own parser
  * reads it, and `flowchart.js` turns the result into nodes, edges and
- * subgraphs. `loadWorkspace` runs it, so builds, `pnpm dev` and edit mode
+ * subgraphs, or `erd.js` into entities and relationships. `loadWorkspace` runs it, so builds, `pnpm dev` and edit mode
  * all parse the same way.
  *
  * The image view stays where it is, so the drawer, `image <element>` links
@@ -15,6 +15,7 @@
  */
 
 import { CONTENT_FIELDS, decodeMermaid } from "./decode.js";
+import { readErd } from "./erd.js";
 import { readFlowchart } from "./flowchart.js";
 import { read } from "./parser.js";
 import { readPalette } from "./styling.js";
@@ -24,7 +25,14 @@ import { diagramError, Ignored, NotDrawnYet } from "./warnings.js";
  * The Mermaid types Renderizr draws, by the keyword their source opens with.
  * ERDs and sequence diagrams join as their slices land (spec: Build order).
  */
-const DRAWN = /^\s*(flowchart|graph)\b/;
+const DRAWN = /^\s*(flowchart|graph|erDiagram)\b/;
+
+/** The model kind of a source Renderizr draws, by its opening keyword. */
+const kindOf = (source) =>
+    /^\s*erDiagram\b/.test(opening(source)) ? "er" : "flowchart";
+
+/** What reads each kind's parsed `db` into the page's model. */
+const READERS = { flowchart: readFlowchart, er: readErd };
 
 /** Mermaid's YAML frontmatter, which the parser counts no lines of. */
 const FRONTMATTER = /^\s*---\n[\s\S]*?\n---\s*\n/;
@@ -58,14 +66,15 @@ function sourceOf(view, mermaidUrl) {
     if (decoded.every((value) => value === undefined)) return undefined;
     const sources = decoded.filter((value) => typeof value === "string");
     if (sources.length && !DRAWN.test(opening(sources[0]))) return undefined;
+    const kind = sources.length ? kindOf(sources[0]) : undefined;
     if (decoded.includes(undefined))
-        return { error: "the content fields disagree" };
+        return { kind, error: "the content fields disagree" };
     if (decoded.includes(null))
-        return { error: "the image view carries no Mermaid source" };
+        return { kind, error: "the image view carries no Mermaid source" };
     const normalized = sources.map((source) => source.replace(/\r\n?/g, "\n"));
     if (normalized.some((source) => source !== normalized[0]))
-        return { error: "the content fields disagree" };
-    return { source: normalized[0] };
+        return { kind, error: "the content fields disagree" };
+    return { kind, source: normalized[0] };
 }
 
 /**
@@ -110,15 +119,14 @@ function readView(view, configuration, warnings) {
         configuration.properties?.["mermaid.url"];
     const found = sourceOf(view, mermaidUrl);
     if (!found) return undefined;
-    if (found.error) return { kind: "flowchart", error: found.error };
+    // A source that disagrees with itself fails as the kind it opens as.
+    const kind = found.kind ?? "flowchart";
+    if (found.error) return { kind, error: found.error };
     let parsed;
     try {
         parsed = read(found.source);
     } catch (error) {
-        return {
-            kind: "flowchart",
-            error: parseErrorReason(error, found.source),
-        };
+        return { kind, error: parseErrorReason(error, found.source) };
     }
     const ignored = new Ignored();
     const config = parsed.config ?? {};
@@ -126,10 +134,9 @@ function readView(view, configuration, warnings) {
     const palette = readPalette(config, ignored);
     let model;
     try {
-        model = readFlowchart(parsed.db, ignored);
+        model = READERS[kind](parsed.db, ignored);
     } catch (error) {
-        if (error instanceof NotDrawnYet)
-            return { kind: "flowchart", error: error.message };
+        if (error instanceof NotDrawnYet) return { kind, error: error.message };
         throw error;
     }
     const warning = ignored.warning(view.key);

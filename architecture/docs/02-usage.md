@@ -113,7 +113,7 @@ An element icon given as an `http(s)` URL stays blank in an export. A build embe
 
 ## Mermaid diagrams
 
-Renderizr draws a Mermaid flowchart that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
+Renderizr draws a Mermaid flowchart or ERD that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
 
 ```
 views {
@@ -130,7 +130,7 @@ views {
 
 Structurizr encodes the source into the image view's content as a URL on the Mermaid server that `mermaid.url` names, on the image view or on the views. The build reads the source back from that URL and parses it with Mermaid's own grammar, so the page never fetches the Mermaid server's picture. The workspace keeps opening in Structurizr as before.
 
-A source that opens with `flowchart` or `graph` draws. Every other image view stays a picture with no warning: a picture file, Mermaid that Structurizr inlines with `mermaid.inline true`, and every other Mermaid type.
+A source that opens with `flowchart`, `graph` or `erDiagram` draws. Every other image view stays a picture with no warning: a picture file, Mermaid that Structurizr inlines with `mermaid.inline true`, and every other Mermaid type.
 
 The view's `title` names the diagram, then the source's frontmatter `title`, then `Image View: <key>`. The frontmatter title never draws on the canvas. In edit mode a Mermaid diagram draws read-only, since Structurizr keeps no layout for an image view, and a DSL session draws it again when its `.mmd` file under the DSL's folder changes.
 
@@ -154,6 +154,27 @@ End markers take the edge's color and draw solid on a dotted line, sized to the 
 
 A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draws as any flowchart. The HTML in its labels draws as plain text lines.
 
+### ERDs
+
+Renderizr lays an ERD out with Dagre as it lays a flowchart out, with Mermaid's ERD spacing grown by 1.5: entities sit 210 apart and ranks 120 apart, and the source's `er.nodeSpacing` and `er.rankSpacing` grow the same way. Each relationship points from its first entity to its second, as written.
+
+An ERD draws its **Entities** collapsed at first. A collapsed entity draws like a C4 element: every collapsed entity of the diagram takes one size in a C4 element's proportions, with its name in bold at the center over its `PK` and `FK` **Attributes** (`id [PK]`). A `UK` alone doesn't show. Its name draws as written, the alias first: `CUSTOMER["Customer"]` reads "Customer".
+
+The round plus button at the bottom of an entity expands it. An expanded entity draws a header with its name, one row per attribute in Mermaid's column order (type, name, keys and comment), and a band below the rows that holds the minus button. The comment column shows only while descriptions show. The header and band take the entity's fill, and the rows take light alternating tints of it with dark text. Each entity flips on its own for the visit, and every flip lays the diagram out again and fits it to the canvas. An entity without attributes draws no button and stays collapsed.
+
+Each button is a stop in the canvas's Tab order, in reading order by its entity. Enter or Space flips the entity, and focus stays on the button. In edit mode only Enter does, since Space pans there.
+
+| Source | Draws as |
+| --- | --- |
+| `--` | An identifying relationship: a solid line |
+| `..` | A non-identifying relationship: a dashed line |
+| `\|\|`, `\|o` or `o\|` | Exactly one, and zero or one, at that end |
+| `}\|` or `\|{`, `}o` or `o{` | One or more, and zero or more, at that end |
+
+An entity's `style`, its classes and `classDef` style it as they style a flowchart's node, in the same order. A source's `rowOdd` and `rowEven` theme variables, or their older names `attributeBackgroundColorOdd` and `attributeBackgroundColorEven`, color the rows in place of the tints.
+
+An export draws each entity the way the canvas shows it, collapsed or expanded, without its button.
+
 ### Click links
 
 A `click` line that gives a node a link, `click A href "#orders"` or `click A "https://example.com/shop"`, makes the node an activation target, the way an element link does. The link reads as an element link reads: `#<key>`, `?view=<key>` and `{workspace}/diagrams#<key>` open that view, a page on Structurizr's own hosts opens the matching view or document here when the workspace has it, and any other address opens in a new tab. A link to the view on screen, to a view the workspace doesn't have or to a script offers nothing and warns about nothing. A tooltip after the link, `click A "https://example.com/shop" "Open the shop"`, shows when the pointer rests on the node.
@@ -168,7 +189,7 @@ The workspace's element styles tagged `Element` and `Mermaid` apply to every nod
 
 A source with no `theme` and no `themeVariables` takes the workspace's look. Its nodes fill with the primary color (`--primary-color`, then `renderizr.primaryColor`, then Renderizr's blue) with white text and a darker border, beneath the workspace's styles, in light and dark alike, and its edges and subgraphs take the color scheme's defaults.
 
-A source that names a `theme` or sets `themeVariables` takes the palette that Mermaid's own theme code derives from them, so a lone `primaryColor` under `theme: base` brings its text and border colors along. Renderizr reads `primaryColor`, `primaryBorderColor`, `primaryTextColor`, `lineColor`, `edgeLabelBackground`, `clusterBkg`, `clusterBorder`, `fontSize` and `fontFamily`. With no named theme they change Mermaid's `default` theme, which keeps its own node fill, as Mermaid does. In dark mode the palette keeps its fills, while edges and their labels, which draw straight on the canvas, take the color scheme's colors. `theme: dark` draws a dark palette in light mode too.
+A source that names a `theme` or sets `themeVariables` takes the palette that Mermaid's own theme code derives from them, so a lone `primaryColor` under `theme: base` brings its text and border colors along. Renderizr reads `primaryColor`, `primaryBorderColor`, `primaryTextColor`, `lineColor`, `edgeLabelBackground`, `clusterBkg`, `clusterBorder`, `fontSize` and `fontFamily`, and on an ERD the [row colors](#erds). With no named theme they change Mermaid's `default` theme, which keeps its own node fill, as Mermaid does. In dark mode the palette keeps its fills, while edges and their labels, which draw straight on the canvas, take the color scheme's colors. `theme: dark` draws a dark palette in light mode too.
 
 | CSS | On a node | On an edge (`linkStyle`) |
 | --- | --- | --- |

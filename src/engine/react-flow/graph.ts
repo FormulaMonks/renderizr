@@ -70,6 +70,11 @@ import {
 } from "../geometry/boundary";
 import { type Bounds, boundsOf, type Size } from "../geometry/bounds";
 import {
+    collapsedContent,
+    type EntityLayout,
+    layOutEntity,
+} from "../geometry/entity";
+import {
     type EdgeLabelLayout,
     edgeLabelText,
     layoutEdgeLabel,
@@ -140,12 +145,24 @@ export type Activation = { type: ActivationType; id: string };
  * edge key, with what it activates and the box focusing it brings on
  * screen, in model units.
  */
-export type FocusItem = {
-    type: "element" | "boundary" | "edge";
-    id: string;
-    activation: Activation;
-    box: Bounds;
-};
+export type FocusItem =
+    | {
+          type: "element" | "boundary" | "edge";
+          id: string;
+          activation: Activation;
+          box: Bounds;
+      }
+    | {
+          /**
+           * An ERD entity's toggle, by its entity's element id, which flips
+           * the entity rather than activating anything; `box` is the
+           * entity's (spec: ERD entities).
+           */
+          type: "toggle";
+          id: string;
+          activation?: undefined;
+          box: Bounds;
+      };
 
 export type ElementBox = {
     id: string;
@@ -192,6 +209,8 @@ export type ElementBox = {
     instances?: TextBlock;
     /** A Mermaid node's `click` tooltip, its hover title in place of its text. */
     tooltip?: string;
+    /** An ERD entity's header, rows and toggle, drawn in place of the label. */
+    entity?: EntityLayout;
     /**
      * The kind of each target activating it offers, in order (spec 6.1).
      * Empty: no indicators, no pointer cursor, not focusable.
@@ -769,6 +788,8 @@ function drawView(
     // sizes from its source (ADR 24); nothing else about drawing it differs.
     const { mermaid } = view;
 
+    const entitySize = mermaid && collapsedEntitySize(model, view, measure);
+
     const elements: ElementBox[] = [];
     /** Each element by id, with the geometry its edge ends touch. */
     const drawn = new Map<
@@ -789,21 +810,44 @@ function drawView(
                 : findElementStyle(model, placed.element, colorScheme);
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
+        const entity = mermaid?.entities.get(placed.id);
+        const laidOut =
+            entity &&
+            layOutEntity({
+                name: entity.label,
+                attributes: entity.attributes,
+                collapsed:
+                    labels.entityOverrides?.[placed.id] ??
+                    labels.entitiesCollapsed ??
+                    true,
+                comments: labels.descriptions,
+                fontSize: style.fontSize,
+                bold: nameIsBold(style.fontWeight),
+                family: style.fontFamily,
+                measure,
+                collapsedSize: entitySize,
+                fill: style.background,
+                color: style.color ?? defaults.color,
+                strokeWidth: style.strokeWidth ?? defaults.strokeWidth,
+                rowColors: mermaid?.diagram.palette?.rows,
+            });
         // A Mermaid node is as big as its label and indicator row need, in
-        // its own font.
-        const { width, height } = node
-            ? mermaidNodeSize(
-                  node.shape,
-                  node.label,
-                  style.fontSize,
-                  measure,
-                  indicatorKinds(targets).length,
-                  {
-                      bold: nameIsBold(style.fontWeight),
-                      family: style.fontFamily,
-                  },
-              )
-            : shapeSize(shape, style.width, style.height);
+        // its own font; an ERD entity as its state shows it.
+        const { width, height } = laidOut
+            ? laidOut
+            : node
+              ? mermaidNodeSize(
+                    node.shape,
+                    node.label,
+                    style.fontSize,
+                    measure,
+                    indicatorKinds(targets).length,
+                    {
+                        bold: nameIsBold(style.fontWeight),
+                        family: style.fontFamily,
+                    },
+                )
+              : shapeSize(shape, style.width, style.height);
         const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
         const geometry = shapeGeometry(shape, width, height, strokeWidth);
         const count = formatInstanceCount(placed.element.instances);
@@ -857,6 +901,7 @@ function drawView(
                   : geometry.content.height,
             ...(instances && { instances }),
             ...(node?.tooltip && { tooltip: node.tooltip }),
+            ...(laidOut && { entity: laidOut.entity }),
             targets,
         };
         elements.push(box);
@@ -1064,6 +1109,8 @@ function drawView(
                 x: box.x,
                 y: box.y,
                 geometry,
+                // Ends leave the middle of the side the toggle sits on free.
+                ...(box.entity?.toggle && { toggle: "bottom" as const }),
             }),
         ),
         edges,
@@ -1164,8 +1211,45 @@ function drawView(
 }
 
 /**
+ * The size every collapsed entity of an ERD draws at: the largest any of
+ * them needs in its own style (spec: ERD entities); `undefined` on any
+ * other view.
+ */
+function collapsedEntitySize(
+    model: WorkspaceModel,
+    view: ResolvedView,
+    measure: MeasureText,
+): Size | undefined {
+    const { mermaid } = view;
+    if (!mermaid?.entities.size) return undefined;
+    const scheme = "Light" as const;
+    const sizes = [...mermaid.entities].map(([id, entity]) => {
+        // Only fonts size an entity, and no scheme changes those.
+        const style = mermaidNodeStyle(
+            model,
+            mermaid,
+            mermaid.nodes.get(id)!,
+            scheme,
+        );
+        return collapsedContent({
+            name: entity.label,
+            attributes: entity.attributes,
+            fontSize: style.fontSize,
+            bold: nameIsBold(style.fontWeight),
+            family: style.fontFamily,
+            measure,
+        });
+    });
+    return {
+        width: Math.max(...sizes.map((size) => size.width)),
+        height: Math.max(...sizes.map((size) => size.height)),
+    };
+}
+
+/**
  * Every item with targets in reading order (spec 6.2): by the top, then the
  * left, of an element's box, a boundary's label band or an edge's label.
+ * An ERD entity's toggle takes its entity's place (spec: ERD entities).
  */
 function readingOrder(
     elements: ElementBox[],
@@ -1179,6 +1263,13 @@ function readingOrder(
                 type: "element" as const,
                 id: e.id,
                 activation: { type: "element" as const, id: e.id },
+                box: { x: e.x, y: e.y, width: e.width, height: e.height },
+            })),
+        ...elements
+            .filter((e) => e.entity?.toggle)
+            .map((e) => ({
+                type: "toggle" as const,
+                id: e.id,
                 box: { x: e.x, y: e.y, width: e.width, height: e.height },
             })),
         ...boundaries.flatMap((b) =>

@@ -64,6 +64,8 @@ export type RoutingElement = {
     y: number;
     /** The shape it is drawn as, which its edge ends touch. */
     geometry: ShapeGeometry;
+    /** The side whose middle holds an ERD entity's toggle, which ends leave free. */
+    toggle?: Side;
 };
 
 /** One edge to route. Its source and target are among the view's elements. */
@@ -294,6 +296,7 @@ export function routeView(
             edgeEndsOn.get(element.id) ?? [],
             element.geometry.spans,
             boxOf(element),
+            element.toggle,
         );
         for (const [id, position] of spread) along.set(id, position);
     }

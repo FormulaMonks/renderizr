@@ -95,8 +95,10 @@ A diagram Renderizr can't draw prints its reason, and the page shows the same te
 | the content fields disagree | The image view fills more than one of `content`, `contentLight` and `contentDark`, and they hold different sources once CRLF becomes LF, or one holds a picture beside the Mermaid source |
 | an edge to a subgraph isn't something Renderizr draws yet | An edge starts or ends at a subgraph rather than at a node. A construct that carries meaning fails the whole diagram rather than draw it wrong |
 | the arrow end "…" isn't something Renderizr draws yet | An edge ends in a marker Renderizr has no End marker for. Flowcharts today only write arrows, circles and crosses, so this guards against a newer Mermaid |
+| the cardinality "u" (parent) isn't something Renderizr draws yet | An ERD relationship ends in Mermaid's parent cardinality (`u\|`), which has no End marker yet |
+| an ERD subgraph isn't something Renderizr draws yet | An ERD groups entities in a `subgraph` |
 
-A diagram that draws but uses what Renderizr leaves out prints one warning that lists it, each entry once, in this order: the config's entries, then the subgraphs' and nodes', then the links', then the classes': `Image view "<key>": Renderizr supports only a subset of Mermaid styling; ignored: <entries>`.
+A diagram that draws but uses what Renderizr leaves out prints one warning that lists it, each entry once, in this order: the config's entries, then the subgraphs' and nodes' (an ERD's entities), then the links', then the classes': `Image view "<key>": Renderizr supports only a subset of Mermaid styling; ignored: <entries>`.
 
 | Entry | What Renderizr does instead |
 | --- | --- |

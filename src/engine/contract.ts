@@ -34,7 +34,20 @@ export type CanvasCommand = "decrease" | "increase" | "auto";
 export type ColorScheme = "light" | "dark";
 
 /** Visibility of the optional labels drawn inside elements. */
-export type Labels = { descriptions: boolean; technologies: boolean };
+export type Labels = {
+    descriptions: boolean;
+    technologies: boolean;
+    /**
+     * Whether an ERD's entities draw collapsed, the reader's one preference
+     * for every ERD (spec: ERD entities); collapsed when unset.
+     */
+    entitiesCollapsed?: boolean;
+    /**
+     * The entities whose own toggle set them otherwise for this visit, by
+     * element id: true collapsed, false expanded. The island keeps them.
+     */
+    entityOverrides?: Readonly<Record<string, boolean>>;
+};
 
 export type EngineOptions = {
     /**

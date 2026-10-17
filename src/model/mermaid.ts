@@ -14,8 +14,11 @@ import type {
     AutomaticLayoutSettings,
     MermaidDirection,
     MermaidEdge,
+    MermaidEntity,
+    MermaidErd,
     MermaidFlowchart,
     MermaidNode,
+    MermaidSource,
     MermaidSubgraph,
     ModelElement,
     ModelRelationship,
@@ -28,6 +31,9 @@ export const MERMAID_SCALE = 1.5;
 /** Mermaid's flowchart spacing at 16 px: between nodes, ranks and edges. */
 const FLOWCHART_SPACING = { node: 50, rank: 50, edge: 20 };
 
+/** Mermaid's ERD spacing at 16 px: between nodes, ranks and edges. */
+const ERD_SPACING = { node: 140, rank: 80, edge: 20 };
+
 /** Mermaid's directions as automatic layout spells them. */
 export const RANK_DIRECTIONS: Record<
     MermaidDirection,
@@ -39,11 +45,16 @@ export const RANK_DIRECTIONS: Record<
     RL: "RightLeft",
 };
 
-/** What the page needs of a Mermaid flowchart beyond its resolved view. */
+/** What the page needs of a Mermaid diagram beyond its resolved view. */
 export type ResolvedMermaid = {
-    diagram: MermaidFlowchart;
-    /** Each node, by the id of the element it draws as. */
+    diagram: MermaidSource;
+    /**
+     * Each node, by the id of the element it draws as; an ERD's entities
+     * are nodes too, Boxes styled as a flowchart's nodes are.
+     */
     nodes: ReadonlyMap<string, MermaidNode>;
+    /** An ERD's entities, by the id of the element each draws as. */
+    entities: ReadonlyMap<string, MermaidEntity>;
     /** Each edge, by the id of the relationship it draws as. */
     edges: ReadonlyMap<string, MermaidEdge>;
     /** Each subgraph, by the id of the boundary it draws as. */
@@ -118,6 +129,7 @@ export type MermaidResolution = {
 export function resolveMermaid(view: ModelView): MermaidResolution | undefined {
     const diagram = view.mermaid;
     if (!diagram || diagram.error !== undefined) return undefined;
+    if (diagram.kind === "er") return resolveErd(diagram);
 
     const nodes = new Map<string, MermaidNode>();
     const elements = diagram.nodes.map((node) => {
@@ -167,9 +179,6 @@ export function resolveMermaid(view: ModelView): MermaidResolution | undefined {
 
     const { config } = diagram;
     const spacing = config.flowchart ?? {};
-    const scaled = (value: unknown, fallback: number) =>
-        (typeof value === "number" && value >= 0 ? value : fallback) *
-        MERMAID_SCALE;
 
     return {
         elements,
@@ -188,11 +197,104 @@ export function resolveMermaid(view: ModelView): MermaidResolution | undefined {
             nodes,
             edges,
             subgraphs,
+            entities: new Map(),
             directions,
             silent:
                 config.theme === undefined &&
                 config.themeVariables === undefined,
             order: config.layout === "dagre" ? "model" : "sources",
+        },
+    };
+}
+
+/** A length of a Mermaid config scaled to Renderizr's, or the scaled `fallback`. */
+const scaled = (value: unknown, fallback: number) =>
+    (typeof value === "number" && value >= 0 ? value : fallback) *
+    MERMAID_SCALE;
+
+/**
+ * Every entity and relationship of an ERD as the elements and relationships
+ * of an automatic layout, each relationship from its first entity to its
+ * second as written (spec: Flowchart and ERD layout). Entities are Box
+ * nodes for styling; their attributes come from `entities`.
+ */
+function resolveErd(diagram: MermaidErd): MermaidResolution {
+    const nodes = new Map<string, MermaidNode>();
+    const entities = new Map<string, MermaidEntity>();
+    const elements = diagram.entities.map((entity) => {
+        const id = mermaidNodeId(entity.id);
+        entities.set(id, entity);
+        nodes.set(id, {
+            id: entity.id,
+            label: entity.label,
+            shape: "Box",
+            classes: entity.classes,
+            styles: entity.styles,
+        });
+        const element: ModelElement = {
+            id,
+            type: "Custom",
+            name: entity.label,
+            tags: "Element,Mermaid",
+            properties: {},
+            perspectives: [],
+        };
+        return { id, x: 0, y: 0, element };
+    });
+
+    const known = new Set(diagram.entities.map((entity) => entity.id));
+    const edges = new Map<string, MermaidEdge>();
+    const relationships = diagram.relationships
+        .filter((r) => known.has(r.source) && known.has(r.target))
+        .map((r) => {
+            const id = mermaidEdgeId(r.id);
+            edges.set(id, {
+                id: r.id,
+                source: r.source,
+                target: r.target,
+                label: r.label,
+                line: r.identifying ? "normal" : "dashed",
+                start: r.start,
+                end: r.end,
+                styles: [],
+            });
+            const relationship: ModelRelationship = {
+                id,
+                sourceId: mermaidNodeId(r.source),
+                destinationId: mermaidNodeId(r.target),
+                description: r.label,
+                tags: "Relationship,Mermaid",
+                properties: {},
+                perspectives: [],
+            };
+            return { id, relationship };
+        });
+
+    const { config } = diagram;
+    const spacing = config.er ?? {};
+    return {
+        elements,
+        relationships,
+        boundaries: [],
+        automaticLayout: {
+            implementation: "Dagre",
+            rankDirection: RANK_DIRECTIONS[diagram.direction] ?? "TopBottom",
+            rankSeparation: scaled(spacing.rankSpacing, ERD_SPACING.rank),
+            nodeSeparation: scaled(spacing.nodeSpacing, ERD_SPACING.node),
+            edgeSeparation: ERD_SPACING.edge * MERMAID_SCALE,
+            vertices: false,
+        },
+        mermaid: {
+            diagram,
+            nodes,
+            entities,
+            edges,
+            subgraphs: new Map(),
+            directions: new Map(),
+            silent:
+                config.theme === undefined &&
+                config.themeVariables === undefined,
+            order: "model",
         },
     };
 }
