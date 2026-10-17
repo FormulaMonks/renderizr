@@ -79,6 +79,30 @@ export const mermaidGroupId = (id: string) => `mermaid-group:${id}`;
 /** The relationship id an edge draws under. */
 export const mermaidEdgeId = (id: string) => `mermaid-edge:${id}`;
 
+/** A Mermaid diagram the page can draw, of any kind. */
+type DrawableDiagram = MermaidSource | MermaidSequence;
+
+/** `view`'s Mermaid diagram when it is of `kind` and the build could read it. */
+function drawableOf<K extends DrawableDiagram["kind"]>(
+    view: ModelView | undefined,
+    kind: K,
+): Extract<DrawableDiagram, { kind: K }> | undefined {
+    const diagram = view?.mermaid;
+    if (diagram?.kind !== kind || diagram.error !== undefined) return undefined;
+    return diagram as Extract<DrawableDiagram, { kind: K }>;
+}
+
+/** The flowchart `view` draws, or `undefined` for any other view. */
+export const flowchartOf = (view: ModelView | undefined) =>
+    drawableOf(view, "flowchart");
+
+/** The ERD `view` draws, or `undefined` for any other view. */
+export const erdOf = (view: ModelView | undefined) => drawableOf(view, "er");
+
+/** The sequence diagram `view` draws, or `undefined` for any other view. */
+export const sequenceOf = (view: ModelView | undefined) =>
+    drawableOf(view, "sequence");
+
 /**
  * The flowchart node of `view` drawn as element `elementId`, which the page
  * reads a node's link from when it is activated, since `findElementById`
@@ -88,10 +112,9 @@ export function mermaidNodeOf(
     view: ModelView | undefined,
     elementId: string,
 ): MermaidNode | undefined {
-    const diagram = view?.type === "Mermaid" ? view.mermaid : undefined;
-    if (!diagram || diagram.error !== undefined) return undefined;
-    if (diagram.kind !== "flowchart") return undefined;
-    return diagram.nodes.find((node) => mermaidNodeId(node.id) === elementId);
+    return flowchartOf(view)?.nodes.find(
+        (node) => mermaidNodeId(node.id) === elementId,
+    );
 }
 
 /** Which of the two label toggles a view hides. */
@@ -131,10 +154,10 @@ export function inertToggles(view: ModelView): InertToggles {
  * (spec: ERD entities).
  */
 export function hasEntityToggles(view: ModelView): boolean {
-    const diagram = view.type === "Mermaid" ? view.mermaid : undefined;
-    if (!diagram || diagram.error !== undefined || diagram.kind !== "er")
-        return false;
-    return diagram.entities.some((entity) => entity.attributes.length > 0);
+    return (
+        erdOf(view)?.entities.some((entity) => entity.attributes.length > 0) ??
+        false
+    );
 }
 
 /** What the export buttons say on a Mermaid diagram that couldn't be drawn. */
@@ -159,11 +182,11 @@ export type MermaidResolution = {
  * for a view that carries no drawable diagram.
  */
 export function resolveMermaid(view: ModelView): MermaidResolution | undefined {
-    const diagram = view.mermaid;
-    if (!diagram || diagram.error !== undefined) return undefined;
-    if (diagram.kind === "er") return resolveErd(diagram);
+    const erd = erdOf(view);
+    if (erd) return resolveErd(erd);
     // A sequence diagram resolves on its own (`resolveSequence`).
-    if (diagram.kind === "sequence") return undefined;
+    const diagram = flowchartOf(view);
+    if (!diagram) return undefined;
 
     const nodes = new Map<string, MermaidNode>();
     const elements = diagram.nodes.map((node) => {

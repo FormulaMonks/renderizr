@@ -3,6 +3,7 @@ export * from "./boundaries";
 export * from "./canvas";
 export * from "./description";
 export * from "./editable";
+export * from "./end-markers";
 export * from "./edited-layout";
 export * from "./filter";
 export * from "./mermaid";

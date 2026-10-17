@@ -18,30 +18,19 @@
  * C4 edges never come here: they keep their one arrowhead (`line.ts`).
  */
 
+import type { EndMarker } from "../../model/end-markers";
 import type { EndFit } from "./routing/route-view";
 import { endHeading } from "./routing/path";
 import { arrowheadPath, arrowheadSize } from "./line";
 import { num } from "./shapes/outline";
 import type { Point } from "./shapes/types";
 
-/** Every End marker, `none` first. */
-export const END_MARKERS = [
-    "none",
-    "arrow",
-    "openArrow",
-    "circle",
-    "cross",
-    "zeroOrOne",
-    "one",
-    "zeroOrMore",
-    "oneOrMore",
-] as const;
-
-export type EndMarker = (typeof END_MARKERS)[number];
-
-/** Whether `name` names an End marker. */
-export const isEndMarker = (name: string): name is EndMarker =>
-    (END_MARKERS as readonly string[]).includes(name);
+// The names live in the model, which types every Mermaid end with them.
+export {
+    END_MARKERS,
+    type EndMarker,
+    isEndMarker,
+} from "../../model/end-markers";
 
 /** A marker's SVG path data: what fills, and what strokes. */
 export type MarkerPaths = { fill: string; stroke: string };

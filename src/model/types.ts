@@ -3,6 +3,8 @@
  * `WorkspaceModel` has registered every element with its type and parent.
  */
 
+import type { EndMarker } from "./end-markers";
+
 export type ColorScheme = "Light" | "Dark";
 
 export type ElementType =
@@ -179,13 +181,6 @@ export type MermaidShape =
     | "Cylinder"
     | "Hexagon";
 
-/**
- * An end of a Mermaid edge, as an End marker name (`EndMarker` in
- * `engine/geometry/markers.ts`): a flowchart's `none`, `arrow`, `circle` or
- * `cross`. The build fails a diagram with any end Renderizr doesn't know.
- */
-export type MermaidEnd = string;
-
 /** A node of a Mermaid flowchart, its label in plain text lines. */
 export type MermaidNode = {
     id: string;
@@ -215,8 +210,8 @@ export type MermaidEdge = {
      * non-identifying relationship is dashed.
      */
     line: "normal" | "dotted" | "thick" | "dashed";
-    start: MermaidEnd;
-    end: MermaidEnd;
+    start: EndMarker;
+    end: EndMarker;
     /** Its `linkStyle` declarations, as written. */
     styles: string[];
 };
@@ -311,8 +306,8 @@ export type MermaidRelationship = {
     /** Identifying draws solid, non-identifying dashed. */
     identifying: boolean;
     /** The End markers its cardinalities draw as. */
-    start: MermaidEnd;
-    end: MermaidEnd;
+    start: EndMarker;
+    end: EndMarker;
 };
 
 /** The plain model of a Mermaid ERD the build parsed (spec: ERD entities). */
@@ -334,6 +329,9 @@ export type MermaidParticipantType =
     | "actor"
     | "database"
     | "queue";
+
+/** The shapes a sequence diagram's participants draw as, one per type. */
+export type MermaidParticipantShape = "Box" | "Person" | "Cylinder" | "Pipe";
 
 /** A participant of a sequence diagram, in source order. */
 export type MermaidParticipant = {
@@ -371,8 +369,8 @@ export type MermaidMessage = {
     to: string;
     label: string;
     line: "solid" | "dotted";
-    start: MermaidEnd;
-    end: MermaidEnd;
+    start: EndMarker;
+    end: EndMarker;
     wrap: boolean;
     /** Where a central connection draws its dot. */
     dots?: "start" | "end" | "both";

@@ -15,6 +15,7 @@ import {
     type MermaidResolution,
     mermaidEdgeId,
     mermaidNodeId,
+    sequenceOf,
 } from "./mermaid";
 import {
     MERMAID_EDGE_TAGS,
@@ -37,8 +38,8 @@ import type {
     ColorScheme,
     MermaidMessage,
     MermaidParticipant,
+    MermaidParticipantShape,
     MermaidParticipantType,
-    MermaidSequence,
     MermaidSequencePalette,
     ModelElement,
     ModelRelationship,
@@ -56,20 +57,15 @@ export const PARTICIPANT_FONT_SIZE = 14;
 export const SEQUENCE_FONT_SIZE = 20;
 
 /** The shape each participant type draws as (spec: Sequence diagrams). */
-export const PARTICIPANT_SHAPES: Record<MermaidParticipantType, string> = {
+export const PARTICIPANT_SHAPES: Record<
+    MermaidParticipantType,
+    MermaidParticipantShape
+> = {
     participant: "Box",
     actor: "Person",
     database: "Cylinder",
     queue: "Pipe",
 };
-
-/** The sequence diagram `view` draws, or `undefined` for any other view. */
-export const sequenceOf = (
-    view: ModelView | undefined,
-): MermaidSequence | undefined =>
-    view?.mermaid?.kind === "sequence" && view.mermaid.error === undefined
-        ? (view.mermaid as MermaidSequence)
-        : undefined;
 
 /**
  * Every participant and message of `view`'s sequence diagram as the

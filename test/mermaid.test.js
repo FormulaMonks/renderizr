@@ -16,10 +16,13 @@ import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const {
     WorkspaceModel,
+    erdOf,
     findViewError,
+    flowchartOf,
     inertToggles,
     mermaidNodeOf,
     resolveView,
+    sequenceOf,
     whyNotEditable,
     NOTHING_TO_EXPORT,
 } = await importSrc("model/index");
@@ -827,4 +830,52 @@ test("a flowchart exports through the serializer as any view does", () => {
     assert.match(svg, /Fulfilment/, "subgraphs export as groups");
     assert.match(svg, /places order/, "edge labels export");
     assert.match(svg, /#145b9e/, "the primary color is a literal");
+});
+
+test("each kind's helper gives that kind's diagram, and undefined for every other kind and a failure", () => {
+    const json = mermaidWorkspace([
+        mermaidView("flow", "flowchart LR\n  A --> B"),
+        mermaidView("erd", "erDiagram\n  A ||--o{ B : has"),
+        mermaidView("seq", "sequenceDiagram\n  A ->> B: hi"),
+    ]);
+    readMermaidDiagrams(json);
+    const model = new WorkspaceModel(json);
+    const views = {
+        flowchart: model.findViewByKey("flow"),
+        er: model.findViewByKey("erd"),
+        sequence: model.findViewByKey("seq"),
+    };
+    const failure = new WorkspaceModel(ERRORS).findViewByKey("parse-error");
+    const cases = [
+        { name: "flowchartOf", of: flowchartOf, kind: "flowchart" },
+        { name: "erdOf", of: erdOf, kind: "er" },
+        { name: "sequenceOf", of: sequenceOf, kind: "sequence" },
+    ];
+    for (const { name, of, kind } of cases) {
+        for (const [viewKind, view] of Object.entries(views)) {
+            const diagram = of(view);
+            if (viewKind === kind)
+                assert.equal(
+                    diagram,
+                    view.mermaid,
+                    `${name} gives a ${kind}'s diagram`,
+                );
+            else
+                assert.equal(
+                    diagram,
+                    undefined,
+                    `${name} gives nothing for a ${viewKind}`,
+                );
+        }
+        assert.equal(
+            of(failure),
+            undefined,
+            `${name} gives nothing for a failure`,
+        );
+        assert.equal(
+            of(undefined),
+            undefined,
+            `${name} gives nothing without a view`,
+        );
+    }
 });

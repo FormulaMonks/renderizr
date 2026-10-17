@@ -40,17 +40,27 @@ const LINE_SCALE = (18 * S) / SEQUENCE_TEXT;
 export const PARTICIPANT_WIDTH = 150 * S;
 /** `neo`'s participant row: max(65, 44 + 6 + label + 6) at 16 px. */
 export const PARTICIPANT_ROW = Math.max(65, 44 + 6 + 18 + 6) * S;
+/** The participant row, under the short name the layout uses throughout. */
 const ROW = PARTICIPANT_ROW;
+/** The least gap between two participants' boxes: Mermaid's `actorMargin`. */
 const ACTOR_MARGIN = 50 * S;
+/** The room around a note, a fragment and a box: Mermaid's `boxMargin`. */
 const BOX_MARGIN = 10 * S;
+/** The padding either side of wrapped text: Mermaid's `wrapPadding`. */
 const WRAP_PADDING = 10 * S;
+/** The padding above and below a note's text: Mermaid's `noteMargin`. */
 const NOTE_MARGIN = 10 * S;
+/** A note's least width: Mermaid's `noteWidth`. */
 const NOTE_WIDTH = 150 * S;
 /** How far a note left or right of a participant sits from its lifeline. */
 const NOTE_OFFSET = 25 * S;
+/** An activation bar's width; each nested bar steps right by half of it. */
 export const ACTIVATION_WIDTH = 10 * S;
+/** How far right of its lifeline a message to the same participant loops. */
 const SELF_LOOP = 60 * S;
+/** The extra height a message to the same participant takes below its line. */
 const SELF_EXTRA = 30 * S;
+/** The least room a message to the same participant claims either side. */
 const SELF_REACH = 75 * S;
 /** A fragment's keyword tab: 50 × 20 with a 7 px cut corner. */
 export const TAB = { width: 50 * S, height: 20 * S, cut: 7 * S };
@@ -199,14 +209,14 @@ function pass(
         }
     }
     const boxOf = new Map<string, number>();
-    script.boxes.forEach((box, b) => {
+    for (const [b, box] of script.boxes.entries()) {
         for (const id of box.participants) boxOf.set(id, b);
-    });
+    }
     const centers: number[] = [];
-    order.forEach((id, i) => {
+    for (const [i, id] of order.entries()) {
         if (i === 0) {
             centers.push(width(id) / 2 + (boxOf.has(id) ? GROUP_MARGIN : 0));
-            return;
+            continue;
         }
         const previous = order[i - 1];
         let distance = Math.max(
@@ -222,7 +232,7 @@ function pass(
         // over by half its width.
         if (created.has(id)) distance += width(id) / 2;
         centers.push(centers[i - 1] + distance);
-    });
+    }
     const x = (id: string) => centers[at.get(id) ?? 0] ?? 0;
     const headAt = (id: string, y: number): Bounds => ({
         x: x(id) - width(id) / 2,
@@ -540,7 +550,8 @@ function pass(
         }
     };
 
-    script.items.forEach(place);
+    for (const [position, item] of script.items.entries())
+        place(item, position);
     // A bar nothing closes draws nothing, as in Mermaid: a central
     // connection's never closes.
 
