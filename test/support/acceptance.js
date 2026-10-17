@@ -19,6 +19,7 @@ import {
     REPO_ROOT,
     runCli,
 } from "../../scripts/__fixtures__/helpers.js";
+import { readMermaidDiagrams } from "../../scripts/mermaid/index.js";
 
 /**
  * Every workspace whose views the engine has to draw (spec 15.3): the
@@ -172,6 +173,8 @@ function withCopiedIcon({ icon, ...style }, icons) {
  */
 export function prepareWorkspace(entry) {
     const workspace = JSON.parse(readFileSync(entry.source, "utf-8"));
+    // The build reads each image view's Mermaid diagram the same way.
+    readMermaidDiagrams(workspace);
 
     // Branding would fetch a font from Google Fonts and read a logo beside
     // the source; the harness checks drawing alone.

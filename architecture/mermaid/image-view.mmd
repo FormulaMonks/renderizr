@@ -1,0 +1,12 @@
+flowchart TB
+    view(Image view) --> mermaid{"A content field starts with<br>mermaid.url /svg/ or /img/?"}
+    mermaid -->|No| picture[Ordinary image view]
+    mermaid -->|Yes| decode["Decode pako: or Base64"]
+    decode --> agree{"Every filled field holds<br>the same source?"}
+    agree -->|No| failed[ViewError]
+    agree -->|Yes| kind{"flowchart, erDiagram<br>or sequenceDiagram?"}
+    kind -->|No| picture
+    kind -->|Yes| parse["Parse with Mermaid's grammars"]
+    parse --> drawn{"Parses, and every<br>construct draws?"}
+    drawn -->|No| failed
+    drawn -->|Yes| diagram(Mermaid diagram)

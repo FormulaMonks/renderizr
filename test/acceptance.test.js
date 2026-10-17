@@ -222,6 +222,13 @@ for (const entry of ACCEPTANCE_SET) {
     }
 
     for (const key of keys) {
+        // A sequence diagram lays out by its own script: messages end on
+        // lifelines and every participant draws twice, so the C4 checks
+        // don't apply. Its own tests check its geometry.
+        const imageView = workspace.views?.imageViews?.find(
+            (view) => view.key === key,
+        );
+        if (imageView?.mermaid?.kind === "sequence") continue;
         const expected = expectedDrawing(model, key);
 
         test(`view ${key} of ${entry.name} is drawn as the workspace says`, async (t) => {

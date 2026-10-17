@@ -132,6 +132,8 @@ Structurizr encodes the source into the image view's content as a URL on the Mer
 
 A source that opens with `flowchart`, `graph`, `erDiagram` or `sequenceDiagram` draws. Every other image view stays a picture with no warning: a picture file, Mermaid that Structurizr inlines with `mermaid.inline true`, and every other Mermaid type.
 
+Renderizr's own architecture carries one of each, under `architecture/mermaid/`: a flowchart of how the build reads an image view, an ERD of the layout data Structurizr keeps in `workspace.json`, and a sequence diagram of how edit mode saves a layout and draws a DSL session again.
+
 The view's `title` names the diagram, then the source's frontmatter `title`, then `Image View: <key>`. The frontmatter title never draws on the canvas. In edit mode a Mermaid diagram draws read-only, since Structurizr keeps no layout for an image view, and a DSL session draws it again when its `.mmd` file under the DSL's folder changes.
 
 ### Flowcharts

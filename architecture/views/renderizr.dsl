@@ -20,3 +20,21 @@ component Site "Site-Components" {
     description "Shows a workspace, and arranges its views in edit mode. ${AUTHOR}"
     include *
 }
+
+image * "Image-View-Reading" {
+    mermaid ../mermaid/image-view.mmd
+    title "Flowchart: How the build reads an image view"
+    description "Which image views draw as Mermaid diagrams, which fail, and which stay ordinary image views. ${AUTHOR}"
+}
+
+image * "Layout-Data" {
+    mermaid ../mermaid/layout-data.mmd
+    title "ERD: Layout data in workspace.json"
+    description "What Structurizr stores for a view's layout, and what edit mode writes back (ADR 17). ${AUTHOR}"
+}
+
+image * "Edit-Mode-Save" {
+    mermaid ../mermaid/edit-mode.mmd
+    title "Sequence: How edit mode saves and redraws"
+    description "A save from the page, and a change under the DSL's folder in a DSL session. ${AUTHOR}"
+}
