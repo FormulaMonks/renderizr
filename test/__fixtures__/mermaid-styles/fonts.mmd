@@ -1,0 +1,16 @@
+---
+config:
+  look: handDrawn
+  theme: neutral
+  themeVariables:
+    fontFamily: Georgia, serif
+    fontSize: 18px
+  flowchart:
+    curve: basis
+---
+flowchart TB
+    draft[Draft] --> review{Review}
+    review -->|changes| draft
+    review -->|approved| publish[Publish]
+    style draft font-weight:normal,font-style:italic
+    style publish font-family:Courier New,font-size:22px,opacity:0.8

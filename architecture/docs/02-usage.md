@@ -158,9 +158,30 @@ A node with a link draws the indicator for where it leads under its label and gr
 
 ### Styles
 
-A source with no `theme` and no `themeVariables` takes the workspace's look. Its nodes fill with the primary color (`--primary-color`, then `renderizr.primaryColor`, then Renderizr's blue) with white text and a darker border, in light and dark alike, and its edges and subgraphs take the color scheme's defaults. Its edges route Orthogonal unless the workspace's `routing` style says otherwise.
+A flowchart's styles layer from the least specific to the most: the color scheme's defaults, then the workspace's tag styles with the themes they come from, then the source's config (a named `theme` or `themeVariables`), then its classes (`classDef default` first, then each `classDef` in the order the source defines it), then its own `style` and `linkStyle`.
 
-The workspace's element styles tagged `Element` and `Mermaid` apply to every node, its relationship styles tagged `Relationship` and `Mermaid` to every edge, and its element styles tagged `Group` and `Mermaid` to every subgraph, with the themes they come from. A node's `fontSize` applies; its `width`, `height` and `shape` never do, since the source sets them. The line style the arrow syntax sets always wins.
+The workspace's element styles tagged `Element` and `Mermaid` apply to every node, its relationship styles tagged `Relationship` and `Mermaid` to every edge, and its element styles tagged `Group` and `Mermaid` to every subgraph. A `classDef` name isn't a tag. A node's `fontSize` applies unless the source sets a font size; its `width`, `height` and `shape` never do, since the source sets them. The shape and the line style that the arrow syntax sets always win.
+
+A source with no `theme` and no `themeVariables` takes the workspace's look. Its nodes fill with the primary color (`--primary-color`, then `renderizr.primaryColor`, then Renderizr's blue) with white text and a darker border, beneath the workspace's styles, in light and dark alike, and its edges and subgraphs take the color scheme's defaults.
+
+A source that names a `theme` or sets `themeVariables` takes the palette that Mermaid's own theme code derives from them, so a lone `primaryColor` under `theme: base` brings its text and border colors along. Renderizr reads `primaryColor`, `primaryBorderColor`, `primaryTextColor`, `lineColor`, `edgeLabelBackground`, `clusterBkg`, `clusterBorder`, `fontSize` and `fontFamily`. With no named theme they change Mermaid's `default` theme, which keeps its own node fill, as Mermaid does. In dark mode the palette keeps its fills, while edges and their labels, which draw straight on the canvas, take the color scheme's colors. `theme: dark` draws a dark palette in light mode too.
+
+| CSS | On a node | On an edge (`linkStyle`) |
+| --- | --- | --- |
+| `fill` | Its fill | |
+| `stroke` | Its border | The line's color |
+| `stroke-width` | The border's width | The line's thickness |
+| `stroke-dasharray` | A dashed border | A dashed line, unless the arrow syntax makes it dotted |
+| `color` | Its text | The label's text |
+| `font-size` | Its text size, in Mermaid's px | |
+| `font-weight` | Its name's weight, which is bold otherwise | |
+| `font-family` | Its family, ahead of the diagram's | |
+
+A subgraph's `style` and classes set its fill, border, text color and font size, and its border draws solid once the source sets a palette. A source fill keeps the border beneath it, as in Mermaid.
+
+A source's `curve` routes its edges: `linear` Direct, `step`, `stepBefore` and `stepAfter` Orthogonal, and every other curve Curved. A source that sets no `curve` routes by the workspace's `routing` style, then Orthogonal.
+
+The diagram draws in the source's `fontFamily`, then the `--font` family, then the fallback stack. An export names the same families and embeds only the `--font` faces.
 
 The build prints one warning per diagram that lists what of its source Renderizr ignored, such as `Image view "order-flow": Renderizr supports only a subset of Mermaid styling; ignored: shape "stadium"`. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every entry it can name.
 

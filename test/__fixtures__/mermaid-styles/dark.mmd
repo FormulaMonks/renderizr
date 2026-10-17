@@ -1,0 +1,15 @@
+---
+config:
+  theme: dark
+  flowchart:
+    curve: linear
+---
+flowchart LR
+    customer(Customer) -->|places order| shop[Web shop]
+    shop --> valid{Order valid?}
+    valid -->|yes| orders[(Orders database)]
+    valid -.->|no| reject[Reject order]
+    subgraph fulfilment [Fulfilment]
+        pick(Pick items) --> pack{{Pack parcel}}
+    end
+    orders ==> pick

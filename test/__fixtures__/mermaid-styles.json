@@ -1,0 +1,69 @@
+{
+    "name": "Mermaid styles",
+    "description": "Mermaid flowcharts styled from their source, over the workspace's tag styles.",
+    "model": {},
+    "documentation": {},
+    "views": {
+        "configuration": {
+            "properties": {
+                "mermaid.url": "https://mermaid.ink"
+            },
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Mermaid",
+                        "background": "#e8eef4",
+                        "stroke": "#6b7f94",
+                        "color": "#1f2d3a"
+                    },
+                    {
+                        "tag": "Group",
+                        "color": "#6b7f94"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Mermaid",
+                        "color": "#6b7f94",
+                        "routing": "Curved"
+                    }
+                ]
+            },
+            "terminology": {}
+        },
+        "imageViews": [
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxVkM9KxDAQh19lyKkL1gdY2HoQPAkue9lDdw_TZGpj848kVSTpu0uTKphLvsA3v8xMAsatIHZko7JffEIf4fVyMwAAfAnRavLN8w4HaNsuO4WcAlgvyGcIk3X9lYYC91q44abCJyop0ttmVn5aq1EeJe2bQq5ZoW-KGUBgxAEDHe7_7Me2y8Zm8PRBPPaXctXa34-X4d2jm2Bc1CiVJhOhf_nj3dqOk3xuzpLPICPpUCYDh3xO6Yx8Boeek1r3dsmICrVROJ26knAz7AGYJq9RCnZMLE6kt2UKGnFRka3rDznZd4Q",
+                "contentType": "image/svg+xml",
+                "description": "No theme and no themeVariables: the workspace's Mermaid styles sit over the primary color fill.",
+                "key": "silent",
+                "order": 1,
+                "title": "Silent source"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxdUltvmzAU_itHjiKlUlK1dMkoUjNpnfY0aVUnbQ-hDwf7eHgYg2zTLAL-ewUmES0vfPZ3ORdogfFKEEvYctkqo3wCbcp8TiWlLIGUZegoZWuYLn-jVZhpcgPbpqy2qkR7eqx0ZYNhISXFnAfPRH-trCA7F4n7OIqyINLK0JyLcYsD1w-k1NWR52j9VJA39nVqzXmqU9b3_XKZmosOfjynBgCAN85XJdnV4wSuYLPZd7VGTg7GjjpweVUf_lA2gpdgHOAghVfUSrQ_B2XAX_qgGA9j2olcF7LcYTUqHQj0OKzt6uWd-nqz70zVgaV_xP3heXwF77lwk_21WOcgGy2VLsl4OHy_4Ek1PLXixepJ8QKUp9KNk0GNvGjbJ-QF1Gg56X5ql4wIIDQKDw_7MWHak0bnvpGEI1oDUmmdLKSgiKK187YqKFnwm7v7KFvz4SMli89Z9OmWz8xhwnUYbIyZ5vEnTeeiIVjsCGV8CY4o3vHb6bg5KuHz5K7-P7fPdhEiiOSO6BKxxVhuMTi0MsWv0XUDH3r_WOI8TKBTw9bASrIlKsGSNvzsLGGCJDbas75_A6NLDdw",
+                "contentType": "image/svg+xml",
+                "description": "style, classDef and linkStyle win over the base theme's palette, which wins over the workspace's tag styles. curve step routes Orthogonal.",
+                "key": "styled",
+                "order": 2,
+                "title": "Styled source"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxVkLFuwyAQhl_lxORIdR8AKe5QqVOlRlky2BnOcI6pMSDAqSrb714ZnEhl4Tvx3c_BDExYSYyzsiwbI6zp1I03BiD2NBIHiX7Yyk7bH9Gjj-kQQEz-Thy0MoS-Man76cDn-WGFaEfyxfsOByjLanEaBQWwXpJfIPTW1RdqE1xz44abCnfUSs5fm5n5bc1GKlLaL4UlZ4W6SGYAiRFbDHS4_rNfy2oxdgFP3yRifU5b7n1cPLU3j66HbtKd0iOZCPXHk3drW06JoTgpMYCKNIb0MnAohnk-oRjAoRek131cMjJDHhSOxyolNIa9ABvJj6gk4zNL_844k9ThpCNb1z8laI4L",
+                "contentType": "image/svg+xml",
+                "description": "theme dark draws a dark palette in both color schemes. curve linear routes Direct.",
+                "key": "dark",
+                "order": 3,
+                "title": "Dark theme"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxlkDFPwzAQhf_KyXOCoFPlgQEq2BACxNJ0uDqX5IRjR2enaWn731HsqiCx-KT33nc6vyMo42tSWpVlWTnjXcOtrhyA9f5LQ4euXglObpZiRz1pcDRGQXtVPlEYt5ZC4gAa7-IT9mwPGp7JS8tYQCDh5td_52_ScLcc9rPWWD-ZDiVeNphRdqRhi4FD5dJl1wh8PORQLdjE9Wp-N1CW9yC0Y5qOb2mccyhrs30yHbqWwimD_2wcBvE7qk8wjFvLoVu_5rnJ0RAPljKbflBOxG0XtfPSoy2SlDKaI1o2f6nLxsw1uZpHPwqTwAtNF3iuZLEY9oUf0HA86NubZeVUAaon6ZFrpY8qNa60qqnB0UZ1Pv8A-fSdAQ",
+                "contentType": "image/svg+xml",
+                "description": "The source's fontFamily and fontSize, a node's own font-family, font-size and font-weight. curve basis routes Curved. The build warns about look, font-style and opacity.",
+                "key": "fonts",
+                "order": 4,
+                "title": "Fonts and ignored styling"
+            }
+        ]
+    }
+}
