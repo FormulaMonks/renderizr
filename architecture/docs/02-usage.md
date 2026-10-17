@@ -98,7 +98,7 @@ An export shows the view as drawn: the diagram color scheme, the animation step 
 
 1. The view's title in bold, when it has one.
 2. The view's description, wrapped to the canvas width and cut to four lines, when it has one.
-3. "Author:" and the author the view's description names after `Author:`, by name, else the workspace's `lastModifiedUser`, else its `lastModifiedAgent`.
+3. "Author:" and the author the view's description names after `Author:`, email address included, else the workspace's `lastModifiedUser`, else its `lastModifiedAgent`.
 4. "Last updated:" and the workspace's `lastModifiedDate`, else the date of the build, in the reader's locale.
 5. "Created with Renderizr" and the version that built the site, smaller and lighter than the lines above it.
 

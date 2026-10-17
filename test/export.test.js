@@ -322,7 +322,11 @@ describe("export-file", () => {
             "About the view",
             "the author the page shows apart stays out of the description",
         );
-        assert.equal(text.user, "Ada", "the view's own author, by name");
+        assert.equal(
+            text.user,
+            "Ada <ada@example.com>",
+            "the view's own author, with the address",
+        );
         assert.equal(text.modified, modifiedDate(WORKSPACE.lastModifiedDate));
     });
 
@@ -337,15 +341,15 @@ describe("export-file", () => {
             author("About\nAuthor: Andrés Zorro <andres.zorro@monks.com>", {
                 lastModifiedAgent: "renderizr/2.4.0",
             }),
-            "Andrés Zorro",
-            "the view's author wins over the agent, without the address",
+            "Andrés Zorro <andres.zorro@monks.com>",
+            "the view's author wins over the agent, with the address",
         );
         assert.equal(
             author(
                 "About\nAuthor: Andrés Zorro <andres.zorro@monks.com>",
                 workspace,
             ),
-            "Andrés Zorro",
+            "Andrés Zorro <andres.zorro@monks.com>",
             "and over the user",
         );
         assert.equal(
