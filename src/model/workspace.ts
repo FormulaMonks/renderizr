@@ -328,7 +328,7 @@ export class WorkspaceModel {
             if (filtered.has(view.key)) continue;
             const base =
                 view.type === "Filtered"
-                    ? this.findViewByKey(view.baseViewKey) ?? view
+                    ? (this.findViewByKey(view.baseViewKey) ?? view)
                     : view;
             const entry: Entry = {
                 view,

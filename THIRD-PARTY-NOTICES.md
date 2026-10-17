@@ -145,7 +145,7 @@ These run on the machine performing the build. None of their code appears in the
 | [Vite](https://github.com/vitejs/vite) | 7.3.6 | MIT | Copyright (c) 2019-present, VoidZero Inc. and Vite contributors |
 | [Rollup](https://github.com/rollup/rollup) | 4.62.4 | MIT | Copyright (c) 2017 [these people](https://github.com/rollup/rollup/graphs/contributors) |
 | [TypeScript](https://github.com/microsoft/TypeScript) | 5.9.3 | Apache-2.0 | Microsoft Corporation |
-| [Biome](https://github.com/biomejs/biome) | 1.8.2 | MIT OR Apache-2.0 | Copyright (c) 2023 Biome Developers and Contributors |
+| [Biome](https://github.com/biomejs/biome) | 1.9.4 | MIT OR Apache-2.0 | Copyright (c) 2023 Biome Developers and Contributors |
 | [@commitlint/cli](https://github.com/conventional-changelog/commitlint) | 20.5.3 | MIT | Mario Nebl |
 | [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint) | 20.5.3 | MIT | Mario Nebl |
 | [czg](https://github.com/Zhengqbbb/cz-git) | 1.13.2 | MIT | Zhengqbbb |

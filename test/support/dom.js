@@ -424,8 +424,8 @@ export class DOMElement extends DOMNode {
             {
                 get: (__, key) =>
                     typeof key === "string"
-                        ? this.getAttribute(`data-${kebabCase(key)}`) ??
-                          undefined
+                        ? (this.getAttribute(`data-${kebabCase(key)}`) ??
+                          undefined)
                         : undefined,
                 set: (__, key, value) => {
                     this.setAttribute(`data-${kebabCase(key)}`, String(value));
@@ -1117,7 +1117,7 @@ class DOMWindow extends DOMEventTarget {
 
     scrollTo(options) {
         this.scrollCalls.push(options);
-        this.scrollY = typeof options === "object" ? options?.top ?? 0 : 0;
+        this.scrollY = typeof options === "object" ? (options?.top ?? 0) : 0;
     }
 
     /* Fake timers: nothing runs until a test says so. */

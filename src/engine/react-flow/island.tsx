@@ -2988,7 +2988,7 @@ function Canvas({
                 key: viewKey,
                 layout: next.change
                     ? mergeLayouts(edited, next.change.after)
-                    : edited ?? {},
+                    : (edited ?? {}),
                 ...next,
             };
             dragging.current = shown;
@@ -3161,6 +3161,7 @@ function Canvas({
             data-view-key={key ?? ""}
             data-ready={readyFor(key, readyKey) ? "true" : "false"}
             // One focusable region, labeled with the view's title (spec 6.2).
+            // biome-ignore lint/a11y/useSemanticElements: a fieldset groups form controls; the canvas is one focusable region that pans and zooms (spec 6.2)
             role="group"
             aria-label={graph?.title}
             // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas is one Tab stop that pans, zooms and walks its items by key (spec 6.2)

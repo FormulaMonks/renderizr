@@ -905,7 +905,7 @@ function drawView(
                     : "",
             description:
                 labels.descriptions && style.description
-                    ? placed.element.description ?? ""
+                    ? (placed.element.description ?? "")
                     : "",
             background: style.background,
             stroke: style.stroke ?? defaults.color,
@@ -1606,7 +1606,7 @@ function boundaryBoxes(
             boundary.kind === "Element" &&
             labels.descriptions &&
             style.description
-                ? boundary.element.description ?? ""
+                ? (boundary.element.description ?? "")
                 : "";
         boxes.push({
             ...box,
