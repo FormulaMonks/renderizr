@@ -139,6 +139,13 @@ Renderizr's own architecture carries one of each, under `architecture/mermaid/`:
 
 The view's `title` names the diagram, then the source's frontmatter `title`, then `Image View: <key>`. The frontmatter title never draws on the canvas. In edit mode a Mermaid diagram draws read-only, since Structurizr keeps no layout for an image view, and a DSL session draws it again when its `.mmd` file under the DSL's folder changes.
 
+> [!TIP]
+> Choose every color on purpose, and give it a meaning. The C4 model asks that a diagram's colors say something, and so Renderizr derives its whole palette from one primary color. Renderizr honors a Mermaid source's own styles, and a source draws at its best when it sets none: with no `theme`, `themeVariables`, `classDef` or `style`, the diagram takes the workspace's primary color and styles, and reads like the C4 views beside it. Give a node a color of its own when the reader needs to tell it apart, and say what the color means in the view's description.
+
+A diagram Renderizr can't draw shows why in place of the canvas, and the build prints the same text and finishes: `Mermaid diagram "order-flow": a parse error at line 4: the source ends too early.` Its export buttons show disabled and say "Nothing to export: the diagram couldn't be drawn". In edit mode the reason shows on the view and in the terminal, and the next save of the source that fixes it draws the diagram again. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every reason.
+
+The description and technology toggles hide on a flowchart, whose labels hold the source's text alone. On an ERD the description toggle shows and hides the attributes' comment column, on the canvas and in an export, and the technology toggle hides, since an ERD has no technologies. A toggle that hides keeps your choice, which applies again on the next view where it shows.
+
 ### Flowcharts
 
 Renderizr lays a flowchart out with Dagre, the way Mermaid does at Renderizr's larger text: every length Mermaid uses grows by 1.5. Nodes sit 75 apart, ranks 75 apart and edges 30 apart, and a source's own `nodeSpacing` and `rankSpacing` grow the same way. Each node takes the size its label needs. A subgraph that no edge crosses lays out on its own and turns its direction (top to bottom becomes left to right) unless it sets `direction`. Every other subgraph stays part of the graph around it.
@@ -161,41 +168,13 @@ End markers take the edge's color and draw solid on a dotted line, sized to the 
 
 A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draws as any flowchart. The HTML in its labels draws as plain text lines.
 
-### ERDs
-
-Renderizr lays an ERD out with Dagre as it lays a flowchart out, with Mermaid's ERD spacing grown by 1.5: entities sit 210 apart and ranks 120 apart, and the source's `er.nodeSpacing` and `er.rankSpacing` grow the same way. Each relationship points from its first entity to its second, as written.
-
-![The ERD of the layout data in workspace.json with every entity expanded: a header, one row per attribute and a toggle band, joined by cardinality markers.](images/mermaid-erd.png)
-
-An ERD draws its **Entities** collapsed at first. A collapsed entity draws like a C4 element: every collapsed entity of the diagram takes one size in a C4 element's proportions, with its name in bold at the center over its `PK` and `FK` **Attributes** (`id [PK]`). A `UK` alone doesn't show. Its name draws as written, the alias first: `CUSTOMER["Customer"]` reads "Customer".
-
-The round plus button at the bottom of an entity expands it. An expanded entity draws a header with its name, one row per attribute in Mermaid's column order (type, name, keys and comment), and a band below the rows that holds the minus button. The comment column shows only while descriptions show. The header and band take the entity's fill, and the rows take light alternating tints of it with dark text. Each entity flips on its own for the visit, and every flip lays the diagram out again and fits it to the canvas. An entity without attributes draws no button and stays collapsed.
-
-Each button is a stop in the canvas's Tab order, in reading order by its entity. Enter or Space flips the entity, and focus stays on the button. In edit mode only Enter does, since Space pans there.
-
-The toolbar's "Expand all entities" button sets every entity of the diagram at once, drops the flips made with each entity's own button and fits the diagram to the canvas again. It shows pressed while the entities are expanded, and then it reads "Collapse all entities". Your choice applies to every ERD and stays after a reload, while an entity's own flip lasts only for the visit. The button shows only on an ERD that has an entity with attributes.
-
-| Source | Draws as |
-| --- | --- |
-| `--` | An identifying relationship: a solid line |
-| `..` | A non-identifying relationship: a dashed line |
-| `\|\|`, `\|o` or `o\|` | Exactly one, and zero or one, at that end |
-| `}\|` or `\|{`, `}o` or `o{` | One or more, and zero or more, at that end |
-
-An entity's `style`, its classes and `classDef` style it as they style a flowchart's node, in the same order. A source's `rowOdd` and `rowEven` theme variables, or their older names `attributeBackgroundColorOdd` and `attributeBackgroundColorEven`, color the rows in place of the tints.
-
-An export draws each entity the way the canvas shows it, collapsed or expanded, without its button.
-
-### Click links
+#### Click links
 
 A `click` line that gives a node a link, `click A href "#orders"` or `click A "https://example.com/shop"`, makes the node an activation target, the way an element link does. The link reads as an element link reads: `#<key>`, `?view=<key>` and `{workspace}/diagrams#<key>` open that view, a page on Structurizr's own hosts opens the matching view or document here when the workspace has it, and any other address opens in a new tab. A link to the view on screen, to a view the workspace doesn't have or to a script offers nothing and warns about nothing. A tooltip after the link, `click A "https://example.com/shop" "Open the shop"`, shows when the pointer rests on the node.
 
 A node with a link draws the indicator for where it leads under its label and grows to fit it, joins the Tab order in reading order, and exports with its indicator. Subgraphs and edges never lead anywhere. A `click` line that calls a function, `click A callback` or `click A call notify()`, does nothing and warns, since the page runs no script from the source. In edit mode nothing activates, as on every view.
 
-### Styles
-
-> [!TIP]
-> Choose every color on purpose, and give it a meaning. The C4 model asks that a diagram's colors say something, and so Renderizr derives its whole palette from one primary color. Renderizr honors a Mermaid source's own styles, and a source draws at its best when it sets none: with no `theme`, `themeVariables`, `classDef` or `style`, the diagram takes the workspace's primary color and styles, and reads like the C4 views beside it. Give a node a color of its own when the reader needs to tell it apart, and say what the color means in the view's description.
+#### Styles
 
 A flowchart's styles layer from the least specific to the most: the color scheme's defaults, then the workspace's tag styles with the themes they come from, then the source's config (a named `theme` or `themeVariables`), then its classes (`classDef default` first, then each `classDef` in the order the source defines it), then its own `style` and `linkStyle`.
 
@@ -223,6 +202,31 @@ A source's `curve` routes its edges: `linear` Direct, `step`, `stepBefore` and `
 The diagram draws in the source's `fontFamily`, then the `--font` family, then the fallback stack. An export names the same families and embeds only the `--font` faces.
 
 The build prints one warning per diagram that lists what of its source Renderizr ignored, such as `Image view "order-flow": Renderizr supports only a subset of Mermaid styling; ignored: shape "stadium"`. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every entry it can name.
+
+### ERDs
+
+Renderizr lays an ERD out with Dagre as it lays a flowchart out, with Mermaid's ERD spacing grown by 1.5: entities sit 210 apart and ranks 120 apart, and the source's `er.nodeSpacing` and `er.rankSpacing` grow the same way. Each relationship points from its first entity to its second, as written.
+
+![The ERD of the layout data in workspace.json with every entity expanded: a header, one row per attribute and a toggle band, joined by cardinality markers.](images/mermaid-erd.png)
+
+An ERD draws its **Entities** collapsed at first. A collapsed entity draws like a C4 element: every collapsed entity of the diagram takes one size in a C4 element's proportions, with its name in bold at the center over its `PK` and `FK` **Attributes** (`id [PK]`). A `UK` alone doesn't show. Its name draws as written, the alias first: `CUSTOMER["Customer"]` reads "Customer".
+
+The round plus button at the bottom of an entity expands it. An expanded entity draws a header with its name, one row per attribute in Mermaid's column order (type, name, keys and comment), and a band below the rows that holds the minus button. The comment column shows only while descriptions show. The header and band take the entity's fill, and the rows take light alternating tints of it with dark text. Each entity flips on its own for the visit, and every flip lays the diagram out again and fits it to the canvas. An entity without attributes draws no button and stays collapsed.
+
+Each button is a stop in the canvas's Tab order, in reading order by its entity. Enter or Space flips the entity, and focus stays on the button. In edit mode only Enter does, since Space pans there.
+
+The toolbar's "Expand all entities" button sets every entity of the diagram at once, drops the flips made with each entity's own button and fits the diagram to the canvas again. It shows pressed while the entities are expanded, and then it reads "Collapse all entities". Your choice applies to every ERD and stays after a reload, while an entity's own flip lasts only for the visit. The button shows only on an ERD that has an entity with attributes.
+
+| Source | Draws as |
+| --- | --- |
+| `--` | An identifying relationship: a solid line |
+| `..` | A non-identifying relationship: a dashed line |
+| `\|\|`, `\|o` or `o\|` | Exactly one, and zero or one, at that end |
+| `}\|` or `\|{`, `}o` or `o{` | One or more, and zero or more, at that end |
+
+An entity's `style`, its classes and `classDef` style it as they style a flowchart's node, in the same order. A source's `rowOdd` and `rowEven` theme variables, or their older names `attributeBackgroundColorOdd` and `attributeBackgroundColorEven`, color the rows in place of the tints.
+
+An export draws each entity the way the canvas shows it, collapsed or expanded, without its button.
 
 ### Sequence diagrams
 
@@ -259,12 +263,6 @@ Only the source's top-level `fontSize` and `fontFamily` set the font: `fontSize`
 The descriptions toggle hides the notes. The diagram lays out again without them, so the gaps they leave close, and fits the canvas again. A fragment that holds only notes stays, empty, with its title. Message labels, fragment titles and conditions, and participant names always draw, and an export leaves the notes out while they hide. The technologies toggle hides, since it has nothing to change.
 
 Renderizr draws participant names bold, as the C4 label template does, where Mermaid draws them in a regular weight, and it wraps a fragment's title within the fragment where Mermaid lets a long one run past the tab.
-
-### When a diagram can't be drawn
-
-A diagram Renderizr can't draw shows why in place of the canvas, and the build prints the same text and finishes: `Mermaid diagram "order-flow": a parse error at line 4: the source ends too early.` Its export buttons show disabled and say "Nothing to export: the diagram couldn't be drawn". In edit mode the reason shows on the view and in the terminal, and the next save of the source that fixes it draws the diagram again. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every reason.
-
-The description and technology toggles hide on a flowchart, whose labels hold the source's text alone. On an ERD the description toggle shows and hides the attributes' comment column, on the canvas and in an export, and the technology toggle hides, since an ERD has no technologies. A toggle that hides keeps your choice, which applies again on the next view where it shows.
 
 ## Edit mode
 
