@@ -92,12 +92,14 @@ The build fetches themes, element icons and a logo referenced by URL, and folds 
 
 Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them; an image view shows none.
 
-An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors, with one line for each of these the workspace has:
+An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors:
 
-1. The view's title in bold.
-2. The view's description, wrapped to the canvas width and cut to four lines.
-3. "Author:" and the user who last modified the workspace.
-4. "Last updated:" and the date the workspace was last modified, in the reader's locale.
+1. The view's title in bold, when it has one.
+2. The view's description, wrapped to the canvas width and cut to four lines, when it has one.
+3. "Author:" and the workspace's `lastModifiedUser`, else its `lastModifiedAgent`.
+4. "Last updated:" and the workspace's `lastModifiedDate`, else the date of the build, in the reader's locale.
+
+Every export carries the author and date lines. Each one prints "Unknown" only when the workspace holds neither of its values.
 
 The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
 

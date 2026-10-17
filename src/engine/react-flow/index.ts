@@ -65,8 +65,9 @@ export function mountEngine(
         // Edit mode swaps the workspace in place (`setWorkspace`).
         let model = new WorkspaceModel(options.workspace);
         /**
-         * The workspace as last saved, whose `lastModifiedUser` and
-         * `lastModifiedDate` the title block gives, which the model drops.
+         * The workspace as last saved, whose `lastModifiedUser`,
+         * `lastModifiedAgent` and `lastModifiedDate` the title block gives,
+         * which the model drops.
          * Edit mode swaps it only on a save, so unsaved changes keep the
          * saved date.
          */
@@ -256,6 +257,7 @@ export function mountEngine(
                         workspace,
                         graph.title,
                         view.description,
+                        __RENDERIZR_BUILD_DATE__,
                     ),
                     text: textSetting(__RENDERIZR_FONT__),
                 });

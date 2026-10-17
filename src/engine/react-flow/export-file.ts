@@ -88,21 +88,34 @@ export function modifiedDate(value: unknown, locale?: string): string {
         : "";
 }
 
+/** What the title block prints for an author or date it has no value for. */
+export const UNKNOWN = "Unknown";
+
 /**
  * What the title block says for view `title`, described as `description`,
- * in `workspace`, the raw workspace JSON as it was last saved. The
- * description leaves out its author, as the toolbar's does.
+ * in `workspace`, the raw workspace JSON as it was last saved, from a site
+ * built at `built`. The description leaves out its author, as the
+ * toolbar's does. The author is the workspace's `lastModifiedUser`, else its
+ * `lastModifiedAgent`; the date is its `lastModifiedDate`, else `built`.
+ * Either prints "Unknown" only when its fallback is empty too.
  */
 export function titleBlockText(
     workspace: Record<string, unknown>,
     title: string,
     description: string,
+    built: unknown,
 ): TitleBlockText {
     return {
         view: title,
         description: splitAuthor(description).description,
-        user: field(workspace.lastModifiedUser),
-        modified: modifiedDate(workspace.lastModifiedDate),
+        user:
+            field(workspace.lastModifiedUser).trim() ||
+            field(workspace.lastModifiedAgent).trim() ||
+            UNKNOWN,
+        modified:
+            modifiedDate(workspace.lastModifiedDate) ||
+            modifiedDate(built) ||
+            UNKNOWN,
     };
 }
 

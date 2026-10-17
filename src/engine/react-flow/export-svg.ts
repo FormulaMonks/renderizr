@@ -62,9 +62,9 @@ export type TextSetting = {
 
 /**
  * What the title block says, each line left out when it has no value: the
- * view's title, the view's description, the user who last modified the
- * workspace, and the date it was last modified, already formatted for the
- * reader.
+ * view's title, the view's description, who last modified the workspace,
+ * and the date it was last modified, already formatted for the reader.
+ * `titleBlockText` always gives the last two a value, "Unknown" at worst.
  */
 export type TitleBlockText = {
     view: string;

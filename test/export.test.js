@@ -27,6 +27,8 @@ const WORKSPACE = JSON.parse(
         "utf-8",
     ),
 );
+/** When the title block's tests say the site was built. */
+const BUILT = "2026-10-16T09:00:00Z";
 const LABELS = { descriptions: true, technologies: true };
 const TEXT = {
     measure: estimateText,
@@ -290,6 +292,7 @@ describe("export-file", () => {
             WORKSPACE,
             "Export in context",
             "About the view\nAuthor: Ada <ada@example.com>",
+            BUILT,
         );
         assert.equal("workspace" in text, false, "no workspace name");
         assert.equal(text.view, "Export in context");
@@ -300,11 +303,58 @@ describe("export-file", () => {
         );
         assert.equal(text.user, "ada@example.com");
         assert.equal(text.modified, modifiedDate(WORKSPACE.lastModifiedDate));
+    });
+
+    test("the title block's author falls back to the agent, then to Unknown", () => {
+        const author = (workspace) =>
+            titleBlockText(workspace, "View", "", BUILT).user;
         assert.equal(
-            titleBlockText({ name: "Bare" }, "View", "").user,
-            "",
-            "a workspace without a user gives none",
+            author({
+                lastModifiedUser: "ada@example.com",
+                lastModifiedAgent: "structurizr-ui",
+            }),
+            "ada@example.com",
+            "the user comes before the agent",
         );
+        assert.equal(
+            author({ lastModifiedAgent: "structurizr-ui" }),
+            "structurizr-ui",
+            "a workspace without a user gives its agent",
+        );
+        assert.equal(
+            author({
+                lastModifiedUser: " ",
+                lastModifiedAgent: "renderizr/2.4.0",
+            }),
+            "renderizr/2.4.0",
+            "a blank user counts as none",
+        );
+        assert.equal(author({ name: "Bare" }), "Unknown");
+        assert.equal(
+            author({ lastModifiedUser: "", lastModifiedAgent: 42 }),
+            "Unknown",
+        );
+    });
+
+    test("the title block's date falls back to the date of the build, then to Unknown", () => {
+        const date = (workspace, built = BUILT) =>
+            titleBlockText(workspace, "View", "", built).modified;
+        assert.equal(
+            date({ lastModifiedDate: WORKSPACE.lastModifiedDate }),
+            modifiedDate(WORKSPACE.lastModifiedDate),
+        );
+        assert.equal(
+            date({ name: "Bare" }),
+            modifiedDate(BUILT),
+            "a workspace without a date gives the date of the build",
+        );
+        assert.equal(
+            date({ lastModifiedDate: "yesterday" }),
+            modifiedDate(BUILT),
+            "a date that does not parse counts as none",
+        );
+        assert.equal(date({ name: "Bare" }, ""), "Unknown");
+        assert.equal(date({ name: "Bare" }, null), "Unknown");
     });
 
     /* ---------------- the PNG's size */
