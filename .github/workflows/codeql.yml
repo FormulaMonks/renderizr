@@ -61,6 +61,9 @@ jobs:
               - dist
               - output
               - structurizr-output
+              # Generated from Mermaid's own grammars by `pnpm mermaid:parser`
+              # and never edited by hand; its lexer rules aren't HTML filters.
+              - scripts/mermaid/parser.js
 
       - name: Analyze
         uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
