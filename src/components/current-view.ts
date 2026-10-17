@@ -8,6 +8,7 @@ import {
     NOT_ANIMATING,
 } from "../engine/contract";
 import {
+    hasEntityToggles,
     type InertToggles,
     inertToggles,
     type ModelView,
@@ -21,6 +22,7 @@ import lightModeIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
 import darkModeIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
 import toggleDescriptionsIcon from "bootstrap-icons/icons/card-text.svg?raw";
 import toggleTechnologiesIcon from "bootstrap-icons/icons/code-square.svg?raw";
+import toggleEntitiesIcon from "bootstrap-icons/icons/arrows-expand.svg?raw";
 import resetZoomIcon from "bootstrap-icons/icons/aspect-ratio.svg?raw";
 import zoomInIcon from "bootstrap-icons/icons/zoom-in.svg?raw";
 import zoomOutIcon from "bootstrap-icons/icons/zoom-out.svg?raw";
@@ -122,10 +124,14 @@ export function applyDiagramTheme(theme: DiagramTheme): void {
     document.documentElement.dataset.diagramTheme = theme;
 }
 
-/** What a reader who never toggled a label sees: descriptions and technologies. */
+/**
+ * What a reader who never toggled a label sees: descriptions and
+ * technologies, and every ERD's entities collapsed.
+ */
 export const LABEL_DEFAULTS: Labels = {
     descriptions: true,
     technologies: true,
+    entitiesCollapsed: true,
 };
 
 export function readLabelState(): Labels {
@@ -143,6 +149,10 @@ export function readLabelState(): Labels {
                 typeof parsed.technologies === "boolean"
                     ? parsed.technologies
                     : LABEL_DEFAULTS.technologies,
+            entitiesCollapsed:
+                typeof parsed.entitiesCollapsed === "boolean"
+                    ? parsed.entitiesCollapsed
+                    : LABEL_DEFAULTS.entitiesCollapsed,
         };
     } catch {
         return { ...LABEL_DEFAULTS };
@@ -197,6 +207,9 @@ export default class CurrentView extends Component {
     /** The label toggles that change nothing on the view shown, which hide. */
     #inert: InertToggles = { descriptions: false, technologies: false };
 
+    /** Whether the view shown is an ERD with an entity toggle. */
+    #entities = false;
+
     /** The key of the view the toolbar shows. */
     #viewKey: string | null = null;
 
@@ -228,6 +241,15 @@ export default class CurrentView extends Component {
         [
             "toggle-technologies",
             () => this.#setLabels({ technologies: !this.#labels.technologies }),
+        ],
+        // Sets every entity, and the island drops the per-entity overrides
+        // when the preference changes (spec: ERD entities).
+        [
+            "toggle-entities",
+            () =>
+                this.#setLabels({
+                    entitiesCollapsed: !this.#entitiesCollapsed(),
+                }),
         ],
         // Play toggles pause, keeping the step (spec 11).
         [
@@ -348,6 +370,11 @@ export default class CurrentView extends Component {
         this.#paintControlButtons();
     }
 
+    /** Whether ERD entities draw collapsed; collapsed when unset. */
+    #entitiesCollapsed(): boolean {
+        return this.#labels.entitiesCollapsed ?? true;
+    }
+
     #setLabels(next: Partial<Labels>) {
         this.#labels = { ...this.#labels, ...next };
         writeLabelState(this.#labels);
@@ -412,6 +439,14 @@ export default class CurrentView extends Component {
                 ? "Hide technologies in diagrams"
                 : "Show technologies in diagrams",
             this.#inert.technologies,
+        );
+        // Pressed while the entities are expanded.
+        const collapsed = this.#entitiesCollapsed();
+        this.#paintToggleButton(
+            "toggle-entities",
+            !collapsed,
+            collapsed ? "Expand all entities" : "Collapse all entities",
+            !this.#entities,
         );
     }
 
@@ -485,6 +520,7 @@ export default class CurrentView extends Component {
                 <button class="dark-mode"></button>
                 <button class="toggle-description">${toggleDescriptionsIcon}</button>
                 <button class="toggle-technologies">${toggleTechnologiesIcon}</button>
+                <button class="toggle-entities" hidden>${toggleEntitiesIcon}</button>
             </div>
             <div class="animation-buttons ${styles.btnGroup}" hidden>
                 <button class="prev-step" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
@@ -563,6 +599,7 @@ export default class CurrentView extends Component {
                 ? NOTHING_TO_EXPORT
                 : null;
         this.#inert = inertToggles(view);
+        this.#entities = hasEntityToggles(view);
         this.#subscribe();
         const { description, author } = splitAuthor(view.description);
         // Structurizr's own naming: an explicit title when the view has one,

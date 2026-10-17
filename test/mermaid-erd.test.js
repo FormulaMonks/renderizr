@@ -1,7 +1,8 @@
 /**
  * Mermaid ERDs as the page draws them (spec: ERD entities): entities
  * collapsed and expanded, their rows' colors, their toggles in the Tab
- * order, their relationships' lines and ends, and their export. The
+ * order, their relationships' lines and ends, their export, and the
+ * toolbar's button and label toggles on an ERD. The
  * build's half is in `scripts/mermaid/erd.test.js`.
  */
 
@@ -12,10 +13,19 @@ import {
     mermaidWorkspace,
 } from "../scripts/__fixtures__/mermaid.js";
 import { readMermaidDiagrams } from "../scripts/mermaid/index.js";
-import { importSrc, srcTest as test } from "./support/ts.js";
+import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
-const { WorkspaceModel, findViewError, resolveView, mermaidPrimaryColor } =
-    await importSrc("model/index");
+const {
+    WorkspaceModel,
+    findViewError,
+    hasEntityToggles,
+    inertToggles,
+    resolveView,
+    mermaidPrimaryColor,
+} = await importSrc("model/index");
+const { default: CurrentView, readLabelState } = await importSrc(
+    "components/current-view",
+);
 const { buildGraph } = await importSrc("engine/react-flow/graph");
 const { estimateText } = await importSrc("engine/geometry/boundary");
 const { collapsedContent, layOutEntity, rowTints, parseColor, TOGGLE_ROOM } =
@@ -413,4 +423,131 @@ test("an export follows the descriptions toggle: no comment column while off", (
     );
     assert.match(svg, />email</);
     assert.doesNotMatch(svg, /Login and receipts/);
+});
+
+test("with descriptions off the canvas draws no comment column", () => {
+    const graph = graphOf(
+        FIXTURE,
+        { ...EXPANDED, descriptions: false },
+        "shop",
+    );
+    const texts = box(graph, "CUSTOMER").entity.texts.map((t) => t.text);
+    assert.ok(texts.includes("email"));
+    assert.ok(!texts.includes("Login and receipts"));
+});
+
+/* ------------------------------------------------------------ the toolbar */
+
+const FLOWCHART = built("mermaid-flowchart.json");
+const BARE = "erDiagram\n    A ||--o{ B : has";
+
+/** The toolbar showing `key` of `model`, with an engine that records labels. */
+function toolbarOn(model, key) {
+    const element = dom.document.createElement("section");
+    const engine = {
+        labels: [],
+        setColorScheme() {},
+        setLabels(labels) {
+            engine.labels.push(labels);
+        },
+        fit() {},
+        zoomIn() {},
+        zoomOut() {},
+        play() {},
+        pause() {},
+        stepForward() {},
+        stepBack() {},
+        onAnimationChanged(callback) {
+            callback({ steps: 0, step: null, playing: false });
+            return () => {};
+        },
+        exportView: () => Promise.resolve(new Blob(["<svg/>"])),
+    };
+    const toolbar = new CurrentView(element, engine, model, null, () => {});
+    toolbar.render(model.findViewByKey(key));
+    const button = (name) => element.querySelector(`.${name}`);
+    return { toolbar, engine, button };
+}
+
+test("an ERD has entity toggles when one of its entities has attributes", () => {
+    assert.equal(hasEntityToggles(FIXTURE.findViewByKey("shop")), true);
+    assert.equal(hasEntityToggles(modelOf(BARE).findViewByKey("erd")), false);
+    assert.equal(hasEntityToggles(FLOWCHART.findViewByKey("plain")), false);
+    assert.equal(hasEntityToggles(FLOWCHART.findViewByKey("landscape")), false);
+});
+
+test("on an ERD the technologies toggle hides and the descriptions toggle stays", () => {
+    dom.window.localStorage.clear();
+    assert.deepEqual(inertToggles(FIXTURE.findViewByKey("shop")), {
+        descriptions: false,
+        technologies: true,
+    });
+    const { toolbar, engine, button } = toolbarOn(FIXTURE, "shop");
+    assert.equal(button("toggle-description").hidden, false);
+    assert.equal(button("toggle-technologies").hidden, true);
+    button("toggle-description").click();
+    assert.equal(engine.labels.at(-1).descriptions, false);
+    assert.equal(engine.labels.at(-1).technologies, true, "kept as it was");
+    toolbar.clear();
+    dom.window.localStorage.clear();
+});
+
+test("the entities button sets every entity, shows pressed while they are expanded, and says what it does", () => {
+    dom.window.localStorage.clear();
+    const { toolbar, engine, button } = toolbarOn(FIXTURE, "shop");
+    const entities = button("toggle-entities");
+    assert.equal(entities.hidden, false);
+    assert.equal(engine.labels.at(-1).entitiesCollapsed, true, "collapsed");
+    assert.equal(entities.getAttribute("aria-pressed"), "false");
+    assert.equal(entities.title, "Expand all entities");
+    assert.equal(entities.getAttribute("aria-label"), "Expand all entities");
+
+    entities.click();
+    assert.equal(engine.labels.at(-1).entitiesCollapsed, false);
+    assert.equal(entities.getAttribute("aria-pressed"), "true");
+    assert.equal(entities.title, "Collapse all entities");
+
+    entities.click();
+    assert.equal(engine.labels.at(-1).entitiesCollapsed, true);
+    assert.equal(entities.getAttribute("aria-pressed"), "false");
+    assert.equal(entities.title, "Expand all entities");
+    toolbar.clear();
+    dom.window.localStorage.clear();
+});
+
+test("the entities preference survives a reload and applies to every ERD", () => {
+    dom.window.localStorage.clear();
+    const first = toolbarOn(FIXTURE, "shop");
+    first.button("toggle-entities").click();
+    first.toolbar.clear();
+
+    assert.equal(readLabelState().entitiesCollapsed, false);
+    const reloaded = toolbarOn(FIXTURE, "shop-lr");
+    assert.equal(reloaded.engine.labels.at(-1).entitiesCollapsed, false);
+    assert.equal(
+        reloaded.button("toggle-entities").getAttribute("aria-pressed"),
+        "true",
+    );
+    reloaded.toolbar.clear();
+
+    dom.window.localStorage.setItem(
+        "renderizr:diagram-labels",
+        JSON.stringify({ descriptions: true, entitiesCollapsed: "no" }),
+    );
+    assert.equal(readLabelState().entitiesCollapsed, true, "unreadable");
+    dom.window.localStorage.clear();
+});
+
+test("the entities button hides on an ERD with no toggles and on every other view", () => {
+    dom.window.localStorage.clear();
+    const hiddenOn = (model, key) => {
+        const { toolbar, button } = toolbarOn(model, key);
+        const hidden = button("toggle-entities").hidden;
+        toolbar.clear();
+        return hidden;
+    };
+    assert.equal(hiddenOn(modelOf(BARE), "erd"), true, "no attributes");
+    assert.equal(hiddenOn(FLOWCHART, "plain"), true, "a flowchart");
+    assert.equal(hiddenOn(FLOWCHART, "landscape"), true, "a C4 view");
+    assert.equal(hiddenOn(FIXTURE, "shop"), false);
 });
