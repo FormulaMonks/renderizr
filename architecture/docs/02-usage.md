@@ -113,7 +113,7 @@ An element icon given as an `http(s)` URL stays blank in an export. A build embe
 
 ## Mermaid diagrams
 
-Renderizr draws a Mermaid flowchart or ERD that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
+Renderizr draws a Mermaid flowchart, ERD or sequence diagram that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
 
 ```
 views {
@@ -130,7 +130,7 @@ views {
 
 Structurizr encodes the source into the image view's content as a URL on the Mermaid server that `mermaid.url` names, on the image view or on the views. The build reads the source back from that URL and parses it with Mermaid's own grammar, so the page never fetches the Mermaid server's picture. The workspace keeps opening in Structurizr as before.
 
-A source that opens with `flowchart`, `graph` or `erDiagram` draws. Every other image view stays a picture with no warning: a picture file, Mermaid that Structurizr inlines with `mermaid.inline true`, and every other Mermaid type.
+A source that opens with `flowchart`, `graph`, `erDiagram` or `sequenceDiagram` draws. Every other image view stays a picture with no warning: a picture file, Mermaid that Structurizr inlines with `mermaid.inline true`, and every other Mermaid type.
 
 The view's `title` names the diagram, then the source's frontmatter `title`, then `Image View: <key>`. The frontmatter title never draws on the canvas. In edit mode a Mermaid diagram draws read-only, since Structurizr keeps no layout for an image view, and a DSL session draws it again when its `.mmd` file under the DSL's folder changes.
 
@@ -210,11 +210,37 @@ The diagram draws in the source's `fontFamily`, then the `--font` family, then t
 
 The build prints one warning per diagram that lists what of its source Renderizr ignored, such as `Image view "order-flow": Renderizr supports only a subset of Mermaid styling; ignored: shape "stadium"`. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every entry it can name.
 
+### Sequence diagrams
+
+Renderizr lays a sequence diagram out with its own code, the way Mermaid does at Renderizr's larger text: every length grows by 1.5. Participants stand at least 75 apart and widen to fit their names and the labels between them, messages sit 69 apart, and a fragment's title wraps to the fragment's width. Messages run as straight lines; the router and the `routing` style don't apply. Text draws at 20 and participant names in the C4 label template.
+
+| Source | Draws as |
+| --- | --- |
+| `participant`, `actor`, `participant A@{ "type": "database" }`, `participant A@{ "type": "queue" }` | A box, C4's Person, a cylinder with a shallow lid and a pipe, with its lifeline |
+| `->>` and `-->>`, `<<->>` | A solid and a dotted line with an arrow, and with an arrow at both ends |
+| `-)`, `-x`, `->` | An open arrow, a cross and no marker, solid or dotted (`--)`, `--x`, `-->`) |
+| `A->>()B`, `A()->>B`, `A()->>()B` | A dot on the lifeline the `()` sits by |
+| `activate`, `deactivate`, `+` and `-` | An activation bar, stacked to the right when they nest |
+| `Note left of`, `right of`, `over A`, `over A,B` | A gray note in that place |
+| `loop`, `alt`/`else`, `opt`, `par`/`and`, `par_over`, `critical`/`option`, `break` | A dashed frame with its keyword's tab, its title and its sections |
+| `rect` | A tint of the primary color behind what it holds, or the color it names |
+| `box … end` | A group around its participants, in the workspace's `Group` and `Mermaid` style |
+| `create` and `destroy` | A participant that starts at the message that creates it, and a lifeline that ends at the message that destroys it |
+| `autonumber`, `autonumber 10 5`, `autonumber off`, `showSequenceNumbers` | A numbered circle at the start of each message |
+| `mirrorActors: false` | No participants below the lifelines, which end just below the last message |
+| `rightAngles: true` | Self-messages with square corners |
+
+The `boundary`, `control`, `entity` and `collections` types fall back to the participant box, and half arrows (`-|\`, `-\\`, `/|-` and the rest) fall back to an arrow or an open arrow at the end the syntax puts it; each warns. Participant menus (`link`, `links`, `properties`, `details`) draw nothing, and participants and messages never become activation targets. A sequence diagram doesn't animate.
+
+Participants take the workspace's `Element` and `Mermaid` styles over the primary color fill, messages its `Relationship` and `Mermaid` styles, and boxes its `Group` and `Mermaid` styles. Lifelines take their participant's fill, and activation bars that fill mixed toward the canvas. For now every sequence diagram draws this way: a source's `theme` and `themeVariables` don't apply to it yet. Its technology toggle hides; its description toggle shows and changes nothing yet.
+
+Renderizr draws participant names bold, as the C4 label template does, where Mermaid draws them in a regular weight, and it wraps a fragment's title within the fragment where Mermaid lets a long one run past the tab.
+
 ### When a diagram can't be drawn
 
 A diagram Renderizr can't draw shows why in place of the canvas, and the build prints the same text and finishes: `Mermaid diagram "order-flow": a parse error at line 4: the source ends too early.` Its export buttons show disabled and say "Nothing to export: the diagram couldn't be drawn". In edit mode the reason shows on the view and in the terminal, and the next save of the source that fixes it draws the diagram again. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every reason.
 
-The description and technology toggles hide on a flowchart, whose labels hold the source's text alone. Your choice stays and applies again on the next C4 view.
+The description and technology toggles hide on a flowchart, whose labels hold the source's text alone, and the technology toggle hides on an ERD, which has no technologies. Your choice stays and applies again on the next C4 view.
 
 ## Edit mode
 

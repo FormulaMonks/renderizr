@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    actor Customer
+    box Shop
+        participant Web as Web shop
+        participant Orders as Order service
+    end
+    participant Pay as Payment provider
+    Customer->>+Web: Place order
+    Web->>Orders: Create order
+    activate Orders
+    Orders->>Orders: Reserve stock
+    Orders-->>Web: Order created
+    deactivate Orders
+    Note right of Pay: Card details never<br/>reach the shop
+    Web->>+Pay: Charge card
+    Pay--)Web: Payment accepted
+    Pay-xOrders: Cancel stale hold
+    deactivate Pay
+    Note over Web,Orders: Order confirmed
+    Note left of Customer: Waits for email
+    Web-->>-Customer: Show receipt
+    Customer->Web: Close tab
+    Web-->Customer: Goodbye page

@@ -48,6 +48,7 @@ import { borderDashes, paintPart } from "../geometry/paint";
 import { escapeXml } from "../geometry/xml";
 import { PRESENCE_OPACITY, type StepState } from "./animation";
 import type { BoundaryBox, EdgeLine, ElementBox, Graph } from "./graph";
+import type { SequenceShape } from "./sequence-graph";
 
 /** What the serializer needs to set text the way CSS does. */
 export type TextSetting = {
@@ -644,6 +645,28 @@ function edgeLine(edge: EdgeLine): string {
     })}/><path ${attrs({ d: edge.arrowhead, fill: edge.color })}/>${markers}</g>`;
 }
 
+/* ---------------- sequence diagrams */
+
+/**
+ * One of a sequence diagram's layers, its shapes as the island draws them,
+ * without the `data-` hooks the page keeps for its tests.
+ */
+function sequenceLayer(shapes: SequenceShape[] | undefined): string {
+    return (shapes ?? [])
+        .map(({ tag, attrs: values, text }) => {
+            const kept = Object.fromEntries(
+                Object.entries(values).filter(
+                    ([key]) => !key.startsWith("data-"),
+                ),
+            );
+            const open = `<${tag} ${attrs(kept)}`;
+            return text === undefined
+                ? `${open}/>`
+                : `${open}>${escapeXml(text)}</${tag}>`;
+        })
+        .join("");
+}
+
 /**
  * An edge's label: a backing in the canvas color, the description and the
  * technology lines the geometry broke, and the indicators after them.
@@ -848,9 +871,12 @@ export function exportSvg({
         style,
         // The canvas and the band under it, in the scheme's canvas color.
         `<rect ${attrs({ x: frame.x, y: frame.y, width, height, fill: graph.background })}/>`,
+        // A sequence diagram's layers sit around its messages, as on the canvas.
+        sequenceLayer(graph.sequence?.back),
         ...boundaries,
         ...lines,
         ...labels,
+        sequenceLayer(graph.sequence?.front),
         ...elements,
         band.svg,
         "</svg>",

@@ -1,0 +1,36 @@
+sequenceDiagram
+    participant App
+    participant Queue
+    participant Worker
+    participant Store as Object store
+    App->>Queue: Enqueue export job
+    loop Every job in the queue
+        Queue->>+Worker: Deliver job
+        alt Job is valid
+            Worker->>Store: Read source files
+            opt Files changed since last run
+                Worker->>Worker: Rebuild the archive
+            end
+            Worker->>Store: Write archive
+        else Job is malformed
+            Worker-->>Queue: Reject job
+        end
+        Worker-->>-Queue: Acknowledge
+    end
+    par Notify the owner
+        Queue->>App: Job finished
+    and Update metrics
+        Queue->>Queue: Count the job
+    end
+    critical Clean up temporary files
+        Worker->>Store: Delete scratch space
+    option Store unavailable
+        Worker->>Queue: Requeue clean-up
+    end
+    break Quota exceeded
+        Store-->>App: Refuse new jobs
+    end
+    rect rgb(230, 240, 255)
+        App->>Queue: Resume intake
+        Note over App,Queue: Back to normal
+    end

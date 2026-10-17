@@ -115,6 +115,8 @@ A diagram that draws but uses what Renderizr leaves out prints one warning that 
 | `Markdown strings` | Draws the text of a Markdown string without its emphasis |
 | `fa: icons` | Draws a label without its Font Awesome icons |
 | `click callbacks` | Leaves out a `click` line that calls a function (`click A callback`, `click A call notify()`); a `click` link still leads where it says |
+| `participant type "<type>"` | Draws a sequence diagram's `boundary`, `control`, `entity` or `collections` participant as the participant box |
+| `half arrows` | Draws a sequence diagram's half arrow as a whole one at the end the syntax puts it: a solid half head as an arrow, a barb as an open arrow |
 
 ## The Mermaid parser
 

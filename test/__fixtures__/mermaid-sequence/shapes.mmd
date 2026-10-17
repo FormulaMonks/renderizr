@@ -1,0 +1,18 @@
+sequenceDiagram
+    actor User
+    participant Web as Web shop
+    participant Gate@{ "type": "boundary" } as API gateway
+    participant Flow@{ "type": "control" } as Checkout flow
+    participant Order@{ "type": "entity" } as Order
+    participant Db@{ "type": "database" } as Orders database
+    participant Items@{ "type": "collections" } as Line items
+    participant Bus@{ "type": "queue" } as Event bus
+    User->>Web: Check out
+    Web->>Gate: Submit the cart
+    Gate->>Flow: Start checkout
+    Flow->>Order: Create order
+    Order->>Db: Insert row
+    Order->>Items: Add line items
+    Flow-)Bus: Publish order placed
+    Bus--)Web: Order placed
+    Web-->>User: Show confirmation

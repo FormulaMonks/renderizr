@@ -1,0 +1,28 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#d6eaf8"
+  sequence:
+    mirrorActors: false
+---
+sequenceDiagram
+    actor User
+    participant Browser
+    participant Auth as Identity provider
+    User->>Browser: Open the sign-in page
+    Browser->>+Auth: Request a login form for the configured tenant, with the return address
+    create participant Session as Session store
+    Auth->>Session: Start a session
+    Session-->>Auth: Session id
+    Auth-->>-Browser: Redirect with a code
+    Note over Browser: wrap:The browser follows the redirect without asking the user anything else
+    activate Browser
+    activate Browser
+    Browser->>Browser: Exchange the code
+    deactivate Browser
+    Browser-)User: Show the dashboard
+    deactivate Browser
+    destroy Session
+    Browser-xSession: Sign out
+    User<<->>Browser: Keep the tab open

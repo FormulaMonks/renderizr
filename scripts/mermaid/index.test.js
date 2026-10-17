@@ -54,10 +54,6 @@ test("image views that carry no Mermaid source Renderizr draws stay ordinary, wi
         ["a picture", { content: "https://example.test/a.png" }],
         ["inlined Mermaid", { content: "data:image/svg+xml;base64,PHN2Zy8+" }],
         ["a pie chart", { content: encodeMermaid('pie\n  "a": 1\n') }],
-        [
-            "a sequence diagram, until its slice",
-            { content: encodeMermaid("sequenceDiagram\n  A->>B: hi\n") },
-        ],
     ];
     for (const [name, fields] of cases) {
         const workspace = mermaidWorkspace([{ key: "v", ...fields }]);

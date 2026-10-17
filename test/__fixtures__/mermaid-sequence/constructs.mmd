@@ -1,0 +1,41 @@
+---
+config:
+  sequence:
+    rightAngles: true
+---
+sequenceDiagram
+    autonumber 10 5
+    participant Client
+    box rgb(240, 230, 255)
+        participant Api as API
+        participant Jobs as Job runner
+    end
+    Client->>()Api: Central connection at the end
+    Client()->>Api: Central connection at the start
+    Client()->>()Api: Both ends
+    Client-|\Api: Solid half arrow
+    Api--|/Client: Dotted half arrow
+    Client-\\Api: Barb
+    Client/|-Api: Half arrow at the start
+    autonumber off
+    Api->>Api: Self-message at right angles
+    autonumber
+    create participant Cache
+    Api->>Cache: Warm up
+    par_over Fan out
+        Api->>Jobs: Queue the report
+    and
+        Api->>Cache: Store the report
+    end
+    rect rgb(255, 240, 220)
+        Jobs-->>Api: Report ready
+    end
+    rect
+        Api-->>Client: Report link
+    end
+    Note left of Client: Left of one
+    Note right of Cache: Right of one
+    Note over Jobs: Over one
+    Note over Client,Api: Over two
+    destroy Cache
+    Api-xCache: Evict

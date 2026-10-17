@@ -128,6 +128,7 @@ import {
     layOut,
     layOutClusters,
 } from "../layout/automatic";
+import { drawSequence, type SequenceDrawing } from "./sequence-graph";
 
 export type { Bounds, ColorScheme, Labels, TargetKind };
 
@@ -395,6 +396,11 @@ export type Graph = {
     color: string;
     /** Set on an image view, which draws this and nothing else (spec 12). */
     image?: GraphImage;
+    /**
+     * Set on a Mermaid sequence diagram: what it draws behind and in front
+     * of its messages besides its participants (`sequence-graph.ts`).
+     */
+    sequence?: SequenceDrawing;
     /**
      * Why the view cannot be drawn (spec 13); the canvas shows it in place
      * of the diagram, and the graph is otherwise empty.
@@ -782,6 +788,17 @@ function drawView(
                 alt: view.title,
             },
         };
+    }
+    // A sequence diagram lays itself out by its script, with no placement
+    // and no routing (spec: Sequence diagrams).
+    if (view.sequence) {
+        const drawn = drawSequence(
+            model,
+            { ...view, sequence: view.sequence },
+            colorScheme,
+            measure,
+        );
+        return { ...empty(view), ...drawn, layout: view.layout };
     }
     const boundaries = new Set(view.boundaries.map((b) => b.id));
     // A Mermaid diagram's nodes, edges and subgraphs take their styles and
