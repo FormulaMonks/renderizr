@@ -71,6 +71,12 @@ export const dom = installDOM();
 globalThis.__RENDERIZR_EDIT_MODE__ ??= false;
 
 /**
+ * The branding's primary color as a build defines it: none, so a silent
+ * Mermaid source fills with the page's default. A test sets it to choose one.
+ */
+globalThis.__RENDERIZR_PRIMARY_COLOR__ ??= null;
+
+/**
  * A detached `<div>` for a component to render into.
  *
  * A real element, not a stand-in: the same one the page tests use, so a

@@ -164,6 +164,12 @@ export type EdgeEnd = {
      * (ADR 19).
      */
     routed?: boolean;
+    /**
+     * Set on a Mermaid edge's ends, which spread evenly around the middle
+     * of their side in the order they aim, rather than each aiming at its
+     * far end (spec: End markers).
+     */
+    centered?: boolean;
 };
 
 /** Where an end sorts on its side: loop ends at either extreme. */
@@ -291,7 +297,7 @@ export function spreadEnds(
         const sorted = onSide.sort((a, b) => compareEnds(a, b, aim));
         const gap = (span.to - span.from) / (sorted.length + 1);
         const wanted = sorted.map((end, i) =>
-            end.toward ? span.from + (i + 1) * gap : aim(end),
+            end.toward || end.centered ? span.from + (i + 1) * gap : aim(end),
         );
         const placed = keepApart(wanted, gap, span);
         for (const [i, end] of sorted.entries()) along.set(end.id, placed[i]);

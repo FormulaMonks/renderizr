@@ -30,7 +30,8 @@ export type ViewType =
     | "Dynamic"
     | "Deployment"
     | "Filtered"
-    | "Image";
+    | "Image"
+    | "Mermaid";
 
 export type Perspective = {
     name: string;
@@ -134,6 +135,11 @@ export type ModelView = {
     content?: string;
     contentLight?: string;
     contentDark?: string;
+    /**
+     * Set by the build on an image view that carries Mermaid source, which
+     * then draws as a Mermaid diagram (ADR 24); `scripts/mermaid/` writes it.
+     */
+    mermaid?: MermaidDiagram;
     enterpriseBoundaryVisible?: boolean;
     /** A static view's steps, one entry each, in any order (spec 11). */
     animations?: AnimationEntry[];
@@ -158,3 +164,101 @@ export type Theme = {
     elements: StyleDefinition[];
     relationships: StyleDefinition[];
 };
+
+/* ------------------------------------------------------- Mermaid diagrams */
+
+/** A flowchart's direction as Mermaid writes it, `TD` read as `TB`. */
+export type MermaidDirection = "TB" | "BT" | "LR" | "RL";
+
+/** The shapes a Mermaid node draws as (spec: Shapes); every other falls back to `Box`. */
+export type MermaidShape =
+    | "Box"
+    | "RoundedBox"
+    | "Diamond"
+    | "Circle"
+    | "Cylinder"
+    | "Hexagon";
+
+/**
+ * An end of a Mermaid edge, as an End marker name: `none`, `arrow`,
+ * `circle`, `cross`, or Mermaid's own name for one Renderizr doesn't know.
+ */
+export type MermaidEnd = string;
+
+/** A node of a Mermaid flowchart, its label in plain text lines. */
+export type MermaidNode = {
+    id: string;
+    label: string;
+    shape: MermaidShape;
+    /** The subgraph it sits in directly. */
+    parent?: string;
+    /** Its `class` and `:::` names, `classDef` names rather than tags. */
+    classes: string[];
+    /** Its `style` declarations, as written: `fill:#f00`. */
+    styles: string[];
+    /** Its `click` link, its target and its tooltip. */
+    link?: string;
+    linkTarget?: string;
+    tooltip?: string;
+};
+
+/** An edge of a Mermaid flowchart, in source order. */
+export type MermaidEdge = {
+    /** Its index among the source's links, as `linkStyle` counts them. */
+    id: string;
+    source: string;
+    target: string;
+    label: string;
+    /** `-->` is normal, `-.->` dotted and `==>` thick. */
+    line: "normal" | "dotted" | "thick";
+    start: MermaidEnd;
+    end: MermaidEnd;
+    /** Its `linkStyle` declarations, as written. */
+    styles: string[];
+};
+
+/** A subgraph of a Mermaid flowchart. */
+export type MermaidSubgraph = {
+    id: string;
+    label: string;
+    parent?: string;
+    /** Its own `direction`, when it sets one. */
+    direction?: MermaidDirection;
+    classes: string[];
+    styles: string[];
+};
+
+/** Mermaid's config as the source's frontmatter and directives merge it. */
+export type MermaidConfig = {
+    theme?: string;
+    themeVariables?: Record<string, unknown>;
+    layout?: string;
+    flowchart?: {
+        nodeSpacing?: number;
+        rankSpacing?: number;
+        curve?: string;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+};
+
+/** The plain model of a Mermaid flowchart the build parsed (spec: Parsing in the build). */
+export type MermaidFlowchart = {
+    kind: "flowchart";
+    direction: MermaidDirection;
+    nodes: MermaidNode[];
+    edges: MermaidEdge[];
+    subgraphs: MermaidSubgraph[];
+    /** Each `classDef` by name, its declarations as written. */
+    classDefs: Record<string, string[]>;
+    /** The frontmatter `title`. */
+    title?: string;
+    config: MermaidConfig;
+    error?: undefined;
+};
+
+/** A Mermaid diagram the build couldn't read, with the reason the page shows. */
+export type MermaidFailure = { kind: string; error: string };
+
+/** What the build gives an image view that carries Mermaid source. */
+export type MermaidDiagram = MermaidFlowchart | MermaidFailure;

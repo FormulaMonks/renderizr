@@ -31,6 +31,9 @@ import {
     getMetadataForRelationship,
     type ImageContent,
     type LayoutMode,
+    mermaidEdgeStyle,
+    mermaidGroupStyle,
+    mermaidNodeStyle,
     type ModelElement,
     type ModelRelationship,
     type ModelView,
@@ -77,6 +80,11 @@ import {
 } from "../geometry/label";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
+    MERMAID_GROUP_PADDING,
+    MERMAID_RANK_BONUS,
+    mermaidNodeSize,
+} from "../geometry/mermaid";
+import {
     type RoutingElement,
     type RoutingMode,
     routeView,
@@ -96,9 +104,11 @@ import {
     placeUnplaced,
 } from "../geometry/unplaced";
 import {
+    type CompoundGraph,
     type LayoutBoundary,
     type LayoutSettings,
     layOut,
+    layOutClusters,
 } from "../layout/automatic";
 
 export type { Bounds, ColorScheme, Labels, TargetKind };
@@ -253,6 +263,8 @@ export type EdgeLine = {
     style: LineStyle;
     /** Real alpha on line, arrowhead and label text, 0 to 1. */
     opacity: number;
+    /** A Mermaid edge's: its ends spread evenly around their sides' middles. */
+    centered?: boolean;
 };
 
 /** What an image view draws: the variant for the scheme, if it has one. */
@@ -285,6 +297,11 @@ type EdgeDraft = Omit<
     startPosition: number;
     /** The label's lines and size; absent when it says nothing. */
     label?: EdgeLabelLayout;
+    /**
+     * Whether it draws its arrowhead: every edge but a Mermaid edge whose
+     * end the source leaves without an arrow.
+     */
+    arrow: boolean;
 };
 
 export type Graph = {
@@ -684,6 +701,9 @@ function drawView(
         };
     }
     const boundaries = new Set(view.boundaries.map((b) => b.id));
+    // A Mermaid diagram's nodes, edges and subgraphs take their styles and
+    // sizes from its source (ADR 24); nothing else about drawing it differs.
+    const { mermaid } = view;
 
     const elements: ElementBox[] = [];
     /** Each element by id, with the geometry its edge ends touch. */
@@ -693,10 +713,17 @@ function drawView(
     >();
     for (const placed of view.elements) {
         if (boundaries.has(placed.id)) continue;
-        const style = findElementStyle(model, placed.element, colorScheme);
+        const node = mermaid?.nodes.get(placed.id);
+        const style =
+            mermaid && node
+                ? mermaidNodeStyle(model, mermaid, node, colorScheme)
+                : findElementStyle(model, placed.element, colorScheme);
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
-        const { width, height } = shapeSize(shape, style.width, style.height);
+        // A Mermaid node is as big as its label needs.
+        const { width, height } = node
+            ? mermaidNodeSize(node.shape, node.label, style.fontSize, measure)
+            : shapeSize(shape, style.width, style.height);
         const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
         const geometry = shapeGeometry(shape, width, height, strokeWidth);
         const count = formatInstanceCount(placed.element.instances);
@@ -741,7 +768,8 @@ function drawView(
                 ? labelHeightClearOf(geometry.content, instances)
                 : geometry.content.height,
             ...(instances && { instances }),
-            targets: kindsFor(placed.element),
+            // The workspace's model doesn't know a Mermaid node.
+            targets: node ? [] : kindsFor(placed.element),
         };
         elements.push(box);
         drawn.set(box.id, { box, geometry });
@@ -750,7 +778,9 @@ function drawView(
     const styles = new Map(
         view.boundaries.map((b) => [
             b.id,
-            boundaryStyle(model, b, colorScheme),
+            mermaid
+                ? mermaidGroupStyle(model, colorScheme)
+                : boundaryStyle(model, b, colorScheme),
         ]),
     );
     // Groups and the enterprise boundary lead nowhere.
@@ -766,6 +796,8 @@ function drawView(
         styles,
         labels,
         boundaryTargets,
+    ).map((input) =>
+        mermaid ? { ...input, padding: MERMAID_GROUP_PADDING } : input,
     );
     const keys = edgeKeys(view.relationships, drawn);
     const edges: EdgeDraft[] = [];
@@ -795,16 +827,19 @@ function drawView(
         const from = drawn.get(fromId);
         const to = drawn.get(toId);
         if (!from || !to) continue;
-        const style = findRelationshipStyle(
-            model,
-            response
-                ? {
-                      ...relationship,
-                      tags: `${relationship.tags ?? ""},${RESPONSE_TAG}`,
-                  }
-                : relationship,
-            colorScheme,
-        );
+        const line = mermaid?.edges.get(placed.id);
+        const style = line
+            ? mermaidEdgeStyle(model, line, colorScheme)
+            : findRelationshipStyle(
+                  model,
+                  response
+                      ? {
+                            ...relationship,
+                            tags: `${relationship.tags ?? ""},${RESPONSE_TAG}`,
+                        }
+                      : relationship,
+                  colorScheme,
+              );
         // Only a dynamic view tells its own story about a relationship. The
         // descriptions toggle is for elements: an edge keeps its description.
         const description = style.description
@@ -821,7 +856,7 @@ function drawView(
             technology,
             order: dynamic && style.description ? placed.order : undefined,
         });
-        const targets = relationshipKinds(relationship);
+        const targets = line ? [] : relationshipKinds(relationship);
         const label = layoutEdgeLabel(
             text,
             style.fontSize,
@@ -853,6 +888,11 @@ function drawView(
             thickness: style.thickness,
             style: style.style,
             opacity: style.opacity / 100,
+            // End markers beyond today's arrowhead are the next slice's
+            // (spec: Build order): a Mermaid edge draws its arrow only at
+            // an `arrow` end, and its start end bare.
+            arrow: line ? line.end === "arrow" : true,
+            ...(line && { centered: true }),
         });
     }
 
@@ -864,11 +904,15 @@ function drawView(
             edges.map((edge) => [
                 edge.key,
                 {
-                    room: layoutLabelRoom(
-                        edge.label,
-                        edge.fontSize,
-                        edge.labelWidth,
-                    ),
+                    // A Mermaid edge keeps the room its label needs, and
+                    // none without one (spec: Flowchart and ERD layout).
+                    room: mermaid
+                        ? edge.label?.size ?? { width: 0, height: 0 }
+                        : layoutLabelRoom(
+                              edge.label,
+                              edge.fontSize,
+                              edge.labelWidth,
+                          ),
                     size: edge.label?.size,
                 },
             ]),
@@ -932,7 +976,10 @@ function drawView(
         ],
     );
     const routed: EdgeLine[] = edges.map(
-        ({ storedPosition: _stored, startPosition, label, ...edge }, index) => {
+        (
+            { storedPosition: _stored, startPosition, label, arrow, ...edge },
+            index,
+        ) => {
             const { route, path, heading } = routes[index];
             const target = route[route.length - 1];
             const placedLabel = placedLabels[index];
@@ -942,7 +989,9 @@ function drawView(
                 target,
                 route,
                 path,
-                arrowhead: arrowheadPath(target, heading, edge.thickness),
+                arrowhead: arrow
+                    ? arrowheadPath(target, heading, edge.thickness)
+                    : "",
                 labelPosition: placedLabel?.position ?? startPosition,
                 ...(placedLabel && { labelBox: placedLabel.box }),
                 ...(label && {
@@ -1183,7 +1232,18 @@ function layOutView(
     boundaries: DeriveBoundaries,
     settings: LayoutSettings,
 ): { moved: Map<string, Point>; vertices: Map<string, Point[]> } {
-    const layout = layOut(
+    const { mermaid } = view;
+    // A Mermaid diagram lays its subgraphs out by Mermaid's own rule.
+    const lay = mermaid
+        ? (graph: CompoundGraph, s: LayoutSettings) =>
+              layOutClusters(graph, s, {
+                  boxFor: (id, placed) => boundaries(placed).get(id),
+                  direction: (id) => mermaid.directions.get(id),
+                  rankBonus: MERMAID_RANK_BONUS,
+                  order: mermaid.order,
+              })
+        : layOut;
+    const layout = lay(
         {
             nodes: elements.map(({ id, width, height }) => ({
                 id,
@@ -1210,7 +1270,7 @@ function layOutView(
         parent,
         boundaries,
         vertices: layout.edges,
-        gap: BOUNDARY_PADDING,
+        gap: mermaid ? MERMAID_GROUP_PADDING : BOUNDARY_PADDING,
         rankAxis:
             rankDirection === "LeftRight" || rankDirection === "RightLeft"
                 ? "x"

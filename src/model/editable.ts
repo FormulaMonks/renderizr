@@ -1,8 +1,8 @@
 /**
  * Which views edit mode changes the layout of (spec 8). Edit mode edits a
  * stored layout only: a view with an automatic layout, a filtered view (which
- * takes its layout from its base view) and an image view (which has none)
- * stay read-only.
+ * takes its layout from its base view) and an image view (which has none),
+ * a Mermaid diagram included, stay read-only.
  */
 
 import type { ModelView } from "./types";
@@ -20,7 +20,9 @@ export type NotEditableReason = "automaticLayout" | "filtered" | "image";
  * never show.
  */
 export function whyNotEditable(view: ModelView): NotEditableReason | null {
-    if (view.type === "Image") return "image";
+    // A Mermaid diagram is an image view to Structurizr, which defines no
+    // layout data for one (ADR 17), so there is nothing to save (ADR 24).
+    if (view.type === "Image" || view.type === "Mermaid") return "image";
     if (view.type === "Filtered") return "filtered";
     if (view.automaticLayout) return "automaticLayout";
     return null;

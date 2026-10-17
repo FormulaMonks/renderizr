@@ -1,0 +1,19 @@
+flowchart TB
+    customer([Customer]) -->|places order| shop[Web shop]
+    shop --> valid{Order valid?}
+    valid -->|yes| payment[[Payment service]]
+    valid -.->|no| reject>Reject order]
+    payment ==> orders[(Orders database)]
+    subgraph fulfilment [Fulfilment]
+        pick(Pick items) --> pack{{Pack parcel}}
+        subgraph shipping [Shipping]
+            label[/Print label/] --> courier((Courier))
+        end
+        pack --> label
+    end
+    payment --> pick
+    courier -- delivers --> customer
+    shop <--> stock[(Stock)]
+    reject --o customer
+    pack --x stock
+    help["Help desk<br/>9am to 5pm"] --- shop

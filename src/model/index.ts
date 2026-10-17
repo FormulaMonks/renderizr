@@ -5,6 +5,8 @@ export * from "./description";
 export * from "./editable";
 export * from "./edited-layout";
 export * from "./filter";
+export * from "./mermaid";
+export * from "./mermaid-styles";
 export * from "./metadata";
 export * from "./resolve-view";
 export * from "./styles";

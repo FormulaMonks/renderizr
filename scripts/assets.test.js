@@ -18,6 +18,7 @@ import {
     withTempDir,
     writeBrokenWorkspace,
 } from "./__fixtures__/helpers.js";
+import { mermaidView, mermaidWorkspace } from "./__fixtures__/mermaid.js";
 
 const PNG = await readFile(fixture("logo.png"));
 
@@ -676,6 +677,43 @@ test("a workspace with no themes and no remote assets makes no requests", async 
     await withFetch({}, async (calls) => {
         await loadWorkspace(fixture("workspace.json"));
         assert.deepEqual(calls, []);
+    });
+});
+
+test("Mermaid diagrams are read without a request to the Mermaid server, and a failing one warns and loads", async () => {
+    const pie = mermaidView("pie", 'pie\n  "a": 1\n');
+    await withTempDir(async (dir) => {
+        const path = join(dir, "mermaid.json");
+        await writeFile(
+            path,
+            JSON.stringify(
+                mermaidWorkspace([
+                    mermaidView("flow", "flowchart LR\n  A --> B\n"),
+                    mermaidView("broken", "flowchart LR\n  A -->\n"),
+                    pie,
+                ]),
+            ),
+        );
+        const { value: workspace, text } = await captured(process.stderr, () =>
+            withFetch({ default: { body: PNG } }, async (calls) => {
+                const loaded = await loadWorkspace(path);
+                assert.deepEqual(
+                    calls.map((call) => call.url),
+                    [pie.content],
+                    "only the picture of a type Renderizr doesn't draw is fetched",
+                );
+                return loaded;
+            }),
+        );
+        const [flow, broken, picture] = workspace.views.imageViews;
+        assert.equal(flow.mermaid.kind, "flowchart");
+        assert.ok(flow.content.startsWith("https://mermaid.ink/svg/pako:"));
+        assert.match(broken.mermaid.error, /^a parse error at line 2/);
+        assert.ok(picture.content.startsWith("data:image/png;base64,"));
+        assert.equal(
+            text,
+            `warning: Mermaid diagram "broken": ${broken.mermaid.error}.\n`,
+        );
     });
 });
 

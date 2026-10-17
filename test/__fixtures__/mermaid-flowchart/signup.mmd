@@ -1,0 +1,16 @@
+flowchart TB
+    visit([Visitor]) --> landing[Landing page]
+    landing -->|clicks sign up| form[Sign-up form]
+    form --> valid{Valid email?}
+    valid -->|no| error[Show error]
+    error --> form
+    valid -->|yes| exists{Account exists?}
+    exists -->|yes| login[Log in instead]
+    exists -->|no| create[(Create account)]
+    create --> email[/Send confirmation/]
+    email --> confirm{Confirmed in 24h?}
+    confirm -->|yes| welcome[Welcome tour]
+    confirm -->|no| remind[Send reminder]
+    remind --> confirm
+    welcome --> dashboard((Dashboard))
+    login --> dashboard

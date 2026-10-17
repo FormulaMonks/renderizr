@@ -7,7 +7,14 @@ import {
     type Labels,
     NOT_ANIMATING,
 } from "../engine/contract";
-import { type ModelView, splitAuthor, type WorkspaceModel } from "../model";
+import {
+    type InertToggles,
+    inertToggles,
+    type ModelView,
+    NOTHING_TO_EXPORT,
+    splitAuthor,
+    type WorkspaceModel,
+} from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
 import styles from "./current-view.module.css";
 import lightModeIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
@@ -181,6 +188,15 @@ export default class CurrentView extends Component {
     /** Whether the view shown has anything of the engine's own to export. */
     #exportable = false;
 
+    /**
+     * Why the export buttons show disabled, on a Mermaid diagram that
+     * couldn't be drawn; `null` everywhere else.
+     */
+    #exportBlocked: string | null = null;
+
+    /** The label toggles that change nothing on the view shown, which hide. */
+    #inert: InertToggles = { descriptions: false, technologies: false };
+
     /** The key of the view the toolbar shows. */
     #viewKey: string | null = null;
 
@@ -340,10 +356,18 @@ export default class CurrentView extends Component {
         this.#paintControlButtons();
     }
 
-    #paintToggleButton(name: string, active: boolean, label: string) {
+    #paintToggleButton(
+        name: string,
+        active: boolean,
+        label: string,
+        hidden = false,
+    ) {
         const button = this.#button(name);
         if (!button) return;
 
+        // A toggle with nothing to change hides; the preference it shows
+        // stays, and applies again where it shows (ADR 24).
+        button.hidden = hidden;
         button.dataset.active = active ? "true" : "";
         button.setAttribute("aria-pressed", String(active));
         button.title = label;
@@ -379,6 +403,7 @@ export default class CurrentView extends Component {
             this.#labels.descriptions
                 ? "Hide descriptions in diagrams"
                 : "Show descriptions in diagrams",
+            this.#inert.descriptions,
         );
         this.#paintToggleButton(
             "toggle-technologies",
@@ -386,6 +411,7 @@ export default class CurrentView extends Component {
             this.#labels.technologies
                 ? "Hide technologies in diagrams"
                 : "Show technologies in diagrams",
+            this.#inert.technologies,
         );
     }
 
@@ -422,8 +448,9 @@ export default class CurrentView extends Component {
 
     /**
      * Paints the export buttons: the group hidden while nothing can export,
-     * every one disabled while an export runs, the one exporting marked
-     * busy, and the failure line under them.
+     * every one disabled while an export runs or, saying why, on a Mermaid
+     * diagram that couldn't be drawn, the one exporting marked busy, and the
+     * failure line under them.
      */
     #paintExportButtons() {
         const group =
@@ -433,7 +460,12 @@ export default class CurrentView extends Component {
         for (const format of EXPORT_FORMATS) {
             const button = this.#button(`export-${format}`);
             if (!button) continue;
-            button.disabled = this.#exporting !== null;
+            const label =
+                this.#exportBlocked ?? `Export view as ${format.toUpperCase()}`;
+            button.title = label;
+            button.setAttribute("aria-label", label);
+            button.disabled =
+                this.#exporting !== null || this.#exportBlocked !== null;
             if (this.#exporting === format)
                 button.setAttribute("aria-busy", "true");
             else button.removeAttribute("aria-busy");
@@ -523,7 +555,14 @@ export default class CurrentView extends Component {
         if (this.#viewKey !== view.key) this.#exportFailed = null;
         this.#viewKey = view.key;
         // An image view has nothing of the engine's own to export (ADR 21).
+        // A Mermaid diagram exports as any view does, and one that couldn't
+        // be drawn shows its buttons disabled, saying why (ADR 24).
         this.#exportable = view.type !== "Image";
+        this.#exportBlocked =
+            view.type === "Mermaid" && view.mermaid?.error
+                ? NOTHING_TO_EXPORT
+                : null;
+        this.#inert = inertToggles(view);
         this.#subscribe();
         const { description, author } = splitAuthor(view.description);
         // Structurizr's own naming: an explicit title when the view has one,

@@ -24,6 +24,8 @@ const DiagramIcon = new Map([
     ["Dynamic", dynamicIcon],
     ["Deployment", deploymentIcon],
     ["Image", imageIcon],
+    // Structurizr lists a Mermaid diagram as the image view it is.
+    ["Mermaid", imageIcon],
     ["Custom", customIcon],
     ["Filtered", filteredIcon],
 ]);
