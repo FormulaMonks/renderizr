@@ -354,12 +354,18 @@ type EdgeDraft = Omit<
     ends?: RoutingEdge["ends"];
 };
 
-/** A Mermaid edge end as an End marker; the build fails any other. */
+/**
+ * The room along the rank direction a Mermaid edge keeps between its two
+ * straight ends, so that the route can step across between ends that don't
+ * line up without doubling back over them.
+ */
+const BEND_ROOM = 30;
+
 /**
  * The room Dagre keeps for a Mermaid edge: its label's, grown along the
- * rank direction so that the ranks it joins sit at least both straight
- * ends apart (`rankSeparation` plus this room, as Dagre spaces an edge's
- * label rank), and both markers fit between them.
+ * rank direction so that the ranks it joins sit far enough apart (Dagre
+ * spaces them `rankSeparation` plus this room) to hold both straight ends,
+ * the label and a bend between them.
  */
 function markerRoom(
     label: Size,
@@ -369,22 +375,27 @@ function markerRoom(
         rankSeparation,
     }: { rankDirection: string; rankSeparation: number },
 ): Size {
-    const needed = (ends?.source.room ?? 0) + (ends?.target.room ?? 0);
-    const extra = needed - rankSeparation;
+    const straight = (ends?.source.room ?? 0) + (ends?.target.room ?? 0);
+    if (straight === 0) return label;
+    const across =
+        rankDirection === "LeftRight" || rankDirection === "RightLeft";
+    const along = across ? label.width : label.height;
+    const extra = straight + BEND_ROOM - rankSeparation;
     if (extra <= 0) return label;
     // Dagre keeps a label's rank only for a label with both sides, so the
     // side across takes one unit at least.
-    return rankDirection === "LeftRight" || rankDirection === "RightLeft"
+    return across
         ? {
-              width: Math.max(label.width, extra),
+              width: along + extra,
               height: Math.max(label.height, 1),
           }
         : {
               width: Math.max(label.width, 1),
-              height: Math.max(label.height, extra),
+              height: along + extra,
           };
 }
 
+/** A Mermaid edge end as an End marker; the build fails any other. */
 const markerOf = (name: string): EndMarker =>
     isEndMarker(name) ? name : "none";
 

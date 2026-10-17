@@ -347,6 +347,28 @@ test("identifying relationships draw solid and non-identifying ones dashed, with
         assert.ok(e.markerStroke, `${e.description} draws its markers`);
 });
 
+test("ranks sit far enough apart that no relationship doubles back between its cardinalities", () => {
+    for (const [key, axis] of [
+        ["shop", "y"],
+        ["shop-lr", "x"],
+        ["styled", "y"],
+    ]) {
+        for (const labels of [LABELS, EXPANDED]) {
+            for (const edge of graphOf(FIXTURE, labels, key).edges) {
+                const steps = edge.route
+                    .slice(1)
+                    .map((point, i) => point[axis] - edge.route[i][axis])
+                    .filter((step) => Math.abs(step) > 0.5);
+                assert.ok(
+                    steps.every((step) => step > 0) ||
+                        steps.every((step) => step < 0),
+                    `${key} ${edge.description}: ${JSON.stringify(edge.route)}`,
+                );
+            }
+        }
+    }
+});
+
 test("each toggle is a focus item in reading order by its entity, and an entity without one stays out", () => {
     const graph = graphOf(FIXTURE, LABELS, "shop");
     const toggles = graph.focusOrder.filter((item) => item.type === "toggle");

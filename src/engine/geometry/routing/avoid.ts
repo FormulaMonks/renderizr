@@ -304,6 +304,7 @@ export function orthogonalRoute(
                     blockers,
                     around,
                     narrowed,
+                    partial,
                 ),
             partial,
         ) ?? orthogonalThrough([from, to], fromSide, toSide)
@@ -314,7 +315,10 @@ export function orthogonalRoute(
  * A* over the grid made by the sides of `around`, the two ends and a stub
  * `padding` out from each, so the route turns either at an end's stub or
  * alongside a padded element. A state is a grid point and a heading;
- * turning costs `BEND_PENALTY` and turning back is not allowed.
+ * turning costs `BEND_PENALTY` and turning back is not allowed. With
+ * `midway`, for a Mermaid edge between its straight ends, the grid also
+ * holds the lines halfway between the ends, so a route between two facing
+ * ends that don't line up steps across in the middle.
  */
 function gridRoute(
     from: Point,
@@ -324,6 +328,7 @@ function gridRoute(
     blockers: Rect[],
     around: Rect[],
     padding: number,
+    midway = false,
 ): Point[] | null {
     const out = outward(fromSide);
     const into = outward(toSide);
@@ -340,6 +345,7 @@ function gridRoute(
                     x: to.x + into.x * padding,
                     y: to.y + into.y * padding,
                 }),
+                ...(midway ? [(pick(from) + pick(to)) / 2] : []),
                 ...around.flatMap(sides),
             ]),
         ].sort((a, b) => a - b);
