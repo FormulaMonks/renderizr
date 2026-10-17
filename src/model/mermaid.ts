@@ -16,6 +16,7 @@ import type {
     MermaidEdge,
     MermaidFlowchart,
     MermaidNode,
+    MermaidSequence,
     MermaidSubgraph,
     ModelElement,
     ModelRelationship,
@@ -94,7 +95,9 @@ export type InertToggles = { descriptions: boolean; technologies: boolean };
 export function inertToggles(view: ModelView): InertToggles {
     const kind = view.type === "Mermaid" ? view.mermaid?.kind : undefined;
     const flowchart = kind === "flowchart";
-    return { descriptions: flowchart, technologies: flowchart };
+    // A sequence diagram's descriptions toggle hides its notes.
+    const sequence = kind === "sequence";
+    return { descriptions: flowchart, technologies: flowchart || sequence };
 }
 
 /** What the export buttons say on a Mermaid diagram that couldn't be drawn. */
@@ -107,7 +110,10 @@ export type MermaidResolution = {
     relationships: { id: string; relationship: ModelRelationship }[];
     boundaries: ResolvedBoundary[];
     automaticLayout: AutomaticLayoutSettings;
-    mermaid: ResolvedMermaid;
+    /** A flowchart's: what its nodes, edges and subgraphs came from. */
+    mermaid?: ResolvedMermaid;
+    /** A sequence diagram's sequence script (`resolveSequence`). */
+    sequence?: MermaidSequence;
 };
 
 /**
@@ -118,6 +124,8 @@ export type MermaidResolution = {
 export function resolveMermaid(view: ModelView): MermaidResolution | undefined {
     const diagram = view.mermaid;
     if (!diagram || diagram.error !== undefined) return undefined;
+    // A sequence diagram resolves on its own (`resolveSequence`).
+    if (diagram.kind === "sequence") return undefined;
 
     const nodes = new Map<string, MermaidNode>();
     const elements = diagram.nodes.map((node) => {

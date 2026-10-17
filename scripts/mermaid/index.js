@@ -3,7 +3,7 @@
  * `mermaid` model the page draws as a Mermaid diagram (ADR 24): the source
  * comes from the content fields under `mermaid.url`, Mermaid's own parser
  * reads it, and `flowchart.js` turns the result into nodes, edges and
- * subgraphs. `loadWorkspace` runs it, so builds, `pnpm dev` and edit mode
+ * subgraphs, or `sequence.js` into participants and the sequence script. `loadWorkspace` runs it, so builds, `pnpm dev` and edit mode
  * all parse the same way.
  *
  * The image view stays where it is, so the drawer, `image <element>` links
@@ -17,6 +17,7 @@
 import { CONTENT_FIELDS, decodeMermaid } from "./decode.js";
 import { readFlowchart } from "./flowchart.js";
 import { read } from "./parser.js";
+import { readSequence } from "./sequence.js";
 import { readPalette } from "./styling.js";
 import { diagramError, Ignored, NotDrawnYet } from "./warnings.js";
 
@@ -24,7 +25,11 @@ import { diagramError, Ignored, NotDrawnYet } from "./warnings.js";
  * The Mermaid types Renderizr draws, by the keyword their source opens with.
  * ERDs and sequence diagrams join as their slices land (spec: Build order).
  */
-const DRAWN = /^\s*(flowchart|graph)\b/;
+const DRAWN = /^\s*(flowchart|graph|sequenceDiagram)\b/;
+
+/** The kind of diagram a source Renderizr draws is, by its opening keyword. */
+const kindOf = (source) =>
+    /^\s*sequenceDiagram\b/.test(opening(source)) ? "sequence" : "flowchart";
 
 /** Mermaid's YAML frontmatter, which the parser counts no lines of. */
 const FRONTMATTER = /^\s*---\n[\s\S]*?\n---\s*\n/;
@@ -58,14 +63,15 @@ function sourceOf(view, mermaidUrl) {
     if (decoded.every((value) => value === undefined)) return undefined;
     const sources = decoded.filter((value) => typeof value === "string");
     if (sources.length && !DRAWN.test(opening(sources[0]))) return undefined;
+    const kind = sources.length ? kindOf(sources[0]) : "flowchart";
     if (decoded.includes(undefined))
-        return { error: "the content fields disagree" };
+        return { kind, error: "the content fields disagree" };
     if (decoded.includes(null))
-        return { error: "the image view carries no Mermaid source" };
+        return { kind, error: "the image view carries no Mermaid source" };
     const normalized = sources.map((source) => source.replace(/\r\n?/g, "\n"));
     if (normalized.some((source) => source !== normalized[0]))
-        return { error: "the content fields disagree" };
-    return { source: normalized[0] };
+        return { kind, error: "the content fields disagree" };
+    return { kind, source: normalized[0] };
 }
 
 /**
@@ -110,26 +116,29 @@ function readView(view, configuration, warnings) {
         configuration.properties?.["mermaid.url"];
     const found = sourceOf(view, mermaidUrl);
     if (!found) return undefined;
-    if (found.error) return { kind: "flowchart", error: found.error };
+    const { kind } = found;
+    if (found.error) return { kind, error: found.error };
     let parsed;
     try {
         parsed = read(found.source);
     } catch (error) {
-        return {
-            kind: "flowchart",
-            error: parseErrorReason(error, found.source),
-        };
+        return { kind, error: parseErrorReason(error, found.source) };
     }
     const ignored = new Ignored();
     const config = parsed.config ?? {};
-    // The config opens the source, so its entries come first.
-    const palette = readPalette(config, ignored);
+    // The config opens the source, so its entries come first. A sequence
+    // diagram's palette and its warnings are its own (spec: Sequence
+    // diagrams), so it draws the silent look until they land.
+    const palette =
+        kind === "sequence" ? undefined : readPalette(config, ignored);
     let model;
     try {
-        model = readFlowchart(parsed.db, ignored);
+        model =
+            kind === "sequence"
+                ? readSequence(parsed.db, config, ignored)
+                : readFlowchart(parsed.db, ignored);
     } catch (error) {
-        if (error instanceof NotDrawnYet)
-            return { kind: "flowchart", error: error.message };
+        if (error instanceof NotDrawnYet) return { kind, error: error.message };
         throw error;
     }
     const warning = ignored.warning(view.key);

@@ -58,10 +58,6 @@ test("image views that carry no Mermaid source Renderizr draws stay ordinary, wi
             "an ERD, until its slice",
             { content: encodeMermaid("erDiagram\n  A ||--o{ B : has\n") },
         ],
-        [
-            "a sequence diagram, until its slice",
-            { content: encodeMermaid("sequenceDiagram\n  A->>B: hi\n") },
-        ],
     ];
     for (const [name, fields] of cases) {
         const workspace = mermaidWorkspace([{ key: "v", ...fields }]);

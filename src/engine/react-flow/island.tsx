@@ -44,6 +44,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
     createContext,
+    createElement,
     type CSSProperties,
     type FocusEvent,
     type KeyboardEvent,
@@ -164,6 +165,7 @@ import {
     zoomLimits,
 } from "./graph";
 import styles from "./island.module.css";
+import type { SequenceShape } from "./sequence-graph";
 
 export type IslandState = {
     key: string;
@@ -401,12 +403,18 @@ type BoundaryNode = Node<BoundaryBox, "boundary">;
 type ImageNode = Node<{ src: string; alt: string }, "image">;
 type PlaceholderNode = Node<{ color: string }, "placeholder">;
 type CanvasNode = Node<Record<string, never>, "canvas">;
+/** One layer of a sequence diagram, laid over the graph's bounds. */
+type SequenceNode = Node<
+    { shapes: SequenceShape[]; origin: Bounds },
+    "sequence"
+>;
 type DiagramNode =
     | BoxNode
     | BoundaryNode
     | ImageNode
     | PlaceholderNode
-    | CanvasNode;
+    | CanvasNode
+    | SequenceNode;
 type LineEdge = Edge<
     EdgeLine & { presence: Presence; transition: string | undefined },
     "line"
@@ -1371,12 +1379,58 @@ function ViewError({ graph }: { graph: Graph }) {
     );
 }
 
+/** An SVG attribute name as React spells it: `stroke-width` as `strokeWidth`, `data-` hooks as they are. */
+const reactName = (name: string) =>
+    name.startsWith("data-")
+        ? name
+        : name.replace(/-([a-z])/g, (_, letter: string) =>
+              letter.toUpperCase(),
+          );
+
+/**
+ * A Mermaid sequence diagram's `sequence` layer (spec: Sequence diagrams):
+ * one node type drawn twice, behind the edges and in front of them, each
+ * drawing its shapes as `sequence-graph.ts` built them and the export
+ * serializes them. It takes no pointer, and nothing in it is focusable.
+ */
+function SequenceLayer({ data }: NodeProps<SequenceNode>) {
+    const { shapes, origin } = data;
+    return (
+        <svg
+            aria-hidden="true"
+            width={origin.width}
+            height={origin.height}
+            style={{ overflow: "visible", pointerEvents: "none" }}
+        >
+            <g transform={`translate(${-origin.x} ${-origin.y})`}>
+                {shapes.map(({ tag, attrs, text }, i) =>
+                    createElement(
+                        tag,
+                        {
+                            // Shapes are drawn in layout order and never reorder.
+                            key: i,
+                            ...Object.fromEntries(
+                                Object.entries(attrs).map(([name, value]) => [
+                                    reactName(name),
+                                    value,
+                                ]),
+                            ),
+                        },
+                        text,
+                    ),
+                )}
+            </g>
+        </svg>
+    );
+}
+
 const nodeTypes = {
     box: BoxElement,
     boundary: BoundaryElement,
     image: ImagePicture,
     placeholder: ImagePlaceholder,
     canvas: CanvasFrame,
+    sequence: SequenceLayer,
 };
 const edgeTypes = { line: RouteEdge };
 const proOptions = { hideAttribution: true };
@@ -1629,8 +1683,39 @@ function toBoundaryNodes(graph: Graph): BoundaryNode[] {
 }
 
 /** Boundaries first, so that at equal depth they are drawn underneath. */
-function toNodes(graph: Graph): (BoxNode | BoundaryNode)[] {
-    return [...toBoundaryNodes(graph), ...toElementNodes(graph)];
+function toNodes(graph: Graph): (BoxNode | BoundaryNode | SequenceNode)[] {
+    return [
+        // A sequence diagram's layers: under the edges, then over them.
+        ...toSequenceNodes(graph),
+        ...toBoundaryNodes(graph),
+        ...toElementNodes(graph),
+    ];
+}
+
+/**
+ * A sequence diagram's two layers as nodes: the back one with the
+ * boundaries, under the edges, the front one over them and under the
+ * participants.
+ */
+function toSequenceNodes(graph: Graph): SequenceNode[] {
+    const { sequence } = graph;
+    if (!sequence) return [];
+    const origin = graph.bounds;
+    return (
+        [
+            ["back", sequence.back, BOUNDARY_Z],
+            ["front", sequence.front, 0],
+        ] as const
+    ).map(([layer, shapes, zIndex]) => ({
+        ...STATIC_NODE_PROPS,
+        id: `sequence:${layer}`,
+        type: "sequence",
+        position: { x: origin.x, y: origin.y },
+        width: origin.width,
+        height: origin.height,
+        zIndex,
+        data: { shapes, origin },
+    }));
 }
 
 function toElementNodes(graph: Graph): BoxNode[] {

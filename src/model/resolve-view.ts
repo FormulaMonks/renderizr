@@ -7,8 +7,10 @@ import {
     type ViewFilter,
 } from "./filter";
 import { type ResolvedMermaid, resolveMermaid } from "./mermaid";
+import { resolveSequence } from "./mermaid-sequence";
 import type {
     AutomaticLayoutSettings,
+    MermaidSequence,
     ModelElement,
     ModelRelationship,
     ModelView,
@@ -87,6 +89,11 @@ export type ResolvedView = {
     image?: ImageContent;
     /** Set on a Mermaid diagram: what its nodes, edges and subgraphs came from. */
     mermaid?: ResolvedMermaid;
+    /**
+     * Set on a Mermaid sequence diagram: its sequence script, which the
+     * page lays out in place of placement and routing.
+     */
+    sequence?: MermaidSequence;
     view: ModelView;
 };
 
@@ -217,7 +224,7 @@ function resolveMermaidView(
     model: WorkspaceModel,
     view: ModelView,
 ): ResolvedView | undefined {
-    const resolved = resolveMermaid(view);
+    const resolved = resolveMermaid(view) ?? resolveSequence(view);
     if (!resolved) return undefined;
     return {
         key: view.key,
@@ -230,7 +237,8 @@ function resolveMermaidView(
         layout: "automatic",
         unplaced: [],
         automaticLayout: resolved.automaticLayout,
-        mermaid: resolved.mermaid,
+        ...(resolved.mermaid && { mermaid: resolved.mermaid }),
+        ...(resolved.sequence && { sequence: resolved.sequence }),
         view,
     };
 }

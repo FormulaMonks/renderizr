@@ -279,8 +279,119 @@ export type MermaidFlowchart = {
     error?: undefined;
 };
 
+/** The participant shapes a sequence diagram draws; every other type falls back to `participant`. */
+export type MermaidParticipantType =
+    | "participant"
+    | "actor"
+    | "database"
+    | "queue";
+
+/** A participant of a sequence diagram, in source order. */
+export type MermaidParticipant = {
+    /** Mermaid's name for it, which the messages use. */
+    id: string;
+    /** Its alias, else its name, in plain text lines. */
+    label: string;
+    type: MermaidParticipantType;
+};
+
+/** A sequence diagram's `box … end`. */
+export type MermaidSequenceBox = {
+    title: string;
+    /** Its source color; absent for none or `transparent`. */
+    fill?: string;
+    participants: string[];
+};
+
+/** The fragments a sequence diagram draws; `par_over` reads as `par`. */
+export type MermaidFragment =
+    | "loop"
+    | "alt"
+    | "opt"
+    | "par"
+    | "critical"
+    | "break"
+    | "rect";
+
+/** A message between two participants, or from one to itself. */
+export type MermaidMessage = {
+    kind: "message";
+    /** Its index in Mermaid's list. */
+    id: string;
+    from: string;
+    to: string;
+    label: string;
+    line: "solid" | "dotted";
+    start: MermaidEnd;
+    end: MermaidEnd;
+    wrap: boolean;
+    /** Where a central connection draws its dot. */
+    dots?: "start" | "end" | "both";
+    /** The participant this message creates. */
+    creates?: string;
+    /** The participants whose lifelines this message ends. */
+    destroys?: string[];
+};
+
+/** A note beside or over the participants it names. */
+export type MermaidNote = {
+    kind: "note";
+    placement: "left" | "right" | "over";
+    from: string;
+    to: string;
+    text: string;
+    wrap: boolean;
+};
+
+/** One step of a sequence diagram, in source order. */
+export type MermaidSequenceItem =
+    | MermaidMessage
+    | MermaidNote
+    | { kind: "activate" | "deactivate"; who: string }
+    | {
+          kind: "open";
+          fragment: MermaidFragment;
+          title: string;
+          /** A `rect`'s source color. */
+          color?: string;
+      }
+    | { kind: "section"; title: string }
+    | { kind: "close" }
+    | {
+          kind: "autonumber";
+          /** Absent: numbering goes on from where it was. */
+          start?: number;
+          step?: number;
+          visible: boolean;
+      };
+
+/**
+ * The plain model of a Mermaid sequence diagram the build parsed, which is
+ * also its sequence script: the page lays its items out in order, in place
+ * of placement and routing (spec: The view model).
+ */
+export type MermaidSequence = {
+    kind: "sequence";
+    participants: MermaidParticipant[];
+    boxes: MermaidSequenceBox[];
+    items: MermaidSequenceItem[];
+    /** `showSequenceNumbers`: every message numbered, whatever `autonumber` says. */
+    numbers: boolean;
+    /** `mirrorActors`: the participants draw again below their lifelines. */
+    mirror: boolean;
+    rightAngles: boolean;
+    title?: string;
+    config: MermaidConfig;
+    /** Absent until a sequence diagram's own palette lands. */
+    palette?: undefined;
+    error?: undefined;
+};
+
 /** A Mermaid diagram the build couldn't read, with the reason the page shows. */
 export type MermaidFailure = { kind: string; error: string };
 
 /** What the build gives an image view that carries Mermaid source. */
-export type MermaidDiagram = MermaidFlowchart | MermaidFailure;
+export type MermaidDiagram =
+    | MermaidFlowchart
+    | MermaidSequence
+    | MermaidFailure;
