@@ -98,11 +98,11 @@ An export shows the view as drawn: the diagram color scheme, the animation step 
 
 1. The view's title in bold, when it has one.
 2. The view's description, wrapped to the canvas width and cut to four lines, when it has one.
-3. "Author:" and the workspace's `lastModifiedUser`, else its `lastModifiedAgent`.
+3. "Author:" and the author the view's description names after `Author:`, by name, else the workspace's `lastModifiedUser`, else its `lastModifiedAgent`.
 4. "Last updated:" and the workspace's `lastModifiedDate`, else the date of the build, in the reader's locale.
 5. "Created with Renderizr" and the version that built the site, smaller and lighter than the lines above it.
 
-Every export carries the author, date and credit lines. Each one prints "Unknown" only when the workspace holds neither of its values.
+Every export carries the author, date and credit lines. Each one prints "Unknown" only when neither the view nor the workspace gives it a value.
 
 The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
 

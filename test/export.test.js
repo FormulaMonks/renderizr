@@ -322,8 +322,42 @@ describe("export-file", () => {
             "About the view",
             "the author the page shows apart stays out of the description",
         );
-        assert.equal(text.user, "ada@example.com");
+        assert.equal(text.user, "Ada", "the view's own author, by name");
         assert.equal(text.modified, modifiedDate(WORKSPACE.lastModifiedDate));
+    });
+
+    test("the title block's author is the view's own, then the workspace's user, then its agent", () => {
+        const author = (description, workspace) =>
+            titleBlockText(workspace, "View", description, BUILT).user;
+        const workspace = {
+            lastModifiedUser: "ada@example.com",
+            lastModifiedAgent: "renderizr/2.4.0",
+        };
+        assert.equal(
+            author("About\nAuthor: Andrés Zorro <andres.zorro@monks.com>", {
+                lastModifiedAgent: "renderizr/2.4.0",
+            }),
+            "Andrés Zorro",
+            "the view's author wins over the agent, without the address",
+        );
+        assert.equal(
+            author(
+                "About\nAuthor: Andrés Zorro <andres.zorro@monks.com>",
+                workspace,
+            ),
+            "Andrés Zorro",
+            "and over the user",
+        );
+        assert.equal(
+            author("About\nAuthor: grace@example.com", workspace),
+            "grace@example.com",
+            "an author named only by address keeps it",
+        );
+        assert.equal(
+            author("About", workspace),
+            "ada@example.com",
+            "a view with no author gives the workspace's user",
+        );
     });
 
     test("the title block credits Renderizr, with its version when the build knows it", () => {

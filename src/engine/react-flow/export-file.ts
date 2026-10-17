@@ -92,6 +92,18 @@ export function modifiedDate(value: unknown, locale?: string): string {
         : "";
 }
 
+/**
+ * The name of a view's `author` as its description writes it, without the
+ * address in angle brackets the page turns into a mail link; the address
+ * itself when the author is nothing else.
+ */
+function authorName(author: string | undefined): string {
+    const whole = author?.trim() ?? "";
+    return (
+        whole.replace(/\s*<[^<>]*>$/, "").trim() || whole.replace(/^<|>$/g, "")
+    );
+}
+
 /** What the title block prints for an author or date it has no value for. */
 export const UNKNOWN = "Unknown";
 
@@ -99,8 +111,9 @@ export const UNKNOWN = "Unknown";
  * What the title block says for view `title`, described as `description`,
  * in `workspace`, the raw workspace JSON as it was last saved, from a site
  * built at `built`. The description leaves out its author, as the
- * toolbar's does. The author is the workspace's `lastModifiedUser`, else its
- * `lastModifiedAgent`; the date is its `lastModifiedDate`, else `built`.
+ * toolbar's does. The author is the one the description names, by name,
+ * else the workspace's `lastModifiedUser`, else its `lastModifiedAgent`;
+ * the date is its `lastModifiedDate`, else `built`.
  * Either prints "Unknown" only when its fallback is empty too. The credit
  * names Renderizr, with its `version` when the build knows it.
  */
@@ -111,10 +124,12 @@ export function titleBlockText(
     built: unknown,
     version?: string | null,
 ): TitleBlockText {
+    const split = splitAuthor(description);
     return {
         view: title,
-        description: splitAuthor(description).description,
+        description: split.description,
         user:
+            authorName(split.author) ||
             field(workspace.lastModifiedUser).trim() ||
             field(workspace.lastModifiedAgent).trim() ||
             UNKNOWN,
