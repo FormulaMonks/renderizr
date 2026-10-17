@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    actor Customer
+    box rgb(230, 240, 255) Store
+        participant Web as Web shop
+        participant Orders as Order service
+    end
+    participant Stock
+    Customer->>+Web: Place order
+    Note right of Customer: Waits on the confirmation page
+    Web->>+Orders: Create order
+    loop Each line
+        Orders->>Stock: Reserve item
+        Stock-->>Orders: Reserved
+    end
+    opt Notes only
+        Note over Orders,Stock: Nothing else happens here
+    end
+    rect rgb(255, 230, 200)
+        Orders-->>-Web: Order id
+    end
+    Web-->>-Customer: Confirmation

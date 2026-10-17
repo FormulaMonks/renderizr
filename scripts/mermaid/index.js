@@ -19,7 +19,7 @@ import { readErd } from "./erd.js";
 import { readFlowchart } from "./flowchart.js";
 import { read } from "./parser.js";
 import { readSequence } from "./sequence.js";
-import { readPalette } from "./styling.js";
+import { readPalette, readSequencePalette } from "./styling.js";
 import { diagramError, Ignored, NotDrawnYet } from "./warnings.js";
 
 /**
@@ -141,9 +141,11 @@ function readView(view, configuration, warnings) {
     const config = parsed.config ?? {};
     // The config opens the source, so its entries come first. A sequence
     // diagram's palette and its warnings are its own (spec: Sequence
-    // diagrams), so it draws the silent look until they land.
+    // diagrams), its participants' colors in participant order.
     const palette =
-        kind === "sequence" ? undefined : readPalette(config, ignored);
+        kind === "sequence"
+            ? readSequencePalette(config, parsed.db.getActors().size, ignored)
+            : readPalette(config, ignored);
     let model;
     try {
         model = READERS[kind](parsed.db, config, ignored);

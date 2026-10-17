@@ -36,6 +36,7 @@ import type {
     MermaidDiagram,
     MermaidEdge,
     MermaidNode,
+    MermaidSequence,
     MermaidSource,
     MermaidSubgraph,
 } from "./types";
@@ -194,7 +195,8 @@ export const mermaidFontFamily = (
     diagram: MermaidDiagram | undefined,
 ): string | undefined =>
     diagram?.error === undefined
-        ? (diagram as MermaidSource | undefined)?.palette?.fontFamily
+        ? (diagram as MermaidSource | MermaidSequence | undefined)?.palette
+              ?.fontFamily
         : undefined;
 
 /** The CSS layers of an item's classes: `classDef default`, then each class it takes, as the source defines them. */

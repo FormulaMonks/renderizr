@@ -42,5 +42,23 @@ workspace "Mermaid sequence diagrams" "Image views that carry Mermaid sequence d
             title "Constructs"
             description "Central connections, half arrows, every autonumber form, right-angled self-messages, create and destroy, par_over, rect with and without a color, an untitled box and a note in every placement."
         }
+
+        image * "themed" {
+            mermaid themed.mmd
+            title "Themed"
+            description "The forest theme: participants, bars, notes, fragments, numbers and lifelines in its palette."
+        }
+
+        image * "redux" {
+            mermaid redux.mmd
+            title "Redux color"
+            description "The redux-color theme: each participant and its bars in a color of its own."
+        }
+
+        image * "silent" {
+            mermaid silent.mmd
+            title "Silent"
+            description "No theme: the primary color fill, gray notes and the scheme's lines. The same source as Themed and Redux color."
+        }
     }
 }

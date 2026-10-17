@@ -431,9 +431,45 @@ export type MermaidSequence = {
     rightAngles: boolean;
     title?: string;
     config: MermaidConfig;
-    /** Absent until a sequence diagram's own palette lands. */
-    palette?: undefined;
+    /** Absent on a silent source, which sets no `theme` and no `themeVariables`. */
+    palette?: MermaidSequencePalette;
     error?: undefined;
+};
+
+/** The theme variables a sequence diagram's colors come from (spec: Sequence diagrams). */
+export type MermaidSequenceColor =
+    | "actorBkg"
+    | "actorBorder"
+    | "actorTextColor"
+    | "actorLineColor"
+    | "signalColor"
+    | "signalTextColor"
+    | "noteBkgColor"
+    | "noteBorderColor"
+    | "noteTextColor"
+    | "labelBoxBkgColor"
+    | "labelBoxBorderColor"
+    | "labelTextColor"
+    | "loopTextColor"
+    | "activationBkgColor"
+    | "activationBorderColor"
+    | "sequenceNumberColor"
+    | "rectBkgColor";
+
+/**
+ * The palette a sequence diagram's `theme` and `themeVariables` give, which
+ * the build derives with Mermaid's own theme code.
+ */
+export type MermaidSequencePalette = {
+    /** Whether it is a dark palette, whose canvas colors then apply in both schemes. */
+    dark: boolean;
+    colors: Record<MermaidSequenceColor, string>;
+    /** Under `redux-color` and `redux-dark-color`: each participant's own colors, in participant order. */
+    participants?: { background?: string; stroke?: string }[];
+    /** The source's `fontSize`, in Mermaid's px, when it sets one. */
+    fontSize?: number;
+    /** The source's `fontFamily`, when it sets one. */
+    fontFamily?: string;
 };
 
 /** A Mermaid diagram the build couldn't read, with the reason the page shows. */

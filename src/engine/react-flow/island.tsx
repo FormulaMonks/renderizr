@@ -2417,6 +2417,13 @@ function Canvas({
         fittedGeneration.current = generation;
         moved.current = false;
     }
+    // The descriptions toggle lays a sequence diagram out again with or
+    // without its notes, which refits it (spec: Toolbar and label toggles).
+    const notes = useRef(labels.descriptions);
+    if (notes.current !== labels.descriptions) {
+        notes.current = labels.descriptions;
+        if (drawn?.sequence) moved.current = false;
+    }
     const painted = useRef<string | null>(null);
     // A change to the edited layout never refits, and align, distribute,
     // nudge and select all arrange the selection, by command or by key
