@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { readMermaidDiagrams } from "./mermaid/index.js";
 
 /** Google only serves woff2 to browsers it recognizes. */
 const BROWSER_UA =
@@ -368,7 +369,8 @@ async function inlineWorkspaceAssets(workspace) {
     };
 
     for (const style of styles.elements ?? []) collect(style.icon);
-    const imageViews = views.imageViews ?? [];
+    // A Mermaid diagram draws from its source; its picture is never fetched.
+    const imageViews = (views.imageViews ?? []).filter((view) => !view.mermaid);
     for (const view of imageViews) {
         for (const field of IMAGE_FIELDS) collect(view[field]);
     }
@@ -487,6 +489,13 @@ export async function loadWorkspace(source) {
     }
 
     validateWorkspace(workspace);
+    // Before inlining, which leaves a Mermaid diagram's content alone rather
+    // than fetch its picture from the Mermaid server. A diagram that can't be
+    // drawn warns and the build finishes (spec: When a diagram can't be
+    // drawn).
+    for (const notice of readMermaidDiagrams(workspace)) {
+        process.stderr.write(`warning: ${notice}\n`);
+    }
     await inlineWorkspaceAssets(workspace);
 
     return workspace;

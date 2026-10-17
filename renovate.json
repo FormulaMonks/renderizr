@@ -46,6 +46,14 @@
             ],
             "extractVersionTemplate": "^v(?<version>.+)$",
             "versioningTemplate": "regex:^(?<major>\\d{4})\\.(?<minor>\\d{2})\\.(?<patch>\\d{2})$"
+        },
+        {
+            "customType": "regex",
+            "description": "The Mermaid release the build's Mermaid reader is generated from, pinned by MERMAID_VERSION under a `// renovate:` comment in scripts/mermaid/generate/index.js. `mermaid` is never a dependency of Renderizr (ADR 24), so the npm manager never sees it. Renovate can't run the generator: its pull request changes only the pin, and needs `pnpm mermaid:parser` run and the regenerated scripts/mermaid/parser.js committed before it merges.",
+            "managerFilePatterns": ["/^scripts/mermaid/generate/index\\.js$/"],
+            "matchStrings": [
+                "// renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+export const [A-Z_]+_VERSION = \"(?<currentValue>[^\"]+)\""
+            ]
         }
     ],
     "packageRules": [
@@ -108,6 +116,12 @@
             "description": "Auto-merge every patch, minor, pin and digest update, for npm and GitHub Actions alike, runtime packages included. CI is the review: nothing merges without the `ci` check, which runs the whole suite and both render modes, and `minimumReleaseAge` keeps anything from merging the day it is published (14 days for @dagrejs/*). Majors and lock file maintenance stay manual: a major changes APIs and behavior, and those pull requests still need a person.",
             "matchUpdateTypes": ["patch", "minor", "pin", "digest"],
             "automerge": true
+        },
+        {
+            "description": "Never auto-merge a new Mermaid pin: the pull request only moves MERMAID_VERSION, and CI passes on the parser generated from the old one. A person runs `pnpm mermaid:parser`, commits scripts/mermaid/parser.js and checks the Mermaid fixtures before it merges.",
+            "matchManagers": ["custom.regex"],
+            "matchDepNames": ["mermaid"],
+            "automerge": false
         }
     ]
 }

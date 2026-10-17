@@ -5,6 +5,7 @@ import {
     isEditable,
     type LayoutChange,
     type ModelView,
+    mermaidFontFamily,
     storedCanvasOf,
     WorkspaceModel,
 } from "../../model";
@@ -65,8 +66,9 @@ export function mountEngine(
         // Edit mode swaps the workspace in place (`setWorkspace`).
         let model = new WorkspaceModel(options.workspace);
         /**
-         * The workspace as last saved, whose `lastModifiedUser` and
-         * `lastModifiedDate` the title block gives, which the model drops.
+         * The workspace as last saved, whose `lastModifiedUser`,
+         * `lastModifiedAgent` and `lastModifiedDate` the title block gives,
+         * which the model drops.
          * Edit mode swaps it only on a save, so unsaved changes keep the
          * saved date.
          */
@@ -224,7 +226,8 @@ export function mountEngine(
                 const current = store.get().labels;
                 if (
                     labels.descriptions === current.descriptions &&
-                    labels.technologies === current.technologies
+                    labels.technologies === current.technologies &&
+                    labels.entitiesCollapsed === current.entitiesCollapsed
                 ) {
                     return;
                 }
@@ -256,8 +259,13 @@ export function mountEngine(
                         workspace,
                         graph.title,
                         view.description,
+                        __RENDERIZR_BUILD_DATE__,
+                        __RENDERIZR_VERSION__,
                     ),
-                    text: textSetting(__RENDERIZR_FONT__),
+                    text: textSetting(
+                        __RENDERIZR_FONT__,
+                        mermaidFontFamily(view.mermaid),
+                    ),
                 });
                 return exportBlob(exported, format);
             },

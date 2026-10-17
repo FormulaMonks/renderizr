@@ -6,8 +6,11 @@ import {
     relationshipPasses,
     type ViewFilter,
 } from "./filter";
+import { type ResolvedMermaid, resolveMermaid } from "./mermaid";
+import { resolveSequence } from "./mermaid-sequence";
 import type {
     AutomaticLayoutSettings,
+    MermaidSequence,
     ModelElement,
     ModelRelationship,
     ModelView,
@@ -84,6 +87,13 @@ export type ResolvedView = {
     filter?: ViewFilter;
     /** Set on an image view: its picture in each variant it has. */
     image?: ImageContent;
+    /** Set on a Mermaid diagram: what its nodes, edges and subgraphs came from. */
+    mermaid?: ResolvedMermaid;
+    /**
+     * Set on a Mermaid sequence diagram: its sequence script, which the
+     * page lays out in place of placement and routing.
+     */
+    sequence?: MermaidSequence;
     view: ModelView;
 };
 
@@ -114,6 +124,8 @@ export function resolveView(
 ): ResolvedView | undefined {
     const requested = model.findViewByKey(key);
     if (!requested) return undefined;
+    if (requested.type === "Mermaid")
+        return resolveMermaidView(model, requested);
     const filter =
         requested.type === "Filtered" ? filterOf(requested) : undefined;
     const view = filter ? model.findViewByKey(filter.baseViewKey) : requested;
@@ -199,5 +211,34 @@ export function resolveView(
         ...(filter && { filter }),
         ...(view.type === "Image" && { image: imageContentOf(view) }),
         view: requested,
+    };
+}
+
+/**
+ * A Mermaid diagram resolved the way a custom view is (ADR 24): its nodes,
+ * edges and subgraphs, every node at the origin so the whole diagram lays
+ * out automatically. `undefined` for one that can't be drawn, which
+ * `findViewError` explains.
+ */
+function resolveMermaidView(
+    model: WorkspaceModel,
+    view: ModelView,
+): ResolvedView | undefined {
+    const resolved = resolveMermaid(view) ?? resolveSequence(view);
+    if (!resolved) return undefined;
+    return {
+        key: view.key,
+        type: "Mermaid",
+        title: model.getTitleForView(view),
+        description: view.description ?? "",
+        elements: resolved.elements,
+        relationships: resolved.relationships,
+        boundaries: resolved.boundaries,
+        layout: "automatic",
+        unplaced: [],
+        automaticLayout: resolved.automaticLayout,
+        ...(resolved.mermaid && { mermaid: resolved.mermaid }),
+        ...(resolved.sequence && { sequence: resolved.sequence }),
+        view,
     };
 }

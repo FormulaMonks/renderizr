@@ -35,6 +35,19 @@
     outline-offset: 2px;
 }
 
+/*
+ * An ERD entity's toggle, drawn on the entity's fill, so its ring takes the
+ * toggle's own color rather than the canvas's.
+ */
+.toggle:focus {
+    outline: none;
+}
+
+.toggle:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
 /* The invisible stroke around an edge that takes its clicks. */
 .hitStroke {
     cursor: pointer;

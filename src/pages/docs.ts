@@ -9,6 +9,7 @@ import type { DocumentationSection } from "../types/structurizr-documentation";
 import Page from "./_page";
 import history from "history/hash";
 import styles from "./docs.module.css";
+import { showDisclaimer } from "../components/disclaimer";
 
 const HEADING_TAG = /^H[1-6]$/;
 const SECTION_PARAM = "section";
@@ -654,6 +655,7 @@ export default class Docs extends Page {
 
     render() {
         if (!this.container) return;
+        showDisclaimer("docs");
 
         this.container.innerHTML = `
             <div class="${styles.docs}">

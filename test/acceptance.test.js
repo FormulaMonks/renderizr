@@ -222,6 +222,13 @@ for (const entry of ACCEPTANCE_SET) {
     }
 
     for (const key of keys) {
+        // A sequence diagram lays out by its own script: messages end on
+        // lifelines and every participant draws twice, so the C4 checks
+        // don't apply, and a diagram that fails draws its error alone. Their
+        // own tests check both.
+        const { mermaid } =
+            workspace.views?.imageViews?.find((view) => view.key === key) ?? {};
+        if (mermaid?.kind === "sequence" || mermaid?.error) continue;
         const expected = expectedDrawing(model, key);
 
         test(`view ${key} of ${entry.name} is drawn as the workspace says`, async (t) => {

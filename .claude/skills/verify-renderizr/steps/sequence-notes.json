@@ -1,0 +1,45 @@
+[
+    { "open": "{{dev}}#/?page=diagrams&view=checkout" },
+    { "ready": true },
+    {
+        "eval": "({ descriptionsHidden: document.querySelector('.toggle-description').hidden, technologiesHidden: document.querySelector('.toggle-technologies').hidden, notes: document.querySelectorAll('.react-flow [data-sequence=\"note\"]').length, messages: document.querySelectorAll('.react-flow__edge').length })",
+        "as": "atStart"
+    },
+    {
+        "assert": "!document.querySelector('.toggle-description').hidden && document.querySelector('.toggle-technologies').hidden",
+        "message": "a sequence diagram shows the descriptions toggle and hides the technologies toggle"
+    },
+    {
+        "assert": "document.querySelector('.react-flow').textContent.includes('Order confirmed') && document.querySelectorAll('.react-flow [data-sequence=\"note\"]').length > 0",
+        "message": "the notes draw with descriptions on"
+    },
+    { "shot": "1-notes-on.png" },
+    { "clickLabel": "Hide descriptions in diagrams" },
+    {
+        "waitFor": "!document.querySelector('.react-flow').textContent.includes('Order confirmed')"
+    },
+    { "ready": true },
+    {
+        "eval": "({ notes: document.querySelectorAll('.react-flow [data-sequence=\"note\"]').length, messages: document.querySelectorAll('.react-flow__edge').length })",
+        "as": "descriptionsOff"
+    },
+    {
+        "assert": "document.querySelectorAll('.react-flow [data-sequence=\"note\"]').length === 0 && !document.querySelector('.react-flow').textContent.includes('Waits for email')",
+        "message": "hiding descriptions hides every note"
+    },
+    {
+        "assert": "document.querySelectorAll('.react-flow__edge').length > 0",
+        "message": "the messages stay"
+    },
+    { "shot": "2-notes-off.png" },
+    { "clickLabel": "Show descriptions in diagrams" },
+    {
+        "waitFor": "document.querySelector('.react-flow').textContent.includes('Order confirmed')"
+    },
+    { "ready": true },
+    {
+        "assert": "document.querySelectorAll('.react-flow [data-sequence=\"note\"]').length > 0",
+        "message": "showing descriptions brings the notes back"
+    },
+    { "shot": "3-notes-back.png" }
+]

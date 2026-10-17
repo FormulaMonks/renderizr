@@ -1,0 +1,72 @@
+[
+    { "open": "{{dev}}#/?page=diagrams&view=shop" },
+    { "ready": true },
+    {
+        "assert": "!document.querySelector('.react-flow__node[data-id=\"mermaid:CATEGORY\"] [data-focus-item]')",
+        "message": "an entity without attributes draws no toggle"
+    },
+    {
+        "eval": "(() => { window.__tabOrder = []; document.querySelector('[data-view-key][data-ready]').focus(); return document.activeElement.getAttribute('role'); })()",
+        "as": "canvasFocused"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "eval": "window.__tabOrder", "as": "tabOrder" },
+    {
+        "assert": "window.__tabOrder.length === 5 && new Set(window.__tabOrder).size === 5 && window.__tabOrder.every((key) => key?.startsWith('toggle:mermaid:'))",
+        "message": "Tab walks the five toggles once each"
+    },
+    {
+        "assert": "!window.__tabOrder.includes('toggle:mermaid:CATEGORY')",
+        "message": "an entity without attributes is not in the Tab order"
+    },
+    { "eval": "document.querySelector('[data-view-key][data-ready]').focus()" },
+    { "key": "Tab" },
+    {
+        "assert": "document.activeElement.dataset.focusItem === 'toggle:mermaid:CUSTOMER' && document.activeElement.getAttribute('aria-expanded') === 'false'",
+        "message": "the first Tab lands on Customer's toggle, collapsed"
+    },
+    { "shot": "1-focused.png" },
+    { "key": "Enter" },
+    {
+        "waitFor": "document.querySelector('[data-focus-item=\"toggle:mermaid:CUSTOMER\"]').getAttribute('aria-expanded') === 'true'"
+    },
+    { "ready": true },
+    {
+        "assert": "document.activeElement.dataset.focusItem === 'toggle:mermaid:CUSTOMER'",
+        "message": "focus stays on the toggle after Enter and the refit"
+    },
+    {
+        "assert": "document.querySelectorAll('[data-entity-toggle][aria-expanded=\"true\"]').length === 1",
+        "message": "Enter flips that entity alone"
+    },
+    { "shot": "2-enter-expanded.png" },
+    { "key": " ", "code": "Space" },
+    {
+        "waitFor": "document.querySelector('[data-focus-item=\"toggle:mermaid:CUSTOMER\"]').getAttribute('aria-expanded') === 'false'"
+    },
+    { "ready": true },
+    {
+        "assert": "document.activeElement.dataset.focusItem === 'toggle:mermaid:CUSTOMER'",
+        "message": "focus stays on the toggle after Space and the refit"
+    },
+    { "shot": "3-space-collapsed.png" }
+]

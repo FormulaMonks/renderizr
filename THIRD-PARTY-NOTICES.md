@@ -155,6 +155,11 @@ These run on the machine performing the build. None of their code appears in the
 | [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 22.20.1 | MIT | DefinitelyTyped contributors |
 | [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT | DefinitelyTyped contributors |
 | [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT | DefinitelyTyped contributors |
+| [Mermaid](https://github.com/mermaid-js/mermaid) (portions bundled into `scripts/mermaid/parser.js`) | 12.2.0 | MIT | Copyright (c) 2014 - 2022 Knut Sveidqvist |
+| [js-yaml](https://github.com/nodeca/js-yaml) (bundled into `scripts/mermaid/parser.js`) | 5.4.3 | MIT | Copyright (C) 2011-2015 by Vitaly Puzrin |
+| [khroma](https://github.com/fabiospampinato/khroma) (bundled into `scripts/mermaid/parser.js`) | 2.1.0 | MIT | Copyright (c) 2019-present Fabio Spampinato, Andrew Maney |
+
+**Mermaid, js-yaml and khroma** reach this repository and the published package inside one generated file, `scripts/mermaid/parser.js`, which the build runs to read the Mermaid source an image view carries. It holds Mermaid's flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, with js-yaml for the frontmatter and khroma for the themes. The file opens with Mermaid's MIT notice in full and ends with js-yaml's license line. None of it reaches a rendered page: the page draws from the plain model the build hands it. `mermaid` itself is never a dependency; `pnpm mermaid:parser` installs it and the bundling tools into a temporary folder to write the file.
 
 Vite bundles Rollup, esbuild and PostCSS inside its own distribution; their licenses are reproduced in `node_modules/vite/LICENSE.md`, which Vite ships for exactly this purpose. TypeScript ships `node_modules/typescript/ThirdPartyNoticeText.txt` covering its own dependencies. Biome is dual-licensed and may be taken under either MIT or Apache-2.0; nothing here depends on the choice, since Biome only lints.
 

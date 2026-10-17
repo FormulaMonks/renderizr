@@ -1,0 +1,24 @@
+---
+title: Styled shop
+config:
+  themeVariables:
+    rowOdd: "#fff7e0"
+    rowEven: "#ffeec2"
+---
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    CUSTOMER["Customer"]:::vip {
+        string id PK
+        string name
+    }
+    ORDER["Order"] {
+        int orderNumber PK
+        string customerId FK "Who placed it"
+    }
+    LINE-ITEM["Line item"] {
+        int orderNumber PK, FK
+        int quantity
+    }
+    classDef vip fill:#7a3e9d,stroke:#4b2061,color:#ffffff
+    style LINE-ITEM fill:#2e7d32,stroke:#1b4d1e,color:#ffffff

@@ -52,9 +52,13 @@ function fontFaces(family: string | null): string {
     return rules.join("");
 }
 
-/** How the diagram's text is set in `font`, measured in the page. */
-export function textSetting(font: string | null): TextSetting {
-    const family = diagramFontFamily(font);
+/**
+ * How the diagram's text is set in `font`, after a Mermaid diagram's
+ * `source` family when it names one, measured in the page. Only the
+ * `--font` faces embed: a source's family is the reader's to have.
+ */
+export function textSetting(font: string | null, source?: string): TextSetting {
+    const family = diagramFontFamily(font, source);
     const context = document.createElement("canvas").getContext("2d");
     let { ascent, descent } = FALLBACK_METRICS;
     if (context) {
@@ -88,21 +92,42 @@ export function modifiedDate(value: unknown, locale?: string): string {
         : "";
 }
 
+/** What the title block prints for an author or date it has no value for. */
+export const UNKNOWN = "Unknown";
+
 /**
  * What the title block says for view `title`, described as `description`,
- * in `workspace`, the raw workspace JSON as it was last saved. The
- * description leaves out its author, as the toolbar's does.
+ * in `workspace`, the raw workspace JSON as it was last saved, from a site
+ * built at `built`. The description leaves out its author, as the
+ * toolbar's does. The author is the one the description names, address
+ * and all, else the workspace's `lastModifiedUser`, else its
+ * `lastModifiedAgent`; the date is its `lastModifiedDate`, else `built`.
+ * Either prints "Unknown" only when its fallback is empty too. The credit
+ * names Renderizr, with its `version` when the build knows it.
  */
 export function titleBlockText(
     workspace: Record<string, unknown>,
     title: string,
     description: string,
+    built: unknown,
+    version?: string | null,
 ): TitleBlockText {
+    const split = splitAuthor(description);
     return {
         view: title,
-        description: splitAuthor(description).description,
-        user: field(workspace.lastModifiedUser),
-        modified: modifiedDate(workspace.lastModifiedDate),
+        description: split.description,
+        user:
+            split.author?.trim() ||
+            field(workspace.lastModifiedUser).trim() ||
+            field(workspace.lastModifiedAgent).trim() ||
+            UNKNOWN,
+        modified:
+            modifiedDate(workspace.lastModifiedDate) ||
+            modifiedDate(built) ||
+            UNKNOWN,
+        credit: version
+            ? `Created with Renderizr v${version}`
+            : "Created with Renderizr",
     };
 }
 

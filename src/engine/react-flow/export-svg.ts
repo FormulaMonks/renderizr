@@ -43,10 +43,12 @@ import {
     textWidth,
 } from "../geometry/label";
 import { lineDashes } from "../geometry/line";
+import { nameIsBold } from "../geometry/mermaid";
 import { borderDashes, paintPart } from "../geometry/paint";
 import { escapeXml } from "../geometry/xml";
 import { PRESENCE_OPACITY, type StepState } from "./animation";
 import type { BoundaryBox, EdgeLine, ElementBox, Graph } from "./graph";
+import type { SequenceShape } from "./sequence-graph";
 
 /** What the serializer needs to set text the way CSS does. */
 export type TextSetting = {
@@ -62,15 +64,17 @@ export type TextSetting = {
 
 /**
  * What the title block says, each line left out when it has no value: the
- * view's title, the view's description, the user who last modified the
- * workspace, and the date it was last modified, already formatted for the
- * reader.
+ * view's title, the view's description, who last modified the workspace,
+ * the date it was last modified, already formatted for the reader, and the
+ * credit to the Renderizr that drew it. `titleBlockText` always gives the
+ * last three a value, "Unknown" at worst.
  */
 export type TitleBlockText = {
     view: string;
     description: string;
     user: string;
     modified: string;
+    credit?: string;
 };
 
 export type ExportInput = {
@@ -111,6 +115,12 @@ type Lines = {
     lines: string[];
     fontSize: number;
     bold?: boolean;
+    /** A weight other than bold or normal, as a Mermaid node's source writes it. */
+    weight?: string;
+    /** A family ahead of the diagram's, as a Mermaid node's source names it. */
+    family?: string;
+    /** An ERD attribute's comment. */
+    italic?: boolean;
     /** Left edge and width of the column the lines align in. */
     x: number;
     width: number;
@@ -140,7 +150,12 @@ function textLines(block: Lines, text: TextSetting): string {
                       x,
                       y: block.y + index * box + baseline,
                       "font-size": fontSize,
-                      "font-weight": block.bold ? "bold" : undefined,
+                      "font-weight":
+                          block.weight ?? (block.bold ? "bold" : undefined),
+                      "font-family": block.family
+                          ? `${block.family}, ${text.family}`
+                          : undefined,
+                      "font-style": block.italic ? "italic" : undefined,
                       "text-anchor": block.align,
                       fill: block.color,
                       "fill-opacity": block.opacity,
@@ -234,8 +249,13 @@ const labelPart = (part: string, lines: string) =>
 
 /** One element's label template (spec 9.2), as the island lays it out. */
 function elementLabel(element: ElementBox, text: TextSetting): string {
-    const { measure } = text;
-    const { fontSize, iconPosition, color, targets } = element;
+    const { fontSize, iconPosition, color, targets, fontFamily, fontWeight } =
+        element;
+    // A Mermaid node's own family and weight, which the island draws too.
+    const measure: MeasureText = fontFamily
+        ? (line, size, bold) => text.measure(line, size, bold, fontFamily)
+        : text.measure;
+    const nameBold = nameIsBold(fontWeight);
     const content = {
         x: element.x + element.content.x,
         y: element.y + element.content.y,
@@ -254,7 +274,7 @@ function elementLabel(element: ElementBox, text: TextSetting): string {
             breakLines(element.name),
             width,
             nameSize,
-            true,
+            nameBold,
             measure,
         );
         const metadata = metadataText
@@ -389,7 +409,9 @@ function elementLabel(element: ElementBox, text: TextSetting): string {
                     ...column,
                     lines: drawn.name,
                     fontSize: nameSize,
-                    bold: true,
+                    bold: nameBold,
+                    ...(fontWeight && { weight: fontWeight }),
+                    ...(fontFamily && { family: fontFamily }),
                     y: top,
                 },
                 text,
@@ -476,8 +498,60 @@ const block = (
     );
 
 /**
+ * An ERD entity's rows and text in its current state, as `EntityBody`
+ * draws them, without the toggle (spec: ERD entities).
+ */
+function entityBody(element: ElementBox, text: TextSetting): string {
+    const { entity } = element;
+    if (!entity) return "";
+    const rows = entity.rows
+        .map(
+            (row) =>
+                `<rect ${attrs({
+                    x: element.x + row.x,
+                    y: element.y + row.y,
+                    width: row.width,
+                    height: row.height,
+                    fill: row.fill,
+                })}/><rect ${attrs({
+                    x: element.x + row.x,
+                    y: element.y + row.y,
+                    width: row.width,
+                    height: 1,
+                    fill: row.rule,
+                })}/>`,
+        )
+        .join("");
+    const texts = entity.texts
+        .map((line) =>
+            labelPart(
+                line.part,
+                textLines(
+                    {
+                        lines: [line.text],
+                        fontSize: line.fontSize,
+                        bold: line.bold,
+                        family: element.fontFamily,
+                        x: element.x + line.x,
+                        width: line.width,
+                        y: element.y + line.y,
+                        align: line.align,
+                        color: line.color,
+                        italic: line.italic,
+                        ...(line.opacity < 1 && { opacity: line.opacity }),
+                    },
+                    text,
+                ),
+            ),
+        )
+        .join("");
+    return `<g data-entity="${entity.collapsed ? "collapsed" : "expanded"}">${rows}${texts}</g>`;
+}
+
+/**
  * An element: its parts painted by role under one opacity, which leaves the
- * label opaque as the island does (spec 9.4), then its label.
+ * label opaque as the island does (spec 9.4), then its label, or an ERD
+ * entity's rows and text.
  */
 function element(element: ElementBox, text: TextSetting): string {
     const parts = element.parts
@@ -495,7 +569,9 @@ function element(element: ElementBox, text: TextSetting): string {
     return [
         `<g ${attrs({ "data-element-id": element.id })}>`,
         `<g transform="translate(${svgNumber(element.x)} ${svgNumber(element.y)})" opacity="${svgNumber(element.opacity)}">${parts}</g>`,
-        elementLabel(element, text),
+        element.entity
+            ? entityBody(element, text)
+            : elementLabel(element, text),
         element.instances
             ? block(element.instances, element, element.color, text, true)
             : "",
@@ -546,8 +622,21 @@ function boundary(box: BoundaryBox, text: TextSetting): string {
 
 /* ---------------- edges */
 
-/** An edge's line and arrowhead under the edge's opacity. */
+/**
+ * An edge's line and arrowhead under the edge's opacity, and a Mermaid
+ * edge's stroked End markers as the canvas draws them.
+ */
 function edgeLine(edge: EdgeLine): string {
+    const markers = edge.markerStroke
+        ? `<path ${attrs({
+              d: edge.markerStroke,
+              fill: "none",
+              stroke: edge.color,
+              "stroke-width": edge.thickness,
+              "stroke-linecap": "round",
+              "stroke-linejoin": "round",
+          })}/>`
+        : "";
     return `<g opacity="${svgNumber(edge.opacity)}"><path ${attrs({
         d: edge.path,
         fill: "none",
@@ -555,7 +644,29 @@ function edgeLine(edge: EdgeLine): string {
         "stroke-width": edge.thickness,
         "stroke-dasharray": lineDashes(edge.style, edge.thickness),
         "stroke-linecap": edge.style === "Dotted" ? "round" : undefined,
-    })}/><path ${attrs({ d: edge.arrowhead, fill: edge.color })}/></g>`;
+    })}/><path ${attrs({ d: edge.arrowhead, fill: edge.color })}/>${markers}</g>`;
+}
+
+/* ---------------- sequence diagrams */
+
+/**
+ * One of a sequence diagram's layers, its shapes as the island draws them,
+ * without the `data-` hooks the page keeps for its tests.
+ */
+function sequenceLayer(shapes: SequenceShape[] | undefined): string {
+    return (shapes ?? [])
+        .map(({ tag, attrs: values, text }) => {
+            const kept = Object.fromEntries(
+                Object.entries(values).filter(
+                    ([key]) => !key.startsWith("data-"),
+                ),
+            );
+            const open = `<${tag} ${attrs(kept)}`;
+            return text === undefined
+                ? `${open}/>`
+                : `${open}>${escapeXml(text)}</${tag}>`;
+        })
+        .join("");
 }
 
 /**
@@ -573,12 +684,12 @@ function edgeLabel(edge: EdgeLine, background: string, text: TextSetting) {
         x: left,
         width,
         align: "middle" as const,
-        color: edge.color,
+        color: edge.labelColor ?? edge.color,
         opacity: edge.opacity < 1 ? edge.opacity : undefined,
     };
     let top = box.y + EDGE_LABEL_PADDING;
     const parts = [
-        `<rect ${attrs({ x: box.x, y: box.y, width: box.width, height: box.height, fill: background })}/>`,
+        `<rect ${attrs({ x: box.x, y: box.y, width: box.width, height: box.height, fill: edge.labelBackground ?? background })}/>`,
     ];
     if (lines.description.length) {
         parts.push(
@@ -628,6 +739,12 @@ export const TITLE_BLOCK_FONT_SIZE = 18;
 /** Space between the title block's text and its edges, the canvas included. */
 export const TITLE_BLOCK_PADDING = 40;
 
+/** The credit's font size, under the rest of the title block's. */
+export const CREDIT_FONT_SIZE = 14;
+
+/** How strongly the credit draws: the text color, faded toward the canvas. */
+export const CREDIT_OPACITY = 0.6;
+
 /** The most lines of the view's description the title block shows. */
 export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
 
@@ -637,8 +754,9 @@ export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
  * SVG. Line 1 is the view's title in bold, at an element name's size, scaled
  * from the band's. Under it come the view's description, wrapped to the band
  * and clamped after 4 lines, "Author:" with the user, and "Last updated:"
- * with the date. A line with no value is left out, and a band with no lines
- * at all takes no room.
+ * with the date. The credit closes it a line apart, smaller and lighter. A
+ * line with no value is left out, and a band with no lines at all takes no
+ * room.
  */
 export function titleBlock(
     content: TitleBlockText,
@@ -702,6 +820,27 @@ export function titleBlock(
         );
         top += lines.length * fontSize * LINE_HEIGHT;
     }
+    const credit = content.credit?.trim()
+        ? wrap(content.credit.trim(), width, CREDIT_FONT_SIZE, false, measure)
+        : [];
+    if (credit.length) {
+        if (parts.length) top += fontSize * LINE_HEIGHT;
+        parts.push(
+            `<g opacity="${CREDIT_OPACITY}">${textLines(
+                {
+                    lines: credit,
+                    fontSize: CREDIT_FONT_SIZE,
+                    x,
+                    y: top,
+                    width,
+                    align: "start",
+                    color,
+                },
+                text,
+            )}</g>`,
+        );
+        top += credit.length * CREDIT_FONT_SIZE * LINE_HEIGHT;
+    }
     if (!parts.length) return { height: 0, svg: "" };
     return {
         // Whole pixels, so fractional line heights leave no sliver of a row.
@@ -762,9 +901,12 @@ export function exportSvg({
         style,
         // The canvas and the band under it, in the scheme's canvas color.
         `<rect ${attrs({ x: frame.x, y: frame.y, width, height, fill: graph.background })}/>`,
+        // A sequence diagram's layers sit around its messages, as on the canvas.
+        sequenceLayer(graph.sequence?.back),
         ...boundaries,
         ...lines,
         ...labels,
+        sequenceLayer(graph.sequence?.front),
         ...elements,
         band.svg,
         "</svg>",

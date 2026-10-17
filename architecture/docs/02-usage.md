@@ -30,7 +30,7 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `--font-weights <list>` | Comma-separated weights. Default `400,700`. The build prefers a variable font that covers the range when the family has one |
 | `--font-subsets <list>` | Comma-separated subsets. Default `latin` |
 | `--font-italic` | Also embed the italic faces, which roughly doubles the font's weight |
-| `--primary-color <color>` | A CSS color, such as `#e4572e` or `rgb(228 87 46)`, for links, the active page and view, and edit mode's marks, in light and dark alike. Default is Renderizr's blue |
+| `--primary-color <color>` | A CSS color, such as `#e4572e` or `rgb(228 87 46)`, for links, the active page and view, edit mode's marks and the nodes of a [Mermaid diagram](#mermaid-diagrams) whose source sets no theme, in light and dark alike. Default is Renderizr's blue |
 | `-h, --help` | Print the reference as text and exit |
 
 A font is the one option with a real cost: an embedded family outweighs every other option together, and each extra weight, subset or italic face adds to it.
@@ -69,6 +69,8 @@ workspace {
 
 Without `--single-file`, the build writes `index.html`, an `assets/` folder and a favicon. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
 
+The footer of every page says what is on screen and which Renderizr built it: a C4 view is in C4 notation and drawn with React Flow, a Mermaid diagram comes from Mermaid source and is drawn with React Flow, a picture names only the workspace, and the documentation and decisions pages say whose they are.
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself into one document that makes no network requests at all:
@@ -90,14 +92,17 @@ The build fetches themes, element icons and a logo referenced by URL, and folds 
 
 ## Export
 
-Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them; an image view shows none.
+Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them, a [Mermaid diagram](#mermaid-diagrams) included; an image view that shows a picture has none.
 
-An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors, with one line for each of these the workspace has:
+An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors:
 
-1. The view's title in bold.
-2. The view's description, wrapped to the canvas width and cut to four lines.
-3. "Author:" and the user who last modified the workspace.
-4. "Last updated:" and the date the workspace was last modified, in the reader's locale.
+1. The view's title in bold, when it has one.
+2. The view's description, wrapped to the canvas width and cut to four lines, when it has one.
+3. "Author:" and the author the view's description names after `Author:`, email address included, else the workspace's `lastModifiedUser`, else its `lastModifiedAgent`.
+4. "Last updated:" and the workspace's `lastModifiedDate`, else the date of the build, in the reader's locale.
+5. "Created with Renderizr" and the version that built the site, smaller and lighter than the lines above it.
+
+Every export carries the author, date and credit lines. Each one prints "Unknown" only when neither the view nor the workspace gives it a value.
 
 The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
 
@@ -108,6 +113,156 @@ In edit mode, an export shows the layout as you left it, saved or not, without t
 Inside a Claude artifact, the page saves an export through the artifact viewer's `downloads` capability, which asks the reader to confirm each file. A save the reader declines ends quietly. An artifact published without `downloads` can't save a file, so its toolbar shows no export buttons: declare `downloads` when you publish `artifact.html`.
 
 An element icon given as an `http(s)` URL stays blank in an export. A build embeds every icon in the page, so this only happens on the dev server, which leaves such icons as URLs.
+
+## Mermaid diagrams
+
+Renderizr draws a Mermaid flowchart, ERD or sequence diagram that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
+
+```
+views {
+    properties {
+        "mermaid.url" "https://mermaid.ink"
+    }
+
+    image * "order-flow" {
+        mermaid order-flow.mmd
+        title "Order flow"
+    }
+}
+```
+
+Structurizr encodes the source into the image view's content as a URL on the Mermaid server that `mermaid.url` names, on the image view or on the views. The build reads the source back from that URL and parses it with Mermaid's own grammar, so the page never fetches the Mermaid server's picture. The workspace keeps opening in Structurizr as before.
+
+A source that opens with `flowchart`, `graph`, `erDiagram` or `sequenceDiagram` draws. Every other image view stays a picture with no warning: a picture file, Mermaid that Structurizr inlines with `mermaid.inline true`, and every other Mermaid type.
+
+Renderizr's own architecture carries one of each, under `architecture/mermaid/`: a flowchart of how the build reads an image view, an ERD of the layout data Structurizr keeps in `workspace.json`, and a sequence diagram of how edit mode saves a layout and draws a DSL session again.
+
+The view's `title` names the diagram, then the source's frontmatter `title`, then `Image View: <key>`. The frontmatter title never draws on the canvas. In edit mode a Mermaid diagram draws read-only, since Structurizr keeps no layout for an image view, and a DSL session draws it again when its `.mmd` file under the DSL's folder changes.
+
+> [!TIP]
+> Choose every color on purpose, and give it a meaning. The C4 model asks that a diagram's colors say something, and so Renderizr derives its whole palette from one primary color. Renderizr honors a Mermaid source's own styles, and a source draws at its best when it sets none: with no `theme`, `themeVariables`, `classDef` or `style`, the diagram takes the workspace's primary color and styles, and reads like the C4 views beside it. Give a node a color of its own when the reader needs to tell it apart, and say what the color means in the view's description.
+
+A diagram Renderizr can't draw shows why in place of the canvas, and the build prints the same text and finishes: `Mermaid diagram "order-flow": a parse error at line 4: the source ends too early.` Its export buttons show disabled and say "Nothing to export: the diagram couldn't be drawn". In edit mode the reason shows on the view and in the terminal, and the next save of the source that fixes it draws the diagram again. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every reason.
+
+The description and technology toggles hide on a flowchart, whose labels hold the source's text alone. On an ERD the description toggle shows and hides the attributes' comment column, on the canvas and in an export, and the technology toggle hides, since an ERD has no technologies. A toggle that hides keeps your choice, which applies again on the next view where it shows.
+
+### Flowcharts
+
+Renderizr lays a flowchart out with Dagre, the way Mermaid does at Renderizr's larger text: every length Mermaid uses grows by 1.5. Nodes sit 75 apart, ranks 75 apart and edges 30 apart, and a source's own `nodeSpacing` and `rankSpacing` grow the same way. Each node takes the size its label needs. A subgraph that no edge crosses lays out on its own and turns its direction (top to bottom becomes left to right) unless it sets `direction`. Every other subgraph stays part of the graph around it.
+
+![The flowchart of how the build reads an image view, drawn in Renderizr's primary color: decisions as diamonds, with Yes and No edges to an ordinary image view, a ViewError or a Mermaid diagram.](images/mermaid-flowchart.png)
+
+| Source | Draws as |
+| --- | --- |
+| `A[text]`, `A(text)`, `A{text}`, `A((text))`, `A[(text)]`, `A{{text}}` | A rectangle, a rounded rectangle, a diamond, a circle, a cylinder and a hexagon |
+| `<br>` in a label | A new line |
+| `-->`, `-.->` and `==>` | A solid line, a dotted line and a line about twice as thick, with an arrow |
+| `---` | A solid line with no arrow |
+| `--o` and `--x` | A line ending in a filled circle and in a cross |
+| `<-->`, `o--o` and `x--x` | The same marker at both ends, on any line: `<-.->`, `o==o` |
+| `subgraph … end` | A group around its nodes |
+
+Every other shape falls back to a rectangle and warns: stadium, subroutine, asymmetric, parallelogram, trapezoid, double circle and every other `@{ shape }` name. An invisible link (`~~~`) draws nothing and leaves the layout, a longer link (`--->`) lays out as an ordinary one, and Markdown strings and `fa:` icons draw their text plain; each of them warns.
+
+End markers take the edge's color and draw solid on a dotted line, sized to the line as the arrow is. Each end with a marker leaves its node straight before the line may turn, and ranks sit far enough apart for the markers of a thick line to fit.
+
+A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draws as any flowchart. The HTML in its labels draws as plain text lines.
+
+#### Click links
+
+A `click` line that gives a node a link, `click A href "#orders"` or `click A "https://example.com/shop"`, makes the node an activation target, the way an element link does. The link reads as an element link reads: `#<key>`, `?view=<key>` and `{workspace}/diagrams#<key>` open that view, a page on Structurizr's own hosts opens the matching view or document here when the workspace has it, and any other address opens in a new tab. A link to the view on screen, to a view the workspace doesn't have or to a script offers nothing and warns about nothing. A tooltip after the link, `click A "https://example.com/shop" "Open the shop"`, shows when the pointer rests on the node.
+
+A node with a link draws the indicator for where it leads under its label and grows to fit it, joins the Tab order in reading order, and exports with its indicator. Subgraphs and edges never lead anywhere. A `click` line that calls a function, `click A callback` or `click A call notify()`, does nothing and warns, since the page runs no script from the source. In edit mode nothing activates, as on every view.
+
+#### Styles
+
+A flowchart's styles layer from the least specific to the most: the color scheme's defaults, then the workspace's tag styles with the themes they come from, then the source's config (a named `theme` or `themeVariables`), then its classes (`classDef default` first, then each `classDef` in the order the source defines it), then its own `style` and `linkStyle`.
+
+The workspace's element styles tagged `Element` and `Mermaid` apply to every node, its relationship styles tagged `Relationship` and `Mermaid` to every edge, and its element styles tagged `Group` and `Mermaid` to every subgraph. A `classDef` name isn't a tag. A node's `fontSize` applies unless the source sets a font size; its `width`, `height` and `shape` never do, since the source sets them. The shape and the line style that the arrow syntax sets always win.
+
+A source with no `theme` and no `themeVariables` takes the workspace's look. Its nodes fill with the primary color (`--primary-color`, then `renderizr.primaryColor`, then Renderizr's blue) with white text and a darker border, beneath the workspace's styles, in light and dark alike, and its edges and subgraphs take the color scheme's defaults.
+
+A source that names a `theme` or sets `themeVariables` takes the palette that Mermaid's own theme code derives from them, so a lone `primaryColor` under `theme: base` brings its text and border colors along. Renderizr reads `primaryColor`, `primaryBorderColor`, `primaryTextColor`, `lineColor`, `edgeLabelBackground`, `clusterBkg`, `clusterBorder`, `fontSize` and `fontFamily`, and on an ERD the [row colors](#erds). With no named theme they change Mermaid's `default` theme, which keeps its own node fill, as Mermaid does. In dark mode the palette keeps its fills, while edges and their labels, which draw straight on the canvas, take the color scheme's colors. `theme: dark` draws a dark palette in light mode too.
+
+| CSS | On a node | On an edge (`linkStyle`) |
+| --- | --- | --- |
+| `fill` | Its fill | |
+| `stroke` | Its border | The line's color |
+| `stroke-width` | The border's width | The line's thickness |
+| `stroke-dasharray` | A dashed border | A dashed line, unless the arrow syntax makes it dotted |
+| `color` | Its text | The label's text |
+| `font-size` | Its text size, in Mermaid's px | |
+| `font-weight` | Its name's weight, which is bold otherwise | |
+| `font-family` | Its family, ahead of the diagram's | |
+
+A subgraph's `style` and classes set its fill, border, text color and font size, and its border draws solid once the source sets a palette. A source fill keeps the border beneath it, as in Mermaid.
+
+A source's `curve` routes its edges: `linear` Direct, `step`, `stepBefore` and `stepAfter` Orthogonal, and every other curve Curved. A source that sets no `curve` routes by the workspace's `routing` style, then Orthogonal.
+
+The diagram draws in the source's `fontFamily`, then the `--font` family, then the fallback stack. An export names the same families and embeds only the `--font` faces.
+
+The build prints one warning per diagram that lists what of its source Renderizr ignored, such as `Image view "order-flow": Renderizr supports only a subset of Mermaid styling; ignored: shape "stadium"`. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every entry it can name.
+
+### ERDs
+
+Renderizr lays an ERD out with Dagre as it lays a flowchart out, with Mermaid's ERD spacing grown by 1.5: entities sit 210 apart and ranks 120 apart, and the source's `er.nodeSpacing` and `er.rankSpacing` grow the same way. Each relationship points from its first entity to its second, as written.
+
+![The ERD of the layout data in workspace.json with every entity expanded: a header, one row per attribute and a toggle band, joined by cardinality markers.](images/mermaid-erd.png)
+
+An ERD draws its **Entities** collapsed at first. A collapsed entity draws like a C4 element: every collapsed entity of the diagram takes one size in a C4 element's proportions, with its name in bold at the center over its `PK` and `FK` **Attributes** (`id [PK]`). A `UK` alone doesn't show. Its name draws as written, the alias first: `CUSTOMER["Customer"]` reads "Customer".
+
+The round plus button at the bottom of an entity expands it. An expanded entity draws a header with its name, one row per attribute in Mermaid's column order (type, name, keys and comment), and a band below the rows that holds the minus button. The comment column shows only while descriptions show. The header and band take the entity's fill, and the rows take light alternating tints of it with dark text. Each entity flips on its own for the visit, and every flip lays the diagram out again and fits it to the canvas. An entity without attributes draws no button and stays collapsed.
+
+Each button is a stop in the canvas's Tab order, in reading order by its entity. Enter or Space flips the entity, and focus stays on the button. In edit mode only Enter does, since Space pans there.
+
+The toolbar's "Expand all entities" button sets every entity of the diagram at once, drops the flips made with each entity's own button and fits the diagram to the canvas again. It shows pressed while the entities are expanded, and then it reads "Collapse all entities". Your choice applies to every ERD and stays after a reload, while an entity's own flip lasts only for the visit. The button shows only on an ERD that has an entity with attributes.
+
+| Source | Draws as |
+| --- | --- |
+| `--` | An identifying relationship: a solid line |
+| `..` | A non-identifying relationship: a dashed line |
+| `\|\|`, `\|o` or `o\|` | Exactly one, and zero or one, at that end |
+| `}\|` or `\|{`, `}o` or `o{` | One or more, and zero or more, at that end |
+
+An entity's `style`, its classes and `classDef` style it as they style a flowchart's node, in the same order. A source's `rowOdd` and `rowEven` theme variables, or their older names `attributeBackgroundColorOdd` and `attributeBackgroundColorEven`, color the rows in place of the tints.
+
+An export draws each entity the way the canvas shows it, collapsed or expanded, without its button.
+
+### Sequence diagrams
+
+Renderizr lays a sequence diagram out with its own code, the way Mermaid does at Renderizr's larger text: every length grows by 1.5. Participants stand at least 75 apart and widen to fit their names and the labels between them, messages sit 69 apart, and a fragment's title wraps to the fragment's width. Messages run as straight lines; the router and the `routing` style don't apply. Text draws at 20 and participant names in the C4 label template.
+
+![The sequence diagram of how edit mode saves and redraws: participants at the top and bottom, messages between their lifelines, activation bars and two alt fragments.](images/mermaid-sequence.png)
+
+| Source | Draws as |
+| --- | --- |
+| `participant`, `actor`, `participant A@{ "type": "database" }`, `participant A@{ "type": "queue" }` | A box, C4's Person, a cylinder with a shallow lid and a pipe, with its lifeline |
+| `->>` and `-->>`, `<<->>` | A solid and a dotted line with an arrow, and with an arrow at both ends |
+| `-)`, `-x`, `->` | An open arrow, a cross and no marker, solid or dotted (`--)`, `--x`, `-->`) |
+| `A->>()B`, `A()->>B`, `A()->>()B` | A dot on the lifeline the `()` sits by |
+| `activate`, `deactivate`, `+` and `-` | An activation bar, stacked to the right when they nest |
+| `Note left of`, `right of`, `over A`, `over A,B` | A gray note in that place |
+| `loop`, `alt`/`else`, `opt`, `par`/`and`, `par_over`, `critical`/`option`, `break` | A dashed frame with its keyword's tab, its title and its sections |
+| `rect` | A tint of the primary color behind what it holds, or the color it names |
+| `box … end` | A group around its participants, in the workspace's `Group` and `Mermaid` style |
+| `create` and `destroy` | A participant that starts at the message that creates it, and a lifeline that ends at the message that destroys it |
+| `autonumber`, `autonumber 10 5`, `autonumber off`, `showSequenceNumbers` | A numbered circle at the start of each message |
+| `mirrorActors: false` | No participants below the lifelines, which end just below the last message |
+| `rightAngles: true` | Self-messages with square corners |
+
+The `boundary`, `control`, `entity` and `collections` types fall back to the participant box, and half arrows (`-|\`, `-\\`, `/|-` and the rest) fall back to an arrow or an open arrow at the end the syntax puts it; each warns. Participant menus (`link`, `links`, `properties`, `details`) draw nothing, and participants and messages never become activation targets. A sequence diagram doesn't animate.
+
+A sequence diagram's styles layer from the least specific to the most: the color scheme's defaults, then the workspace's tag styles, then the source's config (a named `theme` or `themeVariables`), then the colors the source writes on a `rect` or a `box`. Participants take the workspace's `Element` and `Mermaid` styles, messages its `Relationship` and `Mermaid` styles, and boxes its `Group` and `Mermaid` styles.
+
+A source with no `theme` and no `themeVariables` fills its participants with the primary color, beneath the workspace's styles. Lifelines take their participant's fill, activation bars that fill mixed toward the canvas, notes a gray of the color scheme, fragments the message color with no fill, and a `rect` without a color a faint tint of the primary color.
+
+A source that names a `theme` or sets `themeVariables` takes the colors that Mermaid's own theme code derives for a sequence diagram: `actorBkg`, `actorBorder`, `actorTextColor`, `actorLineColor`, `signalColor`, `signalTextColor`, `noteBkgColor`, `noteBorderColor`, `noteTextColor`, `labelBoxBkgColor`, `labelBoxBorderColor`, `labelTextColor`, `loopTextColor`, `activationBkgColor`, `activationBorderColor`, `sequenceNumberColor` and `rectBkgColor`. Renderizr reads each of them, and `primaryColor`, `primaryBorderColor` and `primaryTextColor`, which they derive from. Under `theme: redux-color` each participant and its activation bars take a color of their own, in participant order, and under `theme: redux-dark-color` a border of their own; a source that names neither theme never does. In dark mode the palette keeps its fills, while messages and their labels, sequence numbers, lifelines, and fragment lines and titles, which draw straight on the canvas, take the color scheme's colors, and a color the source writes on a `rect` or a `box` fades to 20 percent, so the scheme's text reads over it. `theme: dark` draws a dark palette in light mode too.
+
+Only the source's top-level `fontSize` and `fontFamily` set the font: `fontSize` scales every text of the diagram from Mermaid's 16 px. `sequence.*FontSize`, `sequence.*FontFamily`, `messageMargin` and `curve` don't apply, and each warns.
+
+The descriptions toggle hides the notes. The diagram lays out again without them, so the gaps they leave close, and fits the canvas again. A fragment that holds only notes stays, empty, with its title. Message labels, fragment titles and conditions, and participant names always draw, and an export leaves the notes out while they hide. The technologies toggle hides, since it has nothing to change.
+
+Renderizr draws participant names bold, as the C4 label template does, where Mermaid draws them in a regular weight, and it wraps a fragment's title within the fragment where Mermaid lets a long one run past the tab.
 
 ## Edit mode
 

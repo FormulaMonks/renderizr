@@ -1,0 +1,51 @@
+[
+    { "open": "{{dev}}#/?page=diagrams&view=links" },
+    { "ready": true },
+    {
+        "assert": "!document.querySelector('[data-focus-item=\"element:mermaid:here\"], [data-focus-item=\"element:mermaid:notify\"]')",
+        "message": "a link to this view and a click callback offer nothing"
+    },
+    {
+        "eval": "(() => { window.__tabOrder = []; document.querySelector('[data-view-key][data-ready]').focus(); return document.activeElement.getAttribute('role'); })()",
+        "as": "canvasFocused"
+    },
+    { "key": "Tab" },
+    {
+        "assert": "document.activeElement.getAttribute('role') === 'button' && document.activeElement.getAttribute('aria-label') === 'Orders'",
+        "message": "the first Tab lands on Orders, a button named for its node"
+    },
+    { "shot": "1-first-stop.png" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "key": "Tab" },
+    {
+        "eval": "window.__tabOrder.push(document.activeElement.dataset.focusItem ?? null)"
+    },
+    { "eval": "window.__tabOrder", "as": "tabOrder" },
+    {
+        "assert": "JSON.stringify(window.__tabOrder) === JSON.stringify(['element:mermaid:orders', 'element:mermaid:prepare', 'element:mermaid:check', 'element:mermaid:pipeline', 'element:mermaid:shop', 'element:mermaid:signup'])",
+        "message": "Tab walks the six linked nodes in reading order"
+    },
+    { "key": "Tab" },
+    {
+        "assert": "!document.querySelector('[data-view-key][data-ready]').contains(document.activeElement)",
+        "message": "the next Tab leaves the canvas"
+    }
+]

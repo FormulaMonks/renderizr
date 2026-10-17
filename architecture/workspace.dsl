@@ -30,6 +30,11 @@ workspace "Renderizr" {
 
         !const AUTHOR "Author: Andrés Zorro <andres.zorro@monks.com>"
 
+        # The Mermaid server Structurizr names in image views' content
+        properties {
+            "mermaid.url" "https://mermaid.ink"
+        }
+
         !include views
 
         styles {

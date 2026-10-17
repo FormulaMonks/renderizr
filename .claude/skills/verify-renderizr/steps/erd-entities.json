@@ -1,0 +1,77 @@
+[
+    { "open": "{{dev}}#/?page=diagrams&view=shop" },
+    { "ready": true },
+    {
+        "eval": "(() => { const b = document.querySelector('.toggle-entities'); return { hidden: b.hidden, pressed: b.getAttribute('aria-pressed'), label: b.getAttribute('aria-label'), technologiesHidden: document.querySelector('.toggle-technologies').hidden, descriptionsHidden: document.querySelector('.toggle-description').hidden }; })()",
+        "as": "buttonAtStart"
+    },
+    {
+        "assert": "[...document.querySelectorAll('[data-entity-toggle]')].every((t) => t.getAttribute('aria-expanded') === 'false')",
+        "message": "every entity starts collapsed"
+    },
+    { "shot": "1-collapsed.png" },
+    { "clickLabel": "Expand all entities" },
+    {
+        "waitFor": "[...document.querySelectorAll('[data-entity-toggle]')].every((t) => t.getAttribute('aria-expanded') === 'true')"
+    },
+    { "ready": true },
+    {
+        "assert": "document.querySelector('.toggle-entities').getAttribute('aria-pressed') === 'true' && document.querySelector('.toggle-entities').getAttribute('aria-label') === 'Collapse all entities'",
+        "message": "pressed while expanded, and says it collapses"
+    },
+    { "shot": "2-expanded.png" },
+    { "click": "[data-entity-toggle][aria-expanded=\"true\"]" },
+    {
+        "waitFor": "document.querySelectorAll('[data-entity-toggle][aria-expanded=\"false\"]').length === 1"
+    },
+    { "ready": true },
+    { "shot": "3-one-collapsed.png" },
+    { "clickLabel": "Collapse all entities" },
+    {
+        "waitFor": "[...document.querySelectorAll('[data-entity-toggle]')].every((t) => t.getAttribute('aria-expanded') === 'false')"
+    },
+    { "ready": true },
+    { "shot": "4-all-collapsed.png" },
+    { "clickLabel": "Expand all entities" },
+    {
+        "waitFor": "[...document.querySelectorAll('[data-entity-toggle]')].every((t) => t.getAttribute('aria-expanded') === 'true')"
+    },
+    { "ready": true },
+    { "click": "[data-entity-toggle][aria-expanded=\"true\"]" },
+    {
+        "waitFor": "document.querySelectorAll('[data-entity-toggle][aria-expanded=\"false\"]').length === 1"
+    },
+    {
+        "eval": "localStorage.getItem('renderizr:diagram-labels')",
+        "as": "storedBeforeReload"
+    },
+    { "open": "about:blank" },
+    { "open": "{{dev}}#/?page=diagrams&view=shop" },
+    { "ready": true },
+    {
+        "assert": "[...document.querySelectorAll('[data-entity-toggle]')].every((t) => t.getAttribute('aria-expanded') === 'true')",
+        "message": "the reload keeps the preference and drops the override"
+    },
+    { "shot": "5-reloaded.png" },
+    { "hash": "#/?page=diagrams&view=shop-lr" },
+    { "ready": true },
+    {
+        "assert": "[...document.querySelectorAll('[data-entity-toggle]')].every((t) => t.getAttribute('aria-expanded') === 'true')",
+        "message": "the preference applies to every ERD"
+    },
+    {
+        "assert": "document.querySelector('.react-flow').textContent.includes('Login and receipts')",
+        "message": "the comment column shows with descriptions on"
+    },
+    { "clickLabel": "Hide descriptions in diagrams" },
+    {
+        "waitFor": "!document.querySelector('.react-flow').textContent.includes('Login and receipts')"
+    },
+    { "ready": true },
+    { "shot": "6-descriptions-off.png" },
+    { "clickLabel": "Show descriptions in diagrams" },
+    { "clickLabel": "Collapse all entities" },
+    {
+        "waitFor": "[...document.querySelectorAll('[data-entity-toggle]')].every((t) => t.getAttribute('aria-expanded') === 'false')"
+    }
+]

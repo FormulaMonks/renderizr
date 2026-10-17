@@ -1,0 +1,49 @@
+erDiagram
+    WORKSPACE ||--|{ VIEW : holds
+    VIEW ||--o| AUTOMATIC_LAYOUT : "lays out by"
+    VIEW ||--o{ ELEMENT_VIEW : places
+    VIEW ||--o{ RELATIONSHIP_VIEW : routes
+    ELEMENT ||--o{ ELEMENT_VIEW : "drawn as"
+    RELATIONSHIP ||--o{ RELATIONSHIP_VIEW : "drawn as"
+    ELEMENT ||--o{ RELATIONSHIP : starts
+    RELATIONSHIP_VIEW ||--o{ VERTEX : "bends at"
+
+    WORKSPACE["Workspace"] {
+        string name
+        string lastModifiedDate
+    }
+    VIEW["View"] {
+        string key PK
+        string type
+        string title
+    }
+    AUTOMATIC_LAYOUT["Automatic layout"] {
+        string rankDirection
+        int rankSeparation
+        int nodeSeparation
+    }
+    ELEMENT["Element"] {
+        string id PK
+        string name
+        string tags
+    }
+    ELEMENT_VIEW["Element view"] {
+        string id FK "the element's id"
+        int x
+        int y
+    }
+    RELATIONSHIP["Relationship"] {
+        string id PK
+        string sourceId FK
+        string destinationId FK
+        string description
+    }
+    RELATIONSHIP_VIEW["Relationship view"] {
+        string id FK "the relationship's id"
+        string routing
+        int position "where the label sits, 0 to 100"
+    }
+    VERTEX["Vertex"] {
+        int x
+        int y
+    }

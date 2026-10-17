@@ -657,7 +657,9 @@ for (const entry of LAID_OUT) {
         entry.source === LARGE_LANDSCAPE_FIXTURE
             ? "tight-tree"
             : "network-simplex";
-    for (const { key } of model.getViews()) {
+    for (const { key, type } of model.getViews()) {
+        // A Mermaid diagram lays out by its own rules, outside the ranker.
+        if (type === "Mermaid") continue;
         const expected = expectedDrawing(model, key);
         if (!isAutomatic(expected)) continue;
         const graph = rankedGraph(expected);

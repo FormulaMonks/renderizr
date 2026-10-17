@@ -1,0 +1,108 @@
+{
+    "id": 1,
+    "name": "Mermaid sequence diagrams",
+    "description": "Image views that carry Mermaid sequence diagram source: every construct Renderizr draws, and the participant types and half arrows it falls back from.",
+    "configuration": {},
+    "documentation": {},
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Customer",
+                "location": "Unspecified",
+                "tags": "Element,Person",
+                "properties": {
+                    "structurizr.dsl.identifier": "customer"
+                }
+            }
+        ]
+    },
+    "views": {
+        "configuration": {
+            "properties": {
+                "mermaid.url": "https://mermaid.ink"
+            },
+            "styles": {},
+            "terminology": {}
+        },
+        "systemLandscapeViews": [
+            {
+                "key": "landscape",
+                "order": 1,
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "enterpriseBoundaryVisible": true
+            }
+        ],
+        "imageViews": [
+            {
+                "content": "https://mermaid.ink/svg/pako:eJx1U01vgzAM_SsWt6lFu6Opl07abau2Qy-7mMRANCDMCaxV1f8-h0BL95FLkpdn-z1jTpAoqynJEkefPbWKHg2WjM17C7Kw97btm5x4uitvGba987aZsdwe4K2yXbyF1SF7o0yHrYc95YBu3Ny_pBfWxC7wxhM44sEoimRqdTwsI3Z4DHTZGpJrx3YwelY060s3m5UUzmBXoyKwfGEIKo-xbAZbJvQ37-LTDAGLlAjG8yLulYJQAqmmPm44QhoLRztqzD-50PRn8mcrAJuy8mCL4EtkIWuhezS1g5YG4oec7zeSTFXgK1o0NPpZxbAKuSRQEh0fBU3Tu9iIqV-oFHUXSYFwuDQDZQhq8YQ1QWXr37KFvtBsRVeov54TTJ5tWxhu5hIjtaZidDd_nwz2aLyDQmaKGrF5NSNu0itNxusLmBSZzv_8xKOvbW0dgcd8meEa_2Stzo8kE1TKUCVrSASWgjrJTol0sgk_gKYC-9on5_M3X88HMg==",
+                "contentType": "image/svg+xml",
+                "description": "An actor and participants, a box, autonumber, activations, notes on every side and every common arrow.",
+                "key": "checkout",
+                "order": 2,
+                "title": "Checkout"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyFVE1v2zAM_SuETxuWAEO3Xnwo0PXj0MOGeRh62YWW6Vi1LCn6SFYU_e-j_BHHSYDpEDg0-fjI9-Q3yISpKMszT9tIWtC9xI3D7o8GPhZdkEJa1AFurT0P_owU6Tz8bFxL7jz-KxhHgB5-lC8kAvj0f0hj-PXNTY-Xw4Pepgegv9a4AC-mHJKUMRYeduReUwykhtAQbGcS6fQYjPVpYJHDPSnJNTNMOqgCPCUMDztUsprfpDOUMkjPOIeCsAJvohMEtVTkl-nGBnhMYRAN6g1xruRdgkIfwEW9zF40mEgWVEapqn4gdKJhxssq0v_h-OxkuFBLytM0aYeqNq6jy0jz_gvq5VksbNF_rliPJbei1WavqNqMvQ_5bAD4boKsX_vhzF5P1jhWi_XPe5q11NI3E0XUFfy2FfJkHQUnhT8vHRncmcgWSy0OvA8cBO9GClRwpwg1RAuBOvYWspNO9DxdK7uHuLsXDoNowFsU44SsujR6NHXUuEOpsFR0Aeuw18HXIrFYR3vCsnSELY9lArL1BVF1rFTfZz2tqqA6srCa9mlcf4LkknxuU364-vJ5BVdf08_19ccZbHHdCvKxI75OAdsj9iway5VuDmevxtxvKFoIBjT7CNVR22wFWUcclFWWv2WsQ5e-KxXVGFXI3t__AeInYrU=",
+                "contentType": "image/svg+xml",
+                "description": "Nested fragments: loop around alt around opt, then par, critical, break and rect.",
+                "key": "retry",
+                "order": 3,
+                "title": "Export retry"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJx9k01r3DAQhv_KoJ5K4mspIgTSj0MpNJBNcvJlbI1tUVtyR_JulpD_3pFle3ch5GJkzTuvnpmRXkHV3pDSqiiK0tXeNbbVpQOIHQ2kocJA2-8zssWqpzArAEa2A_Lxu-89ayjVJ_OFsPlaqhQO9G8iV9OiHSyz57s6eg4aGuyT73zoKvxhsWUcshyTEJ4C8XIUcrS1HdFF-Mb-8G7gboodYIBfhly08SiAfm_NKk1uxe3tkq7hfiSXCoNgW1dYJ14tZemiEfVVMtXwkCBDBITetyJtPA_pM-fntk1MBiI5IbmGgxWUFGOKEztAY5hCyO41E0a6QN9J0HqX6NdlkA4sOIlBWJaIhl2UVGEJeSOLlmghwsy8Gllz5iLRYuvAAxnLVMeMi5DuQtb-8QLo98SwiQ-Mo36Ukqq8I-X3vayWMs-c_CRw4a917RybkhjdMXZph_pA24ztPjXiYqDv754GsvH8fKk7dC0tI1jJDX3s8Plpzt51_jBnGgxd5ZHNx-lGps_-uDb10vPlNBm5SiD1n27czc059G-icT42YgVeLmDp1DWogXhAa5R-VfNLkwdpqMGpj-rt7T989EKf",
+                "contentType": "image/svg+xml",
+                "description": "The source's own theme, mirrorActors off, create and destroy, stacked activations, a wrapped note and a long label.",
+                "key": "sign-in",
+                "order": 4,
+                "title": "Sign-in"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eNplUl1LwzAU_SuXvA3cH-iDOJ3KQNhAxJe-pMndGkyTmtw4xth_96ZdJzZ9aZPzkZxzewahvEZRiYjfCZ3CtZGHILvaAT9SkQ_wETGM614GMsr00hF8YgMyDq_Y-r4kvErChzPUgk491qLir8Ynp2U41QIuWbzabeDAtKM8lfoX648zvfKOgreT_KlF9eUTwZ6ppcE2aAwzB3Rk6Hb-wCiF62am0pJkIyP-00W4bRcOG8IuFpe3FhUZ7-Lk82Ycgsnc0uIxzQ14QOl2hecfjgJNuirzjJb39zyNaqwFuJcR4j1G8jQqeE9NZwioRVB81kjIEDNy38wg3gd1bXYkZIQJQ2q2D8gC8H_dDQAT1nz4xvFNCMI0kAkbGqlgpTXYWerBfsF5K9ilxprYjubQW6lQjySGl8vFkG9bgDkin5FL4AStPwL_KXsTOpnrFncgOuSF0aI6Cw7f5T9e414mS-Jy-QVLGQHY",
+                "contentType": "image/svg+xml",
+                "description": "Every participant type: actor, participant, boundary, control, entity, database, collections and queue.",
+                "key": "shapes",
+                "order": "5",
+                "title": "Participant shapes"
+            },
+            {
+                "key": "constructs",
+                "order": 6,
+                "title": "Constructs",
+                "description": "Central connections, half arrows, every autonumber form, right-angled self-messages, create and destroy, par_over, rect with and without a color, an untitled box and a note in every placement.",
+                "content": "https://mermaid.ink/svg/pako:eJyFVMlu20AM_RVCJxuwENetLzoYUJIWbVB0iQ-9GCgoiZIGlYYqRWVBnH8vZkZ2vAG9CEPyPW6P0AtEORcUJVEcxxubsy1NlWwsQE9_B7I5eQNATFVraquG-gRUBtpYz9jBbg1Wgm0A46BshzYjgXdzWAZnh6ImNx1ahZvGkNXgz_gJpMomiw_zGSzeu89yOQ2xU17aGcAe0h9fLsfvOOsd4I4zkMFakoAjW4RHKByvVpNp2pkEbsiqYAM5W0u5GraAClrTKWUyjVer_1B6RdEz0ljpmrV2SfujRrYbH1xzYwqosSkBRfgxYNLOxPH2KkATuGVVOkeNmTYh0zVKdui_2sbe_3nPutDtgV5clm_Fx4nX1JRxS32PFTm2vwVAfwynCYKdC6HSseSY13SY2jsS-IXSwtDtb-Q3P5DAJ7TAg76pHDhO3wR-DjSQn0Go4_0QO8HOSqyV5Ry_F1go13CBy-UMwhku5gcX6KrGu2Xc-xQghMXzhUTHLbgeRvVGXmPsnxPaN1aChkoFLmEH_zrabOkAFTbvYGGy-519DPMrDLv67p4XoqHOzI_kMfrIAVNQr8LPp4I9jSU_Phg3ZTSDqCVp0RRR8hJpTa37ixRU4tBo9Pr6D14XYnw"
+            },
+            {
+                "key": "themed",
+                "order": 7,
+                "title": "Themed",
+                "description": "The forest theme: participants, bars, notes, fragments, numbers and lifelines in its palette.",
+                "content": "https://mermaid.ink/svg/pako:eJxtUj1PwzAQ_SsnTyBqqQK6eMhSWAuCoUsXx7kmFokvnC8IhPjvyHZKS8GDP9_dvffOn6AcNaiM0lrvgqOw963ZBQDpcEADe2KMsgv5OeLrhMHhnbct2yHBAOwkFKahRp7PTohhPUWh4XBX0ztwW19c3ywXcH2bptXqEp6FGAsijdGyeOdHGwS2WIONeYkdjf-DHrhBjgmXdxCR37ybM2JoyuY04lnIvZTrA0NdVVdbrA089tYhUMpUEBsSBPZtJ0D7H7yBrfUSgULyCLJlPFjxFGC07Vx9i3VKXBgaWDNa-ZW8Jxrh3roOeh9OTCgRuqoyVQNPmFQheMHhiMqPWlfVocAMa8600yhZRqLbfxzjszR6Q57rLeZqG5LOhxawjwidHUcMETrkc08ZnZSOrlYLKG1dLi__yNBVpbO5pUH-nF-yKWGO5q5P_FQLUAPyYH2jzKfKX1IZ1eDeTr2or69vSHHg2A",
+                "contentType": "image/svg+xml"
+            },
+            {
+                "key": "redux",
+                "order": 8,
+                "title": "Redux color",
+                "description": "The redux-color theme: each participant and its bars in a color of its own.",
+                "content": "https://mermaid.ink/svg/pako:eJxtkj1PwzAQhv_KyROIWqqALh6yFNaCYOjSxXGuiUXiC-cLAiH-O7Kd0lLI4Dj2cx_ve_kE5ahBZZTWehcchb1vzS4ASIcDGmBspnftqCfehcxEfJ0wOLzztmU7JBbATkJhGmrk-dsJMaynKDQczmp6B27ri-ub5QKub9OyWl3CsxBjIdIzWhbv_GiDwBZrsDG_Ykfj_9ADN8gxcXkHEfnNuzkjhqZsTiOehdxLOT50qKvqaou1gcfeOgRKmQqxIUFg33YCtP_hDWytlwgUklGQfePBiqcAo23n6lusU-LSoYE1o5VfyXuiEe6t66D34cSEEqGrKrdq4AmTKgQvOBypfKl1VR0KzFhzpp1GyTJSu_3HMT5Lozfkud5irrYh6XxoAfuI0NlxxBChQz73lNFJmehqtYAy1uXy8o8MXVU6m1sG5M_7SzYl5mju-sRPtQA1IA_WN8p8qvxfKqMa3NupF_X19Q1tmOK5",
+                "contentType": "image/svg+xml"
+            },
+            {
+                "key": "silent",
+                "order": 9,
+                "title": "Silent",
+                "description": "No theme: the primary color fill, gray notes and the scheme's lines. The same source as Themed and Redux color.",
+                "content": "https://mermaid.ink/svg/pako:eJxtUj1PwzAQ_SunTFQkUlXoksFLYS2IDllYHOcaW8Q-Y18qUMV_R45TWgoe_Pnu7r13PkKhqMOiLiK-j-gUPhjZB2lfHQCAHJncaFsM81kxBdiMkcme7lr6gNC3N6u7ZQmr-zSt1wvYMQXMiDS8DGyU8dIxNNiCjNMSNfn_QU-hwxATbtpBxHAwas6Irsuby4gdk3rL1yeGlRC3DbY1PA9SIVDKlBFbYoRges1A-x98DY00HIEcsEZQ5PYmWMmGHHjZz9UbbFPizLCGTUDJv5IPRB4epdIwGHdhQo6ohJio1vCCSRWCYbRn1PRYVUKcCsyw7ko7eZ5kJLrD5zl-kkYHDHO9cq62JdbG9YBDRNDSe3QRNIZrTwMqzh1dr0vIbV0uF39kVEJUk7m5QeaaX7IpYc7mbi78LEooLAYrTVfUx4I12vQNO9zLceDi6-sb1SnUsg",
+                "contentType": "image/svg+xml"
+            }
+        ]
+    }
+}

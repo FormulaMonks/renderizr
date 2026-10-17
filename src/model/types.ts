@@ -3,6 +3,8 @@
  * `WorkspaceModel` has registered every element with its type and parent.
  */
 
+import type { EndMarker } from "./end-markers";
+
 export type ColorScheme = "Light" | "Dark";
 
 export type ElementType =
@@ -30,7 +32,8 @@ export type ViewType =
     | "Dynamic"
     | "Deployment"
     | "Filtered"
-    | "Image";
+    | "Image"
+    | "Mermaid";
 
 export type Perspective = {
     name: string;
@@ -134,6 +137,11 @@ export type ModelView = {
     content?: string;
     contentLight?: string;
     contentDark?: string;
+    /**
+     * Set by the build on an image view that carries Mermaid source, which
+     * then draws as a Mermaid diagram (ADR 24); `scripts/mermaid/` writes it.
+     */
+    mermaid?: MermaidDiagram;
     enterpriseBoundaryVisible?: boolean;
     /** A static view's steps, one entry each, in any order (spec 11). */
     animations?: AnimationEntry[];
@@ -158,3 +166,315 @@ export type Theme = {
     elements: StyleDefinition[];
     relationships: StyleDefinition[];
 };
+
+/* ------------------------------------------------------- Mermaid diagrams */
+
+/** A flowchart's direction as Mermaid writes it, `TD` read as `TB`. */
+export type MermaidDirection = "TB" | "BT" | "LR" | "RL";
+
+/** The shapes a Mermaid node draws as (spec: Shapes); every other falls back to `Box`. */
+export type MermaidShape =
+    | "Box"
+    | "RoundedBox"
+    | "Diamond"
+    | "Circle"
+    | "Cylinder"
+    | "Hexagon";
+
+/** A node of a Mermaid flowchart, its label in plain text lines. */
+export type MermaidNode = {
+    id: string;
+    label: string;
+    shape: MermaidShape;
+    /** The subgraph it sits in directly. */
+    parent?: string;
+    /** Its `class` and `:::` names, `classDef` names rather than tags. */
+    classes: string[];
+    /** Its `style` declarations, as written: `fill:#f00`. */
+    styles: string[];
+    /** Its `click` link, its target and its tooltip. */
+    link?: string;
+    linkTarget?: string;
+    tooltip?: string;
+};
+
+/** An edge of a Mermaid flowchart, in source order. */
+export type MermaidEdge = {
+    /** Its index among the source's links, as `linkStyle` counts them. */
+    id: string;
+    source: string;
+    target: string;
+    label: string;
+    /**
+     * `-->` is normal, `-.->` dotted and `==>` thick; an ERD's
+     * non-identifying relationship is dashed.
+     */
+    line: "normal" | "dotted" | "thick" | "dashed";
+    start: EndMarker;
+    end: EndMarker;
+    /** Its `linkStyle` declarations, as written. */
+    styles: string[];
+};
+
+/** A subgraph of a Mermaid flowchart. */
+export type MermaidSubgraph = {
+    id: string;
+    label: string;
+    parent?: string;
+    /** Its own `direction`, when it sets one. */
+    direction?: MermaidDirection;
+    classes: string[];
+    styles: string[];
+};
+
+/** Mermaid's config as the source's frontmatter and directives merge it. */
+export type MermaidConfig = {
+    theme?: string;
+    themeVariables?: Record<string, unknown>;
+    layout?: string;
+    flowchart?: {
+        nodeSpacing?: number;
+        rankSpacing?: number;
+        curve?: string;
+        [key: string]: unknown;
+    };
+    er?: { nodeSpacing?: number; rankSpacing?: number; [key: string]: unknown };
+    [key: string]: unknown;
+};
+
+/**
+ * The palette a source's `theme` and `themeVariables` give, which the build
+ * derives with Mermaid's own theme code (spec: Styling): only the colors
+ * the honored theme variables reach, as Mermaid draws them.
+ */
+export type MermaidPalette = {
+    /** Whether it is a dark palette, which then applies in both schemes. */
+    dark: boolean;
+    node: { background: string; stroke: string; color: string };
+    edge: { color: string; labelColor: string; labelBackground: string };
+    group: { background: string; stroke: string; color: string };
+    /** An ERD's attribute rows, when the source sets their colors. */
+    rows?: { odd?: string; even?: string };
+    /** The source's `fontSize`, in Mermaid's px, when it sets one. */
+    fontSize?: number;
+    /** The source's `fontFamily`, when it sets one. */
+    fontFamily?: string;
+};
+
+/** The plain model of a Mermaid flowchart the build parsed (spec: Parsing in the build). */
+export type MermaidFlowchart = {
+    kind: "flowchart";
+    direction: MermaidDirection;
+    nodes: MermaidNode[];
+    edges: MermaidEdge[];
+    subgraphs: MermaidSubgraph[];
+    /** Each `classDef` by name, its declarations as written. */
+    classDefs: Record<string, string[]>;
+    /** The frontmatter `title`. */
+    title?: string;
+    config: MermaidConfig;
+    /** Absent on a silent source, which sets no `theme` and no `themeVariables`. */
+    palette?: MermaidPalette;
+    error?: undefined;
+};
+
+/** One row of an ERD entity, in Mermaid's column order. */
+export type MermaidAttribute = {
+    type: string;
+    name: string;
+    /** `PK`, `FK` and `UK`, as written. */
+    keys: string[];
+    comment: string;
+};
+
+/** An entity of a Mermaid ERD, its name as written, alias first. */
+export type MermaidEntity = {
+    id: string;
+    label: string;
+    attributes: MermaidAttribute[];
+    classes: string[];
+    styles: string[];
+};
+
+/** A relationship of a Mermaid ERD, from its first entity to its second. */
+export type MermaidRelationship = {
+    /** Its index among the source's relationships. */
+    id: string;
+    source: string;
+    target: string;
+    label: string;
+    /** Identifying draws solid, non-identifying dashed. */
+    identifying: boolean;
+    /** The End markers its cardinalities draw as. */
+    start: EndMarker;
+    end: EndMarker;
+};
+
+/** The plain model of a Mermaid ERD the build parsed (spec: ERD entities). */
+export type MermaidErd = {
+    kind: "er";
+    direction: MermaidDirection;
+    entities: MermaidEntity[];
+    relationships: MermaidRelationship[];
+    classDefs: Record<string, string[]>;
+    title?: string;
+    config: MermaidConfig;
+    palette?: MermaidPalette;
+    error?: undefined;
+};
+
+/** The participant shapes a sequence diagram draws; every other type falls back to `participant`. */
+export type MermaidParticipantType =
+    | "participant"
+    | "actor"
+    | "database"
+    | "queue";
+
+/** The shapes a sequence diagram's participants draw as, one per type. */
+export type MermaidParticipantShape = "Box" | "Person" | "Cylinder" | "Pipe";
+
+/** A participant of a sequence diagram, in source order. */
+export type MermaidParticipant = {
+    /** Mermaid's name for it, which the messages use. */
+    id: string;
+    /** Its alias, else its name, in plain text lines. */
+    label: string;
+    type: MermaidParticipantType;
+};
+
+/** A sequence diagram's `box … end`. */
+export type MermaidSequenceBox = {
+    title: string;
+    /** Its source color; absent for none or `transparent`. */
+    fill?: string;
+    participants: string[];
+};
+
+/** The fragments a sequence diagram draws; `par_over` reads as `par`. */
+export type MermaidFragment =
+    | "loop"
+    | "alt"
+    | "opt"
+    | "par"
+    | "critical"
+    | "break"
+    | "rect";
+
+/** A message between two participants, or from one to itself. */
+export type MermaidMessage = {
+    kind: "message";
+    /** Its index in Mermaid's list. */
+    id: string;
+    from: string;
+    to: string;
+    label: string;
+    line: "solid" | "dotted";
+    start: EndMarker;
+    end: EndMarker;
+    wrap: boolean;
+    /** Where a central connection draws its dot. */
+    dots?: "start" | "end" | "both";
+    /** The participant this message creates. */
+    creates?: string;
+    /** The participants whose lifelines this message ends. */
+    destroys?: string[];
+};
+
+/** A note beside or over the participants it names. */
+export type MermaidNote = {
+    kind: "note";
+    placement: "left" | "right" | "over";
+    from: string;
+    to: string;
+    text: string;
+    wrap: boolean;
+};
+
+/** One step of a sequence diagram, in source order. */
+export type MermaidSequenceItem =
+    | MermaidMessage
+    | MermaidNote
+    | { kind: "activate" | "deactivate"; who: string }
+    | {
+          kind: "open";
+          fragment: MermaidFragment;
+          title: string;
+          /** A `rect`'s source color. */
+          color?: string;
+      }
+    | { kind: "section"; title: string }
+    | { kind: "close" }
+    | {
+          kind: "autonumber";
+          /** Absent: numbering goes on from where it was. */
+          start?: number;
+          step?: number;
+          visible: boolean;
+      };
+
+/**
+ * The plain model of a Mermaid sequence diagram the build parsed, which is
+ * also its sequence script: the page lays its items out in order, in place
+ * of placement and routing (spec: The view model).
+ */
+export type MermaidSequence = {
+    kind: "sequence";
+    participants: MermaidParticipant[];
+    boxes: MermaidSequenceBox[];
+    items: MermaidSequenceItem[];
+    /** `showSequenceNumbers`: every message numbered, whatever `autonumber` says. */
+    numbers: boolean;
+    /** `mirrorActors`: the participants draw again below their lifelines. */
+    mirror: boolean;
+    rightAngles: boolean;
+    title?: string;
+    config: MermaidConfig;
+    /** Absent on a silent source, which sets no `theme` and no `themeVariables`. */
+    palette?: MermaidSequencePalette;
+    error?: undefined;
+};
+
+/** The theme variables a sequence diagram's colors come from (spec: Sequence diagrams). */
+export type MermaidSequenceColor =
+    | "actorBkg"
+    | "actorBorder"
+    | "actorTextColor"
+    | "actorLineColor"
+    | "signalColor"
+    | "signalTextColor"
+    | "noteBkgColor"
+    | "noteBorderColor"
+    | "noteTextColor"
+    | "labelBoxBkgColor"
+    | "labelBoxBorderColor"
+    | "labelTextColor"
+    | "loopTextColor"
+    | "activationBkgColor"
+    | "activationBorderColor"
+    | "sequenceNumberColor"
+    | "rectBkgColor";
+
+/**
+ * The palette a sequence diagram's `theme` and `themeVariables` give, which
+ * the build derives with Mermaid's own theme code.
+ */
+export type MermaidSequencePalette = {
+    /** Whether it is a dark palette, whose canvas colors then apply in both schemes. */
+    dark: boolean;
+    colors: Record<MermaidSequenceColor, string>;
+    /** Under `redux-color` and `redux-dark-color`: each participant's own colors, in participant order. */
+    participants?: { background?: string; stroke?: string }[];
+    /** The source's `fontSize`, in Mermaid's px, when it sets one. */
+    fontSize?: number;
+    /** The source's `fontFamily`, when it sets one. */
+    fontFamily?: string;
+};
+
+/** A Mermaid diagram the build couldn't read, with the reason the page shows. */
+export type MermaidFailure = { kind: string; error: string };
+
+/** A Mermaid diagram the build could read, of any kind Renderizr draws. */
+export type MermaidSource = MermaidFlowchart | MermaidErd;
+
+/** What the build gives an image view that carries Mermaid source. */
+export type MermaidDiagram = MermaidSource | MermaidSequence | MermaidFailure;

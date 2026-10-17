@@ -44,6 +44,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import {
     createContext,
+    createElement,
     type CSSProperties,
     type FocusEvent,
     type KeyboardEvent,
@@ -65,6 +66,7 @@ import {
     isEditable,
     type LayoutChange,
     mergeLayouts,
+    mermaidFontFamily,
     type WorkspaceModel,
 } from "../../model";
 import type {
@@ -76,6 +78,7 @@ import type {
     SelectionState,
 } from "../contract";
 import type { TextBlock } from "../geometry/boundary";
+import type { EntityLayout } from "../geometry/entity";
 import { boundsOf } from "../geometry/bounds";
 import { labelPositionAt, nearestSide } from "../geometry/edge-editing";
 import {
@@ -163,6 +166,7 @@ import {
     zoomLimits,
 } from "./graph";
 import styles from "./island.module.css";
+import type { SequenceShape } from "./sequence-graph";
 
 export type IslandState = {
     key: string;
@@ -400,12 +404,18 @@ type BoundaryNode = Node<BoundaryBox, "boundary">;
 type ImageNode = Node<{ src: string; alt: string }, "image">;
 type PlaceholderNode = Node<{ color: string }, "placeholder">;
 type CanvasNode = Node<Record<string, never>, "canvas">;
+/** One layer of a sequence diagram, laid over the graph's bounds. */
+type SequenceNode = Node<
+    { shapes: SequenceShape[]; origin: Bounds },
+    "sequence"
+>;
 type DiagramNode =
     | BoxNode
     | BoundaryNode
     | ImageNode
     | PlaceholderNode
-    | CanvasNode;
+    | CanvasNode
+    | SequenceNode;
 type LineEdge = Edge<
     EdgeLine & { presence: Presence; transition: string | undefined },
     "line"
@@ -422,6 +432,8 @@ type ElementLabelProps = Pick<
     | "icon"
     | "iconPosition"
     | "fontSize"
+    | "fontFamily"
+    | "fontWeight"
     | "color"
     | "targets"
 >;
@@ -430,6 +442,8 @@ type FixedPartsProps = {
     name: string;
     metadata: string;
     fontSize: number;
+    /** The name's weight: bold unless a Mermaid node's source says. */
+    fontWeight?: string;
     nameRef: RefObject<HTMLDivElement | null>;
     metadataRef: RefObject<HTMLDivElement | null>;
 };
@@ -439,6 +453,7 @@ function FixedParts({
     name,
     metadata,
     fontSize,
+    fontWeight = "bold",
     nameRef,
     metadataRef,
 }: FixedPartsProps) {
@@ -449,7 +464,7 @@ function FixedParts({
                 data-element-name=""
                 style={{
                     flexShrink: 0,
-                    fontWeight: "bold",
+                    fontWeight,
                     fontSize: fontSize * NAME_SCALE,
                     whiteSpace: "pre-line",
                 }}
@@ -504,6 +519,8 @@ function ElementLabel({
     icon,
     iconPosition,
     fontSize,
+    fontFamily,
+    fontWeight,
     color,
     targets,
 }: ElementLabelProps) {
@@ -618,6 +635,10 @@ function ElementLabel({
                 textAlign: "center",
                 color,
                 fontSize,
+                // A Mermaid node's own family, ahead of the diagram's.
+                fontFamily: fontFamily
+                    ? `${fontFamily}, var(--diagram-font)`
+                    : undefined,
                 lineHeight: LINE_HEIGHT,
             }}
         >
@@ -646,6 +667,7 @@ function ElementLabel({
                             name={name}
                             metadata={metadata}
                             fontSize={fontSize}
+                            fontWeight={fontWeight}
                             nameRef={probeNameRef}
                             metadataRef={probeMetadataRef}
                         />
@@ -663,6 +685,7 @@ function ElementLabel({
                         name={name}
                         metadata={metadata}
                         fontSize={fontSize}
+                        fontWeight={fontWeight}
                         nameRef={nameRef}
                         metadataRef={metadataRef}
                     />
@@ -711,6 +734,142 @@ function ElementLabel({
     );
 }
 
+/* ---------------- ERD entities */
+
+/*
+ * An ERD entity as the island draws it (spec: ERD entities): the rows and
+ * text `layOutEntity` placed, over the box's own fill and border, and the
+ * round toggle at its bottom center. Export draws the same layout without
+ * the toggle (`export-svg.ts`).
+ */
+
+/** Flips one entity, by its element id; the canvas provides it. */
+const EntityToggle = createContext<(id: string) => void>(() => {});
+
+/** The focus key a toggle goes by in the canvas's Tab order. */
+const toggleFocusKey = (id: string) => `toggle:${id}`;
+
+type EntityBodyProps = {
+    id: string;
+    name: string;
+    entity: EntityLayout;
+    /** The box's text color, which the toggle takes. */
+    color: string;
+    /** The entity's own `font-family`, ahead of the diagram's. */
+    fontFamily?: string;
+};
+
+/** The plus or minus inside the toggle, in a 16 unit box. */
+const PLUS = "M4 8h8M8 4v8";
+const MINUS = "M4 8h8";
+
+function EntityBody({ id, name, entity, color, fontFamily }: EntityBodyProps) {
+    const toggle = useContext(EntityToggle);
+    const action = entity.collapsed ? "Expand" : "Collapse";
+    return (
+        <div
+            data-entity=""
+            data-collapsed={entity.collapsed ? "" : undefined}
+            style={{
+                position: "absolute",
+                inset: 0,
+                fontFamily: fontFamily
+                    ? `${fontFamily}, var(--diagram-font)`
+                    : undefined,
+            }}
+        >
+            {entity.rows.map((row) => (
+                <div
+                    key={row.y}
+                    data-entity-row=""
+                    style={{
+                        position: "absolute",
+                        left: row.x,
+                        top: row.y,
+                        width: row.width,
+                        height: row.height,
+                        background: row.fill,
+                        boxShadow: `inset 0 1px 0 ${row.rule}`,
+                    }}
+                />
+            ))}
+            {entity.texts.map((text) => (
+                <div
+                    key={`${text.part}:${text.y}:${text.x}`}
+                    data-entity-text={text.part}
+                    style={{
+                        position: "absolute",
+                        left: text.x,
+                        top: text.y,
+                        width: text.width,
+                        height: text.fontSize * LINE_HEIGHT,
+                        fontSize: text.fontSize,
+                        lineHeight: LINE_HEIGHT,
+                        fontWeight: text.bold ? "bold" : "normal",
+                        fontStyle: text.italic ? "italic" : undefined,
+                        color: text.color,
+                        opacity: text.opacity < 1 ? text.opacity : undefined,
+                        textAlign: text.align === "middle" ? "center" : "left",
+                        whiteSpace: "pre",
+                        overflow: "hidden",
+                    }}
+                >
+                    {text.text}
+                </div>
+            ))}
+            {entity.toggle && (
+                // Always the last child in both states, so the button stays
+                // the same element, and keeps focus, as the entity flips.
+                <button
+                    type="button"
+                    className={`nodrag nopan ${styles.toggle}`}
+                    tabIndex={-1}
+                    data-focus-item={toggleFocusKey(id)}
+                    data-entity-toggle=""
+                    aria-expanded={!entity.collapsed}
+                    aria-label={`${action} ${name}`}
+                    title={`${action} ${name}`}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        toggle(id);
+                    }}
+                    style={{
+                        position: "absolute",
+                        left: entity.toggle.x - entity.toggle.size / 2,
+                        top: entity.toggle.y - entity.toggle.size / 2,
+                        width: entity.toggle.size,
+                        height: entity.toggle.size,
+                        padding: 0,
+                        display: "grid",
+                        placeItems: "center",
+                        border: "1.5px solid currentColor",
+                        borderRadius: "50%",
+                        background: "transparent",
+                        color,
+                        cursor: "pointer",
+                        pointerEvents: "all",
+                    }}
+                >
+                    <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                    >
+                        <path
+                            d={entity.collapsed ? PLUS : MINUS}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                    </svg>
+                </button>
+            )}
+        </div>
+    );
+}
+
 /**
  * One element: its shape's parts in SVG behind the HTML label template, each
  * painted by its role. Opacity is real alpha on the parts' fill and stroke,
@@ -729,7 +888,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
         <div
             data-element-id={data.id}
             data-shape={data.shape}
-            title={fullText}
+            title={data.tooltip ?? fullText}
             aria-label={fullText}
             {...target}
             style={{ position: "relative", width: "100%", height: "100%" }}
@@ -764,12 +923,22 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                     ))}
                 </g>
             </svg>
-            {/* A new name, metadata or icon is a new label: its fitting
-                starts over from the icon drawn. */}
-            <ElementLabel
-                key={[data.name, data.metadata, data.icon].join("\n")}
-                {...data}
-            />
+            {data.entity ? (
+                <EntityBody
+                    id={data.id}
+                    name={data.name}
+                    entity={data.entity}
+                    color={data.color}
+                    fontFamily={data.fontFamily}
+                />
+            ) : (
+                // A new name, metadata or icon is a new label: its fitting
+                // starts over from the icon drawn.
+                <ElementLabel
+                    key={[data.name, data.metadata, data.icon].join("\n")}
+                    {...data}
+                />
+            )}
             {data.instances && (
                 <TextLines
                     block={data.instances}
@@ -1081,6 +1250,18 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     fill={data.color}
                     stroke="none"
                 />
+                {data.markerStroke && (
+                    // A Mermaid edge's stroked End markers: solid on any line.
+                    <path
+                        data-end-markers=""
+                        d={data.markerStroke}
+                        fill="none"
+                        stroke={data.color}
+                        strokeWidth={thickness}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                )}
             </g>
             {labelBox && labelLines && (
                 <EdgeLabelRenderer>
@@ -1100,8 +1281,8 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                             height: labelBox.height,
                             padding: EDGE_LABEL_PADDING,
                             lineHeight: LINE_HEIGHT,
-                            color: data.color,
-                            background,
+                            color: data.labelColor ?? data.color,
+                            background: data.labelBackground ?? background,
                             textAlign: "center",
                             whiteSpace: "pre",
                             pointerEvents: hidden
@@ -1345,12 +1526,58 @@ function ViewError({ graph }: { graph: Graph }) {
     );
 }
 
+/** An SVG attribute name as React spells it: `stroke-width` as `strokeWidth`, `data-` hooks as they are. */
+const reactName = (name: string) =>
+    name.startsWith("data-")
+        ? name
+        : name.replace(/-([a-z])/g, (_, letter: string) =>
+              letter.toUpperCase(),
+          );
+
+/**
+ * A Mermaid sequence diagram's `sequence` layer (spec: Sequence diagrams):
+ * one node type drawn twice, behind the edges and in front of them, each
+ * drawing its shapes as `sequence-graph.ts` built them and the export
+ * serializes them. It takes no pointer, and nothing in it is focusable.
+ */
+function SequenceLayer({ data }: NodeProps<SequenceNode>) {
+    const { shapes, origin } = data;
+    return (
+        <svg
+            aria-hidden="true"
+            width={origin.width}
+            height={origin.height}
+            style={{ overflow: "visible", pointerEvents: "none" }}
+        >
+            <g transform={`translate(${-origin.x} ${-origin.y})`}>
+                {shapes.map(({ tag, attrs, text }, i) =>
+                    createElement(
+                        tag,
+                        {
+                            // Shapes are drawn in layout order and never reorder.
+                            key: i,
+                            ...Object.fromEntries(
+                                Object.entries(attrs).map(([name, value]) => [
+                                    reactName(name),
+                                    value,
+                                ]),
+                            ),
+                        },
+                        text,
+                    ),
+                )}
+            </g>
+        </svg>
+    );
+}
+
 const nodeTypes = {
     box: BoxElement,
     boundary: BoundaryElement,
     image: ImagePicture,
     placeholder: ImagePlaceholder,
     canvas: CanvasFrame,
+    sequence: SequenceLayer,
 };
 const edgeTypes = { line: RouteEdge };
 const proOptions = { hideAttribution: true };
@@ -1603,8 +1830,39 @@ function toBoundaryNodes(graph: Graph): BoundaryNode[] {
 }
 
 /** Boundaries first, so that at equal depth they are drawn underneath. */
-function toNodes(graph: Graph): (BoxNode | BoundaryNode)[] {
-    return [...toBoundaryNodes(graph), ...toElementNodes(graph)];
+function toNodes(graph: Graph): (BoxNode | BoundaryNode | SequenceNode)[] {
+    return [
+        // A sequence diagram's layers: under the edges, then over them.
+        ...toSequenceNodes(graph),
+        ...toBoundaryNodes(graph),
+        ...toElementNodes(graph),
+    ];
+}
+
+/**
+ * A sequence diagram's two layers as nodes: the back one with the
+ * boundaries, under the edges, the front one over them and under the
+ * participants.
+ */
+function toSequenceNodes(graph: Graph): SequenceNode[] {
+    const { sequence } = graph;
+    if (!sequence) return [];
+    const origin = graph.bounds;
+    return (
+        [
+            ["back", sequence.back, BOUNDARY_Z],
+            ["front", sequence.front, 0],
+        ] as const
+    ).map(([layer, shapes, zIndex]) => ({
+        ...STATIC_NODE_PROPS,
+        id: `sequence:${layer}`,
+        type: "sequence",
+        position: { x: origin.x, y: origin.y },
+        width: origin.width,
+        height: origin.height,
+        zIndex,
+        data: { shapes, origin },
+    }));
 }
 
 function toElementNodes(graph: Graph): BoxNode[] {
@@ -1962,7 +2220,11 @@ function Canvas({
 }: IslandProps) {
     const state = useSyncExternalStore(store.subscribe, store.get);
     const model = (__RENDERIZR_EDIT_MODE__ && state.model) || mounted;
-    const family = diagramFontFamily(font);
+    // A Mermaid diagram's source may name a family of its own, ahead of --font.
+    const family = diagramFontFamily(
+        font,
+        mermaidFontFamily(model.findViewByKey(state.key)?.mermaid),
+    );
     // Set once the --font faces load; a new measure re-derives the
     // boundaries with them (spec 9.5).
     const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -1975,7 +2237,11 @@ function Canvas({
         () => canvasMeasure(document, family),
         [family, fontsLoaded],
     );
-    const { key: viewKey, scheme, labels, step } = state;
+    const { key: viewKey, scheme, labels: stored, step } = state;
+    const { labels, toggleEntity, toggled, generation } = useEntityOverrides(
+        viewKey,
+        stored,
+    );
     // Compiled out of builds, which never edit (ADR 15).
     const edited = __RENDERIZR_EDIT_MODE__
         ? state.layouts.get(viewKey)
@@ -2109,11 +2375,55 @@ function Canvas({
 
     const flow = useReactFlow();
     const wrapper = useRef<HTMLDivElement>(null);
+    /** The toggle to hand focus back to once the flipped entity is drawn. */
+    const refocus = useRef<string | null>(null);
+    /**
+     * Every expand or collapse refits the whole diagram once Dagre has run
+     * again, with no animation (spec: ERD entities), and focus stays on the
+     * toggle that did it.
+     */
+    const flipEntity = useCallback(
+        (id: string) => {
+            const active = document.activeElement as HTMLElement | null;
+            refocus.current = active?.dataset?.focusItem ?? null;
+            moved.current = false;
+            toggleEntity(id);
+        },
+        [toggleEntity],
+    );
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a flip draws a new graph, which is when the toggle is back
+    useEffect(() => {
+        const item = refocus.current;
+        if (!item) return;
+        refocus.current = null;
+        const button = wrapper.current?.querySelector<HTMLElement>(
+            `[data-focus-item="${CSS.escape(item)}"]`,
+        );
+        if (button && document.activeElement !== button)
+            button.focus({ preventScroll: true });
+    }, [graph, toggled]);
     const [size, setSize] = useState({ width: 0, height: 0 });
     /** The key of the last view fully painted; `data-ready` is true only for it. */
     const [readyKey, setReadyKey] = useState<string | null>(null);
     /** Set once the reader zooms or pans; refits on resize stop until `fit()`. */
     const moved = useRef(false);
+    /**
+     * The toolbar's button sets every entity, which refits the whole
+     * diagram as an entity's own toggle does, even after the reader moved
+     * it (spec: ERD entities).
+     */
+    const fittedGeneration = useRef(generation);
+    if (fittedGeneration.current !== generation) {
+        fittedGeneration.current = generation;
+        moved.current = false;
+    }
+    // The descriptions toggle lays a sequence diagram out again with or
+    // without its notes, which refits it (spec: Toolbar and label toggles).
+    const notes = useRef(labels.descriptions);
+    if (notes.current !== labels.descriptions) {
+        notes.current = labels.descriptions;
+        if (drawn?.sequence) moved.current = false;
+    }
     const painted = useRef<string | null>(null);
     // A change to the edited layout never refits, and align, distribute,
     // nudge and select all arrange the selection, by command or by key
@@ -2534,10 +2844,23 @@ function Canvas({
         }
 
         const item = (event.target as HTMLElement).dataset?.focusItem;
-        const activation = item ? focusable.get(item)?.activation : undefined;
+        const focused = item ? focusable.get(item) : undefined;
+        const activation = focused?.activation;
         // In editing only Enter activates: Space pans (spec 10.3, 17.2).
         const activates =
             event.key === "Enter" || (!editable && event.key === " ");
+        // An entity's toggle flips it, by Enter alone in edit mode, which
+        // keeps Space for panning (spec: ERD entities).
+        const editing = __RENDERIZR_EDIT_MODE__;
+        if (
+            focused?.type === "toggle" &&
+            (event.key === "Enter" || event.key === " ")
+        ) {
+            // The button would click itself; the canvas says what flips it.
+            event.preventDefault();
+            if (event.key === "Enter" || !editing) flipEntity(focused.id);
+            return;
+        }
         if (activation && activates) {
             event.preventDefault();
             const box = (event.target as HTMLElement).getBoundingClientRect();
@@ -2856,6 +3179,7 @@ function Canvas({
                     height: "100%",
                     background: graph?.background,
                     fontFamily: family,
+                    "--diagram-font": family,
                     "--focus-ring": graph?.color,
                     // In editing, the selection outline keeps its width on
                     // screen, and what lies off the canvas is shaded toward
@@ -2871,84 +3195,150 @@ function Canvas({
             }
         >
             <Activate.Provider value={onActivate}>
-                <Editing.Provider value={editable}>
-                    <CanvasBackground.Provider
-                        value={graph?.background ?? "#ffffff"}
-                    >
-                        {graph?.error ? (
-                            <ViewError graph={graph} />
-                        ) : (
-                            <ReactFlow
-                                nodes={nodes}
-                                edges={edges}
-                                nodeTypes={nodeTypes}
-                                edgeTypes={edgeTypes}
-                                nodeOrigin={nodeOrigin}
-                                connectionMode={ConnectionMode.Loose}
-                                nodesDraggable={editable}
-                                onNodesChange={
-                                    editable ? onNodesChange : undefined
-                                }
-                                nodesConnectable={false}
-                                nodesFocusable={false}
-                                edgesFocusable={false}
-                                // In editing a plain drag on the canvas or a
-                                // boundary draws a marquee, and Space, the
-                                // middle or the right button pans (spec 10.1).
-                                // React Flow's own selection key would turn
-                                // a Shift-click into a marquee.
-                                elementsSelectable={editable}
-                                selectionOnDrag={editable}
-                                selectionKeyCode={editable ? null : undefined}
-                                onSelectionStart={
-                                    editable ? startMarquee : undefined
-                                }
-                                onSelectionEnd={
-                                    editable ? endMarquee : undefined
-                                }
-                                onPaneClick={
-                                    editable ? () => select(NONE) : undefined
-                                }
-                                // The canvas owns the keys (spec 6.2).
-                                disableKeyboardA11y
-                                panOnDrag={editable ? EDIT_PAN_BUTTONS : true}
-                                panOnScroll
-                                zoomOnScroll={false}
-                                zoomOnPinch
-                                zoomOnDoubleClick={false}
-                                zoomActivationKeyCode={zoomKeys}
-                                minZoom={floor}
-                                maxZoom={ceiling}
-                                colorMode={state.scheme}
-                                proOptions={proOptions}
-                                onMoveStart={(event) => {
-                                    // Programmatic moves carry no event; only
-                                    // the reader's do.
-                                    if (event) moved.current = true;
-                                }}
-                            >
-                                {editable && drag && drag.key === viewKey && (
-                                    <Guides guides={drag.guides} />
-                                )}
-                                {editable && graph && (
-                                    <EdgeMarks
-                                        graph={graph}
-                                        stepState={stepState}
-                                        selected={selection.edge?.key}
-                                        side={drag?.side}
-                                        zoom={zoom}
-                                        onVertex={dragVertex}
-                                        onRemove={removeVertex}
-                                        onEnd={dragEnd}
-                                    />
-                                )}
-                            </ReactFlow>
-                        )}
-                    </CanvasBackground.Provider>
-                </Editing.Provider>
+                <EntityToggle.Provider value={flipEntity}>
+                    <Editing.Provider value={editable}>
+                        <CanvasBackground.Provider
+                            value={graph?.background ?? "#ffffff"}
+                        >
+                            {graph?.error ? (
+                                <ViewError graph={graph} />
+                            ) : (
+                                <ReactFlow
+                                    nodes={nodes}
+                                    edges={edges}
+                                    nodeTypes={nodeTypes}
+                                    edgeTypes={edgeTypes}
+                                    nodeOrigin={nodeOrigin}
+                                    connectionMode={ConnectionMode.Loose}
+                                    nodesDraggable={editable}
+                                    onNodesChange={
+                                        editable ? onNodesChange : undefined
+                                    }
+                                    nodesConnectable={false}
+                                    nodesFocusable={false}
+                                    edgesFocusable={false}
+                                    // In editing a plain drag on the canvas or a
+                                    // boundary draws a marquee, and Space, the
+                                    // middle or the right button pans (spec 10.1).
+                                    // React Flow's own selection key would turn
+                                    // a Shift-click into a marquee.
+                                    elementsSelectable={editable}
+                                    selectionOnDrag={editable}
+                                    selectionKeyCode={
+                                        editable ? null : undefined
+                                    }
+                                    onSelectionStart={
+                                        editable ? startMarquee : undefined
+                                    }
+                                    onSelectionEnd={
+                                        editable ? endMarquee : undefined
+                                    }
+                                    onPaneClick={
+                                        editable
+                                            ? () => select(NONE)
+                                            : undefined
+                                    }
+                                    // The canvas owns the keys (spec 6.2).
+                                    disableKeyboardA11y
+                                    panOnDrag={
+                                        editable ? EDIT_PAN_BUTTONS : true
+                                    }
+                                    panOnScroll
+                                    zoomOnScroll={false}
+                                    zoomOnPinch
+                                    zoomOnDoubleClick={false}
+                                    zoomActivationKeyCode={zoomKeys}
+                                    minZoom={floor}
+                                    maxZoom={ceiling}
+                                    colorMode={state.scheme}
+                                    proOptions={proOptions}
+                                    onMoveStart={(event) => {
+                                        // Programmatic moves carry no event; only
+                                        // the reader's do.
+                                        if (event) moved.current = true;
+                                    }}
+                                >
+                                    {editable &&
+                                        drag &&
+                                        drag.key === viewKey && (
+                                            <Guides guides={drag.guides} />
+                                        )}
+                                    {editable && graph && (
+                                        <EdgeMarks
+                                            graph={graph}
+                                            stepState={stepState}
+                                            selected={selection.edge?.key}
+                                            side={drag?.side}
+                                            zoom={zoom}
+                                            onVertex={dragVertex}
+                                            onRemove={removeVertex}
+                                            onEnd={dragEnd}
+                                        />
+                                    )}
+                                </ReactFlow>
+                            )}
+                        </CanvasBackground.Provider>
+                    </Editing.Provider>
+                </EntityToggle.Provider>
             </Activate.Provider>
         </div>
     );
+}
+
+/** No entity set otherwise by its own toggle. */
+const NO_OVERRIDES: Readonly<Record<string, boolean>> = {};
+
+/**
+ * The entities a toggle flipped on the view shown, laid over the reader's
+ * stored labels: for this visit only, and only until the stored
+ * `entitiesCollapsed` preference changes, which starts every entity over
+ * (spec: ERD entities). Each change of the preference starts a new
+ * generation, so an override never comes back with an earlier value, and a
+ * new view starts with none. `toggled` counts the flips.
+ */
+function useEntityOverrides(viewKey: string, stored: Labels) {
+    const preference = useRef({
+        collapsed: stored.entitiesCollapsed,
+        generation: 0,
+    });
+    if (preference.current.collapsed !== stored.entitiesCollapsed)
+        preference.current = {
+            collapsed: stored.entitiesCollapsed,
+            generation: preference.current.generation + 1,
+        };
+    const { generation } = preference.current;
+    const [overrides, setOverrides] = useState({
+        key: viewKey,
+        generation,
+        ids: NO_OVERRIDES,
+        toggled: 0,
+    });
+    const current =
+        overrides.key === viewKey && overrides.generation === generation;
+    const ids = current ? overrides.ids : NO_OVERRIDES;
+    const labels = useMemo(
+        () =>
+            ids === NO_OVERRIDES ? stored : { ...stored, entityOverrides: ids },
+        [stored, ids],
+    );
+    const toggleEntity = useCallback(
+        (id: string) =>
+            setOverrides((before) => {
+                const kept =
+                    before.key === viewKey && before.generation === generation
+                        ? before.ids
+                        : NO_OVERRIDES;
+                const collapsed = kept[id] ?? stored.entitiesCollapsed ?? true;
+                return {
+                    key: viewKey,
+                    generation,
+                    ids: { ...kept, [id]: !collapsed },
+                    toggled: before.toggled + 1,
+                };
+            }),
+        [viewKey, generation, stored.entitiesCollapsed],
+    );
+    return { labels, toggleEntity, toggled: overrides.toggled, generation };
 }
 
 export function Island(props: IslandProps) {

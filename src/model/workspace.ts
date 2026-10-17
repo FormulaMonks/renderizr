@@ -235,7 +235,9 @@ export class WorkspaceModel {
                 if (type === "Deployment" && !view.environment?.trim()) {
                     view.environment = DEFAULT_DEPLOYMENT_ENVIRONMENT_NAME;
                 }
-                view.type = type;
+                // An image view the build read Mermaid source from draws as
+                // a Mermaid diagram, and stays where it is (ADR 24).
+                view.type = type === "Image" && view.mermaid ? "Mermaid" : type;
                 view.description ??= "";
                 if (type !== "Image") {
                     view.elements ??= [];
@@ -282,6 +284,7 @@ export class WorkspaceModel {
                 return this.findElementById(view.softwareSystemId);
             case "Dynamic":
             case "Image":
+            case "Mermaid":
                 return this.findElementById(view.elementId);
             default:
                 return undefined;
@@ -330,7 +333,11 @@ export class WorkspaceModel {
             const entry: Entry = {
                 view,
                 key: view.key,
-                viewTypeOrder: viewTypeOrders.indexOf(base.type),
+                // A Mermaid diagram is an image view to Structurizr, and
+                // sorts with them.
+                viewTypeOrder: viewTypeOrders.indexOf(
+                    base.type === "Mermaid" ? "Image" : base.type,
+                ),
                 elementTypeOrder: elementTypeOrders.indexOf("*"),
                 scope: "/",
             };
@@ -522,9 +529,15 @@ export class WorkspaceModel {
         return Object.hasOwn(terminology, key) ? terminology[key] : fallback;
     }
 
-    /** A view's own title, else its name, else one made from its type. */
+    /**
+     * A view's own title, else a Mermaid diagram's frontmatter title, else
+     * its name, else one made from its type.
+     */
     getTitleForView(view: ModelView): string {
         if (view.title?.trim()) return view.title;
+        const diagram = view.type === "Mermaid" ? view.mermaid : undefined;
+        if (diagram && "title" in diagram && diagram.title?.trim())
+            return diagram.title;
         if (view.type === "Filtered") {
             const base = this.findViewByKey(view.baseViewKey);
             return base ? this.getTitleForView(base) : "";
@@ -578,6 +591,7 @@ export class WorkspaceModel {
                     ? `Deployment View: ${name(view.softwareSystemId)} - ${view.environment}`
                     : `Deployment View: ${view.environment}`;
             case "Image":
+            case "Mermaid":
                 return `Image View: ${view.key}`;
             default:
                 return "";

@@ -10,6 +10,7 @@ import {
     CLEARANCE,
     centerOf,
     isHorizontal,
+    isInside,
     outward,
     type RoutingMode,
     SIDES,
@@ -20,6 +21,12 @@ import {
  * that a route with a bend fewer wins unless it is much longer.
  */
 export const BEND_PENALTY = 50;
+
+/**
+ * What a pair of sides costs when one straight end would end inside the
+ * other element (spec: End markers): more than any detour round it.
+ */
+const BLOCKED_PENALTY = 100 * BEND_PENALTY;
 
 const dot = (a: Point, b: Point) => a.x * b.x + a.y * b.y;
 
@@ -61,6 +68,14 @@ const midpointOf = (box: Rect, side: Side): Point => {
 /** The sides an edge leaves its source by and enters its target by. */
 export type EdgeSides = { source: Side; target: Side };
 
+/** How far each end of an edge runs straight before its route may bend. */
+export type EdgeRoom = {
+    source: number;
+    target: number;
+    /** The least each may shrink to between close sides: its marker's length. */
+    least?: { source: number; target: number };
+};
+
 /**
  * Whether a straight line from `from` to `to` leaves `fromSide` outward and
  * enters `toSide` inward, so drawing it adds no bend at either end.
@@ -89,18 +104,34 @@ function runsStraight(
  * pair with the lowest cost: its length (axis-aligned for Orthogonal,
  * straight otherwise) plus `BEND_PENALTY` per bend. A tie goes to the pair
  * met first, clockwise from the top.
+ *
+ * A Mermaid edge's ends run straight out of their sides for `room` before
+ * the route may bend (spec: End markers), so for it every midpoint above is
+ * taken that far out: bends count from where the route may first turn,
+ * with the room `fitRoom` leaves between facing sides.
  */
 export function chooseSides(
     from: Rect,
     to: Rect,
     mode: RoutingMode,
     isClear: (a: Point, b: Point) => boolean = () => true,
+    room: EdgeRoom = { source: 0, target: 0 },
 ): EdgeSides {
+    const out = (box: Rect, side: Side, by: number): Point => {
+        const point = midpointOf(box, side);
+        if (!by) return point;
+        const direction = outward(side);
+        return {
+            x: point.x + direction.x * by,
+            y: point.y + direction.y * by,
+        };
+    };
     if (mode !== "Orthogonal") {
         const source = facingSide(from, centerOf(to));
         const target = facingSide(to, centerOf(from));
-        const a = midpointOf(from, source);
-        const b = midpointOf(to, target);
+        const fitted = fitRoom(from, to, { source, target }, room);
+        const a = out(from, source, fitted.fitted ? 0 : fitted.source);
+        const b = out(to, target, fitted.fitted ? 0 : fitted.target);
         // Elements that overlap have no straight line between facing sides.
         if (runsStraight(a, source, b, target) && isClear(a, b)) {
             return { source, target };
@@ -109,15 +140,23 @@ export function chooseSides(
     let best: EdgeSides = { source: SIDES[0], target: SIDES[0] };
     let lowest = Number.POSITIVE_INFINITY;
     for (const source of SIDES) {
-        const a = midpointOf(from, source);
         for (const target of SIDES) {
-            const b = midpointOf(to, target);
+            const fitted = fitRoom(from, to, { source, target }, room);
+            const a = out(from, source, fitted.fitted ? 0 : fitted.source);
+            const b = out(to, target, fitted.fitted ? 0 : fitted.target);
             const length =
                 mode === "Orthogonal"
                     ? Math.abs(b.x - a.x) + Math.abs(b.y - a.y)
                     : Math.hypot(b.x - a.x, b.y - a.y);
+            // A straight end that would end inside the other element can't
+            // be drawn: that pair is a last resort.
+            const blocked =
+                (room.source > 0 || room.target > 0) &&
+                (isInside(a, to) || isInside(b, from));
             const cost =
-                length + BEND_PENALTY * bendsBetween(a, source, b, target);
+                length +
+                BEND_PENALTY * bendsBetween(a, source, b, target) +
+                (blocked ? BLOCKED_PENALTY : 0);
             if (cost < lowest - CLEARANCE) {
                 lowest = cost;
                 best = { source, target };
@@ -125,6 +164,36 @@ export function chooseSides(
         }
     }
     return best;
+}
+
+/** The share of the gap between facing sides that straight ends fit into. */
+/**
+ * The straight ends an edge between `from` and `to` takes on `sides`: its
+ * `room`, unless the sides face each other closer than both ends together,
+ * when both shrink in proportion to fill the gap and meet, as long as each
+ * still holds its marker (`room.least`); a route that jogs there jogs past
+ * both markers (spec: End markers). `fitted` says whether they shrank.
+ */
+export function fitRoom(
+    from: Rect,
+    to: Rect,
+    sides: EdgeSides,
+    room: EdgeRoom,
+): EdgeRoom & { fitted?: true } {
+    const out = outward(sides.source);
+    const into = outward(sides.target);
+    if (out.x !== -into.x || out.y !== -into.y) return room;
+    const a = midpointOf(from, sides.source);
+    const b = midpointOf(to, sides.target);
+    const gap = (b.x - a.x) * out.x + (b.y - a.y) * out.y;
+    const total = room.source + room.target;
+    if (gap <= 0 || gap >= total) return room;
+    const share = gap / total;
+    const source = room.source * share;
+    const target = room.target * share;
+    const least = room.least ?? { source: 0, target: 0 };
+    if (source < least.source || target < least.target) return room;
+    return { source, target, least, fitted: true };
 }
 
 /**
@@ -164,6 +233,17 @@ export type EdgeEnd = {
      * (ADR 19).
      */
     routed?: boolean;
+    /**
+     * Set on a Mermaid edge's ends, which spread evenly around the middle
+     * of their side in the order they aim, rather than each aiming at its
+     * far end (spec: End markers).
+     */
+    centered?: boolean;
+    /**
+     * A centered end's marker width: the ends on its side keep at least the
+     * widest of theirs apart where the side has room (spec: End markers).
+     */
+    apart?: number;
 };
 
 /** Where an end sorts on its side: loop ends at either extreme. */
@@ -266,7 +346,11 @@ export function routedAlong(
  * span apart and within it, moving as little as they can. Ties keep view
  * order on both elements, which is what makes A→B and B→A two parallel
  * lanes. A self-relationship's loop ends take part too, at their corner's
- * end of the side (`compareEnds`), aiming at their even share of it.
+ * end of the side (`compareEnds`), aiming at their even share of it. A
+ * Mermaid edge's ends (`centered`) aim evenly around the side's middle in
+ * that order instead, at least their widest marker apart when the side
+ * holds them all that far apart (spec: End markers). An ERD entity's
+ * toggle sits inside its box, so the side under it spreads like any other.
  */
 export function spreadEnds(
     ends: EdgeEnd[],
@@ -289,9 +373,24 @@ export function spreadEnds(
         );
         const aim = (end: EdgeEnd) => aims.get(end)!;
         const sorted = onSide.sort((a, b) => compareEnds(a, b, aim));
-        const gap = (span.to - span.from) / (sorted.length + 1);
+        const length = span.to - span.from;
+        const slots = sorted.length;
+        const even = length / (slots + 1);
+        // Centered ends sit evenly around the middle, a marker width apart
+        // at least where the side holds them all that far apart.
+        const apart = Math.max(
+            0,
+            ...sorted.map((end) => (end.centered && end.apart) || 0),
+        );
+        const gap =
+            apart > even && (slots - 1) * apart <= length ? apart : even;
+        const middle = (span.from + span.to) / 2;
         const wanted = sorted.map((end, i) =>
-            end.toward ? span.from + (i + 1) * gap : aim(end),
+            end.toward
+                ? span.from + (i + 1) * even
+                : end.centered
+                  ? middle + (i - (sorted.length - 1) / 2) * gap
+                  : aim(end),
         );
         const placed = keepApart(wanted, gap, span);
         for (const [i, end] of sorted.entries()) along.set(end.id, placed[i]);

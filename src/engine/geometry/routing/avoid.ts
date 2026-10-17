@@ -37,13 +37,16 @@ export const obstaclePadding = (thickness: number): number =>
 /**
  * Each element grown by `padding`, except where that would swallow one of
  * the route's `endPoints`: an element that close is kept at its own size,
- * and one an end point sits inside is left out, so the route can always
- * start.
+ * or with `partial` grown by as much as still leaves every end point
+ * outside it, and one an end point sits inside is left out, so the route
+ * can always start. `partial` is for a Mermaid edge's straight ends, which
+ * can land near another element (spec: End markers).
  */
 export function obstaclesFor(
     elements: Rect[],
     endPoints: Point[],
     padding: number,
+    partial = false,
 ): Rect[] {
     const obstacles: Rect[] = [];
     for (const element of elements) {
@@ -51,10 +54,24 @@ export function obstaclesFor(
         if (!endPoints.some((point) => isInside(point, padded))) {
             obstacles.push(padded);
         } else if (!endPoints.some((point) => isInside(point, element))) {
-            obstacles.push(element);
+            const room = partial
+                ? Math.min(...endPoints.map((point) => gapTo(element, point))) -
+                  PARTIAL_MARGIN
+                : 0;
+            obstacles.push(room > 0 ? grow(element, room) : element);
         }
     }
     return obstacles;
+}
+
+/** How far short of an end point a partly grown element stops. */
+const PARTIAL_MARGIN = 1;
+
+/** How far `point` sits outside `box`, along the farther axis. */
+function gapTo(box: Rect, point: Point): number {
+    const dx = Math.max(box.x - point.x, 0, point.x - (box.x + box.width));
+    const dy = Math.max(box.y - point.y, 0, point.y - (box.y + box.height));
+    return Math.max(dx, dy);
 }
 
 const isClear = (a: Point, b: Point, blockers: Rect[]) =>
@@ -100,8 +117,9 @@ export function isStraightClear(
     elements: Rect[],
     sourceAndTarget: Rect[],
     padding: number,
+    partial = false,
 ): boolean {
-    const obstacles = obstaclesFor(elements, [from, to], padding);
+    const obstacles = obstaclesFor(elements, [from, to], padding, partial);
     return isClear(from, to, [...obstacles, ...sourceAndTarget]);
 }
 
@@ -115,6 +133,7 @@ const PADDING_SHARES = [1, 1 / 2, 1 / 4, 0];
  * than crossing an element. The router gets the padded elements near the
  * ends (`withinReach`) and the edge's own ends, both as they block and as
  * they are gone around. `null` when there is no route even hugging them.
+ * `partial` keeps clearance near the ends as `obstaclesFor` does.
  */
 function narrowingRoute(
     from: Point,
@@ -127,10 +146,11 @@ function narrowingRoute(
         around: Rect[],
         padding: number,
     ) => Point[] | null,
+    partial = false,
 ): Point[] | null {
     for (const share of PADDING_SHARES) {
         const narrowed = padding * share;
-        const obstacles = obstaclesFor(elements, [from, to], narrowed);
+        const obstacles = obstaclesFor(elements, [from, to], narrowed, partial);
         const around = sourceAndTarget.map((box) => grow(box, narrowed));
         const route = withinReach(from, to, obstacles, narrowed, (active) =>
             router(
@@ -159,8 +179,11 @@ export function directRoute(
     elements: Rect[],
     sourceAndTarget: Rect[],
     padding: number,
+    partial = false,
 ): Point[] {
-    if (isStraightClear(from, to, elements, sourceAndTarget, padding)) {
+    if (
+        isStraightClear(from, to, elements, sourceAndTarget, padding, partial)
+    ) {
         return [from, to];
     }
     return (
@@ -171,6 +194,7 @@ export function directRoute(
             sourceAndTarget,
             padding,
             (blockers, around) => visibilityRoute(from, to, blockers, around),
+            partial,
         ) ?? [from, to]
     );
 }
@@ -262,6 +286,7 @@ export function orthogonalRoute(
     elements: Rect[],
     sourceAndTarget: Rect[],
     padding: number,
+    partial = false,
 ): Point[] {
     return (
         narrowingRoute(
@@ -279,7 +304,9 @@ export function orthogonalRoute(
                     blockers,
                     around,
                     narrowed,
+                    partial,
                 ),
+            partial,
         ) ?? orthogonalThrough([from, to], fromSide, toSide)
     );
 }
@@ -288,7 +315,10 @@ export function orthogonalRoute(
  * A* over the grid made by the sides of `around`, the two ends and a stub
  * `padding` out from each, so the route turns either at an end's stub or
  * alongside a padded element. A state is a grid point and a heading;
- * turning costs `BEND_PENALTY` and turning back is not allowed.
+ * turning costs `BEND_PENALTY` and turning back is not allowed. With
+ * `midway`, for a Mermaid edge between its straight ends, the grid also
+ * holds the lines halfway between the ends, so a route between two facing
+ * ends that don't line up steps across in the middle.
  */
 function gridRoute(
     from: Point,
@@ -298,6 +328,7 @@ function gridRoute(
     blockers: Rect[],
     around: Rect[],
     padding: number,
+    midway = false,
 ): Point[] | null {
     const out = outward(fromSide);
     const into = outward(toSide);
@@ -314,6 +345,7 @@ function gridRoute(
                     x: to.x + into.x * padding,
                     y: to.y + into.y * padding,
                 }),
+                ...(midway ? [(pick(from) + pick(to)) / 2] : []),
                 ...around.flatMap(sides),
             ]),
         ].sort((a, b) => a - b);

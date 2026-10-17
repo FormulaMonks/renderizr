@@ -1,0 +1,40 @@
+sequenceDiagram
+    actor Architect
+    participant Toolbar as Edit Toolbar
+    participant Session as Edit Session
+    participant Plugin as Edit Plugin
+    participant Writer as Workspace Writer
+    participant Pipeline as DSL Pipeline
+    participant Tools as Structurizr Tools
+    participant Reload as Live Reload
+
+    Architect->>Toolbar: Save
+    Toolbar->>Session: save the edited views
+    Session->>+Plugin: POST /__renderizr/save
+    Plugin->>Writer: write the layouts
+    alt the file changed since the page read it
+        Writer-->>Plugin: stale version
+        Plugin-->>Session: refuse the save
+    else
+        Writer-->>Plugin: new version
+        Plugin-->>-Session: saved
+        Plugin-)Reload: workspace event, naming the saving page
+    end
+
+    Note over Architect,Tools: In a DSL session
+    Architect->>Plugin: change a file under the DSL's folder
+    Plugin->>+Pipeline: run
+    Pipeline->>Plugin: flush
+    Plugin-)Reload: flush event, to save what waits
+    Pipeline->>Tools: merge, with workspace.json as the layout
+    alt the DSL parses
+        Tools-->>Pipeline: workspace.json
+        Pipeline->>Writer: write it
+        Pipeline-->>-Plugin: published
+        Plugin-)Reload: workspace event
+        Reload->>Reload: swap the workspace in place
+    else
+        Tools-->>Pipeline: error
+        Pipeline-->>Plugin: failed
+        Plugin-)Reload: error event
+    end

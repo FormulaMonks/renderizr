@@ -7,13 +7,22 @@ import {
     type Labels,
     NOT_ANIMATING,
 } from "../engine/contract";
-import { type ModelView, splitAuthor, type WorkspaceModel } from "../model";
+import {
+    hasEntityToggles,
+    type InertToggles,
+    inertToggles,
+    type ModelView,
+    NOTHING_TO_EXPORT,
+    splitAuthor,
+    type WorkspaceModel,
+} from "../model";
 import { getResolvedTheme, onThemeChange, type ResolvedTheme } from "./theme";
 import styles from "./current-view.module.css";
 import lightModeIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
 import darkModeIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
 import toggleDescriptionsIcon from "bootstrap-icons/icons/card-text.svg?raw";
 import toggleTechnologiesIcon from "bootstrap-icons/icons/code-square.svg?raw";
+import toggleEntitiesIcon from "bootstrap-icons/icons/arrows-expand.svg?raw";
 import resetZoomIcon from "bootstrap-icons/icons/aspect-ratio.svg?raw";
 import zoomInIcon from "bootstrap-icons/icons/zoom-in.svg?raw";
 import zoomOutIcon from "bootstrap-icons/icons/zoom-out.svg?raw";
@@ -115,10 +124,14 @@ export function applyDiagramTheme(theme: DiagramTheme): void {
     document.documentElement.dataset.diagramTheme = theme;
 }
 
-/** What a reader who never toggled a label sees: descriptions and technologies. */
+/**
+ * What a reader who never toggled a label sees: descriptions and
+ * technologies, and every ERD's entities collapsed.
+ */
 export const LABEL_DEFAULTS: Labels = {
     descriptions: true,
     technologies: true,
+    entitiesCollapsed: true,
 };
 
 export function readLabelState(): Labels {
@@ -136,6 +149,10 @@ export function readLabelState(): Labels {
                 typeof parsed.technologies === "boolean"
                     ? parsed.technologies
                     : LABEL_DEFAULTS.technologies,
+            entitiesCollapsed:
+                typeof parsed.entitiesCollapsed === "boolean"
+                    ? parsed.entitiesCollapsed
+                    : LABEL_DEFAULTS.entitiesCollapsed,
         };
     } catch {
         return { ...LABEL_DEFAULTS };
@@ -181,6 +198,18 @@ export default class CurrentView extends Component {
     /** Whether the view shown has anything of the engine's own to export. */
     #exportable = false;
 
+    /**
+     * Why the export buttons show disabled, on a Mermaid diagram that
+     * couldn't be drawn; `null` everywhere else.
+     */
+    #exportBlocked: string | null = null;
+
+    /** The label toggles that change nothing on the view shown, which hide. */
+    #inert: InertToggles = { descriptions: false, technologies: false };
+
+    /** Whether the view shown is an ERD with an entity toggle. */
+    #entities = false;
+
     /** The key of the view the toolbar shows. */
     #viewKey: string | null = null;
 
@@ -212,6 +241,15 @@ export default class CurrentView extends Component {
         [
             "toggle-technologies",
             () => this.#setLabels({ technologies: !this.#labels.technologies }),
+        ],
+        // Sets every entity, and the island drops the per-entity overrides
+        // when the preference changes (spec: ERD entities).
+        [
+            "toggle-entities",
+            () =>
+                this.#setLabels({
+                    entitiesCollapsed: !this.#entitiesCollapsed(),
+                }),
         ],
         // Play toggles pause, keeping the step (spec 11).
         [
@@ -332,6 +370,11 @@ export default class CurrentView extends Component {
         this.#paintControlButtons();
     }
 
+    /** Whether ERD entities draw collapsed; collapsed when unset. */
+    #entitiesCollapsed(): boolean {
+        return this.#labels.entitiesCollapsed ?? true;
+    }
+
     #setLabels(next: Partial<Labels>) {
         this.#labels = { ...this.#labels, ...next };
         writeLabelState(this.#labels);
@@ -340,10 +383,18 @@ export default class CurrentView extends Component {
         this.#paintControlButtons();
     }
 
-    #paintToggleButton(name: string, active: boolean, label: string) {
+    #paintToggleButton(
+        name: string,
+        active: boolean,
+        label: string,
+        hidden = false,
+    ) {
         const button = this.#button(name);
         if (!button) return;
 
+        // A toggle with nothing to change hides; the preference it shows
+        // stays, and applies again where it shows (ADR 24).
+        button.hidden = hidden;
         button.dataset.active = active ? "true" : "";
         button.setAttribute("aria-pressed", String(active));
         button.title = label;
@@ -379,6 +430,7 @@ export default class CurrentView extends Component {
             this.#labels.descriptions
                 ? "Hide descriptions in diagrams"
                 : "Show descriptions in diagrams",
+            this.#inert.descriptions,
         );
         this.#paintToggleButton(
             "toggle-technologies",
@@ -386,6 +438,15 @@ export default class CurrentView extends Component {
             this.#labels.technologies
                 ? "Hide technologies in diagrams"
                 : "Show technologies in diagrams",
+            this.#inert.technologies,
+        );
+        // Pressed while the entities are expanded.
+        const collapsed = this.#entitiesCollapsed();
+        this.#paintToggleButton(
+            "toggle-entities",
+            !collapsed,
+            collapsed ? "Expand all entities" : "Collapse all entities",
+            !this.#entities,
         );
     }
 
@@ -422,8 +483,9 @@ export default class CurrentView extends Component {
 
     /**
      * Paints the export buttons: the group hidden while nothing can export,
-     * every one disabled while an export runs, the one exporting marked
-     * busy, and the failure line under them.
+     * every one disabled while an export runs or, saying why, on a Mermaid
+     * diagram that couldn't be drawn, the one exporting marked busy, and the
+     * failure line under them.
      */
     #paintExportButtons() {
         const group =
@@ -433,7 +495,12 @@ export default class CurrentView extends Component {
         for (const format of EXPORT_FORMATS) {
             const button = this.#button(`export-${format}`);
             if (!button) continue;
-            button.disabled = this.#exporting !== null;
+            const label =
+                this.#exportBlocked ?? `Export view as ${format.toUpperCase()}`;
+            button.title = label;
+            button.setAttribute("aria-label", label);
+            button.disabled =
+                this.#exporting !== null || this.#exportBlocked !== null;
             if (this.#exporting === format)
                 button.setAttribute("aria-busy", "true");
             else button.removeAttribute("aria-busy");
@@ -453,6 +520,7 @@ export default class CurrentView extends Component {
                 <button class="dark-mode"></button>
                 <button class="toggle-description">${toggleDescriptionsIcon}</button>
                 <button class="toggle-technologies">${toggleTechnologiesIcon}</button>
+                <button class="toggle-entities" hidden>${toggleEntitiesIcon}</button>
             </div>
             <div class="animation-buttons ${styles.btnGroup}" hidden>
                 <button class="prev-step" title="Previous step" aria-label="Previous step">${prevStepIcon}</button>
@@ -523,7 +591,15 @@ export default class CurrentView extends Component {
         if (this.#viewKey !== view.key) this.#exportFailed = null;
         this.#viewKey = view.key;
         // An image view has nothing of the engine's own to export (ADR 21).
+        // A Mermaid diagram exports as any view does, and one that couldn't
+        // be drawn shows its buttons disabled, saying why (ADR 24).
         this.#exportable = view.type !== "Image";
+        this.#exportBlocked =
+            view.type === "Mermaid" && view.mermaid?.error
+                ? NOTHING_TO_EXPORT
+                : null;
+        this.#inert = inertToggles(view);
+        this.#entities = hasEntityToggles(view);
         this.#subscribe();
         const { description, author } = splitAuthor(view.description);
         // Structurizr's own naming: an explicit title when the view has one,
