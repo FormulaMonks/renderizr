@@ -21,6 +21,24 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.5.0](https://github.com/FormulaMonks/renderizr/compare/v2.4.0...v2.5.0) (2026-10-17)
+
+
+### Added
+
+* draw Mermaid flowcharts, ERDs and sequence diagrams in Renderizr's engine ([#214](https://github.com/FormulaMonks/renderizr/issues/214)) ([0ab2bf5](https://github.com/FormulaMonks/renderizr/commit/0ab2bf524211eb7a2b9f00b7c2222d586f901564))
+
+
+### Fixed
+
+* find external scripts by element, then read src from the opening tag ([#217](https://github.com/FormulaMonks/renderizr/issues/217)) ([42a8518](https://github.com/FormulaMonks/renderizr/commit/42a85180a14cbabb0ec8b7e4219a33c4ddb1d388))
+* read escapes whole in makeArtifactSafe, with fast-check property tests ([#218](https://github.com/FormulaMonks/renderizr/issues/218)) ([04c9d79](https://github.com/FormulaMonks/renderizr/commit/04c9d79ec6303c9a78695662b184cbb0ad3f7775))
+
+
+### Documentation
+
+* add Mermaid diagram terms to the glossary, and ADR 24 on Mermaid diagram support ([#201](https://github.com/FormulaMonks/renderizr/issues/201)) ([a66eb8c](https://github.com/FormulaMonks/renderizr/commit/a66eb8cf0443a222c393228bb872b4748ab6c29b))
+
 ## [2.4.0](https://github.com/FormulaMonks/renderizr/compare/v2.3.0...v2.4.0) (2026-10-15)
 
 
