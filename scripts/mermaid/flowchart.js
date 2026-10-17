@@ -75,6 +75,17 @@ const entity = (__, name) =>
         ? String.fromCodePoint(Number(name))
         : ENTITIES[name] ?? `#${name};`;
 
+/** `text` with every tag gone, removed again until none is left. */
+function withoutTags(text) {
+    let previous;
+    let current = text;
+    do {
+        previous = current;
+        current = current.replace(/<[^>]*>/g, "");
+    } while (current !== previous);
+    return current;
+}
+
 /**
  * A label as plain text lines: `<br>` and the end of each block element
  * break the line, every other tag goes (Structurizr's `mermaid <viewKey>`
@@ -82,10 +93,11 @@ const entity = (__, name) =>
  * Markdown backticks around a string go.
  */
 export function plainLabel(label) {
-    return String(label ?? "")
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/(div|p|li|h\d)>/gi, "\n")
-        .replace(/<[^>]*>/g, "")
+    return withoutTags(
+        String(label ?? "")
+            .replace(/<br\s*\/?>/gi, "\n")
+            .replace(/<\/(div|p|li|h\d)>/gi, "\n"),
+    )
         .replace(/[#&](\w+);/g, entity)
         .split("\n")
         .map((line) => line.trim())
