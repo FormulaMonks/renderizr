@@ -81,7 +81,7 @@ function withoutScripts(html) {
     let current = html;
     do {
         previous = current;
-        current = current.replace(/<script\b[\s\S]*?<\/script\s*>/gi, "");
+        current = current.replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, "");
     } while (current !== previous);
     return current;
 }

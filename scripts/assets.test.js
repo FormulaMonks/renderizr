@@ -362,7 +362,13 @@ test("a font is fetched, its faces embedded, and a CSS variable declared", async
                 ),
                 "the woff2 was not inlined",
             );
-            assert.doesNotMatch(font.css, /https:\/\/fonts\.gstatic\.com\//);
+            for (const [, source] of font.css.matchAll(
+                /url\(\s*['"]?([^'")]*)/g,
+            ))
+                assert.ok(
+                    source.startsWith("data:"),
+                    `the CSS still fetches ${source}`,
+                );
             assert.ok(
                 font.css.endsWith(
                     "--renderizr-font:'Inter',Helvetica,Arial,sans-serif}",

@@ -65,8 +65,8 @@ export function branding({ font, primaryColor = null }) {
     };
 }
 
-const SCRIPT_TAG = /<script\b[^>]*\ssrc="([^"]+)"[^>]*>\s*<\/script\s*>/gi;
-const SCRIPT_ELEMENT = /<script\b[\s\S]*?<\/script\s*>/gi;
+const SCRIPT_TAG = /<script\b[^>]*\ssrc="([^"]+)"[^>]*>\s*<\/script\b[^>]*>/gi;
+const SCRIPT_ELEMENT = /<script\b[\s\S]*?<\/script\b[^>]*>/gi;
 const STYLE_TAG =
     /<link[^>]*\shref="([^"]+)"[^>]*\srel="stylesheet"[^>]*>|<link[^>]*\srel="stylesheet"[^>]*\shref="([^"]+)"[^>]*>/g;
 const PRELOAD_TAG = /<link[^>]*rel="modulepreload"[^>]*>/g;
