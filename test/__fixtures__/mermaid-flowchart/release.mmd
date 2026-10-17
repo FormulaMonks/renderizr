@@ -1,0 +1,41 @@
+flowchart TB
+    dev([Developer]) -->|pushes| repo[(Git repository)]
+    repo -->|triggers| ci{{CI pipeline}}
+    subgraph checks [Checks]
+        lint[Lint] --> types[Type check]
+        types --> unit[Unit tests]
+        unit --> e2e[End-to-end tests]
+    end
+    ci --> lint
+    e2e --> gate{All green?}
+    gate -->|no| notify[/Notify author/]
+    notify -.->|fix| dev
+    gate -->|yes| build[[Build artifacts]]
+    subgraph docs [Documentation]
+        direction LR
+        api[API reference] --> guide[User guide]
+        guide --> site[Docs site]
+    end
+    subgraph deploy [Deploy]
+        staging[(Staging)] --> smoke{Smoke tests pass?}
+        smoke -->|yes| approve{{Manual approval}}
+        approve --> prod[(Production)]
+        smoke -->|no| rollback[Roll back]
+        subgraph observe [Observe]
+            metrics[Metrics] --> alerts((Alerts))
+            logs[Logs] --> alerts
+        end
+        prod --> metrics
+        prod --> logs
+    end
+    build --> staging
+    build --> registry[(Artifact registry)]
+    rollback -.-> notify
+    alerts -->|pages| oncall([On-call engineer])
+    oncall -->|opens| incident[Incident]
+    incident -.->|postmortem| dev
+    registry --> scan[Security scan]
+    scan -->|blocks| gate
+    changelog[Changelog] --> release[Release notes]
+    build --> changelog
+    release --> announce((Announce))

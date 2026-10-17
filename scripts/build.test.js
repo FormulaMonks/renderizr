@@ -641,6 +641,39 @@ test("the edit-mode markers are in the page when edit mode is compiled in", asyn
     }
 });
 
+/**
+ * Strings only the generated Mermaid parser carries: Jison's error text, a
+ * flowchart lexer token and js-yaml's license line. Minifying keeps string
+ * literals, so a page that bundled the parser would carry them.
+ */
+const MERMAID_PARSER_MARKERS = [
+    "Parse error on line",
+    "DOUBLECIRCLEEND",
+    "nodeca/js-yaml",
+];
+
+test("the Mermaid parser runs in the build and never reaches the page (ADR 24)", async () => {
+    const parser = await readFile(
+        join(REPO_ROOT, "scripts/mermaid/parser.js"),
+        "utf-8",
+    );
+    for (const marker of MERMAID_PARSER_MARKERS) {
+        assert.ok(
+            parser.includes(marker),
+            `the parser never carries ${marker}`,
+        );
+    }
+    for (const { out } of [await multiFile(), await singleFile()]) {
+        const output = await builtOutput(out);
+        for (const marker of MERMAID_PARSER_MARKERS) {
+            assert.ok(
+                !output.includes(marker),
+                `${out} carries the Mermaid parser: ${marker}`,
+            );
+        }
+    }
+});
+
 /* --------------------------------------------------- the single-file budget */
 
 /**

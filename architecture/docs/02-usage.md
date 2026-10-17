@@ -30,7 +30,7 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `--font-weights <list>` | Comma-separated weights. Default `400,700`. The build prefers a variable font that covers the range when the family has one |
 | `--font-subsets <list>` | Comma-separated subsets. Default `latin` |
 | `--font-italic` | Also embed the italic faces, which roughly doubles the font's weight |
-| `--primary-color <color>` | A CSS color, such as `#e4572e` or `rgb(228 87 46)`, for links, the active page and view, and edit mode's marks, in light and dark alike. Default is Renderizr's blue |
+| `--primary-color <color>` | A CSS color, such as `#e4572e` or `rgb(228 87 46)`, for links, the active page and view, edit mode's marks and the nodes of a [Mermaid diagram](#mermaid-diagrams) whose source sets no theme, in light and dark alike. Default is Renderizr's blue |
 | `-h, --help` | Print the reference as text and exit |
 
 A font is the one option with a real cost: an embedded family outweighs every other option together, and each extra weight, subset or italic face adds to it.
@@ -90,7 +90,7 @@ The build fetches themes, element icons and a logo referenced by URL, and folds 
 
 ## Export
 
-Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them; an image view shows none.
+Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them, a [Mermaid diagram](#mermaid-diagrams) included; an image view that shows a picture has none.
 
 An export shows the view as drawn: the diagram color scheme, the animation step and the description and technology toggles the reader has on. The view's canvas frames it: its `dimensions`, else its paper size, else the content with 200 pixels of room on each side. A title block runs below the canvas, in the diagram's font and colors:
 
@@ -110,6 +110,59 @@ In edit mode, an export shows the layout as you left it, saved or not, without t
 Inside a Claude artifact, the page saves an export through the artifact viewer's `downloads` capability, which asks the reader to confirm each file. A save the reader declines ends quietly. An artifact published without `downloads` can't save a file, so its toolbar shows no export buttons: declare `downloads` when you publish `artifact.html`.
 
 An element icon given as an `http(s)` URL stays blank in an export. A build embeds every icon in the page, so this only happens on the dev server, which leaves such icons as URLs.
+
+## Mermaid diagrams
+
+Renderizr draws a Mermaid flowchart that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
+
+```
+views {
+    properties {
+        "mermaid.url" "https://mermaid.ink"
+    }
+
+    image * "order-flow" {
+        mermaid order-flow.mmd
+        title "Order flow"
+    }
+}
+```
+
+Structurizr encodes the source into the image view's content as a URL on the Mermaid server that `mermaid.url` names, on the image view or on the views. The build reads the source back from that URL and parses it with Mermaid's own grammar, so the page never fetches the Mermaid server's picture. The workspace keeps opening in Structurizr as before.
+
+A source that opens with `flowchart` or `graph` draws. Every other image view stays a picture with no warning: a picture file, Mermaid that Structurizr inlines with `mermaid.inline true`, and every other Mermaid type.
+
+The view's `title` names the diagram, then the source's frontmatter `title`, then `Image View: <key>`. The frontmatter title never draws on the canvas. In edit mode a Mermaid diagram draws read-only, since Structurizr keeps no layout for an image view, and a DSL session draws it again when its `.mmd` file under the DSL's folder changes.
+
+### Flowcharts
+
+Renderizr lays a flowchart out with Dagre, the way Mermaid does at Renderizr's larger text: every length Mermaid uses grows by 1.5. Nodes sit 75 apart, ranks 75 apart and edges 30 apart, and a source's own `nodeSpacing` and `rankSpacing` grow the same way. Each node takes the size its label needs. A subgraph that no edge crosses lays out on its own and turns its direction (top to bottom becomes left to right) unless it sets `direction`. Every other subgraph stays part of the graph around it.
+
+| Source | Draws as |
+| --- | --- |
+| `A[text]`, `A(text)`, `A{text}`, `A((text))`, `A[(text)]`, `A{{text}}` | A rectangle, a rounded rectangle, a diamond, a circle, a cylinder and a hexagon |
+| `<br>` in a label | A new line |
+| `-->`, `-.->` and `==>` | A solid line, a dotted line and a line about twice as thick, with an arrow |
+| `---` | A solid line with no arrow |
+| `subgraph … end` | A group around its nodes |
+
+Every other shape falls back to a rectangle and warns: stadium, subroutine, asymmetric, parallelogram, trapezoid, double circle and every other `@{ shape }` name. An invisible link (`~~~`) draws nothing and leaves the layout, a longer link (`--->`) lays out as an ordinary one, and Markdown strings and `fa:` icons draw their text plain; each of them warns. Ends other than an arrow, such as `--o` and `--x`, draw with no marker yet.
+
+A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draws as any flowchart. The HTML in its labels draws as plain text lines.
+
+### Styles
+
+A source with no `theme` and no `themeVariables` takes the workspace's look. Its nodes fill with the primary color (`--primary-color`, then `renderizr.primaryColor`, then Renderizr's blue) with white text and a darker border, in light and dark alike, and its edges and subgraphs take the color scheme's defaults. Its edges route Orthogonal unless the workspace's `routing` style says otherwise.
+
+The workspace's element styles tagged `Element` and `Mermaid` apply to every node, its relationship styles tagged `Relationship` and `Mermaid` to every edge, and its element styles tagged `Group` and `Mermaid` to every subgraph, with the themes they come from. A node's `fontSize` applies; its `width`, `height` and `shape` never do, since the source sets them. The line style the arrow syntax sets always wins.
+
+The build prints one warning per diagram that lists what of its source Renderizr ignored, such as `Image view "order-flow": Renderizr supports only a subset of Mermaid styling; ignored: shape "stadium"`. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every entry it can name.
+
+### When a diagram can't be drawn
+
+A diagram Renderizr can't draw shows why in place of the canvas, and the build prints the same text and finishes: `Mermaid diagram "order-flow": a parse error at line 4: the source ends too early.` Its export buttons show disabled and say "Nothing to export: the diagram couldn't be drawn". In edit mode the reason shows on the view and in the terminal, and the next save of the source that fixes it draws the diagram again. [Mermaid diagram notices](04-reference.md#mermaid-diagram-notices) lists every reason.
+
+The description and technology toggles hide on a flowchart, whose labels hold the source's text alone. Your choice stays and applies again on the next C4 view.
 
 ## Edit mode
 

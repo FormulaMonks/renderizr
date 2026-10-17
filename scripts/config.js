@@ -87,6 +87,9 @@ export function createConfig({
             // The export's title block gives it when the workspace holds no
             // `lastModifiedDate`.
             __RENDERIZR_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+            // A silent Mermaid source fills its nodes with it, and export
+            // needs it as a literal rather than the stylesheet's variable.
+            __RENDERIZR_PRIMARY_COLOR__: JSON.stringify(primaryColor),
             // The engine's geometry report, for the acceptance harness only
             // (spec 15.1); `false` compiles the writer out of the bundle.
             __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),

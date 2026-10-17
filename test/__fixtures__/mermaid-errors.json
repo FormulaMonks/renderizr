@@ -1,0 +1,59 @@
+{
+    "name": "Mermaid errors",
+    "description": "One image view for each reason a Mermaid diagram can't be drawn, its content encoded the way Structurizr's mermaid keyword writes it.",
+    "model": {},
+    "documentation": {},
+    "views": {
+        "configuration": {
+            "properties": {
+                "mermaid.url": "https://mermaid.ink"
+            },
+            "styles": {},
+            "terminology": {}
+        },
+        "imageViews": [
+            {
+                "content": "https://mermaid.ink/svg/pako:eJwVzLENgCAUBcBVXl4tC1g4gZWWSIHwERKRhEAsjLsbb4B7QFe8cGQ4y-2irQ3zsl0AYPWcjtgMlJqw67X06sRsFwcwS802eY4PW5T8B16C7Wfj-36TcRvh",
+                "contentDark": "https://mermaid.ink/svg/pako:eJyrVlBKzk9JVbJSSsvJL0_OSCwqUfAJislTUFBQSIx2SSzKjlXQ1bVTSIoOzi8tSk6NjclT0lFQyk0tyk3MTFGyqlYqyUjNBelPSU1LLM0pUaqtBQBw6Rtr",
+                "contentType": "image/svg+xml",
+                "description": "Its light and dark content fields hold different sources.",
+                "key": "fields-disagree",
+                "order": 1,
+                "title": "Fields disagree"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyrVlBKzk9JVbJSSsvJL0_OSCwqUfAJislTUFBQSFTQ1bVTSIrJU9JRUMpNLcpNzExRsqpWKslIzQXpSElNSyzNKVGqrQUA9x8WCA",
+                "contentDark": "https://example.test/dark.png",
+                "contentType": "image/svg+xml",
+                "description": "Its content field holds Mermaid source and its dark field a picture.",
+                "key": "picture-beside-source",
+                "order": 2,
+                "title": "Picture beside source"
+            },
+            {
+                "content": "https://mermaid.ink/svg/",
+                "contentType": "image/svg+xml",
+                "description": "Its content field names the Mermaid server and carries nothing.",
+                "key": "no-source",
+                "order": 3,
+                "title": "No source"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJyrVlBKzk9JVbJSSsvJL0_OSCwqUQhxiclTUFBQKC5JLCqJDgaRsQq6unYKyRmpydnVziCyFqIELAKSi8lT0lFQyk0tyk3MTFGyqlYqyUjNBRmbkpqWWJpTolRbCwBXkSMH",
+                "contentType": "image/svg+xml",
+                "description": "Its source stops halfway through an edge.",
+                "key": "parse-error",
+                "order": 4,
+                "title": "Parse error"
+            },
+            {
+                "content": "https://mermaid.ink/img/Zmxvd2NoYXJ0IFRECiAgICBzdGFydFtTdGFydF0gLS0-IHdvcmsKICAgIHN1YmdyYXBoIHdvcmsgW1dvcmtdCiAgICAgICAgYVtTdGVwIG9uZV0gLS0-IGJbU3RlcCB0d29dCiAgICBlbmQK",
+                "contentType": "image/svg+xml",
+                "description": "Its source runs an edge to a subgraph.",
+                "key": "edge-to-subgraph",
+                "order": 5,
+                "title": "Edge to subgraph"
+            }
+        ]
+    }
+}

@@ -437,3 +437,147 @@ export function simplify(points: Point[], threshold: number): Point[] {
     kept.push(points[points.length - 1]);
     return kept;
 }
+
+/* ------------------------------------------------------- Mermaid diagrams */
+
+/** What laying out a Mermaid diagram's subgraphs one at a time needs from the caller. */
+export type ClusterOptions = {
+    /** The box a boundary takes around `placed`, its padding and label band included. */
+    boxFor: (
+        id: string,
+        placed: ReadonlyMap<string, Bounds>,
+    ) => Bounds | undefined;
+    /** A boundary's own direction, when its source sets one. */
+    direction: (id: string) => LayoutSettings["rankDirection"] | undefined;
+    /** Added to the rank separation inside a boundary laid out on its own. */
+    rankBonus: number;
+    /**
+     * `sources` hands Dagre each graph's sources first (nodes with no
+     * incoming edge, in model order), then the rest in model order;
+     * `model` keeps model order.
+     */
+    order: "sources" | "model";
+};
+
+/**
+ * `graph`'s nodes with its sources first, in model order, then the rest in
+ * model order; as they are when no node is a source.
+ */
+export function sourcesFirst(graph: CompoundGraph): CompoundGraph {
+    const fed = new Set(
+        graph.edges.filter((e) => e.source !== e.target).map((e) => e.target),
+    );
+    const sources = graph.nodes.filter((node) => !fed.has(node.id));
+    if (!sources.length) return graph;
+    return {
+        ...graph,
+        nodes: [...sources, ...graph.nodes.filter((node) => fed.has(node.id))],
+    };
+}
+
+/**
+ * Mermaid's rule for subgraphs (spec: Flowchart and ERD layout). A boundary
+ * no edge crosses is laid out on its own, in the flipped direction unless it
+ * sets one and with `rankBonus` more between its ranks, and placed as one
+ * node of the graph around it; every other boundary stays in Dagre's
+ * compound graph. Each graph hands Dagre its nodes in `options.order`.
+ */
+export function layOutClusters(
+    graph: CompoundGraph,
+    settings: LayoutSettings,
+    options: ClusterOptions,
+): Layout {
+    const parentOf = new Map<string, string | undefined>();
+    for (const b of graph.boundaries) parentOf.set(b.id, b.parent);
+    for (const n of graph.nodes) parentOf.set(n.id, n.parent);
+    const inside = (id: string, cluster: string) => {
+        for (let p = parentOf.get(id); p; p = parentOf.get(p))
+            if (p === cluster) return true;
+        return false;
+    };
+    const crossed = (cluster: string) =>
+        graph.edges.some(
+            (e) => inside(e.source, cluster) !== inside(e.target, cluster),
+        );
+    const own = graph.boundaries.filter(
+        (b) => !crossed(b.id) && graph.nodes.some((n) => inside(n.id, b.id)),
+    );
+    const top = own.filter(
+        (b) => !own.some((o) => o.id !== b.id && inside(b.id, o.id)),
+    );
+    const ordered = (g: CompoundGraph) =>
+        options.order === "sources" ? sourcesFirst(g) : g;
+    if (!top.length) return layOut(ordered(graph), settings);
+
+    const flip = (d: LayoutSettings["rankDirection"]) =>
+        d === "TopBottom" || d === "BottomTop" ? "LeftRight" : "TopBottom";
+    const placedInside = new Map<string, { layout: Layout; box: Bounds }>();
+    for (const cluster of top) {
+        const lift = (p: string | undefined) =>
+            p === cluster.id ? undefined : p;
+        const sub: CompoundGraph = {
+            nodes: graph.nodes
+                .filter((n) => inside(n.id, cluster.id))
+                .map((n) => ({ ...n, parent: lift(n.parent) })),
+            boundaries: graph.boundaries
+                .filter((b) => inside(b.id, cluster.id))
+                .map((b) => ({ ...b, parent: lift(b.parent) })),
+            edges: graph.edges.filter((e) => inside(e.source, cluster.id)),
+        };
+        const layout = layOutClusters(
+            sub,
+            {
+                ...settings,
+                rankDirection:
+                    options.direction(cluster.id) ??
+                    flip(settings.rankDirection),
+                rankSeparation: settings.rankSeparation + options.rankBonus,
+            },
+            options,
+        );
+        const box = options.boxFor(cluster.id, layout.boxes);
+        if (box) placedInside.set(cluster.id, { layout, box });
+    }
+
+    const outside = (id: string) =>
+        !top.some((c) => c.id === id || inside(id, c.id));
+    const outer: CompoundGraph = {
+        nodes: [
+            ...graph.nodes.filter((n) => outside(n.id)),
+            ...top.flatMap((c) => {
+                const placed = placedInside.get(c.id);
+                return placed
+                    ? [
+                          {
+                              id: c.id,
+                              width: placed.box.width,
+                              height: placed.box.height,
+                              parent: c.parent,
+                          },
+                      ]
+                    : [];
+            }),
+        ],
+        boundaries: graph.boundaries.filter((b) => outside(b.id)),
+        edges: graph.edges.filter((e) => outside(e.source)),
+    };
+    const layout = layOut(ordered(outer), settings);
+    const boxes = new Map<string, Bounds>();
+    const edges = new Map<string, Point[]>();
+    for (const [id, box] of layout.boxes)
+        if (!placedInside.has(id)) boxes.set(id, box);
+    for (const [id, route] of layout.edges) edges.set(id, route);
+    for (const [id, { layout: inner, box }] of placedInside) {
+        const at = layout.boxes.get(id)!;
+        const dx = at.x - box.x;
+        const dy = at.y - box.y;
+        for (const [child, b] of inner.boxes)
+            boxes.set(child, { ...b, x: b.x + dx, y: b.y + dy });
+        for (const [edge, route] of inner.edges)
+            edges.set(
+                edge,
+                route.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+            );
+    }
+    return { boxes, edges };
+}

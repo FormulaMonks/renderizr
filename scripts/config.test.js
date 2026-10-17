@@ -116,6 +116,20 @@ test("the build stamps its date, which the export's title block falls back to", 
     assert.ok(built >= before && built <= Date.now(), "the date of the build");
 });
 
+test("the primary color reaches the page as a literal, null when none is chosen", () => {
+    const chosen = createConfig({
+        workspace: WORKSPACE,
+        primaryColor: "#e4572e",
+    });
+    const none = createConfig({ workspace: WORKSPACE });
+
+    assert.equal(
+        JSON.parse(chosen.define.__RENDERIZR_PRIMARY_COLOR__),
+        "#e4572e",
+    );
+    assert.equal(JSON.parse(none.define.__RENDERIZR_PRIMARY_COLOR__), null);
+});
+
 test("a logo is embedded whole, but only the font's family name is", () => {
     const logo = { src: "data:image/png;base64,AAAA", alt: "Acme", href: null };
     const { define } = createConfig({

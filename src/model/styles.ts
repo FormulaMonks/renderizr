@@ -424,18 +424,65 @@ function explicitAttributes(
     scheme: ColorScheme,
     themes: Theme[],
 ): Partial<ElementStyle> {
-    const byTag = stylesByTag(
-        definitions(model, "elements", themes),
-        scheme,
+    return explicitOf(
+        model,
+        "elements",
         ELEMENT_ATTRIBUTES,
+        tags,
+        scheme,
+        themes,
+    ) as Partial<ElementStyle>;
+}
+
+function explicitOf(
+    model: WorkspaceModel,
+    kind: "elements" | "relationships",
+    attributes: readonly string[],
+    tags: string[],
+    scheme: ColorScheme,
+    themes: Theme[],
+): Record<string, unknown> {
+    const byTag = stylesByTag(
+        definitions(model, kind, themes),
+        scheme,
+        attributes,
     );
     const merged: Record<string, unknown> = {};
     for (const tag of tags) {
         const definition = byTag.get(tag);
-        if (definition) copyIfSpecified(definition, merged, ELEMENT_ATTRIBUTES);
+        if (definition) copyIfSpecified(definition, merged, attributes);
     }
-    return merged as Partial<ElementStyle>;
+    return merged;
 }
+
+/**
+ * The element style attributes the workspace's `tags` styles set
+ * explicitly, themes included, merged in tag order and with no defaults: the
+ * layer a Mermaid diagram puts between its own defaults and its source's
+ * styling (spec: Styling).
+ */
+export const explicitElementStyle = (
+    model: WorkspaceModel,
+    tags: string[],
+    scheme: ColorScheme = "Light",
+    themes: Theme[] = [],
+): Partial<ElementStyle> => explicitAttributes(model, tags, scheme, themes);
+
+/** `explicitElementStyle` for relationship styles. */
+export const explicitRelationshipStyle = (
+    model: WorkspaceModel,
+    tags: string[],
+    scheme: ColorScheme = "Light",
+    themes: Theme[] = [],
+): Partial<RelationshipStyle> =>
+    explicitOf(
+        model,
+        "relationships",
+        RELATIONSHIP_ATTRIBUTES,
+        tags,
+        scheme,
+        themes,
+    ) as Partial<RelationshipStyle>;
 
 /**
  * How an element drawn as a boundary is styled (spec 8, ported from
@@ -497,6 +544,25 @@ export function findGroupStyle(
     return resolveElementStyle(
         model,
         { type: "Group", tags: `Group,Group:${path}` },
+        [],
+        scheme,
+        themes,
+    );
+}
+
+/**
+ * How a group drawn from `tags` alone is styled, as `findGroupStyle` styles
+ * one from its path: a Mermaid subgraph takes `Group` and `Mermaid`.
+ */
+export function findTaggedGroupStyle(
+    model: WorkspaceModel,
+    tags: string[],
+    scheme: ColorScheme = "Light",
+    themes: Theme[] = [],
+): ElementStyle {
+    return resolveElementStyle(
+        model,
+        { type: "Group", tags: tags.join(",") },
         [],
         scheme,
         themes,

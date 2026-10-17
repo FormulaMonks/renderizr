@@ -115,6 +115,12 @@
         display: none;
     }
 
+    /* A label toggle with nothing to change on the view hides the same way,
+       over the buttons' own display (ADR 24). */
+    & button[hidden] {
+        display: none;
+    }
+
     /*
      * A toggle that is on reads as on, in either theme, and stays readable as
      * on while the pointer is over it — the plain hover rule above carries

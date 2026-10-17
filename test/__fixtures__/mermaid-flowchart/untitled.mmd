@@ -1,0 +1,8 @@
+---
+title: Returns
+---
+flowchart LR
+    request[Return request] --> check{In policy?}
+    check -->|yes| refund[(Refund)]
+    check -->|no| decline[Decline]
+    decline -.-> request

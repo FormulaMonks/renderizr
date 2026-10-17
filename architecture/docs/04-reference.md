@@ -33,7 +33,7 @@ Run every script from the repository root.
 | `pnpm dev` | Serves a workspace with Vite and hot reload, as [Local development](#local-development) shows |
 | `pnpm render <workspace> [options]` | Type-checks, then runs the production build. It takes the CLI's [options](02-usage.md#options) |
 | `pnpm preview` | Builds `architecture/workspace.json` and serves the output with `vite preview` |
-| `pnpm test` | `node --test` over `scripts/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own |
+| `pnpm test` | `node --test` over `scripts/*.test.js` and `scripts/mermaid/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own |
 | `pnpm test:coverage` | The test suite with V8 coverage |
 | `pnpm test:structurizr` | Runs edit mode's DSL pipeline against the Structurizr tools that `STRUCTURIZR_CLI` names, and skips itself when it is not set |
 | `pnpm typecheck` | Type-checks `src/` |
@@ -43,6 +43,7 @@ Run every script from the repository root.
 | `pnpm architecture:merge` | Writes `architecture/workspace.json` again from `architecture/workspace.dsl` with Structurizr's tools, the way a DSL session of edit mode writes it. CI fails when the committed workspace differs from its DSL |
 | `pnpm fixtures:acceptance` | Merges the acceptance fixture's DSL into its `workspace.json` with Structurizr's tools |
 | `pnpm fixtures:large` | Writes the large landscape fixture again from its generator |
+| `pnpm mermaid:parser` | Writes `scripts/mermaid/parser.js` again from Mermaid's source at the release `MERMAID_VERSION` pins, as [The Mermaid parser](#the-mermaid-parser) describes |
 | `pnpm hooks` | Installs the git hooks, once per clone |
 | `pnpm release:pr` | Opens or updates the release pull request with your own `gh` login, for maintainers |
 | `pnpm release:tag` | Tags a merged release and creates its GitHub Release, for maintainers |
@@ -81,6 +82,37 @@ Two behaviors come from Structurizr and stay as Structurizr has them:
 - **The id fallback.** `merge` carries each element's position over by its canonical name and falls back to its id. When a DSL change renames an element and shifts the ids of others, `merge` can hand the renamed element another element's position. Check the views after a rename.
 - **Unwatched includes.** Edit mode watches every file under the DSL's folder, except `workspace.json`, dot folders and `node_modules`. A file that `!include` pulls in from outside that folder goes unwatched, as in Structurizr Local: save a file inside the folder to run the tools again.
 
+## Mermaid diagram notices
+
+The build prints two kinds of notice about [Mermaid diagrams](02-usage.md#mermaid-diagrams), both on stderr, both naming the image view's key, and finishes either way. `pnpm dev` and edit mode print them to the terminal too.
+
+A diagram Renderizr can't draw prints its reason, and the page shows the same text in place of the canvas: `Mermaid diagram "<key>": <reason>.`
+
+| Reason | When |
+| --- | --- |
+| the image view carries no Mermaid source | A content field names the Mermaid server's `/svg/` or `/img/` path but holds nothing Renderizr can decode as text |
+| a parse error at line N: … | Mermaid's own grammar stops on the source. The line counts from the top of the `.mmd` file, frontmatter included, and the message says what the parser stopped after |
+| the content fields disagree | The image view fills more than one of `content`, `contentLight` and `contentDark`, and they hold different sources once CRLF becomes LF, or one holds a picture beside the Mermaid source |
+| an edge to a subgraph isn't something Renderizr draws yet | An edge starts or ends at a subgraph rather than at a node. A construct that carries meaning fails the whole diagram rather than draw it wrong |
+
+A diagram that draws but uses what Renderizr leaves out prints one warning that lists it, each entry once, nodes before links: `Image view "<key>": Renderizr supports only a subset of Mermaid styling; ignored: <entries>`.
+
+| Entry | What Renderizr does instead |
+| --- | --- |
+| `shape "<name>"` | Draws a rectangle in place of a stadium, subroutine, asymmetric, parallelogram, trapezoid or double circle node, or of any other `@{ shape }` name |
+| `invisible links` | Leaves each `~~~` link out of the drawing and the layout |
+| `link length` | Lays a longer link (`--->`) out as an ordinary one |
+| `Markdown strings` | Draws the text of a Markdown string without its emphasis |
+| `fa: icons` | Draws a label without its Font Awesome icons |
+
+## The Mermaid parser
+
+The build reads Mermaid source with `scripts/mermaid/parser.js`: Mermaid's own flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, cut loose from the rest of Mermaid and bundled into one ES module with Mermaid's MIT notice at the top. Only the build runs it; the page never carries it, and `mermaid` never enters Renderizr's dependencies.
+
+`pnpm mermaid:parser` writes the file again. It checks out Mermaid's source at the tag that `MERMAID_VERSION` in `scripts/mermaid/generate/index.js` pins, installs its bundling tools into a folder of its own under the system's temporary folder, and bundles the reader with the stand-ins in `scripts/mermaid/generate/`. Two runs at one pin write the same bytes on any machine. It needs `git`, `npm` and the network.
+
+Renovate raises the pin as a dependency update and never merges it on its own: run `pnpm mermaid:parser` on its branch, commit the parser it writes and check the Mermaid fixtures under `test/__fixtures__/` before it merges.
+
 ## Project layout
 
 | Path | What lives there |
@@ -96,6 +128,7 @@ Two behaviors come from Structurizr and stay as Structurizr has them:
 | `scripts/config.js` | The Vite configuration, shared with the dev server |
 | `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
 | `scripts/escapes.js` | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive |
+| `scripts/mermaid/` | Reading the Mermaid source an image view carries: decoding it, the generated parser and the plain model of each diagram the page draws |
 | `vite.config.ts` | The dev server only; the production build goes through `scripts/build.js` |
 | `src/` | The page that ships in the output, in TypeScript, bundled by Vite |
 | `src/model/` | The typed workspace model and style resolution, ported from Structurizr, and `resolveView` |

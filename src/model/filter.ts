@@ -71,8 +71,9 @@ export const relationshipPasses = (
 
 /**
  * Why the view under `key` cannot be drawn, or `undefined` when it can: a
- * filtered view whose base is itself filtered, or a dynamic view (or the
- * dynamic base of a filtered view) with an order that isn't an integer.
+ * Mermaid diagram the build couldn't read, a filtered view whose base is
+ * itself filtered, or a dynamic view (or the dynamic base of a filtered
+ * view) with an order that isn't an integer.
  * Checked by the build too, in `scripts/assets.js` (`validateWorkspace`),
  * with the same messages; `test/view-types.test.js` and
  * `test/animation.test.js` hold the two to them (spec 13).
@@ -83,6 +84,11 @@ export function findViewError(
 ): string | undefined {
     const view = model.findViewByKey(key);
     if (!view) return undefined;
+    // The build printed the same text when it read the diagram's source
+    // (`scripts/mermaid/warnings.js`, `diagramError`).
+    if (view.type === "Mermaid" && view.mermaid?.error) {
+        return `Mermaid diagram "${view.key}": ${view.mermaid.error}.`;
+    }
     if (view.type !== "Filtered") return findOrderError(model, view);
     const base = model.findViewByKey(view.baseViewKey);
     if (!base) return undefined;

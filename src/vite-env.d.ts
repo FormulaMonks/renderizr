@@ -25,6 +25,13 @@ declare const __RENDERIZR_VERSION__: string | null;
 declare const __RENDERIZR_BUILD_DATE__: string;
 
 /**
+ * The branding's primary color (`--primary-color`, then
+ * `renderizr.primaryColor`), or `null` when neither sets one: what a silent
+ * Mermaid source fills its nodes with, as a literal export can draw.
+ */
+declare const __RENDERIZR_PRIMARY_COLOR__: string | null;
+
+/**
  * Whether the engine writes its geometry report (spec 15.1). Set only by the
  * acceptance harness, through `RENDERIZR_ENGINE_REPORT=1`.
  */
