@@ -17,6 +17,7 @@
 import { CONTENT_FIELDS, decodeMermaid } from "./decode.js";
 import { readFlowchart } from "./flowchart.js";
 import { read } from "./parser.js";
+import { readPalette } from "./styling.js";
 import { diagramError, Ignored, NotDrawnYet } from "./warnings.js";
 
 /**
@@ -120,6 +121,9 @@ function readView(view, configuration, warnings) {
         };
     }
     const ignored = new Ignored();
+    const config = parsed.config ?? {};
+    // The config opens the source, so its entries come first.
+    const palette = readPalette(config, ignored);
     let model;
     try {
         model = readFlowchart(parsed.db, ignored);
@@ -133,7 +137,8 @@ function readView(view, configuration, warnings) {
     return {
         ...model,
         ...(parsed.title && { title: parsed.title }),
-        config: parsed.config ?? {},
+        config,
+        ...(palette && { palette }),
     };
 }
 

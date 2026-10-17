@@ -8,7 +8,11 @@
  * the diagram means throws `NotDrawnYet`, which fails the whole diagram.
  */
 
+import { checkCss, checkEdgeCss, NODE_CSS } from "./styling.js";
 import { NotDrawnYet } from "./warnings.js";
+
+/** An HTML tag other than a line break, which Mermaid reads anyway. */
+const HTML_TAG = /<(?!br\s*\/?>)\/?[a-z][^>]*>/i;
 
 /**
  * Mermaid's shape names, from the flowchart grammar and `@{ shape: … }`,
@@ -96,6 +100,10 @@ export function plainLabel(label) {
 
 /** A label, with what of it Renderizr leaves out added to `ignored`. */
 function labelOf(item, ignored) {
+    // Structurizr's `mermaid <viewKey>` export writes HTML into its labels,
+    // which draw as plain text lines.
+    if (HTML_TAG.test(String(item.label ?? item.title ?? "")))
+        ignored.add("htmlLabels");
     let label = plainLabel(item.label ?? item.title);
     if (/(^|\s)fa[bklrs]?:fa-[\w-]+/.test(label)) {
         ignored.add("fa: icons");
@@ -133,6 +141,7 @@ export function readFlowchart(db, ignored) {
     const nodes = [];
     for (const item of items) {
         const parent = item.parentId && { parent: item.parentId };
+        checkCss(item.cssStyles, NODE_CSS, ignored);
         if (item.isGroup) {
             const direction = DIRECTIONS[directions.get(item.id)];
             subgraphs.push({
@@ -171,6 +180,7 @@ export function readFlowchart(db, ignored) {
             continue;
         }
         if ((link.minlen ?? 1) > 1) ignored.add("link length");
+        checkEdgeCss(link.style, ignored);
         edges.push({
             id: String(index),
             source: link.start,
@@ -186,6 +196,8 @@ export function readFlowchart(db, ignored) {
         });
     }
 
+    for (const definition of db.getClasses().values())
+        checkCss(definition.styles, NODE_CSS, ignored);
     const classDefs = Object.fromEntries(
         [...db.getClasses()].map(([name, definition]) => [
             name,

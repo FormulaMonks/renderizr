@@ -5,6 +5,7 @@ import {
     isEditable,
     type LayoutChange,
     type ModelView,
+    mermaidFontFamily,
     storedCanvasOf,
     WorkspaceModel,
 } from "../../model";
@@ -259,7 +260,10 @@ export function mountEngine(
                         view.description,
                         __RENDERIZR_BUILD_DATE__,
                     ),
-                    text: textSetting(__RENDERIZR_FONT__),
+                    text: textSetting(
+                        __RENDERIZR_FONT__,
+                        mermaidFontFamily(view.mermaid),
+                    ),
                 });
                 return exportBlob(exported, format);
             },

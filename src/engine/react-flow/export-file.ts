@@ -52,9 +52,13 @@ function fontFaces(family: string | null): string {
     return rules.join("");
 }
 
-/** How the diagram's text is set in `font`, measured in the page. */
-export function textSetting(font: string | null): TextSetting {
-    const family = diagramFontFamily(font);
+/**
+ * How the diagram's text is set in `font`, after a Mermaid diagram's
+ * `source` family when it names one, measured in the page. Only the
+ * `--font` faces embed: a source's family is the reader's to have.
+ */
+export function textSetting(font: string | null, source?: string): TextSetting {
+    const family = diagramFontFamily(font, source);
     const context = document.createElement("canvas").getContext("2d");
     let { ascent, descent } = FALLBACK_METRICS;
     if (context) {

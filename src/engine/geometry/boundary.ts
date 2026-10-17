@@ -47,11 +47,16 @@ import {
 } from "./label";
 import type { Shape } from "./shapes/types";
 
-/** The width `text` takes at `fontSize`, bold or not, in model units. */
+/**
+ * The width `text` takes at `fontSize`, bold or not, in model units: in the
+ * diagram's font, or ahead of it in `family`, which only a Mermaid node's
+ * own `font-family` sets.
+ */
 export type MeasureText = (
     text: string,
     fontSize: number,
     bold: boolean,
+    family?: string,
 ) => number;
 
 /**

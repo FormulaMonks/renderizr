@@ -23,16 +23,29 @@ const PADDING = 15 * MERMAID_SCALE;
 /** The shapes whose box stays square, as Mermaid draws them. */
 const SQUARE: ReadonlySet<MermaidShape> = new Set(["Diamond", "Circle"]);
 
+/** The font a node's name draws in: bold unless its source says, and its own family, if any. */
+export type MermaidFont = { bold: boolean; family?: string };
+
+const NAME_FONT: MermaidFont = { bold: true };
+
+/** Whether a node's name draws bold under the `font-weight` its source sets, if any. */
+export const nameIsBold = (weight: string | undefined) =>
+    weight === undefined || /^(bold|bolder|[6-9]00)$/i.test(weight.trim());
+
 /** The label's own size: its widest line and its lines' height, as the name draws them. */
 export function mermaidLabelSize(
     label: string,
     fontSize: number,
     measure: MeasureText,
+    font: MermaidFont = NAME_FONT,
 ): Size {
     const size = fontSize * NAME_SCALE;
     const lines = label.split("\n");
     return {
-        width: Math.max(0, ...lines.map((line) => measure(line, size, true))),
+        width: Math.max(
+            0,
+            ...lines.map((line) => measure(line, size, font.bold, font.family)),
+        ),
         height: lines.length * size * LINE_HEIGHT,
     };
 }
@@ -50,8 +63,9 @@ export function mermaidNodeSize(
     label: string,
     fontSize: number,
     measure: MeasureText,
+    font: MermaidFont = NAME_FONT,
 ): Size {
-    const text = mermaidLabelSize(label, fontSize, measure);
+    const text = mermaidLabelSize(label, fontSize, measure, font);
     let width = text.width + 4 * PADDING;
     let height = text.height + 2 * PADDING;
     if (shape === "Diamond")

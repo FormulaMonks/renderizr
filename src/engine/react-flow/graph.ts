@@ -31,6 +31,8 @@ import {
     getMetadataForRelationship,
     type ImageContent,
     type LayoutMode,
+    type MermaidEdgeStyle,
+    type MermaidNodeStyle,
     mermaidEdgeStyle,
     mermaidGroupStyle,
     mermaidNodeStyle,
@@ -83,6 +85,7 @@ import {
     MERMAID_GROUP_PADDING,
     MERMAID_RANK_BONUS,
     mermaidNodeSize,
+    nameIsBold,
 } from "../geometry/mermaid";
 import {
     type RoutingElement,
@@ -154,6 +157,10 @@ export type ElementBox = {
     strokeWidth: number;
     color: string;
     fontSize: number;
+    /** A Mermaid node's own `font-family`, ahead of the diagram's. */
+    fontFamily?: string;
+    /** A Mermaid node's own `font-weight` for its name, bold otherwise. */
+    fontWeight?: string;
     border: string;
     /** Real alpha on fill and stroke, 0 to 1; text and icon stay opaque. */
     opacity: number;
@@ -258,6 +265,10 @@ export type EdgeLine = {
     /** The label's wrap width: the style's `width`. */
     labelWidth: number;
     color: string;
+    /** A Mermaid edge's label text color, when its source sets one; `color` otherwise. */
+    labelColor?: string;
+    /** A Mermaid edge's label backing, when its source sets one; the canvas otherwise. */
+    labelBackground?: string;
     /** In model units, 1 to 10. */
     thickness: number;
     style: LineStyle;
@@ -714,15 +725,18 @@ function drawView(
     for (const placed of view.elements) {
         if (boundaries.has(placed.id)) continue;
         const node = mermaid?.nodes.get(placed.id);
-        const style =
+        const style: MermaidNodeStyle =
             mermaid && node
                 ? mermaidNodeStyle(model, mermaid, node, colorScheme)
                 : findElementStyle(model, placed.element, colorScheme);
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
-        // A Mermaid node is as big as its label needs.
+        // A Mermaid node is as big as its label needs, in its own font.
         const { width, height } = node
-            ? mermaidNodeSize(node.shape, node.label, style.fontSize, measure)
+            ? mermaidNodeSize(node.shape, node.label, style.fontSize, measure, {
+                  bold: nameIsBold(style.fontWeight),
+                  family: style.fontFamily,
+              })
             : shapeSize(shape, style.width, style.height);
         const strokeWidth = style.strokeWidth ?? defaults.strokeWidth;
         const geometry = shapeGeometry(shape, width, height, strokeWidth);
@@ -759,6 +773,8 @@ function drawView(
             strokeWidth,
             color: style.color ?? defaults.color,
             fontSize: style.fontSize,
+            ...(style.fontFamily && { fontFamily: style.fontFamily }),
+            ...(style.fontWeight && { fontWeight: style.fontWeight }),
             border: style.border ?? "Solid",
             opacity: style.opacity / 100,
             icon: style.icon,
@@ -779,7 +795,12 @@ function drawView(
         view.boundaries.map((b) => [
             b.id,
             mermaid
-                ? mermaidGroupStyle(model, colorScheme)
+                ? mermaidGroupStyle(
+                      model,
+                      mermaid,
+                      mermaid.subgraphs.get(b.id),
+                      colorScheme,
+                  )
                 : boundaryStyle(model, b, colorScheme),
         ]),
     );
@@ -828,18 +849,19 @@ function drawView(
         const to = drawn.get(toId);
         if (!from || !to) continue;
         const line = mermaid?.edges.get(placed.id);
-        const style = line
-            ? mermaidEdgeStyle(model, line, colorScheme)
-            : findRelationshipStyle(
-                  model,
-                  response
-                      ? {
-                            ...relationship,
-                            tags: `${relationship.tags ?? ""},${RESPONSE_TAG}`,
-                        }
-                      : relationship,
-                  colorScheme,
-              );
+        const style: MermaidEdgeStyle =
+            mermaid && line
+                ? mermaidEdgeStyle(model, mermaid, line, colorScheme)
+                : findRelationshipStyle(
+                      model,
+                      response
+                          ? {
+                                ...relationship,
+                                tags: `${relationship.tags ?? ""},${RESPONSE_TAG}`,
+                            }
+                          : relationship,
+                      colorScheme,
+                  );
         // Only a dynamic view tells its own story about a relationship. The
         // descriptions toggle is for elements: an edge keeps its description.
         const description = style.description
@@ -885,6 +907,10 @@ function drawView(
             fontSize: style.fontSize,
             labelWidth: style.width,
             color: style.color,
+            ...(style.labelColor && { labelColor: style.labelColor }),
+            ...(style.labelBackground && {
+                labelBackground: style.labelBackground,
+            }),
             thickness: style.thickness,
             style: style.style,
             opacity: style.opacity / 100,
