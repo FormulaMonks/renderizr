@@ -1051,10 +1051,12 @@ test(
 /* ------------------------------------------------------ unsaved changes */
 
 /** The key of a view the drawer lists other than `key`. */
-const otherView = (page, key) =>
-    page.evaluate(
-        `[...document.querySelectorAll("li[data-viewkey]")].map((item) => item.dataset.viewkey).find((each) => each !== ${JSON.stringify(key)})`,
+const otherView = async (page, key) => {
+    const keys = await page.evaluate(
+        `[...document.querySelectorAll("li[data-viewkey]")].map((item) => item.dataset.viewkey)`,
     );
+    return keys.find((each) => each !== key);
+};
 
 test(
     "a view switch in editing warns that changes will be lost: Stay keeps them, and Discard and continue reverts them and opens the next view for reading",

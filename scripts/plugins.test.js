@@ -75,6 +75,17 @@ const artifactOf = (context) =>
             .source,
     );
 
+/** `html` with every script element gone, removed again until none is left. */
+function withoutScripts(html) {
+    let previous;
+    let current = html;
+    do {
+        previous = current;
+        current = current.replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, "");
+    } while (current !== previous);
+    return current;
+}
+
 /* -------------------------------------------------------- branding plugin */
 
 test("branding injects nothing when no font was embedded", () => {
@@ -235,7 +246,7 @@ test("markup-shaped strings inside the bundle are not scraped into the fragment"
     // Outside the module script the fragment carries exactly one stylesheet:
     // the bundle's own. The `@import` stays where it was, inert, inside a
     // string in the code.
-    const outsideCode = artifact.replace(/<script\b[\s\S]*?<\/script>/g, "");
+    const outsideCode = withoutScripts(artifact);
     assert.equal(
         (outsideCode.match(/<style>/g) ?? []).length,
         1,

@@ -109,12 +109,27 @@ function describeImage(buffer) {
     throw new Error("Unrecognized image format");
 }
 
+/**
+ * `svg` with every comment gone, removed again until none is left: removing
+ * one can join the halves of another.
+ */
+function withoutComments(svg) {
+    let previous;
+    let current = svg;
+    do {
+        previous = current;
+        current = current.replace(/<!--[\s\S]*?-->/g, "");
+    } while (current !== previous);
+    return current;
+}
+
 /** Editor cruft is where the savings are; path data is left alone. */
 const minifySvg = (svg) =>
-    svg
-        .replace(/<\?xml[\s\S]*?\?>/g, "")
-        .replace(/<!DOCTYPE[\s\S]*?>/gi, "")
-        .replace(/<!--[\s\S]*?-->/g, "")
+    withoutComments(
+        svg
+            .replace(/<\?xml[\s\S]*?\?>/g, "")
+            .replace(/<!DOCTYPE[\s\S]*?>/gi, ""),
+    )
         .replace(/<metadata[\s\S]*?<\/metadata>/gi, "")
         .replace(/<(desc|title)[\s\S]*?<\/\1>/gi, "")
         .replace(/\s(sodipodi|inkscape|rdf|cc|dc):[\w-]+\s*=\s*"[^"]*"/gi, "")
