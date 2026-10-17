@@ -3,7 +3,7 @@
  * `mermaid` model the page draws as a Mermaid diagram (ADR 24): the source
  * comes from the content fields under `mermaid.url`, Mermaid's own parser
  * reads it, and `flowchart.js` turns the result into nodes, edges and
- * subgraphs, or `erd.js` into entities and relationships. `loadWorkspace` runs it, so builds, `pnpm dev` and edit mode
+ * subgraphs, `erd.js` into entities and relationships, or `sequence.js` into participants and the sequence script. `loadWorkspace` runs it, so builds, `pnpm dev` and edit mode
  * all parse the same way.
  *
  * The image view stays where it is, so the drawer, `image <element>` links
@@ -18,6 +18,7 @@ import { CONTENT_FIELDS, decodeMermaid } from "./decode.js";
 import { readErd } from "./erd.js";
 import { readFlowchart } from "./flowchart.js";
 import { read } from "./parser.js";
+import { readSequence } from "./sequence.js";
 import { readPalette } from "./styling.js";
 import { diagramError, Ignored, NotDrawnYet } from "./warnings.js";
 
@@ -25,14 +26,22 @@ import { diagramError, Ignored, NotDrawnYet } from "./warnings.js";
  * The Mermaid types Renderizr draws, by the keyword their source opens with.
  * ERDs and sequence diagrams join as their slices land (spec: Build order).
  */
-const DRAWN = /^\s*(flowchart|graph|erDiagram)\b/;
+const DRAWN = /^\s*(flowchart|graph|erDiagram|sequenceDiagram)\b/;
 
 /** The model kind of a source Renderizr draws, by its opening keyword. */
-const kindOf = (source) =>
-    /^\s*erDiagram\b/.test(opening(source)) ? "er" : "flowchart";
+const kindOf = (source) => {
+    const keyword = opening(source);
+    if (/^\s*erDiagram\b/.test(keyword)) return "er";
+    if (/^\s*sequenceDiagram\b/.test(keyword)) return "sequence";
+    return "flowchart";
+};
 
-/** What reads each kind's parsed `db` into the page's model. */
-const READERS = { flowchart: readFlowchart, er: readErd };
+/** What reads each kind's parsed `db` and config into the page's model. */
+const READERS = {
+    flowchart: (db, _config, ignored) => readFlowchart(db, ignored),
+    er: (db, _config, ignored) => readErd(db, ignored),
+    sequence: readSequence,
+};
 
 /** Mermaid's YAML frontmatter, which the parser counts no lines of. */
 const FRONTMATTER = /^\s*---\n[\s\S]*?\n---\s*\n/;
@@ -130,11 +139,14 @@ function readView(view, configuration, warnings) {
     }
     const ignored = new Ignored();
     const config = parsed.config ?? {};
-    // The config opens the source, so its entries come first.
-    const palette = readPalette(config, ignored);
+    // The config opens the source, so its entries come first. A sequence
+    // diagram's palette and its warnings are its own (spec: Sequence
+    // diagrams), so it draws the silent look until they land.
+    const palette =
+        kind === "sequence" ? undefined : readPalette(config, ignored);
     let model;
     try {
-        model = READERS[kind](parsed.db, ignored);
+        model = READERS[kind](parsed.db, config, ignored);
     } catch (error) {
         if (error instanceof NotDrawnYet) return { kind, error: error.message };
         throw error;

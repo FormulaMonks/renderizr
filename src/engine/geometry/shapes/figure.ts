@@ -59,13 +59,21 @@ const ROBOT_RADIUS = 30;
 /** The Robot's ear corner radius (markup default). */
 const EAR_RADIUS = 10;
 
-/** Both arms, at a fifth of the way in, from two thirds of the way down. */
-const arms = (width: number, height: number) =>
+/**
+ * Both arms, at a fifth of the way in, from two thirds of the way down to
+ * the body's outline. In a small box the body's bottom corners, of radius
+ * `radius`, curve in past the arms, so each arm stops where it meets the
+ * curve; at upstream's sizes it reaches the bottom edge.
+ */
+const arms = (width: number, height: number, radius: number) =>
     [width / 5, (4 * width) / 5]
-        .map(
-            (x) =>
-                `M ${num(x)} ${num(height / 1.5)} L ${num(x)} ${num(height)}`,
-        )
+        .map((x) => {
+            const inset = Math.min(x, width - x);
+            const into = Math.max(0, radius - inset);
+            const bottom =
+                height - radius + Math.sqrt(radius * radius - into * into);
+            return `M ${num(x)} ${num(height / 1.5)} L ${num(x)} ${num(Math.min(height, bottom))}`;
+        })
         .join(" ");
 
 /**
@@ -127,7 +135,7 @@ export const person: ShapeBuilder = (width, height) => {
                 paint: "body",
             },
             { d: pathOf(ellipse(center, r, r)), paint: "body" },
-            { d: arms(width, height), paint: "rule" },
+            { d: arms(width, height, radius), paint: "rule" },
         ],
         segments,
         content: rect(0, top, width, height - top),
@@ -287,7 +295,7 @@ export const robot: ShapeBuilder = (width, height) => {
                 d: pathOf(roundedRect(headX, headY, side, side, headRadius)),
                 paint: "body",
             },
-            { d: arms(width, height), paint: "rule" },
+            { d: arms(width, height, bodyRadius), paint: "rule" },
         ],
         segments,
         content: rect(0, top, width, height - top),

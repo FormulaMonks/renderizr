@@ -18,6 +18,7 @@ import type {
     MermaidErd,
     MermaidFlowchart,
     MermaidNode,
+    MermaidSequence,
     MermaidSource,
     MermaidSubgraph,
     ModelElement,
@@ -99,12 +100,13 @@ export type InertToggles = { descriptions: boolean; technologies: boolean };
 /**
  * The label toggles each Mermaid kind hides. A flowchart's labels are its
  * source's text alone, so both hide on one; an ERD's descriptions toggle
- * shows and hides its attributes' comments, and nothing on it is a
- * technology.
+ * shows and hides its attributes' comments and a sequence diagram's its
+ * notes, and nothing on either is a technology.
  */
 const INERT_TOGGLES: Record<string, InertToggles> = {
     flowchart: { descriptions: true, technologies: true },
     er: { descriptions: false, technologies: true },
+    sequence: { descriptions: false, technologies: true },
 };
 
 /** Every toggle changes something on a C4 view. */
@@ -145,7 +147,10 @@ export type MermaidResolution = {
     relationships: { id: string; relationship: ModelRelationship }[];
     boundaries: ResolvedBoundary[];
     automaticLayout: AutomaticLayoutSettings;
-    mermaid: ResolvedMermaid;
+    /** A flowchart's: what its nodes, edges and subgraphs came from. */
+    mermaid?: ResolvedMermaid;
+    /** A sequence diagram's sequence script (`resolveSequence`). */
+    sequence?: MermaidSequence;
 };
 
 /**
@@ -157,6 +162,8 @@ export function resolveMermaid(view: ModelView): MermaidResolution | undefined {
     const diagram = view.mermaid;
     if (!diagram || diagram.error !== undefined) return undefined;
     if (diagram.kind === "er") return resolveErd(diagram);
+    // A sequence diagram resolves on its own (`resolveSequence`).
+    if (diagram.kind === "sequence") return undefined;
 
     const nodes = new Map<string, MermaidNode>();
     const elements = diagram.nodes.map((node) => {
