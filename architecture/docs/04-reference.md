@@ -103,6 +103,7 @@ A diagram that draws but uses what Renderizr leaves out prints one warning that 
 | Entry | What Renderizr does instead |
 | --- | --- |
 | `theme "<name>"` | Draws Mermaid's `default` theme in place of a theme Mermaid doesn't know |
+| `theme colors` | Draws the silent look when Mermaid's theme code can't read a theme variable's color, such as `#12345` |
 | A theme variable, such as `mainBkg` | Derives the palette without a theme variable that [Styles](02-usage.md#styles) doesn't list, or on a sequence diagram that [Sequence diagrams](02-usage.md#sequence-diagrams) doesn't list |
 | `look` | Draws Mermaid's `classic` look in place of `handDrawn` or `neo` |
 | `htmlLabels` | Draws every label as plain text lines, whatever `htmlLabels` says; also named for a label that holds HTML, as Structurizr's `mermaid <viewKey>` writes it |

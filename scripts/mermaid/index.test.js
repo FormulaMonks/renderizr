@@ -120,6 +120,38 @@ test("every filled content field must hold the same source once CRLF becomes LF"
     }
 });
 
+test("a source with CRLF frontmatter still draws as the type it opens", () => {
+    const { mermaid } = readOne(
+        "---\r\ntitle: Orders\r\n---\r\nflowchart LR\r\n  A --> B\r\n",
+    );
+    assert.equal(mermaid?.kind, "flowchart");
+    assert.equal(mermaid.error, undefined);
+    assert.equal(mermaid.title, "Orders");
+});
+
+test("a drawn source in any content field makes the fields disagree with another type, whatever their order", () => {
+    const flowchart = "flowchart LR\n  A --> B\n";
+    const pie = 'pie\n  "A" : 1\n';
+    for (const [content, other] of [
+        [pie, flowchart],
+        [flowchart, pie],
+    ]) {
+        const { mermaid } = readOne(content, {
+            contentDark: encodeMermaid(other),
+        });
+        assert.equal(mermaid?.error, "the content fields disagree");
+    }
+});
+
+test("theme colors Mermaid's theme code can't read fall back to the silent look and warn", () => {
+    const { mermaid, notices } = readOne(
+        `%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#12345"}}}%%\nflowchart LR\n  A --> B\n`,
+    );
+    assert.equal(mermaid.error, undefined);
+    assert.equal(mermaid.palette, undefined);
+    assert.deepEqual(notices, [ignoredWarning("flow", ["theme colors"])]);
+});
+
 /* ------------------------------------------------------------ parse errors */
 
 test("a parse error fails the diagram with the line and no Jison noise", () => {

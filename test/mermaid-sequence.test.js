@@ -783,6 +783,24 @@ test("the source's fontSize scales every sequence text from Mermaid's 16 px", ()
     assert.equal(graph.edges[0].fontSize, 30);
 });
 
+test("the source's fontSize replaces the workspace's font sizes", () => {
+    const json = mermaidWorkspace([
+        mermaidView(
+            "seq",
+            `${init({ themeVariables: { fontSize: "24px" } })}sequenceDiagram\n  A->>B: hi\n`,
+        ),
+    ]);
+    json.views.configuration.styles = {
+        elements: [{ tag: "Mermaid", fontSize: 20 }],
+        relationships: [{ tag: "Mermaid", fontSize: 40 }],
+    };
+    readMermaidDiagrams(json);
+    const graph = graphOf(new WorkspaceModel(json));
+    const a = graph.elements.find((e) => e.id === "mermaid:A");
+    assert.equal(a.fontSize, 21);
+    assert.equal(graph.edges[0].fontSize, 30);
+});
+
 test("the fixture draws one source themed, in redux-color and silent, in both schemes", () => {
     const model = new WorkspaceModel(FIXTURE);
     const fill = (graph, id) =>

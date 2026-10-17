@@ -133,8 +133,16 @@ export const sequenceOnCanvas = (
     palette !== undefined && (palette.dark || scheme === "Light");
 
 /** `size` scaled by the source's `fontSize` over Mermaid's 16 px. */
-const scaled = (size: number, palette: MermaidSequencePalette | undefined) =>
-    palette?.fontSize === undefined ? size : (size * palette.fontSize) / 16;
+/**
+ * A text size: `base`, Renderizr's own size for that text, scaled by the
+ * source's `fontSize` from Mermaid's 16 px when the source sets one, which
+ * replaces the workspace's size; `size` otherwise.
+ */
+const scaled = (
+    size: number,
+    base: number,
+    palette: MermaidSequencePalette | undefined,
+) => (palette?.fontSize === undefined ? size : (base * palette.fontSize) / 16);
 
 /**
  * A participant's style: its shape by type, the primary color fill, then
@@ -173,7 +181,7 @@ export function participantStyle(
         style.background = own?.background ?? colors.actorBkg;
         style.stroke = own?.stroke ?? colors.actorBorder;
         style.color = colors.actorTextColor;
-        style.fontSize = scaled(style.fontSize, palette);
+        style.fontSize = scaled(style.fontSize, PARTICIPANT_FONT_SIZE, palette);
     }
     return {
         ...style,
@@ -204,7 +212,7 @@ export function messageStyle(
         style.color = palette.colors.signalColor;
         style.labelColor = palette.colors.signalTextColor;
     }
-    style.fontSize = scaled(style.fontSize, palette);
+    style.fontSize = scaled(style.fontSize, SEQUENCE_FONT_SIZE, palette);
     const line = message.line === "dotted" ? "Dotted" : "Solid";
     return {
         ...style,

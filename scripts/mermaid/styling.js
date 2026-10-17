@@ -143,11 +143,12 @@ const COLOR_THEMES = new Set(["redux-color", "redux-dark-color"]);
  * sets; `undefined` for a silent source, which sets no `theme` and no
  * `themeVariables`. Adds to `ignored` what of the config Renderizr leaves
  * out: an unknown theme, theme variables outside the list, `look`,
- * `htmlLabels`, `layout: elk` and every `elk` key.
+ * `htmlLabels`, `layout: elk`, every `elk` key, and theme colors Mermaid's
+ * theme code can't read, which leave the source silent.
  */
 function readTheme(config, honoredList, ignored) {
     const { theme, themeVariables } = config;
-    const named = typeof theme === "string" && theme in themes;
+    const named = typeof theme === "string" && Object.hasOwn(themes, theme);
     if (theme !== undefined && !named) ignored.add(`theme "${theme}"`);
     const set =
         themeVariables && typeof themeVariables === "object"
@@ -171,7 +172,15 @@ function readTheme(config, honoredList, ignored) {
 
     if (theme === undefined && themeVariables === undefined) return undefined;
     const name = named ? theme : DEFAULT_THEME;
-    const v = themes[name].getThemeVariables(honored);
+    let v;
+    try {
+        v = themes[name].getThemeVariables(honored);
+    } catch {
+        // A color Mermaid's theme code can't read is cosmetic: the source
+        // draws the silent look and warns.
+        ignored.add("theme colors");
+        return undefined;
+    }
     const fontSize = pixels(honored.fontSize);
     const fontFamily =
         typeof honored.fontFamily === "string" && honored.fontFamily.trim()

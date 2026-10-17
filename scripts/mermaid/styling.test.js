@@ -190,3 +190,15 @@ test("a curve on a flowchart is honored, with no warning", () => {
         assert.deepEqual(notices, [], curve);
     }
 });
+
+test("a theme named after an inherited property is an unknown theme", () => {
+    for (const theme of ["constructor", "toString"]) {
+        const ignored = new Ignored();
+        const palette = readPalette({ theme }, ignored);
+        assert.ok(palette, theme);
+        assert.equal(
+            ignored.warning("flow"),
+            ignoredWarning("flow", [`theme "${theme}"`]),
+        );
+    }
+});

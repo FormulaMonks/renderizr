@@ -69,21 +69,27 @@ function sourceOf(view, mermaidUrl) {
     const filled = CONTENT_FIELDS.filter(
         (field) => typeof view[field] === "string" && view[field].trim(),
     );
-    const decoded = filled.map((field) =>
-        decodeMermaid(view[field], mermaidUrl),
-    );
+    // CRLF becomes LF first, so the frontmatter reads the same either way.
+    const decoded = filled.map((field) => {
+        const value = decodeMermaid(view[field], mermaidUrl);
+        return typeof value === "string"
+            ? value.replace(/\r\n?/g, "\n")
+            : value;
+    });
     if (decoded.every((value) => value === undefined)) return undefined;
     const sources = decoded.filter((value) => typeof value === "string");
-    if (sources.length && !DRAWN.test(opening(sources[0]))) return undefined;
-    const kind = sources.length ? kindOf(sources[0]) : undefined;
+    // The source Renderizr draws may sit in any field, so the fields' order
+    // never decides whether the view draws.
+    const drawn = sources.find((source) => DRAWN.test(opening(source)));
+    if (sources.length && !drawn) return undefined;
+    const kind = drawn ? kindOf(drawn) : undefined;
     if (decoded.includes(undefined))
         return { kind, error: "the content fields disagree" };
     if (decoded.includes(null))
         return { kind, error: "the image view carries no Mermaid source" };
-    const normalized = sources.map((source) => source.replace(/\r\n?/g, "\n"));
-    if (normalized.some((source) => source !== normalized[0]))
+    if (sources.some((source) => source !== drawn))
         return { kind, error: "the content fields disagree" };
-    return { kind, source: normalized[0] };
+    return { kind, source: drawn };
 }
 
 /**
