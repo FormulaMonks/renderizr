@@ -1,0 +1,39 @@
+erDiagram
+    direction LR
+    CUSTOMER ||--o{ ORDER : places
+    CUSTOMER }|..|{ DELIVERY-ADDRESS : uses
+    ORDER ||--|{ LINE-ITEM : contains
+    PRODUCT ||--o{ LINE-ITEM : "ordered in"
+    CATEGORY |o--o{ PRODUCT : groups
+    CUSTOMER["Customer"] {
+        string id PK
+        string name
+        string email UK "Login and receipts"
+        date createdAt
+    }
+    ORDER["Order"] {
+        int orderNumber PK
+        string customerId FK "Who placed it"
+        date placedAt
+        string status "draft, paid, shipped"
+        decimal total
+    }
+    LINE-ITEM["Line item"] {
+        int orderNumber PK, FK
+        string productCode PK, FK
+        int quantity
+        decimal price "Price when ordered"
+    }
+    PRODUCT["Product"] {
+        string code PK
+        string name
+        string categoryId FK
+        decimal price
+        string description "Shown on the product page"
+    }
+    DELIVERY-ADDRESS["Delivery address"] {
+        string street
+        string city
+        string postcode
+    }
+    CATEGORY["Category"]

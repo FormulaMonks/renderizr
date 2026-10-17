@@ -43,6 +43,8 @@ export const THEME_VARIABLES = new Set([
     "clusterBorder",
     "attributeBackgroundColorOdd",
     "attributeBackgroundColorEven",
+    "rowOdd",
+    "rowEven",
     "fontSize",
     "fontFamily",
     // Mermaid's own switch between its light and dark derivations.
@@ -129,6 +131,10 @@ export function readPalette(config, ignored) {
     const name = named ? theme : DEFAULT_THEME;
     const v = themes[name].getThemeVariables(honored);
     const fontSize = pixels(honored.fontSize);
+    // An ERD's rows take a tint of the entity's fill unless the source sets
+    // their colors: `rowOdd` and `rowEven`, or their older names.
+    const odd = honored.rowOdd ?? honored.attributeBackgroundColorOdd;
+    const even = honored.rowEven ?? honored.attributeBackgroundColorEven;
     const fontFamily =
         typeof honored.fontFamily === "string" && honored.fontFamily.trim()
             ? honored.fontFamily.trim()
@@ -152,10 +158,12 @@ export function readPalette(config, ignored) {
             stroke: v.clusterBorder,
             color: v.titleColor,
         },
-        rows: {
-            odd: v.attributeBackgroundColorOdd,
-            even: v.attributeBackgroundColorEven,
-        },
+        ...((odd !== undefined || even !== undefined) && {
+            rows: {
+                ...(odd !== undefined && { odd: String(odd) }),
+                ...(even !== undefined && { even: String(even) }),
+            },
+        }),
         ...(fontSize !== undefined && { fontSize }),
         ...(fontFamily !== undefined && { fontFamily }),
     };

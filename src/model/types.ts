@@ -210,8 +210,11 @@ export type MermaidEdge = {
     source: string;
     target: string;
     label: string;
-    /** `-->` is normal, `-.->` dotted and `==>` thick. */
-    line: "normal" | "dotted" | "thick";
+    /**
+     * `-->` is normal, `-.->` dotted and `==>` thick; an ERD's
+     * non-identifying relationship is dashed.
+     */
+    line: "normal" | "dotted" | "thick" | "dashed";
     start: MermaidEnd;
     end: MermaidEnd;
     /** Its `linkStyle` declarations, as written. */
@@ -240,6 +243,7 @@ export type MermaidConfig = {
         curve?: string;
         [key: string]: unknown;
     };
+    er?: { nodeSpacing?: number; rankSpacing?: number; [key: string]: unknown };
     [key: string]: unknown;
 };
 
@@ -254,8 +258,8 @@ export type MermaidPalette = {
     node: { background: string; stroke: string; color: string };
     edge: { color: string; labelColor: string; labelBackground: string };
     group: { background: string; stroke: string; color: string };
-    /** An ERD's attribute rows. */
-    rows: { odd: string; even: string };
+    /** An ERD's attribute rows, when the source sets their colors. */
+    rows?: { odd?: string; even?: string };
     /** The source's `fontSize`, in Mermaid's px, when it sets one. */
     fontSize?: number;
     /** The source's `fontFamily`, when it sets one. */
@@ -279,8 +283,56 @@ export type MermaidFlowchart = {
     error?: undefined;
 };
 
+/** One row of an ERD entity, in Mermaid's column order. */
+export type MermaidAttribute = {
+    type: string;
+    name: string;
+    /** `PK`, `FK` and `UK`, as written. */
+    keys: string[];
+    comment: string;
+};
+
+/** An entity of a Mermaid ERD, its name as written, alias first. */
+export type MermaidEntity = {
+    id: string;
+    label: string;
+    attributes: MermaidAttribute[];
+    classes: string[];
+    styles: string[];
+};
+
+/** A relationship of a Mermaid ERD, from its first entity to its second. */
+export type MermaidRelationship = {
+    /** Its index among the source's relationships. */
+    id: string;
+    source: string;
+    target: string;
+    label: string;
+    /** Identifying draws solid, non-identifying dashed. */
+    identifying: boolean;
+    /** The End markers its cardinalities draw as. */
+    start: MermaidEnd;
+    end: MermaidEnd;
+};
+
+/** The plain model of a Mermaid ERD the build parsed (spec: ERD entities). */
+export type MermaidErd = {
+    kind: "er";
+    direction: MermaidDirection;
+    entities: MermaidEntity[];
+    relationships: MermaidRelationship[];
+    classDefs: Record<string, string[]>;
+    title?: string;
+    config: MermaidConfig;
+    palette?: MermaidPalette;
+    error?: undefined;
+};
+
 /** A Mermaid diagram the build couldn't read, with the reason the page shows. */
 export type MermaidFailure = { kind: string; error: string };
 
+/** A Mermaid diagram the build could read, of any kind Renderizr draws. */
+export type MermaidSource = MermaidFlowchart | MermaidErd;
+
 /** What the build gives an image view that carries Mermaid source. */
-export type MermaidDiagram = MermaidFlowchart | MermaidFailure;
+export type MermaidDiagram = MermaidSource | MermaidFailure;

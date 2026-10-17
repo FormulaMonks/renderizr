@@ -77,6 +77,7 @@ import type {
     SelectionState,
 } from "../contract";
 import type { TextBlock } from "../geometry/boundary";
+import type { EntityLayout } from "../geometry/entity";
 import { boundsOf } from "../geometry/bounds";
 import { labelPositionAt, nearestSide } from "../geometry/edge-editing";
 import {
@@ -725,6 +726,142 @@ function ElementLabel({
     );
 }
 
+/* ---------------- ERD entities */
+
+/*
+ * An ERD entity as the island draws it (spec: ERD entities): the rows and
+ * text `layOutEntity` placed, over the box's own fill and border, and the
+ * round toggle at its bottom center. Export draws the same layout without
+ * the toggle (`export-svg.ts`).
+ */
+
+/** Flips one entity, by its element id; the canvas provides it. */
+const EntityToggle = createContext<(id: string) => void>(() => {});
+
+/** The focus key a toggle goes by in the canvas's Tab order. */
+const toggleFocusKey = (id: string) => `toggle:${id}`;
+
+type EntityBodyProps = {
+    id: string;
+    name: string;
+    entity: EntityLayout;
+    /** The box's text color, which the toggle takes. */
+    color: string;
+    /** The entity's own `font-family`, ahead of the diagram's. */
+    fontFamily?: string;
+};
+
+/** The plus or minus inside the toggle, in a 16 unit box. */
+const PLUS = "M4 8h8M8 4v8";
+const MINUS = "M4 8h8";
+
+function EntityBody({ id, name, entity, color, fontFamily }: EntityBodyProps) {
+    const toggle = useContext(EntityToggle);
+    const action = entity.collapsed ? "Expand" : "Collapse";
+    return (
+        <div
+            data-entity=""
+            data-collapsed={entity.collapsed ? "" : undefined}
+            style={{
+                position: "absolute",
+                inset: 0,
+                fontFamily: fontFamily
+                    ? `${fontFamily}, var(--diagram-font)`
+                    : undefined,
+            }}
+        >
+            {entity.rows.map((row) => (
+                <div
+                    key={row.y}
+                    data-entity-row=""
+                    style={{
+                        position: "absolute",
+                        left: row.x,
+                        top: row.y,
+                        width: row.width,
+                        height: row.height,
+                        background: row.fill,
+                        boxShadow: `inset 0 1px 0 ${row.rule}`,
+                    }}
+                />
+            ))}
+            {entity.texts.map((text) => (
+                <div
+                    key={`${text.part}:${text.y}:${text.x}`}
+                    data-entity-text={text.part}
+                    style={{
+                        position: "absolute",
+                        left: text.x,
+                        top: text.y,
+                        width: text.width,
+                        height: text.fontSize * LINE_HEIGHT,
+                        fontSize: text.fontSize,
+                        lineHeight: LINE_HEIGHT,
+                        fontWeight: text.bold ? "bold" : "normal",
+                        fontStyle: text.italic ? "italic" : undefined,
+                        color: text.color,
+                        opacity: text.opacity < 1 ? text.opacity : undefined,
+                        textAlign: text.align === "middle" ? "center" : "left",
+                        whiteSpace: "pre",
+                        overflow: "hidden",
+                    }}
+                >
+                    {text.text}
+                </div>
+            ))}
+            {entity.toggle && (
+                // Always the last child in both states, so the button stays
+                // the same element, and keeps focus, as the entity flips.
+                <button
+                    type="button"
+                    className={`nodrag nopan ${styles.toggle}`}
+                    tabIndex={-1}
+                    data-focus-item={toggleFocusKey(id)}
+                    data-entity-toggle=""
+                    aria-expanded={!entity.collapsed}
+                    aria-label={`${action} ${name}`}
+                    title={`${action} ${name}`}
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        toggle(id);
+                    }}
+                    style={{
+                        position: "absolute",
+                        left: entity.toggle.x - entity.toggle.size / 2,
+                        top: entity.toggle.y - entity.toggle.size / 2,
+                        width: entity.toggle.size,
+                        height: entity.toggle.size,
+                        padding: 0,
+                        display: "grid",
+                        placeItems: "center",
+                        border: "1.5px solid currentColor",
+                        borderRadius: "50%",
+                        background: "transparent",
+                        color,
+                        cursor: "pointer",
+                        pointerEvents: "all",
+                    }}
+                >
+                    <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                    >
+                        <path
+                            d={entity.collapsed ? PLUS : MINUS}
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                    </svg>
+                </button>
+            )}
+        </div>
+    );
+}
+
 /**
  * One element: its shape's parts in SVG behind the HTML label template, each
  * painted by its role. Opacity is real alpha on the parts' fill and stroke,
@@ -778,12 +915,22 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                     ))}
                 </g>
             </svg>
-            {/* A new name, metadata or icon is a new label: its fitting
-                starts over from the icon drawn. */}
-            <ElementLabel
-                key={[data.name, data.metadata, data.icon].join("\n")}
-                {...data}
-            />
+            {data.entity ? (
+                <EntityBody
+                    id={data.id}
+                    name={data.name}
+                    entity={data.entity}
+                    color={data.color}
+                    fontFamily={data.fontFamily}
+                />
+            ) : (
+                // A new name, metadata or icon is a new label: its fitting
+                // starts over from the icon drawn.
+                <ElementLabel
+                    key={[data.name, data.metadata, data.icon].join("\n")}
+                    {...data}
+                />
+            )}
             {data.instances && (
                 <TextLines
                     block={data.instances}
@@ -2005,7 +2152,11 @@ function Canvas({
         () => canvasMeasure(document, family),
         [family, fontsLoaded],
     );
-    const { key: viewKey, scheme, labels, step } = state;
+    const { key: viewKey, scheme, labels: stored, step } = state;
+    const { labels, toggleEntity, toggled } = useEntityOverrides(
+        viewKey,
+        stored,
+    );
     // Compiled out of builds, which never edit (ADR 15).
     const edited = __RENDERIZR_EDIT_MODE__
         ? state.layouts.get(viewKey)
@@ -2139,6 +2290,33 @@ function Canvas({
 
     const flow = useReactFlow();
     const wrapper = useRef<HTMLDivElement>(null);
+    /** The toggle to hand focus back to once the flipped entity is drawn. */
+    const refocus = useRef<string | null>(null);
+    /**
+     * Every expand or collapse refits the whole diagram once Dagre has run
+     * again, with no animation (spec: ERD entities), and focus stays on the
+     * toggle that did it.
+     */
+    const flipEntity = useCallback(
+        (id: string) => {
+            const active = document.activeElement as HTMLElement | null;
+            refocus.current = active?.dataset?.focusItem ?? null;
+            moved.current = false;
+            toggleEntity(id);
+        },
+        [toggleEntity],
+    );
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a flip draws a new graph, which is when the toggle is back
+    useEffect(() => {
+        const item = refocus.current;
+        if (!item) return;
+        refocus.current = null;
+        const button = wrapper.current?.querySelector<HTMLElement>(
+            `[data-focus-item="${CSS.escape(item)}"]`,
+        );
+        if (button && document.activeElement !== button)
+            button.focus({ preventScroll: true });
+    }, [graph, toggled]);
     const [size, setSize] = useState({ width: 0, height: 0 });
     /** The key of the last view fully painted; `data-ready` is true only for it. */
     const [readyKey, setReadyKey] = useState<string | null>(null);
@@ -2564,10 +2742,23 @@ function Canvas({
         }
 
         const item = (event.target as HTMLElement).dataset?.focusItem;
-        const activation = item ? focusable.get(item)?.activation : undefined;
+        const focused = item ? focusable.get(item) : undefined;
+        const activation = focused?.activation;
         // In editing only Enter activates: Space pans (spec 10.3, 17.2).
         const activates =
             event.key === "Enter" || (!editable && event.key === " ");
+        // An entity's toggle flips it, by Enter alone in edit mode, which
+        // keeps Space for panning (spec: ERD entities).
+        const editing = __RENDERIZR_EDIT_MODE__;
+        if (
+            focused?.type === "toggle" &&
+            (event.key === "Enter" || event.key === " ")
+        ) {
+            // The button would click itself; the canvas says what flips it.
+            event.preventDefault();
+            if (event.key === "Enter" || !editing) flipEntity(focused.id);
+            return;
+        }
         if (activation && activates) {
             event.preventDefault();
             const box = (event.target as HTMLElement).getBoundingClientRect();
@@ -2902,84 +3093,150 @@ function Canvas({
             }
         >
             <Activate.Provider value={onActivate}>
-                <Editing.Provider value={editable}>
-                    <CanvasBackground.Provider
-                        value={graph?.background ?? "#ffffff"}
-                    >
-                        {graph?.error ? (
-                            <ViewError graph={graph} />
-                        ) : (
-                            <ReactFlow
-                                nodes={nodes}
-                                edges={edges}
-                                nodeTypes={nodeTypes}
-                                edgeTypes={edgeTypes}
-                                nodeOrigin={nodeOrigin}
-                                connectionMode={ConnectionMode.Loose}
-                                nodesDraggable={editable}
-                                onNodesChange={
-                                    editable ? onNodesChange : undefined
-                                }
-                                nodesConnectable={false}
-                                nodesFocusable={false}
-                                edgesFocusable={false}
-                                // In editing a plain drag on the canvas or a
-                                // boundary draws a marquee, and Space, the
-                                // middle or the right button pans (spec 10.1).
-                                // React Flow's own selection key would turn
-                                // a Shift-click into a marquee.
-                                elementsSelectable={editable}
-                                selectionOnDrag={editable}
-                                selectionKeyCode={editable ? null : undefined}
-                                onSelectionStart={
-                                    editable ? startMarquee : undefined
-                                }
-                                onSelectionEnd={
-                                    editable ? endMarquee : undefined
-                                }
-                                onPaneClick={
-                                    editable ? () => select(NONE) : undefined
-                                }
-                                // The canvas owns the keys (spec 6.2).
-                                disableKeyboardA11y
-                                panOnDrag={editable ? EDIT_PAN_BUTTONS : true}
-                                panOnScroll
-                                zoomOnScroll={false}
-                                zoomOnPinch
-                                zoomOnDoubleClick={false}
-                                zoomActivationKeyCode={zoomKeys}
-                                minZoom={floor}
-                                maxZoom={ceiling}
-                                colorMode={state.scheme}
-                                proOptions={proOptions}
-                                onMoveStart={(event) => {
-                                    // Programmatic moves carry no event; only
-                                    // the reader's do.
-                                    if (event) moved.current = true;
-                                }}
-                            >
-                                {editable && drag && drag.key === viewKey && (
-                                    <Guides guides={drag.guides} />
-                                )}
-                                {editable && graph && (
-                                    <EdgeMarks
-                                        graph={graph}
-                                        stepState={stepState}
-                                        selected={selection.edge?.key}
-                                        side={drag?.side}
-                                        zoom={zoom}
-                                        onVertex={dragVertex}
-                                        onRemove={removeVertex}
-                                        onEnd={dragEnd}
-                                    />
-                                )}
-                            </ReactFlow>
-                        )}
-                    </CanvasBackground.Provider>
-                </Editing.Provider>
+                <EntityToggle.Provider value={flipEntity}>
+                    <Editing.Provider value={editable}>
+                        <CanvasBackground.Provider
+                            value={graph?.background ?? "#ffffff"}
+                        >
+                            {graph?.error ? (
+                                <ViewError graph={graph} />
+                            ) : (
+                                <ReactFlow
+                                    nodes={nodes}
+                                    edges={edges}
+                                    nodeTypes={nodeTypes}
+                                    edgeTypes={edgeTypes}
+                                    nodeOrigin={nodeOrigin}
+                                    connectionMode={ConnectionMode.Loose}
+                                    nodesDraggable={editable}
+                                    onNodesChange={
+                                        editable ? onNodesChange : undefined
+                                    }
+                                    nodesConnectable={false}
+                                    nodesFocusable={false}
+                                    edgesFocusable={false}
+                                    // In editing a plain drag on the canvas or a
+                                    // boundary draws a marquee, and Space, the
+                                    // middle or the right button pans (spec 10.1).
+                                    // React Flow's own selection key would turn
+                                    // a Shift-click into a marquee.
+                                    elementsSelectable={editable}
+                                    selectionOnDrag={editable}
+                                    selectionKeyCode={
+                                        editable ? null : undefined
+                                    }
+                                    onSelectionStart={
+                                        editable ? startMarquee : undefined
+                                    }
+                                    onSelectionEnd={
+                                        editable ? endMarquee : undefined
+                                    }
+                                    onPaneClick={
+                                        editable
+                                            ? () => select(NONE)
+                                            : undefined
+                                    }
+                                    // The canvas owns the keys (spec 6.2).
+                                    disableKeyboardA11y
+                                    panOnDrag={
+                                        editable ? EDIT_PAN_BUTTONS : true
+                                    }
+                                    panOnScroll
+                                    zoomOnScroll={false}
+                                    zoomOnPinch
+                                    zoomOnDoubleClick={false}
+                                    zoomActivationKeyCode={zoomKeys}
+                                    minZoom={floor}
+                                    maxZoom={ceiling}
+                                    colorMode={state.scheme}
+                                    proOptions={proOptions}
+                                    onMoveStart={(event) => {
+                                        // Programmatic moves carry no event; only
+                                        // the reader's do.
+                                        if (event) moved.current = true;
+                                    }}
+                                >
+                                    {editable &&
+                                        drag &&
+                                        drag.key === viewKey && (
+                                            <Guides guides={drag.guides} />
+                                        )}
+                                    {editable && graph && (
+                                        <EdgeMarks
+                                            graph={graph}
+                                            stepState={stepState}
+                                            selected={selection.edge?.key}
+                                            side={drag?.side}
+                                            zoom={zoom}
+                                            onVertex={dragVertex}
+                                            onRemove={removeVertex}
+                                            onEnd={dragEnd}
+                                        />
+                                    )}
+                                </ReactFlow>
+                            )}
+                        </CanvasBackground.Provider>
+                    </Editing.Provider>
+                </EntityToggle.Provider>
             </Activate.Provider>
         </div>
     );
+}
+
+/** No entity set otherwise by its own toggle. */
+const NO_OVERRIDES: Readonly<Record<string, boolean>> = {};
+
+/**
+ * The entities a toggle flipped on the view shown, laid over the reader's
+ * stored labels: for this visit only, and only until the stored
+ * `entitiesCollapsed` preference changes, which starts every entity over
+ * (spec: ERD entities). Each change of the preference starts a new
+ * generation, so an override never comes back with an earlier value, and a
+ * new view starts with none. `toggled` counts the flips.
+ */
+function useEntityOverrides(viewKey: string, stored: Labels) {
+    const preference = useRef({
+        collapsed: stored.entitiesCollapsed,
+        generation: 0,
+    });
+    if (preference.current.collapsed !== stored.entitiesCollapsed)
+        preference.current = {
+            collapsed: stored.entitiesCollapsed,
+            generation: preference.current.generation + 1,
+        };
+    const { generation } = preference.current;
+    const [overrides, setOverrides] = useState({
+        key: viewKey,
+        generation,
+        ids: NO_OVERRIDES,
+        toggled: 0,
+    });
+    const current =
+        overrides.key === viewKey && overrides.generation === generation;
+    const ids = current ? overrides.ids : NO_OVERRIDES;
+    const labels = useMemo(
+        () =>
+            ids === NO_OVERRIDES ? stored : { ...stored, entityOverrides: ids },
+        [stored, ids],
+    );
+    const toggleEntity = useCallback(
+        (id: string) =>
+            setOverrides((before) => {
+                const kept =
+                    before.key === viewKey && before.generation === generation
+                        ? before.ids
+                        : NO_OVERRIDES;
+                const collapsed = kept[id] ?? stored.entitiesCollapsed ?? true;
+                return {
+                    key: viewKey,
+                    generation,
+                    ids: { ...kept, [id]: !collapsed },
+                    toggled: before.toggled + 1,
+                };
+            }),
+        [viewKey, generation, stored.entitiesCollapsed],
+    );
+    return { labels, toggleEntity, toggled: overrides.toggled };
 }
 
 export function Island(props: IslandProps) {

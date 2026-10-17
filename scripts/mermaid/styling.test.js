@@ -45,10 +45,6 @@ test("a named theme gives the palette Mermaid's own theme code derives", () => {
             stroke: forest.clusterBorder,
             color: forest.titleColor,
         },
-        rows: {
-            odd: forest.attributeBackgroundColorOdd,
-            even: forest.attributeBackgroundColorEven,
-        },
     });
 });
 

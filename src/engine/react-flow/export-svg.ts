@@ -116,6 +116,8 @@ type Lines = {
     weight?: string;
     /** A family ahead of the diagram's, as a Mermaid node's source names it. */
     family?: string;
+    /** An ERD attribute's comment. */
+    italic?: boolean;
     /** Left edge and width of the column the lines align in. */
     x: number;
     width: number;
@@ -150,6 +152,7 @@ function textLines(block: Lines, text: TextSetting): string {
                       "font-family": block.family
                           ? `${block.family}, ${text.family}`
                           : undefined,
+                      "font-style": block.italic ? "italic" : undefined,
                       "text-anchor": block.align,
                       fill: block.color,
                       "fill-opacity": block.opacity,
@@ -492,8 +495,60 @@ const block = (
     );
 
 /**
+ * An ERD entity's rows and text in its current state, as `EntityBody`
+ * draws them, without the toggle (spec: ERD entities).
+ */
+function entityBody(element: ElementBox, text: TextSetting): string {
+    const { entity } = element;
+    if (!entity) return "";
+    const rows = entity.rows
+        .map(
+            (row) =>
+                `<rect ${attrs({
+                    x: element.x + row.x,
+                    y: element.y + row.y,
+                    width: row.width,
+                    height: row.height,
+                    fill: row.fill,
+                })}/><rect ${attrs({
+                    x: element.x + row.x,
+                    y: element.y + row.y,
+                    width: row.width,
+                    height: 1,
+                    fill: row.rule,
+                })}/>`,
+        )
+        .join("");
+    const texts = entity.texts
+        .map((line) =>
+            labelPart(
+                line.part,
+                textLines(
+                    {
+                        lines: [line.text],
+                        fontSize: line.fontSize,
+                        bold: line.bold,
+                        family: element.fontFamily,
+                        x: element.x + line.x,
+                        width: line.width,
+                        y: element.y + line.y,
+                        align: line.align,
+                        color: line.color,
+                        italic: line.italic,
+                        ...(line.opacity < 1 && { opacity: line.opacity }),
+                    },
+                    text,
+                ),
+            ),
+        )
+        .join("");
+    return `<g data-entity="${entity.collapsed ? "collapsed" : "expanded"}">${rows}${texts}</g>`;
+}
+
+/**
  * An element: its parts painted by role under one opacity, which leaves the
- * label opaque as the island does (spec 9.4), then its label.
+ * label opaque as the island does (spec 9.4), then its label, or an ERD
+ * entity's rows and text.
  */
 function element(element: ElementBox, text: TextSetting): string {
     const parts = element.parts
@@ -511,7 +566,9 @@ function element(element: ElementBox, text: TextSetting): string {
     return [
         `<g ${attrs({ "data-element-id": element.id })}>`,
         `<g transform="translate(${svgNumber(element.x)} ${svgNumber(element.y)})" opacity="${svgNumber(element.opacity)}">${parts}</g>`,
-        elementLabel(element, text),
+        element.entity
+            ? entityBody(element, text)
+            : elementLabel(element, text),
         element.instances
             ? block(element.instances, element, element.color, text, true)
             : "",
