@@ -440,7 +440,7 @@
   },
   "id" : 0,
   "lastModifiedAgent" : "renderizr/2.4.0",
-  "lastModifiedDate" : "2026-10-17T12:15:03Z",
+  "lastModifiedDate" : "2026-10-17T12:20:22Z",
   "model" : {
     "people" : [ {
       "description" : "Develops a solution",
@@ -1375,6 +1375,7 @@
       "content" : "https://mermaid.ink/svg/pako:eJxlUstOwzAQ_JWVL7RSIRfEoUJFVO2BA48DQkJNDybeJFZju6ydVijtv2M7JpVCDomTndmZnU0HrDAC2ZyVjTkWNScH78tcg78OEo-TJ8UrjMcpXF8vQCEpLkWXs0cojHaoHZQSGwHWebKFo3T1_RctEvCmpQYye6gyMASZVFX2kLNzr5AwofHpxZxgLwvXEm5eSUjN6QfkoL79z_hEewKBwf8mZ6t4gD3fmXmQWnKLd7c5S8QeF0fgFSH6AdYH9BKlbBoUaYbaNMIG965GsFz5m2mpwIvlSB4Ml1x68ubDG1wTGdqOQdHjTuoQ2JDwDJBW0oO4ClrerMXvFnWB6etFLlDH8YwqUWLPyYYU3sIz7gCe-6iuLISWyheGMCI6ZiGIH3WXeHYG3DfFkEsw5vdrHbWFizB7cRVZoxDGlX47_TyT5OXvfZprNgOWlsnmHfN5q_AXCix52zh2Pv8C8Q7jAw==",
       "contentType" : "image/svg+xml",
       "description" : "Which image views draw as Mermaid diagrams, which fail, and which stay ordinary image views. Author: Andrés Zorro <andres.zorro@monks.com>",
+      "elementId" : "4",
       "key" : "Image-View-Reading",
       "name" : "Flowchart: How the build reads an image view",
       "order" : 5,
@@ -1383,6 +1384,7 @@
       "content" : "https://mermaid.ink/svg/pako:eJyVlMFu4jAQhl9l5MteWom9cotKVouAgiCFXW1WyMRTsHDsyDalUeDd1wmJSmKotrlE8Yy_f-b3OAWQRDEkfYJ6wOlW0zSW4J7VdD5azIKnEE6nx8dTActhuII-7JRg5pJSrZRRdYLgJZpOgmj4tB4Hv6cvkcuMiaC5AXWwsMlj0t1TQDgOJ-FztK7JmaAJeugC5uHYgafPi5_DWZOrHbXJrTF3qDFhmh4lUNOUcM37TMPf2VFqgfpgLNXW-Brr62aW4TwKf1X0DUpmgNqS3vH8T0xWSu9N5hyJyV8oLvHyMVZzuQVJU_QWBTV2ohh_5cgG1NYJ5w9LHXfJ8XgbucccZiNv2eaZr2S5FW18dwCcVHCwKqWWJ66w3B3YbVlN5X7ANSaWK_kR5dJWoQVmVFM_Jt3UdmPn1jG5CkKBKco7wpzdavemsZZuzS2JdW1qrQNvd811Yj9G7tDtDgEv2d-MW21Gq2nrvf2Zt1Svp8qpzlFUzZsdz77SolEHneCwrMiLMTSWywp7NyHRPPNM9ya-U-B_eqOvtngGNRPjZsm9205lyvByo-Mcd6gRSpqgGxTgAuYBemAVfO_1GmBzLaoLWV4M1BbfOxV-eiTkAUiKOqWckX5Rlp-WP1KGr_QgLDmf_wF71547",
       "contentType" : "image/svg+xml",
       "description" : "What Structurizr stores for a view's layout, and what edit mode writes back (ADR 17). Author: Andrés Zorro <andres.zorro@monks.com>",
+      "elementId" : "4",
       "key" : "Layout-Data",
       "name" : "ERD: Layout data in workspace.json",
       "order" : 6,
@@ -1391,6 +1393,7 @@
       "content" : "https://mermaid.ink/svg/pako:eJyVVE1r3DAQ_SuDL6Vkt7n7ECikh0JoQjeQSyBM7FlbjVZy9bGmDfnvHX1Y9rJmob7YGj89zbz37HeoGt1SVVeWfntSDd0K7AwenhXwhY3TBr6apheOGpeKAxonGjGgcvCotXxFA2jhWyvK-hy4I2uFVgWY1-fAB-k7MePS8hz2ZLijeO6TNm92wIZybYVSDCSFooC-3d2V9fo4NsB2zvjGeSP-mlQ8x_4kqbEN4DtxpLx8zq0WybY3N1mTGnZ4zGfmEr_MOtRg-SW4noB4bGrhKGjMp2YMo6-SHDU83O8e4frlxZBqKXR5bQt5wjA66VHDGO6RW-If7V2mRelicS8kQdOj6vhYKzgDsTxgR2CIRxTZ-HAlzi2zT61Yh7z_SGb2c9HFckRDe28T-dwtSUuX6BWNl8i3JwK2Z5DPyRcWocSEjqTcBhQehOqmbsJjmDg3pYqTPzRrp7mD2dNNTEQN3zmmMVB2Geal9dMQSV1GR6198CwezJs_Wdhr2U65LeZdTSll3XymnkoL5r30tj_ZWiaOr6ZpnU4JG3t0MKKYQrCgzFMdyHS0gVG4fhbtyy-bPt45RachCjLw18FKzBZEwuhlGeWUcOHW3MZpapfZK6Dg-yTA4F-lsP1_WD8DE4DZJqQdcYjjzFv4XzRIflhL68qAZIw26y0Xy5BDcKHdSLFsNaax2kDF1hxQtFX9XnGTh_DbbmmPXrrq4-Mfua_u5Q==",
       "contentType" : "image/svg+xml",
       "description" : "A save from the page, and a change under the DSL's folder in a DSL session. Author: Andrés Zorro <andres.zorro@monks.com>",
+      "elementId" : "4",
       "key" : "Edit-Mode-Save",
       "name" : "Sequence: How edit mode saves and redraws",
       "order" : 7,
