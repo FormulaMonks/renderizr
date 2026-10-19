@@ -90,7 +90,7 @@
         "fast-check": "^4.10.2",
         "husky": "^9.1.7",
         "lint-staged": "^16.4.0",
-        "rollup": "4.64.5",
+        "rollup": "4.64.7",
         "typescript": "^5.9.3"
     },
     "dependencies": {
