@@ -5,12 +5,14 @@
 # rather than being whatever the hosted service ships today, and so it runs
 # with a token we hold.
 #
-# The token is a classic personal access token stored as the repository secret
-# RENOVATE_TOKEN, with the `repo` and `workflow` scopes. See MAINTAINERS.md,
-# "Repository setup still to be done", for why each scope is there. It cannot
-# be GITHUB_TOKEN: a pull request or push made with GITHUB_TOKEN does not
-# trigger workflows, so `ci` would never report on Renovate's branches and
-# nothing would ever be green enough to merge.
+# The token is a fine-grained personal access token stored as the repository
+# secret RENOVATE_TOKEN, scoped to this repository, with Contents, Pull
+# requests, Issues, Commit statuses and Workflows set to read and write. See
+# MAINTAINERS.md, "Repository setup still to be done", for the full list and
+# why each permission is there. It cannot be GITHUB_TOKEN: a pull request or
+# push made with GITHUB_TOKEN does not trigger workflows, so `ci` would never
+# report on Renovate's branches and nothing would ever be green enough to
+# merge.
 #
 # Renovate merges its own pull requests (`platformAutomerge` is false in
 # renovate.json): on each run it merges every branch that a rule marks
@@ -63,14 +65,23 @@ jobs:
       - name: Report the missing token
         if: env.HAS_TOKEN != 'true'
         run: |
-          echo "::warning title=Renovate is not configured::No RENOVATE_TOKEN secret is set, so Renovate did not run and no dependency pull requests were opened. Add a classic personal access token with the repo and workflow scopes as the repository secret RENOVATE_TOKEN; see MAINTAINERS.md, 'Repository setup still to be done'."
+          echo "::warning title=Renovate is not configured::No RENOVATE_TOKEN secret is set, so Renovate did not run and no dependency pull requests were opened. Add a fine-grained personal access token with the permissions MAINTAINERS.md lists as the repository secret RENOVATE_TOKEN; see MAINTAINERS.md, 'Repository setup still to be done'."
 
       - name: Renovate
         if: env.HAS_TOKEN == 'true'
         uses: renovatebot/github-action@230ce922b08968d0a4f6f70f295601daff09ef1d # v46.3.7
         with:
           token: ${{ secrets.RENOVATE_TOKEN }}
+          # The action passes only RENOVATE_* and LOG_LEVEL into the
+          # container by default; the log file needs these two as well.
+          additional-env-list: |
+            LOG_FILE
+            LOG_FILE_LEVEL
         env:
+          # A JSON log of the run, for the step below. The action mounts the
+          # runner's /tmp into the container, so the file lands here too.
+          LOG_FILE: /tmp/renovate-log.ndjson
+          LOG_FILE_LEVEL: info
           # Self-hosted Renovate has no default target repository. Only this
           # one: the token may reach others, and this workflow is not a
           # license to touch them.
@@ -81,3 +92,23 @@ jobs:
           RENOVATE_REQUIRE_CONFIG: "required"
           RENOVATE_DRY_RUN: ${{ inputs.dryRun && 'full' || '' }}
           LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+
+      # Renovate exits 0 even when it gives up on the repository partway
+      # through. A token without the Commit statuses permission made it stop
+      # at the first branch, with "repository-changed", on every run for two
+      # weeks, and each of those runs was green. So the run reads Renovate's
+      # own verdict and fails unless it is "done".
+      - name: Check that Renovate finished the repository
+        if: env.HAS_TOKEN == 'true'
+        run: |
+          log=/tmp/renovate-log.ndjson
+          if [ ! -s "$log" ]; then
+            echo "::error title=Renovate wrote no log::$log is missing or empty, so there is no way to tell whether Renovate finished the repository."
+            exit 1
+          fi
+          result=$(jq -r 'select(.msg == "Repository finished") | .result' "$log" | tail -n 1)
+          echo "Renovate's result: ${result:-none}"
+          if [ "$result" != "done" ]; then
+            echo "::error title=Renovate did not finish the repository::Renovate stopped with result '${result:-none}', so it opened, updated or merged only part of what it should have. Rerun this workflow with logLevel set to debug and look for the request that failed; a 403 means RENOVATE_TOKEN lacks a permission that MAINTAINERS.md lists."
+            exit 1
+          fi
