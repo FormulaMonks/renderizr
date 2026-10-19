@@ -97,7 +97,9 @@ jobs:
       # through. A token without the Commit statuses permission made it stop
       # at the first branch, with "repository-changed", on every run for two
       # weeks, and each of those runs was green. So the run reads Renovate's
-      # own verdict and fails unless it is "done".
+      # own verdict and fails unless it is "done", or "automerged": Renovate
+      # restarts the repository once after it merges a branch, and when that
+      # second pass merges one too, its result is "automerged".
       - name: Check that Renovate finished the repository
         if: env.HAS_TOKEN == 'true'
         run: |
@@ -108,7 +110,7 @@ jobs:
           fi
           result=$(jq -r 'select(.msg == "Repository finished") | .result' "$log" | tail -n 1)
           echo "Renovate's result: ${result:-none}"
-          if [ "$result" != "done" ]; then
+          if [ "$result" != "done" ] && [ "$result" != "automerged" ]; then
             echo "::error title=Renovate did not finish the repository::Renovate stopped with result '${result:-none}', so it opened, updated or merged only part of what it should have. Rerun this workflow with logLevel set to debug and look for the request that failed; a 403 means RENOVATE_TOKEN lacks a permission that MAINTAINERS.md lists."
             exit 1
           fi
