@@ -82,7 +82,7 @@ jobs:
       - name: Report the missing token
         if: env.HAS_TOKEN != 'true'
         run: |
-          echo "::warning title=Releases are not configured::No RENOVATE_TOKEN secret is set, so release-please did not run and no release pull request was opened or updated. Add a classic personal access token with the repo and workflow scopes as the repository secret RENOVATE_TOKEN; see MAINTAINERS.md, 'Repository setup still to be done'. Until then, run pnpm release:pr locally."
+          echo "::warning title=Releases are not configured::No RENOVATE_TOKEN secret is set, so release-please did not run and no release pull request was opened or updated. Add a fine-grained personal access token with the permissions MAINTAINERS.md lists as the repository secret RENOVATE_TOKEN; see MAINTAINERS.md, 'Repository setup still to be done'. Until then, run pnpm release:pr locally."
 
       # release-please must not act as GitHub Actions itself, for two reasons.
       #
@@ -98,10 +98,10 @@ jobs:
       #
       # A personal access token solves both. The pull request belongs to the
       # token's owner, so the restriction does not apply, and it triggers
-      # ci.yml like any other pull request. Renovate already holds one with
-      # the `repo` scope, which covers everything release-please writes: the
-      # release branch, the pull request and its labels, the tag and the
-      # GitHub Release.
+      # ci.yml like any other pull request. Renovate already holds one, and
+      # its Contents, Pull requests and Issues permissions cover everything
+      # release-please writes: the release branch, the tag and the GitHub
+      # Release; the pull request; its labels.
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         if: env.HAS_TOKEN == 'true'
         id: release
