@@ -81,7 +81,7 @@
             "groupName": "dev tooling"
         },
         {
-            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own PR, which keeps a bad update easy to find and revert \u2014 never grouped, never rolled up with anything else.",
+            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own PR, which keeps a bad update easy to find and revert \u2014 never grouped, never rolled up with anything else. Their commits use `fix(deps)`, so release-please prepares a patch release for each one. An update that changes what users publish reaches them only through a release, and release-please releases nothing for the `chore` type every other update uses.",
             "matchManagers": ["npm"],
             "matchPackageNames": [
                 "react",
@@ -97,6 +97,7 @@
             ],
             "groupName": null,
             "separateMinorPatch": true,
+            "semanticCommitType": "fix",
             "labels": ["dependencies", "ships-to-users"]
         },
         {
