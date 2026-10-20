@@ -99,7 +99,7 @@
         "bootstrap-icons": "^1.13.2",
         "highlight.js": "^11.12.0",
         "history": "^5.3.0",
-        "markdown-it": "^14.3.2",
+        "markdown-it": "^15.0.0",
         "markdown-it-anchor": "^10.0.0",
         "markdown-it-shift-headings": "^1.0.2",
         "react": "^19.3.0",
