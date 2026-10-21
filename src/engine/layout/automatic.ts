@@ -291,7 +291,7 @@ type Ranked = {
 const ranked = (g: Graph, v: string) => g.node(v) as unknown as Ranked;
 
 /**
- * Dagre's ordering step (`lib/order/index.js` in 2.0.4), step for step and
+ * Dagre's ordering step (`lib/order/index.ts` in 3.1.1), step for step and
  * with Dagre's own pieces (ported in `dagre-order.ts`), with one change: the constraint graph never
  * closes a cycle.
  *
@@ -374,8 +374,13 @@ function placesEachOnce(g: Graph): boolean {
     });
 }
 
-/** One sweep of Dagre's ordering step over `layerGraphs`. */
-function sweep(layerGraphs: Graph[], biasRight: boolean): void {
+/**
+ * One sweep of Dagre's ordering step over `layerGraphs`. Ties break to the
+ * right; with `switchBias`, each rank that broke a tie hands the next one
+ * the other side.
+ */
+function sweep(layerGraphs: Graph[], switchBias: boolean): void {
+    let biasRight = true;
     const constraints = new dagre.graphlib.Graph();
     const setEdge = constraints.setEdge.bind(constraints);
     constraints.setEdge = ((v: string, w: string) =>
@@ -384,7 +389,14 @@ function sweep(layerGraphs: Graph[], biasRight: boolean): void {
             : setEdge(v, w)) as typeof constraints.setEdge;
     for (const lg of layerGraphs) {
         const { root } = lg.graph() as { root: string };
-        const { vs } = sortSubgraph(lg, root, constraints, biasRight);
+        const { result, usedBias } = sortSubgraph(
+            lg,
+            root,
+            constraints,
+            biasRight,
+        );
+        if (switchBias && usedBias) biasRight = !biasRight;
+        const { vs } = result;
         vs.forEach((v, i) => {
             ranked(lg, v).order = i;
         });

@@ -1,10 +1,10 @@
 /*
- * Portions derived from Dagre 2.0.4 (https://github.com/dagrejs/dagre), files
- * lib/order/init-order.js, lib/order/cross-count.js,
- * lib/order/sort-subgraph.js, lib/order/barycenter.js,
- * lib/order/resolve-conflicts.js, lib/order/sort.js,
- * lib/order/build-layer-graph.js, lib/order/add-subgraph-constraints.js and
- * lib/util.js (maxRank, range, buildLayerMatrix).
+ * Portions derived from Dagre 3.1.1 (https://github.com/dagrejs/dagre), files
+ * lib/order/init-order.ts, lib/order/cross-count.ts,
+ * lib/order/sort-subgraph.ts, lib/order/barycenter.ts,
+ * lib/order/resolve-conflicts.ts, lib/order/sort.ts,
+ * lib/order/build-layer-graph.ts, lib/order/add-subgraph-constraints.ts and
+ * lib/util.ts (maxRank, range, buildLayerMatrix).
  *
  * Copyright (c) 2012-2014 Chris Pettitt
  *
@@ -28,12 +28,18 @@
  *
  * Modified by Renderizr: ported to typed TypeScript, step for step, so that
  * `automatic.ts` can run Dagre's ordering step itself through `customOrder`.
- * Dagre 2.x ships one bundled build and exports none of these pieces.
+ * Dagre 3.x ships one bundled build and exports none of these pieces. The
+ * step reads no earlier layout: `customOrder` hands Dagre's own step none,
+ * so every comparison by old order Dagre makes is a tie and is left out.
  */
 
-import dagre from "@dagrejs/dagre";
+import dagre, {
+    type Graph as DagreGraph,
+    type Edge,
+    type GraphLabel,
+} from "@dagrejs/dagre";
 
-export type Graph = dagre.graphlib.Graph;
+export type Graph = DagreGraph;
 
 /** What Dagre keeps on each node while it orders them. */
 type Ranked = {
@@ -43,9 +49,12 @@ type Ranked = {
     order: number;
     borderLeft?: string[] | string;
     borderRight?: string[] | string;
+    dummy?: string;
+    edgeObj?: Edge;
+    edgeLabel?: { reversed?: boolean };
 };
 const label = (g: Graph, v: string) => g.node(v) as Ranked;
-const weightOf = (g: Graph, e: dagre.Edge) =>
+const weightOf = (g: Graph, e: Edge) =>
     (g.edge(e) as { weight: number }).weight;
 
 /**
@@ -160,13 +169,16 @@ type Barycenter = { v: string; barycenter?: number; weight?: number };
 type Entry = { vs: string[]; i: number; barycenter?: number; weight?: number };
 type Sorted = { vs: string[]; barycenter?: number; weight?: number };
 
-/** Order the children of `v` in layer graph `g`, its subgraphs first. */
+/**
+ * Order the children of `v` in layer graph `g`, its subgraphs first, and say
+ * whether two of them tied and `biasRight` broke the tie.
+ */
 export function sortSubgraph(
     g: Graph,
     v: string,
     cg: Graph,
     biasRight: boolean,
-): Sorted {
+): { result: Sorted; usedBias: boolean } {
     let movable = g.children(v);
     const node = g.node(v) as Ranked | undefined;
     const bl = node?.borderLeft as string | undefined;
@@ -178,7 +190,7 @@ export function sortSubgraph(
     const barycenters = barycenter(g, movable);
     for (const entry of barycenters)
         if (g.children(entry.v).length) {
-            const result = sortSubgraph(g, entry.v, cg, biasRight);
+            const { result } = sortSubgraph(g, entry.v, cg, biasRight);
             subgraphs.set(entry.v, result);
             if (Object.hasOwn(result, "barycenter"))
                 mergeBarycenters(entry, result);
@@ -188,7 +200,38 @@ export function sortSubgraph(
     for (const entry of entries)
         entry.vs = entry.vs.flatMap((w) => subgraphs.get(w)?.vs ?? w);
 
-    const result = sort(entries, biasRight);
+    // Two dummies of one edge that tie are an edge and its reverse: the
+    // reversed one is taken out and put back right after the other.
+    // Any other tie leaves it to the bias.
+    const reversedPairs = new Map<string, Entry>();
+    let usedBias = false;
+    for (let i = 0; i < entries.length; i++)
+        for (let j = i + 1; j < entries.length; j++) {
+            if (!entries[i].barycenter || !entries[j].barycenter) continue;
+            if (entries[i].barycenter !== entries[j].barycenter) continue;
+            const nameI = entries[i].vs[0] ?? "";
+            const nameJ = entries[j].vs[0] ?? "";
+            const nodeI = label(g, nameI);
+            const nodeJ = label(g, nameJ);
+            if (
+                nodeI.dummy === "edge" &&
+                nodeJ.dummy === "edge" &&
+                nodeI.edgeObj?.v === nodeJ.edgeObj?.v &&
+                nodeI.edgeObj?.w === nodeJ.edgeObj?.w
+            ) {
+                if (nodeI.edgeLabel?.reversed) {
+                    reversedPairs.set(nameJ, entries[i]);
+                    entries.splice(i, 1);
+                    i--;
+                    break;
+                }
+                reversedPairs.set(nameI, entries[j]);
+                entries.splice(j, 1);
+                j--;
+            } else usedBias = true;
+        }
+
+    const result = sort(entries, reversedPairs, biasRight);
 
     if (bl && br) {
         result.vs = [bl, ...result.vs, br];
@@ -209,7 +252,7 @@ export function sortSubgraph(
             result.weight = weight + 2;
         }
     }
-    return result;
+    return { result, usedBias };
 }
 
 function mergeBarycenters(target: Barycenter, other: Sorted): void {
@@ -328,7 +371,11 @@ function mergeEntries(target: Conflict, source: Conflict): void {
     source.merged = true;
 }
 
-function sort(entries: Entry[], biasRight: boolean): Sorted {
+function sort(
+    entries: Entry[],
+    reversedPairs: Map<string, Entry>,
+    biasRight: boolean,
+): Sorted {
     const sortable = entries.filter((entry) =>
         Object.hasOwn(entry, "barycenter"),
     );
@@ -346,6 +393,12 @@ function sort(entries: Entry[], biasRight: boolean): Sorted {
         if (v > w) return 1;
         return biasRight ? b.i - a.i : a.i - b.i;
     });
+    for (const [key, entry] of reversedPairs)
+        sortable.splice(
+            sortable.findIndex((other) => other.vs[0] === key) + 1,
+            0,
+            entry,
+        );
 
     let vsIndex = consumeUnsortable(vs, unsortable, 0);
     for (const entry of sortable) {
@@ -394,7 +447,7 @@ export function buildLayerGraph(
     do root = `_root${++rootCount}`;
     while (g.hasNode(root));
     const result = new dagre.graphlib.Graph({ compound: true })
-        .setGraph({ root } as dagre.GraphLabel)
+        .setGraph({ root } as GraphLabel)
         .setDefaultNodeLabel((v: string) => g.node(v));
 
     for (const v of nodesWithRank) {
