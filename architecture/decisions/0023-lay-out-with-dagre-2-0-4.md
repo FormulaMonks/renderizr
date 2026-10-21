@@ -4,7 +4,9 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [25. Lay out with Dagre 3.1.1](0025-lay-out-with-dagre-3-1-1.md).
 
 Amends [4. Use Dagre for automatic layout](0004-use-dagre-for-automatic-layout.md): the Dagre version, and the quirks an automatic layout keeps.
 
