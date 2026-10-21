@@ -1,4 +1,4 @@
-import type MarkdownIt from "markdown-it";
+import type { MarkdownIt } from "markdown-it";
 import noteIcon from "bootstrap-icons/icons/info-circle-fill.svg?raw";
 import tipIcon from "bootstrap-icons/icons/lightbulb-fill.svg?raw";
 import importantIcon from "bootstrap-icons/icons/megaphone-fill.svg?raw";
