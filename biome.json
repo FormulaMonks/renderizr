@@ -1,30 +1,37 @@
 {
-    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
     "files": {
-        "ignore": [
-            "architecture/workspace.json",
-            "test/__fixtures__/amazon-web-services.json",
-            "test/__fixtures__/big-bank-plc.json",
-            "test/__fixtures__/big-bank-plc-tight.json",
-            "test/__fixtures__/big-bank-plc-stored.json",
-            "test/__fixtures__/groups.json",
-            "test/__fixtures__/themes",
-            "scripts/__fixtures__/structurizr",
-            "scripts/mermaid/parser.js"
+        "includes": [
+            "**",
+            "!**/architecture/workspace.json",
+            "!**/test/__fixtures__/amazon-web-services.json",
+            "!**/test/__fixtures__/big-bank-plc.json",
+            "!**/test/__fixtures__/big-bank-plc-tight.json",
+            "!**/test/__fixtures__/big-bank-plc-stored.json",
+            "!**/test/__fixtures__/groups.json",
+            "!**/test/__fixtures__/themes",
+            "!**/scripts/__fixtures__/structurizr",
+            "!**/scripts/mermaid/parser.js"
         ]
     },
-    "organizeImports": {
-        "enabled": false
-    },
+    "assist": { "actions": { "source": { "organizeImports": "off" } } },
     "linter": {
         "enabled": true,
         "rules": {
-            "recommended": true,
+            "preset": "recommended",
             "style": {
                 "noNonNullAssertion": "off"
             }
         }
     },
+    "overrides": [
+        {
+            "includes": ["**/__fixtures__/**/*.svg"],
+            "linter": {
+                "rules": { "a11y": { "noSvgWithoutTitle": "off" } }
+            }
+        }
+    ],
     "css": {
         "parser": {
             "cssModules": true

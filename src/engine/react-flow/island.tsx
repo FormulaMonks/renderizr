@@ -885,6 +885,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
     );
 
     return (
+        // biome-ignore lint/a11y/useAriaPropsSupportedByRole: useTargetProps gives the element its button role when it has targets
         <div
             data-element-id={data.id}
             data-shape={data.shape}
@@ -1007,6 +1008,7 @@ function TextLines({
  */
 function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
     const { band, accessibleName } = data;
+    // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
     const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
     // Its label band is what activates the element it is drawn for.
     const target = useTargetProps(
@@ -1198,6 +1200,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
     );
     // In editing every edge takes the pointer, to be selected, to take a
     // vertex and to have its label dragged (spec 12.1, 12.3, 12.7).
+    // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
     const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
     if (!data) return null;
     const {
@@ -1220,7 +1223,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
             style={presenceStyle(presence, transition)}
         >
             {active && !hidden && (
-                // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard reaches the relationship through its label
+                // biome-ignore lint/a11y/noStaticElementInteractions: the keyboard reaches the relationship through its label
                 <path
                     data-hit-stroke=""
                     className={styles.hitStroke}
@@ -1756,7 +1759,9 @@ function EdgeMarks({
                 )}
                 {shown.flatMap((line) =>
                     line.vertices.map((vertex, index) => (
+                        // biome-ignore lint/a11y/noStaticElementInteractions: vertex handles are pointer-only; the keyboard nudges the selection instead
                         <circle
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a vertex is its place in the route
                             key={`${line.key}:${index}`}
                             data-vertex-handle={`${line.key}:${index}`}
                             cx={vertex.x}
@@ -2251,6 +2256,7 @@ function Canvas({
     // hooks, and builds call none of edit mode's (ADR 15).
     const editable =
         __RENDERIZR_EDIT_MODE__ &&
+        // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
         useMemo(() => {
             if (!state.editing) return false;
             const view = model.findViewByKey(viewKey);
@@ -2268,14 +2274,17 @@ function Canvas({
      * every render calls the same hooks, and builds call none (ADR 15).
      */
     const [drag, setDrag] = __RENDERIZR_EDIT_MODE__
-        ? useState<Frame | null>(null)
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useState<Frame | null>(null)
         : [null, () => {}];
     const dragging = __RENDERIZR_EDIT_MODE__
-        ? useRef(drag)
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useRef(drag)
         : { current: null as Frame | null };
     if (__RENDERIZR_EDIT_MODE__) dragging.current = drag;
     const framed = __RENDERIZR_EDIT_MODE__
-        ? useMemo(
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useMemo(
               () =>
                   drag && drag.key === viewKey
                       ? buildGraph(
@@ -2304,6 +2313,7 @@ function Canvas({
     const selection = __RENDERIZR_EDIT_MODE__
         ? // The flag is a build-time constant, so every render calls the
           // same hooks, and builds call none (ADR 15).
+          // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
           useEditSelection(
               viewKey,
               editable,
@@ -2430,9 +2440,11 @@ function Canvas({
     // (spec 10.1, 13, 17.2). The flag is a build-time constant, so builds
     // call neither hook (ADR 15).
     if (__RENDERIZR_EDIT_MODE__)
+        // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
         useKeepViewport(viewKey, edited, model, moved, painted);
     const editKey = __RENDERIZR_EDIT_MODE__
-        ? useEditKeys({
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useEditKeys({
               wrapper,
               commands,
               view:
@@ -2785,7 +2797,8 @@ function Canvas({
      * 10.2), or null.
      */
     const toggling = __RENDERIZR_EDIT_MODE__
-        ? useRef<{ id: string; x: number; y: number } | null>(null)
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useRef<{ id: string; x: number; y: number } | null>(null)
         : null;
 
     const itemElement = (item: FocusRef | undefined) =>
@@ -3156,12 +3169,12 @@ function Canvas({
     };
 
     return (
+        // biome-ignore lint/a11y/useSemanticElements: a fieldset groups form controls; the canvas is one focusable region that pans and zooms (spec 6.2)
         <div
             ref={wrapper}
             data-view-key={key ?? ""}
             data-ready={readyFor(key, readyKey) ? "true" : "false"}
             // One focusable region, labeled with the view's title (spec 6.2).
-            // biome-ignore lint/a11y/useSemanticElements: a fieldset groups form controls; the canvas is one focusable region that pans and zooms (spec 6.2)
             role="group"
             aria-label={graph?.title}
             // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas is one Tab stop that pans, zooms and walks its items by key (spec 6.2)

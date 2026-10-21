@@ -157,7 +157,6 @@ export default class Decisions extends Page {
                 // any supersession note that came with it.
                 .replace(/## Status([\s\S]*?)## Context/gim, (__, hit) => {
                     const notes = hit
-                        // biome-ignore lint/suspicious/noMisleadingCharacterClass: valid regex
                         .replace(/[\u200B-\u200D\uFEFF]/g, "")
                         .split("\n")
                         .map((line: string) => line.trim())

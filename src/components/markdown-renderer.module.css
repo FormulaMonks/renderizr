@@ -17,7 +17,8 @@
  * to 150-character lines on a large monitor.
  */
 .markdownRenderer {
-    --md-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    --md-mono:
+        ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
         "Liberation Mono", monospace;
     --md-table-fade: color-mix(
         in srgb,
