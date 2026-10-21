@@ -25,7 +25,7 @@ The [architecture site](https://formulamonks.github.io/renderizr/) carries a sho
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Node | 22.13 or newer | The contributor floor: pnpm 11 imports `node:sqlite`, which needs 22.13. People who *run* Renderizr need Node 22.12 or newer, the floor `package.json` declares in `"engines": { "node": ">=22.12" }` and `scripts/build.js` checks before it loads the build. [ADR 26](architecture/decisions/0026-support-node-from-22-12.md) records both |
+| Node | 22.13 or newer | One floor for running Renderizr and for developing it: `package.json` declares it in `"engines": { "node": ">=22.13" }`, `scripts/build.js` checks it before it loads the build, and pnpm 11 needs it because it imports `node:sqlite`. [ADR 26](architecture/decisions/0026-support-node-from-22-13.md) records it |
 | pnpm | 11 | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
 | git | any | To clone the repository |
 
@@ -373,7 +373,7 @@ What a good pull request looks like here:
 
 ## How a review goes
 
-1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite and the end-to-end render on Node 22, 24 and 26, an npm install and build on Node 22.12, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
+1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite and the end-to-end render on Node 22, 24 and 26, an npm install and build on Node 22.13, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
 3. Review comments come in three flavors, and reviewers label them so you never have to guess:
    - **blocking** — must change before merge.

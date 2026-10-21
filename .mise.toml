@@ -2,11 +2,11 @@
 # against mise.lock, which pins the exact versions and their checksums.
 #
 # This is the *development* toolchain, not the supported range (ADR 26).
-# Renderizr runs on Node 22.12 or newer: package.json `engines.node`, the
-# guard in scripts/node-version.js and the badge in README.md all say so, and
-# CI is what proves the floor still holds. Developing it needs Node 22.13 or
-# newer, because pnpm 11 imports `node:sqlite`. Contributors on any Node 22.13+
-# are fine; this file just means nobody has to decide which one.
+# Renderizr runs and develops on Node 22.13 or newer: package.json
+# `engines.node`, the guard in scripts/node-version.js and the badge in
+# README.md all say so, pnpm 11 needs it for `node:sqlite`, and CI is what
+# proves the floor still holds. Contributors on any Node 22.13+ are fine; this
+# file just means nobody has to decide which one.
 #
 # .nvmrc carries the same Node major for nvm, fnm and actions/setup-node's
 # `node-version-file`. Keep the two in step.

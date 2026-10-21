@@ -1,8 +1,8 @@
 # <img src="architecture/docs/assets/logo.svg" alt="Renderizr" height="48">
 
-[![ci](https://img.shields.io/github/actions/workflow/status/FormulaMonks/renderizr/ci.yml?branch=main&label=ci&style=flat-square)](https://github.com/FormulaMonks/renderizr/actions/workflows/ci.yml) [![node](https://img.shields.io/badge/node-%E2%89%A5%2022.12-informational?style=flat-square)](https://nodejs.org) [![license](https://img.shields.io/github/license/FormulaMonks/renderizr?style=flat-square)](LICENSE)
+[![ci](https://img.shields.io/github/actions/workflow/status/FormulaMonks/renderizr/ci.yml?branch=main&label=ci&style=flat-square)](https://github.com/FormulaMonks/renderizr/actions/workflows/ci.yml) [![node](https://img.shields.io/badge/node-%E2%89%A5%2022.13-informational?style=flat-square)](https://nodejs.org) [![license](https://img.shields.io/github/license/FormulaMonks/renderizr?style=flat-square)](LICENSE)
 
-Render a [Structurizr](https://structurizr.com/) workspace (its diagrams, documentation and architecture decisions) as a static site, or as a single self-contained HTML file you can host anywhere. You need Node 22.12 or newer and nothing else.
+Render a [Structurizr](https://structurizr.com/) workspace (its diagrams, documentation and architecture decisions) as a static site, or as a single self-contained HTML file you can host anywhere. You need Node 22.13 or newer and nothing else.
 
 ```bash
 npx github:FormulaMonks/renderizr https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json

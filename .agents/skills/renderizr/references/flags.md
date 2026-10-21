@@ -47,4 +47,4 @@ This matters on a locked-down machine or in CI without egress: a local workspace
 
 ## Requirements
 
-Node 22.12 or newer, and nothing else. Renderizr checks the running version and exits with a message naming it, because `npx` runs against whatever Node is first on `PATH` — often not the one the shell reports.
+Node 22.13 or newer, and nothing else. Renderizr checks the running version and exits with a message naming it, because `npx` runs against whatever Node is first on `PATH` — often not the one the shell reports.
