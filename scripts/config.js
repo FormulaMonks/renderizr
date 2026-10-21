@@ -23,7 +23,7 @@ export const version = (() => {
 })();
 
 /**
- * The one place the Vite config is described, shared by `scripts/build.js`,
+ * The one place the Vite config is described, shared by `scripts/main.js`,
  * the dev server and edit mode so the three cannot drift.
  *
  * `editMode` is edit mode's Vite plugin (`scripts/edit-plugin.js`). It
@@ -48,7 +48,7 @@ export function createConfig({
     return {
         root,
         base,
-        // scripts/build.js and edit mode already hold the complete
+        // scripts/main.js and edit mode already hold the complete
         // configuration; letting Vite also load vite.config.ts would re-parse
         // argv in dev-server mode.
         ...(mode === "build" || editMode ? { configFile: false } : {}),

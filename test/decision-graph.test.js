@@ -728,7 +728,7 @@ test("our own decisions need 12 columns", () => {
     ]);
     assert.deepEqual(
         loneOf(layout),
-        ["22", "19", "18", "17", "8", "6", "5", "1"],
+        ["26", "22", "19", "18", "17", "8", "6", "5", "1"],
         "every other decision is a lone dot",
     );
 });

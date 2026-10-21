@@ -22,7 +22,7 @@ import { WorkspaceWriter } from "./workspace-writer.js";
 /**
  * `renderizr edit` (spec 4, ADR 15): which workspace a path opens, what the
  * terminal says about it, and the local Vite server that serves the site in
- * edit mode. `scripts/cli.js` parses the arguments and `scripts/build.js`
+ * edit mode. `scripts/cli.js` parses the arguments and `scripts/main.js`
  * dispatches to it; `scripts/edit-plugin.js` is the server's own plugin.
  */
 
