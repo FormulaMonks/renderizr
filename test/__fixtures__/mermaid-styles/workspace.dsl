@@ -32,6 +32,12 @@ workspace "Mermaid styles" "Mermaid flowcharts styled from their source, over th
             description "The source's fontFamily and fontSize, a node's own font-family, font-size and font-weight. curve basis routes Curved. The build warns about look, font-style and opacity."
         }
 
+        image * "escaped" {
+            mermaid escaped.mmd
+            title "Escaped commas"
+            description "A style and a linkStyle escape the comma in a dash array, as Mermaid's docs write it. Both draw dashed, and the build warns about nothing."
+        }
+
         styles {
             element "Mermaid" {
                 background "#e8eef4"

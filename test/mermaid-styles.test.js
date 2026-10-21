@@ -387,6 +387,13 @@ test("the styles fixture: the workspace's tag styles under a silent source, each
     ]);
 });
 
+test("the escaped fixture draws its escaped dash arrays dashed", () => {
+    const graph = graphOf(stylesFixture().model, "light", "escaped");
+    assert.equal(box(graph, "invoice").border, "Dashed", "style invoice");
+    assert.equal(graph.edges[0].style, "Dashed", "linkStyle 0");
+    assert.equal(graph.edges[1].style, "Solid", "the edge with no linkStyle");
+});
+
 test("the styled fixture draws its style, classDef and linkStyle colors over the workspace's, and exports them", () => {
     const graph = graphOf(stylesFixture().model, "light", "styled");
     assert.equal(box(graph, "valid").background, "#fde2e2", "classDef warn");
