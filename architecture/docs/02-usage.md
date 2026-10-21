@@ -164,6 +164,8 @@ Renderizr lays a flowchart out with Dagre, the way Mermaid does at Renderizr's l
 
 Every other shape falls back to a rectangle and warns: stadium, subroutine, asymmetric, parallelogram, trapezoid, double circle and every other `@{ shape }` name. An invisible link (`~~~`) draws nothing and leaves the layout, a longer link (`--->`) lays out as an ordinary one, and Markdown strings and `fa:` icons draw their text plain; each of them warns.
 
+A flowchart doesn't animate: the order its edges come in records how the author typed the source, and a branching flowchart has no single path to step along. An edge whose metadata sets `animate` or `animation` (`e1@{ animate: true }`, `e1@{ animation: fast }`) draws as a still line and warns.
+
 End markers take the edge's color and draw solid on a dotted line, sized to the line as the arrow is. Each end with a marker leaves its node straight before the line may turn, and ranks sit far enough apart for the markers of a thick line to fit.
 
 A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draws as any flowchart. The HTML in its labels draws as plain text lines.

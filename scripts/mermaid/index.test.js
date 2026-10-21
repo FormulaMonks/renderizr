@@ -366,6 +366,22 @@ test("invisible links, link length, Markdown strings and fa: icons fall back and
     ]);
 });
 
+test("animate and animation on an edge's metadata are ignored and warn, and the edges stay", () => {
+    const { mermaid, notices } = readOne(
+        [
+            "flowchart LR",
+            "  A e1@--> B",
+            "  B e2@--> C",
+            "  e1@{ animate: true }",
+            "  e2@{ animation: fast }",
+        ].join("\n"),
+    );
+    assert.equal(mermaid.edges.length, 2, "both edges draw");
+    assert.deepEqual(notices, [
+        ignoredWarning("flow", ["animate", "animation"]),
+    ]);
+});
+
 test("click callbacks are ignored and warn once, and a click link stays", () => {
     const { mermaid, notices } = readOne(
         [
