@@ -83,6 +83,13 @@ export const FLUSH_TIMEOUT_MS = 1000;
 const SETTLE_MS = 200;
 const SETTLE_LOOKS = 5;
 
+/**
+ * How long, in ms, `watching()` waits for the watcher's first scan. Vite's
+ * watcher says it is ready once, and should that come before the plugin
+ * listens, the server starts anyway once this passes.
+ */
+const WATCH_READY_MS = 2000;
+
 let flushes = 0;
 
 /**
@@ -212,6 +219,10 @@ const emptyWorkspace = (folder) => ({
  * workspace module (spec 5.3). `writer` writes the file, one made here when
  * left out. `branding` holds the run's branding `flags` and the
  * `properties` edit mode started with.
+ *
+ * The plugin's `watching()` resolves once Vite's watcher has set up its
+ * watches, `workspace` and the DSL's folder among them. A change made before
+ * then may never reach the watcher.
  */
 export function editMode({
     workspace,
@@ -222,6 +233,8 @@ export function editMode({
     pipeline = null,
 }) {
     const file = resolve(workspace);
+
+    let watched = null;
 
     /**
      * The pipeline's error as the page takes it with the workspace module:
@@ -385,6 +398,7 @@ export function editMode({
 
     return {
         name: "renderizr:edit-mode",
+        watching: () => watched ?? Promise.resolve(),
         resolveId: (id) =>
             id === WORKSPACE_MODULE ? RESOLVED_WORKSPACE_MODULE : null,
         async load(id) {
@@ -406,6 +420,13 @@ export function editMode({
             // The file usually sits outside Vite's root, the package, so
             // Vite's watcher would never look at it on its own.
             server.watcher.add(file);
+            watched = new Promise((done) => {
+                const timer = setTimeout(done, WATCH_READY_MS);
+                server.watcher.once("ready", () => {
+                    clearTimeout(timer);
+                    done();
+                });
+            });
             if (pipeline) {
                 const { folder } = pipeline;
                 server.watcher.add(folder);
