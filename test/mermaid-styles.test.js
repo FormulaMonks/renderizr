@@ -202,13 +202,20 @@ test("parseCss reads Mermaid's declarations, the last of each winning", () => {
 });
 
 test("parseCss rejoins a declaration whose comma the source escapes", () => {
-    assert.deepEqual(parseCss(["stroke-dasharray: 9\\", "5", "stroke:#f00"]), {
-        "stroke-dasharray": "9,5",
-        stroke: "#f00",
-    });
-    assert.deepEqual(parseCss(["stroke-dasharray: 9\\", "5\\", "3"]), {
-        "stroke-dasharray": "9,5,3",
-    });
+    const cases = [
+        {
+            pieces: ["stroke-dasharray: 9\\", "5", "stroke:#f00"],
+            css: { "stroke-dasharray": "9,5", stroke: "#f00" },
+        },
+        {
+            pieces: ["stroke-dasharray: 9\\", "5\\", "3"],
+            css: { "stroke-dasharray": "9,5,3" },
+        },
+        // A backslash that ends the list escapes nothing.
+        { pieces: ["stroke-dasharray: 9\\"], css: { "stroke-dasharray": "9" } },
+    ];
+    for (const { pieces, css } of cases)
+        assert.deepEqual(parseCss(pieces), css, `parseCss(${pieces})`);
 });
 
 /* ----------------------------------------------------------------- routing */

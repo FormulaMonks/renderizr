@@ -113,9 +113,10 @@ export type MermaidEdgeStyle = RelationshipStyle & {
 };
 
 /**
- * `declarations` with each one that ends in `\\` joined to the piece after
+ * `declarations` with each one that ends in `\` joined to the piece after
  * it: Mermaid splits a style on commas and keeps the backslash of one the
- * source escapes, so `stroke-dasharray: 9\\,5` arrives in two pieces.
+ * source escapes, so `stroke-dasharray: 9\,5` arrives in two pieces. The
+ * build's ignored-styling check (`scripts/mermaid/styling.js`) mirrors it.
  */
 function joinEscaped(declarations: readonly string[]): string[] {
     const joined: string[] = [];

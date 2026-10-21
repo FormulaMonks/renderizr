@@ -63,11 +63,13 @@ const DARK_THEMES = new Set([
 const DEFAULT_THEME = "default";
 
 /**
- * `declarations` with each one that ends in `\\` joined to the piece after
+ * `declarations` with each one that ends in `\` joined to the piece after
  * it: Mermaid splits a style on commas and keeps the backslash of one the
- * source escapes, as in `stroke-dasharray: 9\\,5`.
+ * source escapes, as in `stroke-dasharray: 9\,5`. `parseCss` in
+ * `src/model/mermaid-styles.ts` joins them the same way, since the build
+ * cannot import TypeScript.
  */
-export function joinEscaped(declarations) {
+function joinEscaped(declarations) {
     const joined = [];
     let pending;
     for (const declaration of declarations ?? []) {
