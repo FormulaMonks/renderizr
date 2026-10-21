@@ -1,0 +1,75 @@
+{
+    "configuration": {
+        "scope": "Landscape"
+    },
+    "documentation": {},
+    "id": 0,
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Customer",
+                "properties": {
+                    "structurizr.dsl.identifier": "customer"
+                },
+                "relationships": [
+                    {
+                        "description": "Places orders using",
+                        "destinationId": "2",
+                        "id": "4",
+                        "sourceId": "1",
+                        "tags": "Relationship"
+                    },
+                    {
+                        "description": "Pays using",
+                        "destinationId": "3",
+                        "id": "6",
+                        "sourceId": "1",
+                        "tags": "Relationship"
+                    }
+                ],
+                "tags": "Element,Person"
+            }
+        ],
+        "softwareSystems": [
+            {
+                "description": "Takes orders.",
+                "documentation": {},
+                "id": "2",
+                "name": "Orders",
+                "properties": {
+                    "structurizr.dsl.identifier": "orders"
+                },
+                "relationships": [
+                    {
+                        "description": "Charges cards using",
+                        "destinationId": "3",
+                        "id": "5",
+                        "sourceId": "2",
+                        "tags": "Relationship"
+                    }
+                ],
+                "tags": "Element,Software System",
+                "url": "{workspace:1}/diagrams"
+            },
+            {
+                "description": "Takes payments.",
+                "documentation": {},
+                "id": "3",
+                "name": "Payments",
+                "properties": {
+                    "structurizr.dsl.identifier": "payments"
+                },
+                "tags": "Element,Software System",
+                "url": "{workspace:2}/diagrams"
+            }
+        ]
+    },
+    "name": "System Landscape",
+    "views": {
+        "configuration": {
+            "styles": {},
+            "terminology": {}
+        }
+    }
+}

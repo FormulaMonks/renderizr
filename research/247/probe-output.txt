@@ -1,0 +1,7 @@
+"{workspace:1}/diagrams" -> {"kind":"link","url":"{workspace:1}/diagrams","label":"{workspace:1}/diagrams"}
+"{workspace:1}/diagrams#SystemLandscape" -> {"kind":"link","url":"{workspace:1}/diagrams#SystemLandscape","label":"{workspace:1}/diagrams#SystemLandscape"}
+"{workspace}/diagrams#SystemLandscape" -> {"kind":"view","key":"SystemLandscape","label":"View SystemLandscape"}
+"https://structurizr.com/workspace/1/diagrams" -> {"kind":"link","url":"https://structurizr.com/workspace/1/diagrams","label":"structurizr.com"}
+"https://structurizr.com/workspace/1/diagrams#SystemLandscape" -> {"kind":"view","key":"SystemLandscape","label":"View SystemLandscape"}
+"https://structurizr.example.com/workspace/1/diagrams#SystemLandscape" -> {"kind":"link","url":"https://structurizr.example.com/workspace/1/diagrams#SystemLandscape","label":"structurizr.example.com"}
+"/workspace/1/diagrams" -> {"kind":"link","url":"/workspace/1/diagrams","label":"/workspace/1/diagrams"}

@@ -1,0 +1,91 @@
+{
+    "configuration": {
+        "scope": "SoftwareSystem"
+    },
+    "description": "Description",
+    "documentation": {},
+    "id": 2,
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Customer",
+                "properties": {
+                    "structurizr.dsl.identifier": "customer"
+                },
+                "relationships": [
+                    {
+                        "description": "Pays using",
+                        "destinationId": "3",
+                        "id": "5",
+                        "sourceId": "1",
+                        "tags": "Relationship"
+                    }
+                ],
+                "tags": "Element,Person"
+            }
+        ],
+        "softwareSystems": [
+            {
+                "description": "Takes orders.",
+                "documentation": {},
+                "id": "2",
+                "name": "Orders",
+                "properties": {
+                    "structurizr.dsl.identifier": "orders"
+                },
+                "tags": "Element,Software System"
+            },
+            {
+                "containers": [
+                    {
+                        "documentation": {},
+                        "id": "4",
+                        "name": "Payment Gateway",
+                        "properties": {
+                            "structurizr.dsl.identifier": "gateway"
+                        },
+                        "tags": "Element,Container"
+                    }
+                ],
+                "description": "Takes payments.",
+                "documentation": {},
+                "id": "3",
+                "name": "Payments",
+                "properties": {
+                    "structurizr.dsl.identifier": "payments"
+                },
+                "tags": "Element,Software System"
+            }
+        ]
+    },
+    "name": "Payments",
+    "properties": {
+        "structurizr.inspection.error": "11",
+        "structurizr.inspection.info": "0",
+        "structurizr.inspection.ignore": "0",
+        "structurizr.inspection.warning": "0"
+    },
+    "views": {
+        "configuration": {
+            "styles": {},
+            "terminology": {}
+        },
+        "containerViews": [
+            {
+                "elements": [
+                    {
+                        "id": "4",
+                        "x": 0,
+                        "y": 0
+                    }
+                ],
+                "externalSoftwareSystemBoundariesVisible": false,
+                "key": "PaymentsContainers",
+                "name": "Container View: Payments",
+                "order": 1,
+                "softwareSystemId": "3"
+            }
+        ]
+    }
+}
