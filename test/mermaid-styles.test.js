@@ -201,6 +201,16 @@ test("parseCss reads Mermaid's declarations, the last of each winning", () => {
     );
 });
 
+test("parseCss rejoins a declaration whose comma the source escapes", () => {
+    assert.deepEqual(parseCss(["stroke-dasharray: 9\\", "5", "stroke:#f00"]), {
+        "stroke-dasharray": "9,5",
+        stroke: "#f00",
+    });
+    assert.deepEqual(parseCss(["stroke-dasharray: 9\\", "5\\", "3"]), {
+        "stroke-dasharray": "9,5,3",
+    });
+});
+
 /* ----------------------------------------------------------------- routing */
 
 test("each curve routes as listed, over the workspace's routing", () => {

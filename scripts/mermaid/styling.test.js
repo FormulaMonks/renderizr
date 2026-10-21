@@ -129,6 +129,26 @@ test("CSS outside the honored lists warns once per property: subgraphs, nodes, e
     ]);
 });
 
+test("a linkStyle that escapes the comma in a dash array warns about nothing", () => {
+    const { mermaid, notices } = readOne(
+        "flowchart LR\n    A --> B\n    linkStyle 0 stroke-dasharray: 9\\,5\n",
+    );
+    assert.deepEqual(notices, []);
+    // The page joins the pieces again when it reads them.
+    assert.deepEqual(mermaid.edges[0].styles, [
+        "stroke-dasharray: 9\\",
+        "5",
+        "fill:none",
+    ]);
+});
+
+test("a piece with no colon never counts as a property", () => {
+    const { notices } = readOne(
+        "flowchart LR\n    A --> B\n    style A fill:#f00,5\n",
+    );
+    assert.deepEqual(notices, []);
+});
+
 test("look, htmlLabels, layout: elk, elk keys, unknown themes and theme variables outside the list warn", () => {
     const { notices } = readOne(
         [

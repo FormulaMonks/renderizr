@@ -113,14 +113,35 @@ export type MermaidEdgeStyle = RelationshipStyle & {
 };
 
 /**
+ * `declarations` with each one that ends in `\\` joined to the piece after
+ * it: Mermaid splits a style on commas and keeps the backslash of one the
+ * source escapes, so `stroke-dasharray: 9\\,5` arrives in two pieces.
+ */
+function joinEscaped(declarations: readonly string[]): string[] {
+    const joined: string[] = [];
+    let pending: string | undefined;
+    for (const piece of declarations) {
+        const whole = pending === undefined ? piece : `${pending},${piece}`;
+        if (whole.endsWith("\\")) pending = whole.slice(0, -1);
+        else {
+            joined.push(whole);
+            pending = undefined;
+        }
+    }
+    if (pending !== undefined) joined.push(pending);
+    return joined;
+}
+
+/**
  * Mermaid's CSS declarations (`["fill:#f00", "stroke-width:2px"]`) by
- * property, the last of each winning and `!important` dropped.
+ * property, the last of each winning and `!important` dropped. A comma the
+ * source escapes stays in its declaration's value.
  */
 export function parseCss(
     declarations: readonly string[] = [],
 ): Record<string, string> {
     const css: Record<string, string> = {};
-    for (const declaration of declarations) {
+    for (const declaration of joinEscaped(declarations)) {
         const at = declaration.indexOf(":");
         if (at < 0) continue;
         const property = declaration.slice(0, at).trim().toLowerCase();
