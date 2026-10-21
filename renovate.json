@@ -81,7 +81,7 @@
             "groupName": "dev tooling"
         },
         {
-            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own PR, which keeps a bad update easy to find and revert \u2014 never grouped, never rolled up with anything else. Their commits use `fix(deps)`, so release-please prepares a patch release for each one. An update that changes what users publish reaches them only through a release, and release-please releases nothing for the `chore` type every other update uses.",
+            "description": "The rendering runtime. These are the packages whose code is inlined into the page a user publishes, so each one gets its own PR (React and React DOM, which must match, share one), which keeps a bad update easy to find and revert \u2014 never grouped, never rolled up with anything else. Their commits use `fix(deps)`, so release-please prepares a patch release for each one. An update that changes what users publish reaches them only through a release, and release-please releases nothing for the `chore` type every other update uses.",
             "matchManagers": ["npm"],
             "matchPackageNames": [
                 "react",
@@ -99,6 +99,12 @@
             "separateMinorPatch": true,
             "semanticCommitType": "fix",
             "labels": ["dependencies", "ships-to-users"]
+        },
+        {
+            "description": "React and React DOM update together, in one PR. React DOM refuses to run against a React of any other version, so a PR that moves only one of them leaves a lockfile that cannot draw a page, and CI fails on both PRs until a person merges them by hand. The rule above sets `groupName` to null, which also drops the React monorepo group `config:recommended` brings, so this rule puts it back for the two packages that ship.",
+            "matchManagers": ["npm"],
+            "matchPackageNames": ["react", "react-dom"],
+            "groupName": "react"
         },
         {
             "description": "@dagrejs/* is pinned to exact versions in package.json on purpose: `src/engine/layout/dagre-order.ts` ports Dagre's internal `lib/order` modules from the pinned version, and those carry no semver promise. Renovate replaces the exact version with a new exact version; it must never widen the pin into a range.",
