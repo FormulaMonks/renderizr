@@ -147,7 +147,7 @@ export async function generate(work = CACHE) {
         bundle: true,
         format: "esm",
         platform: "node",
-        target: "node20",
+        target: "node22",
         write: false,
         inject: [stub],
         plugins: [

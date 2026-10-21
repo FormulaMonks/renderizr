@@ -9,49 +9,21 @@
  *   const { default: Menu } = await importSrc("components/menu");
  */
 
-import * as nodeModule from "node:module";
+import { register } from "node:module";
 import { test } from "node:test";
 import { installDOM } from "./dom.js";
 
-/**
- * `module.register` landed in Node 20.6, and `package.json` allows Node 20.0.
- * The namespace import above is deliberate: a named `import { register }` is a
- * SyntaxError on the versions that lack it, which would take the whole test
- * file down instead of skipping it.
- */
-const UNSUPPORTED =
-    typeof nodeModule.register === "function"
-        ? null
-        : `importing src/*.ts needs module.register (Node 20.6+); this is ${process.version}`;
+register("./vite-hooks.js", import.meta.url);
 
-if (UNSUPPORTED) {
-    // Loud on purpose. A silent skip is how a suite comes to report a green
-    // run while a third of it never executed; this says so once per file, on
-    // stderr, before a single test has run.
-    process.emitWarning(
-        `${UNSUPPORTED}. Every test in this file is being SKIPPED. Run the suite on Node 20.6 or newer.`,
-        "RenderizrTestSkip",
-    );
-} else {
-    nodeModule.register("./vite-hooks.js", import.meta.url);
-}
-
-/**
- * Import `src/<path>` (extension optional).
- *
- * On a Node too old for the hooks this resolves to an inert namespace instead
- * of throwing, so the module-level `await importSrc(...)` at the top of a test
- * file still settles and `srcTest` can skip the tests with a reason.
- */
+/** Import `src/<path>` (extension optional). */
 export const importSrc = (path) =>
-    UNSUPPORTED
-        ? Promise.resolve(new Proxy({}, { get: () => undefined }))
-        : import(new URL(`../../src/${path}`, import.meta.url).href);
+    import(new URL(`../../src/${path}`, import.meta.url).href);
 
-/** `test`, or a skipped stand-in when `src/` cannot be imported here. */
-export const srcTest = UNSUPPORTED
-    ? (name) => test(name, { skip: UNSUPPORTED }, () => {})
-    : test;
+/**
+ * `test` under the name every test file imports it by, so the files need no
+ * edit of their own.
+ */
+export const srcTest = test;
 
 /**
  * The DOM the application runs in, installed as a side effect of importing

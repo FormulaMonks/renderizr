@@ -115,7 +115,7 @@
             "minimumReleaseAge": "14 days"
         },
         {
-            "description": "`engines` states the supported Node and pnpm range \u2014 a compatibility promise made in README.md and enforced by the CI matrix. Raising it is a decision, not a dependency update.",
+            "description": "`engines` states the supported Node and pnpm range \u2014 a compatibility promise made in README.md and enforced by the CI matrix. Raising it is a decision, not a dependency update: ADR 26 says when the Node floor moves.",
             "matchManagers": ["npm"],
             "matchDepTypes": ["engines"],
             "enabled": false

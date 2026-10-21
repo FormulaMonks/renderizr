@@ -58,11 +58,11 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 
 ## Node code in `scripts/`
 
-- Use only what Node 20 ships. Import builtins with the `node:` prefix. A bin starts with `#! /usr/bin/env node`.
+- Use only what Node 22.12 ships. Import builtins with the `node:` prefix. A bin starts with `#! /usr/bin/env node`.
 - Write to `process.stdout` and `process.stderr` with `.write()` and a trailing `\n`: progress to stdout, warnings and errors to stderr. `console.*` appears in no shipped code.
 - Only `cli.js` (usage errors, `--help`) and the Node-floor guard at the top of `build.js` call `process.exit`. Everything else throws an `Error` whose message names the input and what it expected: `Expected one workspace, got 2: a.json, b.json`.
 - Degrade when the output can still be right (a theme that fails to load warns and the build carries on). Fail when it would be wrong (an unrecognized image, invalid JSON, an escape sequence that survived rewriting).
-- Export the parts as named functions; `build.js` is the one module with top-level side effects. A flag lives in `OPTIONS` in `cli.js` and its `USAGE` text.
+- Export the parts as named functions; `build.js` and `main.js`, the bin and the CLI it loads, are the only modules with top-level side effects. A flag lives in `OPTIONS` in `cli.js` and its `USAGE` text.
 
 ## Comments
 
@@ -73,7 +73,7 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 
 ## Test style
 
-- Flat `test(...)` calls grouped under section dividers; `describe` only where one file covers several modules. Import `srcTest as test` so a file skips itself, with a reason on stderr, on a Node too old for the module hooks.
+- Flat `test(...)` calls grouped under section dividers; `describe` only where one file covers several modules. In `test/`, import `srcTest as test` from `./support/ts.js` beside `importSrc`; it is `node:test`'s `test`.
 - Name a test as a lowercase sentence stating behavior a reader could observe: "the footer's version comes from package.json", "--help wins even when the workspace is missing". Flags and identifiers appear verbatim.
 - Drive cases through a `const` table and a `for` loop, as `scripts/escapes.test.js` does.
 - When a function has to hold for any input, add a property test with `fast-check` beside the table, as `scripts/escapes.test.js` does. Keep each counterexample it finds as a row of the table, so the case stays covered whatever seed runs next. OpenSSF Scorecard counts these tests as fuzzing.
