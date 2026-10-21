@@ -810,7 +810,12 @@ function drawView(
             measure,
             labels.descriptions,
         );
-        return { ...empty(view), ...drawn, layout: view.layout };
+        return {
+            ...empty(view),
+            ...drawn,
+            layout: view.layout,
+            ...sequenceAnimation(drawn),
+        };
     }
     const boundaries = new Set(view.boundaries.map((b) => b.id));
     // A Mermaid diagram's nodes, edges and subgraphs take their styles and
@@ -905,7 +910,7 @@ function drawView(
                     : "",
             description:
                 labels.descriptions && style.description
-                    ? (placed.element.description ?? "")
+                    ? placed.element.description ?? ""
                     : "",
             background: style.background,
             stroke: style.stroke ?? defaults.color,
@@ -1606,7 +1611,7 @@ function boundaryBoxes(
             boundary.kind === "Element" &&
             labels.descriptions &&
             style.description
-                ? (boundary.element.description ?? "")
+                ? boundary.element.description ?? ""
                 : "";
         boxes.push({
             ...box,
@@ -1711,4 +1716,39 @@ export function readyFor(
     return (
         viewKey !== undefined && paintedKey != null && viewKey === paintedKey
     );
+}
+
+/**
+ * PROTOTYPE (#238): one step per message, in the order the source writes
+ * them. `?sequence-steps=static` reveals messages cumulatively, anything
+ * else highlights one at a time. In the static mode every participant shows
+ * from the first step; in the dynamic mode a step shows the two it joins.
+ */
+function sequenceAnimation(drawn: ReturnType<typeof drawSequence>): {
+    animation?: ViewAnimation;
+    edges: EdgeLine[];
+} {
+    const kind =
+        typeof location !== "undefined" &&
+        new URLSearchParams(location.search).get("sequence-steps") === "static"
+            ? "static"
+            : "dynamic";
+    if (drawn.edges.length === 0) return { edges: drawn.edges };
+    const withFooter = (id: string) => [id, `${id}#footer`];
+    const everyone = drawn.elements.map((e) => e.id);
+    const edges = drawn.edges.map((edge, i) => ({
+        ...edge,
+        order: String(i + 1),
+    }));
+    const steps = edges.map((edge, i) => ({
+        order: i + 1,
+        elements:
+            kind === "static"
+                ? i === 0
+                    ? everyone
+                    : []
+                : [...withFooter(edge.sourceId), ...withFooter(edge.targetId)],
+        relationships: [edge.id],
+    }));
+    return { animation: { kind, steps, zoom: false }, edges };
 }

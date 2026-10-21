@@ -406,7 +406,12 @@ type PlaceholderNode = Node<{ color: string }, "placeholder">;
 type CanvasNode = Node<Record<string, never>, "canvas">;
 /** One layer of a sequence diagram, laid over the graph's bounds. */
 type SequenceNode = Node<
-    { shapes: SequenceShape[]; origin: Bounds },
+    {
+        shapes: SequenceShape[];
+        origin: Bounds;
+        presences?: Presence[];
+        transition?: string;
+    },
     "sequence"
 >;
 type DiagramNode =
@@ -1161,6 +1166,17 @@ function withPresence(
 ): DiagramNode[] {
     if (!stepState) return nodes;
     return nodes.map((node) => {
+        if (node.type === "sequence" && stepState.sequence) {
+            const layer = node.id === "sequence:back" ? "back" : "front";
+            return {
+                ...node,
+                data: {
+                    ...node.data,
+                    presences: stepState.sequence[layer],
+                    transition,
+                },
+            } as DiagramNode;
+        }
         const presence =
             node.type === "box"
                 ? stepState.elements[node.id]
@@ -1541,7 +1557,7 @@ const reactName = (name: string) =>
  * serializes them. It takes no pointer, and nothing in it is focusable.
  */
 function SequenceLayer({ data }: NodeProps<SequenceNode>) {
-    const { shapes, origin } = data;
+    const { shapes, origin, presences, transition } = data;
     return (
         <svg
             aria-hidden="true"
@@ -1556,6 +1572,12 @@ function SequenceLayer({ data }: NodeProps<SequenceNode>) {
                         {
                             // Shapes are drawn in layout order and never reorder.
                             key: i,
+                            ...(presences && {
+                                style: {
+                                    opacity: PRESENCE_OPACITY[presences[i]],
+                                    transition,
+                                },
+                            }),
                             ...Object.fromEntries(
                                 Object.entries(attrs).map(([name, value]) => [
                                     reactName(name),

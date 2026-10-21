@@ -24,6 +24,8 @@ export type StepState = {
     elements: Record<string, Presence>;
     boundaries: Record<string, Presence>;
     edges: Record<string, Presence>;
+    /** PROTOTYPE (#238): each sequence-layer shape, by layer and index. */
+    sequence?: { back: Presence[]; front: Presence[] };
     /** The box around the step's elements, which `zoomOnAnimation` fits. */
     focus?: Bounds;
 };
@@ -71,6 +73,7 @@ export function stepStateOf(graph: Graph, step: number | null): StepState {
     }
 
     const focus = focusOf(graph, current.elements, current.relationships);
+    const sequence = sequenceStateOf(graph, step, graph.animation.kind);
 
     if (graph.animation.kind === "dynamic") {
         const inStep = new Set(current.elements);
@@ -91,6 +94,7 @@ export function stepStateOf(graph: Graph, step: number | null): StepState {
             ),
             boundaries: everything(boundaryIds, "shown"),
             edges,
+            ...(sequence && { sequence }),
             ...(focus && { focus }),
         };
     }
@@ -116,7 +120,32 @@ export function stepStateOf(graph: Graph, step: number | null): StepState {
         edges: Object.fromEntries(
             graph.edges.map((e) => [e.key, presence(revealedEdges.has(e.id))]),
         ),
+        ...(sequence && { sequence }),
         ...(focus && { focus }),
+    };
+}
+
+/**
+ * PROTOTYPE (#238): a sequence shape with no steps always shows. Dynamic: a
+ * shape shows while the step falls in its range and fades otherwise. Static:
+ * a shape appears with its first step and stays.
+ */
+function sequenceStateOf(
+    graph: Graph,
+    step: number,
+    kind: "dynamic" | "static",
+): StepState["sequence"] {
+    if (!graph.sequence) return undefined;
+    const of = (shape: { steps?: [number, number] }): Presence => {
+        if (!shape.steps) return "shown";
+        const [first, last] = shape.steps;
+        if (kind === "dynamic")
+            return step >= first && step <= last ? "shown" : "faded";
+        return step >= first ? "shown" : "hidden";
+    };
+    return {
+        back: graph.sequence.back.map(of),
+        front: graph.sequence.front.map(of),
     };
 }
 

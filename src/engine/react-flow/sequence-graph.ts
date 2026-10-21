@@ -66,6 +66,11 @@ export type SequenceShape = {
     /** SVG attribute names, as the export writes them. */
     attrs: Record<string, string | number | undefined>;
     text?: string;
+    /**
+     * PROTOTYPE (#238): the first and last step (1-based message index) the
+     * shape belongs to; none for a shape every step shows (lifelines, boxes).
+     */
+    steps?: [number, number];
 };
 
 /** What a sequence diagram draws around its participants and messages, back to front. */
@@ -366,7 +371,7 @@ function layerShapes(
                     y: f.y,
                     width: f.width,
                     height: f.height,
-                    fill: rect ? (f.color ?? colors.rect) : "none",
+                    fill: rect ? f.color ?? colors.rect : "none",
                     "fill-opacity": rect
                         ? colors.rectOpacity(f.color !== undefined)
                         : undefined,
@@ -502,9 +507,10 @@ function layerShapes(
             ),
         );
     }
-    for (const message of layout.messages) {
+    for (const [index, message] of layout.messages.entries()) {
         const edge = edges.get(mermaidEdgeId(message.id));
         if (!edge) continue;
+        const from = front.length;
         // A message's label draws with no backing, as Mermaid's.
         front.push(
             ...textShapes(message.label, line, {
@@ -557,8 +563,76 @@ function layerShapes(
                 },
             );
         }
+        for (const shape of front.slice(from))
+            shape.steps = [index + 1, index + 1];
     }
     return { back, front };
+}
+
+/**
+ * PROTOTYPE (#238): which steps each shape belongs to, read from where it
+ * sits, since the layout keeps no link from a bar, note or fragment to the
+ * messages around it. A message's label, dots and number take its own step;
+ * a bar or fragment spans the messages inside its height; a note takes the
+ * message just before it, or the first one when it opens the diagram.
+ */
+function attributeSteps(layout: SequenceLayout, drawing: SequenceDrawing) {
+    const ys = layout.messages.map((m) => Math.min(...m.route.map((p) => p.y)));
+    const EPS = 1;
+    const span = (
+        top: number,
+        bottom: number,
+    ): [number, number] | undefined => {
+        const inside = ys
+            .map((y, i) => [y, i + 1] as const)
+            .filter(([y]) => y >= top - EPS && y <= bottom + EPS)
+            .map(([, i]) => i);
+        return inside.length
+            ? [inside[0], inside[inside.length - 1]]
+            : undefined;
+    };
+    const before = (top: number): [number, number] => {
+        const i = ys.findLastIndex((y) => y < top);
+        const step = i < 0 ? 1 : i + 1;
+        return [step, step];
+    };
+    const yOf = (shape: SequenceShape) =>
+        Number(shape.attrs.y ?? shape.attrs.cy ?? shape.attrs.y1 ?? 0);
+    const boxOf = (shape: SequenceShape) => ({
+        top: yOf(shape),
+        bottom: yOf(shape) + Number(shape.attrs.height ?? 0),
+    });
+    const markRun = (shapes: SequenceShape[]) => {
+        // Shapes that follow a tagged rect (its tab, title, sections) share its steps.
+        let current: [number, number] | undefined;
+        let fragmentBottom = Number.NEGATIVE_INFINITY;
+        for (const shape of shapes) {
+            if (shape.steps) continue;
+            const kind = String(shape.attrs["data-sequence"] ?? "");
+            if (kind === "activation") {
+                const { top, bottom } = boxOf(shape);
+                shape.steps = span(top, bottom) ?? before(top);
+                current = undefined;
+            } else if (kind.startsWith("fragment")) {
+                const { top, bottom } = boxOf(shape);
+                current = span(top, bottom) ?? before(top);
+                fragmentBottom = bottom;
+                shape.steps = current;
+            } else if (kind === "note") {
+                current = before(boxOf(shape).top);
+                fragmentBottom = boxOf(shape).bottom;
+                shape.steps = current;
+            } else if (kind === "lifeline" || kind === "box") {
+                current = undefined;
+            } else if (current && yOf(shape) <= fragmentBottom + EPS) {
+                shape.steps = current;
+            } else {
+                current = undefined;
+            }
+        }
+    };
+    markRun(drawing.back);
+    markRun(drawing.front);
 }
 
 /** A sequence diagram drawn: its participants, its messages and the layer around them. */
@@ -723,6 +797,7 @@ export function drawSequence(
         lanes,
         new Map(edges.map((edge) => [edge.key, edge])),
     );
+    attributeSteps(layout, sequence);
     return {
         elements,
         edges,
