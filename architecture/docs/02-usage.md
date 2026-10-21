@@ -250,7 +250,7 @@ Renderizr lays a sequence diagram out with its own code, the way Mermaid does at
 | `mirrorActors: false` | No participants below the lifelines, which end just below the last message |
 | `rightAngles: true` | Self-messages with square corners |
 
-The `boundary`, `control`, `entity` and `collections` types fall back to the participant box, and half arrows (`-|\`, `-\\`, `/|-` and the rest) fall back to an arrow or an open arrow at the end the syntax puts it; each warns. Participant menus (`link`, `links`, `properties`, `details`) draw nothing, and participants and messages never become activation targets. A sequence diagram doesn't animate.
+The `boundary`, `control`, `entity` and `collections` types fall back to the participant box, and half arrows (`-|\`, `-\\`, `/|-` and the rest) fall back to an arrow or an open arrow at the end the syntax puts it; each warns. Participant menus (`link`, `links`, `properties`, `details`) draw nothing, and participants and messages never become activation targets.
 
 A sequence diagram's styles layer from the least specific to the most: the color scheme's defaults, then the workspace's tag styles, then the source's config (a named `theme` or `themeVariables`), then the colors the source writes on a `rect` or a `box`. Participants take the workspace's `Element` and `Mermaid` styles, messages its `Relationship` and `Mermaid` styles, and boxes its `Group` and `Mermaid` styles.
 
@@ -261,6 +261,19 @@ A source that names a `theme` or sets `themeVariables` takes the colors that Mer
 Only the source's top-level `fontSize` and `fontFamily` set the font: `fontSize` scales every text of the diagram from Mermaid's 16 px. `sequence.*FontSize`, `sequence.*FontFamily`, `messageMargin` and `curve` don't apply, and each warns.
 
 The descriptions toggle hides the notes. The diagram lays out again without them, so the gaps they leave close, and fits the canvas again. A fragment that holds only notes stays, empty, with its title. Message labels, fragment titles and conditions, and participant names always draw, and an export leaves the notes out while they hide. The technologies toggle hides, since it has nothing to change.
+
+A sequence diagram animates by its message order, one step per message, with the toolbar's animation buttons and keys a dynamic view uses. A diagram with no messages doesn't animate. The layout holds still from step to step, and nothing hides: each part shows or fades to 20 percent as a whole.
+
+- **The message**: its arrow, label, sequence number and central connection dots show; every other message fades. Messages in a `par` step one by one, and every `alt` case steps in source order.
+- **Participants**: the message's sender and receiver show, header, footer and lifeline together, and every other participant fades. A participant that `create` adds fades at its row until a message involves it.
+- **Notes**: a note steps with the message written after it, and a note after the last message steps with the last one.
+- **Activation bars**: a bar shows while the step is inside it, from the message that opens it to the one that closes it.
+- **Fragments**: the frame, tab and title show while the step is in any of the fragment's sections. A section's condition and the dashed line above it show only while the step is in that section, so a section with no messages stays faded. A step inside a nested fragment shows the fragments around it too.
+- **Boxes** never fade.
+
+With `structurizr.zoomOnAnimation` set to `true` on the image view, or on the view set, each step fits the canvas to its message's row and the notes that step with it, as wide as its two participants' columns. Stop shows and fits the whole diagram.
+
+The descriptions toggle keeps the step during an animation, and a playing animation keeps playing. The canvas fits again at once: under `zoomOnAnimation` to the step's row in the diagram as it lays out again, so the row shrinks when its notes hide, else to the whole diagram. An export taken during an animation draws the step as the canvas shows it, framed by the view's canvas, and its file name carries the step: `mermaid-sequence-diagrams-checkout-step-3.png`.
 
 Renderizr draws participant names bold, as the C4 label template does, where Mermaid draws them in a regular weight, and it wraps a fragment's title within the fragment where Mermaid lets a long one run past the tab.
 

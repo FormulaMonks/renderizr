@@ -121,11 +121,11 @@ A small hop an edge draws where it crosses another edge, so the crossing does no
 _Avoid_: hop, bridge, line jump
 
 **Animation**:
-Playing a view one step at a time. A dynamic view animates by its relationship order; a static view animates only when the workspace lists steps for it.
+Playing a view one step at a time. A dynamic view animates by its relationship order and a sequence diagram by its message order; a static view animates only when the workspace lists steps for it.
 _Avoid_: playback, slideshow, sequence
 
 **Step**:
-One stage of an animation. In a dynamic view, every relationship sharing one order value; in a static view, one entry of the view's animation list, adding to what earlier steps revealed. A sequence diagram's message is an edge and never a step.
+One stage of an animation. In a dynamic view, every relationship sharing one order value; in a sequence diagram, one message and the notes written just before it; in a static view, one entry of the view's animation list, adding to what earlier steps revealed.
 _Avoid_: frame, stage, animation step
 
 **Edit mode**:
