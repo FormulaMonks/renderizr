@@ -48,20 +48,15 @@ const once = (body) => {
 /**
  * Poison `fetch` inside the CLI's process so the fixture builds below prove
  * they need no network, rather than merely not happening to use one here.
- * `--import` landed in Node 20.6; on anything older the build just runs.
  */
-const [major, minor] = process.versions.node.split(".").map(Number);
-const OFFLINE =
-    major > 20 || (major === 20 && minor >= 6)
-        ? {
-              NODE_OPTIONS: [
-                  process.env.NODE_OPTIONS,
-                  `--import ${pathToFileURL(fixture("no-network.js")).href}`,
-              ]
-                  .filter(Boolean)
-                  .join(" "),
-          }
-        : {};
+const OFFLINE = {
+    NODE_OPTIONS: [
+        process.env.NODE_OPTIONS,
+        `--import ${pathToFileURL(fixture("no-network.js")).href}`,
+    ]
+        .filter(Boolean)
+        .join(" "),
+};
 
 const build = async (name, args) => {
     const out = join(SCRATCH, name);

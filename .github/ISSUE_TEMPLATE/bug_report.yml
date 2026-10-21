@@ -57,7 +57,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: "Output of `npx --yes envinfo --system --binaries`, plus which Renderizr you ran: the ref after `#` in your npx command, or `git rev-parse --short HEAD` from a clone. Renderizr needs Node 20 or newer."
+      description: "Output of `npx --yes envinfo --system --binaries`, plus which Renderizr you ran: the ref after `#` in your npx command, or `git rev-parse --short HEAD` from a clone. Renderizr needs Node 22.12 or newer."
       render: shell
       placeholder: |
         Renderizr: main @ 15b1bbe

@@ -5,8 +5,7 @@
  *
  * Three things stand between `src/*.ts` and a plain `import()`:
  *
- *   1. It is TypeScript. Node 22.6+ can strip types itself, but the package
- *      supports Node 20, so the transform is done here with the esbuild that
+ *   1. It is TypeScript. The transform is done here with the esbuild that
  *      Vite already depends on — the same transformer the real build uses.
  *   2. Imports are extensionless (`./markdown-alerts`), which TypeScript
  *      resolves and Node does not.
