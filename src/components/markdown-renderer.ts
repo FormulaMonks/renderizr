@@ -20,7 +20,7 @@ import yaml from "highlight.js/lib/languages/yaml";
 // No highlight.js stylesheet is imported on purpose: every shipped theme is
 // hardcoded to one color scheme. The `hljs-*` token colors live in the module
 // CSS instead, where they follow `data-theme`.
-import type StateCore from "markdown-it/lib/rules_core/state_core.mjs";
+import type { StateCore } from "markdown-it";
 import type { ImageResolver } from "./doc-images";
 import { githubSlug, type LinkResolver } from "./doc-links";
 import alerts from "./markdown-alerts";
@@ -175,7 +175,7 @@ export default class MarkdownRenderer extends Component {
         for (const block of state.tokens) {
             for (const token of block.children ?? []) {
                 if (token.type !== "image") continue;
-                const src = resolve(token.attrGet("src") ?? "");
+                const src = resolve(String(token.attrGet("src") ?? ""));
                 if (src !== undefined) token.attrSet("src", src);
             }
         }
@@ -196,7 +196,7 @@ export default class MarkdownRenderer extends Component {
             children.forEach((token, index) => {
                 if (token.type !== "link_open") return;
 
-                const href = token.attrGet("href") ?? "";
+                const href = String(token.attrGet("href") ?? "");
                 const resolved = resolve(href);
 
                 if (typeof resolved === "string") {

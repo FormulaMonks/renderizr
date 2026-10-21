@@ -51,9 +51,6 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^21.0.0
         version: 21.2.4
-      '@types/markdown-it':
-        specifier: ^14.2.0
-        version: 14.2.0
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2
