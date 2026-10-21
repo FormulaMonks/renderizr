@@ -2,19 +2,19 @@
 
 ## What changed
 
-Renderizr 3 needs Node 22.12 or newer. On an older Node it stops before it builds anything, with one line that names the floor and the Node that ran:
+Renderizr 3 needs Node 22.13 or newer. On an older Node it stops before it builds anything, with one line that names the floor and the Node that ran:
 
 ```text
-Renderizr needs Node 22.12 or newer; this is v20.19.0.
+Renderizr needs Node 22.13 or newer; this is v20.19.0.
 ```
 
 ## Who it affects
 
-Anyone who runs Renderizr on Node 20, Node 21 or a Node 22 release before 22.12. That holds however you run it: with `npx`, from a global install or in a CI pipeline.
+Anyone who runs Renderizr on Node 20, Node 21 or a Node 22 release before 22.13. That holds however you run it: with `npx`, from a global install or in a CI pipeline.
 
 ## What to do
 
-Upgrade Node to 22.12 or newer, then check the version that runs:
+Upgrade Node to 22.13 or newer, then check the version that runs:
 
 ```bash
 node --version
@@ -43,4 +43,4 @@ If you render in GitHub Actions with `actions/setup-node`, change `node-version`
     node-version: "24"
 ```
 
-Any version from 22.12 up works in each of these.
+Any version from 22.13 up works in each of these.

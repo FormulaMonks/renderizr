@@ -9,7 +9,7 @@
 #           Node, and guards the product's core promise: `--single-file` output
 #           that makes no network requests. It also runs the React Flow
 #           engine's acceptance harness over every view of the acceptance set
-#   consumer  the >=22.12 floor, on Node 22.12 exactly, via npm and production
+#   consumer  the >=22.13 floor, on Node 22.13 exactly, via npm and production
 #             dependencies only — what `npx github:FormulaMonks/renderizr`
 #             actually does
 #   structurizr  Structurizr's own tools, pinned: the committed acceptance
@@ -22,21 +22,19 @@
 # every acceptance view for people to review, on pull requests that touch the
 # engine.
 #
-# Node matrix: two different floors, proved two different ways (ADR 26).
+# Node matrix: one floor, proved two ways (ADR 26).
 #
-# `engines.node` says ">=22.12" and README.md badges it, but that is a promise
-# to people who *run* Renderizr — `npx github:FormulaMonks/renderizr`, which is
-# npm installing the runtime dependencies and executing scripts/build.js. Vite
-# sets it: 22.12 is the lowest Node 22 it accepts.
+# `engines.node` says ">=22.13" and README.md badges it. That is the floor for
+# people who *run* Renderizr — `npx github:FormulaMonks/renderizr`, which is
+# npm installing the runtime dependencies and executing scripts/build.js — and
+# for people who develop it: pnpm 11 requires Node >=22.13 (it imports
+# `node:sqlite`).
 #
-# Developing the repository needs a little more. pnpm 11 requires Node >=22.13
-# (it imports `node:sqlite`), so the pnpm jobs cannot prove the user floor:
-# they would die at setup on 22.12 before a single test runs.
-#
-# So the pnpm jobs — test, e2e — run on 22, 24 and 26, and a separate
-# `consumer` job proves the 22.12 floor the way a user actually meets it: npm,
-# production dependencies only, no pnpm and no dev toolchain. If that job ever
-# fails, `engines.node` is a lie and the floor has to move.
+# The pnpm jobs — test, e2e — run on 22, 24 and 26, which means the newest
+# release of each line. A separate `consumer` job proves the floor itself, on
+# 22.13 exactly, the way a user actually meets it: npm, production
+# dependencies only, no pnpm and no dev toolchain. If that job ever fails,
+# `engines.node` is a lie and the floor has to move.
 #
 # .nvmrc/.mise.toml pin 26 for development; that is the toolchain, not the
 # supported range. Every job that reads `node-version-file: .nvmrc` (static,
@@ -477,8 +475,8 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-  # The `engines.node: ">=22.12"` floor, proved the way a user meets it: on
-  # Node 22.12 exactly, the lowest Node a user may run.
+  # The `engines.node: ">=22.13"` floor, proved the way a user meets it: on
+  # Node 22.13 exactly, the lowest Node a user may run.
   #
   # Deliberately uses npm and not pnpm, and installs production dependencies
   # only: that is what `npx github:FormulaMonks/renderizr` does. No lockfile, no
@@ -488,7 +486,7 @@ jobs:
   # The fixture is committed, so this job needs no network, which a user on a
   # locked-down machine will not have either.
   consumer:
-    name: consumer (node 22.12, npm)
+    name: consumer (node 22.13, npm)
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -496,10 +494,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Node 22.12
+      - name: Set up Node 22.13
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22.12"
+          node-version: "22.13"
 
       - name: Install runtime dependencies only, with npm
         run: npm install --omit=dev --no-audit --no-fund

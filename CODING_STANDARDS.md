@@ -58,7 +58,7 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 
 ## Node code in `scripts/`
 
-- Use only what Node 22.12 ships. Import builtins with the `node:` prefix. A bin starts with `#! /usr/bin/env node`.
+- Use only what Node 22.13 ships. Import builtins with the `node:` prefix. A bin starts with `#! /usr/bin/env node`.
 - Write to `process.stdout` and `process.stderr` with `.write()` and a trailing `\n`: progress to stdout, warnings and errors to stderr. `console.*` appears in no shipped code.
 - Only `cli.js` (usage errors, `--help`) and the Node-floor guard at the top of `build.js` call `process.exit`. Everything else throws an `Error` whose message names the input and what it expected: `Expected one workspace, got 2: a.json, b.json`.
 - Degrade when the output can still be right (a theme that fails to load warns and the build carries on). Fail when it would be wrong (an unrecognized image, invalid JSON, an escape sequence that survived rewriting).

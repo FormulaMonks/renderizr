@@ -8,11 +8,11 @@
  */
 
 /** The floor's major and minor. `engines.node` in package.json says the same. */
-const [FLOOR_MAJOR, FLOOR_MINOR] = [22, 12];
+const [FLOOR_MAJOR, FLOOR_MINOR] = [22, 13];
 
 /**
- * Whether `version`, shaped like `process.versions.node` (`22.12.0`), meets
- * the floor. Major and minor compare as numbers, so 22.9 is below 22.12.
+ * Whether `version`, shaped like `process.versions.node` (`22.13.0`), meets
+ * the floor. Major and minor compare as numbers, so 22.9 is below 22.13.
  */
 export function meetsNodeFloor(version) {
     const [major, minor] = version.split(".").map(Number);
