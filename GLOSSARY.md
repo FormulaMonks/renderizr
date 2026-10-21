@@ -125,7 +125,7 @@ Playing a view one step at a time. A dynamic view animates by its relationship o
 _Avoid_: playback, slideshow, sequence
 
 **Step**:
-One stage of an animation. In a dynamic view, every relationship sharing one order value; in a sequence diagram, one message and the notes written just before it; in a static view, one entry of the view's animation list, adding to what earlier steps revealed.
+One stage of an animation. In a dynamic view, every relationship sharing one order value; in a sequence diagram, one message and the notes written between it and the messages on either side of it; in a static view, one entry of the view's animation list, adding to what earlier steps revealed.
 _Avoid_: frame, stage, animation step
 
 **Edit mode**:

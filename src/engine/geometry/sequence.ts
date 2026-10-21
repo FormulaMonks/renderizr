@@ -140,8 +140,8 @@ export type SequenceLayout = {
     })[];
     messages: SequenceMessage[];
     /**
-     * Each note holds the message written after it, or the last one; a note
-     * in a section with no messages holds none.
+     * Each note holds the message written just before it and the one just
+     * after it, or only the first or the last at either end.
      */
     notes: (Bounds & { lines: string[]; messages: MessageRange })[];
     fragments: SequenceFragment[];
@@ -179,8 +179,6 @@ type Frame = {
     /** The first message placed after the fragment opens. */
     from: number;
     sections: { y: number; title: string; from: number }[];
-    /** The notes placed in the open section, settled when it ends. */
-    notes: SequenceLayout["notes"];
 };
 
 function pass(
@@ -323,16 +321,6 @@ function pass(
             frame.bottom = Math.max(frame.bottom, bottom);
         }
     };
-    /**
-     * A section that ends holding no message stays faded at every step, so
-     * the notes in it hold none either.
-     */
-    const endSection = (frame: Frame) => {
-        const from = frame.sections.at(-1)?.from ?? frame.from;
-        if (from === messages.length)
-            for (const note of frame.notes) note.messages = { from, to: from };
-        frame.notes = [];
-    };
     const endActivation = (id: string) => {
         const stack = stacks.get(id);
         const open = stack?.pop();
@@ -412,14 +400,13 @@ function pass(
                     width: noteWidth,
                     height,
                     lines,
-                    // The message after it; the last one is settled below.
+                    // The messages before and after it; the last is settled below.
                     messages: {
-                        from: messages.length,
+                        from: Math.max(0, messages.length - 1),
                         to: messages.length + 1,
                     },
                 };
                 notes.push(note);
-                frames[frames.length - 1]?.notes.push(note);
                 cursor += height;
                 reach(left, left + noteWidth, cursor);
                 return;
@@ -454,14 +441,12 @@ function pass(
                     bottom: cursor,
                     from: messages.length,
                     sections: [],
-                    notes: [],
                 });
                 return;
             }
             case "section": {
                 const frame = frames[frames.length - 1];
                 if (!frame) return;
-                endSection(frame);
                 cursor = Math.max(cursor, frame.bottom) + 15 * S;
                 const y = cursor;
                 const known = fragmentWidths.get(frame.position);
@@ -483,7 +468,6 @@ function pass(
             case "close": {
                 const frame = frames.pop();
                 if (!frame) return;
-                endSection(frame);
                 const bottom = Math.max(cursor, frame.bottom) + BOX_MARGIN;
                 // A fragment that holds nothing spans every participant.
                 if (!Number.isFinite(frame.left)) {
@@ -624,11 +608,13 @@ function pass(
 
     for (const [position, item] of script.items.entries())
         place(item, position);
-    // A note with no message after it steps with the last one.
-    const last = Math.max(0, messages.length - 1);
+    // A note with no message after it steps with the last one only.
+    const end = Math.max(1, messages.length);
     for (const note of notes)
-        if (note.messages.to > note.messages.from && note.messages.from > last)
-            note.messages = { from: last, to: last + 1 };
+        note.messages = {
+            ...note.messages,
+            to: Math.min(note.messages.to, end),
+        };
     // A bar nothing closes draws nothing, as in Mermaid: a central
     // connection's never closes.
 

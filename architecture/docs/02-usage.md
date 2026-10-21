@@ -268,12 +268,12 @@ A sequence diagram animates by its message order, one step per message, with the
 
 - **The message**: its arrow, label, sequence number and central connection dots show; every other message fades, its arrow, number and dots as one, so they don't show through each other. Messages in a `par` step one by one, and every `alt` case steps in source order.
 - **Participants**: the message's sender and receiver show, header, footer and lifeline together, and every other participant fades. A participant that `create` adds fades at its row until a message involves it.
-- **Notes**: a note steps with the message written after it, and a note after the last message steps with the last one. A note in a section with no messages stays faded at every step, with its section.
+- **Notes**: a note shows at the step of the message written just before it and at the step of the message written just after it, and a run of notes between two messages shows at both. A note before the first message shows only with the first message, and a note after the last message only with the last one. A note in a section with no messages steps the same way, while its section's condition and dashed line stay faded.
 - **Activation bars**: a bar shows while the step is inside it, from the message that opens it to the one that closes it.
 - **Fragments**: the frame and the tab with its keyword show while the step is in any of the fragment's sections. A section's condition, the first section's included, and the dashed line above it show only while the step is in that section, so a section with no messages stays faded. A fragment with no sections of its own (`loop`, `opt`, `rect`, `break`, a `critical` without `option`) counts as one section, so its title shows with its frame. A step inside a nested fragment shows the fragments around it too.
 - **Boxes** never fade.
 
-With `structurizr.zoomOnAnimation` set to `true` on the image view, or on the view set, each step fits the canvas to its message's row and the notes that step with it, as wide as its two participants' columns. Stop shows and fits the whole diagram.
+With `structurizr.zoomOnAnimation` set to `true` on the image view, or on the view set, each step fits the canvas to its message's row and every note that shows at that step, on either side of the message, as wide as its two participants' columns. Stop shows and fits the whole diagram.
 
 The descriptions toggle keeps the step during an animation, and a playing animation keeps playing. The canvas fits again at once: under `zoomOnAnimation` to the step's row in the diagram as it lays out again, so the row shrinks when its notes hide, else to the whole diagram. An export taken during an animation draws the step as the canvas shows it, framed by the view's canvas, and its file name carries the step: `mermaid-sequence-diagrams-checkout-step-3.png`.
 

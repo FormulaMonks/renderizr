@@ -907,11 +907,11 @@ test("the layout records each bar's, note's, fragment's and section's message ra
     assert.deepEqual(
         notes.map((note) => note.messages),
         [
-            { from: 1, to: 2 },
-            { from: 4, to: 4 },
+            { from: 0, to: 2 },
+            { from: 3, to: 5 },
             { from: 4, to: 5 },
         ],
-        "a note steps with the message after it, or with the last, and one in a section with no messages holds none",
+        "a note steps with the messages on both sides of it, or with the one beside it at either end, even in a section with no messages",
     );
     const [loop, alt] = fragments;
     assert.deepEqual(loop.messages, { from: 2, to: 3 });
@@ -995,6 +995,15 @@ test("a step shows its message, its two participants and what holds it, and fade
     assert.equal(units[unitOf(graph, "activation")], "shown");
     assert.equal(units[unitOf(graph, "note", 0)], "shown", "before two");
     assert.equal(units[unitOf(graph, "note", 2)], "faded");
+    assert.equal(
+        stepStateOf(graph, 1).sequence[unitOf(graph, "note", 0)],
+        "shown",
+        "and after one",
+    );
+    assert.equal(
+        stepStateOf(graph, 3).sequence[unitOf(graph, "note", 0)],
+        "faded",
+    );
     assert.equal(units[unitOf(graph, "fragment loop")], "faded");
     assert.equal(units["message:1"], "shown");
     assert.equal(units["message:0"], "faded");
@@ -1016,8 +1025,8 @@ test("a step shows its message, its two participants and what holds it, and fade
         );
         assert.equal(
             units[unitOf(graph, "note", 1)],
-            "faded",
-            `and so does its note at step ${step}`,
+            step === 4 || step === 5 ? "shown" : "faded",
+            `its note shows with four and five only, at step ${step}`,
         );
     }
     assert.equal(stepStateOf(graph, null).sequence, undefined, "Stop");
@@ -1095,24 +1104,80 @@ test("the first section's condition steps with its section, and the frame with a
     );
 });
 
-test("a note in a section with no messages holds none, however deep, and stays out of every focus box", () => {
+test("a note in a section with no messages, however deep, holds the messages on both sides of it, and their focus boxes take it in", () => {
     const { notes } = layout(
         "  A->>B: a\n  loop L\n    Note over A: only a note\n  end\n  opt O\n    alt x\n      A->>B: b\n    else y\n      Note over B: nested\n    end\n  end\n  A->>B: c",
     );
     assert.deepEqual(
-        notes.map((note) => note.messages.to - note.messages.from),
-        [0, 0],
+        notes.map((note) => note.messages),
+        [
+            { from: 0, to: 2 },
+            { from: 1, to: 3 },
+        ],
     );
     const graph = stepped();
     const note = shapes(graph.sequence.front, "note")[1];
     for (let step = 1; step <= 5; step++) {
         const { focus } = stepStateOf(graph, step);
-        assert.ok(
+        const inside =
+            focus.y <= note.attrs.y &&
+            focus.y + focus.height >= note.attrs.y + note.attrs.height;
+        const outside =
             focus.y > note.attrs.y + note.attrs.height ||
-                focus.y + focus.height < note.attrs.y,
-            `step ${step}'s focus box leaves the note out`,
+            focus.y + focus.height < note.attrs.y;
+        assert.ok(
+            step === 4 || step === 5 ? inside : outside,
+            `step ${step}'s focus box ${step >= 4 ? "takes in" : "leaves out"} the note`,
         );
     }
+});
+
+test("a run of notes between two messages shows at both their steps, one at either end with the message beside it", () => {
+    const { notes } = layout(
+        "  Note over A: first\n  A->>B: a\n  Note over A: one\n  Note over B: two\n  A->>B: b\n  Note over B: last",
+    );
+    assert.deepEqual(
+        notes.map((note) => note.messages),
+        [
+            { from: 0, to: 1 },
+            { from: 0, to: 2 },
+            { from: 0, to: 2 },
+            { from: 1, to: 2 },
+        ],
+    );
+    const only = layout(
+        "  Note over A: before\n  A->>B: a\n  Note over B: after",
+    );
+    assert.deepEqual(
+        only.notes.map((note) => note.messages),
+        [
+            { from: 0, to: 1 },
+            { from: 0, to: 1 },
+        ],
+        "with one message, both notes step with it",
+    );
+});
+
+test("the fixture's notes show at the steps on both sides of them", () => {
+    const model = new WorkspaceModel(FIXTURE);
+    const at = (key, text) => {
+        const graph = buildGraph(model, key, "light", LABELS, measure);
+        const unit = unitOfText(graph, text);
+        return graph.edges.map(
+            (_, i) => stepStateOf(graph, i + 1).sequence[unit],
+        );
+    };
+    assert.deepEqual(
+        at("steps", "Nothing to resume"),
+        ["faded", "faded", "shown", "shown", "faded", "faded"],
+        "with Resume and Locked",
+    );
+    for (const key of ["redux", "themed", "silent"])
+        assert.deepEqual(
+            at(key, "Waits on the confirmation page").slice(0, 3),
+            ["shown", "shown", "faded"],
+            `${key}: with Place order and Create order`,
+        );
 });
 
 test("a step's focus box is its message's row with its notes, as wide as its two participants' columns", () => {
@@ -1129,6 +1194,13 @@ test("a step's focus box is its message's row with its notes, as wide as its two
     assert.equal(focus.x + focus.width, c.x + c.width + 15, "to C's column");
     const bottom = focus.y + focus.height;
     assert.ok(bottom > line && bottom < line + 30, "down to its line");
+    const first = stepStateOf(graph, 1).focus;
+    assert.equal(
+        first.y + first.height,
+        note.attrs.y + note.attrs.height + 15,
+        "step one takes in the note after it",
+    );
+    assert.equal(first.x, note.attrs.x - 15);
     const third = stepStateOf(graph, 3).focus;
     const b = head("mermaid:B");
     assert.equal(third.x, b.x - 15, "a step with no note: B's column");

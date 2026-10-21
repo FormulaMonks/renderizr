@@ -28,6 +28,34 @@
     { "shot": "2-checkout-step-2.png" },
     { "click": ".react-flow__pane" },
     { "key": "Escape", "code": "Escape" },
+    { "open": "{{dev}}#/?page=diagrams&view=redux" },
+    { "ready": true },
+    {
+        "eval": "window.__unit = (key) => Number(getComputedStyle(document.querySelector(`.react-flow [data-unit=\"${key}\"]`)).opacity); true",
+        "as": "reduxHelpers"
+    },
+    { "clickLabel": "Next step" },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('note:0') === 1 && __unit('message:0') === 1",
+        "message": "redux step 1 (Place order) shows the note written after it"
+    },
+    { "clickLabel": "Next step" },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('note:0') === 1 && __unit('message:1') === 1",
+        "message": "redux step 2 (Create order) shows the note written before it"
+    },
+    { "shot": "2b-redux-step-2.png" },
+    { "clickLabel": "Next step" },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('note:0') === 0.2",
+        "message": "redux step 3 fades the note"
+    },
+    { "key": "Escape", "code": "Escape" },
+    { "open": "{{dev}}#/?page=diagrams&view=checkout" },
+    { "ready": true },
     { "sleep": 400 },
     {
         "assert": "__unit('message:0') === 1 && __unit('message:1') === 1 && __unit('participant:mermaid:Customer') === 1",
@@ -58,8 +86,12 @@
         "message": "a faded message's arrow and number fade as one group, and its label fades in front"
     },
     {
+        "assert": "__unit('note:0') === 1 && __unit('note:1') === 1 && __unit('note:2') === 0.2",
+        "message": "step 3 (Resume) shows the notes written after it, the one in the notes-only section included"
+    },
+    {
         "assert": "__viewport() !== window.__full",
-        "message": "zoomOnAnimation fits the step's row"
+        "message": "zoomOnAnimation fits the step's row and its notes"
     },
     { "shot": "4-steps-step-3-zoomed.png" },
     {
@@ -69,8 +101,8 @@
     { "clickLabel": "Next step" },
     { "sleep": 600 },
     {
-        "assert": "__unit('message:3') === 1 && __unit('section:0:2') === 1 && __unit('section:0:0') === 0.2 && __unit('fragment:0') === 1 && __unit('section:0:1') === 0.2 && __unit('note:0') === 0.2 && __unit('note:1') === 1",
-        "message": "step 4 (Locked) shows its section and the note written before it, and fades the first condition; the notes-only section and its note stay faded"
+        "assert": "__unit('message:3') === 1 && __unit('section:0:2') === 1 && __unit('section:0:0') === 0.2 && __unit('fragment:0') === 1 && __unit('section:0:1') === 0.2 && __unit('note:0') === 1 && __unit('note:1') === 1",
+        "message": "step 4 (Locked) shows its section and both notes written before it, and fades the first condition; the notes-only section's condition stays faded"
     },
     {
         "eval": "window.__withNote = __viewport(); window.__withNote",
