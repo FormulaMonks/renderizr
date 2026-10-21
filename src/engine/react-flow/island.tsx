@@ -1201,7 +1201,8 @@ const CanvasBackground = createContext("#ffffff");
  * One edge in any routing mode, drawn from the path data the router wrote
  * (spec 10.1): React Flow's own path helpers take no vertices. The line and
  * its arrowhead share one `<g opacity>`, so the alpha is real and not doubled
- * where they overlap; the label's text takes the same alpha over an opaque
+ * where they overlap, and a step fades them under one group with a sequence
+ * message's number and dots; the label's text takes the same alpha over an opaque
  * backing in the canvas color (spec 10.10).
  */
 function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
@@ -1282,6 +1283,8 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                     />
                 )}
             </g>
+            {/* A sequence message's number and dots fade with its arrow. */}
+            {data.marks?.map(sequenceShape)}
             {labelBox && labelLines && (
                 <EdgeLabelRenderer>
                     {/* Exactly the box placement kept clear, holding exactly
@@ -1554,29 +1557,34 @@ const reactName = (name: string) =>
           );
 
 /**
+ * One shape of a sequence diagram as `sequence-graph.ts` built it and the
+ * export serializes it. Shapes are drawn in layout order and never reorder,
+ * so the index keys them.
+ */
+const sequenceShape = ({ tag, attrs, text }: SequenceShape, key: number) =>
+    createElement(
+        tag,
+        {
+            key,
+            ...Object.fromEntries(
+                Object.entries(attrs).map(([name, value]) => [
+                    reactName(name),
+                    value,
+                ]),
+            ),
+        },
+        text,
+    );
+
+/**
  * A Mermaid sequence diagram's `sequence` layer (spec: Sequence diagrams):
- * one node type drawn twice, behind the edges and in front of them, each
- * drawing its shapes as `sequence-graph.ts` built them and the export
- * serializes them. It takes no pointer, and nothing in it is focusable.
- * Each unit draws in a group of its own, at its presence's opacity while a
- * step is shown, so its parts fade as one and don't show through each other.
+ * one node type drawn twice, behind the edges and in front of them. It
+ * takes no pointer, and nothing in it is focusable. Each unit draws in a
+ * group of its own, at its presence's opacity while a step is shown, so its
+ * parts fade as one and don't show through each other.
  */
 function SequenceLayer({ data }: NodeProps<SequenceNode>) {
     const { shapes, origin, presence, transition } = data;
-    const shape = ({ tag, attrs, text }: SequenceShape, key: number) =>
-        createElement(
-            tag,
-            {
-                key,
-                ...Object.fromEntries(
-                    Object.entries(attrs).map(([name, value]) => [
-                        reactName(name),
-                        value,
-                    ]),
-                ),
-            },
-            text,
-        );
     return (
         <svg
             aria-hidden="true"
@@ -1587,19 +1595,19 @@ function SequenceLayer({ data }: NodeProps<SequenceNode>) {
             <g transform={`translate(${-origin.x} ${-origin.y})`}>
                 {sequenceGroups(shapes).map((group, i) => {
                     // Groups are drawn in layout order and never reorder.
-                    if (group.unit === undefined)
-                        return shape(group.shapes[0], i);
-                    const shown = presence?.[group.unit] ?? "shown";
+                    if (group.key === undefined)
+                        return sequenceShape(group.shapes[0], i);
+                    const shown = presence?.[group.key] ?? "shown";
                     return (
                         <g
-                            key={group.unit}
-                            data-unit={group.unit}
+                            key={group.key}
+                            data-unit={group.key}
                             style={{
                                 opacity: PRESENCE_OPACITY[shown],
                                 transition,
                             }}
                         >
-                            {group.shapes.map(shape)}
+                            {group.shapes.map(sequenceShape)}
                         </g>
                     );
                 })}

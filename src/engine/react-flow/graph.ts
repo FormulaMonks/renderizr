@@ -128,7 +128,11 @@ import {
     layOut,
     layOutClusters,
 } from "../layout/automatic";
-import { drawSequence, type SequenceDrawing } from "./sequence-graph";
+import {
+    drawSequence,
+    type SequenceDrawing,
+    type SequenceShape,
+} from "./sequence-graph";
 
 export type { Bounds, ColorScheme, Labels, TargetKind };
 
@@ -273,6 +277,11 @@ export type EdgeLine = {
      * line's thickness with no dashes; absent when it has none.
      */
     markerStroke?: string;
+    /**
+     * A sequence message's number and central connection dots, which draw
+     * over its line and fade with it; absent when it has neither.
+     */
+    marks?: SequenceShape[];
     routing: RoutingMode;
     /** Whether it draws a jump-over where it crosses an edge (spec 10.11). */
     jump: boolean;

@@ -26,7 +26,7 @@ const {
     PARTICIPANT_ROW,
     PARTICIPANT_WIDTH,
 } = await importSrc("engine/geometry/sequence");
-const { mix, sequenceGroups } = await importSrc(
+const { mix, sequenceGroups, unitKey } = await importSrc(
     "engine/react-flow/sequence-graph",
 );
 const { stepStateOf } = await importSrc("engine/react-flow/animation");
@@ -74,6 +74,9 @@ const FIXTURE = (() => {
 /** Every shape of a layer the hook `data-sequence` names. */
 const shapes = (layer, name) =>
     layer.filter((shape) => shape.attrs["data-sequence"] === name);
+
+/** What draws with the messages' arrows: their numbers and dots. */
+const marks = (graph) => graph.edges.flatMap((edge) => edge.marks ?? []);
 
 /* ------------------------------------------------------- the resolved view */
 
@@ -544,8 +547,8 @@ test("every fixture view draws in both schemes, every construct on the construct
             assert.ok(graph.elements.length && graph.edges.length);
         }
     const graph = buildGraph(model, "constructs", "light", LABELS, measure);
-    assert.equal(shapes(graph.sequence.front, "dot").length, 4);
-    assert.equal(shapes(graph.sequence.front, "dot")[0].attrs.r, DOT_RADIUS);
+    assert.equal(shapes(marks(graph), "dot").length, 4);
+    assert.equal(shapes(marks(graph), "dot")[0].attrs.r, DOT_RADIUS);
     assert.equal(shapes(graph.sequence.front, "note").length, 4);
     assert.equal(shapes(graph.sequence.back, "box").length, 1);
     assert.equal(shapes(graph.sequence.back, "fragment par").length, 1);
@@ -685,10 +688,10 @@ test("a themed source colors every part from its palette, over the workspace's s
     const [rect] = shapes(back, "fragment rect");
     assert.equal(rect.attrs.fill, colors.rectBkgColor);
     assert.equal(rect.attrs["fill-opacity"], undefined);
-    const [number] = shapes(front, "number");
+    const [number] = shapes(marks(graph), "number");
     assert.equal(number.attrs.fill, colors.signalColor);
     assert.equal(
-        after(front, number, 1).attrs.fill,
+        after(marks(graph), number, 1).attrs.fill,
         colors.sequenceNumberColor,
     );
 });
@@ -716,9 +719,9 @@ test("in dark mode a light palette keeps its fills, and what draws on the canvas
         colors.actorBkg,
         "lifelines in the participant's fill",
     );
-    const [number] = shapes(front, "number");
+    const [number] = shapes(marks(graph), "number");
     assert.equal(number.attrs.fill, graph.edges[0].color);
-    assert.equal(after(front, number, 1).attrs.fill, "#111111");
+    assert.equal(after(marks(graph), number, 1).attrs.fill, "#111111");
     const [rect] = shapes(back, "fragment rect");
     assert.equal(rect.attrs.fill, colors.rectBkgColor);
     assert.equal(rect.attrs["fill-opacity"], 0.2, "a sourced rect fades");
@@ -905,10 +908,10 @@ test("the layout records each bar's, note's, fragment's and section's message ra
         notes.map((note) => note.messages),
         [
             { from: 1, to: 2 },
-            { from: 4, to: 5 },
+            { from: 4, to: 4 },
             { from: 4, to: 5 },
         ],
-        "a note steps with the message after it, or with the last",
+        "a note steps with the message after it, or with the last, and one in a section with no messages holds none",
     );
     const [loop, alt] = fragments;
     assert.deepEqual(loop.messages, { from: 2, to: 3 });
@@ -952,11 +955,21 @@ test("a sequence diagram steps once per message in source order, and one with no
     assert.equal(quiet.animation, undefined);
 });
 
-/** The unit of the `index`th shape that `name` hooks, in either layer. */
-const unitOf = (graph, name, index = 0) =>
-    [...graph.sequence.back, ...graph.sequence.front].filter(
+/** The unit key of the `index`th shape that `name` hooks, in either layer. */
+const unitOf = (graph, name, index = 0) => {
+    const { unit } = [...graph.sequence.back, ...graph.sequence.front].filter(
         (shape) => shape.attrs["data-sequence"] === name,
-    )[index].unit;
+    )[index];
+    return unit && unitKey(unit);
+};
+
+/** The unit key of the text shape that reads `text`, in either layer. */
+const unitOfText = (graph, text) => {
+    const { unit } = [...graph.sequence.back, ...graph.sequence.front].find(
+        (shape) => shape.text === text,
+    );
+    return unit && unitKey(unit);
+};
 
 test("a step shows its message, its two participants and what holds it, and fades the rest", () => {
     const graph = stepped();
@@ -994,12 +1007,19 @@ test("a step shows its message, its two participants and what holds it, and fade
     assert.equal(fifth[unitOf(graph, "note", 2)], "shown", "after the last");
     assert.equal(fifth[unitOf(graph, "fragment alt")], "shown");
     assert.equal(fifth[unitOf(graph, "section", 1)], "shown");
-    for (let step = 1; step <= 5; step++)
+    for (let step = 1; step <= 5; step++) {
+        const units = stepStateOf(graph, step).sequence;
         assert.equal(
-            stepStateOf(graph, step).sequence[unitOf(graph, "section", 0)],
+            units[unitOf(graph, "section", 0)],
             "faded",
             `a section with no messages stays faded at step ${step}`,
         );
+        assert.equal(
+            units[unitOf(graph, "note", 1)],
+            "faded",
+            `and so does its note at step ${step}`,
+        );
+    }
     assert.equal(stepStateOf(graph, null).sequence, undefined, "Stop");
 });
 
@@ -1023,7 +1043,7 @@ test("a unit's shapes sit next to each other, so each draws under one opacity", 
     const graph = graphOf(new WorkspaceModel(FIXTURE), "light", "retry");
     for (const layer of [graph.sequence.back, graph.sequence.front]) {
         const groups = sequenceGroups(layer);
-        const units = groups.flatMap((g) => (g.unit ? [g.unit] : []));
+        const units = groups.flatMap((g) => (g.key ? [g.key] : []));
         assert.equal(new Set(units).size, units.length, "one group per unit");
         assert.equal(
             groups.reduce((n, g) => n + g.shapes.length, 0),
@@ -1031,14 +1051,68 @@ test("a unit's shapes sit next to each other, so each draws under one opacity", 
             "no shape is left out",
         );
     }
-    const alt = sequenceGroups(graph.sequence.back).find(
-        (g) => g.unit === unitOf(graph, "fragment alt"),
+    const group = (name) =>
+        sequenceGroups(graph.sequence.back).find(
+            (g) => g.key === unitOf(graph, name),
+        );
+    assert.deepEqual(
+        group("fragment alt").shapes.map((s) => s.tag),
+        ["rect", "polygon", "text"],
+        "a frame with sections: border, tab and keyword",
     );
     assert.deepEqual(
-        alt.shapes.map((s) => s.tag),
+        group("fragment loop").shapes.map((s) => s.tag),
         ["rect", "polygon", "text", "text"],
-        "the frame: border, tab, keyword and title",
+        "a frame with no sections: border, tab, keyword and title",
     );
+});
+
+test("the first section's condition steps with its section, and the frame with all of them", () => {
+    const graph = stepped();
+    const condition = unitOfText(graph, "[yes]");
+    const frame = unitOf(graph, "fragment alt");
+    assert.notEqual(condition, frame);
+    assert.equal(
+        condition,
+        unitKey({
+            kind: "section",
+            fragment: 1,
+            index: 0,
+            messages: { from: 3, to: 4 },
+        }),
+    );
+    const at = (step) => stepStateOf(graph, step).sequence;
+    assert.equal(at(4)[condition], "shown", "four is in the first section");
+    assert.equal(at(4)[frame], "shown");
+    assert.equal(at(5)[condition], "faded", "five is in the last");
+    assert.equal(at(5)[frame], "shown");
+    assert.equal(at(5)[unitOfText(graph, "[maybe]")], "shown");
+    assert.equal(at(4)[unitOfText(graph, "[maybe]")], "faded");
+    assert.equal(
+        unitOfText(graph, "[L]"),
+        unitOf(graph, "fragment loop"),
+        "a loop's title stays with its frame",
+    );
+});
+
+test("a note in a section with no messages holds none, however deep, and stays out of every focus box", () => {
+    const { notes } = layout(
+        "  A->>B: a\n  loop L\n    Note over A: only a note\n  end\n  opt O\n    alt x\n      A->>B: b\n    else y\n      Note over B: nested\n    end\n  end\n  A->>B: c",
+    );
+    assert.deepEqual(
+        notes.map((note) => note.messages.to - note.messages.from),
+        [0, 0],
+    );
+    const graph = stepped();
+    const note = shapes(graph.sequence.front, "note")[1];
+    for (let step = 1; step <= 5; step++) {
+        const { focus } = stepStateOf(graph, step);
+        assert.ok(
+            focus.y > note.attrs.y + note.attrs.height ||
+                focus.y + focus.height < note.attrs.y,
+            `step ${step}'s focus box leaves the note out`,
+        );
+    }
 });
 
 test("a step's focus box is its message's row with its notes, as wide as its two participants' columns", () => {
@@ -1171,4 +1245,60 @@ test("an export at a step draws each faded unit inside one group, and leaves no 
     const texts = (doc) =>
         [...doc.matchAll(/<text [^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
     assert.deepEqual(texts(svg), texts(full), "every shape draws, in order");
+});
+
+test("a faded message draws its arrow, number and dots inside one group, and its label in front", () => {
+    const graph = graphOf(
+        modelOf(
+            "sequenceDiagram\n  autonumber\n  A->>B: one\n  B->>()C: two\n",
+        ),
+    );
+    const [, two] = graph.edges;
+    assert.deepEqual(
+        two.marks.map((s) => s.attrs["data-sequence"] ?? s.tag),
+        ["dot", "number", "text"],
+        "its dot and number draw with its arrow",
+    );
+    assert.deepEqual(
+        graph.sequence.front
+            .filter((s) => s.unit && unitKey(s.unit) === "message:1")
+            .map((s) => s.text),
+        ["two"],
+        "only its label stays in front",
+    );
+    const svg = exportAt(graph, 1);
+    assert.match(
+        svg,
+        /<g opacity="0\.2"><g opacity="1"><path [^>]*\/><path [^>]*\/><\/g><circle [^>]*\/><circle [^>]*\/><text [^>]*>2<\/text><\/g>/,
+        "arrow, dot and number in one group",
+    );
+    assert.match(svg, /<g opacity="0\.2"><text [^>]*>two<\/text><\/g>/);
+    assert.doesNotMatch(
+        exportAt(graph, 2),
+        /<g opacity="0\.2"><g opacity="1"><path [^>]*\/><path [^>]*\/><\/g><circle [^>]*\/><circle /,
+        "at its own step it shows",
+    );
+});
+
+test("a destroy arrowhead fades and shows with its message", () => {
+    const graph = graphOf(
+        modelOf(
+            "sequenceDiagram\n  A->>B: hi\n  create participant S\n  B->>S: start\n  destroy S\n  B-xS: stop\n",
+        ),
+    );
+    const stop = graph.edges[2];
+    assert.ok(stop.markerStroke, "the cross is a stroked marker");
+    const cross = `d="${stop.markerStroke}"`;
+    const faded = (step) => {
+        const svg = exportAt(graph, step);
+        const group = svg.indexOf(
+            `<g opacity="0.2"><g opacity="1"><path d="${stop.path}"`,
+        );
+        return group >= 0 && svg.indexOf(cross) > group;
+    };
+    assert.equal(stepStateOf(graph, 1).edges[stop.key], "faded");
+    assert.equal(stepStateOf(graph, 3).edges[stop.key], "shown");
+    assert.ok(faded(1), "the cross fades inside its message's group");
+    assert.ok(!faded(3), "and shows at its step");
+    assert.ok(exportAt(graph, 3).includes(cross));
 });
