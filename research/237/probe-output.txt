@@ -1,0 +1,194 @@
+
+## edge ids and animate
+flowchart LR
+  A e1@--> B
+  B e2@--> C
+  e1@{ animate: true }
+  e2@{ animation: slow }
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","animate":true,"classes":[]}
+  {"id":"e2","isUserDefinedId":true,"start":"B","end":"C","animation":"slow","classes":[]}
+FlowDB vertices (insertion order): A, B, C
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","animate":true,"classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"e2","isUserDefinedId":true,"start":"B","end":"C","animation":"slow","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: A, B, C
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"1","source":"B","target":"C","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## fast, curve and an unknown key
+flowchart LR
+  A e1@--> B
+  e1@{ animation: fast, curve: stepBefore, speed: 3 }
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","animation":"fast","interpolate":"stepBefore","classes":[]}
+FlowDB vertices (insertion order): A, B
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","animation":"fast","curve":"stepBefore","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: A, B
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## classDef animation on an edge
+flowchart LR
+  A e1@--> B
+  classDef animate stroke-dasharray: 9\,5,stroke-dashoffset: 900,animation: dash 25s linear infinite;
+  class e1 animate
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":["animate"]}
+FlowDB vertices (insertion order): A, B
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":["stroke-dasharray: 9,5","stroke-dashoffset: 900","animation: dash 25s linear infinite"],"style":[]}
+readFlowchart nodes: A, B
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: Image view "flow": Renderizr supports only a subset of Mermaid styling; ignored: stroke-dashoffset, animation
+
+## declaration order vs. reading order
+flowchart TD
+  C --> D
+  A --> B
+  B --> C
+  linkStyle 1 stroke:red
+
+FlowDB edges:
+  {"id":"L_C_D_0","isUserDefinedId":false,"start":"C","end":"D","classes":[]}
+  {"id":"L_A_B_0","isUserDefinedId":false,"start":"A","end":"B","classes":[],"style":["stroke:red","fill:none"]}
+  {"id":"L_B_C_0","isUserDefinedId":false,"start":"B","end":"C","classes":[]}
+FlowDB vertices (insertion order): C, D, A, B
+getData() edges:
+  {"id":"L_C_D_0","isUserDefinedId":false,"start":"C","end":"D","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"L_A_B_0","isUserDefinedId":false,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":["stroke:red","fill:none"]}
+  {"id":"L_B_C_0","isUserDefinedId":false,"start":"B","end":"C","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: C, D, A, B
+readFlowchart edges:
+  {"id":"0","source":"C","target":"D","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"1","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":["stroke:red","fill:none"]}
+  {"id":"2","source":"B","target":"C","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## chained and fanned edges
+flowchart LR
+  A --> B & C --> D
+
+FlowDB edges:
+  {"id":"L_A_B_0","isUserDefinedId":false,"start":"A","end":"B","classes":[]}
+  {"id":"L_A_C_0","isUserDefinedId":false,"start":"A","end":"C","classes":[]}
+  {"id":"L_B_D_0","isUserDefinedId":false,"start":"B","end":"D","classes":[]}
+  {"id":"L_C_D_0","isUserDefinedId":false,"start":"C","end":"D","classes":[]}
+FlowDB vertices (insertion order): A, B, C, D
+getData() edges:
+  {"id":"L_A_B_0","isUserDefinedId":false,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"L_A_C_0","isUserDefinedId":false,"start":"A","end":"C","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"L_B_D_0","isUserDefinedId":false,"start":"B","end":"D","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"L_C_D_0","isUserDefinedId":false,"start":"C","end":"D","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: A, B, C, D
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"1","source":"A","target":"C","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"2","source":"B","target":"D","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"3","source":"C","target":"D","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## id on a chain
+flowchart LR
+  A e1@--> B e2@--> C
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":[]}
+  {"id":"e2","isUserDefinedId":true,"start":"B","end":"C","classes":[]}
+FlowDB vertices (insertion order): A, B, C
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"e2","isUserDefinedId":true,"start":"B","end":"C","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: A, B, C
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"1","source":"B","target":"C","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## id on a fan
+flowchart LR
+  A e1@--> B & C
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":[]}
+  {"id":"L_A_C_0","isUserDefinedId":false,"start":"A","end":"C","classes":[]}
+FlowDB vertices (insertion order): A, B, C
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"L_A_C_0","isUserDefinedId":false,"start":"A","end":"C","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: A, B, C
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"1","source":"A","target":"C","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## duplicate id
+flowchart LR
+  A e1@--> B
+  B e1@--> C
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":[]}
+  {"id":"L_B_C_0","isUserDefinedId":false,"start":"B","end":"C","classes":[]}
+FlowDB vertices (insertion order): A, B, C
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+  {"id":"L_B_C_0","isUserDefinedId":false,"start":"B","end":"C","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: A, B, C
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+  {"id":"1","source":"B","target":"C","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## metadata before the edge
+flowchart LR
+  e1@{ animate: true }
+  A e1@--> B
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":[]}
+FlowDB vertices (insertion order): e1, A, B
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: e1, A, B
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
+
+## linkStyle animation
+flowchart LR
+  A --> B
+  linkStyle 0 stroke-dasharray: 9\,5,animation: dash 5s linear infinite
+
+FlowDB edges:
+  {"id":"L_A_B_0","isUserDefinedId":false,"start":"A","end":"B","classes":[],"style":["stroke-dasharray: 9\\","5","animation: dash 5s linear infinite","fill:none"]}
+FlowDB vertices (insertion order): A, B
+getData() edges:
+  {"id":"L_A_B_0","isUserDefinedId":false,"start":"A","end":"B","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":["stroke-dasharray: 9\\","5","animation: dash 5s linear infinite","fill:none"]}
+readFlowchart nodes: A, B
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":["stroke-dasharray: 9\\","5","animation: dash 5s linear infinite","fill:none"]}
+ignored-styling warning: Image view "flow": Renderizr supports only a subset of Mermaid styling; ignored: 5, animation
+
+## an unknown speed
+flowchart LR
+  A e1@--> B
+  e1@{ animation: medium }
+
+FlowDB edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","animation":"medium","classes":[]}
+FlowDB vertices (insertion order): A, B
+getData() edges:
+  {"id":"e1","isUserDefinedId":true,"start":"A","end":"B","animation":"medium","classes":"edge-thickness-normal edge-pattern-solid flowchart-link","cssCompiledStyles":[],"style":[]}
+readFlowchart nodes: A, B
+readFlowchart edges:
+  {"id":"0","source":"A","target":"B","label":"","line":"normal","start":"none","end":"arrow","styles":[]}
+ignored-styling warning: none
