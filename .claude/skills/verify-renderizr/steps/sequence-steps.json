@@ -14,11 +14,11 @@
     { "clickLabel": "Next step" },
     { "sleep": 400 },
     {
-        "eval": "({ message1: __unit('message:1'), message0: __unit('message:0'), customerLifeline: __unit('mermaid:Customer'), webLifeline: __unit('mermaid:Web'), ordersLifeline: __unit('mermaid:Orders'), viewport: __viewport() })",
+        "eval": "({ message1: __unit('message:1'), message0: __unit('message:0'), customerLifeline: __unit('participant:mermaid:Customer'), webLifeline: __unit('participant:mermaid:Web'), ordersLifeline: __unit('participant:mermaid:Orders'), viewport: __viewport() })",
         "as": "checkoutStep2"
     },
     {
-        "assert": "__unit('message:1') === 1 && __unit('message:0') === 0.2 && __unit('mermaid:Customer') === 0.2 && __unit('mermaid:Orders') === 1",
+        "assert": "__unit('message:1') === 1 && __unit('message:0') === 0.2 && __unit('participant:mermaid:Customer') === 0.2 && __unit('participant:mermaid:Orders') === 1",
         "message": "step 2 shows Create order and its two participants, and fades the rest"
     },
     {
@@ -30,7 +30,7 @@
     { "key": "Escape", "code": "Escape" },
     { "sleep": 400 },
     {
-        "assert": "__unit('message:0') === 1 && __unit('message:1') === 1 && __unit('mermaid:Customer') === 1",
+        "assert": "__unit('message:0') === 1 && __unit('message:1') === 1 && __unit('participant:mermaid:Customer') === 1",
         "message": "Escape stops the animation and shows the whole diagram"
     },
 
@@ -46,16 +46,20 @@
     { "clickLabel": "Next step" },
     { "sleep": 600 },
     {
-        "eval": "({ resume: __unit('message:2'), alt: __unit('fragment:0'), emptySection: __unit('section:0:0'), lockedSection: __unit('section:0:1'), bar: __unit('bar:0'), session: __unit('mermaid:Session'), viewport: __viewport() })",
+        "eval": "window.__arrow = (i) => { const g = document.querySelectorAll('.react-flow [data-relationship-id]')[i]; return { opacity: Number(getComputedStyle(g).opacity), number: g.querySelector('text')?.textContent }; }; ({ resume: __unit('message:2'), alt: __unit('fragment:0'), found: __unit('section:0:0'), emptySection: __unit('section:0:1'), lockedSection: __unit('section:0:2'), bar: __unit('bar:0'), session: __unit('participant:mermaid:Session'), firstArrow: __arrow(0), viewport: __viewport() })",
         "as": "stepsStep3"
     },
     {
-        "assert": "__unit('message:2') === 1 && __unit('fragment:0') === 1 && __unit('section:0:0') === 0.2 && __unit('section:0:1') === 0.2 && __unit('bar:0') === 1",
-        "message": "step 3 (Resume) shows the alt's frame and the bar, and fades both later sections"
+        "assert": "__unit('message:2') === 1 && __unit('fragment:0') === 1 && __unit('section:0:0') === 1 && __unit('section:0:1') === 0.2 && __unit('section:0:2') === 0.2 && __unit('bar:0') === 1",
+        "message": "step 3 (Resume) shows the alt's frame, its first condition and the bar, and fades both later sections"
+    },
+    {
+        "assert": "__arrow(0).opacity === 0.2 && __arrow(0).number === '1' && __arrow(2).opacity === 1 && __unit('message:0') === 0.2",
+        "message": "a faded message's arrow and number fade as one group, and its label fades in front"
     },
     {
         "assert": "__viewport() !== window.__full",
-        "message": "zoomOnAnimation fits the step's focus box"
+        "message": "zoomOnAnimation fits the step's row"
     },
     { "shot": "4-steps-step-3-zoomed.png" },
     {
@@ -65,8 +69,8 @@
     { "clickLabel": "Next step" },
     { "sleep": 600 },
     {
-        "assert": "__unit('message:3') === 1 && __unit('section:0:1') === 1 && __unit('section:0:0') === 0.2 && __unit('note:1') === 1",
-        "message": "step 4 (Locked) shows its section and the note written before it; the notes-only section stays faded"
+        "assert": "__unit('message:3') === 1 && __unit('section:0:2') === 1 && __unit('section:0:0') === 0.2 && __unit('fragment:0') === 1 && __unit('section:0:1') === 0.2 && __unit('note:0') === 0.2 && __unit('note:1') === 1",
+        "message": "step 4 (Locked) shows its section and the note written before it, and fades the first condition; the notes-only section and its note stay faded"
     },
     {
         "eval": "window.__withNote = __viewport(); window.__withNote",
@@ -79,11 +83,11 @@
     },
     { "sleep": 400 },
     {
-        "eval": "({ message3: __unit('message:3'), section: __unit('section:0:1'), viewport: __viewport() })",
+        "eval": "({ message3: __unit('message:3'), section: __unit('section:0:2'), viewport: __viewport() })",
         "as": "step4NotesOff"
     },
     {
-        "assert": "__unit('message:3') === 1 && __unit('message:2') === 0.2 && __unit('section:0:1') === 1",
+        "assert": "__unit('message:3') === 1 && __unit('message:2') === 0.2 && __unit('section:0:2') === 1",
         "message": "the descriptions toggle holds the step"
     },
     {
@@ -118,7 +122,7 @@
     { "clickLabel": "Export view as SVG" },
     { "waitFor": "window.__saved.length > 0" },
     {
-        "eval": "(async () => { const { name, href } = window.__saved[0]; const svg = await (await fetch(href)).text(); const doc = new DOMParser().parseFromString(svg, 'image/svg+xml'); const faded = [...doc.querySelectorAll('g[opacity=\"0.2\"] text')].map((t) => t.textContent).sort(); const faint = (n) => Number(getComputedStyle(n).opacity) === 0.2; const units = [...document.querySelectorAll('.react-flow [data-unit]')].filter(faint).flatMap((n) => [...n.querySelectorAll('text')].map((t) => t.textContent)); const participants = [...document.querySelectorAll('.react-flow__node-box')].filter(faint).map((n) => n.textContent.trim()); const canvas = [...units, ...participants].sort(); window.__export = { name, faded, canvas, same: JSON.stringify(faded) === JSON.stringify(canvas), groups: doc.querySelectorAll('g[opacity=\"0.2\"]').length }; return window.__export; })()",
+        "eval": "(async () => { const { name, href } = window.__saved[0]; const svg = await (await fetch(href)).text(); const doc = new DOMParser().parseFromString(svg, 'image/svg+xml'); const faded = [...doc.querySelectorAll('g[opacity=\"0.2\"] text')].map((t) => t.textContent).sort(); const faint = (n) => Number(getComputedStyle(n).opacity) === 0.2; const units = [...document.querySelectorAll('.react-flow [data-unit], .react-flow [data-relationship-id]')].filter(faint).flatMap((n) => [...n.querySelectorAll('text')].map((t) => t.textContent)); const participants = [...document.querySelectorAll('.react-flow__node-box')].filter(faint).map((n) => n.textContent.trim()); const canvas = [...units, ...participants].sort(); window.__export = { name, faded, canvas, same: JSON.stringify(faded) === JSON.stringify(canvas), groups: doc.querySelectorAll('g[opacity=\"0.2\"]').length }; return window.__export; })()",
         "as": "exportAtStep5"
     },
     {
