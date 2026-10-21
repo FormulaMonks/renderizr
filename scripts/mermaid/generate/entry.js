@@ -67,6 +67,7 @@ export function read(source) {
     if (!type)
         return { kind: "unsupported", config, title: front.metadata.title };
     const [, kind, parser, DB] = type;
+    // biome-ignore lint/correctness/useHookAtTopLevel: mermaid's useConfig is no React hook
     useConfig(config);
     const db = new DB();
     parser.parser.yy = db;

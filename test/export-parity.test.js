@@ -99,74 +99,72 @@ const COMPARE = `(async () => {
 /** The canvas width each view's export takes: dimensions, then paper size. */
 const WIDTHS = { Containers: "2400", Request: "2480" };
 
-test(
-    "the island and the export break element labels at the same places",
-    { skip: SKIP },
-    async () => {
-        const workspace = JSON.parse(
-            await readFile(
-                new URL("./__fixtures__/export.json", import.meta.url),
-                "utf8",
-            ),
-        );
-        const site = await buildForAcceptance(workspace, SCRATCH, {
-            report: true,
-        });
-        const browser = await openBrowser(CHROME);
-        try {
-            for (const view of VIEWS) {
-                const page = await browser.open(viewUrl(site, view));
-                await page.waitFor(
-                    `document.querySelector('[data-ready="true"][data-view-key="${view}"]') && typeof window.renderizrExportView === "function"`,
-                );
-                await page.settle();
-                const { exported, drawn, size } = await page.evaluate(COMPARE);
-                if (WIDTHS[view])
-                    assert.equal(size.width, WIDTHS[view], `${view}: width`);
+test("the island and the export break element labels at the same places", {
+    skip: SKIP,
+}, async () => {
+    const workspace = JSON.parse(
+        await readFile(
+            new URL("./__fixtures__/export.json", import.meta.url),
+            "utf8",
+        ),
+    );
+    const site = await buildForAcceptance(workspace, SCRATCH, {
+        report: true,
+    });
+    const browser = await openBrowser(CHROME);
+    try {
+        for (const view of VIEWS) {
+            const page = await browser.open(viewUrl(site, view));
+            await page.waitFor(
+                `document.querySelector('[data-ready="true"][data-view-key="${view}"]') && typeof window.renderizrExportView === "function"`,
+            );
+            await page.settle();
+            const { exported, drawn, size } = await page.evaluate(COMPARE);
+            if (WIDTHS[view])
+                assert.equal(size.width, WIDTHS[view], `${view}: width`);
+            assert.deepEqual(
+                Object.keys(exported).sort(),
+                Object.keys(drawn).sort(),
+                `${view}: the same elements are drawn and exported`,
+            );
+            for (const [id, parts] of Object.entries(drawn)) {
+                const lines = exported[id];
                 assert.deepEqual(
-                    Object.keys(exported).sort(),
-                    Object.keys(drawn).sort(),
-                    `${view}: the same elements are drawn and exported`,
+                    Object.keys(lines).sort(),
+                    Object.keys(parts).sort(),
+                    `${view}, element ${id}: the same label parts`,
                 );
-                for (const [id, parts] of Object.entries(drawn)) {
-                    const lines = exported[id];
-                    assert.deepEqual(
-                        Object.keys(lines).sort(),
-                        Object.keys(parts).sort(),
-                        `${view}, element ${id}: the same label parts`,
-                    );
-                    for (const [part, island] of Object.entries(parts)) {
-                        const svg = lines[part];
-                        if (part !== "description") {
-                            assert.deepEqual(
-                                svg,
-                                island,
-                                `${view}, element ${id}: the ${part} breaks alike`,
-                            );
-                            continue;
-                        }
-                        // The island draws the ellipsis over the last line
-                        // it keeps, so that line only has to start alike.
+                for (const [part, island] of Object.entries(parts)) {
+                    const svg = lines[part];
+                    if (part !== "description") {
                         assert.deepEqual(
-                            svg.slice(0, -1),
-                            island.slice(0, -1),
-                            `${view}, element ${id}: the description breaks alike`,
+                            svg,
+                            island,
+                            `${view}, element ${id}: the ${part} breaks alike`,
                         );
-                        assert.equal(
-                            svg.length,
-                            island.length,
-                            `${view}, element ${id}: the description keeps as many lines`,
-                        );
-                        const last = svg.at(-1).replace(/…$/, "");
-                        assert.ok(
-                            island.at(-1)?.startsWith(last),
-                            `${view}, element ${id}: the last description line "${svg.at(-1)}" starts "${island.at(-1)}"`,
-                        );
+                        continue;
                     }
+                    // The island draws the ellipsis over the last line
+                    // it keeps, so that line only has to start alike.
+                    assert.deepEqual(
+                        svg.slice(0, -1),
+                        island.slice(0, -1),
+                        `${view}, element ${id}: the description breaks alike`,
+                    );
+                    assert.equal(
+                        svg.length,
+                        island.length,
+                        `${view}, element ${id}: the description keeps as many lines`,
+                    );
+                    const last = svg.at(-1).replace(/…$/, "");
+                    assert.ok(
+                        island.at(-1)?.startsWith(last),
+                        `${view}, element ${id}: the last description line "${svg.at(-1)}" starts "${island.at(-1)}"`,
+                    );
                 }
             }
-        } finally {
-            await browser.close();
         }
-    },
-);
+    } finally {
+        await browser.close();
+    }
+});

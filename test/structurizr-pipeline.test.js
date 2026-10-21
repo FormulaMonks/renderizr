@@ -72,72 +72,64 @@ function viewHolding(workspace, name) {
     assert.fail(`no stored-layout view holds ${name}`);
 }
 
-test(
-    "a DSL session exports, saves, merges a DSL change and keeps the layout, with every workspace.json valid",
-    { skip: !COMMAND && "STRUCTURIZR_CLI is not set", timeout: 180_000 },
-    async () => {
-        const dir = await mkdtemp(join(tmpdir(), "renderizr-structurizr-"));
-        try {
-            const dsl = join(dir, "workspace.dsl");
-            const json = join(dir, "workspace.json");
-            await copyFile(DSL, dsl);
-            const writer = new WorkspaceWriter(json, {
-                agent: "renderizr/test",
-            });
-            const output = sink();
-            const pipeline = new DslPipeline({
-                dsl,
-                json,
-                command: COMMAND,
-                writer,
-                output,
-            });
+test("a DSL session exports, saves, merges a DSL change and keeps the layout, with every workspace.json valid", {
+    skip: !COMMAND && "STRUCTURIZR_CLI is not set",
+    timeout: 180_000,
+}, async () => {
+    const dir = await mkdtemp(join(tmpdir(), "renderizr-structurizr-"));
+    try {
+        const dsl = join(dir, "workspace.dsl");
+        const json = join(dir, "workspace.json");
+        await copyFile(DSL, dsl);
+        const writer = new WorkspaceWriter(json, {
+            agent: "renderizr/test",
+        });
+        const output = sink();
+        const pipeline = new DslPipeline({
+            dsl,
+            json,
+            command: COMMAND,
+            writer,
+            output,
+        });
 
-            // The first run exports: there is no workspace.json yet.
-            assert.equal(await pipeline.run(), true, output.text());
-            await validate(dir, "workspace.json", "the first export");
-            const exported = JSON.parse(await readFile(json, "utf8"));
-            const { view } = viewHolding(exported, "Customer");
+        // The first run exports: there is no workspace.json yet.
+        assert.equal(await pipeline.run(), true, output.text());
+        await validate(dir, "workspace.json", "the first export");
+        const exported = JSON.parse(await readFile(json, "utf8"));
+        const { view } = viewHolding(exported, "Customer");
 
-            // The author moves Customer, as the page saves it.
-            const person = exported.model.people.find(
-                (p) => p.name === "Customer",
-            );
-            await writer.save({
-                version: versionOf(await readFile(json, "utf8")),
-                view: view.key,
-                views: { [view.key]: { elements: { [person.id]: MOVED } } },
-            });
-            await validate(dir, "workspace.json", "a layout save");
+        // The author moves Customer, as the page saves it.
+        const person = exported.model.people.find((p) => p.name === "Customer");
+        await writer.save({
+            version: versionOf(await readFile(json, "utf8")),
+            view: view.key,
+            views: { [view.key]: { elements: { [person.id]: MOVED } } },
+        });
+        await validate(dir, "workspace.json", "a layout save");
 
-            // The DSL changes, and the next run merges.
-            const text = await readFile(dsl, "utf8");
-            const changed = text.replace(
-                '"Buys things online"',
-                '"Buys things online, now and then"',
-            );
-            assert.notEqual(changed, text, "the DSL change didn't apply");
-            await writeFile(dsl, changed);
-            assert.equal(await pipeline.run(), true, output.text());
-            await validate(dir, "workspace.json", "a merge");
+        // The DSL changes, and the next run merges.
+        const text = await readFile(dsl, "utf8");
+        const changed = text.replace(
+            '"Buys things online"',
+            '"Buys things online, now and then"',
+        );
+        assert.notEqual(changed, text, "the DSL change didn't apply");
+        await writeFile(dsl, changed);
+        assert.equal(await pipeline.run(), true, output.text());
+        await validate(dir, "workspace.json", "a merge");
 
-            const merged = JSON.parse(await readFile(json, "utf8"));
-            const customer = merged.model.people.find(
-                (p) => p.name === "Customer",
-            );
-            assert.equal(
-                customer.description,
-                "Buys things online, now and then",
-            );
-            const { element } = viewHolding(merged, "Customer");
-            assert.deepEqual(
-                { x: element.x, y: element.y },
-                MOVED,
-                "the merge lost the saved layout",
-            );
-            assert.match(output.text(), /merg/i, "the second run didn't merge");
-        } finally {
-            await rm(dir, { recursive: true, force: true });
-        }
-    },
-);
+        const merged = JSON.parse(await readFile(json, "utf8"));
+        const customer = merged.model.people.find((p) => p.name === "Customer");
+        assert.equal(customer.description, "Buys things online, now and then");
+        const { element } = viewHolding(merged, "Customer");
+        assert.deepEqual(
+            { x: element.x, y: element.y },
+            MOVED,
+            "the merge lost the saved layout",
+        );
+        assert.match(output.text(), /merg/i, "the second run didn't merge");
+    } finally {
+        await rm(dir, { recursive: true, force: true });
+    }
+});

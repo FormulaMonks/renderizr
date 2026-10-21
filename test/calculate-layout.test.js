@@ -194,13 +194,13 @@ for (const vertices of [true, false]) {
                     edge.route.length,
                     `${key}: edge ${edge.key} has another number of points`,
                 );
-                edge.route.forEach((point, index) =>
+                edge.route.forEach((point, index) => {
                     near(
                         drawn.route[index],
                         point,
                         `edge ${edge.key} point ${index}`,
-                    ),
-                );
+                    );
+                });
             }
         }
     });

@@ -50,7 +50,6 @@ for (const [name, language] of Object.entries({
  * has to survive even when it looks "empty".
  */
 const EMPTY_ELEMENT_PATTERN =
-    // biome-ignore lint/suspicious/noMisleadingCharacterClass: zero-width characters are intentionally matched as whitespace
     /<(p|h[1-6]|em|strong|b|i|s|small|span|a|ul|ol|li|blockquote)(?:\s[^>]*)?>[\s\u200B-\u200D\uFEFF]*<\/\1\s*>/gi;
 
 /**
