@@ -43,7 +43,7 @@
         "./package.json": "./package.json"
     },
     "engines": {
-        "node": ">=22.12",
+        "node": ">=22.13",
         "pnpm": ">=10"
     },
     "files": [

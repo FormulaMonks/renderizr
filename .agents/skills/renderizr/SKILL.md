@@ -2,7 +2,7 @@
 name: renderizr
 description: Renders a Structurizr workspace as a Claude artifact or a static site, using the Renderizr CLI. Use when the user wants to see, share, publish or hand over a C4 architecture model — "show me the architecture", "turn this workspace into an artifact", "publish these diagrams" — or mentions Renderizr, workspace.json or artifact.html.
 license: MIT
-compatibility: Requires Node 22.12 or newer. Nothing else — no JVM, no Docker, no Graphviz, no PlantUML. Renderizr itself is run with `npx` and needs no installation.
+compatibility: Requires Node 22.13 or newer. Nothing else — no JVM, no Docker, no Graphviz, no PlantUML. Renderizr itself is run with `npx` and needs no installation.
 allowed-tools: Bash(npx:*), Bash(node:*)
 disable-model-invocation: true
 metadata:
@@ -90,7 +90,7 @@ Full reference in [flags](./references/flags.md). The ones that matter most:
 
 We verified each of these against the tool:
 
-- **Node 22.12 is a hard floor.** `npx` runs against whatever Node is first on `PATH`, which is often not the one the shell reports. Renderizr checks and exits with a clear message rather than failing deep inside the build.
+- **Node 22.13 is a hard floor.** `npx` runs against whatever Node is first on `PATH`, which is often not the one the shell reports. Renderizr checks and exits with a clear message rather than failing deep inside the build.
 - **`artifact.html` and `index.html` are not interchangeable.** See the table above.
 - **An artifact without `downloads` can't export.** The artifact viewer lets a page save a file only through its `downloads` capability. Publish `artifact.html` without declaring it and the page hides its export buttons.
 - **Renderizr empties the output directory** before writing. Never point `--out` at a directory holding anything you want to keep.
