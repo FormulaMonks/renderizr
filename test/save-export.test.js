@@ -61,6 +61,16 @@ const NAMES = [
         "workspace-landscape.png",
     ],
     [
+        {
+            workspace: "Mermaid sequence diagrams",
+            view: "checkout",
+            step: 3,
+            scheme: "dark",
+            format: "png",
+        },
+        "mermaid-sequence-diagrams-checkout-step-3-dark.png",
+    ],
+    [
         { workspace: "日本", view: "SystemLandscape2", format: "svg" },
         "workspace-system-landscape2.svg",
     ],

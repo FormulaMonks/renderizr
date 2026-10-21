@@ -9,6 +9,7 @@ import { orderOf } from "../../model/index";
 import { type AnimationState, NOT_ANIMATING } from "../contract";
 import { type Bounds, boundsOf } from "../geometry/bounds";
 import type { Graph } from "./graph";
+import type { SequenceDrawing } from "./sequence-graph";
 
 /* -------------------------------------------------------------- step state */
 
@@ -24,6 +25,11 @@ export type StepState = {
     elements: Record<string, Presence>;
     boundaries: Record<string, Presence>;
     edges: Record<string, Presence>;
+    /**
+     * A sequence diagram's: each unit of its `sequence` layer by the key
+     * its shapes carry, so each fades as a whole.
+     */
+    sequence?: Record<string, Presence>;
     /** The box around the step's elements, which `zoomOnAnimation` fits. */
     focus?: Bounds;
 };
@@ -54,7 +60,8 @@ const everything = (ids: string[], presence: Presence) =>
  * and hides the rest; an edge is revealed only by a step that lists it.
  * Boundaries never fade; in a static animation one appears with its first
  * revealed child. Boundary boxes are derived from all their children either
- * way, so nothing moves from step to step.
+ * way, so nothing moves from step to step. A sequence diagram highlights
+ * one message per step (`sequenceStepState`).
  */
 export function stepStateOf(graph: Graph, step: number | null): StepState {
     const elementIds = graph.elements.map((e) => e.id);
@@ -69,6 +76,8 @@ export function stepStateOf(graph: Graph, step: number | null): StepState {
             edges: everything(edgeKeys, "shown"),
         };
     }
+
+    if (graph.sequence) return sequenceStepState(graph, graph.sequence, step);
 
     const focus = focusOf(graph, current.elements, current.relationships);
 
@@ -116,6 +125,50 @@ export function stepStateOf(graph: Graph, step: number | null): StepState {
         edges: Object.fromEntries(
             graph.edges.map((e) => [e.key, presence(revealedEdges.has(e.id))]),
         ),
+        ...(focus && { focus }),
+    };
+}
+
+/**
+ * What a sequence diagram shows at `step`, the 1-based index of its message.
+ * The message shows and every other one fades; its sender and receiver
+ * show, header, footer and lifeline alike, and every other participant
+ * fades; every other unit of the `sequence` layer shows while the step is
+ * inside the messages it holds and fades otherwise. Nothing hides.
+ */
+function sequenceStepState(
+    graph: Graph,
+    drawing: SequenceDrawing,
+    step: number,
+): StepState {
+    const message = step - 1;
+    const current = graph.animation?.steps[message];
+    const involved = new Set(current?.elements);
+    const relationships = new Set(current?.relationships);
+    const presence = (shown: boolean): Presence => (shown ? "shown" : "faded");
+    // A footer is its participant's: `<id>#footer`.
+    const elements = Object.fromEntries(
+        graph.elements.map((e) => [
+            e.id,
+            presence(involved.has(e.id.replace(/#footer$/, ""))),
+        ]),
+    );
+    const sequence: Record<string, Presence> = {};
+    for (const shape of [...drawing.back, ...drawing.front]) {
+        if (shape.unit === undefined) continue;
+        const { messages } = shape;
+        sequence[shape.unit] = messages
+            ? presence(messages.from <= message && message < messages.to)
+            : (elements[shape.unit] ?? "shown");
+    }
+    const focus = drawing.focus[message];
+    return {
+        elements,
+        boundaries: {},
+        edges: Object.fromEntries(
+            graph.edges.map((e) => [e.key, presence(relationships.has(e.id))]),
+        ),
+        sequence,
         ...(focus && { focus }),
     };
 }

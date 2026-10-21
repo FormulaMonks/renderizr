@@ -166,7 +166,7 @@ import {
     zoomLimits,
 } from "./graph";
 import styles from "./island.module.css";
-import type { SequenceShape } from "./sequence-graph";
+import { type SequenceShape, sequenceGroups } from "./sequence-graph";
 
 export type IslandState = {
     key: string;
@@ -406,7 +406,13 @@ type PlaceholderNode = Node<{ color: string }, "placeholder">;
 type CanvasNode = Node<Record<string, never>, "canvas">;
 /** One layer of a sequence diagram, laid over the graph's bounds. */
 type SequenceNode = Node<
-    { shapes: SequenceShape[]; origin: Bounds },
+    {
+        shapes: SequenceShape[];
+        origin: Bounds;
+        /** Each unit's presence at the step shown; none for the full view. */
+        presence?: Record<string, Presence>;
+        transition?: string;
+    },
     "sequence"
 >;
 type DiagramNode =
@@ -1154,7 +1160,8 @@ const useReducedMotion = () =>
  * `nodes` as `stepState` shows them: a faded or hidden element or boundary
  * takes its opacity on React Flow's own wrapper, so its label and icon fade
  * with it, and a hidden one is inert, out of the tab order and the
- * accessibility tree (spec 11). Image nodes never animate.
+ * accessibility tree (spec 11). A sequence diagram's layers take each
+ * unit's presence, which they draw per unit. Image nodes never animate.
  */
 function withPresence(
     nodes: DiagramNode[],
@@ -1163,6 +1170,15 @@ function withPresence(
 ): DiagramNode[] {
     if (!stepState) return nodes;
     return nodes.map((node) => {
+        if (node.type === "sequence")
+            return {
+                ...node,
+                data: {
+                    ...node.data,
+                    presence: stepState.sequence,
+                    transition,
+                },
+            };
         const presence =
             node.type === "box"
                 ? stepState.elements[node.id]
@@ -1542,9 +1558,25 @@ const reactName = (name: string) =>
  * one node type drawn twice, behind the edges and in front of them, each
  * drawing its shapes as `sequence-graph.ts` built them and the export
  * serializes them. It takes no pointer, and nothing in it is focusable.
+ * Each unit draws in a group of its own, at its presence's opacity while a
+ * step is shown, so its parts fade as one and don't show through each other.
  */
 function SequenceLayer({ data }: NodeProps<SequenceNode>) {
-    const { shapes, origin } = data;
+    const { shapes, origin, presence, transition } = data;
+    const shape = ({ tag, attrs, text }: SequenceShape, key: number) =>
+        createElement(
+            tag,
+            {
+                key,
+                ...Object.fromEntries(
+                    Object.entries(attrs).map(([name, value]) => [
+                        reactName(name),
+                        value,
+                    ]),
+                ),
+            },
+            text,
+        );
     return (
         <svg
             aria-hidden="true"
@@ -1553,22 +1585,24 @@ function SequenceLayer({ data }: NodeProps<SequenceNode>) {
             style={{ overflow: "visible", pointerEvents: "none" }}
         >
             <g transform={`translate(${-origin.x} ${-origin.y})`}>
-                {shapes.map(({ tag, attrs, text }, i) =>
-                    createElement(
-                        tag,
-                        {
-                            // Shapes are drawn in layout order and never reorder.
-                            key: i,
-                            ...Object.fromEntries(
-                                Object.entries(attrs).map(([name, value]) => [
-                                    reactName(name),
-                                    value,
-                                ]),
-                            ),
-                        },
-                        text,
-                    ),
-                )}
+                {sequenceGroups(shapes).map((group, i) => {
+                    // Groups are drawn in layout order and never reorder.
+                    if (group.unit === undefined)
+                        return shape(group.shapes[0], i);
+                    const shown = presence?.[group.unit] ?? "shown";
+                    return (
+                        <g
+                            key={group.unit}
+                            data-unit={group.unit}
+                            style={{
+                                opacity: PRESENCE_OPACITY[shown],
+                                transition,
+                            }}
+                        >
+                            {group.shapes.map(shape)}
+                        </g>
+                    );
+                })}
             </g>
         </svg>
     );

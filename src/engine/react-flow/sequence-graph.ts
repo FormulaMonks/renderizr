@@ -48,6 +48,7 @@ import { endHeading } from "../geometry/routing/path";
 import {
     DOT_RADIUS,
     layOutSequence,
+    type MessageRange,
     NUMBER_RADIUS,
     PARTICIPANT_WIDTH,
     type SequenceLayout,
@@ -66,6 +67,18 @@ export type SequenceShape = {
     /** SVG attribute names, as the export writes them. */
     attrs: Record<string, string | number | undefined>;
     text?: string;
+    /**
+     * The unit an animation step shows or fades the shape with, as a whole:
+     * a message, a note, a bar, a fragment's frame or one of its sections,
+     * or a lifeline's participant, by its element id. None on what never
+     * fades on its own (a `box` grouping).
+     */
+    unit?: string;
+    /**
+     * The messages the unit holds, so the steps it shows at; none on a
+     * lifeline, which fades with its participant.
+     */
+    messages?: MessageRange;
 };
 
 /** What a sequence diagram draws around its participants and messages, back to front. */
@@ -74,7 +87,43 @@ export type SequenceDrawing = {
     back: SequenceShape[];
     /** In front: notes, message labels, sequence numbers and central connection dots. */
     front: SequenceShape[];
+    /**
+     * Each message's focus box, in message order, which `zoomOnAnimation`
+     * fits at its step: its row with the notes that step with it, as wide
+     * as its two participants' columns, padded.
+     */
+    focus: Bounds[];
 };
+
+/** A run of shapes in one layer that share a unit, or one shape with none. */
+export type SequenceGroup = { unit?: string; shapes: SequenceShape[] };
+
+/**
+ * `shapes` in runs of one unit, in drawing order, so the island and the
+ * export draw each unit under one opacity and its overlapping parts don't
+ * show through each other. A unit's shapes always sit next to each other.
+ */
+export function sequenceGroups(shapes: SequenceShape[]): SequenceGroup[] {
+    const groups: SequenceGroup[] = [];
+    for (const shape of shapes) {
+        const last = groups[groups.length - 1];
+        if (shape.unit !== undefined && last?.unit === shape.unit)
+            last.shapes.push(shape);
+        else groups.push({ unit: shape.unit, shapes: [shape] });
+    }
+    return groups;
+}
+
+/** `shapes`, each tagged with `unit` and the messages it holds. */
+const inUnit = (
+    shapes: SequenceShape[],
+    unit: string,
+    messages?: MessageRange,
+): SequenceShape[] =>
+    shapes.map((shape) => ({ ...shape, unit, ...(messages && { messages }) }));
+
+/** The room around a step's focus box. */
+const FOCUS_PADDING = 15;
 
 /** How deep a database's lid is, in place of the Cylinder's 30. */
 const DATABASE_LID = 12;
@@ -319,7 +368,7 @@ function layerShapes(
     colors: Colors,
     lanes: Lanes,
     edges: ReadonlyMap<string, EdgeLine>,
-): SequenceDrawing {
+): Omit<SequenceDrawing, "focus"> {
     const { size, line } = layout.text;
     const font = { "font-size": size };
     const back: SequenceShape[] = [];
@@ -355,7 +404,10 @@ function layerShapes(
             );
     }
 
-    const fragment = (f: SequenceLayout["fragments"][number]) => {
+    const fragment = (
+        f: SequenceLayout["fragments"][number],
+        index: number,
+    ) => {
         const rect = f.fragment === "rect";
         const shapes: SequenceShape[] = [
             {
@@ -376,7 +428,7 @@ function layerShapes(
                 },
             },
         ];
-        if (rect) return shapes;
+        if (rect) return inUnit(shapes, `fragment:${index}`, f.messages);
         const { x, y } = f;
         shapes.push(
             {
@@ -414,10 +466,13 @@ function layerShapes(
             shapes.push(
                 ...textShapes(f.title, line, { ...font, fill: colors.text }),
             );
-        for (const section of f.sections) {
-            shapes.push({
+        const frame = inUnit(shapes, `fragment:${index}`, f.messages);
+        for (const [i, section] of f.sections.entries()) {
+            const parts: SequenceShape[] = [];
+            parts.push({
                 tag: "line",
                 attrs: {
+                    "data-sequence": "section",
                     x1: f.x,
                     x2: f.x + f.width,
                     y1: section.y,
@@ -428,22 +483,27 @@ function layerShapes(
                 },
             });
             if (section.title)
-                shapes.push(
+                parts.push(
                     ...textShapes(section.title, line, {
                         ...font,
                         fill: colors.text,
                     }),
                 );
+            frame.push(
+                ...inUnit(parts, `section:${index}:${i}`, section.messages),
+            );
         }
-        return shapes;
+        return frame;
     };
 
     // A `rect` fills behind the lifelines and bars; the other fragments
     // draw over them, so their titles show.
-    for (const f of layout.fragments)
-        if (f.fragment === "rect") back.push(...fragment(f));
+    for (const [i, f] of layout.fragments.entries())
+        if (f.fragment === "rect") back.push(...fragment(f, i));
     for (const lifeline of layout.lifelines)
         back.push({
+            // A lifeline fades with its participant.
+            unit: mermaidNodeId(lifeline.id),
             tag: "line",
             attrs: {
                 "data-sequence": "lifeline",
@@ -455,9 +515,11 @@ function layerShapes(
                 "stroke-width": 1,
             },
         });
-    for (const bar of layout.activations) {
+    for (const [i, bar] of layout.activations.entries()) {
         const lane = lanes.get(bar.id);
         back.push({
+            unit: `bar:${i}`,
+            messages: bar.messages,
             tag: "rect",
             attrs: {
                 "data-sequence": "activation",
@@ -470,11 +532,12 @@ function layerShapes(
             },
         });
     }
-    for (const f of layout.fragments)
-        if (f.fragment !== "rect") back.push(...fragment(f));
+    for (const [i, f] of layout.fragments.entries())
+        if (f.fragment !== "rect") back.push(...fragment(f, i));
 
-    for (const note of layout.notes) {
-        front.push({
+    for (const [i, note] of layout.notes.entries()) {
+        const parts: SequenceShape[] = [];
+        parts.push({
             tag: "rect",
             attrs: {
                 "data-sequence": "note",
@@ -486,7 +549,7 @@ function layerShapes(
                 stroke: colors.note.stroke,
             },
         });
-        front.push(
+        parts.push(
             ...textShapes(
                 {
                     lines: note.lines,
@@ -501,10 +564,12 @@ function layerShapes(
                 { ...font, fill: colors.note.color },
             ),
         );
+        front.push(...inUnit(parts, `note:${i}`, note.messages));
     }
-    for (const message of layout.messages) {
+    for (const [i, message] of layout.messages.entries()) {
         const edge = edges.get(mermaidEdgeId(message.id));
         if (!edge) continue;
+        const from = front.length;
         // A message's label draws with no backing, as Mermaid's.
         front.push(
             ...textShapes(message.label, line, {
@@ -557,8 +622,60 @@ function layerShapes(
                 },
             );
         }
+        front.splice(
+            from,
+            front.length - from,
+            ...inUnit(front.slice(from), `message:${i}`, {
+                from: i,
+                to: i + 1,
+            }),
+        );
     }
     return { back, front };
+}
+
+/**
+ * Each message's focus box: its arrow, label, number and dots with the
+ * notes that step with it, widened to the outer edges of its two
+ * participants' columns, padded.
+ */
+function focusOf(layout: SequenceLayout): Bounds[] {
+    return layout.messages.map((message, i) => {
+        const points = [
+            ...message.route,
+            ...message.dots,
+            ...(message.number ? [message.number.at] : []),
+        ].map((p) => ({ x: p.x, y: p.y, width: 0, height: 0 }));
+        const number = message.number && {
+            x: message.number.at.x - NUMBER_RADIUS,
+            y: message.number.at.y - NUMBER_RADIUS,
+            width: 2 * NUMBER_RADIUS,
+            height: 2 * NUMBER_RADIUS,
+        };
+        const notes = layout.notes.filter((note) => note.messages.from === i);
+        const row =
+            boundsOf([
+                message.label.box,
+                ...points,
+                ...(number ? [number] : []),
+                ...notes,
+            ]) ?? message.label.box;
+        const columns = [message.from, message.to].flatMap((id) => {
+            const head = layout.participants.get(id)?.head;
+            return head ? [head] : [];
+        });
+        const left = Math.min(row.x, ...columns.map((c) => c.x));
+        const right = Math.max(
+            row.x + row.width,
+            ...columns.map((c) => c.x + c.width),
+        );
+        return {
+            x: left - FOCUS_PADDING,
+            y: row.y - FOCUS_PADDING,
+            width: right - left + 2 * FOCUS_PADDING,
+            height: row.height + 2 * FOCUS_PADDING,
+        };
+    });
 }
 
 /** A sequence diagram drawn: its participants, its messages and the layer around them. */
@@ -717,12 +834,15 @@ export function drawSequence(
             return [p.id, { line: own?.actorLineColor ?? fill, ...bar }];
         }),
     );
-    const sequence = layerShapes(
-        layout,
-        colorsOf(model, scheme, text.color, palette),
-        lanes,
-        new Map(edges.map((edge) => [edge.key, edge])),
-    );
+    const sequence = {
+        ...layerShapes(
+            layout,
+            colorsOf(model, scheme, text.color, palette),
+            lanes,
+            new Map(edges.map((edge) => [edge.key, edge])),
+        ),
+        focus: focusOf(layout),
+    };
     return {
         elements,
         edges,

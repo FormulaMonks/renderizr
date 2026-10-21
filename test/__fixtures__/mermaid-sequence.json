@@ -102,6 +102,17 @@
                 "description": "No theme: the primary color fill, gray notes and the scheme's lines. The same source as Themed and Redux color.",
                 "content": "https://mermaid.ink/svg/pako:eJxtUj1PwzAQ_SunTFQkUlXoksFLYS2IDllYHOcaW8Q-Y18qUMV_R45TWgoe_Pnu7r13PkKhqMOiLiK-j-gUPhjZB2lfHQCAHJncaFsM81kxBdiMkcme7lr6gNC3N6u7ZQmr-zSt1wvYMQXMiDS8DGyU8dIxNNiCjNMSNfn_QU-hwxATbtpBxHAwas6Irsuby4gdk3rL1yeGlRC3DbY1PA9SIVDKlBFbYoRges1A-x98DY00HIEcsEZQ5PYmWMmGHHjZz9UbbFPizLCGTUDJv5IPRB4epdIwGHdhQo6ohJio1vCCSRWCYbRn1PRYVUKcCsyw7ko7eZ5kJLrD5zl-kkYHDHO9cq62JdbG9YBDRNDSe3QRNIZrTwMqzh1dr0vIbV0uF39kVEJUk7m5QeaaX7IpYc7mbi78LEooLAYrTVfUx4I12vQNO9zLceDi6-sb1SnUsg",
                 "contentType": "image/svg+xml"
+            },
+            {
+                "key": "steps",
+                "order": 10,
+                "title": "Steps",
+                "description": "Steps fitted with zoomOnAnimation: create and destroy, an alt section that holds only a note, a bar across the alt and a note after the last message.",
+                "properties": {
+                    "structurizr.zoomOnAnimation": "true"
+                },
+                "content": "https://mermaid.ink/svg/pako:eJx1UslOwzAQ_ZWRryQ_kEOlqFyQECB64MJlGk8SCy_BnqBWVf-dSR3SoKq-ed7q5QSqCZpUpRJ9j-QbejTYRXSfHmThyMGPbk8x7weMbBozoGfYWkOeb-f1YAAT1G9PGcu8crN5EKSC14E8ICRKyQSfKU0kZPrnslvjIhT9PKpgx0KcC9qFCm0Yvc7jac3jUpSX4HdKo6OMk0206OgwmEgr5UuQMuGH4hRcLLEy7o3vgAPEe142NF83VtF0PUNoYbGqvXiJP-Me-mB1AsP3mz-vTOnviJoSx3C8vajDkrK1IdEVELsyP0a19JWL18dMuZ46k4pL9kc0zNOLtTz17QksJgYneuzEXBWgHEWHRqvqpITgpt-kqcXRsjqffwHrM8n9",
+                "contentType": "image/svg+xml"
             }
         ]
     }

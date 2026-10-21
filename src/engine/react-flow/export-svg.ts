@@ -48,7 +48,7 @@ import { borderDashes, paintPart } from "../geometry/paint";
 import { escapeXml } from "../geometry/xml";
 import { PRESENCE_OPACITY, type StepState } from "./animation";
 import type { BoundaryBox, EdgeLine, ElementBox, Graph } from "./graph";
-import type { SequenceShape } from "./sequence-graph";
+import { type SequenceShape, sequenceGroups } from "./sequence-graph";
 
 /** What the serializer needs to set text the way CSS does. */
 export type TextSetting = {
@@ -651,21 +651,31 @@ function edgeLine(edge: EdgeLine): string {
 
 /**
  * One of a sequence diagram's layers, its shapes as the island draws them,
- * without the `data-` hooks the page keeps for its tests.
+ * without the `data-` hooks the page keeps for its tests. Each unit the
+ * step fades draws inside one group at its opacity, as on the canvas.
  */
-function sequenceLayer(shapes: SequenceShape[] | undefined): string {
-    return (shapes ?? [])
-        .map(({ tag, attrs: values, text }) => {
-            const kept = Object.fromEntries(
-                Object.entries(values).filter(
-                    ([key]) => !key.startsWith("data-"),
-                ),
-            );
-            const open = `<${tag} ${attrs(kept)}`;
-            return text === undefined
-                ? `${open}/>`
-                : `${open}>${escapeXml(text)}</${tag}>`;
-        })
+function sequenceLayer(
+    shapes: SequenceShape[] | undefined,
+    step: StepState | undefined,
+): string {
+    const shape = ({ tag, attrs: values, text }: SequenceShape) => {
+        const kept = Object.fromEntries(
+            Object.entries(values).filter(([key]) => !key.startsWith("data-")),
+        );
+        const open = `<${tag} ${attrs(kept)}`;
+        return text === undefined
+            ? `${open}/>`
+            : `${open}>${escapeXml(text)}</${tag}>`;
+    };
+    return sequenceGroups(shapes ?? [])
+        .map((group) =>
+            present(
+                group.shapes.map(shape).join(""),
+                group.unit === undefined
+                    ? undefined
+                    : step?.sequence?.[group.unit],
+            ),
+        )
         .join("");
 }
 
@@ -902,11 +912,11 @@ export function exportSvg({
         // The canvas and the band under it, in the scheme's canvas color.
         `<rect ${attrs({ x: frame.x, y: frame.y, width, height, fill: graph.background })}/>`,
         // A sequence diagram's layers sit around its messages, as on the canvas.
-        sequenceLayer(graph.sequence?.back),
+        sequenceLayer(graph.sequence?.back, step),
         ...boundaries,
         ...lines,
         ...labels,
-        sequenceLayer(graph.sequence?.front),
+        sequenceLayer(graph.sequence?.front, step),
         ...elements,
         band.svg,
         "</svg>",

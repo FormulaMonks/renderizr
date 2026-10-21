@@ -810,7 +810,12 @@ function drawView(
             measure,
             labels.descriptions,
         );
-        return { ...empty(view), ...drawn, layout: view.layout };
+        return {
+            ...empty(view),
+            ...drawn,
+            layout: view.layout,
+            ...(animation && { animation }),
+        };
     }
     const boundaries = new Set(view.boundaries.map((b) => b.id));
     // A Mermaid diagram's nodes, edges and subgraphs take their styles and
