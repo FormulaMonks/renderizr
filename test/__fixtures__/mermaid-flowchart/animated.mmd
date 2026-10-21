@@ -1,0 +1,5 @@
+flowchart LR
+    order[Order] e1@--> payment[Payment]
+    payment e2@--> shipping[Shipping]
+    e1@{ animate: true }
+    e2@{ animation: fast }

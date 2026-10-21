@@ -57,5 +57,11 @@ workspace "Mermaid flowcharts" "Image views that carry Mermaid flowchart source,
             title "End markers"
             description "Every flowchart End marker at both ends, on solid, dotted and thick lines."
         }
+
+        image * "animated" {
+            mermaid animated.mmd
+            title "Animated edges"
+            description "An edge that sets animate and one that sets animation: Renderizr draws both still and warns."
+        }
     }
 }
