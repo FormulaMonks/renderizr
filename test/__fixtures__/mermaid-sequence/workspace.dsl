@@ -60,5 +60,14 @@ workspace "Mermaid sequence diagrams" "Image views that carry Mermaid sequence d
             title "Silent"
             description "No theme: the primary color fill, gray notes and the scheme's lines. The same source as Themed and Redux color."
         }
+
+        image * "steps" {
+            mermaid steps.mmd
+            title "Steps"
+            description "Steps fitted with zoomOnAnimation: create and destroy, an alt section that holds only a note, a bar across the alt and a note after the last message."
+            properties {
+                "structurizr.zoomOnAnimation" "true"
+            }
+        }
     }
 }

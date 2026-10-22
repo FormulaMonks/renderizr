@@ -1,0 +1,19 @@
+sequenceDiagram
+    autonumber
+    participant Client
+    participant Api as API
+    Client->>+Api: Open a session
+    create participant Session
+    Api->>Session: Start
+    alt Session found
+        Session-->>Api: Resume
+    else Session expired
+        Note over Api,Session: Nothing to resume
+    else Session locked
+        Note right of Session: Another tab holds it
+        Session-->>Api: Locked
+    end
+    destroy Session
+    Api-xSession: Close
+    Api-->>-Client: Session ready
+    Note over Client,Api: Written after the last message

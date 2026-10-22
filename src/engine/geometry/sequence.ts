@@ -99,11 +99,32 @@ export type SequenceMessage = {
     dots: Point[];
 };
 
+/**
+ * The messages something holds, as indexes into the layout's `messages`:
+ * from `from` up to `to`, not including it, so a range that holds no
+ * message has `from` equal to `to`. An animation steps once per message, so
+ * this is also the steps it shows at.
+ */
+export type MessageRange = { from: number; to: number };
+
+/** Whether `range` holds the message at index `message`. */
+export const holds = (range: MessageRange, message: number) =>
+    range.from <= message && message < range.to;
+
 export type SequenceFragment = Bounds & {
     fragment: string;
     depth: number;
+    /** The first section's condition. */
     title?: SequenceText;
-    sections: { y: number; title?: SequenceText }[];
+    /** Every message inside the fragment, in any of its sections. */
+    messages: MessageRange;
+    /** The messages of the first section, which runs up to `sections[0]`. */
+    first: MessageRange;
+    /**
+     * The sections after the first (`else`, `and`, `option`), each with the
+     * messages it holds; the first section's condition is the title.
+     */
+    sections: { y: number; title?: SequenceText; messages: MessageRange }[];
     color?: string;
 };
 
@@ -111,9 +132,18 @@ export type SequenceLayout = {
     /** Each participant's header box, and its footer box when one draws, by id. */
     participants: Map<string, { head: Bounds; foot?: Bounds }>;
     lifelines: { id: string; x: number; top: number; bottom: number }[];
-    activations: (Bounds & { id: string; depth: number })[];
+    /** Each bar holds the messages from the one that opens it to the last before it closes. */
+    activations: (Bounds & {
+        id: string;
+        depth: number;
+        messages: MessageRange;
+    })[];
     messages: SequenceMessage[];
-    notes: (Bounds & { lines: string[] })[];
+    /**
+     * Each note holds the message written just before it and the one just
+     * after it, or only the first or the last at either end.
+     */
+    notes: (Bounds & { lines: string[]; messages: MessageRange })[];
     fragments: SequenceFragment[];
     boxes: (Bounds & { title?: SequenceText; fill?: string })[];
     /** The size and line height its text was laid out at. */
@@ -146,7 +176,9 @@ type Frame = {
     left: number;
     right: number;
     bottom: number;
-    sections: { y: number; title: string }[];
+    /** The first message placed after the fragment opens. */
+    from: number;
+    sections: { y: number; title: string; from: number }[];
 };
 
 function pass(
@@ -254,12 +286,15 @@ function pass(
     }
     let cursor = top + ROW;
 
-    const stacks = new Map<string, number[]>(order.map((id) => [id, []]));
+    /** Each participant's open bars: where each starts, and its first message. */
+    const stacks = new Map<string, { y: number; from: number }[]>(
+        order.map((id) => [id, []]),
+    );
     const activations: SequenceLayout["activations"] = [];
     const messages: SequenceMessage[] = [];
     const notes: SequenceLayout["notes"] = [];
     const frames: Frame[] = [];
-    const closed: Frame[] = [];
+    const closed: (Frame & { to: number })[] = [];
     // Mermaid numbers every message, shown or not, and an `autonumber`
     // without a start or step goes on from where it was.
     const counter = { next: 1, step: 1, visible: false };
@@ -288,8 +323,9 @@ function pass(
     };
     const endActivation = (id: string) => {
         const stack = stacks.get(id);
-        let start = stack?.pop();
-        if (!stack || start === undefined) return;
+        const open = stack?.pop();
+        if (!stack || open === undefined) return;
+        let start = open.y;
         // A bar that would be shorter than a line grows to one.
         if (cursor - start < LINE) {
             start = cursor - 6 * S;
@@ -303,6 +339,7 @@ function pass(
             y: start,
             width: ACTIVATION_WIDTH,
             height: cursor - start,
+            messages: { from: open.from, to: messages.length },
         };
         activations.push(box);
         reach(box.x, box.x + box.width, cursor);
@@ -316,7 +353,15 @@ function pass(
                 counter.visible = item.visible;
                 return;
             case "activate":
-                stacks.get(item.who)?.push(cursor);
+                // A bar opened right after a message starts on its line,
+                // so it holds that message.
+                stacks.get(item.who)?.push({
+                    y: cursor,
+                    from:
+                        script.items[position - 1]?.kind === "message"
+                            ? messages.length - 1
+                            : messages.length,
+                });
                 return;
             case "deactivate":
                 endActivation(item.who);
@@ -349,13 +394,19 @@ function pass(
                     );
                     left = (a + b) / 2 - noteWidth / 2;
                 }
-                notes.push({
+                const note = {
                     x: left,
                     y: cursor,
                     width: noteWidth,
                     height,
                     lines,
-                });
+                    // The messages before and after it; the last is settled below.
+                    messages: {
+                        from: Math.max(0, messages.length - 1),
+                        to: messages.length + 1,
+                    },
+                };
+                notes.push(note);
                 cursor += height;
                 reach(left, left + noteWidth, cursor);
                 return;
@@ -388,6 +439,7 @@ function pass(
                     left: Number.POSITIVE_INFINITY,
                     right: Number.NEGATIVE_INFINITY,
                     bottom: cursor,
+                    from: messages.length,
                     sections: [],
                 });
                 return;
@@ -404,7 +456,11 @@ function pass(
                     : known !== undefined
                       ? wrapped(title, true, known - 2 * WRAP_PADDING)
                       : [title];
-                frame.sections.push({ y, title: item.title });
+                frame.sections.push({
+                    y,
+                    title: item.title,
+                    from: messages.length,
+                });
                 cursor += 10 * S + Math.max(lines.length * LINE, 20 * S);
                 frame.bottom = cursor;
                 return;
@@ -421,7 +477,7 @@ function pass(
                 frame.left -= BOX_MARGIN;
                 frame.right += BOX_MARGIN;
                 frame.bottom = bottom;
-                closed.push(frame);
+                closed.push({ ...frame, to: messages.length });
                 cursor = bottom;
                 reach(frame.left, frame.right, bottom);
                 return;
@@ -552,6 +608,13 @@ function pass(
 
     for (const [position, item] of script.items.entries())
         place(item, position);
+    // A note with no message after it steps with the last one only.
+    const end = Math.max(1, messages.length);
+    for (const note of notes)
+        note.messages = {
+            ...note.messages,
+            to: Math.min(note.messages.to, end),
+        };
     // A bar nothing closes draws nothing, as in Mermaid: a central
     // connection's never closes.
 
@@ -616,7 +679,12 @@ function pass(
                         frame.top + 5 * S,
                     ),
                 }),
-                sections: frame.sections.map((section) => {
+                messages: { from: frame.from, to: frame.to },
+                first: {
+                    from: frame.from,
+                    to: frame.sections[0]?.from ?? frame.to,
+                },
+                sections: frame.sections.map((section, i) => {
                     const lines = section.title
                         ? wrapped(
                               `[${section.title}]`,
@@ -624,8 +692,10 @@ function pass(
                               frameWidth - 2 * WRAP_PADDING,
                           )
                         : [];
+                    const next = frame.sections[i + 1]?.from ?? frame.to;
                     return {
                         y: section.y,
+                        messages: { from: section.from, to: next },
                         ...(lines.length && {
                             title: textAt(
                                 lines,

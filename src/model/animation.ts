@@ -4,6 +4,7 @@
  * out what each step shows from these; nothing here knows about drawing.
  */
 
+import { mermaidEdgeId, mermaidNodeId } from "./mermaid";
 import type { ResolvedView } from "./resolve-view";
 import type { ModelView } from "./types";
 import type { WorkspaceModel } from "./workspace";
@@ -95,8 +96,9 @@ function zoomOnAnimation(
 
 /**
  * The animation `view` plays, or `undefined` when it plays none (spec 11):
- * every dynamic view with at least one ordered relationship, and a static
- * view with more than one `animations` entry.
+ * every dynamic view with at least one ordered relationship, a Mermaid
+ * sequence diagram with at least one message, and a static view with more
+ * than one `animations` entry.
  *
  * A dynamic view's steps are its distinct orders sorted as integers; every
  * relationship sharing an order belongs to that step, and a relationship
@@ -112,6 +114,31 @@ export function animationOf(
         ? model.findViewByKey(view.filter.baseViewKey)
         : view.view;
     const zoom = zoomOnAnimation(model, view.view, base);
+
+    // A sequence diagram steps once per message, in source order, showing
+    // the two participants it joins.
+    if (view.sequence) {
+        const steps = view.sequence.items.flatMap((item) =>
+            item.kind === "message"
+                ? [
+                      {
+                          elements: [
+                              ...new Set(
+                                  [item.from, item.to].map(mermaidNodeId),
+                              ),
+                          ],
+                          relationships: [mermaidEdgeId(item.id)],
+                      },
+                  ]
+                : [],
+        );
+        if (steps.length === 0) return undefined;
+        return {
+            kind: "dynamic",
+            steps: steps.map((step, i) => ({ order: i + 1, ...step })),
+            zoom,
+        };
+    }
 
     if (view.type === "Dynamic") {
         const byOrder = new Map<number, Step>();

@@ -88,6 +88,7 @@ test("an image view with a mermaid model draws as a Mermaid diagram, in the imag
         model.getViews().map((view) => view.key),
         [
             "landscape",
+            "animated",
             "left-right",
             "links",
             "markers",

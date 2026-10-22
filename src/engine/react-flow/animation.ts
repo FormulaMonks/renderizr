@@ -9,6 +9,7 @@ import { orderOf } from "../../model/index";
 import { type AnimationState, NOT_ANIMATING } from "../contract";
 import { type Bounds, boundsOf } from "../geometry/bounds";
 import type { Graph } from "./graph";
+import { sequenceStepState } from "./sequence-graph";
 
 /* -------------------------------------------------------------- step state */
 
@@ -24,6 +25,11 @@ export type StepState = {
     elements: Record<string, Presence>;
     boundaries: Record<string, Presence>;
     edges: Record<string, Presence>;
+    /**
+     * A sequence diagram's: each unit of its `sequence` layer by the key
+     * its shapes carry, so each fades as a whole.
+     */
+    sequence?: Record<string, Presence>;
     /** The box around the step's elements, which `zoomOnAnimation` fits. */
     focus?: Bounds;
 };
@@ -54,7 +60,8 @@ const everything = (ids: string[], presence: Presence) =>
  * and hides the rest; an edge is revealed only by a step that lists it.
  * Boundaries never fade; in a static animation one appears with its first
  * revealed child. Boundary boxes are derived from all their children either
- * way, so nothing moves from step to step.
+ * way, so nothing moves from step to step. A sequence diagram highlights
+ * one message per step (`sequenceStepState`).
  */
 export function stepStateOf(graph: Graph, step: number | null): StepState {
     const elementIds = graph.elements.map((e) => e.id);
@@ -69,6 +76,8 @@ export function stepStateOf(graph: Graph, step: number | null): StepState {
             edges: everything(edgeKeys, "shown"),
         };
     }
+
+    if (graph.sequence) return sequenceStepState(graph, graph.sequence, step);
 
     const focus = focusOf(graph, current.elements, current.relationships);
 
