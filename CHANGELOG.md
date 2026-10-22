@@ -21,6 +21,20 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.6.0](https://github.com/FormulaMonks/renderizr/compare/v2.5.0...v2.6.0) (2026-10-22)
+
+
+### Added
+
+* **mermaid:** step through a sequence diagram one message at a time ([#255](https://github.com/FormulaMonks/renderizr/issues/255)) ([bca5fd2](https://github.com/FormulaMonks/renderizr/commit/bca5fd2aaee302067914f055e29b49f134c48eaf))
+
+
+### Fixed
+
+* **deps:** update dependency @dagrejs/dagre to v3 ([#226](https://github.com/FormulaMonks/renderizr/issues/226)) ([142a358](https://github.com/FormulaMonks/renderizr/commit/142a35867aadb4848fefb842d7c2bd382ee87ac9))
+* **deps:** update dependency markdown-it to v15 ([#227](https://github.com/FormulaMonks/renderizr/issues/227)) ([8c9bda7](https://github.com/FormulaMonks/renderizr/commit/8c9bda7c3c9cc0842251214e85725f4f8bc8557f))
+* **mermaid:** read an escaped comma in a style as part of its declaration ([#251](https://github.com/FormulaMonks/renderizr/issues/251)) ([0d8b18e](https://github.com/FormulaMonks/renderizr/commit/0d8b18ee239e3b7fed03b7b217a67d09d6f4db9b)), closes [#245](https://github.com/FormulaMonks/renderizr/issues/245)
+
 ## [2.5.0](https://github.com/FormulaMonks/renderizr/compare/v2.4.0...v2.5.0) (2026-10-17)
 
 
