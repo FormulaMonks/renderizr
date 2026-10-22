@@ -1,20 +1,20 @@
 import { defineConfig } from "vite";
-// @ts-expect-error — plain ESM shared with scripts/build.js
+// @ts-expect-error — plain ESM shared with scripts/main.js
 import { loadWorkspace } from "./scripts/assets.js";
-// @ts-expect-error — plain ESM shared with scripts/build.js
+// @ts-expect-error — plain ESM shared with scripts/main.js
 import {
     colorError,
     loadBranding,
     NO_BRANDING_FLAGS,
 } from "./scripts/branding.js";
-// @ts-expect-error — plain ESM shared with scripts/build.js
+// @ts-expect-error — plain ESM shared with scripts/main.js
 import { createConfig } from "./scripts/config.js";
 
 /** Whatever this repository documents about itself. */
 const DEFAULT_WORKSPACE = "architecture/workspace.json";
 
 /**
- * Dev-server entry only. Production builds go through `scripts/build.js`, which
+ * Dev-server entry only. Production builds go through `scripts/main.js`, which
  * owns argument parsing and asset embedding; both share `scripts/config.js`.
  *
  *   pnpm dev                                    (this repo's own workspace)

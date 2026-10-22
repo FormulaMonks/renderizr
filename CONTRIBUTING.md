@@ -25,16 +25,16 @@ The [architecture site](https://formulamonks.github.io/renderizr/) carries a sho
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Node | 22.13 or newer | pnpm 11 imports `node:sqlite`, which needs 22.13. Renderizr itself runs on Node 20 or newer: `scripts/build.js` refuses to run below 20 — it needs a global `fetch` and `util.parseArgs` defaults. `package.json` declares `"engines": { "node": ">=20" }`. On 20.0–20.5 the `test/` suite skips itself loudly, because importing `src/` needs `module.register`, which landed in 20.6 |
+| Node | 22.13 or newer | One floor for running Renderizr and for developing it: `package.json` declares it in `"engines": { "node": ">=22.13" }`, `scripts/build.js` checks it before it loads the build, and pnpm 11 needs it because it imports `node:sqlite`. [ADR 26](architecture/decisions/0026-support-node-from-22-13.md) records it |
 | pnpm | 11 | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
 | git | any | To clone the repository |
 
 That is the whole list. No IDE is required, no JDK, no global CLI.
 
-Development happens on Node 24 — that is what `.mise.toml` pins and what the committed `mise.lock` resolves. Node 20 remains supported for people *running* the tool; if you have [mise](https://mise.jdx.dev) installed, `mise install` in the repository root gets you the exact Node and pnpm the maintainers use:
+Development happens on Node 26, which `.mise.toml` and `.nvmrc` pin and the committed `mise.lock` resolves. If you have [mise](https://mise.jdx.dev) installed, `mise install` in the repository root gets you the exact Node and pnpm the maintainers use:
 
 ```bash
-mise install     # optional; installs Node 24 and pnpm per .mise.toml + mise.lock
+mise install     # optional; installs Node 26 and pnpm per .mise.toml + mise.lock
 ```
 
 If you would rather not install mise, use any Node 22.13+ and pnpm 11 you already have. Nothing in the build reads mise.
@@ -228,7 +228,9 @@ public/         static files copied into every build (currently the favicon)
 
 | Path | What lives there |
 | --- | --- |
-| `scripts/build.js` | CLI entry point (`bin: renderizr`). Enforces the Node floor, parses arguments, loads assets, runs Vite |
+| `scripts/build.js` | CLI entry point (`bin: renderizr`). Enforces the Node floor, then loads `scripts/main.js` |
+| `scripts/node-version.js` | The Node floor and the check against it, with no imports so it loads on any Node |
+| `scripts/main.js` | Parses arguments, loads assets and runs Vite, or starts edit mode |
 | `scripts/cli.js` | Option definitions and `--help` text |
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
 | `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
@@ -369,7 +371,7 @@ What a good pull request looks like here:
 
 ## How a review goes
 
-1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite on Node 22 and 24, an npm install and build on Node 20, the end-to-end render, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
+1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite and the end-to-end render on Node 22, 24 and 26, an npm install and build on Node 22.13, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
 3. Review comments come in three flavors, and reviewers label them so you never have to guess:
    - **blocking** — must change before merge.

@@ -41,7 +41,7 @@ The difference between a same-day answer and a week of back-and-forth is usually
 1. **The exact command you ran**, flags and all.
 2. **What happened** — the full error output, or a screenshot for a rendering problem. Not a paraphrase.
 3. **What you expected instead.**
-4. **Your Node version** (`node --version`) and your OS. Renderizr needs Node 20 or newer, and "it exits immediately" is very often Node 18 on the `PATH`.
+4. **Your Node version** (`node --version`) and your OS. Renderizr needs Node 22.13 or newer, and "it exits immediately" is very often Node 20 on the `PATH`.
 
 If a specific workspace is involved, the single most useful thing you can attach is a **minimal `workspace.json` that reproduces it** — cut it down until removing one more thing makes the problem go away. If the workspace is confidential, say so and reproduce it against [the Big Bank plc example](https://raw.githubusercontent.com/structurizr/structurizr/main/structurizr-export/src/test/resources/big-bank-plc.json) instead:
 
