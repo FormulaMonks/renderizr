@@ -1,0 +1,182 @@
+[
+    { "open": "{{dev}}#/?page=diagrams&view=checkout" },
+    { "ready": true },
+    {
+        "assert": "!document.querySelector('.animation-buttons').hidden",
+        "message": "a sequence diagram shows the animation group"
+    },
+    {
+        "eval": "window.__unit = (key) => Number(getComputedStyle(document.querySelector(`.react-flow [data-unit=\"${key}\"]`)).opacity); window.__viewport = () => document.querySelector('.react-flow__viewport').style.transform; window.__checkout = window.__viewport(); window.__checkout",
+        "as": "checkoutViewport"
+    },
+    { "shot": "1-checkout-full.png" },
+    { "clickLabel": "Next step" },
+    { "clickLabel": "Next step" },
+    { "sleep": 400 },
+    {
+        "eval": "({ message1: __unit('message:1'), message0: __unit('message:0'), customerLifeline: __unit('participant:mermaid:Customer'), webLifeline: __unit('participant:mermaid:Web'), ordersLifeline: __unit('participant:mermaid:Orders'), viewport: __viewport() })",
+        "as": "checkoutStep2"
+    },
+    {
+        "assert": "__unit('message:1') === 1 && __unit('message:0') === 0.2 && __unit('participant:mermaid:Customer') === 0.2 && __unit('participant:mermaid:Orders') === 1",
+        "message": "step 2 shows Create order and its two participants, and fades the rest"
+    },
+    {
+        "assert": "__viewport() === window.__checkout",
+        "message": "without zoomOnAnimation a step leaves the viewport where it was"
+    },
+    { "shot": "2-checkout-step-2.png" },
+    { "click": ".react-flow__pane" },
+    { "key": "Escape", "code": "Escape" },
+    { "open": "{{dev}}#/?page=diagrams&view=redux" },
+    { "ready": true },
+    {
+        "eval": "window.__unit = (key) => Number(getComputedStyle(document.querySelector(`.react-flow [data-unit=\"${key}\"]`)).opacity); true",
+        "as": "reduxHelpers"
+    },
+    { "clickLabel": "Next step" },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('note:0') === 1 && __unit('message:0') === 1",
+        "message": "redux step 1 (Place order) shows the note written after it"
+    },
+    { "clickLabel": "Next step" },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('note:0') === 1 && __unit('message:1') === 1",
+        "message": "redux step 2 (Create order) shows the note written before it"
+    },
+    { "shot": "2b-redux-step-2.png" },
+    { "clickLabel": "Next step" },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('note:0') === 0.2",
+        "message": "redux step 3 fades the note"
+    },
+    { "key": "Escape", "code": "Escape" },
+    { "open": "{{dev}}#/?page=diagrams&view=checkout" },
+    { "ready": true },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('message:0') === 1 && __unit('message:1') === 1 && __unit('participant:mermaid:Customer') === 1",
+        "message": "Escape stops the animation and shows the whole diagram"
+    },
+
+    { "open": "{{dev}}#/?page=diagrams&view=steps" },
+    { "ready": true },
+    {
+        "eval": "window.__unit = (key) => Number(getComputedStyle(document.querySelector(`.react-flow [data-unit=\"${key}\"]`)).opacity); window.__viewport = () => document.querySelector('.react-flow__viewport').style.transform; window.__full = __viewport(); window.__full",
+        "as": "stepsFull"
+    },
+    { "shot": "3-steps-full.png" },
+    { "clickLabel": "Next step" },
+    { "clickLabel": "Next step" },
+    { "clickLabel": "Next step" },
+    { "sleep": 600 },
+    {
+        "eval": "window.__arrow = (i) => { const g = document.querySelectorAll('.react-flow [data-relationship-id]')[i]; return { opacity: Number(getComputedStyle(g).opacity), number: g.querySelector('text')?.textContent }; }; ({ resume: __unit('message:2'), alt: __unit('fragment:0'), found: __unit('section:0:0'), emptySection: __unit('section:0:1'), lockedSection: __unit('section:0:2'), bar: __unit('bar:0'), session: __unit('participant:mermaid:Session'), firstArrow: __arrow(0), viewport: __viewport() })",
+        "as": "stepsStep3"
+    },
+    {
+        "assert": "__unit('message:2') === 1 && __unit('fragment:0') === 1 && __unit('section:0:0') === 1 && __unit('section:0:1') === 0.2 && __unit('section:0:2') === 0.2 && __unit('bar:0') === 1",
+        "message": "step 3 (Resume) shows the alt's frame, its first condition and the bar, and fades both later sections"
+    },
+    {
+        "assert": "__arrow(0).opacity === 0.2 && __arrow(0).number === '1' && __arrow(2).opacity === 1 && __unit('message:0') === 0.2",
+        "message": "a faded message's arrow and number fade as one group, and its label fades in front"
+    },
+    {
+        "assert": "__unit('note:0') === 1 && __unit('note:1') === 1 && __unit('note:2') === 0.2",
+        "message": "step 3 (Resume) shows the notes written after it, the one in the notes-only section included"
+    },
+    {
+        "assert": "__viewport() !== window.__full",
+        "message": "zoomOnAnimation fits the step's row and its notes"
+    },
+    { "shot": "4-steps-step-3-zoomed.png" },
+    {
+        "eval": "window.__zoomed = __viewport(); window.__zoomed",
+        "as": "zoomedWithNotes"
+    },
+    { "clickLabel": "Next step" },
+    { "sleep": 600 },
+    {
+        "assert": "__unit('message:3') === 1 && __unit('section:0:2') === 1 && __unit('section:0:0') === 0.2 && __unit('fragment:0') === 1 && __unit('section:0:1') === 0.2 && __unit('note:0') === 1 && __unit('note:1') === 1",
+        "message": "step 4 (Locked) shows its section and both notes written before it, and fades the first condition; the notes-only section's condition stays faded"
+    },
+    {
+        "eval": "window.__withNote = __viewport(); window.__withNote",
+        "as": "step4WithNotes"
+    },
+    { "shot": "5-steps-step-4.png" },
+    { "clickLabel": "Hide descriptions in diagrams" },
+    {
+        "waitFor": "document.querySelectorAll('.react-flow [data-sequence=\"note\"]').length === 0"
+    },
+    { "sleep": 400 },
+    {
+        "eval": "({ message3: __unit('message:3'), section: __unit('section:0:2'), viewport: __viewport() })",
+        "as": "step4NotesOff"
+    },
+    {
+        "assert": "__unit('message:3') === 1 && __unit('message:2') === 0.2 && __unit('section:0:2') === 1",
+        "message": "the descriptions toggle holds the step"
+    },
+    {
+        "assert": "__viewport() !== window.__withNote",
+        "message": "the canvas refits to the step's row in the layout without notes"
+    },
+    { "shot": "6-steps-step-4-notes-off.png" },
+    { "clickLabel": "Show descriptions in diagrams" },
+    {
+        "waitFor": "document.querySelectorAll('.react-flow [data-sequence=\"note\"]').length > 0"
+    },
+    { "sleep": 400 },
+    {
+        "assert": "__unit('message:3') === 1 && __viewport() === window.__withNote",
+        "message": "showing the notes again holds the step and fits the same row as before"
+    },
+    { "clickLabel": "Play animation" },
+    { "sleep": 300 },
+    { "clickLabel": "Hide descriptions in diagrams" },
+    { "sleep": 2600 },
+    {
+        "assert": "document.querySelector('.play-animation').dataset.playing === 'true' && __unit('message:4') === 1",
+        "message": "a playing animation keeps playing across the toggle, to the next step"
+    },
+    { "clickLabel": "Pause animation" },
+    { "clickLabel": "Show descriptions in diagrams" },
+    { "sleep": 600 },
+    {
+        "eval": "(() => { const saved = []; window.__saved = saved; HTMLAnchorElement.prototype.click = function () { saved.push({ name: this.download, href: this.href }); }; return true; })()",
+        "as": "captureDownloads"
+    },
+    { "clickLabel": "Export view as SVG" },
+    { "waitFor": "window.__saved.length > 0" },
+    {
+        "eval": "(async () => { const { name, href } = window.__saved[0]; const svg = await (await fetch(href)).text(); const doc = new DOMParser().parseFromString(svg, 'image/svg+xml'); const faded = [...doc.querySelectorAll('g[opacity=\"0.2\"] text')].map((t) => t.textContent).sort(); const faint = (n) => Number(getComputedStyle(n).opacity) === 0.2; const units = [...document.querySelectorAll('.react-flow [data-unit], .react-flow [data-relationship-id]')].filter(faint).flatMap((n) => [...n.querySelectorAll('text')].map((t) => t.textContent)); const participants = [...document.querySelectorAll('.react-flow__node-box')].filter(faint).map((n) => n.textContent.trim()); const canvas = [...units, ...participants].sort(); window.__export = { name, faded, canvas, same: JSON.stringify(faded) === JSON.stringify(canvas), groups: doc.querySelectorAll('g[opacity=\"0.2\"]').length }; return window.__export; })()",
+        "as": "exportAtStep5"
+    },
+    {
+        "assert": "/^mermaid-sequence-diagrams-steps-step-5(-dark)?\\.svg$/.test(window.__export.name)",
+        "message": "the file name carries the step"
+    },
+    {
+        "assert": "window.__export.same && window.__export.groups > 0",
+        "message": "the export fades the same text the canvas fades"
+    },
+    { "shot": "7-steps-step-5-exported.png" },
+    { "clickLabel": "Next step" },
+    { "sleep": 600 },
+    {
+        "assert": "__unit('note:2') === 1 && __unit('message:5') === 1",
+        "message": "the note after the last message steps with the last message"
+    },
+    { "clickLabel": "Next step" },
+    { "sleep": 600 },
+    {
+        "assert": "__unit('message:0') === 1 && __unit('note:2') === 1 && __viewport() === window.__full",
+        "message": "past the last step, the animation stops and fits the whole diagram"
+    },
+    { "shot": "8-steps-stopped.png" }
+]

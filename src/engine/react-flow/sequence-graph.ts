@@ -47,7 +47,9 @@ import {
 import { endHeading } from "../geometry/routing/path";
 import {
     DOT_RADIUS,
+    holds,
     layOutSequence,
+    type MessageRange,
     NUMBER_RADIUS,
     PARTICIPANT_WIDTH,
     type SequenceLayout,
@@ -58,7 +60,8 @@ import {
 import { shallowCylinder, shapeGeometry } from "../geometry/shapes/index";
 import { num } from "../geometry/shapes/outline";
 import type { Point } from "../geometry/shapes/types";
-import type { EdgeLine, ElementBox } from "./graph";
+import type { Presence, StepState } from "./animation";
+import type { EdgeLine, ElementBox, Graph } from "./graph";
 
 /** One SVG shape of the sequence layer: its tag, its attributes and the text it holds. */
 export type SequenceShape = {
@@ -66,15 +69,137 @@ export type SequenceShape = {
     /** SVG attribute names, as the export writes them. */
     attrs: Record<string, string | number | undefined>;
     text?: string;
+    /**
+     * The unit an animation step shows or fades the shape with, as a whole.
+     * None on what never fades on its own (a `box` grouping).
+     */
+    unit?: SequenceUnit;
 };
+
+/**
+ * What an animation step shows or fades as a whole: a message's label, a
+ * note, a bar, a fragment's frame or one of its sections (the first one's
+ * condition is section 0), each with the messages it holds, so the steps it
+ * shows at; or a lifeline, which fades with its participant's element.
+ */
+export type SequenceUnit =
+    | {
+          kind: "message" | "note" | "bar" | "fragment";
+          index: number;
+          messages: MessageRange;
+      }
+    | {
+          kind: "section";
+          fragment: number;
+          index: number;
+          messages: MessageRange;
+      }
+    | { kind: "participant"; id: string };
+
+/**
+ * The key `unit` goes by in a step's `sequence` and the page's `data-unit`:
+ * `message:1`, `section:0:2`, `participant:mermaid:A`.
+ */
+export const unitKey = (unit: SequenceUnit): string =>
+    unit.kind === "participant"
+        ? `participant:${unit.id}`
+        : unit.kind === "section"
+          ? `section:${unit.fragment}:${unit.index}`
+          : `${unit.kind}:${unit.index}`;
+
+/** A participant's footer element: its header's id with `#footer`. */
+const footerId = (id: string) => `${id}#footer`;
+
+/** The participant a header or footer element draws. */
+const participantOf = (elementId: string) => elementId.replace(/#footer$/, "");
 
 /** What a sequence diagram draws around its participants and messages, back to front. */
 export type SequenceDrawing = {
     /** Behind the edges: boxes, `rect` fills, lifelines, activation bars, the other fragments. */
     back: SequenceShape[];
-    /** In front: notes, message labels, sequence numbers and central connection dots. */
+    /**
+     * In front: notes and message labels. A message's number and central
+     * connection dots draw with its arrow (`EdgeLine.marks`).
+     */
     front: SequenceShape[];
+    /**
+     * Each message's focus box, in message order, which `zoomOnAnimation`
+     * fits at its step: its row with the notes that step with it, as wide
+     * as its two participants' columns, padded.
+     */
+    focus: Bounds[];
 };
+
+/**
+ * A run of shapes in one layer that share a unit, by its key, or one shape
+ * with none.
+ */
+export type SequenceGroup = { key?: string; shapes: SequenceShape[] };
+
+/**
+ * `shapes` in runs of one unit, in drawing order, so the island and the
+ * export draw each unit under one opacity and its overlapping parts don't
+ * show through each other. A unit's shapes always sit next to each other.
+ */
+export function sequenceGroups(shapes: SequenceShape[]): SequenceGroup[] {
+    const groups: SequenceGroup[] = [];
+    for (const shape of shapes) {
+        const last = groups[groups.length - 1];
+        const key = shape.unit && unitKey(shape.unit);
+        if (key !== undefined && last?.key === key) last.shapes.push(shape);
+        else groups.push({ key, shapes: [shape] });
+    }
+    return groups;
+}
+
+/** `shapes`, each tagged with `unit`. */
+const inUnit = (shapes: SequenceShape[], unit: SequenceUnit): SequenceShape[] =>
+    shapes.map((shape) => ({ ...shape, unit }));
+
+/**
+ * What a sequence diagram shows at `step`, the 1-based index of its message.
+ * The message shows, arrow and label, and every other one fades; its sender
+ * and receiver show, header, footer and lifeline alike, and every other
+ * participant fades; every other unit shows while the step is inside the
+ * messages it holds and fades otherwise. Nothing hides.
+ */
+export function sequenceStepState(
+    graph: Pick<Graph, "elements" | "edges" | "animation">,
+    drawing: SequenceDrawing,
+    step: number,
+): StepState {
+    const message = step - 1;
+    const current = graph.animation?.steps[message];
+    const involved = new Set(current?.elements);
+    const relationships = new Set(current?.relationships);
+    const presence = (shown: boolean): Presence => (shown ? "shown" : "faded");
+    const elements = Object.fromEntries(
+        graph.elements.map((e) => [
+            e.id,
+            presence(involved.has(participantOf(e.id))),
+        ]),
+    );
+    const sequence: Record<string, Presence> = {};
+    for (const { unit } of [...drawing.back, ...drawing.front])
+        if (unit)
+            sequence[unitKey(unit)] =
+                unit.kind === "participant"
+                    ? (elements[unit.id] ?? "shown")
+                    : presence(holds(unit.messages, message));
+    const focus = drawing.focus[message];
+    return {
+        elements,
+        boundaries: {},
+        edges: Object.fromEntries(
+            graph.edges.map((e) => [e.key, presence(relationships.has(e.id))]),
+        ),
+        sequence,
+        ...(focus && { focus }),
+    };
+}
+
+/** The room around a step's focus box. */
+const FOCUS_PADDING = 15;
 
 /** How deep a database's lid is, in place of the Cylinder's 30. */
 const DATABASE_LID = 12;
@@ -319,7 +444,10 @@ function layerShapes(
     colors: Colors,
     lanes: Lanes,
     edges: ReadonlyMap<string, EdgeLine>,
-): SequenceDrawing {
+): Omit<SequenceDrawing, "focus"> & {
+    /** Each message's number and dots, by its edge's key. */
+    marks: Map<string, SequenceShape[]>;
+} {
     const { size, line } = layout.text;
     const font = { "font-size": size };
     const back: SequenceShape[] = [];
@@ -355,7 +483,10 @@ function layerShapes(
             );
     }
 
-    const fragment = (f: SequenceLayout["fragments"][number]) => {
+    const fragment = (
+        f: SequenceLayout["fragments"][number],
+        index: number,
+    ) => {
         const rect = f.fragment === "rect";
         const shapes: SequenceShape[] = [
             {
@@ -376,7 +507,12 @@ function layerShapes(
                 },
             },
         ];
-        if (rect) return shapes;
+        const unit = {
+            kind: "fragment",
+            index,
+            messages: f.messages,
+        } as const;
+        if (rect) return inUnit(shapes, unit);
         const { x, y } = f;
         shapes.push(
             {
@@ -410,14 +546,29 @@ function layerShapes(
                 text: f.fragment,
             },
         );
+        const frame = inUnit(shapes, unit);
+        // The title is the first section's condition: it steps with that
+        // section, or with the frame when the fragment has no other.
         if (f.title)
-            shapes.push(
-                ...textShapes(f.title, line, { ...font, fill: colors.text }),
+            frame.push(
+                ...inUnit(
+                    textShapes(f.title, line, { ...font, fill: colors.text }),
+                    f.sections.length
+                        ? {
+                              kind: "section",
+                              fragment: index,
+                              index: 0,
+                              messages: f.first,
+                          }
+                        : unit,
+                ),
             );
-        for (const section of f.sections) {
-            shapes.push({
+        for (const [i, section] of f.sections.entries()) {
+            const parts: SequenceShape[] = [];
+            parts.push({
                 tag: "line",
                 attrs: {
+                    "data-sequence": "section",
                     x1: f.x,
                     x2: f.x + f.width,
                     y1: section.y,
@@ -428,22 +579,32 @@ function layerShapes(
                 },
             });
             if (section.title)
-                shapes.push(
+                parts.push(
                     ...textShapes(section.title, line, {
                         ...font,
                         fill: colors.text,
                     }),
                 );
+            frame.push(
+                ...inUnit(parts, {
+                    kind: "section",
+                    fragment: index,
+                    index: i + 1,
+                    messages: section.messages,
+                }),
+            );
         }
-        return shapes;
+        return frame;
     };
 
     // A `rect` fills behind the lifelines and bars; the other fragments
     // draw over them, so their titles show.
-    for (const f of layout.fragments)
-        if (f.fragment === "rect") back.push(...fragment(f));
+    for (const [i, f] of layout.fragments.entries())
+        if (f.fragment === "rect") back.push(...fragment(f, i));
     for (const lifeline of layout.lifelines)
         back.push({
+            // A lifeline fades with its participant.
+            unit: { kind: "participant", id: mermaidNodeId(lifeline.id) },
             tag: "line",
             attrs: {
                 "data-sequence": "lifeline",
@@ -455,9 +616,10 @@ function layerShapes(
                 "stroke-width": 1,
             },
         });
-    for (const bar of layout.activations) {
+    for (const [i, bar] of layout.activations.entries()) {
         const lane = lanes.get(bar.id);
         back.push({
+            unit: { kind: "bar", index: i, messages: bar.messages },
             tag: "rect",
             attrs: {
                 "data-sequence": "activation",
@@ -470,11 +632,12 @@ function layerShapes(
             },
         });
     }
-    for (const f of layout.fragments)
-        if (f.fragment !== "rect") back.push(...fragment(f));
+    for (const [i, f] of layout.fragments.entries())
+        if (f.fragment !== "rect") back.push(...fragment(f, i));
 
-    for (const note of layout.notes) {
-        front.push({
+    for (const [i, note] of layout.notes.entries()) {
+        const parts: SequenceShape[] = [];
+        parts.push({
             tag: "rect",
             attrs: {
                 "data-sequence": "note",
@@ -486,7 +649,7 @@ function layerShapes(
                 stroke: colors.note.stroke,
             },
         });
-        front.push(
+        parts.push(
             ...textShapes(
                 {
                     lines: note.lines,
@@ -501,20 +664,38 @@ function layerShapes(
                 { ...font, fill: colors.note.color },
             ),
         );
+        front.push(
+            ...inUnit(parts, {
+                kind: "note",
+                index: i,
+                messages: note.messages,
+            }),
+        );
     }
-    for (const message of layout.messages) {
+    const marks = new Map<string, SequenceShape[]>();
+    for (const [i, message] of layout.messages.entries()) {
         const edge = edges.get(mermaidEdgeId(message.id));
         if (!edge) continue;
         // A message's label draws with no backing, as Mermaid's.
         front.push(
-            ...textShapes(message.label, line, {
-                ...font,
-                fill: edge.labelColor ?? edge.color,
-                opacity: edge.opacity < 1 ? edge.opacity : undefined,
-            }),
+            ...inUnit(
+                textShapes(message.label, line, {
+                    ...font,
+                    fill: edge.labelColor ?? edge.color,
+                    opacity: edge.opacity < 1 ? edge.opacity : undefined,
+                }),
+                {
+                    kind: "message",
+                    index: i,
+                    messages: { from: i, to: i + 1 },
+                },
+            ),
         );
+        // Its dots and number draw with its arrow, so they fade together.
+        const own: SequenceShape[] = [];
+        marks.set(edge.key, own);
         for (const dot of message.dots)
-            front.push({
+            own.push({
                 tag: "circle",
                 attrs: {
                     "data-sequence": "dot",
@@ -526,7 +707,7 @@ function layerShapes(
             });
         if (message.number) {
             const { at, text } = message.number;
-            front.push(
+            own.push(
                 {
                     tag: "circle",
                     attrs: {
@@ -558,7 +739,51 @@ function layerShapes(
             );
         }
     }
-    return { back, front };
+    return { back, front, marks };
+}
+
+/**
+ * Each message's focus box: its arrow, label, number and dots with the
+ * notes that step with it, widened to the outer edges of its two
+ * participants' columns, padded.
+ */
+function messageFocus(layout: SequenceLayout): Bounds[] {
+    return layout.messages.map((message, i) => {
+        const points = [
+            ...message.route,
+            ...message.dots,
+            ...(message.number ? [message.number.at] : []),
+        ].map((p) => ({ x: p.x, y: p.y, width: 0, height: 0 }));
+        const number = message.number && {
+            x: message.number.at.x - NUMBER_RADIUS,
+            y: message.number.at.y - NUMBER_RADIUS,
+            width: 2 * NUMBER_RADIUS,
+            height: 2 * NUMBER_RADIUS,
+        };
+        const notes = layout.notes.filter((note) => holds(note.messages, i));
+        const row =
+            boundsOf([
+                message.label.box,
+                ...points,
+                ...(number ? [number] : []),
+                ...notes,
+            ]) ?? message.label.box;
+        const columns = [message.from, message.to].flatMap((id) => {
+            const head = layout.participants.get(id)?.head;
+            return head ? [head] : [];
+        });
+        const left = Math.min(row.x, ...columns.map((c) => c.x));
+        const right = Math.max(
+            row.x + row.width,
+            ...columns.map((c) => c.x + c.width),
+        );
+        return {
+            x: left - FOCUS_PADDING,
+            y: row.y - FOCUS_PADDING,
+            width: right - left + 2 * FOCUS_PADDING,
+            height: row.height + 2 * FOCUS_PADDING,
+        };
+    });
 }
 
 /** A sequence diagram drawn: its participants, its messages and the layer around them. */
@@ -636,7 +861,7 @@ export function drawSequence(
         if (placed.foot)
             elements.push(
                 participantBox(
-                    `${id}#footer`,
+                    footerId(id),
                     participant.label,
                     style,
                     placed.foot,
@@ -717,15 +942,19 @@ export function drawSequence(
             return [p.id, { line: own?.actorLineColor ?? fill, ...bar }];
         }),
     );
-    const sequence = layerShapes(
+    const { marks, ...layers } = layerShapes(
         layout,
         colorsOf(model, scheme, text.color, palette),
         lanes,
         new Map(edges.map((edge) => [edge.key, edge])),
     );
+    const sequence = { ...layers, focus: messageFocus(layout) };
     return {
         elements,
-        edges,
+        edges: edges.map((edge) => {
+            const own = marks.get(edge.key);
+            return own?.length ? { ...edge, marks: own } : edge;
+        }),
         sequence,
         // An actor stands taller than the participant row.
         bounds: boundsOf([layout.bounds, ...elements]) ?? layout.bounds,

@@ -113,6 +113,8 @@ A diagram that draws but uses what Renderizr leaves out prints one warning that 
 | `shape "<name>"` | Draws a rectangle in place of a stadium, subroutine, asymmetric, parallelogram, trapezoid or double circle node, or of any other `@{ shape }` name |
 | `invisible links` | Leaves each `~~~` link out of the drawing and the layout |
 | `link length` | Lays a longer link (`--->`) out as an ordinary one |
+| `animate` | Draws an edge whose metadata sets `animate` (`e1@{ animate: true }`) as a still line |
+| `animation` | Draws an edge whose metadata sets `animation` (`e1@{ animation: fast }`) as a still line |
 | `Markdown strings` | Draws the text of a Markdown string without its emphasis |
 | `fa: icons` | Draws a label without its Font Awesome icons |
 | `click callbacks` | Leaves out a `click` line that calls a function (`click A callback`, `click A call notify()`); a `click` link still leads where it says |

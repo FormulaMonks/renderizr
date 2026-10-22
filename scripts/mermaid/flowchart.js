@@ -205,6 +205,8 @@ export function readFlowchart(db, ignored) {
             continue;
         }
         if ((link.minlen ?? 1) > 1) ignored.add("link length");
+        if (link.animate !== undefined) ignored.add("animate");
+        if (link.animation !== undefined) ignored.add("animation");
         checkEdgeCss(link.style, ignored);
         edges.push({
             id: String(index),

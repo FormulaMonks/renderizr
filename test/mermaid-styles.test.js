@@ -201,6 +201,23 @@ test("parseCss reads Mermaid's declarations, the last of each winning", () => {
     );
 });
 
+test("parseCss rejoins a declaration whose comma the source escapes", () => {
+    const cases = [
+        {
+            pieces: ["stroke-dasharray: 9\\", "5", "stroke:#f00"],
+            css: { "stroke-dasharray": "9,5", stroke: "#f00" },
+        },
+        {
+            pieces: ["stroke-dasharray: 9\\", "5\\", "3"],
+            css: { "stroke-dasharray": "9,5,3" },
+        },
+        // A backslash that ends the list escapes nothing.
+        { pieces: ["stroke-dasharray: 9\\"], css: { "stroke-dasharray": "9" } },
+    ];
+    for (const { pieces, css } of cases)
+        assert.deepEqual(parseCss(pieces), css, `parseCss(${pieces})`);
+});
+
 /* ----------------------------------------------------------------- routing */
 
 test("each curve routes as listed, over the workspace's routing", () => {
@@ -368,6 +385,13 @@ test("the styles fixture: the workspace's tag styles under a silent source, each
     assert.deepEqual(notices, [
         'Image view "fonts": Renderizr supports only a subset of Mermaid styling; ignored: look, font-style, opacity',
     ]);
+});
+
+test("the escaped fixture draws its escaped dash arrays dashed", () => {
+    const graph = graphOf(stylesFixture().model, "light", "escaped");
+    assert.equal(box(graph, "invoice").border, "Dashed", "style invoice");
+    assert.equal(graph.edges[0].style, "Dashed", "linkStyle 0");
+    assert.equal(graph.edges[1].style, "Solid", "the edge with no linkStyle");
 });
 
 test("the styled fixture draws its style, classDef and linkStyle colors over the workspace's, and exports them", () => {

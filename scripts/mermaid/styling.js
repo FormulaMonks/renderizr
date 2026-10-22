@@ -62,10 +62,37 @@ const DARK_THEMES = new Set([
 /** Mermaid's theme when a source names none. */
 const DEFAULT_THEME = "default";
 
-/** The property names of `declarations` (`["fill:#f00", …]`). */
+/**
+ * `declarations` with each one that ends in `\` joined to the piece after
+ * it: Mermaid splits a style on commas and keeps the backslash of one the
+ * source escapes, as in `stroke-dasharray: 9\,5`. `parseCss` in
+ * `src/model/mermaid-styles.ts` joins them the same way, since the build
+ * cannot import TypeScript.
+ */
+function joinEscaped(declarations) {
+    const joined = [];
+    let pending;
+    for (const declaration of declarations ?? []) {
+        const piece = String(declaration);
+        const whole = pending === undefined ? piece : `${pending},${piece}`;
+        if (whole.endsWith("\\")) pending = whole.slice(0, -1);
+        else {
+            joined.push(whole);
+            pending = undefined;
+        }
+    }
+    if (pending !== undefined) joined.push(pending);
+    return joined;
+}
+
+/**
+ * The property names of `declarations` (`["fill:#f00", …]`). A piece with
+ * no `:` sets no property.
+ */
 const propertiesOf = (declarations) =>
-    (declarations ?? [])
-        .map((declaration) => String(declaration).split(":")[0].trim())
+    joinEscaped(declarations)
+        .filter((declaration) => declaration.includes(":"))
+        .map((declaration) => declaration.split(":")[0].trim())
         .filter(Boolean);
 
 /** Adds each property of `declarations` outside `honored` to `ignored`. */

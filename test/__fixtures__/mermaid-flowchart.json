@@ -92,6 +92,15 @@
                 "name": "End markers",
                 "order": 9,
                 "title": "End markers"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJw9jrEKg0AQRH9l2DoWWl4R_IBAQlIai8Vb44F3J-dKCOK_B-ORZmeY94pdQV20Qob6Mb67gZPicn8GAIjJSmqu-20hZV0UZ0z88RK0uR3ZHmZeIdVPmgc3TS68mkcuWZOyXsHBeVYx0LQItkyqP3ExGPQ8687oBPKSPDtLZiUdxO-_Wul5GZW27QsXl0BE",
+                "contentType": "image/svg+xml",
+                "description": "An edge that sets animate and one that sets animation: Renderizr draws both still and warns.",
+                "key": "animated",
+                "name": "Animated edges",
+                "order": 10,
+                "title": "Animated edges"
             }
         ],
         "systemLandscapeViews": [

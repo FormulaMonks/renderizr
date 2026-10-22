@@ -63,6 +63,14 @@
                 "key": "fonts",
                 "order": 4,
                 "title": "Fonts and ignored styling"
+            },
+            {
+                "content": "https://mermaid.ink/svg/pako:eJxtzjELgzAQBeC_ctysUCgtNEP3QqFgR-MQkhODMZFL2iLify8a6dTlPXh8w5sBdTCEAlsXPrpTnOBeSQ8AENgQ1481GyjLK1j_DlZTfcvdZLavm2DSZMdUV7l3EdPk6Odi4tBTaVTsFLOaBJxlcczSWd8_N3344y6yOEmPBeBAPChrUMyYOhrW_4Za9XIJl-ULx2ZHyg",
+                "contentType": "image/svg+xml",
+                "description": "A style and a linkStyle escape the comma in a dash array, as Mermaid's docs write it. Both draw dashed, and the build warns about nothing.",
+                "key": "escaped",
+                "order": "5",
+                "title": "Escaped commas"
             }
         ]
     }
