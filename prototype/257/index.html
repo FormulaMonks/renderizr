@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspace links prototype</title>
+<style>
+:root { --fg:#1b1f24; --muted:#5b6470; --surface:#fff; --bg:#f4f5f7; --border:#d4d8de; --primary:#2563eb; --el:#1168bd; --el-fg:#fff; --ext:#8a8f98; --notice:#fff7e0; --notice-border:#e2b33c; }
+@media (prefers-color-scheme: dark) { :root { --fg:#e6e8eb; --muted:#9aa3ad; --surface:#1d2127; --bg:#121418; --border:#353b44; --primary:#60a5fa; --el:#1d5fa0; --ext:#4b5058; --notice:#3a3115; --notice-border:#a8822a; } }
+* { box-sizing: border-box; }
+body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:24px 16px 64px; }
+main { max-width: 1080px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 18px; margin: 40px 0 4px; }
+h3 { font-size: 15px; margin: 0 0 6px; }
+p.lede, .muted { color: var(--muted); }
+.grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:16px; margin-top:12px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px; position:relative; }
+.card .tag { font: 600 12px/1 system-ui; color: var(--primary); letter-spacing: .04em; text-transform: uppercase; }
+svg.glyph { width: 20px; height: 20px; fill:none; stroke: currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.glyphrow { display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin:6px 0; }
+.glyphrow figure { margin:0; text-align:center; font-size:12px; color:var(--muted); }
+.glyphrow figure svg { width:40px; height:40px; color: var(--fg); display:block; margin: 0 auto 4px; }
+/* mock element */
+.el { width: 220px; min-height: 130px; border-radius: 6px; background: var(--el); color: var(--el-fg); padding: 12px; text-align:center; position:relative; margin: 8px auto; cursor:pointer; outline-offset:3px; }
+.el.ext { background: var(--ext); }
+.el.inert { cursor: default; }
+.el b { display:block; font-size:15px; }
+.el small { display:block; opacity:.85; font-size:12px; }
+.el .ind { display:flex; gap:5px; justify-content:center; margin-top:10px; }
+.el .ind svg { color: var(--el-fg); }
+.el .ind svg.dim { opacity: .45; }
+.menu { position:absolute; left: 50%; top: 150px; transform: translateX(-50%); width: 260px; background:var(--surface); border:1px solid var(--border); border-radius:6px; box-shadow:0 6px 20px rgb(0 0 0 / 18%); padding:.35rem; z-index:5; text-align:left; color: var(--fg); }
+.menu div { padding: 6px 8px; border-radius:4px; display:flex; gap:8px; align-items:center; }
+.menu div:hover:not(.off) { background: var(--bg); }
+.menu .off { color: var(--muted); cursor: not-allowed; }
+.menu .off em { font-style: normal; font-size: 12px; }
+.notice { margin: 10px auto 0; max-width: 300px; background: var(--notice); border:1px solid var(--notice-border); border-radius:6px; padding:8px 10px; font-size:13px; display:flex; gap:8px; align-items:flex-start; }
+.notice button { margin-left:auto; background:none; border:0; color:inherit; cursor:pointer; font-size:16px; line-height:1; }
+.hidden { display:none !important; }
+/* mock page header for the missing-view case */
+.page { border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--surface); }
+.page header { display:flex; align-items:center; gap:12px; padding:8px 12px; border-bottom:1px solid var(--border); }
+.page header .back { border:1px solid var(--border); border-radius:4px; padding:2px 8px; font-size:13px; }
+.page header .title { font-weight:600; }
+.page header .addr { margin-left:auto; font: 12px ui-monospace, monospace; color:var(--muted); }
+.page .canvas { height: 130px; display:flex; align-items:center; justify-content:center; color:var(--muted); position:relative; }
+.page .canvas .notice { position:absolute; top:10px; left:50%; transform:translateX(-50%); margin:0; }
+code { font: 13px ui-monospace, monospace; }
+ul.q { margin: 6px 0 0; padding-left: 20px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>Prototype: how an element shows a link into a workspace the set lacks</h1>
+<p class="lede">Rough mocks for <a href="https://github.com/FormulaMonks/renderizr/issues/257">#257</a> on the map <a href="https://github.com/FormulaMonks/renderizr/issues/246">#246</a>. Not the real engine: boxes stand in for elements, glyphs use the real 20-unit box and 1.6 stroke from <code>src/engine/geometry/indicators.ts</code>. Click the elements.</p>
+
+<h2>1. The <code>workspace</code> indicator</h2>
+<p class="muted">Today's four glyphs, then candidates for the fifth. It must read as "go somewhere inside this site, and the header changes", distinct from the magnifier (a view here) and the arrow out of a box (leave the site).</p>
+<div class="card">
+  <h3>Today</h3>
+  <div class="glyphrow" id="today"></div>
+  <h3 style="margin-top:14px">Candidates for <code>workspace</code></h3>
+  <div class="glyphrow" id="candidates"></div>
+</div>
+
+<h2>2. A link into a workspace the set lacks</h2>
+<p class="muted">The landscape's <b>Payments</b> carries <code>url: "{workspace:12}/diagrams"</code>, and the build found no workspace for it (it warns). <b>Payments</b> also has a <code>docs</code> property with an <code>https</code> URL in option B, so the menu case shows a second target. <b>Orders</b> crosses normally, for comparison.</p>
+<div class="grid">
+  <div class="card">
+    <span class="tag">Option A · inert</span>
+    <h3>The crossing is dropped</h3>
+    <div class="el" data-to="orders" tabindex="0"><b>Orders</b><small>[Software System]</small><div class="ind" data-k="workspace"></div></div>
+    <div class="el inert"><b>Payments</b><small>[Software System]</small><div class="ind"></div></div>
+    <p class="muted">Payments draws no indicator and isn't focusable. Nothing hints that a workspace exists elsewhere; only the build log knows.</p>
+  </div>
+  <div class="card">
+    <span class="tag">Option B · disabled entry</span>
+    <h3>The menu names what's missing</h3>
+    <div class="el" data-to="orders" tabindex="0"><b>Orders</b><small>[Software System]</small><div class="ind" data-k="workspace"></div></div>
+    <div class="el" data-menu="b" tabindex="0" style="margin-top:16px"><b>Payments</b><small>[Software System]</small><div class="ind" data-k="workspace-dim link"></div>
+      <div class="menu hidden" id="menu-b">
+        <div class="off" title="Payments isn't part of this site"><svg class="glyph" data-g="workspace"></svg><span>Payments <em>· not in this site</em></span></div>
+        <div><svg class="glyph" data-g="link"></svg><span>docs.example.com (docs)</span></div>
+      </div>
+    </div>
+    <p class="muted">Dimmed <code>workspace</code> glyph. With the link as Payments' only target, the element would still focus and open a one-entry menu holding just the disabled entry.</p>
+  </div>
+  <div class="card">
+    <span class="tag">Option C · notice</span>
+    <h3>Activating explains in the page</h3>
+    <div class="el" data-to="orders" tabindex="0"><b>Orders</b><small>[Software System]</small><div class="ind" data-k="workspace"></div></div>
+    <div class="el" data-notice="c" tabindex="0" style="margin-top:16px"><b>Payments</b><small>[Software System]</small><div class="ind" data-k="workspace"></div></div>
+    <div class="notice hidden" id="notice-c"><span><b>Payments</b> has its own workspace, but this site doesn't include it.</span><button aria-label="Dismiss">×</button></div>
+    <p class="muted">Full-strength glyph, so it looks like any crossing until the reader tries it.</p>
+  </div>
+</div>
+
+<h2>3. A crossing to a view the target lacks</h2>
+<p class="muted">Landscape → <b>Orders</b> through <code>{workspace:3}/diagrams#OrdersContainers</code>, but Orders has no view with that key. Both land on Orders' default view.</p>
+<div class="grid">
+  <div class="card">
+    <span class="tag">Silent</span>
+    <div class="page"><header><span class="back">← Landscape</span><span class="title">Orders</span><span class="addr">#/orders/?view=SystemContext</span></header>
+    <div class="canvas">Orders · System Context (default view)</div></div>
+    <p class="muted">What happens today for a missing view inside one workspace.</p>
+  </div>
+  <div class="card">
+    <span class="tag">Told</span>
+    <div class="page"><header><span class="back">← Landscape</span><span class="title">Orders</span><span class="addr">#/orders/?view=SystemContext</span></header>
+    <div class="canvas">Orders · System Context (default view)
+      <div class="notice"><span>Orders has no view <code>OrdersContainers</code>, so this is its default view.</span><button aria-label="Dismiss">×</button></div></div></div>
+    <p class="muted">Same notice component as option C, if C wins.</p>
+  </div>
+</div>
+
+<h2>Questions to react to</h2>
+<ul class="q">
+  <li>Which glyph reads as "another workspace in this site"?</li>
+  <li>A, B or C for a missing workspace? Does the warning in the build log suffice (A)?</li>
+  <li>Does a missing view or page get told (notice) or stay silent, as within one workspace today?</li>
+  <li>Does an exported SVG or PNG draw anything for a missing workspace?</li>
+</ul>
+</main>
+<script>
+const G = {
+  view: ["M8.5 3a5.5 5.5 0 1 0 0 11a5.5 5.5 0 1 0 0-11z","M12.6 12.6L17 17","M6 8.5h5","M8.5 6v5"],
+  documentation: ["M4.5 2.5h7.5l3.5 3.5v11.5h-11z","M12 2.5v3.5h3.5","M7.5 10h5","M7.5 13h5"],
+  decisions: ["M10 2.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15z","M6.5 10.2l2.5 2.5l4.5-5"],
+  link: ["M11 3h6v6","M17 3l-8 8","M15 12v5h-12v-12h5"],
+};
+const C = {
+  "1 · stacked layers": ["M10 3l7 3.5l-7 3.5l-7-3.5z","M3 10l7 3.5l7-3.5","M3 13.5l7 3.5l7-3.5"],
+  "2 · arrow into a box": ["M9 3h8v14h-8","M3 10h9","M9 7l3 3l-3 3"],
+  "3 · two windows": ["M3 7h10v10h-10z","M7 3h10v10","M3 10h10"],
+  "4 · nested box": ["M2.5 2.5h15v15h-15z","M7 7h6v6h-6z","M13 13l4.5 4.5"],
+};
+const WORKSPACE = C["1 · stacked layers"];
+const svg = (paths, cls = "glyph") => `<svg class="${cls}" viewBox="0 0 20 20">${paths.map(d => `<path d="${d}"/>`).join("")}</svg>`;
+document.getElementById("today").innerHTML = Object.entries(G).map(([k, p]) => `<figure>${svg(p)}${k}</figure>`).join("");
+document.getElementById("candidates").innerHTML = Object.entries(C).map(([k, p]) => `<figure>${svg(p)}${k}</figure>`).join("");
+const pick = (k) => k.startsWith("workspace") ? WORKSPACE : G[k];
+for (const ind of document.querySelectorAll(".ind[data-k]")) {
+  ind.innerHTML = ind.dataset.k.split(" ").map(k => svg(pick(k), k.endsWith("-dim") ? "glyph dim" : "glyph")).join("");
+}
+for (const s of document.querySelectorAll("svg[data-g]")) s.outerHTML = svg(pick(s.dataset.g));
+for (const el of document.querySelectorAll("[data-to]")) el.addEventListener("click", () => alert("Crosses into Orders: header changes, address #/orders/"));
+for (const el of document.querySelectorAll("[data-menu]")) el.addEventListener("click", (e) => { if (!e.target.closest(".menu")) document.getElementById("menu-" + el.dataset.menu).classList.toggle("hidden"); });
+for (const el of document.querySelectorAll("[data-notice]")) el.addEventListener("click", () => document.getElementById("notice-" + el.dataset.notice).classList.remove("hidden"));
+for (const b of document.querySelectorAll(".notice button")) b.addEventListener("click", () => b.closest(".notice").classList.add("hidden"));
+</script>
+</body>
+</html>
