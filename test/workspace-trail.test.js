@@ -101,13 +101,23 @@ test("a trail keeps every workspace before the first one the set lacks", () => {
 
 const NO_BRANDING = { logo: null, font: null, primaryColor: null };
 
-/** A workspace payload called `name` with views keyed `views`. */
+/**
+ * A workspace payload called `name` with views keyed `views`. The first,
+ * its default view, takes a title with a bracketed kind, which the view
+ * drawer leaves out.
+ */
 const payloadOf = (name, views = ["SystemContext", "Containers"]) => ({
     workspace: {
         name,
         model: {},
         views: {
-            systemContextViews: [{ key: views[0], elements: [] }],
+            systemContextViews: [
+                {
+                    key: views[0],
+                    title: "[System Context] Big picture",
+                    elements: [],
+                },
+            ],
             containerViews: views
                 .slice(1)
                 .map((key) => ({ key, elements: [] })),
@@ -244,7 +254,7 @@ test("the browser's back and forward move between workspaces", async () => {
     assert.equal(page.set.currentWorkspace().slug, "orders");
 });
 
-test("a crossing to a view the target lacks lands on its default view and says so", async () => {
+test("a crossing to a view the target lacks lands on its default view and says so, naming it as the view drawer does", async () => {
     const page = await follow("/orders/");
     page.follower.cross({
         kind: "workspace",
@@ -255,7 +265,7 @@ test("a crossing to a view the target lacks lands on its default view and says s
     await page.settled();
     assert.equal(page.set.currentWorkspace().slug, "payments");
     assert.deepEqual(page.notices, [
-        "Payments has no view Deployment, so the page shows SystemContext.",
+        "Payments has no view Deployment, so the page shows Big picture.",
     ]);
 });
 
@@ -269,7 +279,7 @@ test("a crossing to a page the target lacks says so too", async () => {
     });
     await page.settled();
     assert.deepEqual(page.notices, [
-        "Orders has no documentation, so the page shows SystemContext.",
+        "Orders has no documentation, so the page shows Big picture.",
     ]);
 });
 

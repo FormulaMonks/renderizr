@@ -290,13 +290,7 @@ export default class DiagramNavigation extends Component {
                 <ul>
                     ${this.#navElements
                         .map((view) => {
-                            // A view title may prefix a bracketed kind when a
-                            // view has no title of its own; the icon already
-                            // says which kind it is.
-                            const title = this.#model.getTitleForView(view);
-                            const name =
-                                title.replace(/^\[([^\]]+)\]\s*/, "").trim() ||
-                                title.replace(/[[\]]/g, "");
+                            const name = this.#model.getDrawerNameForView(view);
                             const label = `${name} (#${view.key})`;
                             const initials = abbreviate(view.key);
 

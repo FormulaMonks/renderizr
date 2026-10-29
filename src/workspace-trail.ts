@@ -179,8 +179,10 @@ export function followTrail({
         const missing = missingLanding(model, landing);
         const shown = model.getViews()[0];
         if (missing && shown) {
+            // Named as the view drawer lists it, where the reader finds it.
+            const name = model.getDrawerNameForView(shown) || shown.key;
             notice(
-                `${workspace.name} has no ${missing}, so the page shows ${shown.key}.`,
+                `${workspace.name} has no ${missing}, so the page shows ${name}.`,
             );
         }
     };
