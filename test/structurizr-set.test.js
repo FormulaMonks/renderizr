@@ -1,11 +1,14 @@
 /**
  * A set written in DSL against Structurizr's real tools: the enterprise DSL
  * fixture loads as a set through `export -format json`, its `!include`s
- * resolve from the empty temporary folder the tools run in, and the build
- * writes one JSON file per software system scoped workspace.
+ * resolve from the empty temporary folder the tools run in, the landscape's
+ * element link to Big Bank plc's published `workspace.json` brings that
+ * workspace into the set, and the build writes one JSON file per software
+ * system scoped workspace.
  *
- * It needs Java and the tools, so it runs only with `STRUCTURIZR_CLI` set,
- * as the `structurizr` CI job sets it:
+ * It needs Java, the tools and the network (the link points at GitHub), so
+ * it runs only with `STRUCTURIZR_CLI` set, as the `structurizr` CI job sets
+ * it:
  *
  *     STRUCTURIZR_CLI="java -jar structurizr.war" pnpm test:structurizr
  *
@@ -24,6 +27,13 @@ import { loadSet } from "../scripts/workspace-set.js";
 const COMMAND = process.env.STRUCTURIZR_CLI?.trim();
 const SKIP = !COMMAND && "STRUCTURIZR_CLI is not set";
 const ENTERPRISE_DSL = "test/__fixtures__/enterprise-dsl";
+
+/**
+ * Where the landscape links the Internet Banking System: the fixture's
+ * software system scoped copy of Big Bank plc, at the commit that added it.
+ */
+const BIG_BANK =
+    "https://raw.githubusercontent.com/FormulaMonks/renderizr/9a88e1e12d793db5f43a22490c379f19e6959c8c/test/__fixtures__/enterprise-dsl/remote/big-bank-plc/workspace.json";
 
 /** The tools' output, kept for a failure's message. */
 function sink() {
@@ -47,7 +57,7 @@ const crossingsOf = (set) =>
         ]),
     );
 
-test("a folder of DSL workspaces loads as a set through the tools", {
+test("a folder of DSL workspaces loads as a set through the tools, following a link to a published workspace", {
     skip: SKIP,
     timeout: 180_000,
 }, async () => {
@@ -66,17 +76,23 @@ test("a folder of DSL workspaces loads as a set through the tools", {
             ["orders", "Orders"],
             ["payments", "Payments"],
             ["storefront", "Storefront"],
+            ["internet-banking-system", "Internet Banking System"],
         ],
     );
+    const bigBank = set.workspaces.at(-1);
+    assert.equal(bigBank.source, BIG_BANK);
+    assert.equal(bigBank.workspace.name, "Big Bank plc");
     assert.deepEqual(crossingsOf(set), {
         landscape: [
             ["storefront", "workspace-link", "{workspace:0}/diagrams"],
             ["orders", "workspace-link", "{workspace:0}/diagrams"],
             ["payments", "workspace-link", "{workspace:0}/diagrams#Containers"],
+            ["internet-banking-system", "followed-link", BIG_BANK],
         ],
         orders: [["payments", "workspace-link", "{workspace:0}/diagrams"]],
         payments: [["orders", "name", undefined]],
         storefront: [["orders", "name", undefined]],
+        "internet-banking-system": [],
     });
     assert.deepEqual(set.warnings, []);
     assert.deepEqual(set.notices, []);
@@ -106,6 +122,7 @@ test("pnpm render builds a set written in DSL", {
             file.endsWith(".json"),
         );
         assert.deepEqual(written.sort(), [
+            "internet-banking-system.json",
             "orders.json",
             "payments.json",
             "storefront.json",
