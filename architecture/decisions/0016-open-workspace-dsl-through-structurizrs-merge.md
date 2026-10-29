@@ -4,7 +4,9 @@ Date: 2026-10-06
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [27. Render the enterprise pattern's workspaces in one site](0027-render-the-enterprise-patterns-workspaces-in-one-site.md).
 
 References [15. Run edit mode as a local Vite server](0015-run-edit-mode-as-a-local-vite-server.md): the server runs the tools and tells the page.
 

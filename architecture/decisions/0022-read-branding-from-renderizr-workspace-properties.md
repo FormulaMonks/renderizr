@@ -10,6 +10,8 @@ References [16. Open workspace.dsl through Structurizr's merge](0016-open-worksp
 
 References [15. Run edit mode as a local Vite server](0015-run-edit-mode-as-a-local-vite-server.md): Vite bakes branding into the page when it starts.
 
+Referenced by [27. Render the enterprise pattern's workspaces in one site](0027-render-the-enterprise-patterns-workspaces-in-one-site.md).
+
 ## Context
 
 Renderizr took the header logo, its alt text and link, the font and the primary color from flags alone, so every run of `renderizr` and `renderizr edit` repeated them. The DSL's `branding` block holds a logo and a font, which Structurizr exports to `views.configuration.branding`, but it has no field for the alt text, the link or a color, and the 2026 Structurizr library removed `views.configuration.branding`, so a later `structurizr-cli` may stop writing it. Workspace properties survive every export and merge, and travel with a workspace read from a URL.

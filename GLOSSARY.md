@@ -8,6 +8,14 @@ Renderizr turns a Structurizr workspace into a static site or a single self-cont
 The Structurizr model, views, styles and documentation that Renderizr receives as JSON. The sole source of truth for what Renderizr draws.
 _Avoid_: project, architecture file
 
+**Workspace scope**:
+The kind of workspace Structurizr records in `configuration.scope`. A landscape scoped workspace maps the people and software systems of an enterprise and holds no containers, and no documentation or decisions of a software system. A software system scoped workspace details one software system. An unscoped workspace sets no scope. Renderizr renders a lone workspace of any scope, or a set: one landscape scoped workspace, where the reader lands, and the software system scoped workspaces it maps.
+_Avoid_: workspace type, workspace kind, team workspace, enterprise workspace
+
+**Workspace trail**:
+The workspaces a reader crossed into from the landscape scoped workspace, in order, which the page address records as one path segment each, the slug of the software system the workspace is scoped to: `#/orders/payments/?view=Containers`. The landscape scoped workspace adds no segment, and the trail never repeats a workspace. The header's button leads back to the previous workspace on it.
+_Avoid_: route (that is an edge's path), breadcrumb, workspace path
+
 **View**:
 One diagram definition in the workspace: a selection of elements and relationships with a type, a key and either a stored layout or an automatic layout. There are nine view types.
 _Avoid_: diagram (that is the drawn result), page
@@ -65,7 +73,7 @@ Following an element from the view it appears in to the view that details it: a 
 _Avoid_: zoom in (that is the viewport), navigation (the view drawer)
 
 **Element link**:
-The `url` an element or relationship carries in the workspace. It points to a view, a documentation section or a decision in the same workspace, or outside it altogether. When an element offers several destinations (its link, drill-down views, its documentation), the reader chooses among them, with the link listed first.
+The `url` an element or relationship carries in the workspace. It points to a view, a documentation section or a decision in the same workspace, or outside it altogether. In a set, a `{workspace:N}/…` link, or an absolute URL to a `workspace.json` or `workspace.dsl` that the build follows, points into another workspace of the set; every other link resolves against the workspace that carries it. When an element offers several destinations (its link, drill-down views, its documentation), the reader chooses among them, with the link listed first.
 _Avoid_: hyperlink, href
 
 **Activation target**:
@@ -73,11 +81,11 @@ One destination that activating an element, a relationship or a Mermaid diagram'
 _Avoid_: hotspot, link (one target kind), activation (a sequence diagram's is an activation bar)
 
 **Target kind**:
-What an activation target leads to: a view, the documentation, the decisions or a link. A link is either an element link that leads outside the workspace or an `http(s)` property, and opens in a new tab.
+What an activation target leads to: a view, the documentation, the decisions, a workspace or a link. A workspace is another workspace of the set, which opens in the same tab at the view or page the element link names, or else at its default view; a software system whose name matches a software system scoped workspace of the set leads to it even with no element link. A link is either an element link that leads outside the workspace or an `http(s)` property, and opens in a new tab.
 _Avoid_: target type, link type
 
 **Target menu**:
-The menu that lists an item's activation targets at the point of activation when the item offers more than one, each labeled by view title, "Documentation", "Decisions" or the link's host. An item with one activation target follows it straight away.
+The menu that lists an item's activation targets at the point of activation when the item offers more than one, each labeled by view title, "Documentation", "Decisions", the workspace's name or the link's host. An item with one activation target follows it straight away.
 _Avoid_: context menu, dropdown
 
 **Indicator**:
@@ -181,5 +189,9 @@ The vertical line in the decision graph that runs from a decision up to the newe
 _Avoid_: branch, track
 
 **Branding**:
-What makes the rendered site look like the author's own: the header logo with its alt text and link, the font family and the primary color. The author sets it with the workspace properties `renderizr.logo`, `renderizr.logoAlt`, `renderizr.logoHref`, `renderizr.font` and `renderizr.primaryColor`, and a flag overrides each one for a run. Renderizr skips Structurizr's `branding` block.
+What makes the rendered site look like the author's own: the header logo with its alt text and link, the font family and the primary color. The author sets it with the workspace properties `renderizr.logo`, `renderizr.logoAlt`, `renderizr.logoHref`, `renderizr.font` and `renderizr.primaryColor`, and a flag overrides each one for a run. In a set, a workspace with no property of its own takes the landscape scoped workspace's. Renderizr skips Structurizr's `branding` block.
 _Avoid_: theme (that is a Structurizr style set), skin
+
+**Toast**:
+The message at the bottom right of the page that tells the reader what the page did for them, or tells the author what went wrong: a notice that leaves after a few seconds, or an error that stays until it no longer applies or someone closes it. Every system message goes there, in built sites, in `pnpm dev` and in edit mode.
+_Avoid_: snackbar, banner, bar, notification
