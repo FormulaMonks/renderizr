@@ -1,4 +1,4 @@
-# 27. Render the enterprise pattern's workspaces in one site
+# 26. Render the enterprise pattern's workspaces in one site
 
 Date: 2026-10-29
 

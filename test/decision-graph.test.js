@@ -691,7 +691,7 @@ test("our own decisions make six amend edges and 32 references", () => {
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
         [
-            "27 amend 16",
+            "26 amend 16",
             "25 amend 23",
             "24 amend 13",
             "23 amend 4",
@@ -713,10 +713,10 @@ test("our own decisions need 12 columns", () => {
 
     assert.equal(layout.columns, 12);
     assert.deepEqual(lanesOf(layout), [
-        // 27 amends 16 and is newer than every decision that references 16.
-        { ...lane(2, ["27", "16"], ["24", "22", "17"]), top: "27" },
+        // 26 amends 16 and is newer than every decision that references 16.
+        { ...lane(2, ["26", "16"], ["24", "22", "17"]), top: "26" },
         lane(2, ["11"], ["12"]),
-        lane(3, ["22"], ["27"]),
+        lane(3, ["22"], ["26"]),
         lane(3, ["20", "12"], []),
         lane(4, ["25", "23"], []),
         lane(4, ["15"], ["22", "16"]),
