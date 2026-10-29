@@ -14,7 +14,7 @@ Vite serves this repository's own workspace, `architecture/workspace.json`, on <
 pnpm dev -- test/__fixtures__/edge-routing.json --font Inter
 ```
 
-Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know. The dev server accepts the branding flags `--logo <path|url>`, `--logo-alt <text>`, `--logo-href <url>`, `--font <family>` and `--primary-color <color>`, and `--single-file`, before or after the workspace path, and reads `RENDERIZR_WORKSPACE` from the environment when you pass no workspace. It takes the workspace's `renderizr.*` branding properties the way `pnpm render` does, and prints the same branding notices. Git tracks the fixtures, so `git status` shows whether anything changed one while you looked. When no fixture shows your change, add one in the same pull request.
+Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know. The dev server accepts the branding flags `--logo <path|url>`, `--logo-alt <text>`, `--logo-href <url>`, `--font <family>` and `--primary-color <color>`, and `--single-file`, before or after the workspace path, and reads `RENDERIZR_WORKSPACE` from the environment when you pass no workspace. It takes the build's workspaces too, files, URLs and folders, through the same set loader, and shows the set's landscape scoped workspace: `pnpm dev -- test/__fixtures__/enterprise`. It takes the workspace's `renderizr.*` branding properties the way `pnpm render` does, and prints the same branding notices. Git tracks the fixtures, so `git status` shows whether anything changed one while you looked. When no fixture shows your change, add one in the same pull request.
 
 To build what users get, run the production build:
 
@@ -56,7 +56,7 @@ Biome is the only linter and the only formatter. It indents with 4 spaces, skips
 
 ## Structurizr's tools for a DSL session
 
-Renderizr never parses DSL. A DSL session runs Structurizr's own tools: `merge -workspace workspace.dsl -layout workspace.json`, which lays the saved layout over the model as Structurizr Local does, or `export` on the first run, while no `workspace.json` exists yet. Edit mode finds the tools in this order:
+Renderizr never parses DSL. A DSL session runs Structurizr's own tools: `merge -workspace workspace.dsl -layout workspace.json`, which lays the saved layout over the model as Structurizr Local does, or `export` on the first run, while no `workspace.json` exists yet. A build that takes a `workspace.dsl` runs `export -format json` on it with the same tools, from an empty temporary folder, and fails naming the file when it finds none; see [Render a set](02-usage.md#render-a-set). Edit mode and the build find the tools in this order:
 
 1. The `STRUCTURIZR_CLI` environment variable, read as a whole command.
 2. `structurizr-cli` on your `PATH`.
@@ -73,7 +73,7 @@ With Docker and no Java on your machine:
 STRUCTURIZR_CLI='docker run --rm -v "$PWD:/usr/local/structurizr" structurizr/structurizr' npx github:FormulaMonks/renderizr edit ./architecture
 ```
 
-Edit mode runs the command through the shell from the DSL's folder, so `$PWD` in single quotes expands there and the container mounts that folder. The tools write into a temporary `.renderizr-*` folder beside the DSL, which edit mode deletes after each run, and never write `workspace.json` themselves.
+Edit mode runs the command through the shell from the DSL's folder, so `$PWD` in single quotes expands there and the container mounts that folder. A build runs it from an empty temporary folder, which is all such a container mounts, so a build with a `workspace.dsl` needs the tools on Java. The tools write into a temporary `.renderizr-*` folder beside the DSL, which edit mode deletes after each run, and never write `workspace.json` themselves.
 
 When a DSL change breaks the parse, the terminal prints the tools' output and the page shows the error over the last workspace that parsed, which stays editable. The next good run clears it.
 

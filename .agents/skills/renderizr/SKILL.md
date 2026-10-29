@@ -46,11 +46,12 @@ Drop `--single-file` to get a directory — `index.html` plus `assets/` — for 
 
 ## Getting a workspace to render
 
-Renderizr takes **JSON**, either a local path or a URL. It does not parse DSL.
+Renderizr takes a `workspace.json` or a `workspace.dsl`, as a local path or a URL, or a folder of them. It does not parse DSL itself: a `workspace.dsl` runs through Structurizr's tools (`STRUCTURIZR_CLI`, else `structurizr-cli` on the `PATH`, with Java 21 to 25), and the build fails naming the file when it finds none.
 
-- **A `workspace.json` already on disk** — usually `./architecture/workspace.json`. Use it directly.
-- **Only a `workspace.dsl`** — export it first with [structurizr-cli](https://docs.structurizr.com/cli), which exports a DSL workspace to JSON. In a Scaffoldizr repository, `./architecture/scripts/export.sh` (or `export.ps1`) does this for you.
-- **A URL** — passed straight through, e.g. the Big Bank plc example:
+- **A `workspace.json` already on disk**: usually `./architecture/workspace.json`. Use it directly; it needs no tools.
+- **Only a `workspace.dsl`**: render it when the tools are installed. Otherwise export it first with [structurizr-cli](https://docs.structurizr.com/cli), which exports a DSL workspace to JSON. In a Scaffoldizr repository, `./architecture/scripts/export.sh` (or `export.ps1`) does this for you.
+- **Several workspaces of Structurizr's enterprise pattern**: pass them all, or their folder, in any order. Renderizr takes the landscape scoped workspace as the entry point and follows each software system's element link to a `workspace.json` or `workspace.dsl`. See [flags](./references/flags.md).
+- **A URL**: passed straight through, e.g. the Big Bank plc example:
 
   ```bash
   npx github:FormulaMonks/renderizr \
