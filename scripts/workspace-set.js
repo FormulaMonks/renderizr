@@ -88,16 +88,49 @@ const WORKSPACE_FILE = /workspace\.(json|dsl)$/;
 const WORKSPACE_LINK = /^\{workspace:(\d+)\}/;
 
 /**
+ * Why a `workspace.dsl` didn't load: Structurizr's tools refused it.
+ * `source` names the file as messages do, `detail` is what the tools said.
+ */
+export class DslError extends Error {
+    constructor(source, detail) {
+        super(`Structurizr's tools couldn't read ${source}:\n${detail}`);
+        this.name = "DslError";
+        this.source = source;
+        this.detail = detail;
+    }
+}
+
+/**
  * Load the set the `positionals` name. `cwd` resolves relative paths, `env`
  * names the Structurizr tools and `output` takes what the tools print.
  *
+ * `pnpm dev` reloads the set on every change (spec 264), and two options
+ * serve it: `exports`, a `Map` of each DSL's export by its path or URL,
+ * which the load reuses and fills, so a DSL goes to the tools only when the
+ * map lacks it; and `onRead`, which hears the path of each local file the
+ * load reads, as it reads it, even when the load then fails.
+ *
+ * @param {string[]} positionals
+ * @param {{ cwd?: string, env?: object, output?: object, exports?: Map<string, Promise<string>>, onRead?: (path: string) => void }} [options]
  * @returns {Promise<WorkspaceSet>}
  */
 export async function loadSet(
     positionals,
-    { cwd = process.cwd(), env = process.env, output = process.stderr } = {},
+    {
+        cwd = process.cwd(),
+        env = process.env,
+        output = process.stderr,
+        exports = new Map(),
+        onRead = () => {},
+    } = {},
 ) {
-    const context = { cwd, command: toolsCommand(env), output };
+    const context = {
+        cwd,
+        command: toolsCommand(env),
+        output,
+        exports,
+        onRead,
+    };
     const locations = await expand(positionals, cwd);
     const members = await Promise.all(
         locations.map(async (location) =>
@@ -208,11 +241,29 @@ const isDsl = ({ path, url }) =>
     (path ?? new URL(url).pathname).endsWith(".dsl");
 
 /** The workspace JSON at `location`, parsed. */
-async function readJson(location, { cwd, command, output }) {
+async function readJson(location, context) {
+    if (location.path) context.onRead(location.path);
     const text = isDsl(location)
-        ? await exportDsl(location, { command, output })
-        : await readWorkspace(location.url ?? location.source, { cwd });
+        ? await exported(location, context)
+        : await readWorkspace(location.url ?? location.source, {
+              cwd: context.cwd,
+          });
     return parseWorkspace(text, location.source);
+}
+
+/**
+ * The export of the DSL at `location`: the one `exports` holds, else a new
+ * one, which `exports` holds from then on unless it fails.
+ */
+function exported(location, { exports, command, output }) {
+    const held = exports.get(location.key);
+    if (held) return held;
+    const running = exportDsl(location, { command, output });
+    exports.set(location.key, running);
+    running.catch(() => {
+        if (exports.get(location.key) === running) exports.delete(location.key);
+    });
+    return running;
 }
 
 /**
@@ -246,8 +297,9 @@ async function exportDsl(location, { command, output }) {
         if (!checkTools(command, { cwd: folder }).ok) {
             throw new Error(exportToolsMessage(location.source, command));
         }
-        throw new Error(
-            `Structurizr's tools couldn't read ${location.source}:\n${errorMessage(result.output, result.code)}`,
+        throw new DslError(
+            location.source,
+            errorMessage(result.output, result.code),
         );
     } finally {
         await rm(folder, { recursive: true, force: true });
@@ -385,15 +437,16 @@ async function follow(members, context) {
  * but the workspace scoped to the element's software system.
  */
 async function followLink({ location, element, carrier, link }, context) {
-    const failure = (why) =>
+    const failure = (why, cause) =>
         new Error(
             `The element link of ${element.name} in ${carrier.source} leads to ${link}, ${why}`,
+            { cause },
         );
     let workspace;
     try {
         workspace = await readJson(location, context);
     } catch (error) {
-        throw failure(`which Renderizr couldn't load: ${error.message}`);
+        throw failure(`which Renderizr couldn't load: ${error.message}`, error);
     }
     if (
         !workspace ||
