@@ -22,7 +22,7 @@
 # every acceptance view for people to review, on pull requests that touch the
 # engine.
 #
-# Node matrix: one floor, proved two ways (ADR 26).
+# Node matrix: one floor, proved two ways (ADR 27).
 #
 # `engines.node` says ">=22.13" and README.md badges it. That is the floor for
 # people who *run* Renderizr — `npx github:FormulaMonks/renderizr`, which is

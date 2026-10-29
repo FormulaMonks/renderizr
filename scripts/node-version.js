@@ -1,5 +1,5 @@
 /**
- * The lowest Node Renderizr runs on (ADR 26), and the check the bin makes
+ * The lowest Node Renderizr runs on (ADR 27), and the check the bin makes
  * against it before it loads anything else.
  *
  * This module imports nothing, not even Node's builtins, so it loads on any

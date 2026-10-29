@@ -25,7 +25,7 @@ The [architecture site](https://formulamonks.github.io/renderizr/) carries a sho
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Node | 22.13 or newer | One floor for running Renderizr and for developing it: `package.json` declares it in `"engines": { "node": ">=22.13" }`, `scripts/build.js` checks it before it loads the build, and pnpm 11 needs it because it imports `node:sqlite`. [ADR 26](architecture/decisions/0026-support-node-from-22-13.md) records it |
+| Node | 22.13 or newer | One floor for running Renderizr and for developing it: `package.json` declares it in `"engines": { "node": ">=22.13" }`, `scripts/build.js` checks it before it loads the build, and pnpm 11 needs it because it imports `node:sqlite`. [ADR 27](architecture/decisions/0027-support-node-from-22-13.md) records it |
 | pnpm | 11 | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
 | git | any | To clone the repository |
 
