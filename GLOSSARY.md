@@ -16,6 +16,10 @@ _Avoid_: workspace type, workspace kind, team workspace, enterprise workspace
 The workspaces a reader crossed into from the landscape scoped workspace, in order, which the page address records as one path segment each, the slug of the software system the workspace is scoped to: `#/orders/payments/?view=Containers`. The landscape scoped workspace adds no segment, and the trail never repeats a workspace. The header's button leads back to the previous workspace on it.
 _Avoid_: route (that is an edge's path), breadcrumb, workspace path
 
+**Crossing**:
+A reader's move from one workspace of a set into another in the same page, by activating an element or relationship whose activation target is a workspace. The workspace trail records each crossing.
+_Avoid_: jump, workspace switch, navigation (the view drawer)
+
 **View**:
 One diagram definition in the workspace: a selection of elements and relationships with a type, a key and either a stored layout or an automatic layout. There are nine view types.
 _Avoid_: diagram (that is the drawn result), page
@@ -125,7 +129,7 @@ The shape an edge draws where it meets its source or its target: an arrowhead, a
 _Avoid_: arrowhead (as the general term), terminator, cap
 
 **Jump-over**:
-A small hop an edge draws where it crosses another edge, so the crossing does not read as a junction.
+A small hop an edge draws where it crosses another edge, so the two edges do not read as a junction.
 _Avoid_: hop, bridge, line jump
 
 **Animation**:
