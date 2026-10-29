@@ -11,7 +11,7 @@ import {
 import { createConfig, version } from "./config.js";
 import { DslPipeline } from "./dsl-pipeline.js";
 import { editMode } from "./edit-plugin.js";
-import { UNNAMED_WORKSPACE } from "./plugins.js";
+import { brandingOf, UNNAMED_WORKSPACE } from "./plugins.js";
 import {
     checkTools as runVersion,
     TOOLS_DOCS,
@@ -190,7 +190,7 @@ export async function startEditServer({
     }
     // The branding plugin and the `define` constants bake branding into the
     // page when Vite starts, so edit mode applies it at start only.
-    const { logo, font, primaryColor, notices } = await loadBranding({
+    const loadedBranding = await loadBranding({
         flags: branding,
         workspace,
         source: session.json,
@@ -206,9 +206,7 @@ export async function startEditServer({
 
     const server = await createServer({
         ...createConfig({
-            logo,
-            font,
-            primaryColor,
+            branding: brandingOf(loadedBranding),
             mode: "edit",
             editMode: editMode({
                 workspace: session.json,
@@ -241,7 +239,7 @@ export async function startEditServer({
         server,
         token,
         pipeline,
-        notices,
+        notices: loadedBranding.notices,
         url: `http://127.0.0.1:${listening}${entry}`,
         close: async () => {
             await pipeline?.close();

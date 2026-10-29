@@ -46,16 +46,14 @@ export default async () => {
         flags,
         singleFile,
     });
-    const { workspace, logo, font, primaryColor } = dev.landscape;
+    const { workspace, branding } = dev.landscape;
 
     process.env.VITE_WORKSPACE_NAME = workspace.name ?? UNNAMED_WORKSPACE;
 
     return defineConfig(
         createConfig({
             workspace,
-            logo,
-            font,
-            primaryColor,
+            branding,
             devSet: dev.plugins,
             singleFile,
             mode: "serve",

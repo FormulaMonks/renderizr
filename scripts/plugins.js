@@ -60,14 +60,38 @@ export const SET_MODULE = "virtual:renderizr/set";
 export const RESOLVED_SET_MODULE = `\0${SET_MODULE}`;
 
 /**
+ * @typedef {object} Branding
+ *   A workspace's branding, loaded, as the page's `Branding` type
+ *   (`src/vite-env.d.ts`) has it: the logo as `loadLogo` gives it, the
+ *   font's family with its embedded faces, and the primary color, each
+ *   `null` when the workspace has none.
+ * @property {object | null} logo
+ * @property {{ family: string, css: string | null } | null} font
+ * @property {string | null} primaryColor
+ */
+
+/** The branding of a workspace that has none. */
+export const NO_BRANDING = Object.freeze({
+    logo: null,
+    font: null,
+    primaryColor: null,
+});
+
+/** `loaded`, as `loadBranding` gives it, without its notices. */
+export const brandingOf = ({ logo, font, primaryColor }) => ({
+    logo,
+    font,
+    primaryColor,
+});
+
+/**
  * @typedef {object} WorkspacePayload
  *   One software system scoped workspace of a set, as the page enters it:
  *   the file `<slug>.json` holds it in a multi-file build.
  * @property {object} workspace The workspace JSON.
- * @property {{ logo: object | null, font: { family: string, css: string | null } | null, primaryColor: string | null }} branding
- *   Its branding, loaded: the logo as `loadLogo` gives it, and the font's
- *   family with its embedded faces, `css: null` when the landscape scoped
- *   workspace's faces, already in the page, are the same.
+ * @property {Branding} branding Its branding, with `font.css: null` when
+ *   the landscape scoped workspace's faces, already in the page, are the
+ *   same.
  * @property {object[]} crossings Its elements that lead into another
  *   workspace of the set, as `loadSet` gives them.
  *

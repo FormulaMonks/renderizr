@@ -6,7 +6,7 @@ import { loadSetBranding, writeBrandingNotices } from "./branding.js";
 import { parseCliArgs, parseEditArgs, withoutSeparator } from "./cli.js";
 import { createConfig } from "./config.js";
 import { sessionNotices, startEditServer } from "./edit.js";
-import { pageSet, UNNAMED_WORKSPACE } from "./plugins.js";
+import { brandingOf, pageSet, UNNAMED_WORKSPACE } from "./plugins.js";
 import { styles } from "./terminal.js";
 import { loadSet, writeSetMessages } from "./workspace-set.js";
 
@@ -33,7 +33,6 @@ async function buildSite() {
     const { workspace } = set.landscape;
     const branding = await loadSetBranding({ flags: options.branding, set });
     writeBrandingNotices(branding, process.stderr);
-    const { logo, font, primaryColor } = branding.landscape;
 
     process.env.VITE_WORKSPACE_NAME = workspace.name ?? UNNAMED_WORKSPACE;
 
@@ -43,9 +42,7 @@ async function buildSite() {
     await build(
         createConfig({
             workspace,
-            logo,
-            font,
-            primaryColor,
+            branding: brandingOf(branding.landscape),
             set: pageSet(set, branding),
             singleFile: options.singleFile,
             out: options.out,

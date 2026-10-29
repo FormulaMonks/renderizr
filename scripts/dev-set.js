@@ -19,6 +19,8 @@ import {
     pageSet,
     RESOLVED_SET_MODULE,
     RESOLVED_WORKSPACE_MODULE,
+    brandingOf,
+    NO_BRANDING,
     setModule,
     UNNAMED_WORKSPACE,
     workspaceModule,
@@ -37,6 +39,9 @@ import {
  *
  *     const dev = await devSet({ positionals, flags });
  *     createConfig({ ...dev.landscape, devSet: dev.plugins, mode: "serve" });
+ *
+ * `landscape` is `{ workspace, branding }`, the landscape scoped
+ * workspace's JSON and `Branding` (`scripts/plugins.js`).
  *
  * - **Watching**: every local file the set loader read (positionals, folder
  *   members, followed `file:///` links), each folder positional, each
@@ -187,12 +192,9 @@ export async function devSet({
             writeSetMessages(set, output);
             const branding = await loadSetBranding({ flags, set, cwd });
             writeBrandingNotices(branding, output);
-            const { logo, font, primaryColor } = branding.landscape;
             loaded = {
                 workspace: set.landscape.workspace,
-                logo,
-                font,
-                primaryColor,
+                branding: brandingOf(branding.landscape),
                 set: pageSet(set, branding),
             };
             files = read;
@@ -220,9 +222,7 @@ export async function devSet({
         JSON.stringify(
             loaded && {
                 name: loaded.workspace.name,
-                logo: loaded.logo,
-                font: loaded.font,
-                primaryColor: loaded.primaryColor,
+                branding: loaded.branding,
             },
         );
     const compiledIn = compiled();
@@ -253,11 +253,9 @@ export async function devSet({
         return staleExports([path], scans).length > 0;
     };
 
-    const landscape = loaded ?? {
-        workspace: EMPTY_WORKSPACE,
-        logo: null,
-        font: null,
-        primaryColor: null,
+    const landscape = {
+        workspace: loaded?.workspace ?? EMPTY_WORKSPACE,
+        branding: loaded?.branding ?? NO_BRANDING,
     };
 
     /** The plugin that watches the set and reloads it. */
