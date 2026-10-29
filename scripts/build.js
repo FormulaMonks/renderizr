@@ -1,7 +1,7 @@
 #! /usr/bin/env node
 
 /**
- * The `renderizr` bin. It checks the running Node against the floor (ADR 26),
+ * The `renderizr` bin. It checks the running Node against the floor (ADR 27),
  * then loads the CLI in `./main.js`.
  *
  * `npx` runs against whatever Node is on the PATH, which is often not the one

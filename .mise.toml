@@ -1,7 +1,7 @@
 # The toolchain the maintainers develop on. `mise install` resolves these
 # against mise.lock, which pins the exact versions and their checksums.
 #
-# This is the *development* toolchain, not the supported range (ADR 26).
+# This is the *development* toolchain, not the supported range (ADR 27).
 # Renderizr runs and develops on Node 22.13 or newer: package.json
 # `engines.node`, the guard in scripts/node-version.js and the badge in
 # README.md all say so, pnpm 11 needs it for `node:sqlite`, and CI is what

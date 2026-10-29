@@ -1,5 +1,5 @@
 /**
- * The Node floor the bin checks before it loads the build (ADR 26): which
+ * The Node floor the bin checks before it loads the build (ADR 27): which
  * versions Renderizr runs on, and the one line it prints on any other.
  */
 
