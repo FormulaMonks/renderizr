@@ -62,8 +62,9 @@ export type Target =
     | { kind: "link"; url: string; label: string };
 
 /**
- * An element of one workspace that leads into another workspace of the
- * set, as the set loader records it (`scripts/workspace-set.js`).
+ * An element or relationship of one workspace that leads into another
+ * workspace of the set, as the set loader records it
+ * (`scripts/workspace-set.js`). `element` is its id.
  */
 export type Crossing = {
     element: string;
@@ -334,10 +335,11 @@ function hostOf(url: string): string {
  * set, or anywhere else, which opens in a new tab. Only Renderizr's own
  * routes, the `{workspace}/…` form and pages on Structurizr's hosts lead
  * inside the workspace. A link leads into another workspace when the set
- * loader matched it on `element`, the element carrying it, or when it is
- * an address that names a full workspace trail (ADR 26). `undefined` when
- * the link leads nowhere: a view or page this workspace does not have, a
- * `{workspace:N}` link that matches no workspace, or a script.
+ * loader matched it on `element`, the id of the element or relationship
+ * carrying it, or when it is an address that names a full workspace trail
+ * (ADR 26). `undefined` when the link leads nowhere: a view or page this
+ * workspace does not have, a `{workspace:N}` link that matches no
+ * workspace, or a script.
  */
 export function classifyLink(
     model: WorkspaceModel,
@@ -493,7 +495,7 @@ export function relationshipTargets(
 ): Target[] {
     return distinct(
         [
-            classifyLink(model, relationship.url),
+            classifyLink(model, relationship.url, relationship.id),
             ...propertyTargets(relationship.properties ?? {}),
         ],
         current,

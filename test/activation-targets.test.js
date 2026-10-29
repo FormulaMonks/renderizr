@@ -595,6 +595,70 @@ test("a {workspace:N} link that matches no workspace gives the element no target
     );
 });
 
+test("a {workspace:N} link on any element or relationship crosses where the build matched it, and nowhere else", () => {
+    const json = landscape();
+    json.model.people = [
+        {
+            id: "clerk",
+            name: "Clerk",
+            url: "{workspace:42}/diagrams#Containers",
+            relationships: [
+                {
+                    id: "places",
+                    sourceId: "clerk",
+                    destinationId: "orders",
+                    url: "{workspace:42}/diagrams",
+                },
+                {
+                    id: "pays",
+                    sourceId: "clerk",
+                    destinationId: "payments",
+                    url: "{workspace:6}/diagrams",
+                },
+            ],
+        },
+    ];
+    const m = inSet(json, {
+        ...SET,
+        crossings: [
+            {
+                element: "clerk",
+                slug: "payments",
+                via: "workspace-link",
+                url: "{workspace:42}/diagrams#Containers",
+            },
+            {
+                element: "places",
+                slug: "payments",
+                via: "workspace-link",
+                url: "{workspace:42}/diagrams",
+            },
+        ],
+    });
+    assert.deepEqual(offered(m, "clerk"), [
+        {
+            kind: "workspace",
+            slug: "payments",
+            label: "Payments",
+            landing: { view: "Containers" },
+        },
+    ]);
+    const [places, pays] = json.model.people[0].relationships;
+    assert.deepEqual(relationshipTargets(m, places, "Landscape"), [
+        {
+            kind: "workspace",
+            slug: "payments",
+            label: "Payments",
+            landing: null,
+        },
+    ]);
+    assert.deepEqual(
+        relationshipTargets(m, pays, "Landscape"),
+        [],
+        "a relationship's unmatched {workspace:N} link offers nothing",
+    );
+});
+
 test("a lone workspace's {workspace:N} links lead nowhere", () => {
     assert.equal(classifyLink(model(), "{workspace:12}/diagrams"), undefined);
 });

@@ -146,7 +146,7 @@ test("a lone workspace loads exactly as loadWorkspace loads it", async () => {
     assert.deepEqual(set.notices, []);
 });
 
-test("a lone landscape scoped workspace whose links lead nowhere loads with no warning", async () => {
+test("a lone landscape scoped workspace whose links lead nowhere loads, warning of each {workspace:N} link", async () => {
     await withTempDir(async (dir) => {
         await write(dir, {
             "landscape-workspace.json": landscape([
@@ -157,7 +157,11 @@ test("a lone landscape scoped workspace whose links lead nowhere loads with no w
         const set = await load(["landscape-workspace.json"], { cwd: dir });
         assert.equal(set.landscape.workspace.name, "Landscape");
         assert.deepEqual(set.workspaces, []);
-        assert.deepEqual(set.warnings, []);
+        assert.deepEqual(set.landscape.crossings, []);
+        // The page gives the link no target, so the warning is its one trace.
+        assert.deepEqual(set.warnings, [
+            "landscape-workspace.json: Orders links {workspace:0}/diagrams, which matches no workspace Renderizr loaded, so the page gives it no target.",
+        ]);
     });
 });
 
@@ -670,6 +674,118 @@ test("{workspace:N} matches a nonzero unique N when the names differ", async () 
             "2 -> payments name",
         ]);
         assert.deepEqual(set.warnings, []);
+    });
+});
+
+test("{workspace:N} never falls back to the landscape scoped workspace", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "landscape.json": landscape(
+                [
+                    system("1", "Orders"),
+                    system("2", "Old Orders", {
+                        url: "{workspace:5}/diagrams",
+                    }),
+                ],
+                { id: 5 },
+            ),
+            "orders.json": scoped("Orders", {
+                others: [
+                    system("9", "Acme", { url: "{workspace:5}/diagrams" }),
+                ],
+            }),
+        });
+        const set = await load(["landscape.json", "orders.json"], {
+            cwd: dir,
+        });
+        assert.deepEqual(crossings(set.landscape), ["1 -> orders name"]);
+        assert.deepEqual(crossings(set.workspaces[0]), []);
+        assert.equal(set.warnings.length, 2, set.warnings.join("\n"));
+        assert.match(set.warnings[0], /^landscape\.json: Old Orders links/);
+        assert.match(set.warnings[1], /^orders\.json: Acme links/);
+        for (const warning of set.warnings) {
+            assert.match(warning, /matches no workspace Renderizr loaded/);
+        }
+    });
+});
+
+test("{workspace:N} links on any element or relationship match by a nonzero unique N, and warn when they don't", async () => {
+    await withTempDir(async (dir) => {
+        const orders = scoped("Orders", {
+            others: [system("9", "Payments")],
+        });
+        orders.model.people = [
+            {
+                id: "20",
+                name: "Clerk",
+                url: "{workspace:42}/diagrams#Containers",
+                relationships: [
+                    {
+                        id: "21",
+                        sourceId: "20",
+                        destinationId: "1",
+                        url: "{workspace:42}/diagrams",
+                    },
+                    {
+                        id: "22",
+                        sourceId: "20",
+                        destinationId: "9",
+                        url: "{workspace:6}/diagrams",
+                    },
+                ],
+            },
+        ];
+        orders.model.softwareSystems[0].containers[0].url =
+            "{workspace:6}/diagrams";
+        orders.model.deploymentNodes = [
+            {
+                id: "30",
+                name: "Server",
+                children: [
+                    { id: "31", name: "Box", url: "{workspace:0}/diagrams" },
+                ],
+            },
+        ];
+        await write(dir, {
+            "landscape.json": landscape([
+                system("1", "Orders"),
+                system("2", "Payments"),
+            ]),
+            "orders.json": orders,
+            "payments.json": scoped("Payments", { id: 42 }),
+        });
+        const set = await load(
+            ["landscape.json", "orders.json", "payments.json"],
+            { cwd: dir },
+        );
+        const bySlug = Object.fromEntries(
+            set.workspaces.map((member) => [member.slug, member]),
+        );
+        assert.deepEqual(crossings(bySlug.orders), [
+            "20 -> payments workspace-link",
+            "9 -> payments name",
+            "21 -> payments workspace-link",
+        ]);
+        assert.equal(
+            bySlug.orders.crossings[0].url,
+            "{workspace:42}/diagrams#Containers",
+        );
+        assert.equal(set.warnings.length, 3, set.warnings.join("\n"));
+        assert.match(
+            set.warnings[0],
+            /^orders\.json: API links \{workspace:6\}/,
+        );
+        assert.match(
+            set.warnings[1],
+            /^orders\.json: Box links \{workspace:0\}/,
+        );
+        assert.match(
+            set.warnings[2],
+            /^orders\.json: the relationship from Clerk to Payments links \{workspace:6\}/,
+        );
+        for (const warning of set.warnings) {
+            assert.match(warning, /matches no workspace Renderizr loaded/);
+        }
     });
 });
 
