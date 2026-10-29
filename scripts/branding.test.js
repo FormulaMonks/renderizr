@@ -503,7 +503,7 @@ test("a set prints one properties block, for the landscape scoped workspace, and
         workspace: workspaceWith(),
         source: LANDSCAPE_SOURCE,
         cwd: CWD,
-        set: true,
+        brandsSet: true,
     });
     assert.match(hint, /"renderizr\.primaryColor" "#000"/);
     assert.match(hint, /landscape scoped workspace/);

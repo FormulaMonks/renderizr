@@ -18,7 +18,7 @@ export type SetError = {
 };
 
 /** What failed: the DSL the tools refused, else the set. */
-const what = ({ source }: SetError) => source ?? "The set";
+const failedInput = ({ source }: SetError) => source ?? "The set";
 
 /**
  * Say `error`: in place of `canvas` while no set has loaded, else in an
@@ -29,13 +29,13 @@ export function showSetError(error: SetError, canvas: HTMLElement | null) {
     if (error.blank && canvas) {
         showErrorInPlace(
             canvas,
-            `${what(error)} didn't load, so there is nothing to draw yet. The page follows once you fix it.`,
+            `${failedInput(error)} didn't load, so there is nothing to draw yet. The page follows once you fix it.`,
             error.message,
         );
         return;
     }
     showError(
-        `${what(error)} didn't load. The page keeps the last set that did, and follows once you fix it.`,
+        `${failedInput(error)} didn't load. The page keeps the last set that did, and follows once you fix it.`,
         { detail: error.message },
     );
 }
