@@ -7,18 +7,30 @@ import {
     resolve,
     sep,
 } from "node:path";
-import { loadSetBranding, NO_BRANDING_FLAGS } from "./branding.js";
+import { fileURLToPath } from "node:url";
+import {
+    loadSetBranding,
+    NO_BRANDING_FLAGS,
+    writeBrandingNotices,
+} from "./branding.js";
 import { DEBOUNCE_MS } from "./dsl-pipeline.js";
-import { scanDsl, staleExports } from "./dsl-scan.js";
+import { scanDsl, staleExports, under } from "./dsl-scan.js";
 import {
     pageSet,
     RESOLVED_SET_MODULE,
     RESOLVED_WORKSPACE_MODULE,
+    brandingOf,
+    NO_BRANDING,
     setModule,
+    UNNAMED_WORKSPACE,
     workspaceModule,
 } from "./plugins.js";
-import { fileURLToPath } from "node:url";
-import { DslError, loadSet } from "./workspace-set.js";
+import {
+    DslError,
+    loadSet,
+    WORKSPACE_FILE,
+    writeSetMessages,
+} from "./workspace-set.js";
 
 /**
  * The set `pnpm dev` previews (spec 264, _Previewing a set with
@@ -27,6 +39,9 @@ import { DslError, loadSet } from "./workspace-set.js";
  *
  *     const dev = await devSet({ positionals, flags });
  *     createConfig({ ...dev.landscape, devSet: dev.plugins, mode: "serve" });
+ *
+ * `landscape` is `{ workspace, branding }`, the landscape scoped
+ * workspace's JSON and `Branding` (`scripts/plugins.js`).
  *
  * - **Watching**: every local file the set loader read (positionals, folder
  *   members, followed `file:///` links), each folder positional, each
@@ -56,12 +71,9 @@ const BRANDING_FLAGS = {
     primaryColor: "--primary-color",
 };
 
-/** The file names a folder positional expands to, as the set loader reads them. */
-const WORKSPACE_FILE = /workspace\.(json|dsl)$/;
-
 /** What the page draws while no set has loaded. */
 const EMPTY_WORKSPACE = Object.freeze({
-    name: "Workspace",
+    name: UNNAMED_WORKSPACE,
     model: {},
     views: {},
     documentation: {},
@@ -117,14 +129,6 @@ function pageError(error, blank) {
 }
 
 /* ------------------------------------------------------------- the set */
-
-/** Whether `path` is `folder` or lies under it. */
-const under = (path, folder) => {
-    const inside = relative(folder, path);
-    return (
-        inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)
-    );
-};
 
 /**
  * Whether `path`, under `folder`, lies under a name that starts with a dot
@@ -185,21 +189,12 @@ export async function devSet({
                 exports,
                 onRead: (path) => read.add(path),
             });
-            for (const notice of set.notices) output.write(`${notice}\n`);
-            for (const warning of set.warnings)
-                output.write(`warning: ${warning}\n`);
+            writeSetMessages(set, output);
             const branding = await loadSetBranding({ flags, set, cwd });
-            for (const { notices } of [
-                branding.landscape,
-                ...branding.workspaces,
-            ])
-                for (const notice of notices) output.write(`${notice}\n`);
-            const { logo, font, primaryColor } = branding.landscape;
+            writeBrandingNotices(branding, output);
             loaded = {
                 workspace: set.landscape.workspace,
-                logo,
-                font,
-                primaryColor,
+                branding: brandingOf(branding.landscape),
                 set: pageSet(set, branding),
             };
             files = read;
@@ -227,9 +222,7 @@ export async function devSet({
         JSON.stringify(
             loaded && {
                 name: loaded.workspace.name,
-                logo: loaded.logo,
-                font: loaded.font,
-                primaryColor: loaded.primaryColor,
+                branding: loaded.branding,
             },
         );
     const compiledIn = compiled();
@@ -260,11 +253,9 @@ export async function devSet({
         return staleExports([path], scans).length > 0;
     };
 
-    const landscape = loaded ?? {
-        workspace: EMPTY_WORKSPACE,
-        logo: null,
-        font: null,
-        primaryColor: null,
+    const landscape = {
+        workspace: loaded?.workspace ?? EMPTY_WORKSPACE,
+        branding: loaded?.branding ?? NO_BRANDING,
     };
 
     /** The plugin that watches the set and reloads it. */

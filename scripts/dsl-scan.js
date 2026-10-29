@@ -95,7 +95,7 @@ export function dslReferences(text) {
     const lines = withoutComments(String(text));
     const references = [];
     let unresolvable = false;
-    lines.forEach((line, at) => {
+    for (const [at, line] of lines.entries()) {
         for (const [directive, pattern] of DIRECTIVES) {
             const match = pattern.exec(line);
             if (!match) continue;
@@ -109,7 +109,7 @@ export function dslReferences(text) {
             }
             break;
         }
-    });
+    }
     return { references, unresolvable };
 }
 
@@ -174,9 +174,9 @@ export async function scanDsl(file) {
     return { files: [...files], unresolvable };
 }
 
-/** Whether `path` is `dependency` or lies under it. */
-const under = (path, dependency) => {
-    const inside = relative(dependency, path);
+/** Whether `path` is `folder` or lies under it. */
+export const under = (path, folder) => {
+    const inside = relative(folder, path);
     return (
         inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)
     );

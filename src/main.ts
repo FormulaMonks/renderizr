@@ -1,22 +1,22 @@
+import history from "history/hash";
 import { disclaimerHtml } from "./components/disclaimer.ts";
 import { initTheme } from "./components/theme.ts";
-import { applyBranding } from "./components/branding.ts";
+import { applyBranding } from "./components/branding";
 import "./main.css";
 import Router from "./components/router.ts";
 import Navigation, { type WorkspaceSummary } from "./components/navigation.ts";
 import { createImageResolver } from "./components/doc-images.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
 import { takeSessionToken } from "./components/session-token.ts";
-import history from "history/hash";
 import {
     currentWorkspace,
     followWorkspaceTrail,
     onWorkspaceEntered,
     parentWorkspace,
-} from "./current-workspace.ts";
-import { followDevSet } from "./dev-set.ts";
-import type { SetWorkspace } from "./workspace-set.ts";
-import { inOtherWorkspace } from "./workspace-trail.ts";
+} from "./current-workspace";
+import { followDevSet } from "./dev-set";
+import type { SetWorkspace } from "./workspace-set";
+import { inOtherWorkspace } from "./workspace-trail";
 import { summarizeWorkspace } from "./engine/workspace-summary";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";

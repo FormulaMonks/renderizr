@@ -41,9 +41,10 @@ import {
 
 /**
  * @typedef {object} Crossing
- *   An element of one workspace that leads into another workspace of the
- *   set.
- * @property {string} element The element's id, in the workspace that holds it.
+ *   An element or relationship of one workspace that leads into another
+ *   workspace of the set.
+ * @property {string} element The id of the element or relationship that
+ *   carries the link, in the workspace that holds it.
  * @property {string} slug The slug of the workspace it leads into.
  * @property {"workspace-link" | "followed-link" | "name"} via What leads
  *   there: a `{workspace:N}/…` element link, an element link the loader
@@ -82,10 +83,28 @@ const LANDSCAPE = "Landscape";
 const SOFTWARE_SYSTEM = "SoftwareSystem";
 
 /** The file names a folder positional expands to. */
-const WORKSPACE_FILE = /workspace\.(json|dsl)$/;
+export const WORKSPACE_FILE = /workspace\.(json|dsl)$/;
 
 /** Structurizr's link into the workspace with server id `N`. */
 const WORKSPACE_LINK = /^\{workspace:(\d+)\}/;
+
+/** The model's lists of top-level elements. */
+const MODEL_ELEMENTS = [
+    "people",
+    "softwareSystems",
+    "customElements",
+    "deploymentNodes",
+];
+
+/** The lists an element nests its child elements in. */
+const NESTED_ELEMENTS = [
+    "containers",
+    "components",
+    "children",
+    "infrastructureNodes",
+    "softwareSystemInstances",
+    "containerInstances",
+];
 
 /**
  * Why a `workspace.dsl` didn't load: Structurizr's tools refused it.
@@ -153,13 +172,15 @@ export async function loadSet(
                 crossings: [],
             },
             workspaces: [],
-            warnings: [],
+            // The page gives its `{workspace:N}` links no target, so the
+            // warning is their one trace.
+            warnings: matchCrossings(members, null),
             notices,
         };
     }
 
     const landscape = checkSet(members);
-    const warnings = matchCrossings(members);
+    const warnings = matchCrossings(members, landscape);
     const result = ({ source, workspace, slug, system, crossings }) => ({
         source,
         workspace,
@@ -173,6 +194,15 @@ export async function loadSet(
         warnings,
         notices,
     };
+}
+
+/**
+ * Write the `notices` and `warnings` of `set`, as `loadSet` gives it, to
+ * `output`, one a line, each warning marked as one.
+ */
+export function writeSetMessages(set, output) {
+    for (const notice of set.notices) output.write(`${notice}\n`);
+    for (const warning of set.warnings) output.write(`warning: ${warning}\n`);
 }
 
 /**
@@ -374,9 +404,7 @@ function followable(url) {
     const link = typeof url === "string" ? url.trim() : "";
     if (!/^(https?:\/\/|file:\/\/\/)/i.test(link)) return undefined;
     try {
-        return /workspace\.(json|dsl)$/.test(new URL(link).pathname)
-            ? link
-            : undefined;
+        return WORKSPACE_FILE.test(new URL(link).pathname) ? link : undefined;
     } catch {
         return undefined;
     }
@@ -585,15 +613,73 @@ function missingLanding(url, target) {
 }
 
 /**
- * Record the crossings of every member of the set `members`, and return the
- * warnings for `{workspace:N}` links that match no workspace and for
- * crossings to a view or page the target lacks.
- *
- * A `{workspace:N}` link matches the workspace scoped to the software system
- * of the element's name, then the one workspace whose id is `N` when `N` is
- * nonzero. A software system never crosses into the workspace scoped to it.
+ * Every element of `workspace` that can carry an element link, nested ones
+ * included, in model order: people, software systems with their containers
+ * and components, custom elements, then deployment nodes with everything
+ * they hold.
  */
-function matchCrossings(members) {
+function elementsOf(workspace) {
+    const model = workspace?.model ?? {};
+    const found = [];
+    const visit = (element) => {
+        found.push(element);
+        for (const key of NESTED_ELEMENTS) {
+            for (const child of element[key] ?? []) visit(child);
+        }
+    };
+    for (const key of MODEL_ELEMENTS) {
+        for (const element of model[key] ?? []) visit(element);
+    }
+    return found;
+}
+
+/**
+ * Every element and relationship of `workspace` that can carry a link, as
+ * `{ id, label, url, system }`: `label` names it in a warning, and
+ * `system` says it is a software system, which alone matches a workspace
+ * by its name.
+ */
+function linkCarriers(workspace) {
+    const elements = elementsOf(workspace);
+    const systems = new Set(softwareSystems(workspace));
+    const names = new Map(
+        elements.map((element) => [String(element.id), element.name]),
+    );
+    const nameOf = (id) => names.get(String(id)) ?? id;
+    const carriers = elements.map((element) => ({
+        id: String(element.id),
+        label: element.name,
+        url: element.url,
+        system: systems.has(element),
+    }));
+    for (const element of elements) {
+        for (const relationship of element.relationships ?? []) {
+            carriers.push({
+                id: String(relationship.id),
+                label: `the relationship from ${nameOf(relationship.sourceId)} to ${nameOf(relationship.destinationId)}`,
+                url: relationship.url,
+                system: false,
+            });
+        }
+    }
+    return carriers;
+}
+
+/**
+ * Record the crossings of every member of `members`, and return the
+ * warnings for `{workspace:N}` links that match no workspace and for
+ * crossings to a view or page the target lacks. `landscape` is the set's
+ * landscape scoped workspace, or `null` for a lone workspace, none of whose
+ * `{workspace:N}` links match anything.
+ *
+ * A `{workspace:N}` link, on any element or relationship, matches the
+ * workspace scoped to the software system of the same name as the software
+ * system carrying it, then the one software system scoped workspace whose
+ * id is `N` when `N` is nonzero. The landscape scoped workspace is never a
+ * match by `N`. A software system never crosses into the workspace scoped
+ * to it.
+ */
+function matchCrossings(members, landscape) {
     const warnings = [];
     const byName = new Map(
         members
@@ -603,19 +689,17 @@ function matchCrossings(members) {
     const byId = new Map();
     for (const candidate of members) {
         const id = Number(candidate.workspace.id);
-        if (!id) continue;
+        if (!id || !landscape || candidate === landscape) continue;
         byId.set(id, byId.has(id) ? null : candidate);
     }
 
     for (const carrier of members) {
-        for (const element of softwareSystems(carrier.workspace)) {
-            if (carrier.system && String(element.id) === carrier.system.id) {
-                continue;
-            }
-            const id = String(element.id);
-            const url =
-                typeof element.url === "string" ? element.url.trim() : "";
-            const named = byName.get(element.name);
+        for (const { id, label, url: written, system } of linkCarriers(
+            carrier.workspace,
+        )) {
+            if (system && carrier.system && id === carrier.system.id) continue;
+            const url = typeof written === "string" ? written.trim() : "";
+            const named = system ? byName.get(label) : undefined;
             const sameName = named && named !== carrier ? named : undefined;
             const crossings = [];
 
@@ -632,12 +716,12 @@ function matchCrossings(members) {
                     const missing = missingLanding(url, target);
                     if (missing) {
                         warnings.push(
-                            `${carrier.source}: ${element.name} links ${url}, but ${target.workspace.name} has ${missing}, so the crossing lands on its default view.`,
+                            `${carrier.source}: ${label} links ${url}, but ${target.workspace.name} has ${missing}, so the crossing lands on its default view.`,
                         );
                     }
                 } else {
                     warnings.push(
-                        `${carrier.source}: ${element.name} links ${url}, which matches no workspace of the set.`,
+                        `${carrier.source}: ${label} links ${url}, which matches no workspace Renderizr loaded, so the page gives it no target.`,
                     );
                 }
             } else if (sameName && followable(url)) {

@@ -22,6 +22,7 @@ import type { Logo } from "virtual:renderizr/set";
 import Component from "./_component";
 import styles from "./navigation.module.css";
 import { cycleMode, getMode, onThemeChange, type ThemeMode } from "./theme";
+import { DEFAULT_VIEW } from "../workspace-trail";
 import lightIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
 import darkIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
 import systemIcon from "bootstrap-icons/icons/circle-half.svg?raw";
@@ -47,9 +48,6 @@ const THEME_LABEL: Record<ThemeMode, string> = {
  * trail (ADR 26): its name, and the address path that shows it.
  */
 export type ParentWorkspace = { name: string; pathname: string };
-
-/** The address query that opens a workspace at its default view. */
-const DEFAULT_VIEW = "?page=diagrams";
 
 export default class Navigation extends Component {
     #workspace: WorkspaceSummary;

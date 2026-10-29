@@ -135,7 +135,7 @@ export type TrailFollower = {
 };
 
 /** The address query of a workspace's default view. */
-const DEFAULT_VIEW = `?${landingSearch(null)}`;
+export const DEFAULT_VIEW = `?${landingSearch(null)}`;
 
 /**
  * Follow the workspace trail in `history`'s address: enter the workspace
@@ -153,11 +153,6 @@ export function followTrail({
 }: TrailSource): TrailFollower {
     const has = (slug: string) =>
         set.workspaces.some((member) => member.slug === slug);
-    const nameOf = (slug: string | null) =>
-        slug === null
-            ? set.landscape.name
-            : (set.workspaces.find((member) => member.slug === slug)?.name ??
-              slug);
 
     /** The crossing whose landing waits on its workspace to load. */
     let crossing: { slug: string; landing: Landing } | null = null;
@@ -179,8 +174,10 @@ export function followTrail({
         const missing = missingLanding(model, landing);
         const shown = model.getViews()[0];
         if (missing && shown) {
+            // Named as the view drawer lists it, where the reader finds it.
+            const name = model.getDrawerNameForView(shown) || shown.key;
             notice(
-                `${workspace.name} has no ${missing}, so the page shows ${shown.key}.`,
+                `${workspace.name} has no ${missing}, so the page shows ${name}.`,
             );
         }
     };
@@ -203,7 +200,7 @@ export function followTrail({
             });
             if (missing !== null) {
                 notice(
-                    `This site no longer has the ${missing} workspace, so the page shows ${nameOf(trail.at(-1) ?? null)}.`,
+                    `This site no longer has the ${missing} workspace, so the page shows ${set.nameOf(trail.at(-1) ?? null)}.`,
                 );
             }
             return false;

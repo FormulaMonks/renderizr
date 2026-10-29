@@ -146,7 +146,7 @@ test("the build stamps its date, which the export's title block falls back to", 
 test("the primary color reaches the page as a literal, null when none is chosen", () => {
     const chosen = createConfig({
         workspace: WORKSPACE,
-        primaryColor: "#e4572e",
+        branding: { logo: null, font: null, primaryColor: "#e4572e" },
     });
     const none = createConfig({ workspace: WORKSPACE });
 
@@ -161,8 +161,11 @@ test("a logo is embedded whole, but only the font's family name is", () => {
     const logo = { src: "data:image/png;base64,AAAA", alt: "Acme", href: null };
     const { define } = createConfig({
         workspace: WORKSPACE,
-        logo,
-        font: { family: "Inter", css: "@font-face{}" },
+        branding: {
+            logo,
+            font: { family: "Inter", css: "@font-face{}" },
+            primaryColor: null,
+        },
     });
 
     assert.deepEqual(JSON.parse(define.__RENDERIZR_LOGO__), logo);

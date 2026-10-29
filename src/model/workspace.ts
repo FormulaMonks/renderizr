@@ -554,6 +554,19 @@ export class WorkspaceModel {
         return this.getDefaultViewName(view);
     }
 
+    /**
+     * A view's name as the view drawer lists it: its title without the
+     * bracketed kind a title may start with when the view has no title of
+     * its own, since the drawer's icon already says which kind it is.
+     */
+    getDrawerNameForView(view: ModelView): string {
+        const title = this.getTitleForView(view);
+        return (
+            title.replace(/^\[([^\]]+)\]\s*/, "").trim() ||
+            title.replace(/[[\]]/g, "")
+        );
+    }
+
     getDefaultViewName(given: ModelView): string {
         const view =
             given.type === "Filtered"

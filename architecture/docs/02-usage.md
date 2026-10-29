@@ -47,15 +47,15 @@ npx github:FormulaMonks/renderizr ./landscape/workspace.json ./teams
 
 - **Workspaces**: every argument is a `workspace.json` or `workspace.dsl` file, a URL or a folder, in any order. A folder gives the `*workspace.json` and `*workspace.dsl` files it holds, without recursing, the way `generate system-landscape -input` reads one.
 - **A software system scoped workspace** is scoped to the one software system in its model with containers, as Structurizr's scope rules have it. Renderizr names the workspace after that software system: `Payment Service` gives the slug `payment-service`.
-- **A lone workspace**, one argument whose links lead nowhere, builds as it always has, whatever its scope.
+- **A lone workspace**, one argument whose links lead nowhere, builds as it always has, whatever its scope. The build warns of each `{workspace:N}` link in it, which leads nowhere.
 
 ### Following element links
 
-The build follows a software system's element link when it is an absolute URL whose path ends in `workspace.json` or `workspace.dsl`, such as `https://example.com/payments/workspace.json` or `file:///work/payments/workspace.dsl`. It reads these links on the software systems of every workspace in the set, skips a URL it already loaded and a software system that already has its workspace, and stops when a pass adds nothing. Every other link stays an ordinary link.
+The build follows a software system's element link when it is an absolute URL whose path ends in `workspace.json` or `workspace.dsl`, such as `https://example.com/payments/workspace.json` or `file:///work/payments/workspace.dsl`. It takes `http://` too, so a local server can serve a team's workspace. It reads these links on the software systems of every workspace in the set, skips a URL it already loaded and a software system that already has its workspace, and stops when a pass adds nothing. Every other link stays an ordinary link.
 
 A workspace you name on the command line beats a link to the same software system, so you can render a local copy in place of a team's published file. The build prints the link it skipped.
 
-A landscape that `generate system-landscape` writes links each software system with `{workspace:N}/diagrams`, where `N` is the workspace's id on a Structurizr server. Renderizr matches such a link to the workspace scoped to the software system of the same name, then to the one workspace in the set whose id is `N`, when `N` is not 0. A workspace built from DSL without a server has id 0, so the name decides.
+A landscape that `generate system-landscape` writes links each software system with `{workspace:N}/diagrams`, where `N` is the workspace's id on a Structurizr server. Renderizr matches such a link to the workspace scoped to the software system of the same name, then to the one software system scoped workspace in the set whose id is `N`, when `N` is not 0. A workspace built from DSL without a server has id 0, so the name decides. A `{workspace:N}` link on any other element or on a relationship matches by `N` alone. A link that matches nothing gives its element or relationship no target.
 
 ### DSL in a build
 
@@ -75,7 +75,7 @@ The build fails, and names the files, elements or URLs involved, when:
 - a followed link fails: the fetch fails, the content isn't a workspace, the workspace isn't software system scoped, or it is scoped to a different software system than the element that carries the link;
 - a `workspace.dsl` meets no tools, or the tools can't read it.
 
-The build warns, and finishes, on a `{workspace:N}` link that matches no workspace of the set, and on a link to a view, documentation or decisions its target workspace lacks.
+The build warns, and finishes, on a `{workspace:N}` link, on any element or relationship, that matches no workspace of the set, and on a link to a view, documentation or decisions its target workspace lacks.
 
 ### The site
 
