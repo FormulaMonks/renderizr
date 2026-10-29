@@ -20,19 +20,27 @@ export const workspaceModuleSource = (
 ) =>
     `export default ${JSON.stringify(workspace)};\nexport const version = ${JSON.stringify(version)};\nexport const error = ${JSON.stringify(error)};`;
 
+/** `value`, or what it gives when it is a function: a value read late. */
+const current = (value) => (typeof value === "function" ? value() : value);
+
 /**
  * Compiles `workspace` into the page as `WORKSPACE_MODULE`. Builds and
  * `pnpm dev` use this; edit mode serves the module from disk instead
- * (ADR 15).
+ * (ADR 15). `pnpm dev` passes `workspace`, and `error`, as functions,
+ * read on every load, since its set reloads (spec 264).
  */
-export function workspaceModule(workspace) {
+export function workspaceModule(workspace, error = null) {
     return {
         name: "renderizr:workspace",
         resolveId: (id) =>
             id === WORKSPACE_MODULE ? RESOLVED_WORKSPACE_MODULE : null,
         load: (id) =>
             id === RESOLVED_WORKSPACE_MODULE
-                ? workspaceModuleSource(workspace)
+                ? workspaceModuleSource(
+                      current(workspace),
+                      null,
+                      current(error),
+                  )
                 : null,
     };
 }
@@ -43,7 +51,7 @@ export function workspaceModule(workspace) {
 export const SET_MODULE = "virtual:renderizr/set";
 
 /** The id Vite gives `SET_MODULE` once a plugin resolves it. */
-const RESOLVED_SET_MODULE = `\0${SET_MODULE}`;
+export const RESOLVED_SET_MODULE = `\0${SET_MODULE}`;
 
 /**
  * @typedef {object} WorkspacePayload
@@ -134,23 +142,27 @@ const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
  * page loads the first time the reader enters it (ADR 26). The dev server
  * serves the same files. With `inline`, the page holds every workspace and
  * the build writes no file of its own. A lone workspace's set names no
- * other workspace.
+ * other workspace. `pnpm dev` passes `set` as a function, read on every
+ * load and request, since its set reloads (spec 264).
  */
 export function setModule(set = {}) {
-    const { workspaces = [], inline = false } = set;
-    const files = new Map(
-        inline
-            ? []
-            : workspaces.map(({ slug, payload }) => [
-                  payloadFile(slug),
-                  JSON.stringify(payload),
-              ]),
-    );
+    /** The payload of each file the page loads, by file name. */
+    const files = () => {
+        const { workspaces = [], inline = false } = current(set);
+        return new Map(
+            inline
+                ? []
+                : workspaces.map(({ slug, payload }) => [
+                      payloadFile(slug),
+                      payload,
+                  ]),
+        );
+    };
     return {
         name: "renderizr:set",
         resolveId: (id) => (id === SET_MODULE ? RESOLVED_SET_MODULE : null),
         load: (id) =>
-            id === RESOLVED_SET_MODULE ? setModuleSource(set) : null,
+            id === RESOLVED_SET_MODULE ? setModuleSource(current(set)) : null,
         configureServer(server) {
             server.middlewares.use((request, response, next) => {
                 const path = new URL(request.url ?? "/", "http://dev").pathname;
@@ -158,15 +170,19 @@ export function setModule(set = {}) {
                 const name = path.startsWith(base)
                     ? path.slice(base.length)
                     : null;
-                const file = name === null ? undefined : files.get(name);
-                if (file === undefined) return next();
+                const payload = name === null ? undefined : files().get(name);
+                if (payload === undefined) return next();
                 response.setHeader("Content-Type", "application/json");
-                response.end(file);
+                response.end(JSON.stringify(payload));
             });
         },
         generateBundle() {
-            for (const [fileName, source] of files)
-                this.emitFile({ type: "asset", fileName, source });
+            for (const [fileName, payload] of files())
+                this.emitFile({
+                    type: "asset",
+                    fileName,
+                    source: JSON.stringify(payload),
+                });
         },
     };
 }

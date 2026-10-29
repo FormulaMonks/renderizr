@@ -6,7 +6,7 @@ import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { loadWorkspace } from "./assets.js";
-import { loadSet, slugOf } from "./workspace-set.js";
+import { DslError, loadSet, slugOf } from "./workspace-set.js";
 import { fixture, REPO_ROOT, withTempDir } from "./__fixtures__/helpers.js";
 
 /* ----------------------------------------------------------------- helpers */
@@ -335,6 +335,146 @@ test("a DSL the tools refuse fails with their message and the file", async () =>
             message:
                 /Structurizr's tools couldn't read workspace\.dsl:\nUnexpected tokens at line 3/,
         });
+    });
+});
+
+test("a DSL the tools refuse names its file and the tools' message on the error", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "orders/workspace.dsl": {
+                ...scoped("Orders"),
+                stub: { fail: "Unexpected tokens at line 3" },
+            },
+            "landscape.json": landscape([system("1", "Orders")]),
+        });
+        await assert.rejects(
+            load(["landscape.json", "orders/workspace.dsl"], { cwd: dir }),
+            (error) => {
+                assert.ok(error instanceof DslError, "the error is a DslError");
+                assert.equal(error.source, "orders/workspace.dsl");
+                assert.equal(error.detail, "Unexpected tokens at line 3");
+                return true;
+            },
+        );
+    });
+});
+
+/** The stub's `export` runs logged beside `dsl`, a path under `dir`. */
+const exportsOf = async (dir, dsl) =>
+    (
+        await readFile(join(dir, dirname(dsl), ".stub-calls"), "utf8").catch(
+            () => "",
+        )
+    )
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line))
+        .filter((call) => call.command === "export" && call.done);
+
+test("a load reuses each export the cache holds and fills it with the rest", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "landscape/workspace.dsl": landscape([
+                system("1", "Orders"),
+                system("2", "Payments"),
+            ]),
+            "orders/workspace.dsl": scoped("Orders"),
+            "payments/workspace.json": scoped("Payments"),
+        });
+        const positionals = [
+            "landscape/workspace.dsl",
+            "orders/workspace.dsl",
+            "payments/workspace.json",
+        ];
+        const exports = new Map();
+        await loadSet(positionals, {
+            cwd: dir,
+            env: { STRUCTURIZR_CLI: STUB },
+            output: sink(),
+            exports,
+        });
+        assert.deepEqual(
+            [...exports.keys()].sort(),
+            [
+                join(dir, "landscape/workspace.dsl"),
+                join(dir, "orders/workspace.dsl"),
+            ],
+            "the cache holds each DSL by its path",
+        );
+
+        // Orders changes; the cache drops it and keeps the landscape.
+        await write(dir, { "orders/workspace.dsl": scoped("Orders 2") });
+        exports.delete(join(dir, "orders/workspace.dsl"));
+        await assert.rejects(
+            loadSet(positionals, {
+                cwd: dir,
+                env: { STRUCTURIZR_CLI: STUB },
+                output: sink(),
+                exports,
+            }),
+            /doesn't name/,
+            "the new export reached the set",
+        );
+        assert.equal(
+            (await exportsOf(dir, "landscape/workspace.dsl")).length,
+            1,
+        );
+        assert.equal((await exportsOf(dir, "orders/workspace.dsl")).length, 2);
+    });
+});
+
+test("a failed export leaves the cache without it", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "workspace.dsl": { ...scoped("Orders"), stub: { fail: "Nope" } },
+        });
+        const exports = new Map();
+        await assert.rejects(
+            loadSet(["workspace.dsl"], {
+                cwd: dir,
+                env: { STRUCTURIZR_CLI: STUB },
+                output: sink(),
+                exports,
+            }),
+        );
+        assert.equal(exports.size, 0);
+    });
+});
+
+test("onRead hears each local file the load reads, even when it then fails", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "set/landscape-workspace.json": landscape([
+                system("1", "Orders", {
+                    url: pathToFileURL(join(dir, "teams/orders-workspace.json"))
+                        .href,
+                }),
+            ]),
+            "teams/orders-workspace.json": scoped("Orders"),
+            "stray-workspace.json": scoped("Stray"),
+        });
+        const read = [];
+        await loadSet(["set"], {
+            cwd: dir,
+            output: sink(),
+            onRead: (path) => read.push(path),
+        });
+        assert.deepEqual(read, [
+            join(dir, "set/landscape-workspace.json"),
+            join(dir, "teams/orders-workspace.json"),
+        ]);
+
+        const failed = [];
+        await assert.rejects(
+            loadSet(["set", "stray-workspace.json"], {
+                cwd: dir,
+                output: sink(),
+                onRead: (path) => failed.push(path),
+            }),
+            /doesn't name/,
+        );
+        assert.ok(failed.includes(join(dir, "stray-workspace.json")));
     });
 });
 

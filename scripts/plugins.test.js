@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { branding, pageSet, setModule, singleFile } from "./plugins.js";
+import {
+    branding,
+    pageSet,
+    setModule,
+    singleFile,
+    workspaceModule,
+} from "./plugins.js";
 
 /**
  * A stand-in for the Rollup plugin context: `generateBundle` only ever calls
@@ -411,4 +417,29 @@ test("--single-file inlines every workspace into the page and writes no other fi
     assert.deepEqual(Object.keys(inlined), ["orders", "payments"]);
     assert.equal(inlined.orders.workspace.name, "Orders");
     assert.deepEqual(emittedBy(plugin), {});
+});
+
+test("a set given as a function is read again on every load, as the dev server's reloads need", () => {
+    let current = pageSet(SET, SET_BRANDING);
+    const plugin = setModule(() => current);
+    assert.equal(setModuleExports(plugin).workspaces.length, 2);
+    current = { ...current, workspaces: current.workspaces.slice(0, 1) };
+    assert.deepEqual(
+        setModuleExports(plugin).workspaces.map(({ slug }) => slug),
+        ["orders"],
+    );
+});
+
+test("a workspace given as a function is read again on every load, with its error", () => {
+    let current = { workspace: { name: "Before" }, error: null };
+    const plugin = workspaceModule(
+        () => current.workspace,
+        () => current.error,
+    );
+    const load = () =>
+        plugin.load(plugin.resolveId("virtual:renderizr/workspace"));
+    assert.match(load(), /"name":"Before"/);
+    current = { workspace: { name: "After" }, error: { message: "Nope" } };
+    assert.match(load(), /"name":"After"/);
+    assert.match(load(), /export const error = \{"message":"Nope"\};/);
 });

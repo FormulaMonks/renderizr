@@ -48,10 +48,16 @@ declare module "virtual:renderizr/workspace" {
     /** The version of `workspace.json` edit mode served; `null` in a build. */
     export const version: string | null;
     /**
-     * The DSL pipeline's error while its last run failed, and whether no run
-     * has succeeded yet, so there is no workspace to draw; `null` in a build.
+     * Edit mode's DSL pipeline error while its last run failed, or `pnpm
+     * dev`'s set error while its last load failed, with the DSL the tools
+     * refused as `source`; and whether nothing has loaded yet, so there is
+     * no workspace to draw. `null` in a build.
      */
-    export const error: { message: string; blank: boolean } | null;
+    export const error: {
+        message: string;
+        blank: boolean;
+        source?: string | null;
+    } | null;
 }
 
 /**

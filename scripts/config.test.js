@@ -90,6 +90,32 @@ test("edit mode compiles its page code in and serves the workspace in place of t
     assert.equal(config.configFile, false, "edit mode re-reads vite.config.ts");
 });
 
+/** Stand-ins for the dev set's plugins; the config only places them. */
+const DEV_SET = [
+    { name: "renderizr:workspace" },
+    { name: "renderizr:set" },
+    { name: "renderizr:dev-set" },
+];
+
+test("the dev server's set plugins serve the set in place of the compiled-in one", () => {
+    const config = createConfig({
+        workspace: WORKSPACE,
+        devSet: DEV_SET,
+        mode: "serve",
+    });
+    assert.deepEqual(pluginNames(config), [
+        "renderizr:branding",
+        "renderizr:workspace",
+        "renderizr:set",
+        "renderizr:dev-set",
+    ]);
+    assert.ok(
+        config.plugins.includes(DEV_SET[0]),
+        "the compiled-in workspace module stayed",
+    );
+    assert.equal(config.define.__RENDERIZR_EDIT_MODE__, "false");
+});
+
 test("no logo and no font are embedded as nulls, not as undefined", () => {
     const { define } = createConfig({ workspace: WORKSPACE });
 

@@ -8,6 +8,7 @@ import { createImageResolver } from "./components/doc-images.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
 import { takeSessionToken } from "./components/session-token.ts";
 import { currentWorkspace, onWorkspaceEntered } from "./current-workspace.ts";
+import { followDevSet } from "./dev-set.ts";
 import type { SetWorkspace } from "./workspace-set.ts";
 import { summarizeWorkspace } from "./engine/workspace-summary";
 import type Page from "./pages/_page.ts";
@@ -95,6 +96,9 @@ async function init() {
         // Changes to workspace.json reach the page from here on (spec 6.1).
         startLiveReload();
     }
+    // `pnpm dev`'s set errors reach the page from here on (spec 264). Builds
+    // compile this out.
+    followDevSet();
 
     // The inline script in index.html has already stamped `data-theme` so the
     // first paint is in the right scheme; this takes ownership of it and keeps
