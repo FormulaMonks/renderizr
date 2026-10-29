@@ -191,15 +191,7 @@ export default class Diagrams extends Page {
                       ? new WorkspaceModel(arrival.previous)
                       : model;
                   this.#stop();
-                  swapWorkspace(
-                      engine,
-                      before,
-                      after,
-                      arrival,
-                      document.getElementById(
-                          "structurizr-diagram-target",
-                      ) as HTMLElement,
-                  );
+                  swapWorkspace(engine, before, after, arrival);
                   this.#start(engine, after, reachableIn(after));
               })
             : null;
