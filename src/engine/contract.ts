@@ -9,6 +9,7 @@ import type {
     EditedLayout,
     LayoutChange,
     ModelView,
+    SetLinks,
 } from "../model";
 import type { AlignEdge, DistributeAxis } from "./geometry/arrange";
 import type { RoutingMode } from "./geometry/routing/path";
@@ -55,6 +56,12 @@ export type EngineOptions = {
      * `Workspace`; `src/model` exports no type for the raw JSON yet.
      */
     workspace: Record<string, unknown>;
+    /**
+     * What the workspace knows of the set it belongs to (ADR 26), so its
+     * items draw the `workspace` indicator where they cross. None for a
+     * lone workspace.
+     */
+    set?: SetLinks;
     /** Key of the first view to draw. */
     view: string;
     colorScheme: ColorScheme;

@@ -42,7 +42,8 @@ export const GLYPH_STROKE = 1.6;
 /**
  * Each target kind's glyph, stroked in a `GLYPH_BOX` box: a magnifier for a
  * view to drill down to, a page for the documentation, a checked circle for
- * the decisions and an arrow out of a box for a link. The island strokes
+ * the decisions, two overlapping windows for another workspace of the set
+ * and an arrow out of a box for a link. The island strokes
  * them inline and an export draws them as images (ADR 21), so both draw
  * these paths.
  */
@@ -63,6 +64,7 @@ export const GLYPHS: Readonly<Record<TargetKind, readonly string[]>> = {
         "M10 2.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15z",
         "M6.5 10.2l2.5 2.5l4.5-5",
     ],
+    workspace: ["M3 7h10v10h-10z", "M7 3h10v10", "M3 10h10"],
     link: ["M11 3h6v6", "M17 3l-8 8", "M15 12v5h-12v-12h5"],
 };
 

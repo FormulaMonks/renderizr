@@ -13,6 +13,8 @@ const {
     relationshipTargets,
     classifyLink,
     mermaidNodeTargets,
+    landingSearch,
+    missingLanding,
 } = await importSrc("model/index");
 
 /** A small workspace with every kind of destination an element can offer. */
@@ -380,4 +382,321 @@ test("a Mermaid node's link offers what an element link would, from the view on 
             name,
         );
     }
+});
+
+/* ------------------------------------------------- crossing workspaces */
+
+/**
+ * The landscape scoped workspace of a set (ADR 26), with the crossings the
+ * set loader records for its software systems: one per element link into
+ * another workspace of the set, and one per name match the link didn't
+ * already reach.
+ */
+const landscape = () => ({
+    name: "Acme",
+    configuration: { scope: "Landscape" },
+    model: {
+        softwareSystems: [
+            { id: "orders", name: "Orders", url: "{workspace:0}/diagrams" },
+            {
+                id: "payments",
+                name: "Payments",
+                url: "{workspace:0}/diagrams#Containers",
+            },
+            {
+                id: "storefront",
+                name: "Storefront",
+                url: "https://teams.example.com/storefront/workspace.json",
+            },
+            { id: "billing", name: "Billing", url: "{workspace:7}/diagrams" },
+            { id: "shipping", name: "Shipping" },
+            {
+                id: "ledger",
+                name: "Ledger",
+                url: "https://teams.example.com/ledger/workspace.json",
+            },
+            {
+                id: "docs",
+                name: "Docs",
+                url: "{workspace:3}/documentation#overview",
+            },
+        ],
+    },
+    views: {
+        systemLandscapeViews: [{ key: "Landscape", elements: [] }],
+        systemContextViews: [
+            { key: "Shipping", softwareSystemId: "shipping", elements: [] },
+        ],
+        configuration: {},
+    },
+});
+
+const SET = {
+    workspaces: [
+        { slug: "orders", name: "Orders" },
+        { slug: "payments", name: "Payments" },
+        { slug: "storefront", name: "Storefront" },
+        { slug: "shipping", name: "Shipping" },
+        { slug: "docs", name: "Docs" },
+    ],
+    crossings: [
+        {
+            element: "orders",
+            slug: "orders",
+            via: "workspace-link",
+            url: "{workspace:0}/diagrams",
+        },
+        {
+            element: "payments",
+            slug: "payments",
+            via: "workspace-link",
+            url: "{workspace:0}/diagrams#Containers",
+        },
+        {
+            element: "storefront",
+            slug: "storefront",
+            via: "followed-link",
+            url: "https://teams.example.com/storefront/workspace.json",
+        },
+        { element: "shipping", slug: "shipping", via: "name" },
+        {
+            element: "docs",
+            slug: "docs",
+            via: "workspace-link",
+            url: "{workspace:3}/documentation#overview",
+        },
+    ],
+};
+
+const inSet = (json = landscape(), set = SET) => new WorkspaceModel(json, set);
+
+/** What activating the element `id` of `m` offers, from the landscape. */
+const offered = (m, id) =>
+    elementTargets(m, elementOf(m, id), "Landscape").map((target) =>
+        target.kind === "workspace"
+            ? {
+                  kind: target.kind,
+                  slug: target.slug,
+                  label: target.label,
+                  landing: target.landing,
+              }
+            : `${target.kind}: ${target.label}`,
+    );
+
+test("a {workspace:N} link with a view key crosses into its workspace at that view", () => {
+    const m = inSet();
+    assert.deepEqual(offered(m, "payments"), [
+        {
+            kind: "workspace",
+            slug: "payments",
+            label: "Payments",
+            landing: { view: "Containers" },
+        },
+    ]);
+});
+
+test("a {workspace:N} link with no view key crosses into its workspace's default view", () => {
+    const m = inSet();
+    assert.deepEqual(offered(m, "orders"), [
+        {
+            kind: "workspace",
+            slug: "orders",
+            label: "Orders",
+            landing: null,
+        },
+    ]);
+});
+
+test("a {workspace:N} link to its documentation crosses into that page", () => {
+    const m = inSet();
+    assert.deepEqual(offered(m, "docs"), [
+        {
+            kind: "workspace",
+            slug: "docs",
+            label: "Docs",
+            landing: { page: "documentation", id: "overview" },
+        },
+    ]);
+});
+
+test("a raw-file link the build followed crosses into its workspace's default view", () => {
+    const m = inSet();
+    assert.deepEqual(offered(m, "storefront"), [
+        {
+            kind: "workspace",
+            slug: "storefront",
+            label: "Storefront",
+            landing: null,
+        },
+    ]);
+});
+
+test("a raw-file link the build didn't follow stays an ordinary link, labeled by its host", () => {
+    const m = inSet();
+    assert.deepEqual(offered(m, "ledger"), ["link: teams.example.com"]);
+});
+
+test("a software system named after a workspace of the set crosses into it, ahead of its drill-down", () => {
+    const m = inSet();
+    assert.deepEqual(offered(m, "shipping"), [
+        {
+            kind: "workspace",
+            slug: "shipping",
+            label: "Shipping",
+            landing: null,
+        },
+        "view: System Context View: Shipping",
+    ]);
+});
+
+test("an element link and a name match to one workspace collapse into one target, in the link's position", () => {
+    const json = landscape();
+    json.model.softwareSystems[4].url = "https://example.com/shipping";
+    const m = inSet(json, {
+        ...SET,
+        crossings: [
+            {
+                element: "payments",
+                slug: "payments",
+                via: "workspace-link",
+                url: "{workspace:0}/diagrams#Containers",
+            },
+            { element: "payments", slug: "payments", via: "name" },
+            { element: "shipping", slug: "shipping", via: "name" },
+        ],
+    });
+    assert.deepEqual(
+        offered(m, "payments").map((target) => target.slug),
+        ["payments"],
+    );
+    assert.deepEqual(offered(m, "shipping"), [
+        "link: example.com",
+        {
+            kind: "workspace",
+            slug: "shipping",
+            label: "Shipping",
+            landing: null,
+        },
+        "view: System Context View: Shipping",
+    ]);
+});
+
+test("a {workspace:N} link that matches no workspace gives the element no target", () => {
+    const m = inSet();
+    assert.deepEqual(offered(m, "billing"), []);
+    assert.equal(
+        classifyLink(m, "{workspace:7}/diagrams", "billing"),
+        undefined,
+    );
+    assert.equal(
+        classifyLink(m, "{workspace:0}/diagrams"),
+        undefined,
+        "a link no element of the set carries leads nowhere",
+    );
+});
+
+test("a lone workspace's {workspace:N} links lead nowhere", () => {
+    assert.equal(classifyLink(model(), "{workspace:12}/diagrams"), undefined);
+});
+
+test("links that name no workspace resolve against the workspace that carries them", () => {
+    const m = inSet();
+    for (const link of [
+        "{workspace}/diagrams#Landscape",
+        "https://structurizr.com/share/1/diagrams#Landscape",
+        "#Landscape",
+        "?view=Landscape",
+        "#/?page=diagrams&view=Landscape",
+    ]) {
+        assert.deepEqual(
+            classifyLink(m, link, "orders"),
+            { kind: "view", key: "Landscape", label: "System Landscape View" },
+            link,
+        );
+    }
+});
+
+test("an authored full trail crosses along the trail it names", () => {
+    const m = inSet();
+    assert.deepEqual(
+        classifyLink(m, "#/orders/payments/?page=diagrams&view=Containers"),
+        {
+            kind: "workspace",
+            slug: "payments",
+            label: "Payments",
+            landing: { view: "Containers" },
+            trail: ["orders", "payments"],
+        },
+    );
+    assert.deepEqual(classifyLink(m, "#/orders/"), {
+        kind: "workspace",
+        slug: "orders",
+        label: "Orders",
+        landing: null,
+        trail: ["orders"],
+    });
+    assert.deepEqual(classifyLink(m, "#/orders/?page=adrs&adr=4"), {
+        kind: "workspace",
+        slug: "orders",
+        label: "Orders",
+        landing: { page: "decisions", id: "4" },
+        trail: ["orders"],
+    });
+    assert.equal(
+        classifyLink(m, "#/orders/billing/"),
+        undefined,
+        "a trail through a workspace the set lacks leads nowhere",
+    );
+});
+
+test("a relationship's {workspace:N} link leads nowhere, since no element carries it", () => {
+    const json = landscape();
+    json.model.softwareSystems[0].relationships = [
+        {
+            id: "pays",
+            sourceId: "orders",
+            destinationId: "payments",
+            url: "{workspace:0}/diagrams",
+        },
+    ];
+    const m = inSet(json);
+    const pays = m.getRelationships().find((r) => r.id === "pays");
+    assert.deepEqual(relationshipTargets(m, pays, "Landscape"), []);
+});
+
+/* ---------------------------------------------------- where it lands */
+
+test("a crossing's landing is the address it pushes", () => {
+    assert.equal(landingSearch(null), "page=diagrams");
+    assert.equal(
+        landingSearch({ view: "Containers" }),
+        "page=diagrams&view=Containers",
+    );
+    assert.equal(
+        landingSearch({ page: "documentation", id: "overview" }),
+        "page=docs&section=overview",
+    );
+    assert.equal(landingSearch({ page: "decisions", id: "" }), "page=adrs");
+});
+
+test("a landing the target workspace lacks is named, so the reader is told", () => {
+    const m = model();
+    assert.equal(missingLanding(m, null), null);
+    assert.equal(missingLanding(m, { view: "Containers" }), null);
+    assert.equal(missingLanding(m, { view: "Deployment" }), "view Deployment");
+    assert.equal(
+        missingLanding(m, { page: "documentation", id: "nowhere" }),
+        null,
+        "the documentation opens where it can",
+    );
+    const bare = workspace();
+    bare.documentation = {};
+    assert.equal(
+        missingLanding(model(bare), { page: "documentation", id: "" }),
+        "documentation",
+    );
+    assert.equal(
+        missingLanding(model(bare), { page: "decisions", id: "4" }),
+        "decisions",
+    );
 });

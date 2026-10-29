@@ -64,7 +64,7 @@ export function mountEngine(
         }
 
         // Edit mode swaps the workspace in place (`setWorkspace`).
-        let model = new WorkspaceModel(options.workspace);
+        let model = new WorkspaceModel(options.workspace, options.set);
         /**
          * The workspace as last saved, whose `lastModifiedUser`,
          * `lastModifiedAgent` and `lastModifiedDate` the title block gives,
@@ -178,7 +178,7 @@ export function mountEngine(
             },
             setWorkspace(saved) {
                 workspace = saved;
-                model = new WorkspaceModel(saved);
+                model = new WorkspaceModel(saved, options.set);
                 const { key, editing } = store.get();
                 const kept = model.findViewByKey(key) !== undefined;
                 const shownKey = kept ? key : (model.getViews()[0]?.key ?? key);

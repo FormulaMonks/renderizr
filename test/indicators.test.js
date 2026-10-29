@@ -234,7 +234,13 @@ test("an edge with targets and nothing to say gets a label holding only its glyp
 /* ---------------------------------------------------------- shared glyphs */
 
 test("a glyph's data URL is a standalone SVG that strokes its paths in the color", () => {
-    for (const kind of ["view", "documentation", "decisions", "link"]) {
+    for (const kind of [
+        "view",
+        "documentation",
+        "decisions",
+        "workspace",
+        "link",
+    ]) {
         const url = glyphDataUrl(kind, "#123456");
         assert.match(url, /^data:image\/svg\+xml,/, kind);
         const svg = decodeURIComponent(url.slice(url.indexOf(",") + 1));
@@ -245,6 +251,14 @@ test("a glyph's data URL is a standalone SVG that strokes its paths in the color
             assert.ok(svg.includes(`<path d="${d}"/>`), `${kind} draws ${d}`);
         }
     }
+});
+
+test("a workspace draws two overlapping windows", () => {
+    assert.deepEqual(GLYPHS.workspace, [
+        "M3 7h10v10h-10z",
+        "M7 3h10v10",
+        "M3 10h10",
+    ]);
 });
 
 test("a glyph's color cannot break out of its attribute", () => {
