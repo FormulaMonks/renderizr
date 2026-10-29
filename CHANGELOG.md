@@ -21,6 +21,28 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.6.0](https://github.com/FormulaMonks/renderizr/compare/v2.5.0...v2.6.0) (2026-10-29)
+
+
+### Added
+
+* **mermaid:** step through a sequence diagram one message at a time ([#255](https://github.com/FormulaMonks/renderizr/issues/255)) ([bca5fd2](https://github.com/FormulaMonks/renderizr/commit/bca5fd2aaee302067914f055e29b49f134c48eaf))
+* render a landscape scoped workspace and the workspaces it maps in one site ([#271](https://github.com/FormulaMonks/renderizr/issues/271)) ([c9d3987](https://github.com/FormulaMonks/renderizr/commit/c9d39879912667cfc82b70f264f35c164b66bcc2))
+
+
+### Fixed
+
+* **deps:** update dependency @dagrejs/dagre to v3 ([#226](https://github.com/FormulaMonks/renderizr/issues/226)) ([142a358](https://github.com/FormulaMonks/renderizr/commit/142a35867aadb4848fefb842d7c2bd382ee87ac9))
+* **deps:** update dependency markdown-it to v15 ([#227](https://github.com/FormulaMonks/renderizr/issues/227)) ([8c9bda7](https://github.com/FormulaMonks/renderizr/commit/8c9bda7c3c9cc0842251214e85725f4f8bc8557f))
+* **deps:** update react to v19.3.1 ([#262](https://github.com/FormulaMonks/renderizr/issues/262)) ([dcfdb3e](https://github.com/FormulaMonks/renderizr/commit/dcfdb3e92d90334734a86c0190fe5118ef277f3e))
+* **mermaid:** read an escaped comma in a style as part of its declaration ([#251](https://github.com/FormulaMonks/renderizr/issues/251)) ([0d8b18e](https://github.com/FormulaMonks/renderizr/commit/0d8b18ee239e3b7fed03b7b217a67d09d6f4db9b)), closes [#245](https://github.com/FormulaMonks/renderizr/issues/245)
+
+
+### Documentation
+
+* add crossing to the glossary ([#272](https://github.com/FormulaMonks/renderizr/issues/272)) ([96ba828](https://github.com/FormulaMonks/renderizr/commit/96ba828c2aa2f6529a3adb0190d4ee82f9876b99))
+* add workspace scope, workspace trail and toast to the glossary, and ADR 26 on rendering a set ([#265](https://github.com/FormulaMonks/renderizr/issues/265)) ([dae4c5d](https://github.com/FormulaMonks/renderizr/commit/dae4c5de9b687d18b4373ec43c41022964c87da2))
+
 ## [2.5.0](https://github.com/FormulaMonks/renderizr/compare/v2.4.0...v2.5.0) (2026-10-17)
 
 
