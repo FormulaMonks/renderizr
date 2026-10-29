@@ -7,6 +7,7 @@ import {
     resolve,
     sep,
 } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadSetBranding, NO_BRANDING_FLAGS } from "./branding.js";
 import { DEBOUNCE_MS } from "./dsl-pipeline.js";
 import { scanDsl, staleExports } from "./dsl-scan.js";
@@ -17,7 +18,6 @@ import {
     setModule,
     workspaceModule,
 } from "./plugins.js";
-import { fileURLToPath } from "node:url";
 import { DslError, loadSet } from "./workspace-set.js";
 
 /**

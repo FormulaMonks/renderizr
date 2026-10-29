@@ -95,7 +95,7 @@ export function dslReferences(text) {
     const lines = withoutComments(String(text));
     const references = [];
     let unresolvable = false;
-    lines.forEach((line, at) => {
+    for (const [at, line] of lines.entries()) {
         for (const [directive, pattern] of DIRECTIVES) {
             const match = pattern.exec(line);
             if (!match) continue;
@@ -109,7 +109,7 @@ export function dslReferences(text) {
             }
             break;
         }
-    });
+    }
     return { references, unresolvable };
 }
 
