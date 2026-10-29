@@ -18,7 +18,7 @@ Always put `--` before the arguments. Without it, Vite reads them itself and sto
 
 The dev server watches every local file it loaded: the workspace files you name, the members of each folder you name and the `file:///` links it followed. For a `workspace.dsl`, it watches the DSL's folder and every file the DSL reads outside it, through `workspace extends`, `!include`, `!docs`, `!adrs` and `!script`. It watches no URL. On a change, it runs the set loader again and reloads the page. Only a DSL that reads the changed file goes back to Structurizr's tools; every other DSL keeps its last export. A DSL that names a path the dev server can't follow, such as `!include ${SHARED}/people.dsl` or a script that reads files of its own, goes back to the tools on every change.
 
-When the set doesn't load, the server keeps running and the page keeps the last set that did. The error shows in a toast at the bottom right, with what Structurizr's tools or the set loader said, until the next set loads. When no set has loaded yet, the error shows in place of the canvas. A change to the landscape scoped workspace's name or branding restarts the dev server, which compiles them into the page.
+When the set doesn't load, the server keeps running and the page keeps the last set that did. The error shows in a toast at the bottom right, with the output of Structurizr's tools or the reason the set failed, until the next set loads. When no set has loaded yet, the error shows in place of the canvas. A change to the landscape scoped workspace's name or branding restarts the dev server, which compiles them into the page.
 
 To build what users get, run the production build:
 
