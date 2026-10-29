@@ -2,16 +2,13 @@
 
 declare const workspaceData: Record<string, unknown>;
 
-/** Logo supplied via `--logo`, already embedded as a data URI. */
-declare const __RENDERIZR_LOGO__: {
-    src: string;
-    alt: string;
-    href: string | null;
-    width: number | null;
-    height: number | null;
-} | null;
+/**
+ * The header logo of the workspace the page lands on (`--logo`, then
+ * `renderizr.logo`), already embedded as a data URI.
+ */
+declare const __RENDERIZR_LOGO__: import("virtual:renderizr/set").Logo | null;
 
-/** Font family supplied via `--font`. */
+/** Font family of the workspace the page lands on (`--font`, then `renderizr.font`). */
 declare const __RENDERIZR_FONT__: string | null;
 
 /** Renderizr's own version, read from package.json at build time. */
@@ -51,8 +48,59 @@ declare module "virtual:renderizr/workspace" {
     /** The version of `workspace.json` edit mode served; `null` in a build. */
     export const version: string | null;
     /**
-     * The DSL pipeline's error while its last run failed, and whether no run
-     * has succeeded yet, so there is no workspace to draw; `null` in a build.
+     * Edit mode's DSL pipeline error while its last run failed, or `pnpm
+     * dev`'s set error while its last load failed, with the DSL the tools
+     * refused as `source`; and whether nothing has loaded yet, so there is
+     * no workspace to draw. `null` in a build.
      */
-    export const error: { message: string; blank: boolean } | null;
+    export const error: {
+        message: string;
+        blank: boolean;
+        source?: string | null;
+    } | null;
+}
+
+/**
+ * The rest of the set the page holds (ADR 26): the software system scoped
+ * workspaces the landscape scoped workspace maps. A lone workspace's set
+ * names none. `scripts/plugins.js` compiles it in.
+ */
+declare module "virtual:renderizr/set" {
+    /** A header logo, embedded as a data URI. */
+    export type Logo = {
+        src: string;
+        alt: string;
+        href: string | null;
+        width: number | null;
+        height: number | null;
+    };
+    /** A workspace's branding, applied when the reader enters it. */
+    export type Branding = {
+        logo: Logo | null;
+        /**
+         * The font's family and its embedded `@font-face` rules, `css: null`
+         * when the page already holds them.
+         */
+        font: { family: string; css: string | null } | null;
+        primaryColor: string | null;
+    };
+    /** An element of one workspace that leads into another of the set. */
+    export type Crossing = {
+        element: string;
+        slug: string;
+        via: "workspace-link" | "followed-link" | "name";
+        url?: string;
+    };
+    /** A workspace of the set as the page enters it: `<slug>.json`. */
+    export type WorkspacePayload = {
+        workspace: Record<string, unknown>;
+        branding: Branding;
+        crossings: Crossing[];
+    };
+    /** The landscape scoped workspace's crossings. */
+    export const crossings: Crossing[];
+    /** The set's other workspaces, by slug and name. */
+    export const workspaces: { slug: string; name: string }[];
+    /** Every other workspace by slug under `--single-file`; `null` otherwise. */
+    export const inlined: Record<string, WorkspacePayload> | null;
 }

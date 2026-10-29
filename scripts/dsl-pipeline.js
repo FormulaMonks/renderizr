@@ -37,9 +37,12 @@ export function triggersRun(path, { folder, json }) {
         .some((part) => part.startsWith(".") || part === "node_modules");
 }
 
-/** Stack frames and the tools' own log lines, which say nothing to the author. */
+/**
+ * Stack frames and the tools' own log lines, which say nothing to the
+ * author, among them the line `structurizr-cli export` opens with.
+ */
 const NOISE =
-    /^\s+at |^\s*\.\.\. \d+ more|^\S+ \[[^\]]+\] (INFO|DEBUG) |^INFO /;
+    /^\s+at |^\s*\.\.\. \d+ more|^\S+ \[[^\]]+\] (INFO|DEBUG) |^INFO |^Exporting workspace from /;
 
 /**
  * The message the page shows for a run that ended with `code` and printed

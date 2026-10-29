@@ -1,15 +1,15 @@
 # Usage
 
 ```bash
-npx github:FormulaMonks/renderizr <workspace> [options]
+npx github:FormulaMonks/renderizr <workspace>... [options]
 npx github:FormulaMonks/renderizr edit [path] [options]
 ```
 
-The first form renders a workspace. The second starts [edit mode](#edit-mode). `renderizr --help` and `renderizr edit --help` print the same reference as text.
+The first form renders a workspace, or a [set](#render-a-set) of them. The second starts [edit mode](#edit-mode). `renderizr --help` and `renderizr edit --help` print the same reference as text.
 
 ## Options
 
-The one required argument is the workspace: a local path or an `http(s)` URL to a Structurizr workspace **JSON** file. Every flag is optional.
+The one required argument is the workspace: a local path or an `http(s)` URL to a Structurizr `workspace.json`, or a `workspace.dsl`, which runs through [Structurizr's tools](04-reference.md#structurizrs-tools-for-a-dsl-session). Several workspaces, or a folder of them, make a [set](#render-a-set). Every flag is optional.
 
 ```bash
 npx github:FormulaMonks/renderizr ./workspace.json \
@@ -34,6 +34,54 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `-h, --help` | Print the reference as text and exit |
 
 A font is the one option with a real cost: an embedded family outweighs every other option together, and each extra weight, subset or italic face adds to it.
+
+## Render a set
+
+Structurizr's [enterprise pattern](https://docs.structurizr.com/workspaces/enterprise) keeps one software system scoped workspace for each team, and one landscape scoped workspace that maps every software system. Each workspace records its scope in `configuration.scope`. Renderizr renders such a set from one build: the landscape scoped workspace, where the reader lands, and the software system scoped workspaces it maps. You add nothing to the model: the scope picks the landscape, and the element links Structurizr already writes tie the set together.
+
+```bash
+npx github:FormulaMonks/renderizr ./landscape/workspace.json ./teams
+```
+
+### Inputs
+
+- **Workspaces**: every argument is a `workspace.json` or `workspace.dsl` file, a URL or a folder, in any order. A folder gives the `*workspace.json` and `*workspace.dsl` files it holds, without recursing, the way `generate system-landscape -input` reads one.
+- **A software system scoped workspace** is scoped to the one software system in its model with containers, as Structurizr's scope rules have it. Renderizr names the workspace after that software system: `Payment Service` gives the slug `payment-service`.
+- **A lone workspace**, one argument whose links lead nowhere, builds as it always has, whatever its scope. The build warns of each `{workspace:N}` link in it, which leads nowhere.
+
+### Following element links
+
+The build follows a software system's element link when it is an absolute URL whose path ends in `workspace.json` or `workspace.dsl`, such as `https://example.com/payments/workspace.json` or `file:///work/payments/workspace.dsl`. It takes `http://` too, so a local server can serve a team's workspace. It reads these links on the software systems of every workspace in the set, skips a URL it already loaded and a software system that already has its workspace, and stops when a pass adds nothing. Every other link stays an ordinary link.
+
+A workspace you name on the command line beats a link to the same software system, so you can render a local copy in place of a team's published file. The build prints the link it skipped.
+
+A landscape that `generate system-landscape` writes links each software system with `{workspace:N}/diagrams`, where `N` is the workspace's id on a Structurizr server. Renderizr matches such a link to the workspace scoped to the software system of the same name, then to the one software system scoped workspace in the set whose id is `N`, when `N` is not 0. A workspace built from DSL without a server has id 0, so the name decides. A `{workspace:N}` link on any other element or on a relationship matches by `N` alone. A link that matches nothing gives its element or relationship no target.
+
+### DSL in a build
+
+The build exports each `workspace.dsl` with `export -format json` through the same tools edit mode runs, from an empty temporary folder. A followed DSL goes to the tools as its URL. A build of `workspace.json` files alone runs no tools and needs no Java.
+
+The tools resolve a relative `!include` or `workspace extends` in a followed DSL against that empty folder, so such a DSL fails with Structurizr's own message. Keep a DSL that other teams link self-contained, or have it include by absolute URL. A published `workspace.json` always works.
+
+### Failures and warnings
+
+The build fails, and names the files, elements or URLs involved, when:
+
+- the set holds no landscape scoped workspace, or more than one;
+- a workspace of the set sets no scope;
+- a software system scoped workspace has no software system with containers, or several;
+- two workspaces are scoped to the same software system, or to two whose names give the same slug;
+- the landscape scoped workspace doesn't name the software system a workspace is scoped to;
+- a followed link fails: the fetch fails, the content isn't a workspace, the workspace isn't software system scoped, or it is scoped to a different software system than the element that carries the link;
+- a `workspace.dsl` meets no tools, or the tools can't read it.
+
+The build warns, and finishes, on a `{workspace:N}` link, on any element or relationship, that matches no workspace of the set, and on a link to a view, documentation or decisions its target workspace lacks.
+
+### The site
+
+One page holds the whole set. The build writes the landscape scoped workspace into the page, and each other workspace into `--out` as a JSON file named after its slug, such as `payments.json`. The page loads a workspace's file the first time the reader enters it, so a reader who stays on the landscape downloads no other workspace. Serve the folder over HTTP, since a browser won't load those files from `file://`. With `--single-file`, the one file holds every workspace and opens anywhere.
+
+Each workspace keeps its own name and branding. When the reader enters a workspace, the page title becomes `<workspace name> | Structurizr`, and the header, the logo, the font and the primary color become that workspace's. Each workspace's file holds its logo and font, so the page reaches for no network to apply them.
 
 ## Branding from the workspace
 
@@ -65,15 +113,24 @@ workspace {
 - Edit mode applies branding when it starts. When you change a property while it runs, it asks you to restart `renderizr edit`.
 - `--font-weights`, `--font-subsets` and `--font-italic` have no properties yet.
 
+### Branding across a set
+
+In a [set](#render-a-set), each value comes from its flag, then the workspace's own property, then the landscape scoped workspace's property, then the default. Set the branding once in the landscape scoped workspace, and it brands every workspace of the set that sets no value of its own.
+
+- A flag brands every workspace of the set. `--font-weights`, `--font-subsets` and `--font-italic` apply to every font the set loads.
+- When a flag differs from the workspaces, Renderizr prints one `properties` block, for the landscape scoped workspace.
+- A relative `renderizr.logo` resolves beside the workspace file, or the workspace URL, that sets it.
+- The build checks only the values it uses. An invalid one fails the build and names the property and the file that sets it, so a workspace's invalid property that a flag overrides goes unchecked.
+
 ## Default output
 
-Without `--single-file`, the build writes `index.html`, an `assets/` folder and a favicon. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
+Without `--single-file`, the build writes `index.html`, an `assets/` folder and a favicon, and for a set, one JSON file per software system scoped workspace. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
 
 The footer of every page says what is on screen and which Renderizr built it: a C4 view is in C4 notation and drawn with React Flow, a Mermaid diagram comes from Mermaid source and is drawn with React Flow, a picture names only the workspace, and the documentation and decisions pages say whose they are.
 
 ## Single file
 
-`--single-file` inlines every stylesheet, script, font, icon and the workspace itself into one document that makes no network requests at all:
+`--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
 
 ```bash
 npx github:FormulaMonks/renderizr ./workspace.json --single-file

@@ -2,26 +2,27 @@ import type { Location } from "history";
 import type Page from "../pages/_page";
 import Component from "./_component";
 import history from "history/hash";
+import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
 
 export default class Router extends Component {
     #pageContainer: HTMLElement;
     #pages: Map<string, Page> = new Map();
     #currentPage: Page | null = null;
+    /** The workspace of the set the pages on screen belong to (ADR 26). */
+    #workspace: string | null = workspaceOf(history.location.pathname);
 
     constructor(element: HTMLElement, pages: Page[]) {
         super(element);
         this.#pageContainer = element;
-        this.#pages = new Map(
-            pages.map((pageInstance) => [
-                pageInstance.name.toLowerCase(),
-                pageInstance.setContainer(this.#pageContainer),
-            ]),
-        );
+        this.#pages = this.#byName(pages);
 
         const search = new URLSearchParams(history.location.search);
         const page = search.get("page");
 
         history.listen((update) => {
+            // An address in another workspace waits for its pages.
+            if (inOtherWorkspace(update.location.pathname, this.#workspace))
+                return;
             const currentPageName = this.#currentPage?.name.toLowerCase();
             const search = new URLSearchParams(update.location.search);
             const page = search.get("page");
@@ -35,6 +36,30 @@ export default class Router extends Component {
 
         const [firstPage] = this.#pages.keys();
         // The first render only fills in what the URL left out.
+        this.navigateTo(page ?? firstPage, history.location.search, true);
+    }
+
+    /** `pages` by name, each drawing into the router's element. */
+    #byName(pages: Page[]) {
+        return new Map(
+            pages.map((pageInstance) => [
+                pageInstance.name.toLowerCase(),
+                pageInstance.setContainer(this.#pageContainer),
+            ]),
+        );
+    }
+
+    /**
+     * Swap in the pages of the workspace the reader entered (ADR 26) and
+     * draw the one the address names, or the first when it has none such.
+     * The address only gains what it left out, so nothing is pushed.
+     */
+    replacePages(pages: Page[]): void {
+        this.#currentPage?.clear();
+        this.#currentPage = null;
+        this.#pages = this.#byName(pages);
+        const [firstPage] = this.#pages.keys();
+        const page = new URLSearchParams(history.location.search).get("page");
         this.navigateTo(page ?? firstPage, history.location.search, true);
     }
 
@@ -58,6 +83,7 @@ export default class Router extends Component {
         }
 
         this.#currentPage = this.#pages.get(pageName)!;
+        this.#workspace = workspaceOf(history.location.pathname);
         // Lets the page decide how much room the shared header may take.
         document.documentElement.dataset.page = pageName;
 

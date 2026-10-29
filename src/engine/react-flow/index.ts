@@ -64,7 +64,7 @@ export function mountEngine(
         }
 
         // Edit mode swaps the workspace in place (`setWorkspace`).
-        let model = new WorkspaceModel(options.workspace);
+        let model = new WorkspaceModel(options.workspace, options.set);
         /**
          * The workspace as last saved, whose `lastModifiedUser`,
          * `lastModifiedAgent` and `lastModifiedDate` the title block gives,
@@ -73,6 +73,7 @@ export function mountEngine(
          * saved date.
          */
         let workspace = options.workspace;
+        const font = options.font ?? null;
         const editableKey = (key: string) => {
             const view = model.findViewByKey(key);
             return view !== undefined && isEditable(view);
@@ -177,7 +178,7 @@ export function mountEngine(
             },
             setWorkspace(saved) {
                 workspace = saved;
-                model = new WorkspaceModel(saved);
+                model = new WorkspaceModel(saved, options.set);
                 const { key, editing } = store.get();
                 const kept = model.findViewByKey(key) !== undefined;
                 const shownKey = kept ? key : (model.getViews()[0]?.key ?? key);
@@ -262,10 +263,7 @@ export function mountEngine(
                         __RENDERIZR_BUILD_DATE__,
                         __RENDERIZR_VERSION__,
                     ),
-                    text: textSetting(
-                        __RENDERIZR_FONT__,
-                        mermaidFontFamily(view.mermaid),
-                    ),
+                    text: textSetting(font, mermaidFontFamily(view.mermaid)),
                 });
                 return exportBlob(exported, format);
             },
@@ -355,7 +353,7 @@ export function mountEngine(
                     model,
                     store,
                     commands,
-                    font: __RENDERIZR_FONT__,
+                    font,
                     onPainted,
                     onRedrawn,
                     onEscape: () => player.stop(),

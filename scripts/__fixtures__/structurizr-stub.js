@@ -10,7 +10,10 @@
  * `-output` file with each element's `x` and `y` taken from the `-layout`
  * workspace, by view key and element id. Every run appends
  * `{ command, args, cwd, at, done }` lines to `.stub-calls` beside the DSL,
- * so a test can tell what ran, and when.
+ * so a test can tell what ran, and when. A `-workspace` URL is fetched, as
+ * the tools fetch it, and logs nothing. Lines that start with `!`, such as
+ * `!include ../shared/people.dsl`, are left out, so a test can give the
+ * DSL scan something to find.
  */
 
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
@@ -27,16 +30,23 @@ if (command === "version") {
     process.exit(0);
 }
 
-const dsl = resolve(option("workspace"));
+const remote = /^https?:\/\//i.test(option("workspace"));
+const dsl = remote
+    ? new URL(option("workspace")).pathname
+    : resolve(option("workspace"));
 const calls = join(dirname(dsl), ".stub-calls");
 const log = (entry) =>
+    remote ||
     appendFileSync(
         calls,
         `${JSON.stringify({ command, args, cwd: process.cwd(), ...entry })}\n`,
     );
 log({ at: Date.now() });
 
-const { stub = {}, ...workspace } = JSON.parse(readFileSync(dsl, "utf8"));
+const text = remote
+    ? await fetch(option("workspace")).then((response) => response.text())
+    : readFileSync(dsl, "utf8");
+const { stub = {}, ...workspace } = JSON.parse(text.replace(/^\s*!.*$/gm, ""));
 if (stub.sleep) await new Promise((done) => setTimeout(done, stub.sleep));
 
 process.stdout.write(`INFO -- loading workspace from ${basename(dsl)}\n`);

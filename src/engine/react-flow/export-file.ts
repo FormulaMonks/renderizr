@@ -30,7 +30,11 @@ export function declaresFamily(declared: string, family: string): boolean {
 function fontFaces(family: string | null): string {
     if (!family) return "";
     const rules: string[] = [];
-    for (const sheet of Array.from(document.styleSheets)) {
+    // A workspace of a set adopts its faces on entry (ADR 26).
+    for (const sheet of [
+        ...Array.from(document.styleSheets),
+        ...(document.adoptedStyleSheets ?? []),
+    ]) {
         let list: CSSRuleList;
         try {
             list = sheet.cssRules;

@@ -102,7 +102,9 @@ pnpm dev -- architecture/workspace.json --font Inter
 
 Always put `--` before the arguments. Without it, Vite reads them itself and stops on any option it does not know: `pnpm dev test/__fixtures__/edge-routing.json --font Inter` exits with ``Unknown option `--font` ``.
 
-`vite.config.ts` takes the workspace to be the last argument that is neither a flag nor the value of a branding flag. It reads `RENDERIZR_WORKSPACE` only when you pass no such argument, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
+`vite.config.ts` reads only the arguments after `--`, so Vite's own options go before it: `pnpm dev --port 5174 -- test/__fixtures__/enterprise`. Every argument after it that is neither a flag nor the value of a branding flag goes to the set loader, as in the build: a file, a URL or a folder. It reads `RENDERIZR_WORKSPACE`, a single file, URL or folder, only when you pass no such argument, so `RENDERIZR_WORKSPACE=ws.json pnpm dev -- --font Inter` loads `ws.json`.
+
+The dev server watches the set and reloads the page on every change, and shows a set that doesn't load in an error toast; [Local development](architecture/docs/04-reference.md#local-development) says what it watches and when it runs Structurizr's tools again.
 
 ### Build
 

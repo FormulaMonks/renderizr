@@ -36,7 +36,7 @@ beforeEach(() => {
     dom.reset();
     host = dom.mount("workspace-navigation");
     globalThis.structurizr = { workspace: { name: WORKSPACE.name } };
-    history.replace({ search: "", hash: "" });
+    history.replace({ pathname: "/", search: "", hash: "" });
     setMode("system");
 });
 
@@ -317,4 +317,78 @@ test("clear() empties the header and stops repainting the toggle", () => {
     // markup in a header that is no longer on screen.
     setMode("dark");
     assert.equal(host.querySelectorAll("*").length, 0);
+});
+
+/* -------------------------------------------------- a workspace of a set */
+
+test("the header draws the logo of the workspace the reader entered, over the build's", () => {
+    globalThis.__RENDERIZR_LOGO__ = {
+        src: "data:image/png;base64,AA==",
+        alt: "Acme",
+    };
+    const nav = new Navigation(host, workspace(), {
+        src: "data:image/png;base64,BB==",
+        alt: "Payments",
+        href: null,
+    });
+    nav.render();
+    assert.equal(host.querySelector("img").getAttribute("alt"), "Payments");
+    nav.clear();
+
+    new Navigation(host, workspace(), null).render();
+    assert.equal(host.querySelectorAll("img").length, 0);
+});
+
+test("a cleared header stops following the address", () => {
+    const nav = render();
+    nav.clear();
+    host.innerHTML = '<ul><li><a data-page="docs"></a></li></ul>';
+
+    history.push({ search: "?page=docs" });
+
+    assert.ok(
+        !host.querySelector("a").classList.contains("navigationActive"),
+        "a cleared header marked a tab",
+    );
+});
+
+/* ------------------------------------------------- the workspace trail */
+
+test("off the landscape, the header leads back to the previous workspace on the trail", () => {
+    history.replace({
+        pathname: "/orders/payments/",
+        search: "?view=Containers",
+    });
+    new Navigation(host, workspace(), null, {
+        name: "Orders",
+        pathname: "/orders/",
+    }).render();
+
+    const back = host.querySelector("a[data-back]");
+    assert.equal(back.textContent, "\u2190 Orders");
+    assert.equal(back.getAttribute("title"), "Back to parent workspace");
+    assert.equal(back.getAttribute("href"), "#/orders/?page=diagrams");
+
+    const event = new DOMEvent("click", { bubbles: true });
+    back.dispatchEvent(event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(history.action, "PUSH");
+    assert.equal(history.location.pathname, "/orders/");
+    assert.equal(history.location.search, "?page=diagrams");
+});
+
+test("on the landscape, the header has no way back", () => {
+    render();
+    assert.equal(host.querySelectorAll("a[data-back]").length, 0);
+});
+
+test("the tabs keep the workspace trail, so a copied link stays in the workspace", () => {
+    history.replace({ pathname: "/orders/", search: "" });
+    render();
+    assert.equal(
+        host.querySelector('a[data-page="docs"]').getAttribute("href"),
+        "#/orders/?page=docs",
+    );
+    host.querySelector('a[data-page="adrs"]').click();
+    assert.equal(history.location.pathname, "/orders/");
 });

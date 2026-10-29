@@ -1,0 +1,212 @@
+{
+    "id": 0,
+    "name": "Storefront",
+    "description": "The online shop.",
+    "configuration": {
+        "scope": "SoftwareSystem"
+    },
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Customer",
+                "description": "Buys from the shop.",
+                "location": "Unspecified",
+                "tags": "Element,Person",
+                "relationships": [
+                    {
+                        "id": "10",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Shops with",
+                        "tags": "Relationship",
+                        "technology": "HTTPS"
+                    },
+                    {
+                        "id": "11",
+                        "sourceId": "1",
+                        "destinationId": "3",
+                        "description": "Shops with",
+                        "tags": "Relationship",
+                        "technology": "HTTPS"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "name": "Storefront",
+                "description": "The online shop.",
+                "location": "Unspecified",
+                "tags": "Element,Software System",
+                "relationships": [
+                    {
+                        "id": "14",
+                        "sourceId": "2",
+                        "destinationId": "5",
+                        "description": "Places orders with",
+                        "tags": "Relationship"
+                    }
+                ],
+                "containers": [
+                    {
+                        "id": "3",
+                        "name": "Web App",
+                        "description": "Shows the catalog and the basket.",
+                        "technology": "React",
+                        "tags": "Element,Container",
+                        "relationships": [
+                            {
+                                "id": "12",
+                                "sourceId": "3",
+                                "destinationId": "4",
+                                "description": "Calls",
+                                "tags": "Relationship",
+                                "technology": "JSON/HTTPS"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "4",
+                        "name": "Shop API",
+                        "description": "Serves the catalog and checks out.",
+                        "technology": "Node.js",
+                        "tags": "Element,Container",
+                        "relationships": [
+                            {
+                                "id": "13",
+                                "sourceId": "4",
+                                "destinationId": "5",
+                                "description": "Places orders with",
+                                "tags": "Relationship",
+                                "technology": "JSON/HTTPS"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "5",
+                "name": "Orders",
+                "description": "Takes and tracks orders.",
+                "location": "Unspecified",
+                "tags": "Element,Software System,External"
+            }
+        ]
+    },
+    "views": {
+        "configuration": {
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Person",
+                        "background": "#08427b",
+                        "color": "#ffffff",
+                        "shape": "Person"
+                    },
+                    {
+                        "tag": "Software System",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Container",
+                        "background": "#438dd5",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "External",
+                        "background": "#999999",
+                        "color": "#ffffff"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    }
+                ]
+            },
+            "terminology": {}
+        },
+        "systemContextViews": [
+            {
+                "key": "SystemContext",
+                "order": 1,
+                "softwareSystemId": "2",
+                "description": "Storefront in context.",
+                "enterpriseBoundaryVisible": true,
+                "automaticLayout": {
+                    "implementation": "Dagre",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [
+                    {
+                        "id": "1"
+                    },
+                    {
+                        "id": "2"
+                    },
+                    {
+                        "id": "5"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "10"
+                    },
+                    {
+                        "id": "14"
+                    }
+                ]
+            }
+        ],
+        "containerViews": [
+            {
+                "key": "Containers",
+                "order": 2,
+                "softwareSystemId": "2",
+                "description": "Inside Storefront.",
+                "externalSoftwareSystemBoundariesVisible": false,
+                "automaticLayout": {
+                    "implementation": "Dagre",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [
+                    {
+                        "id": "1"
+                    },
+                    {
+                        "id": "3"
+                    },
+                    {
+                        "id": "4"
+                    },
+                    {
+                        "id": "5"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "11"
+                    },
+                    {
+                        "id": "12"
+                    },
+                    {
+                        "id": "13"
+                    }
+                ]
+            }
+        ]
+    }
+}

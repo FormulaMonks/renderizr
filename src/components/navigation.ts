@@ -18,9 +18,11 @@ export type WorkspaceSummary = {
     };
 };
 import history from "history/hash";
+import type { Logo } from "virtual:renderizr/set";
 import Component from "./_component";
 import styles from "./navigation.module.css";
 import { cycleMode, getMode, onThemeChange, type ThemeMode } from "./theme";
+import { DEFAULT_VIEW } from "../workspace-trail";
 import lightIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
 import darkIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
 import systemIcon from "bootstrap-icons/icons/circle-half.svg?raw";
@@ -41,14 +43,43 @@ const THEME_LABEL: Record<ThemeMode, string> = {
     system: "Page theme: system. Switch to light",
 };
 
+/**
+ * The workspace the header's button leads back to along the workspace
+ * trail (ADR 26): its name, and the address path that shows it.
+ */
+export type ParentWorkspace = { name: string; pathname: string };
+
 export default class Navigation extends Component {
     #workspace: WorkspaceSummary;
+    #logo: Logo | null;
+    #parent: ParentWorkspace | null;
+    #back: HTMLAnchorElement | null = null;
     #unsubscribeTheme: (() => void) | null = null;
+    #unlisten: (() => void) | null = null;
 
-    constructor(element: HTMLElement, workspace: WorkspaceSummary) {
+    /**
+     * `logo` is the branding of the workspace the reader is in (ADR 26):
+     * by default the one the page lands on. `parent` is the workspace the
+     * header leads back to, off the landscape.
+     */
+    constructor(
+        element: HTMLElement,
+        workspace: WorkspaceSummary,
+        logo: Logo | null = __RENDERIZR_LOGO__,
+        parent: ParentWorkspace | null = null,
+    ) {
         super(element);
         this.#workspace = workspace;
+        this.#logo = logo;
+        this.#parent = parent;
     }
+
+    /** Open the parent workspace at its default view. */
+    #goBack = (event: Event) => {
+        event.preventDefault();
+        if (!this.#parent) return;
+        history.push({ pathname: this.#parent.pathname, search: DEFAULT_VIEW });
+    };
 
     #links = () =>
         Array.from(
@@ -73,6 +104,8 @@ export default class Navigation extends Component {
         for (const [link, handler] of this.#linkEventHandlers) {
             link.removeEventListener("click", handler);
         }
+        this.#back?.removeEventListener("click", this.#goBack);
+        this.#back = null;
     }
 
     get hasDocs() {
@@ -123,11 +156,20 @@ export default class Navigation extends Component {
 
         // A real href, so middle-click, cmd-click and "copy link address" all
         // produce a URL that works — a bare "docs" resolves against the host
-        // and 404s everywhere the file is published.
+        // and 404s everywhere the file is published. It keeps the workspace
+        // trail, so the copy opens this workspace of a set.
+        const { pathname } = history.location;
         const link = (page: string, label: string) =>
-            `<li><a href="${history.createHref({ search: `?page=${page}` })}" data-page="${page}">${label}</a></li>`;
+            `<li><a href="${history.createHref({ pathname, search: `?page=${page}` })}" data-page="${page}">${label}</a></li>`;
 
-        const logo = __RENDERIZR_LOGO__;
+        // Off the landscape, the way back up the workspace trail. The logo
+        // stays branding.
+        const parent = this.#parent;
+        const back = parent
+            ? `<a class="${styles.back}" data-back href="${history.createHref({ pathname: parent.pathname, search: DEFAULT_VIEW })}" title="Back to parent workspace">\u2190 ${parent.name}</a>`
+            : "";
+
+        const logo = this.#logo;
         const logoImg = logo
             ? `<img class="${styles.logo}" src="${logo.src}" alt="${logo.alt}"${
                   logo.width ? ` width="${logo.width}"` : ""
@@ -148,6 +190,7 @@ export default class Navigation extends Component {
         this.element.innerHTML = `
             <div class="${styles.titleAndDesc}">
                 <div class="${styles.brand}">
+                    ${back}
                     ${
                         logoIsTitle
                             ? `<h1 class="${styles.logoTitle}">${brandMark}</h1>`
@@ -171,7 +214,8 @@ export default class Navigation extends Component {
 
         this.#renderThemeToggle();
 
-        history.listen((update) => {
+        this.#unlisten?.();
+        this.#unlisten = history.listen((update) => {
             for (const link of this.#links()) {
                 link.classList.remove(styles.navigationActive);
                 const search = new URLSearchParams(update.location.search);
@@ -182,6 +226,9 @@ export default class Navigation extends Component {
         });
 
         this.#addEvents();
+        this.#back =
+            this.element.querySelector<HTMLAnchorElement>("a[data-back]");
+        this.#back?.addEventListener("click", this.#goBack);
 
         return this;
     }
@@ -190,7 +237,10 @@ export default class Navigation extends Component {
         this.element?.classList.remove(styles.navigation);
         this.#unsubscribeTheme?.();
         this.#unsubscribeTheme = null;
+        this.#unlisten?.();
+        this.#unlisten = null;
         this.#removeEvents();
+        this.#linkEventHandlers.clear();
 
         const children = this.element?.querySelectorAll("*");
         if (children) {

@@ -25,12 +25,6 @@ import {
 } from "../components/edit-buttons";
 import { EditSession } from "../components/edit-session";
 import { heldEdits, viewSignature } from "../components/live-reload";
-import {
-    showFailure,
-    showFailureBanner,
-    showHeldBar,
-    showReloadNotice,
-} from "../components/reload-bar";
 import { pageCommand } from "../components/shortcuts";
 import { openShortcuts } from "../components/shortcuts-dialog";
 import {
@@ -40,6 +34,7 @@ import {
     readingSearch,
 } from "../components/editing-route";
 import { sessionToken } from "../components/session-token";
+import { showError, showErrorInPlace, showNotice } from "../components/toast";
 import { confirmLeave } from "../components/unsaved-dialog";
 import type { Engine } from "../engine";
 import type { SelectionState } from "../engine/contract";
@@ -140,13 +135,22 @@ const blank = servedError?.blank ?? false;
 /** Shows `failure` where the diagrams page has it, while it shows. */
 let paintFailure: (() => void) | null = null;
 
+/** What the page says about a workspace that didn't load (spec 5.3). */
+const FAILED =
+    "The workspace didn't load. The page keeps the last one that did, and follows once you fix it.";
+
+/** What the page says when no workspace has loaded to draw (spec 5.3). */
+const NOTHING_TO_DRAW =
+    "The workspace didn't load, so there is nothing to draw yet. The page follows once you fix it.";
+
 /**
  * Show the error in place of the canvas in `target` when the page has no
  * workspace to draw yet (spec 5.3), and say whether it did.
  */
 export function showBlank(target: HTMLElement): boolean {
     if (!blank) return false;
-    const paint = () => showFailure(target, failure ?? "");
+    const paint = () =>
+        showErrorInPlace(target, NOTHING_TO_DRAW, failure ?? "");
     paint();
     paintFailure = paint;
     return true;
@@ -198,7 +202,7 @@ export function startLiveReload() {
         swapIn(arrival);
         paintFailure?.();
     });
-    // The banner shows over the last workspace that loaded, which stays
+    // The error toast shows over the last workspace that loaded, which stays
     // editable, until the next one arrives (spec 5.3).
     hot.on(ERROR_EVENT, ({ error }: { error: string }) => {
         failure = error;
@@ -218,15 +222,14 @@ export function startLiveReload() {
  * Swap `arrival` in for `before`, the workspace the page shows (spec 6.2,
  * 6.3). The edit session drops what the file now holds and lays the edits
  * still waiting over `after`; the engine keeps the view, its viewport and
- * its selection where it can. The page says so when the view is gone, or
- * can no longer be edited. `canvas` is where the notice goes.
+ * its selection where it can. A notice toast says so when the view is gone,
+ * or can no longer be edited.
  */
 export function swapWorkspace(
     engine: Engine,
     before: WorkspaceModel,
     after: WorkspaceModel,
     arrival: Arrived,
-    canvas: HTMLElement,
 ) {
     const edits = editSession();
     const shown = engine.getCurrentView();
@@ -246,13 +249,11 @@ export function swapWorkspace(
     const view = after.findViewByKey(shown.key);
     const first = after.getViews()[0];
     if (!view && first)
-        showReloadNotice(
-            canvas,
+        showNotice(
             `workspace.json no longer has ${before.getTitleForView(shown)}, so the page shows ${after.getTitleForView(first)}.`,
         );
     else if (view && editing() && !isEditable(view))
-        showReloadNotice(
-            canvas,
+        showNotice(
             `${after.getTitleForView(view)} can no longer be edited, so the page shows it for reading.`,
         );
 }
@@ -411,17 +412,38 @@ export function startEditing(
     document.addEventListener("keydown", onKey);
     const paintState = () => paintEditState(container, editState(engine));
 
-    // Edits that couldn't be saved wait behind a bar for the author (spec
-    // 6.2); any save keeps them, so the bar goes with it.
-    let removeBar: (() => void) | null = null;
-    const paintHeld = () => {
+    // The page's error toast says one of two things (spec 264, _The toast_).
+    // Why the workspace didn't load comes first, over the last one that did
+    // (spec 5.3): keeping held edits would save them into the file that
+    // failed. Edits that couldn't be saved wait for the author to keep or
+    // discard them (spec 6.2), and their question comes back once the
+    // failure clears. Any save keeps them, so the question goes with it.
+    let removeError: (() => void) | null = null;
+    let errorShown: string | null = null;
+    let answered = false;
+    const answer = (then: () => void) => () => {
+        answered = true;
+        removeError = null;
+        errorShown = null;
+        then();
+    };
+    const paintError = () => {
         const [key] = edits.held();
-        if (!key) {
-            removeBar?.();
-            removeBar = null;
+        if (!key) answered = false;
+        const next = failure
+            ? `failure:${failure}`
+            : key && !answered
+              ? "held"
+              : null;
+        if (next === errorShown) return;
+        removeError?.();
+        removeError = null;
+        errorShown = next;
+        if (failure) {
+            removeError = showError(FAILED, { detail: failure });
             return;
         }
-        if (removeBar) return;
+        if (!key || answered) return;
         // A save refused as stale holds edits the engine may no longer draw,
         // once a workspace arrived while it was on its way (spec 6.2).
         for (const held of edits.held()) {
@@ -429,38 +451,29 @@ export function startEditing(
             if (layout) engine.setLayout(held, layout);
         }
         const view = model.findViewByKey(key);
-        const canvas = container.querySelector<HTMLElement>(
-            "#structurizr-diagram-target",
-        );
-        if (!canvas) return;
-        removeBar = showHeldBar(
-            canvas,
-            view ? model.getTitleForView(view) : key,
+        const title = view ? model.getTitleForView(view) : key;
+        removeError = showError(
+            `workspace.json changed on disk while ${title} had unsaved changes`,
             {
-                keep: () => void edits.save(),
-                discard: () => {
-                    for (const discarded of edits.discard())
-                        engine.setLayout(discarded, {});
-                    currentView.render(engine.getCurrentView());
-                },
+                actions: [
+                    {
+                        label: "Keep my changes",
+                        run: answer(() => void edits.save()),
+                    },
+                    {
+                        label: "Discard them",
+                        run: answer(() => {
+                            for (const discarded of edits.discard())
+                                engine.setLayout(discarded, {});
+                            currentView.render(engine.getCurrentView());
+                        }),
+                    },
+                ],
             },
         );
     };
-    paintHeld();
-
-    // Why the workspace didn't load, over the canvas (spec 5.3).
-    let removeFailure: (() => void) | null = null;
-    const paintBanner = () => {
-        removeFailure?.();
-        removeFailure = null;
-        const canvas = container.querySelector<HTMLElement>(
-            "#structurizr-diagram-target",
-        );
-        if (failure && canvas)
-            removeFailure = showFailureBanner(canvas, failure);
-    };
-    paintBanner();
-    paintFailure = paintBanner;
+    paintError();
+    paintFailure = paintError;
 
     return [
         engine.onViewShown((view) => edits.setView(view.key)),
@@ -475,7 +488,7 @@ export function startEditing(
         edits.onStatus((status) => {
             paintSaveStatus(container, status);
             paintState();
-            paintHeld();
+            paintError();
         }),
         engine.onSelectionChanged(({ elements, edge }) => {
             selected = elements.length;
@@ -496,10 +509,9 @@ export function startEditing(
             currentView.render(engine.getCurrentView());
         }),
         () => document.removeEventListener("keydown", onKey),
-        () => removeBar?.(),
         () => {
-            removeFailure?.();
-            if (paintFailure === paintBanner) paintFailure = null;
+            removeError?.();
+            if (paintFailure === paintError) paintFailure = null;
         },
         () => root.removeAttribute("data-editing"),
     ];

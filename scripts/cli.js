@@ -22,7 +22,22 @@ const USAGE = `
 Renderizr: render a Structurizr workspace as a static site.
 
   renderizr <workspace.json|url> [options]
+  renderizr <workspace|url|folder>... [options]
   renderizr edit [path] [options]   Edit the layout of the views in a browser
+
+Workspaces
+  Each workspace is a workspace.json or workspace.dsl file, a URL, or a folder,
+  which gives the *workspace.json and *workspace.dsl files in it, without
+  recursing. Give several in any order to render a set: one landscape scoped
+  workspace, where the reader lands, and the software system scoped
+  workspaces it maps. The build also follows each software system's element
+  link that is an absolute URL to a workspace.json or workspace.dsl, and a
+  workspace you give beats a link to the same software system.
+
+  A workspace.dsl runs through Structurizr's tools (export -format json): the
+  STRUCTURIZR_CLI environment variable as a whole command, otherwise
+  structurizr-cli on the PATH, with Java 21 to 25. A workspace.json needs no
+  tools.
 
 Options
   -o, --out <dir>          Output directory (default: structurizr-output)
@@ -62,7 +77,8 @@ Branding
     }
 
   renderizr.logo is relative to the workspace file. A run whose flags differ
-  from the workspace prints the properties to add.
+  from the workspace prints the properties to add. In a set, a workspace that
+  sets no property takes the landscape scoped workspace's.
 
 Edit options (renderizr edit [path]; renderizr edit --help says more)
       --port <n>           Port for the local server (default: ${DEFAULT_PORT})
@@ -74,6 +90,7 @@ Examples
   renderizr ./workspace.json
   renderizr https://example.com/workspace.json --single-file
   renderizr ./workspace.json --single-file --font Inter --logo ./logo.svg
+  renderizr ./landscape/workspace.dsl ./teams
   renderizr edit ./workspace.dsl --font Inter
 
 In a clone of this repository the same thing is: pnpm render <workspace> [options]
@@ -124,18 +141,15 @@ export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
         process.exit(1);
     }
 
-    if (positionals.length !== 1) {
-        process.stderr.write(
-            positionals.length
-                ? `Expected one workspace, got ${positionals.length}: ${positionals.join(", ")}\n\n`
-                : "Missing the workspace to render.\n\n",
-        );
+    if (positionals.length === 0) {
+        process.stderr.write("Missing the workspace to render.\n\n");
         usage(process.stderr);
         process.exit(1);
     }
 
     return {
-        workspace: positionals[0],
+        // The set loader (`scripts/workspace-set.js`) reads them (ADR 26).
+        workspaces: positionals,
         out: values.out,
         base: values.base,
         singleFile: values["single-file"],

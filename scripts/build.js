@@ -2,12 +2,13 @@
 
 import { resolve } from "node:path";
 import { build } from "vite";
-import { loadWorkspace } from "./assets.js";
-import { loadBranding } from "./branding.js";
+import { loadSetBranding, writeBrandingNotices } from "./branding.js";
 import { parseCliArgs, parseEditArgs, withoutSeparator } from "./cli.js";
 import { createConfig } from "./config.js";
 import { sessionNotices, startEditServer } from "./edit.js";
+import { brandingOf, pageSet, UNNAMED_WORKSPACE } from "./plugins.js";
 import { styles } from "./terminal.js";
+import { loadSet, writeSetMessages } from "./workspace-set.js";
 
 // `npx` runs against whatever Node is on the PATH, which is often not the one
 // the shell reports. Older versions fail deep inside the build instead — no
@@ -25,15 +26,15 @@ if (Number.parseInt(process.versions.node, 10) < MINIMUM_NODE) {
 async function buildSite() {
     const options = parseCliArgs();
 
-    const workspace = await loadWorkspace(options.workspace);
-    const { logo, font, primaryColor, notices } = await loadBranding({
-        flags: options.branding,
-        workspace,
-        source: options.workspace,
-    });
-    for (const notice of notices) process.stderr.write(`${notice}\n`);
+    // The page holds the landscape scoped workspace, or a lone workspace,
+    // and enters the set's other workspaces from their own files (ADR 26).
+    const set = await loadSet(options.workspaces);
+    writeSetMessages(set, process.stderr);
+    const { workspace } = set.landscape;
+    const branding = await loadSetBranding({ flags: options.branding, set });
+    writeBrandingNotices(branding, process.stderr);
 
-    process.env.VITE_WORKSPACE_NAME = workspace.name ?? "Workspace";
+    process.env.VITE_WORKSPACE_NAME = workspace.name ?? UNNAMED_WORKSPACE;
 
     const outDir = resolve(process.cwd(), options.out);
     process.stdout.write(`Building ${workspace.name} to ${outDir}...\n`);
@@ -41,9 +42,8 @@ async function buildSite() {
     await build(
         createConfig({
             workspace,
-            logo,
-            font,
-            primaryColor,
+            branding: brandingOf(branding.landscape),
+            set: pageSet(set, branding),
             singleFile: options.singleFile,
             out: options.out,
             base: options.base,

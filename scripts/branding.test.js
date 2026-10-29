@@ -9,6 +9,7 @@ import {
     checkBranding,
     chooseBranding,
     loadBranding,
+    loadSetBranding,
     NO_BRANDING_FLAGS,
 } from "./branding.js";
 import { fixture, withFetch, withTempDir } from "./__fixtures__/helpers.js";
@@ -349,4 +350,232 @@ test("checkBranding refuses an invalid color or logo and passes a valid set", as
         }),
         /renderizr\.logo/,
     );
+});
+
+/* ----------------------------------------------------------------- a set */
+
+const LANDSCAPE_SOURCE = "/work/landscape/workspace.json";
+const MEMBER_SOURCE = "/work/teams/orders/workspace.json";
+
+/** A software system scoped workspace of a set, as `chooseBranding` takes it. */
+const memberOf = (properties, landscapeProperties, set = {}) => ({
+    flags: flags(set),
+    workspace: workspaceWith(properties),
+    source: MEMBER_SOURCE,
+    landscape: {
+        workspace: workspaceWith(landscapeProperties),
+        source: LANDSCAPE_SOURCE,
+    },
+    cwd: CWD,
+});
+
+test("in a set, each value comes from the flag, then the workspace, then the landscape scoped workspace, then the default", () => {
+    const steps = [
+        // [flag, own, landscape's, chosen, origin]
+        ["#111", "#222", "#333", "#111", "flag"],
+        [null, "#222", "#333", "#222", "workspace"],
+        [null, null, "#333", "#333", "landscape"],
+        [null, null, null, null, null],
+    ];
+    const property = (value) =>
+        value ? { "renderizr.primaryColor": value } : {};
+    for (const [flag, own, landscape, chosen, origin] of steps) {
+        const branding = chooseBranding(
+            memberOf(property(own), property(landscape), {
+                primaryColor: flag,
+            }),
+        );
+        assert.equal(branding.primaryColor, chosen, `${flag} ${own}`);
+        assert.equal(branding.origin.primaryColor, origin);
+    }
+    const { font, logo } = chooseBranding(
+        memberOf(
+            { "renderizr.logoAlt": "Orders" },
+            {
+                "renderizr.font": "Inter",
+                "renderizr.logo": "logo.svg",
+                "renderizr.logoAlt": "Acme",
+                "renderizr.logoHref": "https://acme.example",
+            },
+        ),
+    );
+    assert.equal(font.family, "Inter");
+    assert.deepEqual(logo, {
+        source: "/work/landscape/logo.svg",
+        alt: "Orders",
+        href: "https://acme.example",
+    });
+});
+
+test("a flag brands every workspace of the set, whatever its properties", () => {
+    const set = { font: "Lora", primaryColor: "#000" };
+    const landscape = chooseBranding({
+        flags: flags(set),
+        workspace: workspaceWith(ALL_PROPERTIES),
+        source: LANDSCAPE_SOURCE,
+        cwd: CWD,
+    });
+    const member = chooseBranding(
+        memberOf(ALL_PROPERTIES, ALL_PROPERTIES, set),
+    );
+    for (const branding of [landscape, member]) {
+        assert.equal(branding.font.family, "Lora");
+        assert.equal(branding.primaryColor, "#000");
+    }
+});
+
+test("a relative renderizr.logo in a set resolves beside the workspace that sets it", () => {
+    const cases = [
+        [{ "renderizr.logo": "logo.svg" }, {}, "/work/teams/orders/logo.svg"],
+        [{}, { "renderizr.logo": "logo.svg" }, "/work/landscape/logo.svg"],
+    ];
+    for (const [own, landscape, expected] of cases) {
+        const { logo } = chooseBranding(memberOf(own, landscape));
+        assert.equal(logo.source, expected);
+    }
+    const { logo } = chooseBranding({
+        ...memberOf({}, {}),
+        landscape: {
+            workspace: workspaceWith({ "renderizr.logo": "logo.svg" }),
+            source: "https://example.test/landscape/workspace.json",
+        },
+    });
+    assert.equal(logo.source, "https://example.test/landscape/logo.svg");
+});
+
+test("in a set, an invalid value the build uses fails, naming the property and the file that sets it", () => {
+    const wrong = { "renderizr.primaryColor": "not a color" };
+    assert.throws(
+        () => chooseBranding(memberOf(wrong, {})),
+        /renderizr\.primaryColor in \/work\/teams\/orders\/workspace\.json takes a CSS color/,
+    );
+    assert.throws(
+        () => chooseBranding(memberOf({}, wrong)),
+        /renderizr\.primaryColor in \/work\/landscape\/workspace\.json takes a CSS color/,
+    );
+});
+
+test("in a set, an invalid value the build doesn't use goes unchecked", () => {
+    const wrong = { "renderizr.primaryColor": "not a color" };
+    const cases = [
+        // A flag overrides the workspace's own value.
+        [memberOf(wrong, {}, { primaryColor: "#fff" }), "#fff"],
+        // The workspace's own value hides the landscape's.
+        [memberOf({ "renderizr.primaryColor": "#222" }, wrong), "#222"],
+    ];
+    for (const [input, expected] of cases) {
+        assert.equal(chooseBranding(input).primaryColor, expected);
+    }
+});
+
+test("a landscape logo that won't load fails a member, naming the property and the landscape's file", async () => {
+    await withTempDir(async (dir) => {
+        const landscapeSource = join(dir, "landscape-workspace.json");
+        await assert.rejects(
+            loadBranding({
+                flags: NO_BRANDING_FLAGS,
+                workspace: workspaceWith(),
+                source: join(dir, "orders-workspace.json"),
+                landscape: {
+                    workspace: workspaceWith({
+                        "renderizr.logo": fixture("logo-scripted.svg"),
+                    }),
+                    source: landscapeSource,
+                },
+            }),
+            (error) => {
+                assert.ok(
+                    error.message.startsWith(
+                        `renderizr.logo in ${landscapeSource}: `,
+                    ),
+                    error.message,
+                );
+                return true;
+            },
+        );
+    });
+});
+
+test("a set prints one properties block, for the landscape scoped workspace, and says it brands the whole set", () => {
+    const set = flags({ primaryColor: "#000" });
+    const [hint] = brandingNotices({
+        flags: set,
+        workspace: workspaceWith(),
+        source: LANDSCAPE_SOURCE,
+        cwd: CWD,
+        brandsSet: true,
+    });
+    assert.match(hint, /"renderizr\.primaryColor" "#000"/);
+    assert.match(hint, /landscape scoped workspace/);
+    assert.match(hint, /every workspace of the set/);
+
+    const [lone] = brandingNotices({
+        flags: set,
+        workspace: workspaceWith(),
+        source: LANDSCAPE_SOURCE,
+        cwd: CWD,
+    });
+    assert.ok(!lone.includes(" set"), "a lone workspace's hint names a set");
+
+    const member = brandingNotices({ ...memberOf({}, {}), flags: set });
+    assert.deepEqual(member, []);
+});
+
+test("loadSetBranding loads each workspace's branding and fetches a shared font once", async () => {
+    const css = `/* latin */\n@font-face {\n  font-family: 'Inter';\n  src: url(https://fonts.gstatic.com/a.woff2) format('woff2');\n}`;
+    await withTempDir(async (dir) => {
+        const source = (name) => join(dir, `${name}-workspace.json`);
+        await writeFile(join(dir, "mark.png"), PNG);
+        const set = {
+            landscape: {
+                source: source("landscape"),
+                workspace: workspaceWith({
+                    "renderizr.font": "Inter",
+                    "renderizr.primaryColor": "#111",
+                }),
+            },
+            workspaces: [
+                {
+                    slug: "orders",
+                    source: source("orders"),
+                    workspace: workspaceWith({ "renderizr.logo": "mark.png" }),
+                },
+                {
+                    slug: "payments",
+                    source: source("payments"),
+                    workspace: workspaceWith({
+                        "renderizr.primaryColor": "#222",
+                    }),
+                },
+            ],
+        };
+        await withFetch(
+            {
+                "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=block":
+                    { body: css },
+                "https://fonts.gstatic.com/a.woff2": { body: "woff2" },
+            },
+            async (calls) => {
+                const { landscape, workspaces } = await loadSetBranding({
+                    flags: NO_BRANDING_FLAGS,
+                    set,
+                });
+                assert.equal(landscape.font.family, "Inter");
+                assert.equal(landscape.primaryColor, "#111");
+                assert.deepEqual(
+                    workspaces.map((branding) => [
+                        branding.font.family,
+                        branding.primaryColor,
+                        Boolean(branding.logo),
+                    ]),
+                    [
+                        ["Inter", "#111", true],
+                        ["Inter", "#222", false],
+                    ],
+                );
+                assert.equal(workspaces[0].font.css, landscape.font.css);
+                assert.equal(calls.length, 2, "the font was fetched again");
+            },
+        );
+    });
 });

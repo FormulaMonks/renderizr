@@ -64,7 +64,7 @@ beforeEach(() => {
         return unlisten;
     };
 
-    history.replace({ search: "", hash: "" });
+    history.replace({ pathname: "/", search: "", hash: "" });
 });
 
 afterEach(() => {
@@ -239,4 +239,52 @@ test("render() and clear() delegate to the page on screen", () => {
     router.clear();
 
     assert.deepEqual(log, ["render:diagrams", "clear:diagrams"]);
+});
+
+/* ---------------- another workspace's pages */
+
+test("replacing the pages clears the page on screen and draws the new one the address names", () => {
+    const router = new Router(host, pages());
+    router.navigateTo("adrs", "?adr=3");
+    const entries = window.history.length;
+    log.length = 0;
+
+    router.replacePages([
+        new RecordingPage("diagrams", log),
+        new RecordingPage("adrs", log),
+    ]);
+
+    assert.deepEqual(log, ["clear:adrs", "render:adrs"]);
+    assert.equal(currentPage(), "adrs");
+    assert.equal(new URLSearchParams(history.location.search).get("adr"), "3");
+    assert.equal(window.history.length, entries, "entering pushed an entry");
+});
+
+test("replacing the pages with a set that lacks the page on screen lands on the first one", () => {
+    const router = new Router(host, pages());
+    router.navigateTo("docs");
+    log.length = 0;
+
+    router.replacePages([new RecordingPage("diagrams", log)]);
+
+    assert.deepEqual(log, ["clear:docs", "render:diagrams"]);
+    assert.equal(currentPage(), "diagrams");
+});
+
+test("an address in another workspace is the shell's to follow, not the router's", () => {
+    const router = new Router(host, pages());
+    log.length = 0;
+
+    // The shell enters Orders and then hands the router its pages.
+    history.push({ pathname: "/orders/", search: "?page=adrs" });
+    assert.deepEqual(log, [], "the router drew the landscape's page there");
+
+    router.replacePages(pages());
+    assert.deepEqual(log, ["clear:diagrams", "render:adrs"]);
+
+    // Within Orders the router follows the address again.
+    log.length = 0;
+    history.push({ search: "?page=docs" });
+    assert.deepEqual(log, ["clear:adrs", "render:docs"]);
+    assert.equal(history.location.pathname, "/orders/");
 });

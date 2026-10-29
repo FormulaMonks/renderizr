@@ -8,6 +8,7 @@ import { sectionId } from "../model/documentation";
 import type { DocumentationSection } from "../types/structurizr-documentation";
 import Page from "./_page";
 import history from "history/hash";
+import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
 import styles from "./docs.module.css";
 import { showDisclaimer } from "../components/disclaimer";
 
@@ -702,7 +703,10 @@ export default class Docs extends Page {
 
         this.#goToPage(this.#indexFromUrl(history.location.search), false);
 
+        const shown = workspaceOf(history.location.pathname);
         this.#unlisten = history.listen((update) => {
+            // An address in another workspace waits for that one's pages.
+            if (inOtherWorkspace(update.location.pathname, shown)) return;
             const params = new URLSearchParams(update.location.search);
             if (params.get("page") !== "docs") return;
 

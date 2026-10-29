@@ -1,0 +1,78 @@
+[
+    { "open": "{{serve}}#/?page=diagrams" },
+    { "ready": true },
+    {
+        "assert": "document.title === 'Acme | Structurizr' && !document.querySelector('a[data-back]')",
+        "message": "the reader lands on the landscape, with no way back"
+    },
+    {
+        "assert": "document.querySelector('.react-flow__node[data-id=\"3\"] [data-indicator=\"workspace\"]')",
+        "message": "Orders draws the workspace indicator"
+    },
+    { "shot": "1-landscape.png" },
+    { "click": ".react-flow__node[data-id=\"3\"]" },
+    {
+        "waitFor": "location.hash.startsWith('#/orders/?') && document.title === 'Orders | Structurizr' && document.querySelector('[data-ready=\"true\"]')"
+    },
+    { "ready": true },
+    {
+        "assert": "document.querySelector('a[data-back]').textContent === '← Acme'",
+        "message": "a one-segment trail leads back to the landscape"
+    },
+    { "eval": "location.hash", "as": "ordersAddress" },
+    { "shot": "2-orders.png" },
+    { "click": ".react-flow__node[data-id=\"6\"]" },
+    {
+        "waitFor": "location.hash.startsWith('#/orders/payments/?') && document.title === 'Payments | Structurizr' && document.querySelector('[data-ready=\"true\"]')"
+    },
+    { "ready": true },
+    {
+        "waitFor": "document.querySelector('[data-toast=\"notice\"]')?.textContent.includes('Payments has no view Deployment, so the page shows SystemContext.')"
+    },
+    {
+        "assert": "document.querySelector('a[data-back]').textContent === '← Orders'",
+        "message": "the header leads back to Orders"
+    },
+    { "eval": "location.hash", "as": "paymentsAddress" },
+    { "shot": "3-payments-missing-view.png" },
+    { "click": "a[data-back]" },
+    {
+        "waitFor": "location.hash === '#/orders/?page=diagrams&view=SystemContext' && document.title === 'Orders | Structurizr'"
+    },
+    { "ready": true },
+    { "shot": "4-back-to-orders.png" },
+    { "eval": "history.back()" },
+    {
+        "waitFor": "location.hash.startsWith('#/orders/payments/?') && document.title === 'Payments | Structurizr'"
+    },
+    { "ready": true },
+    { "eval": "history.back()" },
+    {
+        "waitFor": "location.hash.startsWith('#/orders/?') && document.title === 'Orders | Structurizr'"
+    },
+    { "eval": "history.back()" },
+    {
+        "waitFor": "location.hash === '#/?page=diagrams&view=Landscape' && document.title === 'Acme | Structurizr' && !document.querySelector('a[data-back]')"
+    },
+    { "ready": true },
+    { "eval": "history.forward()" },
+    {
+        "waitFor": "location.hash.startsWith('#/orders/?') && document.title === 'Orders | Structurizr'"
+    },
+    { "ready": true },
+    { "click": ".react-flow__node[data-id=\"5\"]" },
+    {
+        "waitFor": "location.hash.startsWith('#/orders/storefront/?') && document.title === 'Storefront | Structurizr'"
+    },
+    { "ready": true },
+    { "shot": "5-sibling-storefront.png" },
+    { "hash": "#/orders/billing/?page=diagrams&view=Containers" },
+    {
+        "waitFor": "location.hash === '#/orders/?page=diagrams&view=SystemContext' && document.title === 'Orders | Structurizr'"
+    },
+    {
+        "waitFor": "document.querySelector('[data-toast=\"notice\"]')?.textContent.includes('This site no longer has the billing workspace, so the page shows Orders.')"
+    },
+    { "ready": true },
+    { "shot": "6-missing-workspace.png" }
+]

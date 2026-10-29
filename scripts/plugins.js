@@ -1,5 +1,11 @@
 import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 
+/**
+ * The name a workspace goes by when it gives none: the page title's and the
+ * set's. `src/workspace-set.ts` holds the page's own.
+ */
+export const UNNAMED_WORKSPACE = "Workspace";
+
 /** The module the page imports its workspace from. */
 export const WORKSPACE_MODULE = "virtual:renderizr/workspace";
 
@@ -20,20 +26,194 @@ export const workspaceModuleSource = (
 ) =>
     `export default ${JSON.stringify(workspace)};\nexport const version = ${JSON.stringify(version)};\nexport const error = ${JSON.stringify(error)};`;
 
+/** `value`, or what it gives when it is a function: a value read late. */
+const current = (value) => (typeof value === "function" ? value() : value);
+
 /**
  * Compiles `workspace` into the page as `WORKSPACE_MODULE`. Builds and
  * `pnpm dev` use this; edit mode serves the module from disk instead
- * (ADR 15).
+ * (ADR 15). `pnpm dev` passes `workspace`, and `error`, as functions,
+ * read on every load, since its set reloads (spec 264).
  */
-export function workspaceModule(workspace) {
+export function workspaceModule(workspace, error = null) {
     return {
         name: "renderizr:workspace",
         resolveId: (id) =>
             id === WORKSPACE_MODULE ? RESOLVED_WORKSPACE_MODULE : null,
         load: (id) =>
             id === RESOLVED_WORKSPACE_MODULE
-                ? workspaceModuleSource(workspace)
+                ? workspaceModuleSource(
+                      current(workspace),
+                      null,
+                      current(error),
+                  )
                 : null,
+    };
+}
+
+/* ------------------------------------------------------------------- set */
+
+/** The module the page imports the rest of its set from (ADR 26). */
+export const SET_MODULE = "virtual:renderizr/set";
+
+/** The id Vite gives `SET_MODULE` once a plugin resolves it. */
+export const RESOLVED_SET_MODULE = `\0${SET_MODULE}`;
+
+/**
+ * @typedef {object} Branding
+ *   A workspace's branding, loaded, as the page's `Branding` type
+ *   (`src/vite-env.d.ts`) has it: the logo as `loadLogo` gives it, the
+ *   font's family with its embedded faces, and the primary color, each
+ *   `null` when the workspace has none.
+ * @property {object | null} logo
+ * @property {{ family: string, css: string | null } | null} font
+ * @property {string | null} primaryColor
+ */
+
+/** The branding of a workspace that has none. */
+export const NO_BRANDING = Object.freeze({
+    logo: null,
+    font: null,
+    primaryColor: null,
+});
+
+/** `loaded`, as `loadBranding` gives it, without its notices. */
+export const brandingOf = ({ logo, font, primaryColor }) => ({
+    logo,
+    font,
+    primaryColor,
+});
+
+/**
+ * @typedef {object} WorkspacePayload
+ *   One software system scoped workspace of a set, as the page enters it:
+ *   the file `<slug>.json` holds it in a multi-file build.
+ * @property {object} workspace The workspace JSON.
+ * @property {Branding} branding Its branding, with `font.css: null` when
+ *   the landscape scoped workspace's faces, already in the page, are the
+ *   same.
+ * @property {object[]} crossings Its elements that lead into another
+ *   workspace of the set, as `loadSet` gives them.
+ *
+ * @typedef {object} PageSet
+ *   The set as the page takes it.
+ * @property {object[]} crossings The landscape scoped workspace's crossings.
+ * @property {{ slug: string, payload: WorkspacePayload }[]} workspaces
+ * @property {boolean} [inline] Whether the page holds every payload, as
+ *   `--single-file` needs, rather than loading each from its file.
+ */
+
+/**
+ * The set `loadSet` gives, with the branding `loadSetBranding` loads for
+ * it, as the page takes it. The landscape scoped workspace's own branding
+ * stays compiled into the page, as a lone workspace's is.
+ * @returns {PageSet}
+ */
+export function pageSet(set, branding) {
+    const embedded = branding.landscape.font?.css ?? null;
+    return {
+        crossings: set.landscape.crossings ?? [],
+        workspaces: set.workspaces.map((member, at) => {
+            const { logo, font, primaryColor } = branding.workspaces[at];
+            return {
+                slug: member.slug,
+                payload: {
+                    workspace: member.workspace,
+                    branding: {
+                        logo,
+                        font: font && {
+                            family: font.family,
+                            css: font.css === embedded ? null : font.css,
+                        },
+                        primaryColor,
+                    },
+                    crossings: member.crossings ?? [],
+                },
+            };
+        }),
+    };
+}
+
+/** What a workspace's file is called in `--out`: its slug. */
+const payloadFile = (slug) => `${slug}.json`;
+
+/**
+ * The source of `SET_MODULE`: the landscape scoped workspace's
+ * `crossings`, each other workspace's slug and name as `workspaces`, and
+ * as `inlined` every payload by slug when the page holds them, `null` when
+ * it loads each from its file.
+ */
+const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
+    [
+        `export const crossings = ${JSON.stringify(crossings)};`,
+        `export const workspaces = ${JSON.stringify(
+            workspaces.map(({ slug, payload }) => ({
+                slug,
+                name: payload.workspace.name ?? UNNAMED_WORKSPACE,
+            })),
+        )};`,
+        `export const inlined = ${
+            inline
+                ? JSON.stringify(
+                      Object.fromEntries(
+                          workspaces.map(({ slug, payload }) => [
+                              slug,
+                              payload,
+                          ]),
+                      ),
+                  )
+                : "null"
+        };`,
+    ].join("\n");
+
+/**
+ * Compiles the rest of `set`, a `PageSet`, into the page as `SET_MODULE`,
+ * and writes each other workspace into `--out` as `<slug>.json`, which the
+ * page loads the first time the reader enters it (ADR 26). The dev server
+ * serves the same files. With `inline`, the page holds every workspace and
+ * the build writes no file of its own. A lone workspace's set names no
+ * other workspace. `pnpm dev` passes `set` as a function, read on every
+ * load and request, since its set reloads (spec 264).
+ */
+export function setModule(set = {}) {
+    /** The payload of each file the page loads, by file name. */
+    const files = () => {
+        const { workspaces = [], inline = false } = current(set);
+        return new Map(
+            inline
+                ? []
+                : workspaces.map(({ slug, payload }) => [
+                      payloadFile(slug),
+                      payload,
+                  ]),
+        );
+    };
+    return {
+        name: "renderizr:set",
+        resolveId: (id) => (id === SET_MODULE ? RESOLVED_SET_MODULE : null),
+        load: (id) =>
+            id === RESOLVED_SET_MODULE ? setModuleSource(current(set)) : null,
+        configureServer(server) {
+            server.middlewares.use((request, response, next) => {
+                const path = new URL(request.url ?? "/", "http://dev").pathname;
+                const base = server.config.base ?? "/";
+                const name = path.startsWith(base)
+                    ? path.slice(base.length)
+                    : null;
+                const payload = name === null ? undefined : files().get(name);
+                if (payload === undefined) return next();
+                response.setHeader("Content-Type", "application/json");
+                response.end(JSON.stringify(payload));
+            });
+        },
+        generateBundle() {
+            for (const [fileName, payload] of files())
+                this.emitFile({
+                    type: "asset",
+                    fileName,
+                    source: JSON.stringify(payload),
+                });
+        },
     };
 }
 

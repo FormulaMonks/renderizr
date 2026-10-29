@@ -14,6 +14,7 @@ import {
     decisionStatus,
 } from "../model/decisions";
 import { readSetting, writeSetting } from "../storage";
+import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
 import type { Decision } from "../types/structurizr-documentation";
 import Page from "./_page";
 import styles from "./adrs.module.css";
@@ -451,7 +452,10 @@ export default class Decisions extends Page {
 
         // Back and Forward change only `adr`, and the router redraws a page
         // only when `page` changes, so the page follows `adr` itself.
+        const shown = workspaceOf(history.location.pathname);
         this.#unlisten = history.listen(({ location }) => {
+            // An address in another workspace waits for that one's pages.
+            if (inOtherWorkspace(location.pathname, shown)) return;
             const search = new URLSearchParams(location.search);
             if (search.get("page") !== "adrs") return;
 

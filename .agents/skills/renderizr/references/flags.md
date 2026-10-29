@@ -4,9 +4,12 @@ The authoritative list is `npx github:FormulaMonks/renderizr --help`, which the 
 
 ```
 renderizr <workspace.json|url> [options]
+renderizr <workspace|url|folder>... [options]
 ```
 
-The workspace is positional and required: a local path or a URL to a Structurizr workspace **in JSON**. Renderizr does not parse DSL — see the SKILL for how to export one.
+The workspace is positional and required: a local path or a URL to a Structurizr `workspace.json`, or a `workspace.dsl`, which Renderizr exports through Structurizr's tools (`STRUCTURIZR_CLI`, else `structurizr-cli` on the `PATH`, with Java 21 to 25). A `workspace.json` needs no tools.
+
+Several positionals, in any order, render a **set**: one landscape scoped workspace and the software system scoped workspaces it maps. A folder gives the `*workspace.json` and `*workspace.dsl` files in it, without recursing. The build also follows each software system's element link that is an absolute URL to a `workspace.json` or `workspace.dsl`, and a positional beats a link to the same software system. A set with no landscape scoped workspace, two of them, an unscoped workspace or two workspaces scoped to the same software system fails the build.
 
 ## Output
 

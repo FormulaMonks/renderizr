@@ -661,7 +661,12 @@ const NODE = (id) =>
 const VIEWPORT = `document.querySelector(".react-flow__viewport").style.transform`;
 const NODE_TRANSFORM = (id) => `${NODE(id)}?.style.transform`;
 const SAVE_STATUS = `document.querySelector(".save-status")?.textContent`;
-const HELD_BAR = `document.querySelector("[data-held-bar]")`;
+const ERROR_TOAST = `document.querySelector('[data-toast="error"]')`;
+const NOTICE = `document.querySelector('[data-toast="notice"]')`;
+
+/** The page's expression that picks the held edits' action `label`. */
+const PICK = (label) =>
+    `[...${ERROR_TOAST}.querySelectorAll("[data-toast-action]")].find((action) => action.textContent === "${label}").click()`;
 
 /** Open the Warehouse view in editing at `url`, once it is painted. */
 async function openWarehouse(browser, url) {
@@ -735,7 +740,7 @@ test("a change on disk swaps the workspace in place, keeping the view, the viewp
             "the selection lost element 21",
         );
         assert.equal(await page.evaluate(SAVE_STATUS), "Saved");
-        assert.equal(await page.evaluate(HELD_BAR), null);
+        assert.equal(await page.evaluate(ERROR_TOAST), null);
         assert.ok(
             await page.evaluate(
                 `new URLSearchParams(location.hash.slice(2)).get("view") === "Warehouse" && document.documentElement.hasAttribute("data-editing")`,
@@ -747,7 +752,7 @@ test("a change on disk swaps the workspace in place, keeping the view, the viewp
     }
 });
 
-test("edits waiting when workspace.json changes lie over it behind a bar, and Keep saves them against the file", {
+test("edits waiting when workspace.json changes lie over it in an error toast, and Keep saves them against the file", {
     skip: SKIP,
 }, async () => {
     const { url, json } = await startEdit("view-types.json");
@@ -763,19 +768,17 @@ test("edits waiting when workspace.json changes lie over it behind a bar, and Ke
         await changeOnDisk(json, (workspace) => {
             placementOf(workspace, "21").x += 200;
         });
-        await page.waitFor(`!!${HELD_BAR}`);
+        await page.waitFor(`!!${ERROR_TOAST}`);
         assert.match(
-            await page.evaluate(`${HELD_BAR}.textContent`),
+            await page.evaluate(`${ERROR_TOAST}.textContent`),
             /workspace\.json changed on disk while .+ had unsaved changes/,
         );
         assert.equal(await page.evaluate(NODE_TRANSFORM("20")), dragged);
         assert.notEqual(await page.evaluate(NODE_TRANSFORM("21")), before21);
         assert.equal(await page.evaluate(SAVE_STATUS), "Unsaved changes");
 
-        await page.evaluate(
-            `${HELD_BAR}.querySelector(".keep-changes").click()`,
-        );
-        await page.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+        await page.evaluate(PICK("Keep my changes"));
+        await page.waitFor(`${SAVE_STATUS} === "Saved" && !${ERROR_TOAST}`);
     } finally {
         await browser.close();
     }
@@ -813,11 +816,9 @@ test("Discard takes the file's layout over edits that couldn't be saved", {
         await changeOnDisk(json, (workspace) => {
             workspace.description = "Changed on disk";
         });
-        await page.waitFor(`!!${HELD_BAR}`);
-        await page.evaluate(
-            `${HELD_BAR}.querySelector(".discard-changes").click()`,
-        );
-        await page.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+        await page.waitFor(`!!${ERROR_TOAST}`);
+        await page.evaluate(PICK("Discard them"));
+        await page.waitFor(`${SAVE_STATUS} === "Saved" && !${ERROR_TOAST}`);
         assert.equal(await page.evaluate(NODE_TRANSFORM("20")), resting);
         assert.equal(
             await page.evaluate(
@@ -845,11 +846,9 @@ test("a view gone from workspace.json gives way to the first view, with a notice
         await changeOnDisk(json, (workspace) => {
             warehouseOf(workspace).key = "Storehouse";
         });
-        await page.waitFor(`!!document.querySelector("[data-reload-notice]")`);
+        await page.waitFor(`!!${NOTICE}`);
         assert.match(
-            await page.evaluate(
-                `document.querySelector("[data-reload-notice]").textContent`,
-            ),
+            await page.evaluate(`${NOTICE}.textContent`),
             /workspace\.json no longer has .+, so the page shows /,
         );
         await page.waitFor(
@@ -873,12 +872,10 @@ test("a view workspace.json makes read-only drops to reading, with a notice", {
             };
         });
         await page.waitFor(
-            `!!document.querySelector("[data-reload-notice]") && !document.documentElement.hasAttribute("data-editing")`,
+            `!!${NOTICE} && !document.documentElement.hasAttribute("data-editing")`,
         );
         assert.match(
-            await page.evaluate(
-                `document.querySelector("[data-reload-notice]").textContent`,
-            ),
+            await page.evaluate(`${NOTICE}.textContent`),
             /can no longer be edited, so the page shows it for reading/,
         );
         assert.equal(
@@ -887,6 +884,44 @@ test("a view workspace.json makes read-only drops to reading, with a notice", {
             ),
             "Warehouse",
         );
+    } finally {
+        await browser.close();
+    }
+});
+
+test("a workspace.json that won't load says why in an error toast over the last workspace, until the next one arrives", {
+    skip: SKIP,
+}, async () => {
+    const { url, json } = await startEdit("view-types.json");
+    const browser = await openBrowser(CHROME);
+    try {
+        const page = await openWarehouse(browser, url);
+        const loaded = await readFile(json, "utf8");
+        await writeFile(json, "{ not json");
+        await page.waitFor(`!!${ERROR_TOAST}`);
+        assert.match(
+            await page.evaluate(
+                `${ERROR_TOAST}.querySelector("p").textContent`,
+            ),
+            /The workspace didn't load\. The page keeps the last one that did/,
+        );
+        assert.ok(
+            await page.evaluate(
+                `!!${ERROR_TOAST}.querySelector("pre")?.textContent`,
+            ),
+            "the toast leaves out why",
+        );
+        assert.equal(
+            await page.evaluate(`${ERROR_TOAST}.getAttribute("role")`),
+            "alert",
+        );
+        assert.ok(
+            await page.evaluate(`!!${NODE("20")}`),
+            "the last workspace went",
+        );
+
+        await writeFile(json, loaded);
+        await page.waitFor(`!${ERROR_TOAST}`);
     } finally {
         await browser.close();
     }
@@ -918,21 +953,19 @@ test("another page's save reaches a page with unsaved changes as a change on dis
         await first.waitFor(`${SAVE_STATUS} === "Saved"`);
 
         // The second page hears of the first one's save (spec 6.2).
-        await second.waitFor(`!!${HELD_BAR}`);
+        await second.waitFor(`!!${ERROR_TOAST}`);
         await second.waitFor(
             `${NODE_TRANSFORM("20")} !== ${JSON.stringify(moved20)}`,
         );
         const before21 = await first.evaluate(NODE_TRANSFORM("21"));
-        await second.evaluate(
-            `${HELD_BAR}.querySelector(".keep-changes").click()`,
-        );
-        await second.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+        await second.evaluate(PICK("Keep my changes"));
+        await second.waitFor(`${SAVE_STATUS} === "Saved" && !${ERROR_TOAST}`);
 
         // And the first page hears of the second one's.
         await first.waitFor(
             `${NODE_TRANSFORM("21")} !== ${JSON.stringify(before21)}`,
         );
-        assert.equal(await first.evaluate(HELD_BAR), null);
+        assert.equal(await first.evaluate(ERROR_TOAST), null);
     } finally {
         await browser.close();
     }
@@ -951,7 +984,7 @@ test("another page's save reaches a page with unsaved changes as a change on dis
         );
 });
 
-test("of two pages saving at once, the one the server refuses as stale shows the bar, and Keep saves against the version on disk", {
+test("of two pages saving at once, the one the server refuses as stale shows the held edits toast, and Keep saves against the version on disk", {
     skip: SKIP,
 }, async () => {
     const { url, json } = await startEdit("view-types.json");
@@ -970,13 +1003,13 @@ test("of two pages saving at once, the one the server refuses as stale shows the
         // other's save comes back refused as stale (spec 7.4).
         await Promise.all(pages.map((page) => page.press("s", "KeyS", CTRL)));
         const stale = await Promise.race(
-            pages.map((page) => page.waitFor(`!!${HELD_BAR}`).then(() => page)),
+            pages.map((page) =>
+                page.waitFor(`!!${ERROR_TOAST}`).then(() => page),
+            ),
         );
         assert.match(await stale.evaluate(SAVE_STATUS), /Save failed/);
-        await stale.evaluate(
-            `${HELD_BAR}.querySelector(".keep-changes").click()`,
-        );
-        await stale.waitFor(`${SAVE_STATUS} === "Saved" && !${HELD_BAR}`);
+        await stale.evaluate(PICK("Keep my changes"));
+        await stale.waitFor(`${SAVE_STATUS} === "Saved" && !${ERROR_TOAST}`);
     } finally {
         await browser.close();
     }

@@ -435,6 +435,86 @@ test("artifact.html is a fragment with no document scaffolding", async () => {
     assert.ok(artifact.includes("Fixture Workspace"));
 });
 
+/* -------------------------------------------------------------------- a set */
+
+const ENTERPRISE = join(REPO_ROOT, "test/__fixtures__/enterprise");
+
+/** Build the enterprise fixture, a set, into `name` with `args`. */
+const buildSet = async (name, args) => {
+    const out = join(SCRATCH, name);
+    const result = await runCli([ENTERPRISE, "--out", out, ...args], {
+        env: OFFLINE,
+    });
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    return { out, ...result };
+};
+const multiFileSet = once(() => buildSet("set-multi", []));
+const singleFileSet = once(() => buildSet("set-single", ["--single-file"]));
+
+/** The workspace files of the enterprise fixture besides the landscape's. */
+const SET_FILES = ["orders.json", "payments.json", "storefront.json"];
+
+test("a set's build writes one JSON file per software system scoped workspace, named after its slug", async () => {
+    const { out } = await multiFileSet();
+    const written = (await readdir(out)).filter((file) =>
+        file.endsWith(".json"),
+    );
+    assert.deepEqual(written.sort(), SET_FILES);
+
+    const payments = JSON.parse(
+        await readFile(join(out, "payments.json"), "utf-8"),
+    );
+    assert.equal(payments.workspace.name, "Payments");
+    assert.equal(payments.branding.primaryColor, "#b0306a");
+    assert.equal(payments.branding.logo.alt, "Payments");
+    assert.ok(
+        payments.branding.logo.src.startsWith("data:image/svg+xml"),
+        "the logo is not embedded in the workspace's file",
+    );
+    // A workspace that sets no color of its own takes the landscape's.
+    const orders = JSON.parse(
+        await readFile(join(out, "orders.json"), "utf-8"),
+    );
+    assert.equal(orders.branding.primaryColor, "#2e7d32");
+});
+
+test("a set's build copies no logo file into --out", async () => {
+    const { out } = await multiFileSet();
+    const files = await readdir(out);
+    assert.ok(
+        !files.some((file) => file.endsWith(".svg")),
+        `a logo file reached --out: ${files.join(", ")}`,
+    );
+});
+
+test("the page holds the landscape scoped workspace and none of the others", async () => {
+    const { out } = await multiFileSet();
+    const html = await readFile(join(out, "index.html"), "utf-8");
+    assert.match(html, /<title>Acme \| Structurizr<\/title>/);
+    const code = await entryChunk(out);
+    assert.ok(code.includes("The software systems of Acme"));
+    assert.ok(
+        !code.includes("Payment API"),
+        "the page holds the Payments workspace",
+    );
+});
+
+test("--single-file inlines every workspace of a set into the one file", async () => {
+    const { out } = await singleFileSet();
+    assert.deepEqual((await readdir(out)).sort(), [
+        "artifact.html",
+        "index.html",
+    ]);
+    const html = await readFile(join(out, "index.html"), "utf-8");
+    assertSelfContained(html);
+    for (const description of ["The software systems of Acme", "Payment API"])
+        assert.ok(html.includes(description), `${description} is missing`);
+});
+
 /* ------------------------------------------------------------ failure modes */
 
 test("a workspace that is not there fails loudly", async () => {
@@ -612,6 +692,27 @@ test("no edit-mode code reaches a build's output", async () => {
             assert.ok(
                 !output.includes(marker),
                 `${out} carries edit-mode code: ${marker}`,
+            );
+        }
+    }
+});
+
+/**
+ * Strings only `pnpm dev`'s page code carries: the set error's event and
+ * what the page says about it (spec 264).
+ */
+const DEV_SET_MARKERS = [
+    "renderizr:set-error",
+    "The page keeps the last set that did",
+];
+
+test("no pnpm dev code reaches a build's output", async () => {
+    for (const { out } of [await multiFile(), await singleFile()]) {
+        const output = await builtOutput(out);
+        for (const marker of DEV_SET_MARKERS) {
+            assert.ok(
+                !output.includes(marker),
+                `${out} carries pnpm dev code: ${marker}`,
             );
         }
     }

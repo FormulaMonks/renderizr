@@ -85,8 +85,35 @@ test("edit mode compiles its page code in and serves the workspace in place of t
     assert.deepEqual(pluginNames(config), [
         "renderizr:branding",
         "renderizr:edit-mode",
+        "renderizr:set",
     ]);
     assert.equal(config.configFile, false, "edit mode re-reads vite.config.ts");
+});
+
+/** Stand-ins for the dev set's plugins; the config only places them. */
+const DEV_SET = [
+    { name: "renderizr:workspace" },
+    { name: "renderizr:set" },
+    { name: "renderizr:dev-set" },
+];
+
+test("the dev server's set plugins serve the set in place of the compiled-in one", () => {
+    const config = createConfig({
+        workspace: WORKSPACE,
+        devSet: DEV_SET,
+        mode: "serve",
+    });
+    assert.deepEqual(pluginNames(config), [
+        "renderizr:branding",
+        "renderizr:workspace",
+        "renderizr:set",
+        "renderizr:dev-set",
+    ]);
+    assert.ok(
+        config.plugins.includes(DEV_SET[0]),
+        "the compiled-in workspace module stayed",
+    );
+    assert.equal(config.define.__RENDERIZR_EDIT_MODE__, "false");
 });
 
 test("no logo and no font are embedded as nulls, not as undefined", () => {
@@ -119,7 +146,7 @@ test("the build stamps its date, which the export's title block falls back to", 
 test("the primary color reaches the page as a literal, null when none is chosen", () => {
     const chosen = createConfig({
         workspace: WORKSPACE,
-        primaryColor: "#e4572e",
+        branding: { logo: null, font: null, primaryColor: "#e4572e" },
     });
     const none = createConfig({ workspace: WORKSPACE });
 
@@ -134,8 +161,11 @@ test("a logo is embedded whole, but only the font's family name is", () => {
     const logo = { src: "data:image/png;base64,AAAA", alt: "Acme", href: null };
     const { define } = createConfig({
         workspace: WORKSPACE,
-        logo,
-        font: { family: "Inter", css: "@font-face{}" },
+        branding: {
+            logo,
+            font: { family: "Inter", css: "@font-face{}" },
+            primaryColor: null,
+        },
     });
 
     assert.deepEqual(JSON.parse(define.__RENDERIZR_LOGO__), logo);
@@ -154,6 +184,7 @@ test("the multi-file build serves the public directory and splits assets", () =>
     assert.deepEqual(pluginNames(config), [
         "renderizr:branding",
         "renderizr:workspace",
+        "renderizr:set",
     ]);
 });
 
