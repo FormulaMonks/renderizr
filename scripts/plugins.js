@@ -37,6 +37,140 @@ export function workspaceModule(workspace) {
     };
 }
 
+/* ------------------------------------------------------------------- set */
+
+/** The module the page imports the rest of its set from (ADR 26). */
+export const SET_MODULE = "virtual:renderizr/set";
+
+/** The id Vite gives `SET_MODULE` once a plugin resolves it. */
+const RESOLVED_SET_MODULE = `\0${SET_MODULE}`;
+
+/**
+ * @typedef {object} WorkspacePayload
+ *   One software system scoped workspace of a set, as the page enters it:
+ *   the file `<slug>.json` holds it in a multi-file build.
+ * @property {object} workspace The workspace JSON.
+ * @property {{ logo: object | null, font: { family: string, css: string | null } | null, primaryColor: string | null }} branding
+ *   Its branding, loaded: the logo as `loadLogo` gives it, and the font's
+ *   family with its embedded faces, `css: null` when the landscape scoped
+ *   workspace's faces, already in the page, are the same.
+ * @property {object[]} crossings Its elements that lead into another
+ *   workspace of the set, as `loadSet` gives them.
+ *
+ * @typedef {object} PageSet
+ *   The set as the page takes it.
+ * @property {object[]} crossings The landscape scoped workspace's crossings.
+ * @property {{ slug: string, payload: WorkspacePayload }[]} workspaces
+ * @property {boolean} [inline] Whether the page holds every payload, as
+ *   `--single-file` needs, rather than loading each from its file.
+ */
+
+/**
+ * The set `loadSet` gives, with the branding `loadSetBranding` loads for
+ * it, as the page takes it. The landscape scoped workspace's own branding
+ * stays compiled into the page, as a lone workspace's is.
+ * @returns {PageSet}
+ */
+export function pageSet(set, branding) {
+    const embedded = branding.landscape.font?.css ?? null;
+    return {
+        crossings: set.landscape.crossings ?? [],
+        workspaces: set.workspaces.map((member, at) => {
+            const { logo, font, primaryColor } = branding.workspaces[at];
+            return {
+                slug: member.slug,
+                payload: {
+                    workspace: member.workspace,
+                    branding: {
+                        logo,
+                        font: font && {
+                            family: font.family,
+                            css: font.css === embedded ? null : font.css,
+                        },
+                        primaryColor,
+                    },
+                    crossings: member.crossings ?? [],
+                },
+            };
+        }),
+    };
+}
+
+/** What a workspace's file is called in `--out`: its slug. */
+const payloadFile = (slug) => `${slug}.json`;
+
+/**
+ * The source of `SET_MODULE`: the landscape scoped workspace's
+ * `crossings`, each other workspace's slug and name as `workspaces`, and
+ * as `inlined` every payload by slug when the page holds them, `null` when
+ * it loads each from its file.
+ */
+const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
+    [
+        `export const crossings = ${JSON.stringify(crossings)};`,
+        `export const workspaces = ${JSON.stringify(
+            workspaces.map(({ slug, payload }) => ({
+                slug,
+                name: payload.workspace.name ?? "Workspace",
+            })),
+        )};`,
+        `export const inlined = ${
+            inline
+                ? JSON.stringify(
+                      Object.fromEntries(
+                          workspaces.map(({ slug, payload }) => [
+                              slug,
+                              payload,
+                          ]),
+                      ),
+                  )
+                : "null"
+        };`,
+    ].join("\n");
+
+/**
+ * Compiles the rest of `set`, a `PageSet`, into the page as `SET_MODULE`,
+ * and writes each other workspace into `--out` as `<slug>.json`, which the
+ * page loads the first time the reader enters it (ADR 26). The dev server
+ * serves the same files. With `inline`, the page holds every workspace and
+ * the build writes no file of its own. A lone workspace's set names no
+ * other workspace.
+ */
+export function setModule(set = {}) {
+    const { workspaces = [], inline = false } = set;
+    const files = new Map(
+        inline
+            ? []
+            : workspaces.map(({ slug, payload }) => [
+                  payloadFile(slug),
+                  JSON.stringify(payload),
+              ]),
+    );
+    return {
+        name: "renderizr:set",
+        resolveId: (id) => (id === SET_MODULE ? RESOLVED_SET_MODULE : null),
+        load: (id) =>
+            id === RESOLVED_SET_MODULE ? setModuleSource(set) : null,
+        configureServer(server) {
+            server.middlewares.use((request, response, next) => {
+                const path = new URL(request.url ?? "/", "http://dev").pathname;
+                const base = server.config.base ?? "/";
+                const name = path.startsWith(base)
+                    ? path.slice(base.length)
+                    : null;
+                const file = name === null ? undefined : files.get(name);
+                if (file === undefined) return next();
+                response.setHeader("Content-Type", "application/json");
+                response.end(file);
+            });
+        },
+        generateBundle() {
+            for (const [fileName, source] of files)
+                this.emitFile({ type: "asset", fileName, source });
+        },
+    };
+}
+
 /**
  * Injects the embedded font faces, and the primary color when one is set,
  * before first paint. The color's selector outweighs both color schemes'

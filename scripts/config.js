@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { branding, singleFile, workspaceModule } from "./plugins.js";
+import { branding, setModule, singleFile, workspaceModule } from "./plugins.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -30,12 +30,18 @@ export const version = (() => {
  * serves the workspace from disk in place of the compiled-in one and
  * compiles edit mode's page code in; every other caller leaves it out, so no
  * edit-mode code reaches built output (ADR 15).
+ *
+ * `workspace` and the branding are the landscape scoped workspace's, or a
+ * lone workspace's, compiled into the page as they always were; `set` is
+ * the rest of a set, as `pageSet` in `scripts/plugins.js` gives it (ADR 26).
+ * Edit mode renders one workspace and passes none.
  */
 export function createConfig({
     workspace,
     logo = null,
     font = null,
     primaryColor = null,
+    set = null,
     singleFile: asSingleFile = false,
     out = "structurizr-output",
     base = "",
@@ -56,6 +62,7 @@ export function createConfig({
         plugins: [
             branding({ font, primaryColor }),
             editMode ?? workspaceModule(workspace),
+            setModule({ ...set, inline: asSingleFile }),
             ...(asSingleFile ? [singleFile()] : []),
         ],
         build: {

@@ -2,11 +2,13 @@ import { defineConfig } from "vite";
 // @ts-expect-error — plain ESM shared with scripts/build.js
 import {
     colorError,
-    loadBranding,
+    loadSetBranding,
     NO_BRANDING_FLAGS,
 } from "./scripts/branding.js";
 // @ts-expect-error — plain ESM shared with scripts/build.js
 import { createConfig } from "./scripts/config.js";
+// @ts-expect-error — plain ESM shared with scripts/build.js
+import { pageSet } from "./scripts/plugins.js";
 // @ts-expect-error — plain ESM shared with scripts/build.js
 import { loadSet } from "./scripts/workspace-set.js";
 
@@ -22,7 +24,8 @@ const DEFAULT_WORKSPACE = "architecture/workspace.json";
  *   pnpm dev -- test/__fixtures__/enterprise    (a set: files, URLs, folders)
  *
  * It loads the set through `scripts/workspace-set.js`, as the build does,
- * and shows its landscape scoped workspace.
+ * lands on its landscape scoped workspace and serves each other workspace
+ * as `<slug>.json`.
  * The branding flags it reads take the workspace's `renderizr.*` properties
  * the way `renderizr` does, through `scripts/branding.js`.
  */
@@ -61,8 +64,8 @@ export default async () => {
     for (const warning of set.warnings) {
         process.stderr.write(`warning: ${warning}\n`);
     }
-    // The page shows the landscape scoped workspace, or a lone workspace.
-    const { workspace, source } = set.landscape;
+    // The page lands on the landscape scoped workspace, or a lone workspace.
+    const { workspace } = set.landscape;
 
     const flags = {
         ...NO_BRANDING_FLAGS,
@@ -76,12 +79,10 @@ export default async () => {
     // The build refuses the same flag with its usage.
     const wrongColor = colorError(flags.primaryColor);
     if (wrongColor) throw new Error(wrongColor);
-    const { logo, font, primaryColor, notices } = await loadBranding({
-        flags,
-        workspace,
-        source,
-    });
-    for (const notice of notices) process.stderr.write(`${notice}\n`);
+    const branding = await loadSetBranding({ flags, set });
+    for (const { notices } of [branding.landscape, ...branding.workspaces])
+        for (const notice of notices) process.stderr.write(`${notice}\n`);
+    const { logo, font, primaryColor } = branding.landscape;
 
     process.env.VITE_WORKSPACE_NAME = workspace.name ?? "Workspace";
 
@@ -91,6 +92,7 @@ export default async () => {
             logo,
             font,
             primaryColor,
+            set: pageSet(set, branding),
             singleFile: args.includes("--single-file"),
             mode: "serve",
         }),

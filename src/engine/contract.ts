@@ -59,6 +59,11 @@ export type EngineOptions = {
     view: string;
     colorScheme: ColorScheme;
     labels: Labels;
+    /**
+     * The font family the diagram's text is set in and exports embed: the
+     * entered workspace's branding (ADR 26). None leaves the fallback stack.
+     */
+    font?: string | null;
     /** Mount in editing (spec 9.2). Only edit mode sets it. */
     editing?: boolean;
     /**

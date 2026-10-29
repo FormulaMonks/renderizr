@@ -318,3 +318,36 @@ test("clear() empties the header and stops repainting the toggle", () => {
     setMode("dark");
     assert.equal(host.querySelectorAll("*").length, 0);
 });
+
+/* -------------------------------------------------- a workspace of a set */
+
+test("the header draws the logo of the workspace the reader entered, over the build's", () => {
+    globalThis.__RENDERIZR_LOGO__ = {
+        src: "data:image/png;base64,AA==",
+        alt: "Acme",
+    };
+    const nav = new Navigation(host, workspace(), {
+        src: "data:image/png;base64,BB==",
+        alt: "Payments",
+        href: null,
+    });
+    nav.render();
+    assert.equal(host.querySelector("img").getAttribute("alt"), "Payments");
+    nav.clear();
+
+    new Navigation(host, workspace(), null).render();
+    assert.equal(host.querySelectorAll("img").length, 0);
+});
+
+test("a cleared header stops following the address", () => {
+    const nav = render();
+    nav.clear();
+    host.innerHTML = '<ul><li><a data-page="docs"></a></li></ul>';
+
+    history.push({ search: "?page=docs" });
+
+    assert.ok(
+        !host.querySelector("a").classList.contains("navigationActive"),
+        "a cleared header marked a tab",
+    );
+});

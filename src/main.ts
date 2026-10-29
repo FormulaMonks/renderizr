@@ -1,12 +1,14 @@
-import workspaceData from "virtual:renderizr/workspace";
 import { disclaimerHtml } from "./components/disclaimer.ts";
 import { initTheme } from "./components/theme.ts";
+import { applyBranding } from "./components/branding.ts";
 import "./main.css";
 import Router from "./components/router.ts";
-import Navigation from "./components/navigation.ts";
+import Navigation, { type WorkspaceSummary } from "./components/navigation.ts";
 import { createImageResolver } from "./components/doc-images.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
 import { takeSessionToken } from "./components/session-token.ts";
+import { currentWorkspace, onWorkspaceEntered } from "./current-workspace.ts";
+import type { SetWorkspace } from "./workspace-set.ts";
 import { summarizeWorkspace } from "./engine/workspace-summary";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";
@@ -35,42 +37,16 @@ function trackHeaderHeight() {
     new ResizeObserver(publish).observe(header);
 }
 
-async function init() {
-    // Edit mode's token leaves the address bar before the router writes its
-    // first route there (spec 4.5). Builds compile this out (ADR 15).
-    if (__RENDERIZR_EDIT_MODE__) {
-        takeSessionToken();
-        // Changes to workspace.json reach the page from here on (spec 6.1).
-        startLiveReload();
-    }
-
-    // The inline script in index.html has already stamped `data-theme` so the
-    // first paint is in the right scheme; this takes ownership of it and keeps
-    // it in step with the OS while the reader is on "system".
-    initTheme();
-
-    const workspace = summarizeWorkspace(workspaceData);
-
-    document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-        <main>
-            <section class="workspace-header">
-                <nav id="workspace-navigation"></nav>
-                <hr />
-            </section>
-            <section id="page-content"></section>
-            <footer id="disclaimer">${disclaimerHtml("c4", __RENDERIZR_VERSION__)}</footer>
-        </main>
-    `;
-
-    const nav = new Navigation(
-        document.getElementById("workspace-navigation")!,
-        workspace,
-    );
-
-    nav.render();
-    trackHeaderHeight();
-
-    const routes: Page[] = [new DiagramsPage(null, "diagrams")];
+/**
+ * The pages of a workspace: its diagrams, through the one `diagrams` page,
+ * and its documentation and decisions when it has any.
+ */
+async function pagesOf(
+    workspace: WorkspaceSummary,
+    nav: Navigation,
+    diagrams: Page,
+): Promise<Page[]> {
+    const routes: Page[] = [diagrams];
 
     // Links between sections and decisions are written as relative file
     // paths; this maps them onto the routes below.
@@ -108,7 +84,68 @@ async function init() {
         );
     }
 
-    new Router(document.getElementById("page-content")!, routes);
+    return routes;
+}
+
+async function init() {
+    // Edit mode's token leaves the address bar before the router writes its
+    // first route there (spec 4.5). Builds compile this out (ADR 15).
+    if (__RENDERIZR_EDIT_MODE__) {
+        takeSessionToken();
+        // Changes to workspace.json reach the page from here on (spec 6.1).
+        startLiveReload();
+    }
+
+    // The inline script in index.html has already stamped `data-theme` so the
+    // first paint is in the right scheme; this takes ownership of it and keeps
+    // it in step with the OS while the reader is on "system".
+    initTheme();
+
+    document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+        <main>
+            <section class="workspace-header">
+                <nav id="workspace-navigation"></nav>
+                <hr />
+            </section>
+            <section id="page-content"></section>
+            <footer id="disclaimer">${disclaimerHtml("c4", __RENDERIZR_VERSION__)}</footer>
+        </main>
+    `;
+
+    const header = document.getElementById("workspace-navigation")!;
+    const content = document.getElementById("page-content")!;
+    const diagrams = new DiagramsPage(null, "diagrams");
+    let nav: Navigation | null = null;
+    let router: Router | null = null;
+    /** Counts the workspaces shown, so a slow one never overrides a later one. */
+    let shown = 0;
+
+    /** Draw the header and the page the address names from `entered`. */
+    const show = async (entered: SetWorkspace) => {
+        shown += 1;
+        const showing = shown;
+        const workspace = summarizeWorkspace(entered.workspace);
+        const next = new Navigation(header, workspace, entered.branding.logo);
+        const routes = await pagesOf(workspace, next, diagrams);
+        if (showing !== shown) return;
+
+        nav?.clear();
+        nav = next;
+        nav.render();
+        if (router) router.replacePages(routes);
+        else router = new Router(content, routes);
+    };
+
+    // The page lands branded and titled by the build; each other workspace
+    // of a set brings its own when the reader enters it (ADR 26).
+    onWorkspaceEntered((entered) => {
+        applyBranding(entered.branding);
+        document.title = `${entered.name} | Structurizr`;
+        void show(entered);
+    });
+
+    await show(currentWorkspace());
+    trackHeaderHeight();
 }
 
 init();
