@@ -1,5 +1,4 @@
 import history from "history/hash";
-import workspaceData from "virtual:renderizr/workspace";
 import CurrentView, {
     applyDiagramTheme,
     getDiagramTheme,
@@ -33,6 +32,7 @@ import {
 } from "./diagrams-edit";
 import styles from "./diagrams.module.css";
 import { disclaimerKind, showDisclaimer } from "../components/disclaimer";
+import { currentWorkspace } from "../current-workspace";
 
 /** Whether the page shows the editing route now (spec 4.6). */
 const editing = () =>
@@ -102,10 +102,12 @@ export default class Diagrams extends Page {
         applyDiagramTheme(getDiagramTheme());
         document.documentElement.dataset.diagramShell = "";
 
-        // Edit mode draws the last workspace from disk (spec 6.1).
+        // The workspace of the set the reader is in (ADR 26). Edit mode
+        // holds one, and draws the last of it from disk (spec 6.1).
+        const entered = currentWorkspace();
         const workspace = __RENDERIZR_EDIT_MODE__
-            ? liveWorkspace(workspaceData)
-            : workspaceData;
+            ? liveWorkspace(entered.workspace)
+            : entered.workspace;
         const model = new WorkspaceModel(workspace);
         const views = model.getViews();
         const requested = new URLSearchParams(history.location.search).get(
@@ -152,6 +154,7 @@ export default class Diagrams extends Page {
             {
                 workspace,
                 view: first,
+                font: entered.branding.font?.family ?? null,
                 colorScheme: getDiagramTheme(),
                 labels: readLabelState(),
                 // The edit session's layouts, so a page render keeps them.

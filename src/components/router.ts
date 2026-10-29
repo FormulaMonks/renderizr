@@ -11,12 +11,7 @@ export default class Router extends Component {
     constructor(element: HTMLElement, pages: Page[]) {
         super(element);
         this.#pageContainer = element;
-        this.#pages = new Map(
-            pages.map((pageInstance) => [
-                pageInstance.name.toLowerCase(),
-                pageInstance.setContainer(this.#pageContainer),
-            ]),
-        );
+        this.#pages = this.#byName(pages);
 
         const search = new URLSearchParams(history.location.search);
         const page = search.get("page");
@@ -35,6 +30,30 @@ export default class Router extends Component {
 
         const [firstPage] = this.#pages.keys();
         // The first render only fills in what the URL left out.
+        this.navigateTo(page ?? firstPage, history.location.search, true);
+    }
+
+    /** `pages` by name, each drawing into the router's element. */
+    #byName(pages: Page[]) {
+        return new Map(
+            pages.map((pageInstance) => [
+                pageInstance.name.toLowerCase(),
+                pageInstance.setContainer(this.#pageContainer),
+            ]),
+        );
+    }
+
+    /**
+     * Swap in the pages of the workspace the reader entered (ADR 26) and
+     * draw the one the address names, or the first when it has none such.
+     * The address only gains what it left out, so nothing is pushed.
+     */
+    replacePages(pages: Page[]): void {
+        this.#currentPage?.clear();
+        this.#currentPage = null;
+        this.#pages = this.#byName(pages);
+        const [firstPage] = this.#pages.keys();
+        const page = new URLSearchParams(history.location.search).get("page");
         this.navigateTo(page ?? firstPage, history.location.search, true);
     }
 

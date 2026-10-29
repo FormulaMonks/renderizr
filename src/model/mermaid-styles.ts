@@ -70,12 +70,25 @@ export const PAGE_PRIMARY_COLORS: Record<ColorScheme, string> = {
 };
 
 /**
+ * The primary color of the workspace the reader entered last in a set
+ * (ADR 26); `undefined` until the page enters one, which keeps the build's.
+ */
+let enteredPrimaryColor: string | null | undefined;
+
+/** Fill silent Mermaid sources with the entered workspace's `color`. */
+export function setMermaidPrimaryColor(color: string | null) {
+    enteredPrimaryColor = color;
+}
+
+/**
  * The branding's primary color (`--primary-color`, then
  * `renderizr.primaryColor`), else the page's default for `scheme`. Export
  * draws it as a literal, so it can't be read from the stylesheet.
  */
 export const mermaidPrimaryColor = (scheme: ColorScheme) =>
-    __RENDERIZR_PRIMARY_COLOR__ ?? PAGE_PRIMARY_COLORS[scheme];
+    (enteredPrimaryColor === undefined
+        ? __RENDERIZR_PRIMARY_COLOR__
+        : enteredPrimaryColor) ?? PAGE_PRIMARY_COLORS[scheme];
 
 /** `#rgb` or `#rrggbb` with every channel moved by `by`, clamped; any other color as it is. */
 export function shiftChannels(color: string, by: number): string {

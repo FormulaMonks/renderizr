@@ -9,6 +9,8 @@ import { isDataUri, isUrl, loadFont, loadLogo } from "./assets.js";
  *
  * Renderizr reads the properties and never writes them (ADR 16), and skips
  * Structurizr's `branding` block. A flag overrides its property for the run.
+ * In a set, a workspace that sets no property of its own takes the landscape
+ * scoped workspace's (ADR 26).
  */
 
 /** The workspace property each branding value comes from. */
@@ -86,32 +88,52 @@ const flagLogo = (value, cwd) =>
 /* ------------------------------------------------------------ choosing */
 
 /**
- * The branding for one run (flag, then workspace property, then the
- * default), as `loadLogo` and `loadFont` take it, and where each part came
- * from. `flags` are the branding flags `cli.js` parses, `null` where not
- * passed; `source` is the workspace's path or URL. Throws when a
- * workspace value the run uses is invalid, naming the property and
- * `source`.
+ * @typedef {"flag" | "workspace" | "landscape" | null} BrandingOrigin
+ *   Where a branding value came from: its flag, the workspace's own
+ *   property, the landscape scoped workspace's property, or nowhere.
+ */
+
+/**
+ * The branding for one workspace (flag, then the workspace's property, then
+ * the landscape scoped workspace's property, then the default), as
+ * `loadLogo` and `loadFont` take it, and where each part came from. `flags`
+ * are the branding flags `cli.js` parses, `null` where not passed; `source`
+ * is the workspace's path or URL. `landscape`, `{ workspace, source }`, is
+ * the landscape scoped workspace when `workspace` is another workspace of
+ * its set (ADR 26), and `null` otherwise. Throws when a workspace value the
+ * run uses is invalid, naming the property and the file that sets it.
  */
 export function chooseBranding({
     flags,
     workspace,
     source,
+    landscape = null,
     cwd = process.cwd(),
 }) {
-    const properties = brandingProperties(workspace);
-    const pick = (key) => flags[key] ?? properties[key];
+    const own = brandingProperties(workspace);
+    const inherited = brandingProperties(landscape?.workspace);
+    /** @returns {BrandingOrigin} */
     const from = (key) =>
         flags[key] !== null && flags[key] !== undefined
             ? "flag"
-            : properties[key] !== null
+            : own[key] !== null
               ? "workspace"
-              : null;
+              : landscape && inherited[key] !== null
+                ? "landscape"
+                : null;
+    const values = { flag: flags, workspace: own, landscape: inherited };
+    const pick = (key) => values[from(key)]?.[key] ?? null;
+    /** The file that sets the value of `key`, which its errors name. */
+    const sourceOf = (key) =>
+        from(key) === "landscape" ? landscape.source : source;
+    /** Whether a workspace, its own or the landscape, sets `key`. */
+    const fromWorkspace = (key) =>
+        from(key) === "workspace" || from(key) === "landscape";
 
-    if (from("primaryColor") === "workspace") {
+    if (fromWorkspace("primaryColor")) {
         const wrong = colorError(
-            properties.primaryColor,
-            `${BRANDING_PROPERTIES.primaryColor} in ${source}`,
+            pick("primaryColor"),
+            `${BRANDING_PROPERTIES.primaryColor} in ${sourceOf("primaryColor")}`,
         );
         if (wrong) throw new Error(wrong);
     }
@@ -124,8 +146,8 @@ export function chooseBranding({
     const logoSource =
         origin.logo === "flag"
             ? flags.logo
-            : origin.logo === "workspace"
-              ? workspaceLogo(properties.logo, source, cwd)
+            : origin.logo
+              ? workspaceLogo(pick("logo"), sourceOf("logo"), cwd)
               : null;
 
     return {
@@ -146,6 +168,7 @@ export function chooseBranding({
             : null,
         primaryColor: pick("primaryColor"),
         origin,
+        sources: { logo: sourceOf("logo"), font: sourceOf("font") },
     };
 }
 
@@ -155,38 +178,95 @@ const naming = (loading, property, source) =>
         throw new Error(`${property} in ${source}: ${error.message}`);
     });
 
-/** The chosen logo, loaded, its errors naming the property when it came from the workspace. */
-const loadChosenLogo = ({ logo, origin }, source) =>
-    origin.logo === "workspace"
-        ? naming(loadLogo(logo), BRANDING_PROPERTIES.logo, source)
-        : loadLogo(logo);
+/**
+ * `loading`, the value of `key` loading, with its errors naming the property
+ * and its file when a workspace sets it.
+ */
+const namingWhenSet = (loading, key, { origin, sources }) =>
+    origin[key] === "workspace" || origin[key] === "landscape"
+        ? naming(loading, BRANDING_PROPERTIES[key], sources[key])
+        : loading;
+
+/** The chosen logo, loaded. */
+const loadChosenLogo = (chosen) =>
+    namingWhenSet(loadLogo(chosen.logo), "logo", chosen);
 
 /**
- * The branding for one run, loaded: the logo as a data URI, the font's
+ * The chosen font, loaded once per run however many workspaces of a set
+ * take it: `fonts` holds each font loading, by what `loadFont` takes.
+ */
+const loadChosenFont = (chosen, fonts) => {
+    const key = JSON.stringify(chosen.font);
+    if (!fonts.has(key)) fonts.set(key, loadFont(chosen.font));
+    return namingWhenSet(fonts.get(key), "font", chosen);
+};
+
+/**
+ * The branding for one workspace, loaded: the logo as a data URI, the font's
  * faces embedded, the primary color, and the `notices` to print once at
- * start (see `brandingNotices`). Fails on a workspace value that won't load,
- * naming its property and `source`.
+ * start (see `brandingNotices`). `landscape` is as `chooseBranding` takes
+ * it, and `set` says the workspace is a set's landscape scoped workspace.
+ * `fonts` lets a set load a font its workspaces share once. Fails on a
+ * workspace value that won't load, naming its property and its file.
  */
 export async function loadBranding({
     flags,
     workspace,
     source,
+    landscape = null,
+    set = false,
     cwd = process.cwd(),
+    fonts = new Map(),
 }) {
-    const chosen = chooseBranding({ flags, workspace, source, cwd });
-    const loadingFont = loadFont(chosen.font);
+    const chosen = chooseBranding({ flags, workspace, source, landscape, cwd });
     const [logo, font] = await Promise.all([
-        loadChosenLogo(chosen, source),
-        chosen.origin.font === "workspace"
-            ? naming(loadingFont, BRANDING_PROPERTIES.font, source)
-            : loadingFont,
+        loadChosenLogo(chosen),
+        loadChosenFont(chosen, fonts),
     ]);
     return {
         logo,
         font,
         primaryColor: chosen.primaryColor,
-        notices: brandingNotices({ flags, workspace, source, cwd }),
+        notices: brandingNotices({
+            flags,
+            workspace,
+            source,
+            landscape,
+            set,
+            cwd,
+        }),
     };
+}
+
+/**
+ * The branding of every workspace of `set`, as `loadSet` gives it, loaded:
+ * the landscape scoped workspace's (or a lone workspace's) as `landscape`,
+ * and the others' as `workspaces`, in the set's order. A font the
+ * workspaces share loads once.
+ */
+export async function loadSetBranding({ flags, set, cwd = process.cwd() }) {
+    const fonts = new Map();
+    const [landscape, ...workspaces] = await Promise.all([
+        loadBranding({
+            flags,
+            workspace: set.landscape.workspace,
+            source: set.landscape.source,
+            set: set.workspaces.length > 0,
+            cwd,
+            fonts,
+        }),
+        ...set.workspaces.map((member) =>
+            loadBranding({
+                flags,
+                workspace: member.workspace,
+                source: member.source,
+                landscape: set.landscape,
+                cwd,
+                fonts,
+            }),
+        ),
+    ]);
+    return { landscape, workspaces };
 }
 
 /**
@@ -200,8 +280,7 @@ export async function checkBranding({
     cwd = process.cwd(),
 }) {
     const chosen = chooseBranding({ flags, workspace, source, cwd });
-    if (chosen.origin.logo === "workspace")
-        await loadChosenLogo(chosen, source);
+    if (chosen.origin.logo === "workspace") await loadChosenLogo(chosen);
 }
 
 /* ------------------------------------------------------- edit reloads */
@@ -234,9 +313,10 @@ const besideWorkspace = (path, source, cwd) =>
  * The hint for the flags that differ from `workspace`: a `properties` block
  * the author can paste into the workspace once, or `null` when every flag
  * matches. A logo path prints relative to the workspace file; a URL prints
- * as given.
+ * as given. For a set's landscape scoped workspace (`set`), it says the
+ * block brands the whole set.
  */
-function brandingHint({ flags, workspace, source, cwd }) {
+function brandingHint({ flags, workspace, source, set, cwd }) {
     const properties = brandingProperties(workspace);
     const lines = [];
     let localLogo = false;
@@ -270,6 +350,11 @@ function brandingHint({ flags, workspace, source, cwd }) {
               "    }",
           ]
         : [];
+    if (lines.length && set)
+        hint.push(
+            "",
+            `${source} is the landscape scoped workspace: set there, they brand every workspace of the set that sets no value of its own.`,
+        );
     if (localLogo)
         hint.push(
             ...(lines.length ? [""] : []),
@@ -283,12 +368,15 @@ function brandingHint({ flags, workspace, source, cwd }) {
  * What to print once at start about branding: a notice when Structurizr's
  * `branding` block sets a logo or a font that no `renderizr.*` property
  * does, which Renderizr skips, and the hint for flags that differ from the
- * workspace.
+ * workspace. A set prints the hint once, for its landscape scoped workspace
+ * (`set`), so a workspace with a `landscape` gets none.
  */
 export function brandingNotices({
     flags,
     workspace,
     source,
+    landscape = null,
+    set = false,
     cwd = process.cwd(),
 }) {
     const notices = [];
@@ -301,7 +389,9 @@ export function brandingNotices({
         notices.push(
             `Renderizr skips the branding block in ${source}: it reads the ${BRANDING_PROPERTIES.logo} and ${BRANDING_PROPERTIES.font} workspace properties instead.`,
         );
-    const hint = brandingHint({ flags, workspace, source, cwd });
+    const hint = landscape
+        ? null
+        : brandingHint({ flags, workspace, source, set, cwd });
     if (hint) notices.push(hint);
     return notices;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { branding, singleFile } from "./plugins.js";
+import { branding, pageSet, setModule, singleFile } from "./plugins.js";
 
 /**
  * A stand-in for the Rollup plugin context: `generateBundle` only ever calls
@@ -288,4 +288,127 @@ test("html files in the bundle are never inlined into themselves", () => {
             .length,
         2,
     );
+});
+
+/* ------------------------------------------------------------- set module */
+
+const INTER = { family: "Inter", css: "@font-face{font-family:'Inter'}" };
+
+/** A set as `loadSet` gives it, and its branding as `loadSetBranding` does. */
+const SET = {
+    landscape: {
+        workspace: { name: "Acme" },
+        crossings: [{ element: "1", slug: "orders", via: "name" }],
+    },
+    workspaces: [
+        {
+            slug: "orders",
+            workspace: { name: "Orders" },
+            crossings: [],
+        },
+        {
+            slug: "payments",
+            workspace: { name: "Payments" },
+            crossings: [{ element: "7", slug: "orders", via: "name" }],
+        },
+    ],
+};
+const SET_BRANDING = {
+    landscape: { logo: null, font: INTER, primaryColor: "#111" },
+    workspaces: [
+        { logo: null, font: INTER, primaryColor: "#111" },
+        {
+            logo: { src: "data:image/png;base64,AA", alt: "Payments" },
+            font: { family: "Lora", css: "@font-face{font-family:'Lora'}" },
+            primaryColor: "#222",
+        },
+    ],
+};
+
+/**
+ * What the page's set module exports, evaluated: `setModule`'s source has
+ * only `export const` lines of JSON.
+ */
+const setModuleExports = (plugin) => {
+    const source = plugin.load(plugin.resolveId("virtual:renderizr/set"));
+    return Object.fromEntries(
+        source
+            .split("\n")
+            .filter(Boolean)
+            .map((line) => {
+                const [, name, json] = line.match(
+                    /^export const (\w+) = (.*);$/,
+                );
+                return [name, JSON.parse(json)];
+            }),
+    );
+};
+
+/** What `plugin` writes into a multi-file build, by file name. */
+const emittedBy = (plugin) => {
+    const context = pluginContext();
+    plugin.generateBundle?.call(context, {}, {});
+    return Object.fromEntries(
+        context.emitted.map((file) => [file.fileName, file.source]),
+    );
+};
+
+test("each workspace's payload holds its workspace, branding and crossings, without a font the landscape already embeds", () => {
+    const { crossings, workspaces } = pageSet(SET, SET_BRANDING);
+    assert.deepEqual(crossings, SET.landscape.crossings);
+    assert.deepEqual(
+        workspaces.map(({ slug }) => slug),
+        ["orders", "payments"],
+    );
+    const [orders, payments] = workspaces.map(({ payload }) => payload);
+    assert.deepEqual(orders.workspace, { name: "Orders" });
+    assert.deepEqual(orders.branding, {
+        logo: null,
+        font: { family: "Inter", css: null },
+        primaryColor: "#111",
+    });
+    assert.deepEqual(payments.branding.font, SET_BRANDING.workspaces[1].font);
+    assert.equal(payments.branding.logo.alt, "Payments");
+    assert.deepEqual(payments.crossings, SET.workspaces[1].crossings);
+});
+
+test("a lone workspace's set module names no other workspace and inlines nothing", () => {
+    const plugin = setModule(
+        pageSet(
+            { landscape: SET.landscape, workspaces: [] },
+            {
+                landscape: SET_BRANDING.landscape,
+                workspaces: [],
+            },
+        ),
+    );
+    const { workspaces, inlined } = setModuleExports(plugin);
+    assert.deepEqual(workspaces, []);
+    assert.equal(inlined, null);
+    assert.deepEqual(emittedBy(plugin), {});
+});
+
+test("a multi-file build writes one JSON file per workspace, named after its slug, and the page names them", () => {
+    const plugin = setModule(pageSet(SET, SET_BRANDING));
+    const { crossings, workspaces, inlined } = setModuleExports(plugin);
+    assert.deepEqual(crossings, SET.landscape.crossings);
+    assert.deepEqual(workspaces, [
+        { slug: "orders", name: "Orders" },
+        { slug: "payments", name: "Payments" },
+    ]);
+    assert.equal(inlined, null);
+
+    const files = emittedBy(plugin);
+    assert.deepEqual(Object.keys(files), ["orders.json", "payments.json"]);
+    const payments = JSON.parse(files["payments.json"]);
+    assert.equal(payments.workspace.name, "Payments");
+    assert.equal(payments.branding.primaryColor, "#222");
+});
+
+test("--single-file inlines every workspace into the page and writes no other file", () => {
+    const plugin = setModule({ ...pageSet(SET, SET_BRANDING), inline: true });
+    const { inlined } = setModuleExports(plugin);
+    assert.deepEqual(Object.keys(inlined), ["orders", "payments"]);
+    assert.equal(inlined.orders.workspace.name, "Orders");
+    assert.deepEqual(emittedBy(plugin), {});
 });

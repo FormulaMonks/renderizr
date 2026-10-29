@@ -85,6 +85,7 @@ test("edit mode compiles its page code in and serves the workspace in place of t
     assert.deepEqual(pluginNames(config), [
         "renderizr:branding",
         "renderizr:edit-mode",
+        "renderizr:set",
     ]);
     assert.equal(config.configFile, false, "edit mode re-reads vite.config.ts");
 });
@@ -154,6 +155,7 @@ test("the multi-file build serves the public directory and splits assets", () =>
     assert.deepEqual(pluginNames(config), [
         "renderizr:branding",
         "renderizr:workspace",
+        "renderizr:set",
     ]);
 });
 

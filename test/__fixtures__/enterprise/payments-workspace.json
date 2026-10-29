@@ -5,6 +5,11 @@
     "configuration": {
         "scope": "SoftwareSystem"
     },
+    "properties": {
+        "renderizr.logo": "payments-logo.svg",
+        "renderizr.logoAlt": "Payments",
+        "renderizr.primaryColor": "#b0306a"
+    },
     "model": {
         "people": [],
         "softwareSystems": [

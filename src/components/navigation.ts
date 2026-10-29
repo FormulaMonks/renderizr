@@ -18,6 +18,7 @@ export type WorkspaceSummary = {
     };
 };
 import history from "history/hash";
+import type { Logo } from "virtual:renderizr/set";
 import Component from "./_component";
 import styles from "./navigation.module.css";
 import { cycleMode, getMode, onThemeChange, type ThemeMode } from "./theme";
@@ -43,11 +44,22 @@ const THEME_LABEL: Record<ThemeMode, string> = {
 
 export default class Navigation extends Component {
     #workspace: WorkspaceSummary;
+    #logo: Logo | null;
     #unsubscribeTheme: (() => void) | null = null;
+    #unlisten: (() => void) | null = null;
 
-    constructor(element: HTMLElement, workspace: WorkspaceSummary) {
+    /**
+     * `logo` is the branding of the workspace the reader is in (ADR 26):
+     * by default the one the page lands on.
+     */
+    constructor(
+        element: HTMLElement,
+        workspace: WorkspaceSummary,
+        logo: Logo | null = __RENDERIZR_LOGO__,
+    ) {
         super(element);
         this.#workspace = workspace;
+        this.#logo = logo;
     }
 
     #links = () =>
@@ -127,7 +139,7 @@ export default class Navigation extends Component {
         const link = (page: string, label: string) =>
             `<li><a href="${history.createHref({ search: `?page=${page}` })}" data-page="${page}">${label}</a></li>`;
 
-        const logo = __RENDERIZR_LOGO__;
+        const logo = this.#logo;
         const logoImg = logo
             ? `<img class="${styles.logo}" src="${logo.src}" alt="${logo.alt}"${
                   logo.width ? ` width="${logo.width}"` : ""
@@ -171,7 +183,8 @@ export default class Navigation extends Component {
 
         this.#renderThemeToggle();
 
-        history.listen((update) => {
+        this.#unlisten?.();
+        this.#unlisten = history.listen((update) => {
             for (const link of this.#links()) {
                 link.classList.remove(styles.navigationActive);
                 const search = new URLSearchParams(update.location.search);
@@ -190,7 +203,10 @@ export default class Navigation extends Component {
         this.element?.classList.remove(styles.navigation);
         this.#unsubscribeTheme?.();
         this.#unsubscribeTheme = null;
+        this.#unlisten?.();
+        this.#unlisten = null;
         this.#removeEvents();
+        this.#linkEventHandlers.clear();
 
         const children = this.element?.querySelectorAll("*");
         if (children) {

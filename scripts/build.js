@@ -2,10 +2,11 @@
 
 import { resolve } from "node:path";
 import { build } from "vite";
-import { loadBranding } from "./branding.js";
+import { loadSetBranding } from "./branding.js";
 import { parseCliArgs, parseEditArgs, withoutSeparator } from "./cli.js";
 import { createConfig } from "./config.js";
 import { sessionNotices, startEditServer } from "./edit.js";
+import { pageSet } from "./plugins.js";
 import { styles } from "./terminal.js";
 import { loadSet } from "./workspace-set.js";
 
@@ -25,20 +26,18 @@ if (Number.parseInt(process.versions.node, 10) < MINIMUM_NODE) {
 async function buildSite() {
     const options = parseCliArgs();
 
-    // The site renders the landscape scoped workspace, or a lone workspace;
-    // the set's other workspaces join it with the shell (ADR 26).
+    // The page holds the landscape scoped workspace, or a lone workspace,
+    // and enters the set's other workspaces from their own files (ADR 26).
     const set = await loadSet(options.workspaces);
     for (const notice of set.notices) process.stderr.write(`${notice}\n`);
     for (const warning of set.warnings) {
         process.stderr.write(`warning: ${warning}\n`);
     }
-    const { workspace, source } = set.landscape;
-    const { logo, font, primaryColor, notices } = await loadBranding({
-        flags: options.branding,
-        workspace,
-        source,
-    });
-    for (const notice of notices) process.stderr.write(`${notice}\n`);
+    const { workspace } = set.landscape;
+    const branding = await loadSetBranding({ flags: options.branding, set });
+    for (const { notices } of [branding.landscape, ...branding.workspaces])
+        for (const notice of notices) process.stderr.write(`${notice}\n`);
+    const { logo, font, primaryColor } = branding.landscape;
 
     process.env.VITE_WORKSPACE_NAME = workspace.name ?? "Workspace";
 
@@ -51,6 +50,7 @@ async function buildSite() {
             logo,
             font,
             primaryColor,
+            set: pageSet(set, branding),
             singleFile: options.singleFile,
             out: options.out,
             base: options.base,

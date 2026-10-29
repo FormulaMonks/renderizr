@@ -73,6 +73,7 @@ export function mountEngine(
          * saved date.
          */
         let workspace = options.workspace;
+        const font = options.font ?? null;
         const editableKey = (key: string) => {
             const view = model.findViewByKey(key);
             return view !== undefined && isEditable(view);
@@ -262,10 +263,7 @@ export function mountEngine(
                         __RENDERIZR_BUILD_DATE__,
                         __RENDERIZR_VERSION__,
                     ),
-                    text: textSetting(
-                        __RENDERIZR_FONT__,
-                        mermaidFontFamily(view.mermaid),
-                    ),
+                    text: textSetting(font, mermaidFontFamily(view.mermaid)),
                 });
                 return exportBlob(exported, format);
             },
@@ -355,7 +353,7 @@ export function mountEngine(
                     model,
                     store,
                     commands,
-                    font: __RENDERIZR_FONT__,
+                    font,
                     onPainted,
                     onRedrawn,
                     onEscape: () => player.stop(),
