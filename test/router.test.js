@@ -64,7 +64,7 @@ beforeEach(() => {
         return unlisten;
     };
 
-    history.replace({ search: "", hash: "" });
+    history.replace({ pathname: "/", search: "", hash: "" });
 });
 
 afterEach(() => {
@@ -269,4 +269,22 @@ test("replacing the pages with a set that lacks the page on screen lands on the 
 
     assert.deepEqual(log, ["clear:docs", "render:diagrams"]);
     assert.equal(currentPage(), "diagrams");
+});
+
+test("an address in another workspace is the shell's to follow, not the router's", () => {
+    const router = new Router(host, pages());
+    log.length = 0;
+
+    // The shell enters Orders and then hands the router its pages.
+    history.push({ pathname: "/orders/", search: "?page=adrs" });
+    assert.deepEqual(log, [], "the router drew the landscape's page there");
+
+    router.replacePages(pages());
+    assert.deepEqual(log, ["clear:diagrams", "render:adrs"]);
+
+    // Within Orders the router follows the address again.
+    log.length = 0;
+    history.push({ search: "?page=docs" });
+    assert.deepEqual(log, ["clear:adrs", "render:docs"]);
+    assert.equal(history.location.pathname, "/orders/");
 });

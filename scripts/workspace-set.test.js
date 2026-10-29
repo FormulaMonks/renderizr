@@ -924,7 +924,7 @@ test("a slug is the software system's name in kebab case", () => {
 
 /* ----------------------------------------------------------------- fixture */
 
-test("the enterprise fixture loads as a set with no warnings", async () => {
+test("the enterprise fixture loads as a set, warning only of its one crossing to a missing view", async () => {
     const set = await load(["test/__fixtures__/enterprise"], {
         cwd: REPO_ROOT,
     });
@@ -933,7 +933,11 @@ test("the enterprise fixture loads as a set with no warnings", async () => {
     for (const member of set.workspaces) {
         assert.equal(member.workspace.configuration.scope, "SoftwareSystem");
     }
-    assert.deepEqual(set.warnings, []);
+    // Orders links Payments' Deployment view, which Payments lacks, so a
+    // reader sees the notice for a crossing that lands on the default view.
+    assert.deepEqual(set.warnings, [
+        "test/__fixtures__/enterprise/orders-workspace.json: Payments links {workspace:0}/diagrams#Deployment, but Payments has no view Deployment, so the crossing lands on its default view.",
+    ]);
     assert.deepEqual(set.notices, []);
     assert.equal(set.landscape.crossings.length, set.workspaces.length);
     for (const crossing of set.landscape.crossings) {

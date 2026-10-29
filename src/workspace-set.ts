@@ -50,6 +50,8 @@ export type WorkspaceSetSource = {
 export type WorkspaceListener = (entered: SetWorkspace) => void;
 
 export type WorkspaceSet = {
+    /** The landscape scoped workspace, where the reader lands. */
+    readonly landscape: SetWorkspace;
     /** The other workspaces of the set, by slug and name. */
     readonly workspaces: readonly SetMember[];
     /** The workspace the reader entered last: at first, the landscape. */
@@ -87,7 +89,8 @@ export function createWorkspaceSet({
     workspaces,
     load,
 }: WorkspaceSetSource): WorkspaceSet {
-    let current = setWorkspace(null, landscape);
+    const lands = setWorkspace(null, landscape);
+    let current = lands;
     /** Each workspace entered or loading, by slug. */
     const entered = new Map<string | null, Promise<SetWorkspace>>([
         [null, Promise.resolve(current)],
@@ -116,6 +119,7 @@ export function createWorkspaceSet({
     };
 
     return {
+        landscape: lands,
         workspaces,
         currentWorkspace: () => current,
         async enterWorkspace(slug) {

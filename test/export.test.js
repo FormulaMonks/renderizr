@@ -48,7 +48,7 @@ const TITLE_BLOCK = {
 function exported(key, options = {}) {
     const { scheme = "light", step, titleBlock = TITLE_BLOCK } = options;
     const graph = buildGraph(
-        new WorkspaceModel(WORKSPACE),
+        new WorkspaceModel(WORKSPACE, options.set),
         key,
         scheme,
         LABELS,
@@ -124,6 +124,19 @@ describe("export-svg", () => {
         for (const href of images) {
             assert.match(href, /^data:/, "an export fetches nothing");
         }
+    });
+
+    test("an element that crosses into another workspace of the set draws the workspace indicator", () => {
+        const set = {
+            workspaces: [{ slug: "mail-server", name: "Mail Server" }],
+            crossings: [{ element: "5", slug: "mail-server", via: "name" }],
+        };
+        const glyphs = (svg) =>
+            [...svg.matchAll(/<image href="data:image\/svg\+xml,([^"]+)"/g)]
+                .map(([, svg]) => decodeURIComponent(svg))
+                .filter((glyph) => glyph.includes('d="M3 7h10v10h-10z"'));
+        assert.equal(glyphs(exported("AutoFrame").svg).length, 0);
+        assert.equal(glyphs(exported("AutoFrame", { set }).svg).length, 1);
     });
 
     test("a dark export draws its canvas and title block in the dark scheme", () => {

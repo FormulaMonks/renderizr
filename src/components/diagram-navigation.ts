@@ -12,6 +12,7 @@ import systemContextIcon from "bootstrap-icons/icons/layout-wtf.svg?raw";
 import customIcon from "bootstrap-icons/icons/pentagon.svg?raw";
 import deploymentIcon from "bootstrap-icons/icons/rocket-takeoff.svg?raw";
 import history from "history/hash";
+import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
 import Component from "./_component";
 import styles from "./diagram-navigation.module.css";
 
@@ -95,6 +96,11 @@ export default class DiagramNavigation extends Component {
      * filtered view's base as current, cannot show the same view endlessly.
      */
     #shown: string | null = null;
+    /**
+     * The workspace of the set the drawer lists the views of, as the
+     * address names it when the drawer is drawn (ADR 26).
+     */
+    #workspace: string | null = null;
     /**
      * Whether the URL may open a view the drawer doesn't list. The editing
      * route of a filtered view's base view is one (spec 4.6): the drawer
@@ -180,7 +186,14 @@ export default class DiagramNavigation extends Component {
      * Back, forward, and a link pasted into an already-open tab all arrive
      * here. Without this the URL and the diagram on screen drift apart.
      */
-    #followUrl = (search: string) => {
+    #followUrl = ({
+        pathname,
+        search,
+    }: {
+        pathname: string;
+        search: string;
+    }) => {
+        if (inOtherWorkspace(pathname, this.#workspace)) return;
         const viewKey = new URLSearchParams(search).get("view");
         if (!viewKey) return;
         if (this.#diagram.getCurrentView()?.key === viewKey) return;
@@ -196,12 +209,22 @@ export default class DiagramNavigation extends Component {
 
     /** The drawer's scroll position, kept across view changes and reloads. */
     #rememberScroll = () => {
-        if (this.#list) writeSetting(SCROLL_KEY, String(this.#list.scrollTop));
+        if (this.#list)
+            writeSetting(this.#scrollKey(), String(this.#list.scrollTop));
     };
+
+    /**
+     * Each workspace of a set keeps its own scroll; the landscape keeps the
+     * key a lone workspace has always read.
+     */
+    #scrollKey = () =>
+        this.#workspace === null
+            ? SCROLL_KEY
+            : `${SCROLL_KEY}:${this.#workspace}`;
 
     #restoreScroll() {
         if (!this.#list) return;
-        const saved = Number(readSetting(SCROLL_KEY) ?? "0");
+        const saved = Number(readSetting(this.#scrollKey()) ?? "0");
         if (Number.isFinite(saved) && saved > 0) this.#list.scrollTop = saved;
     }
 
@@ -258,6 +281,7 @@ export default class DiagramNavigation extends Component {
     render() {
         if (!this.element) return;
         this.clear();
+        this.#workspace = workspaceOf(history.location.pathname);
         this.element.classList.add(styles.drawer);
 
         this.element.innerHTML = `
@@ -311,7 +335,7 @@ export default class DiagramNavigation extends Component {
 
         this.#unlisten?.();
         this.#unlisten = history.listen((update) =>
-            this.#followUrl(update.location.search),
+            this.#followUrl(update.location),
         );
     }
 

@@ -23,6 +23,7 @@
  */
 
 import { sectionId } from "./documentation";
+import { NO_SET, type SetLinks } from "./targets";
 import type {
     ElementType,
     ModelElement,
@@ -91,13 +92,20 @@ export class WorkspaceModel {
      * workspace has none: what an element link may lead to (spec 6.1).
      */
     readonly documentation: { sections: string[]; decisions: string[] };
+    /**
+     * What the workspace knows of the set it belongs to (ADR 26): the other
+     * workspaces and its crossings into them, which its element links and
+     * software systems lead to. A lone workspace knows none.
+     */
+    readonly set: SetLinks;
 
     #elementsById = new Map<string, ModelElement>();
     #relationshipsById = new Map<string, ModelRelationship>();
     #allViews: ModelView[] = [];
     #views: ModelView[] = [];
 
-    constructor(json: Json) {
+    constructor(json: Json, set: SetLinks = NO_SET) {
+        this.set = set;
         const workspace: Json = structuredClone(json ?? {});
         this.name = workspace.name ?? "";
         this.description = workspace.description ?? "";

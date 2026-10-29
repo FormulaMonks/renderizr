@@ -62,6 +62,25 @@
     min-width: 0;
 }
 
+/* The way back up the workspace trail, ahead of the logo and the title. */
+.back {
+    flex: none;
+    padding: 0.2rem 0.6rem;
+    border-radius: 5px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-muted);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.back:hover,
+.back:focus-visible {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
 .logo {
     height: 2.25rem;
     width: auto;
