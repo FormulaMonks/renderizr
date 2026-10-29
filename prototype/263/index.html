@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toast prototype</title>
+<style>
+/* Tokens copied from src/main.css so the toast sits on the real palette. */
+:root {
+    --color-primary: rgb(20, 91, 158);
+    --color-foreground: rgb(24, 27, 31);
+    --color-background: rgb(248, 249, 251);
+    --color-muted: rgb(96, 105, 118);
+    --color-surface: rgb(255, 255, 255);
+    --color-surface-alt: rgb(240, 241, 243);
+    --color-border: rgb(219, 224, 230);
+    --color-alert-note: rgb(9, 105, 218);
+    --color-alert-caution: rgb(207, 34, 46);
+    --el: rgb(17, 104, 189);
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --color-primary: rgb(17, 104, 189);
+        --color-foreground: rgb(233, 237, 243);
+        --color-background: rgb(20, 20, 20);
+        --color-muted: rgb(150, 158, 168);
+        --color-surface: rgb(30, 30, 30);
+        --color-surface-alt: rgb(38, 40, 44);
+        --color-border: rgb(58, 58, 58);
+        --color-alert-note: rgb(68, 147, 248);
+        --color-alert-caution: rgb(248, 81, 73);
+    }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; font: 15px/1.5 system-ui, sans-serif; background: var(--color-background); color: var(--color-foreground); }
+main { max-width: 1080px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 18px; margin: 32px 0 4px; }
+.muted { color: var(--color-muted); }
+code { font: 13px ui-monospace, monospace; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.controls fieldset { border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0; }
+.controls legend { font-size: 12px; color: var(--color-muted); }
+button { font: inherit; font-size: 14px; padding: 0.3rem 0.75rem; border-radius: 7px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-foreground); cursor: pointer; }
+button.primary { background: var(--color-primary); border-color: var(--color-primary); color: white; }
+
+/* The mock page: header with the workspace trail, a canvas. */
+.page { position: relative; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; background: var(--color-surface); height: 460px; }
+.page header { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--color-border); }
+.page header .back { padding: 2px 8px; font-size: 13px; }
+.page header .title { font-weight: 600; }
+.page header .addr { margin-left: auto; font: 12px ui-monospace, monospace; color: var(--color-muted); }
+.page .canvas { position: absolute; inset: 56px 0 0; display: flex; align-items: center; justify-content: center; gap: 40px; background: var(--color-background); }
+.el { width: 170px; padding: 18px 10px; border-radius: 6px; background: var(--el); color: white; text-align: center; font-size: 14px; }
+.el small { display: block; opacity: .85; font-size: 12px; }
+
+/* ------------------------------------------------------------ the toast --- */
+.toasts { position: absolute; z-index: 10; display: flex; flex-direction: column; gap: 8px; width: min(420px, calc(100% - 32px)); pointer-events: none; }
+.toasts[data-place="bottom-right"] { right: 16px; bottom: 16px; flex-direction: column-reverse; }
+.toasts[data-place="top-right"] { right: 16px; top: 72px; }
+.toast { pointer-events: auto; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-border); border-left: 4px solid var(--color-alert-note); border-radius: 6px; background: var(--color-surface); color: var(--color-foreground); box-shadow: 0 6px 20px rgb(0 0 0 / 18%); font-size: 14px; animation: in .18s ease-out; }
+.toast[data-kind="error"] { border-left-color: var(--color-alert-caution); }
+.toast p { flex: 1; min-width: 12rem; margin: 0; }
+.toast .close { margin-left: auto; padding: 0 6px; border: 0; background: none; font-size: 18px; line-height: 1; color: var(--color-muted); }
+.toast pre { flex-basis: 100%; max-height: 9rem; margin: 0; padding: 6px 8px; overflow: auto; border-radius: 4px; background: var(--color-surface-alt); font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; }
+.toast .actions { flex-basis: 100%; display: flex; gap: 8px; }
+.toast .timer { flex-basis: 100%; height: 2px; background: var(--color-border); border-radius: 1px; overflow: hidden; }
+.toast .timer i { display: block; height: 100%; background: var(--color-alert-note); animation: drain linear forwards; }
+.toast:hover .timer i, .toast:focus-within .timer i { animation-play-state: paused; }
+@keyframes in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes drain { to { width: 0; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* Today: the edit-mode bar above the canvas, for comparison. */
+.bar { position: absolute; left: 16px; right: 16px; top: 68px; z-index: 10; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 0.5rem 0.75rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); font-size: 14px; }
+.bar p { flex: 1; margin: 0; }
+.bar.error { border-color: var(--color-alert-caution); }
+.bar pre { flex-basis: 100%; margin: 0; font: 12px ui-monospace, monospace; white-space: pre-wrap; }
+
+ul.q { color: var(--color-muted); padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Prototype: a toast for system messages in a set</h1>
+<p class="muted">Rough mock for <a href="https://github.com/FormulaMonks/renderizr/issues/263">#263</a> on the map <a href="https://github.com/FormulaMonks/renderizr/issues/246">#246</a>. Not the real page: the header and canvas stand in for the diagrams page on the workspace trail <code>#/orders/payments/</code>. Tokens come from <code>src/main.css</code>. Trigger each message, then switch where the toast sits and compare with today's bar.</p>
+
+<div class="controls">
+    <fieldset>
+        <legend>Reader (built site and dev)</legend>
+        <button data-fire="redirect">Workspace on the trail is gone</button>
+        <button data-fire="missing-view">Crossing to a missing view</button>
+    </fieldset>
+    <fieldset>
+        <legend>Contributor (dev)</legend>
+        <button data-fire="dsl-error">DSL error on reload</button>
+        <button data-fire="set-error">Set error on reload</button>
+        <button data-fire="fixed">Fix it</button>
+    </fieldset>
+    <fieldset>
+        <legend>Author (edit mode)</legend>
+        <button data-fire="held">Changed on disk with unsaved edits</button>
+        <button data-fire="view-gone">Shown view is gone</button>
+    </fieldset>
+    <fieldset>
+        <legend>Where</legend>
+        <label><input type="radio" name="place" value="bottom-right" checked> bottom right</label>
+        <label><input type="radio" name="place" value="top-right"> top right</label>
+        <label><input type="radio" name="place" value="bar"> today's bar</label>
+    </fieldset>
+</div>
+
+<div class="page">
+    <header>
+        <button class="back">← Orders</button>
+        <span class="title">Payments</span>
+        <span class="addr">#/orders/payments/?view=Containers</span>
+    </header>
+    <div class="canvas">
+        <div class="el">Gateway<small>[Container]</small></div>
+        <div class="el">Ledger<small>[Container]</small></div>
+    </div>
+    <div class="toasts" data-place="bottom-right" role="region" aria-label="Notifications"></div>
+</div>
+
+<h2>What to react to</h2>
+<ul class="q">
+    <li><b>Two kinds.</b> A notice (blue edge) says what the page did for the reader and leaves on its own after 6 seconds; hovering or focusing it holds it. An error (red edge) stays until the next set loads or someone closes it, and the page keeps the last set that loaded underneath.</li>
+    <li><b>Who sees what.</b> The two reader messages show in built sites too; the contributor messages show only in dev; the author messages only in edit mode.</li>
+    <li><b>The held-edits question</b> needs an answer before anything else happens. As a toast it can be missed; today's bar sits over the canvas. Does it move?</li>
+    <li><b>Stacking.</b> A new message of the same kind replaces the old one, as today's bar does with its <code>data-*</code> kind.</li>
+</ul>
+</main>
+
+<script>
+const region = document.querySelector(".toasts");
+const page = document.querySelector(".page");
+const addr = document.querySelector(".addr");
+const title = document.querySelector(".title");
+const back = document.querySelector(".back");
+let place = "bottom-right";
+
+const MESSAGES = {
+    redirect: () => {
+        addr.textContent = "#/orders/?view=Containers";
+        title.textContent = "Orders";
+        back.textContent = "← Landscape";
+        return { kind: "notice", key: "nav", text: "This site no longer has the Payments workspace, so the page shows Orders." };
+    },
+    "missing-view": () => {
+        addr.textContent = "#/orders/payments/?view=Containers";
+        title.textContent = "Payments";
+        back.textContent = "← Orders";
+        return { kind: "notice", key: "nav", text: "Payments has no view Deployment, so the page shows Containers." };
+    },
+    "dsl-error": () => ({
+        kind: "error", key: "load",
+        text: "payments/workspace.dsl didn't load. The page keeps the last set that did, and follows once you fix it.",
+        detail: "com.structurizr.dsl.StructurizrDslParserException: Too many tokens, expected: softwareSystem <name> [description] [tags] at line 4 of payments/workspace.dsl: payments = softwareSystem \"Payments\" { gateway = container \"Gateway\" }",
+    }),
+    "set-error": () => ({
+        kind: "error", key: "load",
+        text: "The set didn't load. The page keeps the last set that did, and follows once you fix it.",
+        detail: "Two landscape scoped workspaces: landscape/workspace.json and archive/workspace.json. A set has one.",
+    }),
+    fixed: () => { dismiss("load"); return null; },
+    held: () => ({
+        kind: "error", key: "held", sticky: true,
+        text: "workspace.json changed on disk while Containers had unsaved changes",
+        actions: ["Keep my changes", "Discard them"],
+    }),
+    "view-gone": () => ({ kind: "notice", key: "nav", sticky: true, text: "workspace.json no longer has Deployment, so the page shows Containers." }),
+};
+
+const timers = new Map();
+function dismiss(key) {
+    page.querySelectorAll(`[data-key="${key}"]`).forEach((n) => n.remove());
+    clearTimeout(timers.get(key));
+}
+
+function show(message) {
+    dismiss(message.key);
+    const node = document.createElement("div");
+    node.dataset.key = message.key;
+    node.dataset.kind = message.kind;
+    const lasts = message.kind === "notice" && !message.sticky && place !== "bar";
+    node.setAttribute("role", message.kind === "error" ? "alert" : "status");
+    node.innerHTML = `<p></p><button class="close" aria-label="Dismiss">×</button>`;
+    node.querySelector("p").textContent = message.text;
+    if (message.detail) {
+        const pre = document.createElement("pre");
+        pre.textContent = message.detail;
+        node.append(pre);
+    }
+    if (message.actions) {
+        const row = document.createElement("div");
+        row.className = "actions";
+        message.actions.forEach((label, i) => {
+            const b = document.createElement("button");
+            b.textContent = label;
+            if (i === 0) b.className = "primary";
+            b.onclick = () => node.remove();
+            row.append(b);
+        });
+        node.append(row);
+    }
+    if (lasts) {
+        const timer = document.createElement("div");
+        timer.className = "timer";
+        timer.innerHTML = `<i style="animation-duration:6s"></i>`;
+        timer.firstChild.addEventListener("animationend", () => node.remove());
+        node.append(timer);
+    }
+    node.querySelector(".close").onclick = () => node.remove();
+    if (place === "bar") {
+        node.className = `bar ${message.kind === "error" ? "error" : ""}`;
+        page.append(node);
+    } else {
+        node.className = "toast";
+        region.append(node);
+    }
+}
+
+document.querySelectorAll("[data-fire]").forEach((button) =>
+    button.addEventListener("click", () => {
+        const message = MESSAGES[button.dataset.fire]();
+        if (message) show(message);
+    }),
+);
+document.querySelectorAll("input[name=place]").forEach((input) =>
+    input.addEventListener("change", () => {
+        place = input.value;
+        page.querySelectorAll("[data-key]").forEach((n) => n.remove());
+        if (place !== "bar") region.dataset.place = place;
+    }),
+);
+</script>
+</body>
+</html>
