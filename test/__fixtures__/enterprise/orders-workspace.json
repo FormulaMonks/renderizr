@@ -79,6 +79,7 @@
                 "id": "6",
                 "name": "Payments",
                 "description": "Charges cards and issues refunds.",
+                "url": "{workspace:0}/diagrams#Deployment",
                 "location": "Unspecified",
                 "tags": "Element,Software System,External"
             }

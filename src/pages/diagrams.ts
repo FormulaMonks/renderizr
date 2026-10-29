@@ -32,7 +32,11 @@ import {
 } from "./diagrams-edit";
 import styles from "./diagrams.module.css";
 import { disclaimerKind, showDisclaimer } from "../components/disclaimer";
-import { currentWorkspace } from "../current-workspace";
+import {
+    crossWorkspace,
+    currentWorkspace,
+    setLinksOf,
+} from "../current-workspace";
 
 /** Whether the page shows the editing route now (spec 4.6). */
 const editing = () =>
@@ -40,7 +44,8 @@ const editing = () =>
 
 /**
  * Go where `target` leads (spec 6.1): a view through the drawer's
- * `changeView`, the documentation or decisions through the hash router, and
+ * `changeView`, the documentation or decisions through the hash router,
+ * another workspace of the set along the workspace trail (ADR 26), and
  * anything else in a new tab. Leaving the view goes through `guard` first,
  * which edit mode holds while changes wait for a save (spec 7.5).
  */
@@ -56,6 +61,9 @@ function follow(
         case "documentation":
         case "decisions":
             guard(() => history.push({ search: target.search }));
+            return;
+        case "workspace":
+            guard(() => crossWorkspace(target));
             return;
         case "link":
             window.open(target.url, "_blank", "noopener,noreferrer");
@@ -108,7 +116,8 @@ export default class Diagrams extends Page {
         const workspace = __RENDERIZR_EDIT_MODE__
             ? liveWorkspace(entered.workspace)
             : entered.workspace;
-        const model = new WorkspaceModel(workspace);
+        const set = setLinksOf(entered);
+        const model = new WorkspaceModel(workspace, set);
         const views = model.getViews();
         const requested = new URLSearchParams(history.location.search).get(
             "view",
@@ -153,6 +162,7 @@ export default class Diagrams extends Page {
             target,
             {
                 workspace,
+                set,
                 view: first,
                 font: entered.branding.font?.family ?? null,
                 colorScheme: getDiagramTheme(),

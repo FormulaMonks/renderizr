@@ -7,8 +7,15 @@ import Navigation, { type WorkspaceSummary } from "./components/navigation.ts";
 import { createImageResolver } from "./components/doc-images.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
 import { takeSessionToken } from "./components/session-token.ts";
-import { currentWorkspace, onWorkspaceEntered } from "./current-workspace.ts";
+import history from "history/hash";
+import {
+    currentWorkspace,
+    followWorkspaceTrail,
+    onWorkspaceEntered,
+    parentWorkspace,
+} from "./current-workspace.ts";
 import type { SetWorkspace } from "./workspace-set.ts";
+import { inOtherWorkspace } from "./workspace-trail.ts";
 import { summarizeWorkspace } from "./engine/workspace-summary";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";
@@ -119,14 +126,30 @@ async function init() {
     let router: Router | null = null;
     /** Counts the workspaces shown, so a slow one never overrides a later one. */
     let shown = 0;
+    /** The address path the header leads back from. */
+    let headerPath: string | null = null;
+
+    /** The header of `entered`, leading back up the address's trail. */
+    const headerOf = (entered: SetWorkspace) => {
+        headerPath = history.location.pathname;
+        return new Navigation(
+            header,
+            summarizeWorkspace(entered.workspace),
+            entered.branding.logo,
+            parentWorkspace(headerPath),
+        );
+    };
 
     /** Draw the header and the page the address names from `entered`. */
     const show = async (entered: SetWorkspace) => {
         shown += 1;
         const showing = shown;
-        const workspace = summarizeWorkspace(entered.workspace);
-        const next = new Navigation(header, workspace, entered.branding.logo);
-        const routes = await pagesOf(workspace, next, diagrams);
+        const next = headerOf(entered);
+        const routes = await pagesOf(
+            summarizeWorkspace(entered.workspace),
+            next,
+            diagrams,
+        );
         if (showing !== shown) return;
 
         nav?.clear();
@@ -141,9 +164,23 @@ async function init() {
     onWorkspaceEntered((entered) => {
         applyBranding(entered.branding);
         document.title = `${entered.name} | Structurizr`;
-        void show(entered);
+        if (router) void show(entered);
     });
 
+    // An authored trail that ends at the workspace on screen changes only
+    // where the header leads back to.
+    history.listen(({ location }) => {
+        const entered = currentWorkspace();
+        if (!router || location.pathname === headerPath) return;
+        if (inOtherWorkspace(location.pathname, entered.slug)) return;
+        nav?.clear();
+        nav = headerOf(entered);
+        nav.render();
+    });
+
+    // An address on a workspace trail opens that workspace of the set
+    // before anything is drawn from the landscape.
+    await followWorkspaceTrail();
     await show(currentWorkspace());
     trackHeaderHeight();
 }

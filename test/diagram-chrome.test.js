@@ -6,6 +6,7 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { WorkspaceModel } = await importSrc("model/index");
@@ -624,4 +625,46 @@ test("a save the viewer refuses for another reason says the export failed", asyn
     assert.equal(failure().textContent, "Couldn't export this view");
     assert.equal(button("export-png").getAttribute("aria-busy"), null);
     toolbar.clear();
+});
+
+/* ------------------------------------------------- a workspace of a set */
+
+test("the drawer keeps its scroll for each workspace of a set, and the landscape's under today's key", () => {
+    window.localStorage.clear();
+    window.localStorage.setItem("renderizr:diagramDrawerScroll", "40");
+    window.localStorage.setItem("renderizr:diagramDrawerScroll:orders", "120");
+    const scrolled = (pathname) => {
+        history.replace({ pathname, search: "" });
+        const element = document.createElement("nav");
+        const drawer = new DiagramNavigation(element, stubSwitcher(), model);
+        drawer.render();
+        const top = element.querySelector("div").scrollTop;
+        drawer.clear();
+        return top;
+    };
+    try {
+        assert.equal(scrolled("/orders/"), 120);
+        assert.equal(scrolled("/orders/payments/"), 0);
+        assert.equal(scrolled("/"), 40);
+    } finally {
+        history.replace({ pathname: "/", search: "" });
+    }
+});
+
+test("the drawer leaves an address in another workspace to the shell", () => {
+    history.replace({ pathname: "/", search: "" });
+    const diagram = stubSwitcher();
+    const element = document.createElement("nav");
+    const drawer = new DiagramNavigation(element, diagram, model);
+    drawer.render();
+    const [, other] = model.getViews();
+    try {
+        history.push({ pathname: "/orders/", search: `?view=${other.key}` });
+        assert.notEqual(diagram.getCurrentView().key, other.key);
+        history.push({ pathname: "/", search: `?view=${other.key}` });
+        assert.equal(diagram.getCurrentView().key, other.key);
+    } finally {
+        drawer.clear();
+        history.replace({ pathname: "/", search: "" });
+    }
 });

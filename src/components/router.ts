@@ -2,11 +2,14 @@ import type { Location } from "history";
 import type Page from "../pages/_page";
 import Component from "./_component";
 import history from "history/hash";
+import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
 
 export default class Router extends Component {
     #pageContainer: HTMLElement;
     #pages: Map<string, Page> = new Map();
     #currentPage: Page | null = null;
+    /** The workspace of the set the pages on screen belong to (ADR 26). */
+    #workspace: string | null = workspaceOf(history.location.pathname);
 
     constructor(element: HTMLElement, pages: Page[]) {
         super(element);
@@ -17,6 +20,9 @@ export default class Router extends Component {
         const page = search.get("page");
 
         history.listen((update) => {
+            // An address in another workspace waits for its pages.
+            if (inOtherWorkspace(update.location.pathname, this.#workspace))
+                return;
             const currentPageName = this.#currentPage?.name.toLowerCase();
             const search = new URLSearchParams(update.location.search);
             const page = search.get("page");
@@ -77,6 +83,7 @@ export default class Router extends Component {
         }
 
         this.#currentPage = this.#pages.get(pageName)!;
+        this.#workspace = workspaceOf(history.location.pathname);
         // Lets the page decide how much room the shared header may take.
         document.documentElement.dataset.page = pageName;
 
