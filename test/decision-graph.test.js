@@ -684,13 +684,14 @@ test("our own decisions get back the three links the importer drops", () => {
     }
 });
 
-test("our own decisions make five amend edges and 31 references", () => {
+test("our own decisions make six amend edges and 32 references", () => {
     const edges = edgesOf(layoutDecisionGraph(OURS));
 
-    assert.equal(edges.length, 36);
+    assert.equal(edges.length, 38);
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
         [
+            "26 amend 16",
             "25 amend 23",
             "24 amend 13",
             "23 amend 4",
@@ -712,23 +713,25 @@ test("our own decisions need 12 columns", () => {
 
     assert.equal(layout.columns, 12);
     assert.deepEqual(lanesOf(layout), [
-        lane(2, ["25", "23"], []),
-        lane(2, ["15"], ["22", "16"]),
+        // 26 amends 16 and is newer than every decision that references 16.
+        { ...lane(2, ["26", "16"], ["24", "22", "17"]), top: "26" },
         lane(2, ["11"], ["12"]),
-        lane(3, ["2"], ["24", "13", "12", "11", "9", "7", "5", "3"]),
-        lane(4, ["3"], ["24", "21", "18", "15", "6"]),
-        lane(5, ["14", "4"], ["24", "23", "17", "10", "9"]),
-        lane(6, ["24", "13"], []),
-        lane(7, ["16"], ["24", "22", "17"]),
-        lane(8, ["21"], ["24"]),
-        lane(8, ["20", "12"], []),
+        lane(3, ["22"], ["26"]),
+        lane(3, ["20", "12"], []),
+        lane(4, ["25", "23"], []),
+        lane(4, ["15"], ["22", "16"]),
+        lane(5, ["2"], ["24", "13", "12", "11", "9", "7", "5", "3"]),
+        lane(6, ["3"], ["24", "21", "18", "15", "6"]),
+        lane(7, ["14", "4"], ["24", "23", "17", "10", "9"]),
+        lane(8, ["24", "13"], []),
+        lane(9, ["21"], ["24"]),
         lane(9, ["7"], ["19", "17", "8"]),
         lane(10, ["9"], ["17", "10"]),
         lane(11, ["10"], ["17"]),
     ]);
     assert.deepEqual(
         loneOf(layout),
-        ["22", "19", "18", "17", "8", "6", "5", "1"],
+        ["19", "18", "17", "8", "6", "5", "1"],
         "every other decision is a lone dot",
     );
 });
