@@ -166,6 +166,8 @@ Vite bundles Rollup, esbuild and PostCSS inside its own distribution; their lice
 
 `test/__fixtures__/big-bank-plc.json`, `test/__fixtures__/groups.json` and `test/__fixtures__/amazon-web-services.json` are unmodified copies of the workspaces in `structurizr-export/src/test/resources/` of the Apache-2.0 [structurizr/structurizr](https://github.com/structurizr/structurizr) repository, at commit `9ff16634`. The tests render them. The build never reads them, and `package.json` leaves `test/` out of the package.
 
+`test/__fixtures__/enterprise-dsl/remote/big-bank-plc/workspace.json` is a copy of `test/__fixtures__/big-bank-plc.json` that Renderizr **modified**, stated here as Apache-2.0 section 4(b) requires: it sets `configuration.scope` to `SoftwareSystem`, so a set can follow it as the workspace of the Internet Banking System. The tests fetch it by its URL on GitHub, and the build never reads it.
+
 ---
 
 ## Not third-party, and not Renderizr's to license

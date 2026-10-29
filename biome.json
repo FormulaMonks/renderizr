@@ -9,6 +9,7 @@
             "!**/test/__fixtures__/big-bank-plc-tight.json",
             "!**/test/__fixtures__/big-bank-plc-stored.json",
             "!**/test/__fixtures__/groups.json",
+            "!**/test/__fixtures__/enterprise-dsl/remote",
             "!**/test/__fixtures__/themes",
             "!**/scripts/__fixtures__/structurizr",
             "!**/scripts/mermaid/parser.js"
