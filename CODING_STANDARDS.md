@@ -43,9 +43,9 @@ Every piece of UI extends `Component` (`src/components/_component.ts`) or `Page`
 
 A rendered page opens from `file://`, as one self-contained file, offline, under a strict Content Security Policy. In code:
 
-- No network request at runtime; `scripts/assets.js` embeds everything.
+- No network request at runtime; `scripts/assets.js` embeds everything. The one exception is a set's multi-file build, whose page loads each other workspace from `./<slug>.json` beside it the first time the reader enters it ([26. Render the enterprise pattern's workspaces in one site](architecture/decisions/0026-render-the-enterprise-patterns-workspaces-in-one-site.md)). That file embeds the workspace's logo and font, and `--single-file` inlines every workspace.
 - No `eval` in any form: no `new Function`, no WebAssembly, no workers ([8. Write our own router in TypeScript](architecture/decisions/0008-write-our-own-router-in-typescript.md)).
-- No runtime `<style>` element and no `setAttribute("style")`. Use class names and, inside the island, React `style` props.
+- No runtime `<style>` element and no `setAttribute("style")`. Use class names and, inside the island, React `style` props. Branding applied at runtime goes through the CSSOM: `style.setProperty` and a constructed stylesheet in `document.adoptedStyleSheets`.
 - Hash routing and relative paths only. The page cancels any `href="#id"` the router does not own.
 - A container can be 0×0 when the page mounts. Defer work that needs a size with `whenMeasurable`.
 

@@ -77,7 +77,8 @@ Branding
     }
 
   renderizr.logo is relative to the workspace file. A run whose flags differ
-  from the workspace prints the properties to add.
+  from the workspace prints the properties to add. In a set, a workspace that
+  sets no property takes the landscape scoped workspace's.
 
 Edit options (renderizr edit [path]; renderizr edit --help says more)
       --port <n>           Port for the local server (default: ${DEFAULT_PORT})

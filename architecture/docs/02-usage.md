@@ -77,6 +77,12 @@ The build fails, and names the files, elements or URLs involved, when:
 
 The build warns, and finishes, on a `{workspace:N}` link that matches no workspace of the set, and on a link to a view, documentation or decisions its target workspace lacks.
 
+### The site
+
+One page holds the whole set. The build writes the landscape scoped workspace into the page, and each other workspace into `--out` as a JSON file named after its slug, such as `payments.json`. The page loads a workspace's file the first time the reader enters it, so a reader who stays on the landscape downloads no other workspace. Serve the folder over HTTP, since a browser won't load those files from `file://`. With `--single-file`, the one file holds every workspace and opens anywhere.
+
+Each workspace keeps its own name and branding. When the reader enters a workspace, the page title becomes `<workspace name> | Structurizr`, and the header, the logo, the font and the primary color become that workspace's. Each workspace's file holds its logo and font, so the page reaches for no network to apply them.
+
 ## Branding from the workspace
 
 Set the logo, the font and the primary color once in the workspace, and every run of `renderizr` and `renderizr edit` uses them without flags:
@@ -107,15 +113,24 @@ workspace {
 - Edit mode applies branding when it starts. When you change a property while it runs, it asks you to restart `renderizr edit`.
 - `--font-weights`, `--font-subsets` and `--font-italic` have no properties yet.
 
+### Branding across a set
+
+In a [set](#render-a-set), each value comes from its flag, then the workspace's own property, then the landscape scoped workspace's property, then the default. Set the branding once in the landscape scoped workspace, and it brands every workspace of the set that sets no value of its own.
+
+- A flag brands every workspace of the set. `--font-weights`, `--font-subsets` and `--font-italic` apply to every font the set loads.
+- When a flag differs from the workspaces, Renderizr prints one `properties` block, for the landscape scoped workspace.
+- A relative `renderizr.logo` resolves beside the workspace file, or the workspace URL, that sets it.
+- The build checks only the values it uses. An invalid one fails the build and names the property and the file that sets it, so a workspace's invalid property that a flag overrides goes unchecked.
+
 ## Default output
 
-Without `--single-file`, the build writes `index.html`, an `assets/` folder and a favicon. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
+Without `--single-file`, the build writes `index.html`, an `assets/` folder and a favicon, and for a set, one JSON file per software system scoped workspace. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
 
 The footer of every page says what is on screen and which Renderizr built it: a C4 view is in C4 notation and drawn with React Flow, a Mermaid diagram comes from Mermaid source and is drawn with React Flow, a picture names only the workspace, and the documentation and decisions pages say whose they are.
 
 ## Single file
 
-`--single-file` inlines every stylesheet, script, font, icon and the workspace itself into one document that makes no network requests at all:
+`--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
 
 ```bash
 npx github:FormulaMonks/renderizr ./workspace.json --single-file
