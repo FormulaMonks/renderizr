@@ -2,12 +2,12 @@
 
 import { resolve } from "node:path";
 import { build } from "vite";
-import { loadWorkspace } from "./assets.js";
 import { loadBranding } from "./branding.js";
 import { parseCliArgs, parseEditArgs, withoutSeparator } from "./cli.js";
 import { createConfig } from "./config.js";
 import { sessionNotices, startEditServer } from "./edit.js";
 import { styles } from "./terminal.js";
+import { loadSet } from "./workspace-set.js";
 
 // `npx` runs against whatever Node is on the PATH, which is often not the one
 // the shell reports. Older versions fail deep inside the build instead — no
@@ -25,11 +25,18 @@ if (Number.parseInt(process.versions.node, 10) < MINIMUM_NODE) {
 async function buildSite() {
     const options = parseCliArgs();
 
-    const workspace = await loadWorkspace(options.workspace);
+    // The site renders the landscape scoped workspace, or a lone workspace;
+    // the set's other workspaces join it with the shell (ADR 26).
+    const set = await loadSet(options.workspaces);
+    for (const notice of set.notices) process.stderr.write(`${notice}\n`);
+    for (const warning of set.warnings) {
+        process.stderr.write(`warning: ${warning}\n`);
+    }
+    const { workspace, source } = set.landscape;
     const { logo, font, primaryColor, notices } = await loadBranding({
         flags: options.branding,
         workspace,
-        source: options.workspace,
+        source,
     });
     for (const notice of notices) process.stderr.write(`${notice}\n`);
 
