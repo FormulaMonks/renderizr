@@ -54,6 +54,14 @@ export const toolsMessage = (dsl, command) =>
     `Edit mode opens ${dsl} with Structurizr's tools, and "${command} version" didn't run. Set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH. They need Java 21 to 25: Groovy !script blocks fail on Java 26. See ${TOOLS_DOCS}`;
 
 /**
+ * What the build says when the tools it needs to export `dsl` don't answer
+ * (ADR 26): both ways to name them, the Java versions they run on, and that
+ * a `workspace.json` needs none of it.
+ */
+export const exportToolsMessage = (dsl, command) =>
+    `Renderizr reads ${dsl} with Structurizr's tools, and "${command} version" didn't run. Set STRUCTURIZR_CLI to the command that runs them, such as "java -jar ~/bin/structurizr.war", or put structurizr-cli on your PATH. They need Java 21 to 25. A workspace.json needs no tools. See ${TOOLS_DOCS}`;
+
+/**
  * Run `command` with `args` from `cwd`, copying its output to `output` as it
  * comes. Resolves with its exit `code` and everything it printed.
  */

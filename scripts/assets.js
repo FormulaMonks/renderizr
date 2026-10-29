@@ -484,9 +484,12 @@ export function validateWorkspace(workspace) {
     }
 }
 
-export async function loadWorkspace(source) {
-    const raw = isUrl(source)
-        ? await fetch(source).then((response) => {
+/**
+ * The text of the workspace at `source`, a URL or a path read against `cwd`.
+ */
+export function readWorkspace(source, { cwd = process.cwd() } = {}) {
+    return isUrl(source)
+        ? fetch(source).then((response) => {
               if (!response.ok) {
                   throw new Error(
                       `${source} responded ${response.status} ${response.statusText}`,
@@ -494,15 +497,33 @@ export async function loadWorkspace(source) {
               }
               return response.text();
           })
-        : await readFile(resolve(process.cwd(), source), "utf-8");
+        : readFile(resolve(cwd, source), "utf-8");
+}
 
-    let workspace;
+/** The workspace `raw` holds, read from `source`. Throws when it isn't JSON. */
+export function parseWorkspace(raw, source) {
     try {
-        workspace = JSON.parse(raw);
+        return JSON.parse(raw);
     } catch (error) {
         throw new Error(`${source} is not valid JSON — ${error.message}`);
     }
+}
 
+/**
+ * The workspace at `source`, a URL or a path read against `cwd`, ready for
+ * the site.
+ */
+export async function loadWorkspace(source, { cwd = process.cwd() } = {}) {
+    return prepareWorkspace(
+        parseWorkspace(await readWorkspace(source, { cwd }), source),
+    );
+}
+
+/**
+ * `workspace` ready for the site: checked, its Mermaid diagrams read, and
+ * its themes, icons and images folded in. Changes `workspace` and returns it.
+ */
+export async function prepareWorkspace(workspace) {
     validateWorkspace(workspace);
     // Before inlining, which leaves a Mermaid diagram's content alone rather
     // than fetch its picture from the Mermaid server. A diagram that can't be

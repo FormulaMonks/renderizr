@@ -33,7 +33,7 @@ const parseInChild = (args) =>
 
 test("a bare workspace takes every default", () => {
     assert.deepEqual(parseCliArgs(["workspace.json"]), {
-        workspace: "workspace.json",
+        workspaces: ["workspace.json"],
         out: "structurizr-output",
         base: "",
         singleFile: false,
@@ -62,8 +62,10 @@ test("the defaults in OPTIONS are the ones the usage text promises", () => {
 });
 
 test("a URL is accepted as the workspace", () => {
-    const { workspace } = parseCliArgs(["https://example.test/workspace.json"]);
-    assert.equal(workspace, "https://example.test/workspace.json");
+    const { workspaces } = parseCliArgs([
+        "https://example.test/workspace.json",
+    ]);
+    assert.deepEqual(workspaces, ["https://example.test/workspace.json"]);
 });
 
 /* -------------------------------------------------------------------- flags */
@@ -243,11 +245,13 @@ test("no workspace is a usage error", async () => {
     await rejects([], /Missing the workspace to render\./);
 });
 
-test("more than one workspace is a usage error", async () => {
-    await rejects(
-        ["a.json", "b.json"],
-        /Expected one workspace, got 2: a\.json, b\.json/,
+test("every positional is a workspace of the set, in the order written", () => {
+    assert.deepEqual(
+        parseCliArgs(["landscape.json", "teams", "--single-file", "b.dsl"])
+            .workspaces,
+        ["landscape.json", "teams", "b.dsl"],
     );
+    assert.deepEqual(parseCliArgs(["w.json"]).workspaces, ["w.json"]);
 });
 
 test("a leading -- that pnpm forwards is dropped, so the flags after it stay flags", () => {
