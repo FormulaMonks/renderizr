@@ -697,6 +697,27 @@ test("no edit-mode code reaches a build's output", async () => {
     }
 });
 
+/**
+ * Strings only `pnpm dev`'s page code carries: the set error's event and
+ * what the page says about it (spec 264).
+ */
+const DEV_SET_MARKERS = [
+    "renderizr:set-error",
+    "The page keeps the last set that did",
+];
+
+test("no pnpm dev code reaches a build's output", async () => {
+    for (const { out } of [await multiFile(), await singleFile()]) {
+        const output = await builtOutput(out);
+        for (const marker of DEV_SET_MARKERS) {
+            assert.ok(
+                !output.includes(marker),
+                `${out} carries pnpm dev code: ${marker}`,
+            );
+        }
+    }
+});
+
 test("the edit-mode markers are in the page when edit mode is compiled in", async () => {
     // The control for the test above: compiled with the flag on, the same
     // page carries every marker, so their absence there means something.

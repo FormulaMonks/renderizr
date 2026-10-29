@@ -11,7 +11,9 @@
  * workspace, by view key and element id. Every run appends
  * `{ command, args, cwd, at, done }` lines to `.stub-calls` beside the DSL,
  * so a test can tell what ran, and when. A `-workspace` URL is fetched, as
- * the tools fetch it, and logs nothing.
+ * the tools fetch it, and logs nothing. Lines that start with `!`, such as
+ * `!include ../shared/people.dsl`, are left out, so a test can give the
+ * DSL scan something to find.
  */
 
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
@@ -44,7 +46,7 @@ log({ at: Date.now() });
 const text = remote
     ? await fetch(option("workspace")).then((response) => response.text())
     : readFileSync(dsl, "utf8");
-const { stub = {}, ...workspace } = JSON.parse(text);
+const { stub = {}, ...workspace } = JSON.parse(text.replace(/^\s*!.*$/gm, ""));
 if (stub.sleep) await new Promise((done) => setTimeout(done, stub.sleep));
 
 process.stdout.write(`INFO -- loading workspace from ${basename(dsl)}\n`);

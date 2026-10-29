@@ -131,6 +131,18 @@ test("a tool's error reads without its log lines and stack frames", () => {
     assert.match(errorMessage("", 3), /exited with code 3/);
 });
 
+test("an export's error reads without the line structurizr-cli opens with", () => {
+    const output = [
+        "Exporting workspace from /work/orders/workspace.dsl",
+        'com.structurizr.dsl.StructurizrDslParserException: The destination element "nowhere" does not exist at line 7',
+        "\tat com.structurizr.cli.export.ExportCommand.run(ExportCommand.java:121)",
+    ].join("\n");
+    assert.equal(
+        errorMessage(output, 1),
+        'The destination element "nowhere" does not exist at line 7',
+    );
+});
+
 /* -------------------------------------------------------------------- runs */
 
 test("the first run exports to a temporary folder and writes workspace.json through the writer", async () => {

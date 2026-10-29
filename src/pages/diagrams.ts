@@ -33,6 +33,7 @@ import {
 import styles from "./diagrams.module.css";
 import { disclaimerKind, showDisclaimer } from "../components/disclaimer";
 import { currentWorkspace } from "../current-workspace";
+import { showDevBlank } from "../dev-set";
 
 /** Whether the page shows the editing route now (spec 4.6). */
 const editing = () =>
@@ -139,6 +140,8 @@ export default class Diagrams extends Page {
         // Edit mode on a DSL that never parsed has nothing to draw but why
         // (spec 5.3).
         if (__RENDERIZR_EDIT_MODE__ && showBlank(target)) return;
+        // So does `pnpm dev` before any set loaded (spec 264).
+        if (showDevBlank(target)) return;
 
         // A workspace of documentation and decisions only has nothing to
         // mount, so nothing would ever replace the loading message.

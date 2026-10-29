@@ -35,6 +35,10 @@ export const version = (() => {
  * lone workspace's, compiled into the page as they always were; `set` is
  * the rest of a set, as `pageSet` in `scripts/plugins.js` gives it (ADR 26).
  * Edit mode renders one workspace and passes none.
+ *
+ * `devSet` is the dev server's plugins (`scripts/dev-set.js`). They serve
+ * the workspace and the set from the last set that loaded, in place of the
+ * compiled-in ones, and reload them on every change (spec 264).
  */
 export function createConfig({
     workspace,
@@ -48,6 +52,7 @@ export function createConfig({
     engineReport = false,
     mode = "build",
     editMode = null,
+    devSet = null,
 }) {
     const outDir = resolve(process.cwd(), out);
 
@@ -61,8 +66,10 @@ export function createConfig({
         publicDir: asSingleFile ? false : resolve(root, "public"),
         plugins: [
             branding({ font, primaryColor }),
-            editMode ?? workspaceModule(workspace),
-            setModule({ ...set, inline: asSingleFile }),
+            ...(devSet ?? [
+                editMode ?? workspaceModule(workspace),
+                setModule({ ...set, inline: asSingleFile }),
+            ]),
             ...(asSingleFile ? [singleFile()] : []),
         ],
         build: {
