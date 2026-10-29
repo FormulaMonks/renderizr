@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { dslReferences, holds, scanDsl, staleExports } from "./dsl-scan.js";
-import { withTempDir } from "./__fixtures__/helpers.js";
+import { REPO_ROOT, withTempDir } from "./__fixtures__/helpers.js";
 
 /* ----------------------------------------------------------------- helpers */
 
@@ -181,6 +181,35 @@ test("a workspace extends into another workspace's folder depends on that worksp
             "a change to the landscape's model.dsl touches orders",
         );
     });
+});
+
+test("in the enterprise DSL fixture, a change to the landscape re-exports Shipping, which extends it", async () => {
+    const folder = join(REPO_ROOT, "test/__fixtures__/enterprise-dsl");
+    const names = [
+        "landscape-workspace.dsl",
+        "orders-workspace.dsl",
+        "payments-workspace.dsl",
+        "shipping-workspace.dsl",
+        "storefront-workspace.dsl",
+    ];
+    const scans = new Map();
+    for (const name of names)
+        scans.set(join(folder, name), await scanDsl(join(folder, name)));
+    const stale = (changed) =>
+        staleExports([join(folder, changed)], scans).map((path) =>
+            path.slice(folder.length + 1),
+        );
+
+    assert.deepEqual(stale("landscape-workspace.dsl"), [
+        "landscape-workspace.dsl",
+        "shipping-workspace.dsl",
+    ]);
+    assert.deepEqual(stale("shared/people.dsl"), [
+        "landscape-workspace.dsl",
+        "shipping-workspace.dsl",
+        "storefront-workspace.dsl",
+    ]);
+    assert.deepEqual(stale("orders-workspace.dsl"), ["orders-workspace.dsl"]);
 });
 
 test("a shared folder no workspace holds is a dependency of each DSL that includes it", async () => {

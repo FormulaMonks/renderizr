@@ -1,8 +1,9 @@
 /**
  * A set written in DSL against Structurizr's real tools: the enterprise DSL
  * fixture loads as a set through `export -format json`, its `!include`s
- * resolve from the empty temporary folder the tools run in, the landscape's
- * element link to Big Bank plc's published `workspace.json` brings that
+ * resolve from the empty temporary folder the tools run in, Shipping's
+ * `workspace extends` of the landscape keeps the landscape's people,
+ * software systems and links, the landscape's element link to Big Bank plc's published `workspace.json` brings that
  * workspace into the set, and the build writes one JSON file per software
  * system scoped workspace.
  *
@@ -75,6 +76,7 @@ test("a folder of DSL workspaces loads as a set through the tools, following a l
         [
             ["orders", "Orders"],
             ["payments", "Payments"],
+            ["shipping", "Shipping"],
             ["storefront", "Storefront"],
             ["internet-banking-system", "Internet Banking System"],
         ],
@@ -87,23 +89,49 @@ test("a folder of DSL workspaces loads as a set through the tools, following a l
             ["storefront", "workspace-link", "{workspace:0}/diagrams"],
             ["orders", "workspace-link", "{workspace:0}/diagrams"],
             ["payments", "workspace-link", "{workspace:0}/diagrams#Containers"],
+            ["shipping", "workspace-link", "{workspace:0}/diagrams"],
             ["internet-banking-system", "followed-link", BIG_BANK],
         ],
         orders: [["payments", "workspace-link", "{workspace:0}/diagrams"]],
         payments: [["orders", "name", undefined]],
+        // Shipping inherits the landscape's links and drops its own.
+        shipping: [
+            ["storefront", "workspace-link", "{workspace:0}/diagrams"],
+            ["orders", "workspace-link", "{workspace:0}/diagrams"],
+            ["payments", "workspace-link", "{workspace:0}/diagrams#Containers"],
+            ["internet-banking-system", "followed-link", BIG_BANK],
+        ],
         storefront: [["orders", "name", undefined]],
         "internet-banking-system": [],
     });
     assert.deepEqual(set.warnings, []);
     assert.deepEqual(set.notices, []);
 
-    // `shared/people.dsl` reaches both workspaces that include it.
-    const storefront = set.workspaces.find((m) => m.slug === "storefront");
-    for (const member of [set.landscape, storefront])
+    const bySlug = (slug) => set.workspaces.find((m) => m.slug === slug);
+
+    // `shared/people.dsl` reaches both workspaces that include it, and
+    // Shipping, which extends the landscape.
+    for (const member of [
+        set.landscape,
+        bySlug("storefront"),
+        bySlug("shipping"),
+    ])
         assert.deepEqual(
             member.workspace.model.people.map((person) => person.name),
             ["Customer"],
         );
+
+    // Shipping takes its name and scope from its own DSL, and adds its
+    // containers to the software system it inherits.
+    const shipping = bySlug("shipping").workspace;
+    assert.equal(shipping.name, "Shipping");
+    assert.equal(shipping.configuration.scope, "SoftwareSystem");
+    assert.deepEqual(
+        shipping.model.softwareSystems
+            .find((system) => system.name === "Shipping")
+            .containers.map((container) => container.name),
+        ["Shipment tracker", "Carrier gateway"],
+    );
 });
 
 test("pnpm render builds a set written in DSL", {
@@ -125,6 +153,7 @@ test("pnpm render builds a set written in DSL", {
             "internet-banking-system.json",
             "orders.json",
             "payments.json",
+            "shipping.json",
             "storefront.json",
         ]);
         const payments = JSON.parse(
