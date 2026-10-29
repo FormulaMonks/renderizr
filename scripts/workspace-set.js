@@ -83,7 +83,7 @@ const LANDSCAPE = "Landscape";
 const SOFTWARE_SYSTEM = "SoftwareSystem";
 
 /** The file names a folder positional expands to. */
-const WORKSPACE_FILE = /workspace\.(json|dsl)$/;
+export const WORKSPACE_FILE = /workspace\.(json|dsl)$/;
 
 /** Structurizr's link into the workspace with server id `N`. */
 const WORKSPACE_LINK = /^\{workspace:(\d+)\}/;
@@ -194,6 +194,15 @@ export async function loadSet(
         warnings,
         notices,
     };
+}
+
+/**
+ * Write the `notices` and `warnings` of `set`, as `loadSet` gives it, to
+ * `output`, one a line, each warning marked as one.
+ */
+export function writeSetMessages(set, output) {
+    for (const notice of set.notices) output.write(`${notice}\n`);
+    for (const warning of set.warnings) output.write(`warning: ${warning}\n`);
 }
 
 /**
@@ -395,9 +404,7 @@ function followable(url) {
     const link = typeof url === "string" ? url.trim() : "";
     if (!/^(https?:\/\/|file:\/\/\/)/i.test(link)) return undefined;
     try {
-        return /workspace\.(json|dsl)$/.test(new URL(link).pathname)
-            ? link
-            : undefined;
+        return WORKSPACE_FILE.test(new URL(link).pathname) ? link : undefined;
     } catch {
         return undefined;
     }

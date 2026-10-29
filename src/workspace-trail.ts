@@ -135,7 +135,7 @@ export type TrailFollower = {
 };
 
 /** The address query of a workspace's default view. */
-const DEFAULT_VIEW = `?${landingSearch(null)}`;
+export const DEFAULT_VIEW = `?${landingSearch(null)}`;
 
 /**
  * Follow the workspace trail in `history`'s address: enter the workspace

@@ -5,6 +5,8 @@ import { colorError } from "./scripts/branding.js";
 import { createConfig } from "./scripts/config.js";
 // @ts-expect-error — plain ESM shared with scripts/build.js
 import { devArgs, devSet } from "./scripts/dev-set.js";
+// @ts-expect-error — plain ESM shared with scripts/build.js
+import { UNNAMED_WORKSPACE } from "./scripts/plugins.js";
 
 /** Whatever this repository documents about itself. */
 const DEFAULT_WORKSPACE = "architecture/workspace.json";
@@ -46,7 +48,7 @@ export default async () => {
     });
     const { workspace, logo, font, primaryColor } = dev.landscape;
 
-    process.env.VITE_WORKSPACE_NAME = workspace.name ?? "Workspace";
+    process.env.VITE_WORKSPACE_NAME = workspace.name ?? UNNAMED_WORKSPACE;
 
     return defineConfig(
         createConfig({

@@ -174,9 +174,9 @@ export async function scanDsl(file) {
     return { files: [...files], unresolvable };
 }
 
-/** Whether `path` is `dependency` or lies under it. */
-const under = (path, dependency) => {
-    const inside = relative(dependency, path);
+/** Whether `path` is `folder` or lies under it. */
+export const under = (path, folder) => {
+    const inside = relative(folder, path);
     return (
         inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)
     );

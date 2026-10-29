@@ -8,17 +8,27 @@ import {
     sep,
 } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadSetBranding, NO_BRANDING_FLAGS } from "./branding.js";
+import {
+    loadSetBranding,
+    NO_BRANDING_FLAGS,
+    writeBrandingNotices,
+} from "./branding.js";
 import { DEBOUNCE_MS } from "./dsl-pipeline.js";
-import { scanDsl, staleExports } from "./dsl-scan.js";
+import { scanDsl, staleExports, under } from "./dsl-scan.js";
 import {
     pageSet,
     RESOLVED_SET_MODULE,
     RESOLVED_WORKSPACE_MODULE,
     setModule,
+    UNNAMED_WORKSPACE,
     workspaceModule,
 } from "./plugins.js";
-import { DslError, loadSet } from "./workspace-set.js";
+import {
+    DslError,
+    loadSet,
+    WORKSPACE_FILE,
+    writeSetMessages,
+} from "./workspace-set.js";
 
 /**
  * The set `pnpm dev` previews (spec 264, _Previewing a set with
@@ -56,12 +66,9 @@ const BRANDING_FLAGS = {
     primaryColor: "--primary-color",
 };
 
-/** The file names a folder positional expands to, as the set loader reads them. */
-const WORKSPACE_FILE = /workspace\.(json|dsl)$/;
-
 /** What the page draws while no set has loaded. */
 const EMPTY_WORKSPACE = Object.freeze({
-    name: "Workspace",
+    name: UNNAMED_WORKSPACE,
     model: {},
     views: {},
     documentation: {},
@@ -117,14 +124,6 @@ function pageError(error, blank) {
 }
 
 /* ------------------------------------------------------------- the set */
-
-/** Whether `path` is `folder` or lies under it. */
-const under = (path, folder) => {
-    const inside = relative(folder, path);
-    return (
-        inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside)
-    );
-};
 
 /**
  * Whether `path`, under `folder`, lies under a name that starts with a dot
@@ -185,15 +184,9 @@ export async function devSet({
                 exports,
                 onRead: (path) => read.add(path),
             });
-            for (const notice of set.notices) output.write(`${notice}\n`);
-            for (const warning of set.warnings)
-                output.write(`warning: ${warning}\n`);
+            writeSetMessages(set, output);
             const branding = await loadSetBranding({ flags, set, cwd });
-            for (const { notices } of [
-                branding.landscape,
-                ...branding.workspaces,
-            ])
-                for (const notice of notices) output.write(`${notice}\n`);
+            writeBrandingNotices(branding, output);
             const { logo, font, primaryColor } = branding.landscape;
             loaded = {
                 workspace: set.landscape.workspace,

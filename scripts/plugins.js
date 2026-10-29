@@ -1,5 +1,11 @@
 import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 
+/**
+ * The name a workspace goes by when it gives none: the page title's and the
+ * set's. `src/workspace-set.ts` holds the page's own.
+ */
+export const UNNAMED_WORKSPACE = "Workspace";
+
 /** The module the page imports its workspace from. */
 export const WORKSPACE_MODULE = "virtual:renderizr/workspace";
 
@@ -119,7 +125,7 @@ const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
         `export const workspaces = ${JSON.stringify(
             workspaces.map(({ slug, payload }) => ({
                 slug,
-                name: payload.workspace.name ?? "Workspace",
+                name: payload.workspace.name ?? UNNAMED_WORKSPACE,
             })),
         )};`,
         `export const inlined = ${

@@ -270,6 +270,15 @@ export async function loadSetBranding({ flags, set, cwd = process.cwd() }) {
 }
 
 /**
+ * Write the `notices` of every workspace of `branding`, as
+ * `loadSetBranding` gives it, to `output`, one a line.
+ */
+export function writeBrandingNotices(branding, output) {
+    for (const { notices } of [branding.landscape, ...branding.workspaces])
+        for (const notice of notices) output.write(`${notice}\n`);
+}
+
+/**
  * Fail as `loadBranding` would on the workspace values a run would use,
  * without fetching the font: edit mode's check of a reloaded workspace.
  */

@@ -11,6 +11,7 @@ import {
 import { createConfig, version } from "./config.js";
 import { DslPipeline } from "./dsl-pipeline.js";
 import { editMode } from "./edit-plugin.js";
+import { UNNAMED_WORKSPACE } from "./plugins.js";
 import {
     checkTools as runVersion,
     TOOLS_DOCS,
@@ -198,7 +199,7 @@ export async function startEditServer({
         throw error;
     });
     // The page's title names the workspace.
-    process.env.VITE_WORKSPACE_NAME = workspace?.name ?? "Workspace";
+    process.env.VITE_WORKSPACE_NAME = workspace?.name ?? UNNAMED_WORKSPACE;
 
     const token = randomBytes(24).toString("base64url");
     const entry = `/?token=${token}`;
