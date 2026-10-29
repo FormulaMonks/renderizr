@@ -153,11 +153,6 @@ export function followTrail({
 }: TrailSource): TrailFollower {
     const has = (slug: string) =>
         set.workspaces.some((member) => member.slug === slug);
-    const nameOf = (slug: string | null) =>
-        slug === null
-            ? set.landscape.name
-            : (set.workspaces.find((member) => member.slug === slug)?.name ??
-              slug);
 
     /** The crossing whose landing waits on its workspace to load. */
     let crossing: { slug: string; landing: Landing } | null = null;
@@ -205,7 +200,7 @@ export function followTrail({
             });
             if (missing !== null) {
                 notice(
-                    `This site no longer has the ${missing} workspace, so the page shows ${nameOf(trail.at(-1) ?? null)}.`,
+                    `This site no longer has the ${missing} workspace, so the page shows ${set.nameOf(trail.at(-1) ?? null)}.`,
                 );
             }
             return false;

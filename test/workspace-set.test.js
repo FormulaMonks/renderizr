@@ -48,6 +48,18 @@ function setOf({ settle = (slug) => Promise.resolve(PAYLOADS[slug]) } = {}) {
     return { set, loads };
 }
 
+test("a set names each workspace by its slug without loading it, and the landscape by null", () => {
+    const { set, loads } = setOf();
+    assert.equal(set.nameOf(null), "Acme");
+    assert.equal(set.nameOf("payments"), "Payments");
+    assert.equal(
+        set.nameOf("billing"),
+        "billing",
+        "a slug the set doesn't hold names itself",
+    );
+    assert.deepEqual(loads, []);
+});
+
 test("the reader lands on the landscape scoped workspace, which has no slug", () => {
     const { set, loads } = setOf();
     const current = set.currentWorkspace();

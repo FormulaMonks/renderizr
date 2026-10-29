@@ -116,10 +116,8 @@ export function parentWorkspace(
 ): { name: string; pathname: string } | null {
     const parent = parentOf(trailOf(pathname));
     if (!parent) return null;
-    const name =
-        parent.slug === null
-            ? set.landscape.name
-            : (set.workspaces.find((member) => member.slug === parent.slug)
-                  ?.name ?? parent.slug);
-    return { name, pathname: trailPath(parent.trail) };
+    return {
+        name: set.nameOf(parent.slug),
+        pathname: trailPath(parent.trail),
+    };
 }

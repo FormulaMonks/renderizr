@@ -54,6 +54,12 @@ export type WorkspaceSet = {
     readonly landscape: SetWorkspace;
     /** The other workspaces of the set, by slug and name. */
     readonly workspaces: readonly SetMember[];
+    /**
+     * The name of the workspace `slug`, or of the landscape scoped
+     * workspace for `null`, without loading it; a slug the set doesn't
+     * hold names itself.
+     */
+    nameOf(slug: string | null): string;
     /** The workspace the reader entered last: at first, the landscape. */
     currentWorkspace(): SetWorkspace;
     /**
@@ -89,8 +95,8 @@ export function createWorkspaceSet({
     workspaces,
     load,
 }: WorkspaceSetSource): WorkspaceSet {
-    const lands = setWorkspace(null, landscape);
-    let current = lands;
+    const landscapeWorkspace = setWorkspace(null, landscape);
+    let current = landscapeWorkspace;
     /** Each workspace entered or loading, by slug. */
     const entered = new Map<string | null, Promise<SetWorkspace>>([
         [null, Promise.resolve(current)],
@@ -119,8 +125,13 @@ export function createWorkspaceSet({
     };
 
     return {
-        landscape: lands,
+        landscape: landscapeWorkspace,
         workspaces,
+        nameOf: (slug) =>
+            slug === null
+                ? landscapeWorkspace.name
+                : (workspaces.find((member) => member.slug === slug)?.name ??
+                  slug),
         currentWorkspace: () => current,
         async enterWorkspace(slug) {
             entries += 1;
