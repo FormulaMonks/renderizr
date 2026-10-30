@@ -141,7 +141,9 @@ Renovate raises the pin as a dependency update and never merges it on its own: r
 | Path | What lives there |
 | --- | --- |
 | `scripts/` | The build pipeline and edit mode's server, in plain ESM JavaScript that Node runs with no build step |
-| `scripts/build.js` | The CLI entry point: checks the Node version, parses arguments, loads assets and runs Vite |
+| `scripts/build.js` | The CLI entry point: checks the Node version, then loads `scripts/main.js` |
+| `scripts/node-version.js` | The Node floor and the check against it, with no imports so it loads on any Node |
+| `scripts/main.js` | Parses arguments, loads assets and runs Vite, or starts edit mode |
 | `scripts/cli.js` | Option definitions and `--help`, for the build and for `renderizr edit` |
 | `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
 | `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |

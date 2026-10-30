@@ -435,7 +435,7 @@ It pairs with [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/), whose 
 
 | | Renderizr | structurizr-site-generatr |
 | --- | --- | --- |
-| Runtime | Node 20 or newer, one `npx` command | A JVM, installed with Homebrew or a tarball, or Docker |
+| Runtime | Node 22.13 or newer, one `npx` command | A JVM, installed with Homebrew or a tarball, or Docker |
 | Input | Workspace JSON | Structurizr DSL, read by the official parser, also straight from a git repository |
 | Diagrams | Renderizr's own engine, which honors the workspace's layout and styles: pan, zoom and dynamic-view animation | PlantUML export to SVG, PNG and `.puml`, downloadable as files |
 | Output shape | One page with hash routing, or one file | A page per view and per software system, crawlable and linkable |
