@@ -103,7 +103,7 @@ edit)
     port=$(free_port)
     start edit pnpm render edit "$target" --port "$port" "$@"
     wait_for_log edit "Open http://127\.0\.0\.1:[0-9]+/\?token="
-    grep -oE "http://127\.0\.0\.1:[0-9]+/\?token=[A-Za-z0-9]+" "$run/edit.log" | head -1 | tee "$run/edit.url"
+    grep -oE "http://127\.0\.0\.1:[0-9]+/\?token=[A-Za-z0-9_-]+" "$run/edit.log" | head -1 | tee "$run/edit.url"
     echo "$target" >"$run/edit.target"
     ;;
 *)
