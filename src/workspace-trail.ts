@@ -6,6 +6,7 @@ import {
     type Landing,
     type WorkspaceTarget,
 } from "./model";
+import { carryPerspective } from "./perspective-address";
 import type { SetWorkspace, WorkspaceSet } from "./workspace-set";
 
 /**
@@ -250,9 +251,14 @@ export function followTrail({
                 target.trail ??
                 crossInto(trailOf(history.location.pathname), target.slug);
             crossing = { slug: target.slug, landing: target.landing };
+            // The perspective crosses too; the page drops it, silently,
+            // where the workspace lacks it.
             history.push({
                 pathname: trailPath(trail),
-                search: `?${landingSearch(target.landing)}`,
+                search: carryPerspective(
+                    landingSearch(target.landing),
+                    history.location.search,
+                ),
             });
         },
         stop: unlisten,

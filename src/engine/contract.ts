@@ -67,6 +67,13 @@ export type EngineOptions = {
     colorScheme: ColorScheme;
     labels: Labels;
     /**
+     * The perspective to draw the views under (glossary), by name; none
+     * draws them as they are. A view where nothing drawn carries it, and a
+     * Mermaid diagram, draw as with none: `onViewShown` names what each
+     * view carries.
+     */
+    perspective?: string | null;
+    /**
      * The font family the diagram's text is set in and exports embed: the
      * entered workspace's branding (ADR 26). None leaves the fallback stack.
      */
@@ -233,15 +240,22 @@ export type Engine = AnimationControls &
         showView(key: string): void;
         setColorScheme(scheme: ColorScheme): void;
         setLabels(labels: Labels): void;
+        /**
+         * Draw every view under `perspective` (glossary), by name, or as it
+         * is with null: what doesn't carry it fades, and the author's
+         * `Perspective` styles color what does. A view that carries none
+         * of it draws as with null, and keeps it for the next view.
+         */
+        setPerspective(perspective: string | null): void;
         getCurrentView(): ModelView;
         /**
-         * The view as drawn, as an export (glossary): the scheme, step and
-         * label toggles the reader sees, framed by its canvas, with the
-         * title block below, as an SVG or PNG file. A PNG is twice the
-         * export's size, lowered to hold at most 16,777,216 pixels. The page
-         * names and saves it. Rejects when no view is drawn yet, and for an image
-         * view or a view that cannot be drawn, which have nothing of the
-         * engine's own to export (ADR 21).
+         * The view as drawn, as an export (glossary): the scheme, step,
+         * perspective and label toggles the reader sees, framed by its
+         * canvas, with the title block below, as an SVG or PNG file. A PNG
+         * is twice the export's size, lowered to hold at most 16,777,216
+         * pixels. The page names and saves it. Rejects when no view is
+         * drawn yet, and for an image view or a view that cannot be drawn,
+         * which have nothing of the engine's own to export (ADR 21).
          */
         exportView(format: ExportFormat): Promise<Blob>;
 
@@ -249,8 +263,18 @@ export type Engine = AnimationControls &
         zoomIn(): void;
         zoomOut(): void;
 
+        /**
+         * A view is painted, with its animation and the perspectives
+         * (glossary) the elements and relationships it draws carry, sorted:
+         * none on a Mermaid diagram, an image view or a view that cannot be
+         * drawn. A perspective it doesn't list draws as none on it.
+         */
         onViewShown(
-            callback: (view: ModelView, animation: AnimationState) => void,
+            callback: (
+                view: ModelView,
+                animation: AnimationState,
+                perspectives: readonly string[],
+            ) => void,
         ): () => void;
         /**
          * An element, or a boundary drawn for one, was activated. The engine

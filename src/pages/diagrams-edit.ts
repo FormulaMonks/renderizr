@@ -25,7 +25,7 @@ import {
 } from "../components/edit-buttons";
 import { EditSession } from "../components/edit-session";
 import { heldEdits, viewSignature } from "../components/live-reload";
-import { pageCommand } from "../components/shortcuts";
+import { pageCommand, typesText } from "../components/shortcuts";
 import { openShortcuts } from "../components/shortcuts-dialog";
 import {
     editingSearch,
@@ -367,11 +367,6 @@ export function editingRoute(
         editState: () => editState(engine),
     };
 }
-
-/** Whether `target` takes typing, where the page leaves keys alone. */
-const typesText = (target: EventTarget | null) =>
-    target instanceof HTMLElement &&
-    (target.isContentEditable || target.matches("input, textarea, select"));
 
 /**
  * Wire the engine to the edit session while the page shows: the page hands

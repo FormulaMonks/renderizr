@@ -23,6 +23,7 @@ import Component from "./_component";
 import styles from "./navigation.module.css";
 import { cycleMode, getMode, onThemeChange, type ThemeMode } from "./theme";
 import { DEFAULT_VIEW } from "../workspace-trail";
+import { carryPerspective } from "../perspective-address";
 import lightIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
 import darkIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
 import systemIcon from "bootstrap-icons/icons/circle-half.svg?raw";
@@ -74,12 +75,26 @@ export default class Navigation extends Component {
         this.#parent = parent;
     }
 
-    /** Open the parent workspace at its default view. */
+    /**
+     * Open the parent workspace at its default view. The perspective
+     * crosses too, as on any crossing.
+     */
     #goBack = (event: Event) => {
         event.preventDefault();
         if (!this.#parent) return;
-        history.push({ pathname: this.#parent.pathname, search: DEFAULT_VIEW });
+        history.push(this.#backAddress(this.#parent));
     };
+
+    /**
+     * Where the way back leads: the parent workspace's default view, with
+     * the perspective the address names now.
+     */
+    #backAddress(parent: ParentWorkspace) {
+        return {
+            pathname: parent.pathname,
+            search: carryPerspective(DEFAULT_VIEW, history.location.search),
+        };
+    }
 
     #links = () =>
         Array.from(
@@ -166,7 +181,7 @@ export default class Navigation extends Component {
         // stays branding.
         const parent = this.#parent;
         const back = parent
-            ? `<a class="${styles.back}" data-back href="${history.createHref({ pathname: parent.pathname, search: DEFAULT_VIEW })}" title="Back to parent workspace">\u2190 ${parent.name}</a>`
+            ? `<a class="${styles.back}" data-back href="${history.createHref(this.#backAddress(parent))}" title="Back to parent workspace">\u2190 ${parent.name}</a>`
             : "";
 
         const logo = this.#logo;
@@ -216,6 +231,12 @@ export default class Navigation extends Component {
 
         this.#unlisten?.();
         this.#unlisten = history.listen((update) => {
+            // A pick replaces the address, so a copied link back keeps it.
+            if (this.#back && this.#parent)
+                this.#back.setAttribute(
+                    "href",
+                    history.createHref(this.#backAddress(this.#parent)),
+                );
             for (const link of this.#links()) {
                 link.classList.remove(styles.navigationActive);
                 const search = new URLSearchParams(update.location.search);

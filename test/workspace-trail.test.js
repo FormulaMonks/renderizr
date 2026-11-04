@@ -205,6 +205,23 @@ test("crossing pushes the trail and where it lands, then enters the workspace", 
     assert.deepEqual(page.notices, []);
 });
 
+test("crossing carries the perspective the address names", async () => {
+    const page = await follow(
+        "/?page=diagrams&view=Landscape&perspective=Security",
+    );
+    page.follower.cross({
+        kind: "workspace",
+        slug: "orders",
+        label: "Orders",
+        landing: { view: "Containers" },
+    });
+    await page.settled();
+    assert.equal(
+        address(page.history),
+        "/orders/?page=diagrams&view=Containers&perspective=Security",
+    );
+});
+
 test("crossing back into a workspace on the trail truncates the trail there", async () => {
     const page = await follow("/orders/payments/");
     page.follower.cross({

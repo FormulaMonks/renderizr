@@ -173,6 +173,8 @@ export type IslandState = {
     key: string;
     scheme: ColorScheme;
     labels: Labels;
+    /** The perspective the views draw under, or null for none. */
+    perspective: string | null;
     /** The step of the animation shown, or null for the full view (spec 11). */
     step: number | null;
     /** Whether edit mode edits the view shown, when `isEditable` accepts it. */
@@ -2313,7 +2315,7 @@ function Canvas({
         () => canvasMeasure(document, family),
         [family, fontsLoaded],
     );
-    const { key: viewKey, scheme, labels: stored, step } = state;
+    const { key: viewKey, scheme, labels: stored, step, perspective } = state;
     const { labels, toggleEntity, toggled, generation } = useEntityOverrides(
         viewKey,
         stored,
@@ -2335,8 +2337,17 @@ function Canvas({
         }, [model, viewKey, state.editing]);
     // A new step is not a new graph: nothing is laid out again (spec 11).
     const drawn = useMemo(
-        () => buildGraph(model, viewKey, scheme, labels, measure, edited),
-        [model, viewKey, scheme, labels, measure, edited],
+        () =>
+            buildGraph(
+                model,
+                viewKey,
+                scheme,
+                labels,
+                measure,
+                edited,
+                perspective,
+            ),
+        [model, viewKey, scheme, labels, measure, edited, perspective],
     );
     /**
      * What a gesture in editing shows on the view it started on, frame by
@@ -2365,9 +2376,10 @@ function Canvas({
                             labels,
                             measure,
                             drag.layout,
+                            perspective,
                         )
                       : undefined,
-              [model, viewKey, scheme, labels, measure, drag],
+              [model, viewKey, scheme, labels, measure, drag, perspective],
           )
         : undefined;
     const graph = framed ?? drawn;

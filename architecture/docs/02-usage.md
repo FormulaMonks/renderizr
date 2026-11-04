@@ -147,6 +147,42 @@ Pick the single file when a folder of files is hard to hand over. One file goes 
 
 The build fetches themes, element icons and a logo referenced by URL, and folds them all in. The page never reaches for the network, so it also works under a strict content security policy.
 
+## Perspectives
+
+A perspective lets a reader look at a diagram with one question in mind, such as security or ownership. Attach one to an element or a relationship in the DSL, with a name, a description and an optional value, as Structurizr defines it:
+
+```
+api = container "API" {
+    perspectives {
+        "Security" "Handles customer sessions" "High"
+    }
+}
+```
+
+The binoculars button in the diagram toolbar, after the label toggles, opens a menu with "No perspective" first and then each perspective the view's elements and relationships carry, sorted. `Alt+P` (`⌥P` on macOS) opens the same menu, and the button's title names the key. While a perspective is on, the button shows pressed with filled binoculars, and its title says `Perspective: <name>`. A view that carries no perspective has no button, and neither does a Mermaid diagram or an image view.
+
+The view keeps every element and relationship that carries the perspective at full strength and fades the rest to 0.2, shape, text, icon and line together. A relationship that carries it stays at full strength even when both its ends fade. A software system or container instance carries the perspectives of what it instantiates, and an implied relationship carries those of the relationship it comes from. Boundaries and groups never fade and never carry one.
+
+Write `Perspective:<name>` styles to color what carries a perspective, and `Perspective:<name>[value==X]` to color by value; the last matching value style replaces the last plain one. Elements take `background`, `color` and `stroke`, and relationships take `color`. Without such styles, the fade alone shows the perspective.
+
+```
+styles {
+    element "Perspective:Security" {
+        background #b91c1c
+        color #ffffff
+    }
+    element "Perspective:Security[value==High]" {
+        background #7f1d1d
+    }
+}
+```
+
+The address holds the choice as `?perspective=<name>` beside `view`, so a shared link reopens it, and no setting stores it. The perspective stays on as the reader moves between views. A view that carries none of it draws as usual and hides the button, and the perspective comes back on the next view that carries it. A crossing into another workspace of a set keeps the perspective when that workspace has it, and drops it otherwise. A link naming a perspective the workspace lacks opens with none, and a notice says so; a link that opens a view carrying none of its perspective says that once.
+
+An [export](#export) draws the perspective as the reader sees it, and its title block adds `Perspective: <name>` under the description.
+
+Renderizr leaves out two parts of Structurizr's perspectives: the tooltip that shows a perspective's description and value, and the polling of a dynamic perspective's `url`. A dynamic perspective counts as carried and takes no value style.
+
 ## Export
 
 Two buttons at the end of the diagram toolbar save the view on screen as a file: **Export view as PNG** and **Export view as SVG**. Every build has them, single file or not, and every view the engine draws has them, a [Mermaid diagram](#mermaid-diagrams) included; an image view that shows a picture has none.

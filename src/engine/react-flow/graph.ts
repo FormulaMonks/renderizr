@@ -18,6 +18,7 @@ import {
     animationOf,
     type BoundaryKind,
     canvasOf,
+    carriesPerspective,
     type ColorScheme as ModelColorScheme,
     type EditedLayout,
     type ElementStyle,
@@ -39,6 +40,8 @@ import {
     mermaidNodeStyle,
     mermaidNodeTargets,
     type ModelElement,
+    type PerspectiveItem,
+    perspectiveNames,
     type ModelRelationship,
     type ModelView,
     relationshipKey,
@@ -196,6 +199,11 @@ export type ElementBox = {
     border: string;
     /** Real alpha on fill and stroke, 0 to 1; text and icon stay opaque. */
     opacity: number;
+    /**
+     * Set when the graph's perspective fades it, as a whole: it doesn't
+     * carry the perspective. `stepStateOf` turns it into a faded presence.
+     */
+    faded?: true;
     /** A URL or, at runtime, a data URI. */
     icon?: string;
     iconPosition: IconPosition;
@@ -324,6 +332,8 @@ export type EdgeLine = {
     style: LineStyle;
     /** Real alpha on line, arrowhead and label text, 0 to 1. */
     opacity: number;
+    /** As an element's: set when the graph's perspective fades it. */
+    faded?: true;
     /** A Mermaid edge's: its ends spread evenly around their sides' middles. */
     centered?: boolean;
 };
@@ -411,6 +421,18 @@ const markerOf = (name: string): EndMarker =>
 export type Graph = {
     key: string;
     title: string;
+    /**
+     * Each perspective the elements and relationships the view draws carry,
+     * sorted; none on a Mermaid diagram, an image view or a view that cannot
+     * be drawn (spec: What a selected perspective draws).
+     */
+    perspectives: string[];
+    /**
+     * The perspective the view draws under: set only when one was asked for
+     * and something the view draws carries it. What doesn't carry it is
+     * `faded`.
+     */
+    perspective?: string;
     background: string;
     /** The scheme's default text color, for what the canvas itself says. */
     color: string;
@@ -700,6 +722,10 @@ function boundaryMetadata(
  * In edit mode `edited` is the view's edited layout, laid over the stored
  * one before anything is laid out (ADR 18). Boundaries re-derive and every
  * edge routes again from what it says, so a drag frame costs one call.
+ *
+ * Under `perspective`, what carries it takes the author's `Perspective`
+ * styles and the rest is `faded`. A view that draws nothing carrying it,
+ * and a Mermaid diagram, draw as with no perspective.
  */
 export function buildGraph(
     model: WorkspaceModel,
@@ -708,8 +734,11 @@ export function buildGraph(
     labels: Labels,
     measure: MeasureText = estimateText,
     edited?: EditedLayout,
+    perspective?: string | null,
 ): Graph | undefined {
-    return drawView(model, key, scheme, labels, measure, edited);
+    return drawView(model, key, scheme, labels, measure, edited, {
+        perspective,
+    });
 }
 
 /**
@@ -734,9 +763,17 @@ export function calculatedGraph(
         labels,
         measure ?? estimateText,
         edited,
-        settings,
+        { calculate: settings },
     );
 }
+
+/** What `drawView` may take besides the view and its layout. */
+type DrawOptions = {
+    /** The settings "Calculate layout" lays the view out by (spec 15). */
+    calculate?: LayoutSettings;
+    /** The perspective the reader asked for, or none. */
+    perspective?: string | null;
+};
 
 function drawView(
     model: WorkspaceModel,
@@ -745,7 +782,7 @@ function drawView(
     labels: Labels,
     measure: MeasureText,
     edited: EditedLayout | undefined,
-    calculate?: LayoutSettings,
+    { calculate, perspective: asked }: DrawOptions = {},
 ): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
@@ -756,6 +793,7 @@ function drawView(
     }): Graph => ({
         key: view.key,
         title: view.title,
+        perspectives: [],
         background: defaults.background,
         color: defaults.color,
         elements: [],
@@ -830,6 +868,27 @@ function drawView(
     // A Mermaid diagram's nodes, edges and subgraphs take their styles and
     // sizes from its source (ADR 24); nothing else about drawing it differs.
     const { mermaid } = view;
+    // A Mermaid diagram ignores the perspective. Elements drawn as
+    // boundaries carry none, and neither does a relationship that ends at
+    // one, which is never drawn.
+    const drawsEnds = (relationship: ModelRelationship) =>
+        !boundaries.has(relationship.sourceId) &&
+        !boundaries.has(relationship.destinationId);
+    const perspectives = mermaid
+        ? []
+        : perspectiveNames(model, {
+              ...view,
+              relationships: view.relationships.filter((placed) =>
+                  drawsEnds(placed.relationship),
+              ),
+          });
+    const perspective =
+        asked != null && perspectives.includes(asked) ? asked : undefined;
+    const faded = (item: PerspectiveItem) =>
+        perspective !== undefined &&
+        !carriesPerspective(model, item, perspective) && {
+            faded: true as const,
+        };
 
     const entitySize = mermaid && collapsedEntitySize(model, view, measure);
 
@@ -850,7 +909,13 @@ function drawView(
         const style: MermaidNodeStyle =
             mermaid && node
                 ? mermaidNodeStyle(model, mermaid, node, colorScheme)
-                : findElementStyle(model, placed.element, colorScheme);
+                : findElementStyle(
+                      model,
+                      placed.element,
+                      colorScheme,
+                      [],
+                      perspective,
+                  );
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
         const entity = mermaid?.entities.get(placed.id);
@@ -930,6 +995,7 @@ function drawView(
             ...(style.fontWeight && { fontWeight: style.fontWeight }),
             border: style.border ?? "Solid",
             opacity: style.opacity / 100,
+            ...faded(placed.element),
             icon: style.icon,
             iconPosition: iconPositionOf(style.iconPosition),
             content: geometry.content,
@@ -986,10 +1052,7 @@ function drawView(
     const dynamic = view.type === "Dynamic";
     for (const [index, placed] of view.relationships.entries()) {
         const { relationship } = placed;
-        if (
-            boundaries.has(relationship.sourceId) ||
-            boundaries.has(relationship.destinationId)
-        ) {
+        if (!drawsEnds(relationship)) {
             // Spec 10.6: an edge to a box drawn round other elements has no
             // outline of its own to end on.
             const name = (id: string) => model.findElementById(id)?.name ?? id;
@@ -1021,6 +1084,8 @@ function drawView(
                             }
                           : relationship,
                       colorScheme,
+                      [],
+                      perspective,
                   );
         // Only a dynamic view tells its own story about a relationship. The
         // descriptions toggle is for elements: an edge keeps its description.
@@ -1074,6 +1139,7 @@ function drawView(
             thickness: style.thickness,
             style: style.style,
             opacity: style.opacity / 100,
+            ...faded(relationship),
             ...(line && {
                 centered: true,
                 markers: {
@@ -1220,6 +1286,8 @@ function drawView(
     return {
         key: view.key,
         title: view.title,
+        perspectives,
+        ...(perspective !== undefined && { perspective }),
         background: defaults.background,
         color: defaults.color,
         elements,

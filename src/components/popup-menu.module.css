@@ -1,8 +1,9 @@
 /*
- * The target menu: a small card at the activation's anchor, above the
- * canvas, holding the vanilla menu's list (spec 6.1).
+ * The popup menu: a small card at an anchor, above the canvas, holding the
+ * vanilla menu's list. The target menu opens it at an activation (spec 6.1),
+ * the perspective control under its button.
  */
-/* `--menu-x` and `--menu-y` are the anchor, set by `target-menu.ts`. */
+/* `--menu-x` and `--menu-y` are the anchor, set by `popup-menu.ts`. */
 .popup {
     position: fixed;
     left: var(--menu-x, 0);
@@ -25,4 +26,16 @@
 .popup a:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: -2px;
+}
+
+/* A radio entry keeps room for its check, which the chosen one shows. */
+.popup a[role="menuitemradio"] {
+    position: relative;
+    padding-left: 1.6rem;
+}
+
+.popup a[aria-checked="true"]::before {
+    content: "\2713";
+    position: absolute;
+    left: 0.5rem;
 }

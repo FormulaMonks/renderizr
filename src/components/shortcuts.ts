@@ -2,8 +2,9 @@
  * Edit mode's keyboard map (spec 17.2): the keys the page takes wherever
  * focus is, how every shortcut reads in the platform's notation, and the
  * groups the "Keyboard shortcuts" dialog lists. Keys match by physical key,
- * so Option's characters on macOS don't get in the way. Only edit mode
- * reads it; builds compile it out (ADR 15).
+ * so Option's characters on macOS don't get in the way. The reading site
+ * takes `notation`, `typesText` and the perspective's key from here; the
+ * rest only edit mode reads, and builds compile it out (ADR 15).
  */
 
 /** Whether shortcuts read the macOS way (spec 17.1). */
@@ -50,11 +51,20 @@ export const SHORTCUTS = {
     horizontal: "Alt+Shift+H",
     vertical: "Alt+Shift+V",
     routing: "Alt+R",
+    perspective: "Alt+P",
     undo: "Mod+Z",
     redo: "Mod+Shift+Z",
     save: "Mod+S",
     shortcuts: "?",
 } as const;
+
+/** Whether `target` takes typing, where the page leaves keys alone. */
+export function typesText(target: EventTarget | null): boolean {
+    return (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.matches("input, textarea, select"))
+    );
+}
 
 /** What a page key does (spec 17.2). */
 export type PageCommand = "undo" | "redo" | "save" | "shortcuts" | "routing";
@@ -167,6 +177,7 @@ export function keyboardMap(mac = isMac()): ShortcutGroup[] {
                 line("Zoom in", "+"),
                 line("Zoom out", "-"),
                 line("Fit the diagram", "0"),
+                line("Pick a perspective", SHORTCUTS.perspective),
                 line("Open these keyboard shortcuts", SHORTCUTS.shortcuts),
             ],
         },

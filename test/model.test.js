@@ -16,10 +16,14 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 
 const {
     WorkspaceModel,
+    carriesPerspective,
+    findBoundaryStyle,
     findElementStyle,
     findRelationshipStyle,
     getMetadataForElement,
     getMetadataForRelationship,
+    hasPerspective,
+    perspectiveNames,
     resolveView,
     shadeColor,
     splitAuthor,
@@ -32,9 +36,22 @@ const BIG_BANK = JSON.parse(
     ),
 );
 
+const PERSPECTIVES = JSON.parse(
+    readFileSync(
+        new URL("./__fixtures__/perspectives.json", import.meta.url),
+        "utf-8",
+    ),
+);
+
 const clone = (value) => structuredClone(value);
 const bigBank = (edit = () => {}) => {
     const json = clone(BIG_BANK);
+    edit(json);
+    return new WorkspaceModel(json);
+};
+
+const perspectives = (edit = () => {}) => {
+    const json = clone(PERSPECTIVES);
     edit(json);
     return new WorkspaceModel(json);
 };
@@ -438,13 +455,122 @@ describe("perspectives", () => {
         assert.equal(relationship.color, "#abcdef");
     });
 
-    test("ignore dynamic perspectives, which are polled from a URL", () => {
+    test("give a dynamic perspective the plain style and no value style", () => {
         const model = withPerspectives();
         const spa = byName(model, "Single-Page Application");
+        spa.perspectives[0].value = "High";
         assert.equal(
             findElementStyle(model, spa, "Light", [], "Security").background,
-            "#438dd5",
+            "#00aa00",
         );
+    });
+
+    test("carry a perspective an element has, dynamic ones included", () => {
+        const model = withPerspectives();
+        const api = byName(model, "API Application");
+        const spa = byName(model, "Single-Page Application");
+        const db = byName(model, "Database");
+        assert.equal(carriesPerspective(model, api, "Security"), true);
+        assert.equal(carriesPerspective(model, spa, "Security"), true);
+        assert.equal(carriesPerspective(model, db, "Security"), false);
+        assert.equal(carriesPerspective(model, api, "Ownership"), false);
+    });
+
+    test("carry what an instance instantiates", () => {
+        const model = perspectives();
+        const api = model.findElementById("21");
+        const payments = model.findElementById("22");
+        assert.equal(carriesPerspective(model, api, "Security"), true);
+        assert.equal(carriesPerspective(model, api, "Ownership"), false);
+        assert.equal(carriesPerspective(model, payments, "Ownership"), true);
+        // The instance takes the value style of what it instantiates.
+        assert.equal(
+            findElementStyle(model, payments, "Light", [], "Ownership")
+                .background,
+            "#6a1b9a",
+        );
+    });
+
+    test("carry through an implied relationship two links deep", () => {
+        const model = perspectives((json) => {
+            json.model.people[0].relationships.push({
+                id: "30",
+                sourceId: "1",
+                destinationId: "2",
+                linkedRelationshipId: "16",
+            });
+            json.views.configuration.styles.relationships.push({
+                tag: "Perspective:Security[value==High]",
+                color: "#ff0000",
+            });
+        });
+        const implied = model.findRelationshipById("30");
+        assert.equal(carriesPerspective(model, implied, "Security"), true);
+        assert.equal(carriesPerspective(model, implied, "Ownership"), false);
+        assert.equal(
+            findRelationshipStyle(model, implied, "Light", [], "Security")
+                .color,
+            "#ff0000",
+        );
+    });
+
+    test("replace the plain style with the value style", () => {
+        const model = perspectives((json) => {
+            json.views.configuration.styles.elements.push({
+                tag: "Perspective:Ownership",
+                background: "#00aa00",
+            });
+        });
+        const web = model.findElementById("3");
+        const worker = model.findElementById("6");
+        const teamA = findElementStyle(model, web, "Light", [], "Ownership");
+        assert.equal(teamA.background, "#6a1b9a");
+        assert.equal(teamA.color, "#ffffff");
+        assert.equal(
+            findElementStyle(model, worker, "Light", [], "Ownership")
+                .background,
+            "#00aa00",
+        );
+    });
+
+    test("never carry a perspective on a boundary or give it the style", () => {
+        const model = perspectives((json) => {
+            json.model.softwareSystems[0].perspectives = [
+                { name: "Ownership", value: "Team A" },
+            ];
+        });
+        const shop = model.findElementById("2");
+        assert.equal(carriesPerspective(model, shop, "Ownership"), true);
+        const style = findBoundaryStyle(model, shop, "Light", [], "Ownership");
+        assert.notEqual(style.stroke, shadeColor("#6a1b9a", -10));
+        assert.deepEqual(style, findBoundaryStyle(model, shop, "Light", []));
+        assert.equal(
+            carriesPerspective(model, { type: "Group" }, "Ownership"),
+            false,
+        );
+    });
+
+    test("list the sorted names the items drawn in a view carry", () => {
+        const model = perspectives((json) => {
+            json.model.deploymentNodes[0].perspectives = [{ name: "Hosting" }];
+            json.model.people[1].perspectives = [
+                { name: "Access", url: "https://example.com/poll" },
+            ];
+        });
+        const names = (key) => perspectiveNames(model, resolveView(model, key));
+        assert.deepEqual(names("Context"), ["Ownership", "Security"]);
+        assert.deepEqual(names("Containers"), ["Ownership", "Security"]);
+        // Cloud draws as a boundary around its instances.
+        assert.deepEqual(names("Live"), ["Ownership", "Security"]);
+        assert.deepEqual(names("Mailing"), ["Access"]);
+    });
+
+    test("tell whether the workspace has a perspective anywhere", () => {
+        const model = perspectives();
+        assert.equal(hasPerspective(model, "Security"), true);
+        assert.equal(hasPerspective(model, "Ownership"), true);
+        assert.equal(hasPerspective(model, "Securty"), false);
+        assert.equal(hasPerspective(bigBank(), "Security"), false);
     });
 
     test("leave elements outside the perspective alone", () => {

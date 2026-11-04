@@ -18,6 +18,9 @@ const { default: CurrentView, DIAGRAM_THEME_STORAGE_KEY } = await importSrc(
 );
 const theme = await importSrc("components/theme");
 const { exportSaver } = await importSrc("components/save-export");
+const { default: PerspectiveControl } = await importSrc(
+    "components/perspective-control",
+);
 
 const { document, window } = dom;
 
@@ -667,4 +670,57 @@ test("the drawer leaves an address in another workspace to the shell", () => {
         drawer.clear();
         history.replace({ pathname: "/", search: "" });
     }
+});
+
+test("the drawer keeps the perspective in the address across views", () => {
+    const [first, other] = model.getViews();
+    history.replace({
+        pathname: "/",
+        search: `?view=${first.key}&perspective=Security`,
+    });
+    const element = document.createElement("nav");
+    const drawer = new DiagramNavigation(element, stubSwitcher(), model);
+    drawer.render();
+    try {
+        drawer.changeView(other.key);
+        const search = new URLSearchParams(history.location.search);
+        assert.equal(search.get("view"), other.key);
+        assert.equal(search.get("perspective"), "Security");
+    } finally {
+        drawer.clear();
+        history.replace({ pathname: "/", search: "" });
+    }
+});
+
+test("the toolbar draws the perspective control after the label toggles, on every view", () => {
+    const element = document.createElement("section");
+    const control = new PerspectiveControl(() => {});
+    const toolbar = new CurrentView(
+        element,
+        stubEngine(),
+        model,
+        null,
+        null,
+        control,
+    );
+    const groups = () =>
+        Array.from(
+            element.querySelector(".actions").parentElement.children,
+        ).map((group) => group.className.split(" ")[0]);
+    toolbar.render(model.findViewByKey("Components"));
+    control.show(["Security"], "Security");
+    assert.deepEqual(groups().slice(0, 3), [
+        "actions",
+        "perspective-buttons",
+        "animation-buttons",
+    ]);
+    toolbar.render(model.findViewByKey("Containers"));
+    assert.equal(
+        element
+            .querySelector("button.perspective")
+            .getAttribute("aria-pressed"),
+        "true",
+    );
+    toolbar.clear();
+    control.clear();
 });

@@ -514,6 +514,41 @@ test("rendering a save changes only the moved element's lines and the stamps", a
     assert.match(text, /"lastSavedView" : "Containers"/);
 });
 
+test("rendering a save under a perspective writes the layout and nothing of the perspective", async () => {
+    const text = await readFile(
+        new URL("../test/__fixtures__/perspectives.json", import.meta.url),
+        "utf8",
+    );
+    const before = readWorkspace(text).workspace;
+    const view = before.views.systemContextViews.find(
+        (v) => v.key === "Context",
+    );
+    const [element] = view.elements;
+    const { text: saved, changed } = renderWorkspace(text, {
+        views: { Context: { elements: { [element.id]: { x: 40, y: 60 } } } },
+        view: "Context",
+        agent: AGENT,
+        now: NOW,
+    });
+    assert.ok(changed);
+    const after = JSON.parse(saved);
+    assert.deepEqual(after.model, before.model, "every perspective stays");
+    // The views change by the moved element and the last saved view alone.
+    const expected = structuredClone(before.views);
+    Object.assign(
+        expected.systemContextViews[0].elements.find(
+            (e) => e.id === element.id,
+        ),
+        { x: 40, y: 60 },
+    );
+    expected.configuration.lastSavedView = "Context";
+    assert.deepEqual(after.views, expected);
+    assert.deepEqual(
+        Object.keys(after).filter((key) => /perspective/i.test(key)),
+        [],
+    );
+});
+
 test("rendering a save that changes nothing reports no change", async () => {
     const text = await readFile(
         fixture("structurizr/acceptance-merge.json"),

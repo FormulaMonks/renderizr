@@ -64,14 +64,17 @@ export type TextSetting = {
 
 /**
  * What the title block says, each line left out when it has no value: the
- * view's title, the view's description, who last modified the workspace,
- * the date it was last modified, already formatted for the reader, and the
- * credit to the Renderizr that drew it. `titleBlockText` always gives the
- * last three a value, "Unknown" at worst.
+ * view's title, the view's description, the perspective the view draws
+ * under, who last modified the workspace, the date it was last modified,
+ * already formatted for the reader, and the credit to the Renderizr that
+ * drew it. `titleBlockText` always gives the author, the date and the
+ * credit a value, "Unknown" at worst.
  */
 export type TitleBlockText = {
     view: string;
     description: string;
+    /** The perspective the view draws under, while one is on. */
+    perspective?: string;
     user: string;
     modified: string;
     credit?: string;
@@ -768,10 +771,10 @@ export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
  * in the export's font and the scheme's text `color`, as its height and its
  * SVG. Line 1 is the view's title in bold, at an element name's size, scaled
  * from the band's. Under it come the view's description, wrapped to the band
- * and clamped after 4 lines, "Author:" with the user, and "Last updated:"
- * with the date. The credit closes it a line apart, smaller and lighter. A
- * line with no value is left out, and a band with no lines at all takes no
- * room.
+ * and clamped after 4 lines, "Perspective:" with the perspective while one
+ * is on, "Author:" with the user, and "Last updated:" with the date. The
+ * credit closes it a line apart, smaller and lighter. A line with no value
+ * is left out, and a band with no lines at all takes no room.
  */
 export function titleBlock(
     content: TitleBlockText,
@@ -804,13 +807,18 @@ export function titleBlock(
 
     const wrapped = (line: string) =>
         line.trim() ? wrap(line.trim(), width, fontSize, false, measure) : [];
-    const description = clamp(
-        wrapped(content.description),
-        TITLE_BLOCK_DESCRIPTION_LINES,
-        width,
-        fontSize,
-        measure,
-    );
+    const description = [
+        ...clamp(
+            wrapped(content.description),
+            TITLE_BLOCK_DESCRIPTION_LINES,
+            width,
+            fontSize,
+            measure,
+        ),
+        ...(content.perspective?.trim()
+            ? wrapped(`Perspective: ${content.perspective.trim()}`)
+            : []),
+    ];
     const details = [
         ...(content.user.trim()
             ? wrapped(`Author: ${content.user.trim()}`)

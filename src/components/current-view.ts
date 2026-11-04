@@ -34,6 +34,7 @@ import exportPngIcon from "bootstrap-icons/icons/filetype-png.svg?raw";
 import exportSvgIcon from "bootstrap-icons/icons/filetype-svg.svg?raw";
 import Component from "./_component";
 import { type EditingRoute, editButtons } from "./edit-buttons";
+import type PerspectiveControl from "./perspective-control";
 import { exportFileName, type SaveExport, saveWithLink } from "./save-export";
 
 /** The part of the engine the toolbar drives. */
@@ -168,6 +169,8 @@ export default class CurrentView extends Component {
     #model: WorkspaceModel;
     /** The page's editing route, in edit mode only (spec 4.6). */
     #editingRoute: EditingRoute | null;
+    /** The perspective control, which the page shows the names of. */
+    #perspective: PerspectiveControl | null;
 
     /**
      * The engine's animation state, which the animation buttons render from;
@@ -273,11 +276,13 @@ export default class CurrentView extends Component {
         model: WorkspaceModel,
         editingRoute: EditingRoute | null = null,
         save: SaveExport | null | Promise<SaveExport | null> = saveWithLink,
+        perspective: PerspectiveControl | null = null,
     ) {
         super(element);
         this.#engine = engine;
         this.#model = model;
         this.#editingRoute = editingRoute;
+        this.#perspective = perspective;
         // The page may still be asking the artifact viewer how to save; the
         // toolbar draws meanwhile and shows the group once it knows.
         if (save instanceof Promise) {
@@ -534,6 +539,8 @@ export default class CurrentView extends Component {
                 }).join("")}
             </div>
         `;
+        // After the label toggles, painted as the page last showed it.
+        this.#perspective?.mount(container);
 
         // Builds compile edit mode out, so no pencil reaches them (ADR 15).
         if (__RENDERIZR_EDIT_MODE__ && this.#editingRoute) {

@@ -107,7 +107,8 @@ export const UNKNOWN = "Unknown";
  * and all, else the workspace's `lastModifiedUser`, else its
  * `lastModifiedAgent`; the date is its `lastModifiedDate`, else `built`.
  * Either prints "Unknown" only when its fallback is empty too. The credit
- * names Renderizr, with its `version` when the build knows it.
+ * names Renderizr, with its `version` when the build knows it. The
+ * `perspective` the view draws under gets its own line, while one is on.
  */
 export function titleBlockText(
     workspace: Record<string, unknown>,
@@ -115,11 +116,13 @@ export function titleBlockText(
     description: string,
     built: unknown,
     version?: string | null,
+    perspective?: string,
 ): TitleBlockText {
     const split = splitAuthor(description);
     return {
         view: title,
         description: split.description,
+        ...(perspective && { perspective }),
         user:
             split.author?.trim() ||
             field(workspace.lastModifiedUser).trim() ||

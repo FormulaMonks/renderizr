@@ -26,11 +26,14 @@
  * Modified by Renderizr: ported to typed TypeScript, made a pure function of
  * the workspace, the color scheme, the themes and an optional perspective;
  * an unset stroke is the background darkened 10% in both color schemes;
- * dynamic (URL-polled) perspectives are ignored; a boundary's style resolved
+ * dynamic (URL-polled) perspectives take no value style; an implied
+ * relationship takes its linked relationship's perspective; a boundary takes
+ * no perspective style; a boundary's style resolved
  * without its shape, which the engine reduces to a rectangle, and groups and
  * the enterprise boundary styled from their own tags alone.
  */
 
+import { carriedPerspective } from "./perspectives";
 import { sortStyles, type WorkspaceModel } from "./workspace";
 import type {
     ColorScheme,
@@ -214,32 +217,17 @@ function perspectiveStyle(
 }
 
 /**
- * The static perspective an element or relationship carries under `name`.
- * Instances fall back to what they instantiate. Dynamic perspectives (those
- * with a `url`) are polled by upstream and ignored here.
+ * The perspective an element or relationship carries under `name`, for its
+ * style: a dynamic one (with a `url`) is carried, but its value comes from
+ * polling, which Renderizr leaves out, so no value style matches it.
  */
 function findPerspective(
     model: WorkspaceModel,
     item: Partial<ModelElement> | Partial<ModelRelationship>,
     name: string,
 ): Perspective | undefined {
-    const own = (perspectives: Perspective[] | undefined) => {
-        let found: Perspective | undefined;
-        for (const p of perspectives ?? []) if (p.name === name) found = p;
-        return found;
-    };
-    let perspective = own(item.perspectives);
-    if (!perspective && "type" in item) {
-        const element = item as Partial<ModelElement>;
-        const base =
-            element.type === "SoftwareSystemInstance"
-                ? model.findElementById(element.softwareSystemId)
-                : element.type === "ContainerInstance"
-                  ? model.findElementById(element.containerId)
-                  : undefined;
-        perspective = own(base?.perspectives);
-    }
-    return perspective?.url ? undefined : perspective;
+    const perspective = carriedPerspective(model, item, name);
+    return perspective?.url ? { name: perspective.name } : perspective;
 }
 
 /**
@@ -499,9 +487,8 @@ export function findBoundaryStyle(
     element: ModelElement,
     scheme: ColorScheme = "Light",
     themes: Theme[] = [],
-    perspective?: string,
 ): ElementStyle {
-    const style = findElementStyle(model, element, scheme, themes, perspective);
+    const style = findElementStyle(model, element, scheme, themes);
     if (element.type === "DeploymentNode") return style;
 
     const override = explicitAttributes(

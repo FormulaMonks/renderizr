@@ -62,8 +62,35 @@ const everything = (ids: string[], presence: Presence) =>
  * revealed child. Boundary boxes are derived from all their children either
  * way, so nothing moves from step to step. A sequence diagram highlights
  * one message per step (`sequenceStepState`).
+ *
+ * A perspective's fade adds to the step's: where both apply, the stronger
+ * effect wins, hidden over faded over shown (spec: What a selected
+ * perspective draws).
  */
 export function stepStateOf(graph: Graph, step: number | null): StepState {
+    return underPerspective(graph, animationStateOf(graph, step));
+}
+
+/** How strong each presence is: the stronger of two wins. */
+const STRENGTH: Record<Presence, number> = { shown: 0, faded: 1, hidden: 2 };
+
+const stronger = (a: Presence | undefined, b: Presence): Presence =>
+    a !== undefined && STRENGTH[a] >= STRENGTH[b] ? a : b;
+
+/** `state` with every item the graph's perspective fades faded at least. */
+function underPerspective(graph: Graph, state: StepState): StepState {
+    if (graph.perspective === undefined) return state;
+    const elements = { ...state.elements };
+    for (const box of graph.elements)
+        if (box.faded) elements[box.id] = stronger(elements[box.id], "faded");
+    const edges = { ...state.edges };
+    for (const edge of graph.edges)
+        if (edge.faded) edges[edge.key] = stronger(edges[edge.key], "faded");
+    return { ...state, elements, edges };
+}
+
+/** What `graph` shows at `step` by its animation alone. */
+function animationStateOf(graph: Graph, step: number | null): StepState {
     const elementIds = graph.elements.map((e) => e.id);
     const boundaryIds = graph.boundaries.map((b) => b.id);
     const edgeKeys = graph.edges.map((e) => e.key);
