@@ -270,6 +270,33 @@ describe("export-svg", () => {
         }
     });
 
+    test("the title block names the perspective under the description while one is on", () => {
+        const plain = exported("AutoFrame");
+        const { svg, height } = exported("AutoFrame", {
+            titleBlock: { ...TITLE_BLOCK, perspective: "Security" },
+        });
+        assert.deepEqual(texts(titleBlockOf(svg)), [
+            "Export in context",
+            "A short description",
+            "Perspective: Security",
+            "Author: ada@example.com",
+            "Last updated: 10/1/2026",
+        ]);
+        assert.ok(height > plain.height, "the band grows by the line");
+        assert.doesNotMatch(titleBlockOf(plain.svg), /Perspective/);
+        const alone = exported("AutoFrame", {
+            titleBlock: {
+                ...TITLE_BLOCK,
+                description: "",
+                perspective: "Security",
+            },
+        });
+        assert.equal(
+            texts(titleBlockOf(alone.svg))[1],
+            "Perspective: Security",
+        );
+    });
+
     test("the title block's text is escaped", () => {
         const { svg } = exported("AutoFrame", {
             titleBlock: { ...TITLE_BLOCK, view: "R&D <labs>" },
@@ -341,6 +368,18 @@ describe("export-file", () => {
             "the view's own author, with the address",
         );
         assert.equal(text.modified, modifiedDate(WORKSPACE.lastModifiedDate));
+    });
+
+    test("the title block carries the perspective only while one is on", () => {
+        assert.equal(
+            titleBlockText(WORKSPACE, "View", "", BUILT, "2.4.0", "Security")
+                .perspective,
+            "Security",
+        );
+        assert.equal(
+            "perspective" in titleBlockText(WORKSPACE, "View", "", BUILT),
+            false,
+        );
     });
 
     test("the title block's author is the view's own, then the workspace's user, then its agent", () => {
