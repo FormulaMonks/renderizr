@@ -884,8 +884,9 @@ function drawView(
                       model,
                       placed.element,
                       colorScheme,
+                      // PROTOTYPE: the fade alone shows the perspective.
                       [],
-                      perspective,
+                      undefined,
                   );
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
@@ -1057,8 +1058,9 @@ function drawView(
                             }
                           : relationship,
                       colorScheme,
+                      // PROTOTYPE: the fade alone shows the perspective.
                       [],
-                      perspective,
+                      undefined,
                   );
         // Only a dynamic view tells its own story about a relationship. The
         // descriptions toggle is for elements: an edge keeps its description.
