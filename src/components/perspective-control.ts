@@ -19,9 +19,10 @@
 
 import perspectiveIcon from "bootstrap-icons/icons/binoculars.svg?raw";
 import perspectiveOnIcon from "bootstrap-icons/icons/binoculars-fill.svg?raw";
-import styles from "./current-view.module.css";
+import Component from "./_component";
 import PopupMenu from "./popup-menu";
 import { type KeyPress, notation, SHORTCUTS, typesText } from "./shortcuts";
+import styles from "./perspective-control.module.css";
 
 /** What the menu's first entry says, which switches the perspective off. */
 export const NO_PERSPECTIVE = "No perspective";
@@ -57,7 +58,7 @@ export function onPerspectiveKey(open: () => void): () => void {
     return () => document.removeEventListener("keydown", onKey);
 }
 
-export default class PerspectiveControl {
+export default class PerspectiveControl extends Component {
     readonly #pick: (name: string | null) => void;
     #group: HTMLElement | null = null;
     #names: readonly string[] = [];
@@ -66,6 +67,7 @@ export default class PerspectiveControl {
 
     /** A control that reports each pick, a name or none, to `pick`. */
     constructor(pick: (name: string | null) => void) {
+        super(null);
         this.#pick = pick;
     }
 
@@ -75,10 +77,17 @@ export default class PerspectiveControl {
      * mounts the control each time.
      */
     mount(toolbar: HTMLElement) {
-        this.close(false);
-        this.#group?.remove();
+        this.element = toolbar;
+        this.render();
+    }
+
+    /** Draw the button in the toolbar it was mounted in. */
+    render() {
+        this.clear();
+        const toolbar = this.element;
+        if (!toolbar) return;
         const group = document.createElement("div");
-        group.className = `perspective-buttons ${styles.btnGroup}`;
+        group.className = `perspective-buttons ${styles.group}`;
         const button = document.createElement("button");
         button.className = "perspective";
         button.setAttribute("aria-haspopup", "menu");

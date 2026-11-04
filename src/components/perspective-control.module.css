@@ -1,0 +1,7 @@
+/*
+ * The perspective control is one more button group in the view toolbar, so
+ * it looks like the label toggles beside it, its pressed state included.
+ */
+.group {
+    composes: btnGroup from "./current-view.module.css";
+}

@@ -12,6 +12,7 @@
  */
 
 import type { Anchor } from "../engine/contract";
+import Component from "./_component";
 import Menu from "./menu";
 import styles from "./popup-menu.module.css";
 
@@ -42,21 +43,27 @@ function place(popup: HTMLElement, x: number, y: number) {
     popup.style.setProperty("--menu-y", `${y}px`);
 }
 
-export default class PopupMenu {
-    readonly #host: HTMLElement;
+/** What the open menu shows, which `render()` draws from. */
+type Shown = {
+    entries: readonly PopupEntry[];
+    anchor: Anchor;
+    choose: (index: number) => void;
+    opener: HTMLElement | null;
+    keep: HTMLElement | null;
+};
+
+export default class PopupMenu extends Component {
     readonly #marker: string;
+    #shown: Shown | null = null;
     #menu: Menu<Item> | null = null;
     #popup: HTMLElement | null = null;
-    #opener: HTMLElement | null = null;
-    /** The opener given, a click on which leaves the menu to its owner. */
-    #keep: HTMLElement | null = null;
 
     /**
      * A menu that opens inside `host`, marked with the attribute
      * `data-<marker>`.
      */
     constructor(host: HTMLElement, marker: string) {
-        this.#host = host;
+        super(host);
         this.#marker = marker;
     }
 
@@ -76,16 +83,30 @@ export default class PopupMenu {
         { opener }: PopupOptions = {},
     ) {
         this.close(false);
-        const active = this.#host.ownerDocument.activeElement;
-        this.#opener =
-            opener ?? (active instanceof HTMLElement ? active : null);
-        this.#keep = opener ?? null;
+        const active = this.element?.ownerDocument.activeElement;
+        this.#shown = {
+            entries,
+            anchor,
+            choose,
+            opener: opener ?? (active instanceof HTMLElement ? active : null),
+            keep: opener ?? null,
+        };
+        this.render();
+    }
+
+    /** Draw the menu `open` was given, if it is still open. */
+    render() {
+        const shown = this.#shown;
+        this.clear();
+        if (!shown || !this.element) return;
+        this.#shown = shown;
+        const { entries, anchor, choose } = shown;
 
         const popup = document.createElement("div");
         popup.setAttribute(`data-${this.#marker}`, "");
         popup.className = styles.popup;
         place(popup, anchor.x, anchor.y);
-        this.#host.appendChild(popup);
+        this.element.appendChild(popup);
         this.#popup = popup;
 
         // Each entry is an action: the menu reports the choice and paints
@@ -111,16 +132,16 @@ export default class PopupMenu {
             item.setAttribute("role", "none");
         }
         const links = this.#entries();
-        entries.forEach((entry, index) => {
+        for (const [index, entry] of entries.entries()) {
             const link = links[index];
-            if (!link) return;
+            if (!link) continue;
             if (entry.checked === undefined) {
                 link.setAttribute("role", "menuitem");
-                return;
+                continue;
             }
             link.setAttribute("role", "menuitemradio");
             link.setAttribute("aria-checked", String(entry.checked));
-        });
+        }
 
         this.#keepOnScreen(popup, anchor);
         document.addEventListener("keydown", this.#onKeyDown);
@@ -177,21 +198,26 @@ export default class PopupMenu {
     #onPointerDown = (event: Event) => {
         const target = event.target as Node;
         if (this.#popup?.contains(target)) return;
-        if (this.#keep?.contains(target)) return;
+        if (this.#shown?.keep?.contains(target)) return;
         this.close(false);
     };
 
     /** Close the menu, giving focus back to its opener when asked. */
     close(restoreFocus = true) {
         if (!this.#popup) return;
+        const opener = this.#shown?.opener ?? null;
+        this.clear();
+        if (restoreFocus) opener?.focus();
+    }
+
+    /** Take the menu off the page, with its listeners. */
+    clear() {
         document.removeEventListener("keydown", this.#onKeyDown);
         document.removeEventListener("pointerdown", this.#onPointerDown);
         this.#menu?.clear();
         this.#menu = null;
-        this.#popup.remove();
+        this.#popup?.remove();
         this.#popup = null;
-        if (restoreFocus) this.#opener?.focus();
-        this.#opener = null;
-        this.#keep = null;
+        this.#shown = null;
     }
 }
