@@ -7,7 +7,11 @@ import CurrentView, {
 import DiagramNavigation from "../components/diagram-navigation";
 import { isEditingRoute, readingSearch } from "../components/editing-route";
 import { exportSaver, type SaveExport } from "../components/save-export";
+import PerspectiveControl, {
+    onPerspectiveKey,
+} from "../components/perspective-control";
 import TargetMenu from "../components/target-menu";
+import { showNotice } from "../components/toast";
 import { type Engine, isAbortError, mountEngine } from "../engine";
 import {
     elementTargets,
@@ -38,6 +42,10 @@ import {
     setLinksOf,
 } from "../current-workspace";
 import { showDevBlank } from "../dev-set";
+import {
+    followPerspective,
+    type PerspectiveFollower,
+} from "../perspective-address";
 
 /** Whether the page shows the editing route now (spec 4.6). */
 const editing = () =>
@@ -96,6 +104,13 @@ export default class Diagrams extends Page {
     #abort: AbortController | null = null;
     #unsubscribe: (() => void)[] = [];
     #targetMenu: TargetMenu | null = null;
+    #perspective: PerspectiveFollower | null = null;
+    #perspectiveControl: PerspectiveControl | null = null;
+    /**
+     * The workspace the page drew last, `undefined` before it drew any: a
+     * page drawn in another one follows a crossing.
+     */
+    #workspace: string | null | undefined = undefined;
 
     /**
      * How the toolbar saves an export, asked for once when the page loads.
@@ -161,6 +176,26 @@ export default class Diagrams extends Page {
         const abort = new AbortController();
         this.#abort = abort;
 
+        // The address holds the perspective; the toolbar's control picks it.
+        const crossed =
+            this.#workspace !== undefined && this.#workspace !== entered.slug;
+        this.#workspace = entered.slug;
+        const control = new PerspectiveControl((name) =>
+            this.#perspective?.pick(name),
+        );
+        this.#perspectiveControl = control;
+        this.#perspective = followPerspective({
+            history,
+            model,
+            workspace: entered.name,
+            crossed,
+            notice: (text) => void showNotice(text),
+            apply: (name) => {
+                this.#engine?.setPerspective(name);
+                control.select(name);
+            },
+        });
+
         mountEngine(
             target,
             {
@@ -170,6 +205,7 @@ export default class Diagrams extends Page {
                 font: entered.branding.font?.family ?? null,
                 colorScheme: getDiagramTheme(),
                 labels: readLabelState(),
+                perspective: this.#perspective.selected(),
                 // The edit session's layouts, so a page render keeps them.
                 ...(__RENDERIZR_EDIT_MODE__
                     ? { editing: editing(), layouts: editSession().layouts() }
@@ -183,6 +219,8 @@ export default class Diagrams extends Page {
                     return;
                 }
                 this.#engine = engine;
+                // The address may have changed while the engine mounted.
+                engine.setPerspective(this.#perspective?.selected() ?? null);
                 this.#start(engine, model, reachable);
             },
             (error) => {
@@ -242,6 +280,7 @@ export default class Diagrams extends Page {
                 model,
                 __RENDERIZR_EDIT_MODE__ ? editingRoute(engine, model) : null,
                 this.#saving,
+                this.#perspectiveControl,
             ),
         );
 
@@ -259,7 +298,7 @@ export default class Diagrams extends Page {
         // The toolbar follows what the engine has painted, not what was asked;
         // subscribing replays the view already on screen.
         this.#unsubscribe = [
-            engine.onViewShown((view) => {
+            engine.onViewShown((view, _animation, perspectives) => {
                 // A view edit mode can't edit has no editing route: the page
                 // drops to reading (spec 7.5).
                 if (editing() && !isEditable(view)) {
@@ -268,8 +307,20 @@ export default class Diagrams extends Page {
                     });
                 }
                 currentView.render(view);
+                const follower = this.#perspective;
+                if (follower) {
+                    this.#perspectiveControl?.show(
+                        perspectives,
+                        follower.selected(),
+                    );
+                    follower.viewShown(
+                        model.getDrawerNameForView(view) || view.key,
+                        perspectives,
+                    );
+                }
                 showDisclaimer(disclaimerKind(view));
             }),
+            onPerspectiveKey(() => this.#perspectiveControl?.open()),
             engine.onElementActivated((id, anchor) => {
                 const element = model.findElementById(id);
                 if (element) {
@@ -326,6 +377,10 @@ export default class Diagrams extends Page {
         this.#abort?.abort();
         this.#abort = null;
         this.#stop();
+        this.#perspective?.stop();
+        this.#perspective = null;
+        this.#perspectiveControl?.clear();
+        this.#perspectiveControl = null;
         this.#engine?.unmount();
         this.#engine = null;
         delete document.documentElement.dataset.diagramShell;
