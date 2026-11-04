@@ -140,6 +140,10 @@ _Avoid_: playback, slideshow, sequence
 One stage of an animation. In a dynamic view, every relationship sharing one order value; in a sequence diagram, one message and the notes written between it and the messages on either side of it; in a static view, one entry of the view's animation list, adding to what earlier steps revealed.
 _Avoid_: frame, stage, animation step
 
+**Perspective**:
+A named question the author asks of the model, such as ownership or security, attached to elements and relationships with a description and an optional value. When the reader selects one, the view keeps the items that carry it and fades the rest, and the author's `Perspective` styles color them by their value.
+_Avoid_: filter (a Structurizr filtered view), layer, lens
+
 **Edit mode**:
 The local server `renderizr edit` starts, where the author changes the layout of stored-layout views in the React Flow engine and saves it into `workspace.json` using only fields Structurizr defines. Builds stay read-only.
 _Avoid_: editor, layout editor, design mode
