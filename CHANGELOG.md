@@ -21,6 +21,23 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.8.0](https://github.com/FormulaMonks/renderizr/compare/v2.7.0...v2.8.0) (2026-11-04)
+
+
+### Added
+
+* show Structurizr perspectives on the diagrams ([#293](https://github.com/FormulaMonks/renderizr/issues/293)) ([aab01c1](https://github.com/FormulaMonks/renderizr/commit/aab01c1321814001068480939b9263846cf85b9e))
+
+
+### Fixed
+
+* download theme icons once, with a time limit ([#291](https://github.com/FormulaMonks/renderizr/issues/291)) ([1037131](https://github.com/FormulaMonks/renderizr/commit/10371319ddde0379fb2d2b7d7fd6abfae4703704))
+
+
+### Documentation
+
+* add perspective to the glossary ([#285](https://github.com/FormulaMonks/renderizr/issues/285)) ([a2f28f4](https://github.com/FormulaMonks/renderizr/commit/a2f28f4f3a8dca664ca965ff24ef2e2f75c8dcbf))
+
 ## [2.7.0](https://github.com/FormulaMonks/renderizr/compare/v2.6.0...v2.7.0) (2026-11-04)
 
 
