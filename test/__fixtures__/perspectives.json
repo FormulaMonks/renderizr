@@ -364,35 +364,45 @@
                 "softwareSystemId": "2",
                 "title": "Shop containers",
                 "description": "Security has no styles, so it only fades; Ownership styles Team A, and Worker's Team B matches none. Customer to Email System carries Security while both its ends lack it",
-                "automaticLayout": {
-                    "implementation": "Graphviz",
-                    "rankDirection": "TopBottom",
-                    "rankSeparation": 300,
-                    "nodeSeparation": 300,
-                    "edgeSeparation": 0,
-                    "vertices": false
+                "dimensions": {
+                    "width": 2400,
+                    "height": 2700
                 },
                 "elements": [
                     {
-                        "id": "1"
+                        "id": "1",
+                        "x": 1045,
+                        "y": 0
                     },
                     {
-                        "id": "3"
+                        "id": "3",
+                        "x": 270,
+                        "y": 900
                     },
                     {
-                        "id": "4"
+                        "id": "4",
+                        "x": 270,
+                        "y": 1580
                     },
                     {
-                        "id": "5"
+                        "id": "5",
+                        "x": 150,
+                        "y": 2260
                     },
                     {
-                        "id": "6"
+                        "id": "6",
+                        "x": 1020,
+                        "y": 900
                     },
                     {
-                        "id": "7"
+                        "id": "7",
+                        "x": 1770,
+                        "y": 2260
                     },
                     {
-                        "id": "8"
+                        "id": "8",
+                        "x": 1770,
+                        "y": 1580
                     }
                 ],
                 "relationships": [
