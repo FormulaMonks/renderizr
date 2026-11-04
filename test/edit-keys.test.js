@@ -201,6 +201,7 @@ test("the keyboard map groups every key into selection, moving, arranging, histo
         "Alt+Shift+H",
         "Alt+Shift+V",
         "Alt+R",
+        "Alt+P",
         "Ctrl+Z",
         "Ctrl+Shift+Z",
         "Ctrl+Y",
@@ -219,6 +220,7 @@ test("the keyboard map on a Mac reads in its notation and leaves out Ctrl+Y", ()
     );
     assert.ok(keys.includes("⇧⌘Z"));
     assert.ok(keys.includes("⌥⇧H"));
+    assert.ok(keys.includes("⌥P"));
     assert.ok(!keys.includes("Ctrl+Y"));
 });
 

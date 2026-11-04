@@ -61,6 +61,11 @@ export type PerspectiveFollower = {
      * carries none of the name.
      */
     viewShown(view: string, names: readonly string[]): void;
+    /**
+     * Read names from `model`, a workspace edit mode took from disk: a name
+     * it lacks leaves the address, with a notice, and the page draws none.
+     */
+    swap(model: WorkspaceModel): void;
     /** Follow the address no more. */
     stop(): void;
 };
@@ -72,13 +77,15 @@ export type PerspectiveFollower = {
  */
 export function followPerspective({
     history,
-    model,
+    model: first,
     workspace,
     crossed,
     notice,
     apply,
 }: PerspectiveSource): PerspectiveFollower {
     const shown = workspaceOf(history.location.pathname);
+    /** The workspace whose names the follower knows. */
+    let model = first;
     /** The name the page draws under. */
     let current: string | null = null;
     /** Whether the next view shown tells when it carries none of it. */
@@ -139,6 +146,13 @@ export function followPerspective({
             announce = false;
             if (current !== null && !drawn.includes(current))
                 notice(nothingCarries(view, current));
+        },
+        swap(arrived) {
+            model = arrived;
+            const next = read(true);
+            if (next === current) return;
+            current = next;
+            apply(next);
         },
         stop: unlisten,
     };

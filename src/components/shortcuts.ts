@@ -174,6 +174,7 @@ export function keyboardMap(mac = isMac()): ShortcutGroup[] {
                 line("Zoom in", "+"),
                 line("Zoom out", "-"),
                 line("Fit the diagram", "0"),
+                line("Pick a perspective", SHORTCUTS.perspective),
                 line("Open these keyboard shortcuts", SHORTCUTS.shortcuts),
             ],
         },

@@ -245,6 +245,7 @@ export default class Diagrams extends Page {
                       ? new WorkspaceModel(arrival.previous)
                       : model;
                   this.#stop();
+                  this.#perspective?.swap(after);
                   swapWorkspace(engine, before, after, arrival);
                   this.#start(engine, after, reachableIn(after));
               })

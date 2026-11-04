@@ -14,6 +14,9 @@ import { importSrc, srcTest as test } from "./support/ts.js";
 const { followPerspective } = await importSrc("perspective-address");
 const { WorkspaceModel, perspectiveOf, withPerspective } =
     await importSrc("model/index");
+const { editingSearch, readingSearch } = await importSrc(
+    "components/editing-route",
+);
 
 const model = new WorkspaceModel(
     JSON.parse(
@@ -208,4 +211,71 @@ test("a stopped follower hears no address", () => {
     page.follower.stop();
     page.history.push("/?page=diagrams&view=Context&perspective=Security");
     assert.deepEqual(page.applied, []);
+});
+
+/* ------------------------------------------------------------- edit mode */
+
+test("entering and leaving edit mode keeps the name and applies nothing", () => {
+    const page = follow("/?page=diagrams&view=Context&perspective=Security");
+    const editing = editingSearch(page.history.location.search, "Context");
+    page.history.replace({ search: `?${editing}` });
+    assert.equal(perspectiveOf(page.history.location.search), "Security");
+    assert.equal(page.follower.selected(), "Security");
+    page.history.replace({
+        search: `?${readingSearch(page.history.location.search)}`,
+    });
+    assert.equal(
+        address(page.history),
+        "/?page=diagrams&view=Context&perspective=Security",
+    );
+    assert.equal(page.follower.selected(), "Security");
+    assert.deepEqual(page.applied, []);
+    assert.deepEqual(page.notices, []);
+    page.follower.stop();
+});
+
+/** The fixture with no perspective on anything. */
+function withoutPerspectives() {
+    const workspace = JSON.parse(
+        readFileSync(
+            new URL("./__fixtures__/perspectives.json", import.meta.url),
+            "utf-8",
+        ),
+    );
+    const strip = (value) => {
+        if (Array.isArray(value)) value.forEach(strip);
+        else if (value && typeof value === "object") {
+            delete value.perspectives;
+            Object.values(value).forEach(strip);
+        }
+    };
+    strip(workspace.model);
+    return new WorkspaceModel(workspace);
+}
+
+test("a workspace from disk that keeps the name keeps it on", () => {
+    const page = follow("/?page=diagrams&view=Context&perspective=Security");
+    page.follower.swap(model);
+    assert.equal(page.follower.selected(), "Security");
+    assert.deepEqual(page.applied, []);
+    assert.deepEqual(page.notices, []);
+    page.follower.stop();
+});
+
+test("a workspace from disk that lacks the name drops it, and a notice says so", () => {
+    const page = follow("/?page=diagrams&view=Context&perspective=Security");
+    page.follower.swap(withoutPerspectives());
+    assert.equal(page.follower.selected(), null);
+    assert.equal(address(page.history), "/?page=diagrams&view=Context");
+    assert.deepEqual(page.applied, [null]);
+    assert.deepEqual(page.notices, [
+        "Shop has no perspective Security, so the page shows none.",
+    ]);
+    page.history.push("/?page=diagrams&view=Context&perspective=Ownership");
+    assert.equal(
+        page.follower.selected(),
+        null,
+        "the follower reads names from the workspace that arrived",
+    );
+    page.follower.stop();
 });
