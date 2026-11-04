@@ -21,6 +21,13 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [2.7.0](https://github.com/FormulaMonks/renderizr/compare/v2.6.0...v2.7.0) (2026-11-04)
+
+
+### Added
+
+* highlight an element's edges while the pointer is on it ([#280](https://github.com/FormulaMonks/renderizr/issues/280)) ([b5d4416](https://github.com/FormulaMonks/renderizr/commit/b5d4416c661dc4e7d578d72163aa124ec4963210))
+
 ## [2.6.0](https://github.com/FormulaMonks/renderizr/compare/v2.5.0...v2.6.0) (2026-10-29)
 
 
