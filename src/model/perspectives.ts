@@ -112,3 +112,24 @@ export function hasPerspective(model: WorkspaceModel, name: string): boolean {
     ];
     return items.some((item) => carriesPerspective(model, item, name));
 }
+
+/* ----------------------------------------------------------- the address */
+
+/** The search parameter that names the perspective. */
+export const PERSPECTIVE_PARAM = "perspective";
+
+/** The perspective `search` names, or `null`. A leading `?` is fine. */
+export function perspectiveOf(search: string): string | null {
+    return new URLSearchParams(search).get(PERSPECTIVE_PARAM) || null;
+}
+
+/**
+ * `search` naming the perspective `name`, beside what it holds already, or
+ * naming none for `null`.
+ */
+export function withPerspective(search: string, name: string | null): string {
+    const params = new URLSearchParams(search);
+    if (name) params.set(PERSPECTIVE_PARAM, name);
+    else params.delete(PERSPECTIVE_PARAM);
+    return params.toString();
+}

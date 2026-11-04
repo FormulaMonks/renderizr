@@ -2,6 +2,8 @@ import type { History, Location } from "history";
 import {
     landingSearch,
     missingLanding,
+    perspectiveOf,
+    withPerspective,
     WorkspaceModel,
     type Landing,
     type WorkspaceTarget,
@@ -250,9 +252,14 @@ export function followTrail({
                 target.trail ??
                 crossInto(trailOf(history.location.pathname), target.slug);
             crossing = { slug: target.slug, landing: target.landing };
+            // The perspective crosses too; the page drops it, silently,
+            // where the workspace lacks it.
             history.push({
                 pathname: trailPath(trail),
-                search: `?${landingSearch(target.landing)}`,
+                search: `?${withPerspective(
+                    landingSearch(target.landing),
+                    perspectiveOf(history.location.search),
+                )}`,
             });
         },
         stop: unlisten,

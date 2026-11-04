@@ -23,6 +23,7 @@ import Component from "./_component";
 import styles from "./navigation.module.css";
 import { cycleMode, getMode, onThemeChange, type ThemeMode } from "./theme";
 import { DEFAULT_VIEW } from "../workspace-trail";
+import { perspectiveOf, withPerspective } from "../model/perspectives";
 import lightIcon from "bootstrap-icons/icons/sun-fill.svg?raw";
 import darkIcon from "bootstrap-icons/icons/moon-fill.svg?raw";
 import systemIcon from "bootstrap-icons/icons/circle-half.svg?raw";
@@ -74,11 +75,20 @@ export default class Navigation extends Component {
         this.#parent = parent;
     }
 
-    /** Open the parent workspace at its default view. */
+    /**
+     * Open the parent workspace at its default view. The perspective
+     * crosses too, as on any crossing.
+     */
     #goBack = (event: Event) => {
         event.preventDefault();
         if (!this.#parent) return;
-        history.push({ pathname: this.#parent.pathname, search: DEFAULT_VIEW });
+        history.push({
+            pathname: this.#parent.pathname,
+            search: `?${withPerspective(
+                DEFAULT_VIEW,
+                perspectiveOf(history.location.search),
+            )}`,
+        });
     };
 
     #links = () =>

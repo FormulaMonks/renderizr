@@ -377,6 +377,24 @@ test("off the landscape, the header leads back to the previous workspace on the 
     assert.equal(history.location.search, "?page=diagrams");
 });
 
+test("the way back carries the perspective the address names", () => {
+    history.replace({
+        pathname: "/orders/payments/",
+        search: "?view=Containers&perspective=Security",
+    });
+    new Navigation(host, workspace(), null, {
+        name: "Orders",
+        pathname: "/orders/",
+    }).render();
+
+    host.querySelector("a[data-back]").click();
+    assert.equal(history.location.pathname, "/orders/");
+    assert.equal(
+        history.location.search,
+        "?page=diagrams&perspective=Security",
+    );
+});
+
 test("on the landscape, the header has no way back", () => {
     render();
     assert.equal(host.querySelectorAll("a[data-back]").length, 0);
