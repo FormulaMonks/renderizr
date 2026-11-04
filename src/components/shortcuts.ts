@@ -59,9 +59,12 @@ export const SHORTCUTS = {
 } as const;
 
 /** Whether `target` takes typing, where the page leaves keys alone. */
-export const typesText = (target: EventTarget | null) =>
-    target instanceof HTMLElement &&
-    (target.isContentEditable || target.matches("input, textarea, select"));
+export function typesText(target: EventTarget | null): boolean {
+    return (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.matches("input, textarea, select"))
+    );
+}
 
 /** What a page key does (spec 17.2). */
 export type PageCommand = "undo" | "redo" | "save" | "shortcuts" | "routing";

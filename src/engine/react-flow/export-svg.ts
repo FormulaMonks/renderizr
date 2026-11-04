@@ -772,9 +772,9 @@ export const TITLE_BLOCK_DESCRIPTION_LINES = 4;
  * SVG. Line 1 is the view's title in bold, at an element name's size, scaled
  * from the band's. Under it come the view's description, wrapped to the band
  * and clamped after 4 lines, "Perspective:" with the perspective while one
- * is on, "Author:" with the user, and "Last updated:" with the date. The credit closes it a line apart, smaller and lighter. A
- * line with no value is left out, and a band with no lines at all takes no
- * room.
+ * is on, "Author:" with the user, and "Last updated:" with the date. The
+ * credit closes it a line apart, smaller and lighter. A line with no value
+ * is left out, and a band with no lines at all takes no room.
  */
 export function titleBlock(
     content: TitleBlockText,
