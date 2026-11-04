@@ -259,7 +259,15 @@ export function mountEngine(
                     titleBlock: titleBlockText(
                         workspace,
                         graph.title,
-                        view.description,
+                        // PROTOTYPE (perspectives map): a line for the perspective.
+                        graph.perspective
+                            ? [
+                                  view.description,
+                                  `Perspective: ${graph.perspective}`,
+                              ]
+                                  .filter(Boolean)
+                                  .join("\n")
+                            : view.description,
                         __RENDERIZR_BUILD_DATE__,
                         __RENDERIZR_VERSION__,
                     ),

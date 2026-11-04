@@ -22,6 +22,7 @@ import {
     type EditedLayout,
     type ElementStyle,
     elementTargets,
+    carriesPerspective,
     findBoundaryStyle,
     findElementStyle,
     findEnterpriseStyle,
@@ -410,6 +411,10 @@ const markerOf = (name: string): EndMarker =>
 
 export type Graph = {
     key: string;
+    /** PROTOTYPE (perspectives map): the perspective the view is drawn under. */
+    perspective?: string;
+    /** PROTOTYPE: set when nothing in the view carries `perspective`. */
+    perspectiveEmpty?: boolean;
     title: string;
     background: string;
     /** The scheme's default text color, for what the canvas itself says. */
@@ -738,6 +743,18 @@ export function calculatedGraph(
     );
 }
 
+/** PROTOTYPE (perspectives map): how strongly an item without the perspective draws, animation's faded presence. */
+const PERSPECTIVE_FADE = 0.2;
+
+/** PROTOTYPE (perspectives map): the `perspective` the address names. */
+function prototypePerspective(): string | undefined {
+    if (typeof location === "undefined") return undefined;
+    const hash = location.hash;
+    const at = hash.indexOf("?");
+    const search = at >= 0 ? hash.slice(at) : location.search;
+    return new URLSearchParams(search).get("perspective") ?? undefined;
+}
+
 function drawView(
     model: WorkspaceModel,
     key: string,
@@ -830,6 +847,18 @@ function drawView(
     // A Mermaid diagram's nodes, edges and subgraphs take their styles and
     // sizes from its source (ADR 24); nothing else about drawing it differs.
     const { mermaid } = view;
+    // PROTOTYPE (perspectives map): the perspective comes from the address
+    // and Mermaid diagrams ignore it.
+    const perspective = mermaid ? undefined : prototypePerspective();
+    let carried = false;
+    const fade = (item: Parameters<typeof carriesPerspective>[1]) => {
+        if (!perspective) return 1;
+        if (carriesPerspective(model, item, perspective)) {
+            carried = true;
+            return 1;
+        }
+        return PERSPECTIVE_FADE;
+    };
 
     const entitySize = mermaid && collapsedEntitySize(model, view, measure);
 
@@ -850,7 +879,13 @@ function drawView(
         const style: MermaidNodeStyle =
             mermaid && node
                 ? mermaidNodeStyle(model, mermaid, node, colorScheme)
-                : findElementStyle(model, placed.element, colorScheme);
+                : findElementStyle(
+                      model,
+                      placed.element,
+                      colorScheme,
+                      [],
+                      perspective,
+                  );
         // An unknown shape draws as a Box, at the style's size.
         const shape = style.shape ?? "Box";
         const entity = mermaid?.entities.get(placed.id);
@@ -929,7 +964,7 @@ function drawView(
             ...(style.fontFamily && { fontFamily: style.fontFamily }),
             ...(style.fontWeight && { fontWeight: style.fontWeight }),
             border: style.border ?? "Solid",
-            opacity: style.opacity / 100,
+            opacity: (style.opacity / 100) * fade(placed.element),
             icon: style.icon,
             iconPosition: iconPositionOf(style.iconPosition),
             content: geometry.content,
@@ -1021,6 +1056,8 @@ function drawView(
                             }
                           : relationship,
                       colorScheme,
+                      [],
+                      perspective,
                   );
         // Only a dynamic view tells its own story about a relationship. The
         // descriptions toggle is for elements: an edge keeps its description.
@@ -1073,7 +1110,7 @@ function drawView(
             }),
             thickness: style.thickness,
             style: style.style,
-            opacity: style.opacity / 100,
+            opacity: (style.opacity / 100) * fade(relationship),
             ...(line && {
                 centered: true,
                 markers: {
@@ -1248,6 +1285,7 @@ function drawView(
         })),
         focusOrder: readingOrder(elements, drawnBoundaries, routed),
         ...(animation && { animation }),
+        ...(perspective && { perspective, perspectiveEmpty: !carried }),
     };
 }
 

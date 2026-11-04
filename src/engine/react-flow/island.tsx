@@ -166,6 +166,7 @@ import {
     zoomLimits,
 } from "./graph";
 import styles from "./island.module.css";
+import { showNotice } from "../../components/toast";
 import { type SequenceShape, sequenceGroups } from "./sequence-graph";
 
 export type IslandState = {
@@ -2309,6 +2310,15 @@ function Canvas({
         () => buildGraph(model, viewKey, scheme, labels, measure, edited),
         [model, viewKey, scheme, labels, measure, edited],
     );
+    // PROTOTYPE (perspectives map): tell the reader when nothing in the view
+    // carries the perspective the address names.
+    useEffect(() => {
+        if (drawn?.perspectiveEmpty) {
+            showNotice(
+                `Nothing in this view carries the ${drawn.perspective} perspective.`,
+            );
+        }
+    }, [drawn]);
     /**
      * What a gesture in editing shows on the view it started on, frame by
      * frame, laid out again here inside the island; only its drop reaches

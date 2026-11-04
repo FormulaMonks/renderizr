@@ -223,6 +223,22 @@ function findPerspective(
     item: Partial<ModelElement> | Partial<ModelRelationship>,
     name: string,
 ): Perspective | undefined {
+    const perspective = carriedPerspective(model, item, name);
+    return perspective?.url ? undefined : perspective;
+}
+
+/**
+ * The perspective an element or relationship carries under `name`, dynamic
+ * ones included. Instances fall back to what they instantiate; an implied
+ * relationship to the relationship it links to, recursively.
+ * PROTOTYPE (perspectives map): rough, never merges.
+ */
+function carriedPerspective(
+    model: WorkspaceModel,
+    item: Partial<ModelElement> | Partial<ModelRelationship>,
+    name: string,
+    seen = new Set<string>(),
+): Perspective | undefined {
     const own = (perspectives: Perspective[] | undefined) => {
         let found: Perspective | undefined;
         for (const p of perspectives ?? []) if (p.name === name) found = p;
@@ -239,7 +255,22 @@ function findPerspective(
                   : undefined;
         perspective = own(base?.perspectives);
     }
-    return perspective?.url ? undefined : perspective;
+    const linked = (item as Partial<ModelRelationship>).linkedRelationshipId;
+    if (!perspective && linked && !seen.has(linked)) {
+        seen.add(linked);
+        const source = model.findRelationshipById(linked);
+        if (source) perspective = carriedPerspective(model, source, name, seen);
+    }
+    return perspective;
+}
+
+/** Whether an element or relationship carries the perspective `name`. */
+export function carriesPerspective(
+    model: WorkspaceModel,
+    item: Partial<ModelElement> | Partial<ModelRelationship>,
+    name: string,
+): boolean {
+    return carriedPerspective(model, item, name) !== undefined;
 }
 
 /**
