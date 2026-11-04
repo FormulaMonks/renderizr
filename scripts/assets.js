@@ -22,21 +22,115 @@ const decodeDataUri = (uri) => {
         : Buffer.from(decodeURIComponent(data), "utf8");
 };
 
+/** How long one remote theme, icon, image or logo may take to download. */
+export const DOWNLOAD_TIMEOUT_MS = 10_000;
+
+/** The bytes at `url`. Throws when it answers with an error or is too slow. */
+async function fetchBytes(url) {
+    let response;
+    try {
+        response = await fetch(url, {
+            signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+        });
+    } catch (error) {
+        if (error?.name === "TimeoutError") {
+            throw new Error(
+                `${url} took longer than ${DOWNLOAD_TIMEOUT_MS / 1000}s to answer`,
+            );
+        }
+        throw error;
+    }
+    if (!response.ok) {
+        throw new Error(
+            `${url} responded ${response.status} ${response.statusText}`,
+        );
+    }
+    return Buffer.from(await response.arrayBuffer());
+}
+
 const readSource = async (source) =>
     isDataUri(source)
         ? decodeDataUri(source)
         : isUrl(source)
-          ? Buffer.from(
-                await fetch(source).then((response) => {
-                    if (!response.ok) {
-                        throw new Error(
-                            `${source} responded ${response.status} ${response.statusText}`,
-                        );
-                    }
-                    return response.arrayBuffer();
-                }),
-            )
+          ? fetchBytes(source)
           : readFile(resolve(process.cwd(), source));
+
+/* --------------------------------------------------------------- downloads */
+
+/** How long a failed download stands before a load tries it again. */
+export const RETRY_FAILED_MS = 60_000;
+
+/**
+ * Every theme, icon and image this process downloaded, by URL: what it read
+ * as, and when it failed. Edit mode loads the workspace again on every
+ * save, so without these a theme with hundreds of icons would download them
+ * all each time, and a save would wait on every one that fails.
+ */
+const downloads = new Map();
+
+/** Failures already warned about, so a remembered one doesn't warn again. */
+const reported = new WeakSet();
+
+/**
+ * `read(url)`, run once per process. One that failed fails again at once
+ * until `RETRY_FAILED_MS` passes, and then runs again.
+ */
+function download(url, read) {
+    const known = downloads.get(url);
+    if (
+        known &&
+        (known.failedAt === undefined ||
+            Date.now() - known.failedAt < RETRY_FAILED_MS)
+    ) {
+        return known.value;
+    }
+    const entry = { value: inTurn(read, url), failedAt: undefined };
+    entry.value.catch(() => {
+        entry.failedAt = Date.now();
+    });
+    downloads.set(url, entry);
+    return entry.value;
+}
+
+/**
+ * How many downloads run at once. A theme can name hundreds of icons; asked
+ * for all together, the last in line would spend their time limit waiting.
+ */
+const PARALLEL_DOWNLOADS = 16;
+
+let running = 0;
+const queue = [];
+
+/** `read(url)` once fewer than `PARALLEL_DOWNLOADS` others are running. */
+async function inTurn(read, url) {
+    // A finished download hands its place straight to the next in line.
+    if (running >= PARALLEL_DOWNLOADS) {
+        await new Promise((start) => queue.push(start));
+    } else {
+        running += 1;
+    }
+    try {
+        return await read(url);
+    } finally {
+        const next = queue.shift();
+        if (next) next();
+        else running -= 1;
+    }
+}
+
+/** Forget every download, so the next load fetches again. For tests. */
+export function forgetDownloads() {
+    downloads.clear();
+}
+
+/** Warn about `error` with `message`, unless an earlier load already did. */
+function warnOnce(error, message) {
+    if (error && typeof error === "object") {
+        if (reported.has(error)) return;
+        reported.add(error);
+    }
+    process.stderr.write(`warning: ${message} — ${error.message}\n`);
+}
 
 /* ------------------------------------------------------------------ images */
 
@@ -336,6 +430,16 @@ function withThemeIcon(style, themeUrl) {
     return { ...style, icon: new URL(icon, themeUrl).href };
 }
 
+/** The theme at `url`. */
+const readTheme = async (url) =>
+    JSON.parse((await fetchBytes(url)).toString("utf8"));
+
+/** The image at `url` as a data URI. */
+async function readImage(url) {
+    const buffer = await fetchBytes(url);
+    return toDataUri(buffer, describeImage(buffer).mime);
+}
+
 /**
  * Themes, element icons and image views are all fetched by Structurizr's
  * own pages at runtime. A self-contained page cannot do
@@ -351,27 +455,33 @@ async function inlineWorkspaceAssets(workspace) {
     const styles = configuration.styles;
     const themes = configuration.themes ?? [];
 
-    for (const themeUrl of themes) {
-        try {
-            const theme = await fetch(themeUrl).then((response) =>
-                response.json(),
-            );
-            styles.elements = [
-                ...(theme.elements ?? []).map((style) =>
-                    withThemeIcon(style, themeUrl),
-                ),
-                ...(styles.elements ?? []),
-            ];
-            styles.relationships = [
-                ...(theme.relationships ?? []),
-                ...(styles.relationships ?? []),
-            ];
-        } catch (error) {
-            process.stderr.write(
-                `warning: could not load theme ${themeUrl} — ${error.message}\n`,
-            );
-        }
-    }
+    // Downloaded side by side, merged in order: each theme lays its styles
+    // under the ones before it.
+    const loaded = await Promise.all(
+        themes.map((themeUrl) =>
+            download(themeUrl, readTheme).then(
+                // The download is shared, and the styles change below.
+                (theme) => structuredClone(theme),
+                (error) => {
+                    warnOnce(error, `could not load theme ${themeUrl}`);
+                    return null;
+                },
+            ),
+        ),
+    );
+    loaded.forEach((theme, index) => {
+        if (!theme) return;
+        styles.elements = [
+            ...(theme.elements ?? []).map((style) =>
+                withThemeIcon(style, themes[index]),
+            ),
+            ...(styles.elements ?? []),
+        ];
+        styles.relationships = [
+            ...(theme.relationships ?? []),
+            ...(styles.relationships ?? []),
+        ];
+    });
 
     if (themes.length) {
         // Leaving these in makes the renderer wait on the network at startup.
@@ -393,12 +503,9 @@ async function inlineWorkspaceAssets(workspace) {
     await Promise.all(
         [...remote.keys()].map(async (url) => {
             try {
-                const buffer = await readSource(url);
-                remote.set(url, toDataUri(buffer, describeImage(buffer).mime));
+                remote.set(url, await download(url, readImage));
             } catch (error) {
-                process.stderr.write(
-                    `warning: could not inline ${url} — ${error.message}\n`,
-                );
+                warnOnce(error, `could not inline ${url}`);
             }
         }),
     );

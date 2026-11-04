@@ -3,10 +3,12 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
+    DOWNLOAD_TIMEOUT_MS,
     isUrl,
     loadFont,
     loadLogo,
     loadWorkspace,
+    RETRY_FAILED_MS,
     toDataUri,
 } from "./assets.js";
 import {
@@ -1014,6 +1016,174 @@ test("an image view that cannot be inlined warns and keeps its URL for the engin
             "https://example.test/images/gone.png",
         );
     });
+});
+
+/* --------------------------------------------------------------- downloads */
+
+/** A theme with one icon named relative to it, and an absolute one. */
+const ICON_THEME = {
+    "https://example.test/themes/one/theme.json": {
+        body: {
+            elements: [
+                { tag: "Named", icon: "named.png" },
+                { tag: "Absolute", icon: "https://example.test/icons/a.png" },
+            ],
+        },
+    },
+    "https://example.test/themes/two/theme.json": { body: { elements: [] } },
+    "https://example.test/themes/one/named.png": { body: PNG },
+    "https://example.test/icons/a.png": { body: PNG },
+    "https://example.test/icons/themed.png": { body: PNG },
+};
+
+const iconsByTag = (workspace) =>
+    Object.fromEntries(
+        workspace.views.configuration.styles.elements.map((style) => [
+            style.tag,
+            style.icon,
+        ]),
+    );
+
+test("loading a workspace again downloads none of its themes or icons again", async () => {
+    await withFetch(ICON_THEME, async (calls) => {
+        const first = await loadWorkspace(
+            fixture("workspace-remote-assets.json"),
+        );
+        const requests = calls.length;
+        const second = await loadWorkspace(
+            fixture("workspace-remote-assets.json"),
+        );
+
+        assert.equal(calls.length, requests, "the second load downloaded");
+        // The first load's inlining left the shared theme as it was.
+        assert.deepEqual(iconsByTag(second), iconsByTag(first));
+        assert.ok(iconsByTag(second).Named.startsWith("data:image/png"));
+    });
+});
+
+test("a failed download fails again at once on the next load, and warns once", async () => {
+    const routes = {
+        ...ICON_THEME,
+        "https://example.test/themes/one/named.png": new Error(
+            "getaddrinfo ENOTFOUND example.test",
+        ),
+    };
+    const { text } = await captured(process.stderr, () =>
+        withFetch(routes, async (calls) => {
+            await loadWorkspace(fixture("workspace-remote-assets.json"));
+            const requests = calls.length;
+            const again = await loadWorkspace(
+                fixture("workspace-remote-assets.json"),
+            );
+
+            assert.equal(calls.length, requests, "the failure was retried");
+            assert.equal(
+                iconsByTag(again).Named,
+                "https://example.test/themes/one/named.png",
+            );
+        }),
+    );
+
+    assert.equal(
+        text.match(
+            /could not inline https:\/\/example\.test\/themes\/one\/named\.png/g,
+        )?.length,
+        1,
+    );
+});
+
+test("a failed download runs again once the retry window passes", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: 0 });
+    let fail = true;
+    const routes = {
+        ...ICON_THEME,
+        "https://example.test/themes/one/named.png": () =>
+            fail ? new Error("socket hang up") : { body: PNG },
+    };
+    await captured(process.stderr, () =>
+        withFetch(routes, async () => {
+            await loadWorkspace(fixture("workspace-remote-assets.json"));
+            fail = false;
+            t.mock.timers.tick(RETRY_FAILED_MS - 1);
+            const early = await loadWorkspace(
+                fixture("workspace-remote-assets.json"),
+            );
+            assert.ok(!iconsByTag(early).Named.startsWith("data:"));
+
+            t.mock.timers.tick(1);
+            const late = await loadWorkspace(
+                fixture("workspace-remote-assets.json"),
+            );
+            assert.ok(iconsByTag(late).Named.startsWith("data:image/png"));
+        }),
+    );
+});
+
+test("a download that answers too slowly gives up, names the wait and keeps the URL", async () => {
+    const routes = {
+        ...ICON_THEME,
+        "https://example.test/themes/one/named.png": (_href, init) => {
+            assert.ok(init.signal instanceof AbortSignal, "no time limit");
+            // What fetch rejects with once `AbortSignal.timeout` fires.
+            return Object.assign(new Error("aborted"), {
+                name: "TimeoutError",
+            });
+        },
+    };
+    const { value: workspace, text } = await captured(process.stderr, () =>
+        withFetch(routes, () =>
+            loadWorkspace(fixture("workspace-remote-assets.json")),
+        ),
+    );
+
+    assert.match(
+        text,
+        new RegExp(
+            `named\\.png took longer than ${DOWNLOAD_TIMEOUT_MS / 1000}s to answer`,
+        ),
+    );
+    assert.equal(
+        iconsByTag(workspace).Named,
+        "https://example.test/themes/one/named.png",
+    );
+});
+
+test("a theme's icons download a few at a time, not all at once", async () => {
+    const icons = Array.from({ length: 40 }, (_, at) => `icon-${at}.png`);
+    let running = 0;
+    let most = 0;
+    const slowPng = async () => {
+        running += 1;
+        most = Math.max(most, running);
+        await new Promise((done) => setTimeout(done, 5));
+        running -= 1;
+        return { body: PNG };
+    };
+    await withFetch(
+        {
+            "https://example.test/themes/one/theme.json": {
+                body: {
+                    elements: icons.map((icon) => ({ tag: icon, icon })),
+                },
+            },
+            "https://example.test/themes/two/theme.json": {
+                body: { elements: [] },
+            },
+            default: slowPng,
+        },
+        async () => {
+            const workspace = await loadWorkspace(
+                fixture("workspace-remote-assets.json"),
+            );
+            const inlined = Object.values(iconsByTag(workspace)).filter(
+                (icon) => icon.startsWith("data:image/png"),
+            );
+
+            assert.equal(inlined.length, icons.length + 2);
+            assert.ok(most > 1, "the downloads ran one by one");
+            assert.ok(most <= 16, `${most} downloads ran at once`);
+        },
+    );
 });
 
 test("a filtered view whose base is filtered is refused, naming both views", async () => {
