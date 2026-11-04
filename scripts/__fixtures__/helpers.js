@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { forgetDownloads } from "../assets.js";
 
 const run = promisify(execFile);
 
@@ -109,6 +110,8 @@ export async function evalInChild(source) {
 export async function withFetch(routes, body) {
     const original = globalThis.fetch;
     const calls = [];
+    // Each stub answers afresh, never with what an earlier one downloaded.
+    forgetDownloads();
 
     globalThis.fetch = async (url, init) => {
         const href = String(url);
@@ -156,6 +159,7 @@ export async function withFetch(routes, body) {
         return await body(calls);
     } finally {
         globalThis.fetch = original;
+        forgetDownloads();
     }
 }
 
