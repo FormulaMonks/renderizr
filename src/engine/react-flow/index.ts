@@ -82,6 +82,7 @@ export function mountEngine(
             key: options.view,
             scheme: options.colorScheme,
             labels: { ...options.labels },
+            perspective: options.perspective ?? null,
             step: null,
             editing:
                 __RENDERIZR_EDIT_MODE__ &&
@@ -128,7 +129,10 @@ export function mountEngine(
             if (!view) throw new Error(`No view ${store.get().key}`);
             return view;
         };
-        const shown = new ShownListeners<ModelView>();
+        const shown = new ShownListeners<{
+            view: ModelView;
+            perspectives: readonly string[];
+        }>();
         const activated = {
             element: new Set<ActivationListener>(),
             relationship: new Set<ActivationListener>(),
@@ -234,6 +238,10 @@ export function mountEngine(
                 }
                 store.set({ labels: { ...labels } });
             },
+            setPerspective(perspective) {
+                if (perspective !== store.get().perspective)
+                    store.set({ perspective });
+            },
             getCurrentView,
             async exportView(format) {
                 const graph = drawn;
@@ -254,7 +262,8 @@ export function mountEngine(
                 );
                 const exported = exportSvg({
                     graph,
-                    step: step === null ? undefined : stepStateOf(graph, step),
+                    // A perspective fades items with no step shown, too.
+                    step: stepStateOf(graph, step),
                     frame,
                     titleBlock: titleBlockText(
                         workspace,
@@ -262,6 +271,7 @@ export function mountEngine(
                         view.description,
                         __RENDERIZR_BUILD_DATE__,
                         __RENDERIZR_VERSION__,
+                        graph.perspective,
                     ),
                     text: textSetting(font, mermaidFontFamily(view.mermaid)),
                 });
@@ -278,7 +288,9 @@ export function mountEngine(
             onAnimationChanged: (callback) => player.onChanged(callback),
             onViewShown(callback) {
                 // A late subscriber still hears about the view already shown.
-                return shown.add((view) => callback(view, player.state));
+                return shown.add(({ view, perspectives }) =>
+                    callback(view, player.state, perspectives),
+                );
             },
             onElementActivated: (callback) =>
                 listen(activated.element, callback),
@@ -331,7 +343,7 @@ export function mountEngine(
                 }
             } else player.load(painted.steps);
             const view = model.findViewByKey(key);
-            if (view) shown.paint(view);
+            if (view) shown.paint({ view, perspectives: graph.perspectives });
             if (!mounted) {
                 mounted = true;
                 resolve(engine);
