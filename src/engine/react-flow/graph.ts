@@ -736,16 +736,9 @@ export function buildGraph(
     edited?: EditedLayout,
     perspective?: string | null,
 ): Graph | undefined {
-    return drawView(
-        model,
-        key,
-        scheme,
-        labels,
-        measure,
-        edited,
-        undefined,
-        perspective ?? undefined,
-    );
+    return drawView(model, key, scheme, labels, measure, edited, {
+        perspective,
+    });
 }
 
 /**
@@ -770,9 +763,17 @@ export function calculatedGraph(
         labels,
         measure ?? estimateText,
         edited,
-        settings,
+        { calculate: settings },
     );
 }
+
+/** What `drawView` may take besides the view and its layout. */
+type DrawOptions = {
+    /** The settings "Calculate layout" lays the view out by (spec 15). */
+    calculate?: LayoutSettings;
+    /** The perspective the reader asked for, or none. */
+    perspective?: string | null;
+};
 
 function drawView(
     model: WorkspaceModel,
@@ -781,8 +782,7 @@ function drawView(
     labels: Labels,
     measure: MeasureText,
     edited: EditedLayout | undefined,
-    calculate?: LayoutSettings,
-    asked?: string,
+    { calculate, perspective: asked }: DrawOptions = {},
 ): Graph | undefined {
     const colorScheme = SCHEME[scheme];
     const defaults = SCHEME_DEFAULTS[colorScheme];
@@ -883,7 +883,7 @@ function drawView(
               ),
           });
     const perspective =
-        asked !== undefined && perspectives.includes(asked) ? asked : undefined;
+        asked != null && perspectives.includes(asked) ? asked : undefined;
     const faded = (item: PerspectiveItem) =>
         perspective !== undefined &&
         !carriesPerspective(model, item, perspective) && {
