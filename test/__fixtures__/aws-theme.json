@@ -1,0 +1,46 @@
+{
+    "name": "AWS Theme",
+    "description": "A workspace on the published AWS theme, whose 891 icons the build downloads and inlines.",
+    "model": {
+        "people": [{ "id": "1", "name": "Customer", "tags": "Element,Person" }],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "name": "Orders",
+                "tags": "Element,Software System,Amazon Web Services - Lambda",
+                "relationships": [
+                    {
+                        "id": "4",
+                        "sourceId": "2",
+                        "destinationId": "3",
+                        "description": "Stores orders in",
+                        "tags": "Relationship"
+                    }
+                ]
+            },
+            {
+                "id": "3",
+                "name": "Order Table",
+                "tags": "Element,Software System,Amazon Web Services - DynamoDB"
+            }
+        ]
+    },
+    "views": {
+        "configuration": {
+            "themes": [
+                "https://raw.githubusercontent.com/structurizr/themes/refs/heads/master/amazon-web-services-2023.01.31/theme.json"
+            ]
+        },
+        "systemLandscapeViews": [
+            {
+                "key": "Landscape",
+                "elements": [
+                    { "id": "1", "x": 100, "y": 100 },
+                    { "id": "2", "x": 600, "y": 100 },
+                    { "id": "3", "x": 1100, "y": 100 }
+                ],
+                "relationships": [{ "id": "4" }]
+            }
+        ]
+    }
+}
