@@ -92,6 +92,7 @@ import { type Guide, guideReach, snapBox } from "../geometry/snapping";
 import { bringBackChange, calculatedChange, canvasChange } from "./commands";
 import { type Arrangement, arrangeChange, moveChange } from "./arrange";
 import { dragLayout } from "./drag";
+import { elementAt, type HoverableBox, hoverEdges } from "./hover";
 import { type EditKeyCommands, editKey } from "./edit-keys";
 import {
     routeChange,
@@ -324,6 +325,14 @@ function Indicators({ targets, color, box, style }: IndicatorsProps) {
 /** How wide the invisible stroke round an edge that takes its clicks is. */
 const EDGE_HIT_WIDTH = 12;
 
+/**
+ * How much wider than its line the halo under a highlighted edge is, in
+ * model units, and how strongly it takes the edge's color. A halo widens the
+ * line without moving its arrowhead or its dashes.
+ */
+const EDGE_HALO_WIDTH = 8;
+const EDGE_HALO_OPACITY = 0.4;
+
 /** How far one arrow key pans the canvas, in screen pixels. */
 const PAN_STEP = 50;
 
@@ -423,7 +432,12 @@ type DiagramNode =
     | CanvasNode
     | SequenceNode;
 type LineEdge = Edge<
-    EdgeLine & { presence: Presence; transition: string | undefined },
+    EdgeLine & {
+        presence: Presence;
+        transition: string | undefined;
+        /** Whether it touches the hovered element, which widens its line. */
+        highlighted: boolean;
+    },
     "line"
 >;
 
@@ -1252,6 +1266,19 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                 />
             )}
             <g opacity={data.opacity}>
+                {data.highlighted && !hidden && (
+                    <path
+                        data-edge-halo=""
+                        d={data.path}
+                        fill="none"
+                        stroke={data.color}
+                        strokeOpacity={EDGE_HALO_OPACITY}
+                        strokeWidth={thickness + EDGE_HALO_WIDTH}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        pointerEvents="none"
+                    />
+                )}
                 <BaseEdge
                     id={id}
                     interactionWidth={0}
@@ -1943,8 +1970,9 @@ function toEdges(
     graph: Graph,
     stepState: StepState | undefined,
     transition: string | undefined,
+    hovered: string | undefined,
 ): LineEdge[] {
-    return graph.edges.map((edge) => ({
+    return hoverEdges(graph.edges, hovered).map(({ edge, highlighted }) => ({
         id: edge.key,
         type: "line",
         source: edge.sourceId,
@@ -1953,6 +1981,7 @@ function toEdges(
             ...edge,
             presence: stepState?.edges[edge.key] ?? "shown",
             transition,
+            highlighted,
         },
         selectable: false,
     }));
@@ -2408,9 +2437,37 @@ function Canvas({
         return [...canvas, ...editableNodes];
     }, [drawing, stepState, transition, editable, shownSelection, graph]);
 
+    // The element under the pointer highlights its edges. The hover belongs
+    // to the view it happened in, so a view left with the pointer on an
+    // element highlights nothing when the reader comes back to it.
+    const [hover, setHover] = useState<{ view: string; id: string } | null>(
+        null,
+    );
+    const hovered = hover?.view === viewKey ? hover.id : undefined;
+    // Hovering hit-tests the elements as drawn rather than listening on their
+    // nodes: React Flow turns pointer events on for every node once it has a
+    // mouse handler, which would stop a drag from panning across an element
+    // with no targets and a marquee from starting inside a boundary.
+    const hoverable = useMemo(
+        () =>
+            nodes.flatMap((node): HoverableBox[] =>
+                node.type === "box" && !node.domAttributes?.inert
+                    ? [
+                          {
+                              id: node.id,
+                              x: node.position.x,
+                              y: node.position.y,
+                              width: node.width ?? 0,
+                              height: node.height ?? 0,
+                          },
+                      ]
+                    : [],
+            ),
+        [nodes],
+    );
     const edges = useMemo(
-        () => (graph ? toEdges(graph, stepState, transition) : []),
-        [graph, stepState, transition],
+        () => (graph ? toEdges(graph, stepState, transition, hovered) : []),
+        [graph, stepState, transition, hovered],
     );
 
     // Each authoring problem once per visit, however often the view redraws
@@ -3210,6 +3267,19 @@ function Canvas({
         flow.setViewport(panned);
     };
 
+    // The element under the pointer highlights its edges. A pointer with a
+    // button down is panning, drawing a marquee or dragging, so the hover
+    // stays as it was until the button comes up.
+    const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+        if (event.buttons !== 0) return;
+        const id = elementAt(
+            hoverable,
+            flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+        );
+        if (id === hovered) return;
+        setHover(id === undefined ? null : { view: viewKey, id });
+    };
+
     return (
         // biome-ignore lint/a11y/useSemanticElements: a fieldset groups form controls; the canvas is one focusable region that pans and zooms (spec 6.2)
         <div
@@ -3224,6 +3294,8 @@ function Canvas({
             className={styles.canvas}
             onKeyDown={onKeyDown}
             onPointerDownCapture={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerLeave={() => setHover(null)}
             onPointerUpCapture={
                 __RENDERIZR_EDIT_MODE__ && editable ? onPointerUp : undefined
             }
