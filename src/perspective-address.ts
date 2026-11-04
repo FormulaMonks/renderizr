@@ -11,25 +11,57 @@
  * carries none of it draws as with none, and the address keeps it for the
  * next view that does. A name the workspace lacks leaves the address, with
  * a notice when a shared link or a typed address brought it and silently
- * when a crossing did.
+ * when a crossing did. The address helpers here serve the crossings and
+ * the header's way back too, which carry the name along.
  */
 
 import type { History } from "history";
-import {
-    hasPerspective,
-    perspectiveOf,
-    withPerspective,
-} from "./model/perspectives";
+import { hasPerspective } from "./model/perspectives";
 import type { WorkspaceModel } from "./model/workspace";
 import { inOtherWorkspace, workspaceOf } from "./workspace-trail";
 
+/* ----------------------------------------------------------- the address */
+
+/** The search parameter that names the perspective. */
+export const PERSPECTIVE_PARAM = "perspective";
+
+/** The perspective `search` names, or `null`. A leading `?` is fine. */
+export function perspectiveOf(search: string): string | null {
+    return new URLSearchParams(search).get(PERSPECTIVE_PARAM) || null;
+}
+
+/**
+ * `search` naming the perspective `name`, beside what it holds already, or
+ * naming none for `null`.
+ */
+export function withPerspective(search: string, name: string | null): string {
+    const params = new URLSearchParams(search);
+    if (name) params.set(PERSPECTIVE_PARAM, name);
+    else params.delete(PERSPECTIVE_PARAM);
+    return params.toString();
+}
+
+/**
+ * `search`, with its leading `?`, naming the perspective the address
+ * `from` names: what a crossing writes, so the perspective crosses too.
+ */
+export function carryPerspective(search: string, from: string): string {
+    return `?${withPerspective(search, perspectiveOf(from))}`;
+}
+
+/* ---------------------------------------------------------- the notices */
+
 /** What the toast says when the workspace lacks the name. */
-export const unknownPerspective = (workspace: string, name: string) =>
-    `${workspace} has no perspective ${name}, so the page shows none.`;
+export function unknownPerspective(workspace: string, name: string): string {
+    return `${workspace} has no perspective ${name}, so the page shows none.`;
+}
 
 /** What the toast says when the view a link opens carries none of it. */
-export const nothingCarries = (view: string, name: string) =>
-    `Nothing in ${view} carries the ${name} perspective.`;
+export function nothingCarries(view: string, name: string): string {
+    return `Nothing in ${view} carries the ${name} perspective.`;
+}
+
+/* ------------------------------------------------------------ following */
 
 /** What a follower is given. */
 export type PerspectiveSource = {
@@ -44,9 +76,18 @@ export type PerspectiveSource = {
      * drops a name it lacks without a word.
      */
     crossed: boolean;
+    /**
+     * Whether the page opened at this address. Only then does the view
+     * shown tell when it carries none of the name, so a reader coming back
+     * from the documentation hears it no second time.
+     */
+    opened: boolean;
     /** Shows `text` in a notice toast. */
     notice: (text: string) => void;
-    /** Draws under the perspective `name`, or none, once the address changes it. */
+    /**
+     * Draws under the perspective `name`, or none, once the address
+     * changes it.
+     */
     apply: (name: string | null) => void;
 };
 
@@ -80,6 +121,7 @@ export function followPerspective({
     model: first,
     workspace,
     crossed,
+    opened,
     notice,
     apply,
 }: PerspectiveSource): PerspectiveFollower {
@@ -93,19 +135,24 @@ export function followPerspective({
     /** The names the view on screen draws, once one is. */
     let names: readonly string[] | null = null;
 
+    /** Write `name`, or none, to the address in place of what it names. */
+    const write = (name: string | null) => {
+        const { location } = history;
+        history.replace({
+            pathname: location.pathname,
+            search: `?${withPerspective(location.search, name)}`,
+            hash: location.hash,
+        });
+    };
+
     /**
      * The name the address names, after dropping one the workspace lacks,
      * telling the reader when `loud`.
      */
     const read = (loud: boolean): string | null => {
-        const { location } = history;
-        const name = perspectiveOf(location.search);
+        const name = perspectiveOf(history.location.search);
         if (name === null || hasPerspective(model, name)) return name;
-        history.replace({
-            pathname: location.pathname,
-            search: `?${withPerspective(location.search, null)}`,
-            hash: location.hash,
-        });
+        write(null);
         if (loud) notice(unknownPerspective(workspace, name));
         return null;
     };
@@ -117,7 +164,7 @@ export function followPerspective({
     };
 
     current = read(!crossed);
-    announce = !crossed && current !== null;
+    announce = opened && !crossed && current !== null;
 
     const unlisten = history.listen(({ location }) => {
         if (!ours(location.pathname, location.search)) return;
@@ -132,14 +179,7 @@ export function followPerspective({
 
     return {
         selected: () => current,
-        pick(name) {
-            const { location } = history;
-            history.replace({
-                pathname: location.pathname,
-                search: `?${withPerspective(location.search, name)}`,
-                hash: location.hash,
-            });
-        },
+        pick: write,
         viewShown(view, drawn) {
             names = drawn;
             if (!announce) return;

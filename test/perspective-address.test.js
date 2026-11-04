@@ -11,9 +11,9 @@ import { readFileSync } from "node:fs";
 import { createMemoryHistory } from "history";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { followPerspective } = await importSrc("perspective-address");
-const { WorkspaceModel, perspectiveOf, withPerspective } =
-    await importSrc("model/index");
+const { carryPerspective, followPerspective, perspectiveOf, withPerspective } =
+    await importSrc("perspective-address");
+const { WorkspaceModel } = await importSrc("model/index");
 const { editingSearch, readingSearch } = await importSrc(
     "components/editing-route",
 );
@@ -62,13 +62,30 @@ test("writing no perspective removes it from the address", () => {
     );
 });
 
+test("a crossing carries the perspective the address names into its search", () => {
+    const cases = [
+        [
+            "page=diagrams",
+            "?view=Context&perspective=Security",
+            "?page=diagrams&perspective=Security",
+        ],
+        ["page=diagrams", "?view=Context", "?page=diagrams"],
+    ];
+    for (const [search, from, expected] of cases)
+        assert.equal(
+            carryPerspective(search, from),
+            expected,
+            `carrying from ${from} into ${search}`,
+        );
+});
+
 /* ------------------------------------------------------------- following */
 
 /**
  * A follower on the fixture from the address `start`, recording the
  * notices it shows and every perspective it applies.
  */
-function follow(start, { crossed = false } = {}) {
+function follow(start, { crossed = false, opened = true } = {}) {
     const history = createMemoryHistory({ initialEntries: [start] });
     const notices = [];
     const applied = [];
@@ -77,6 +94,7 @@ function follow(start, { crossed = false } = {}) {
         model,
         workspace: "Shop",
         crossed,
+        opened,
         notice: (text) => notices.push(text),
         apply: (name) => applied.push(name),
     });
@@ -168,6 +186,21 @@ test("a shared link opening a view that carries none of it says so once", () => 
     page.follower.stop();
 });
 
+test("coming back to the diagrams page says nothing again", () => {
+    // The diagrams page follows the address afresh each time it draws, as
+    // when the reader returns from the documentation.
+    const page = follow("/?page=diagrams&view=Mailing&perspective=Security", {
+        opened: false,
+    });
+    page.follower.viewShown("Mailing lists", []);
+    assert.deepEqual(
+        page.notices,
+        [],
+        "a follower on an address the page did not open at told the reader",
+    );
+    page.follower.stop();
+});
+
 test("a shared link opening a view that carries it says nothing", () => {
     const page = follow("/?page=diagrams&view=Context&perspective=Security");
     page.follower.viewShown("Shop context", ["Ownership", "Security"]);
@@ -243,10 +276,11 @@ function withoutPerspectives() {
         ),
     );
     const strip = (value) => {
-        if (Array.isArray(value)) value.forEach(strip);
-        else if (value && typeof value === "object") {
+        if (Array.isArray(value)) {
+            for (const item of value) strip(item);
+        } else if (value && typeof value === "object") {
             delete value.perspectives;
-            Object.values(value).forEach(strip);
+            for (const item of Object.values(value)) strip(item);
         }
     };
     strip(workspace.model);

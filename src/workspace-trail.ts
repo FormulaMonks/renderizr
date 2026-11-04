@@ -2,12 +2,11 @@ import type { History, Location } from "history";
 import {
     landingSearch,
     missingLanding,
-    perspectiveOf,
-    withPerspective,
     WorkspaceModel,
     type Landing,
     type WorkspaceTarget,
 } from "./model";
+import { carryPerspective } from "./perspective-address";
 import type { SetWorkspace, WorkspaceSet } from "./workspace-set";
 
 /**
@@ -256,10 +255,10 @@ export function followTrail({
             // where the workspace lacks it.
             history.push({
                 pathname: trailPath(trail),
-                search: `?${withPerspective(
+                search: carryPerspective(
                     landingSearch(target.landing),
-                    perspectiveOf(history.location.search),
-                )}`,
+                    history.location.search,
+                ),
             });
         },
         stop: unlisten,

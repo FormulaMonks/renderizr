@@ -177,8 +177,9 @@ export default class Diagrams extends Page {
         this.#abort = abort;
 
         // The address holds the perspective; the toolbar's control picks it.
-        const crossed =
-            this.#workspace !== undefined && this.#workspace !== entered.slug;
+        // Only the first draw is of the address the page opened at.
+        const opened = this.#workspace === undefined;
+        const crossed = !opened && this.#workspace !== entered.slug;
         this.#workspace = entered.slug;
         const control = new PerspectiveControl((name) =>
             this.#perspective?.pick(name),
@@ -189,6 +190,7 @@ export default class Diagrams extends Page {
             model,
             workspace: entered.name,
             crossed,
+            opened,
             notice: (text) => void showNotice(text),
             apply: (name) => {
                 this.#engine?.setPerspective(name);
