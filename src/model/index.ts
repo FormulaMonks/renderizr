@@ -10,6 +10,7 @@ export * from "./mermaid";
 export * from "./mermaid-sequence";
 export * from "./mermaid-styles";
 export * from "./metadata";
+export * from "./perspectives";
 export * from "./resolve-view";
 export * from "./styles";
 export * from "./targets";

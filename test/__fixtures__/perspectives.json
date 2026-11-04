@@ -1,0 +1,499 @@
+{
+    "id": 0,
+    "name": "Perspectives",
+    "description": "Security and ownership perspectives over a small shop",
+    "lastModifiedDate": null,
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "tags": "Element,Person",
+                "name": "Customer",
+                "description": "Buys things online",
+                "location": "External",
+                "relationships": [
+                    {
+                        "id": "10",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "3",
+                        "description": "Browses using",
+                        "perspectives": [
+                            {
+                                "name": "Security",
+                                "description": "Public traffic over TLS",
+                                "value": "High"
+                            }
+                        ],
+                        "technology": "HTTPS"
+                    },
+                    {
+                        "id": "16",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Browses using",
+                        "perspectives": [],
+                        "linkedRelationshipId": "10",
+                        "technology": "HTTPS"
+                    },
+                    {
+                        "id": "15",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "8",
+                        "description": "Receives receipts from",
+                        "perspectives": [
+                            {
+                                "name": "Security",
+                                "description": "Receipts carry order details"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "9",
+                "tags": "Element,Person",
+                "name": "Admin",
+                "description": "Manages the mailing lists",
+                "location": "Internal",
+                "relationships": [
+                    {
+                        "id": "18",
+                        "tags": "Relationship",
+                        "sourceId": "9",
+                        "destinationId": "8",
+                        "description": "Manages lists in",
+                        "perspectives": []
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "tags": "Element,Software System",
+                "name": "Shop",
+                "description": "Takes orders",
+                "location": "Internal",
+                "relationships": [
+                    {
+                        "id": "17",
+                        "tags": "Relationship",
+                        "sourceId": "2",
+                        "destinationId": "7",
+                        "description": "Takes payments through",
+                        "perspectives": [],
+                        "linkedRelationshipId": "13",
+                        "technology": "JSON/HTTPS"
+                    }
+                ],
+                "containers": [
+                    {
+                        "id": "3",
+                        "tags": "Element,Container",
+                        "name": "Web App",
+                        "description": "Serves the storefront",
+                        "technology": "React",
+                        "parentId": "2",
+                        "perspectives": [
+                            {
+                                "name": "Security",
+                                "description": "Handles customer sessions",
+                                "value": "High"
+                            },
+                            {
+                                "name": "Ownership",
+                                "description": "Storefront team",
+                                "value": "Team A"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "id": "11",
+                                "tags": "Relationship",
+                                "sourceId": "3",
+                                "destinationId": "4",
+                                "description": "Calls",
+                                "perspectives": [
+                                    {
+                                        "name": "Ownership",
+                                        "description": "Storefront team",
+                                        "value": "Team B"
+                                    }
+                                ],
+                                "technology": "JSON/HTTPS"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "4",
+                        "tags": "Element,Container",
+                        "name": "API",
+                        "description": "Takes and tracks orders",
+                        "technology": "Kotlin",
+                        "parentId": "2",
+                        "perspectives": [
+                            {
+                                "name": "Security",
+                                "description": "Validates every token",
+                                "value": "Medium"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "id": "12",
+                                "tags": "Relationship",
+                                "sourceId": "4",
+                                "destinationId": "5",
+                                "description": "Reads and writes",
+                                "perspectives": [
+                                    {
+                                        "name": "Security",
+                                        "description": "Credentials in a vault",
+                                        "value": "Low"
+                                    }
+                                ],
+                                "technology": "JDBC"
+                            },
+                            {
+                                "id": "13",
+                                "tags": "Relationship",
+                                "sourceId": "4",
+                                "destinationId": "7",
+                                "description": "Takes payments through",
+                                "perspectives": [
+                                    {
+                                        "name": "Security",
+                                        "description": "Card data leaves the shop",
+                                        "value": "High"
+                                    }
+                                ],
+                                "technology": "JSON/HTTPS"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "5",
+                        "tags": "Element,Container,Database",
+                        "name": "Database",
+                        "description": "Keeps orders",
+                        "technology": "PostgreSQL",
+                        "parentId": "2",
+                        "perspectives": [
+                            {
+                                "name": "Security",
+                                "description": "Encrypted at rest",
+                                "value": "Low"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "6",
+                        "tags": "Element,Container",
+                        "name": "Worker",
+                        "description": "Sends receipts",
+                        "technology": "Kotlin",
+                        "parentId": "2",
+                        "perspectives": [
+                            {
+                                "name": "Security",
+                                "description": "Runs as a batch job",
+                                "value": "Unknown"
+                            },
+                            {
+                                "name": "Ownership",
+                                "description": "Platform team",
+                                "value": "Team B"
+                            }
+                        ],
+                        "relationships": [
+                            {
+                                "id": "14",
+                                "tags": "Relationship",
+                                "sourceId": "6",
+                                "destinationId": "8",
+                                "description": "Sends receipts through",
+                                "perspectives": [],
+                                "technology": "SMTP"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "7",
+                "tags": "Element,Software System,External",
+                "name": "Payments",
+                "description": "Charges cards",
+                "location": "External",
+                "perspectives": [
+                    {
+                        "name": "Security",
+                        "description": "PCI DSS level 1",
+                        "value": "High"
+                    },
+                    {
+                        "name": "Ownership",
+                        "description": "Run by a vendor",
+                        "value": "Team A"
+                    }
+                ]
+            },
+            {
+                "id": "8",
+                "tags": "Element,Software System,External",
+                "name": "Email System",
+                "description": "Sends email",
+                "location": "External",
+                "relationships": []
+            }
+        ],
+        "deploymentNodes": [
+            {
+                "id": "20",
+                "tags": "Element,Deployment Node",
+                "name": "Cloud",
+                "description": "Runs the shop",
+                "environment": "Live",
+                "technology": "Kubernetes",
+                "containerInstances": [
+                    {
+                        "id": "21",
+                        "tags": "Container Instance",
+                        "containerId": "4",
+                        "environment": "Live",
+                        "instanceId": 1
+                    },
+                    {
+                        "id": "23",
+                        "tags": "Container Instance",
+                        "containerId": "3",
+                        "environment": "Live",
+                        "instanceId": 1
+                    }
+                ],
+                "softwareSystemInstances": [
+                    {
+                        "id": "22",
+                        "tags": "Software System Instance",
+                        "softwareSystemId": "7",
+                        "environment": "Live",
+                        "instanceId": 1
+                    }
+                ]
+            }
+        ]
+    },
+    "views": {
+        "systemContextViews": [
+            {
+                "key": "Context",
+                "order": 1,
+                "softwareSystemId": "2",
+                "title": "Shop context",
+                "description": "Customer to Shop is implied by Customer to Web App, which carries Security",
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [
+                    {
+                        "id": "1"
+                    },
+                    {
+                        "id": "2"
+                    },
+                    {
+                        "id": "7"
+                    },
+                    {
+                        "id": "8"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "16"
+                    },
+                    {
+                        "id": "17"
+                    },
+                    {
+                        "id": "15"
+                    }
+                ]
+            },
+            {
+                "key": "Mailing",
+                "order": 4,
+                "softwareSystemId": "8",
+                "title": "Mailing lists",
+                "description": "Nothing here carries Security or Ownership",
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [
+                    {
+                        "id": "9"
+                    },
+                    {
+                        "id": "8"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "18"
+                    }
+                ]
+            }
+        ],
+        "containerViews": [
+            {
+                "key": "Containers",
+                "order": 2,
+                "softwareSystemId": "2",
+                "title": "Shop containers",
+                "description": "Security has no styles, so it only fades; Ownership styles Team A, and Worker's Team B matches none. Customer to Email System carries Security while both its ends lack it",
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [
+                    {
+                        "id": "1"
+                    },
+                    {
+                        "id": "3"
+                    },
+                    {
+                        "id": "4"
+                    },
+                    {
+                        "id": "5"
+                    },
+                    {
+                        "id": "6"
+                    },
+                    {
+                        "id": "7"
+                    },
+                    {
+                        "id": "8"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "10"
+                    },
+                    {
+                        "id": "11"
+                    },
+                    {
+                        "id": "12"
+                    },
+                    {
+                        "id": "13"
+                    },
+                    {
+                        "id": "14"
+                    },
+                    {
+                        "id": "15"
+                    }
+                ]
+            }
+        ],
+        "deploymentViews": [
+            {
+                "key": "Live",
+                "order": 3,
+                "softwareSystemId": "2",
+                "environment": "Live",
+                "title": "Live",
+                "description": "Instances inherit the perspective of what they instantiate",
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [
+                    {
+                        "id": "20"
+                    },
+                    {
+                        "id": "21"
+                    },
+                    {
+                        "id": "22"
+                    },
+                    {
+                        "id": "23"
+                    }
+                ],
+                "relationships": []
+            }
+        ],
+        "configuration": {
+            "branding": {},
+            "metadataSymbols": "SquareBrackets",
+            "styles": {
+                "elements": [
+                    {
+                        "tag": "Element",
+                        "background": "#1168bd",
+                        "color": "#ffffff"
+                    },
+                    {
+                        "tag": "Container",
+                        "background": "#438dd5"
+                    },
+                    {
+                        "tag": "Person",
+                        "shape": "Person",
+                        "background": "#08427b"
+                    },
+                    {
+                        "tag": "Database",
+                        "shape": "Cylinder"
+                    },
+                    {
+                        "tag": "External",
+                        "background": "#999999"
+                    },
+                    {
+                        "tag": "Perspective:Ownership[value==Team A]",
+                        "background": "#6a1b9a",
+                        "color": "#ffffff"
+                    }
+                ],
+                "relationships": [
+                    {
+                        "tag": "Relationship",
+                        "color": "#707070"
+                    },
+                    {
+                        "tag": "Perspective:Ownership[value==Team B]",
+                        "color": "#6a1b9a"
+                    }
+                ]
+            }
+        }
+    }
+}
