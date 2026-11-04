@@ -264,6 +264,38 @@ function carriedPerspective(
     return perspective;
 }
 
+/**
+ * Every perspective name the items carry, sorted, instances' and implied
+ * relationships' inherited ones included.
+ * PROTOTYPE (perspectives map): rough, never merges.
+ */
+export function perspectiveNames(
+    model: WorkspaceModel,
+    items: (Partial<ModelElement> | Partial<ModelRelationship>)[],
+): string[] {
+    const names = new Set<string>();
+    const add = (
+        item: Partial<ModelElement> | Partial<ModelRelationship> | undefined,
+        seen: Set<string>,
+    ) => {
+        if (!item) return;
+        for (const p of item.perspectives ?? []) names.add(p.name.trim());
+        const element = item as Partial<ModelElement>;
+        if (element.type === "SoftwareSystemInstance")
+            add(model.findElementById(element.softwareSystemId), seen);
+        if (element.type === "ContainerInstance")
+            add(model.findElementById(element.containerId), seen);
+        const linked = (item as Partial<ModelRelationship>)
+            .linkedRelationshipId;
+        if (linked && !seen.has(linked)) {
+            seen.add(linked);
+            add(model.findRelationshipById(linked), seen);
+        }
+    };
+    for (const item of items) add(item, new Set());
+    return [...names].sort((a, b) => a.localeCompare(b));
+}
+
 /** Whether an element or relationship carries the perspective `name`. */
 export function carriesPerspective(
     model: WorkspaceModel,

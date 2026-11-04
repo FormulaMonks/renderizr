@@ -32,6 +32,10 @@ import prevStepIcon from "bootstrap-icons/icons/skip-start-fill.svg?raw";
 import nextStepIcon from "bootstrap-icons/icons/skip-end-fill.svg?raw";
 import exportPngIcon from "bootstrap-icons/icons/filetype-png.svg?raw";
 import exportSvgIcon from "bootstrap-icons/icons/filetype-svg.svg?raw";
+import perspectiveIcon from "bootstrap-icons/icons/binoculars.svg?raw";
+import perspectiveOnIcon from "bootstrap-icons/icons/binoculars-fill.svg?raw";
+import history from "history/hash";
+import { perspectiveNames } from "../model/styles";
 import Component from "./_component";
 import { type EditingRoute, editButtons } from "./edit-buttons";
 import { exportFileName, type SaveExport, saveWithLink } from "./save-export";
@@ -547,6 +551,9 @@ export default class CurrentView extends Component {
         failure.setAttribute("role", "status");
         container.appendChild(failure);
 
+        // PROTOTYPE (perspectives map): a rough perspective picker.
+        addPerspectivePicker(container, view, this.#model);
+
         this.#paintControlButtons();
         this.#paintAnimationButtons();
         this.#paintExportButtons();
@@ -643,5 +650,171 @@ export default class CurrentView extends Component {
         // `this.element`, so the container has to be in the tree already.
         this.element.appendChild(controlButtonsContainer);
         this.#addControlButtons(controlButtonsContainer, view);
+    }
+}
+
+/* ---------------- PROTOTYPE (perspectives map): rough, never merges */
+
+/** What the island listens for to draw the perspective the address names. */
+const PERSPECTIVE_EVENT = "renderizr:perspective";
+
+function addressPerspective(): string | null {
+    return new URLSearchParams(history.location.search).get("perspective");
+}
+
+function setAddressPerspective(name: string | null) {
+    const search = new URLSearchParams(history.location.search);
+    if (name) search.set("perspective", name);
+    else search.delete("perspective");
+    history.replace({
+        pathname: history.location.pathname,
+        search: search.toString(),
+    });
+    window.dispatchEvent(new Event(PERSPECTIVE_EVENT));
+}
+
+let closePicker: (() => void) | null = null;
+let altPListening = false;
+
+function addPerspectivePicker(
+    container: HTMLElement,
+    view: ModelView,
+    model: WorkspaceModel,
+) {
+    closePicker?.();
+    if (view.type === "Mermaid" || view.type === "Image") return;
+    const items = [
+        ...(view.elements ?? []).flatMap(
+            (e) => model.findElementById(e.id) ?? [],
+        ),
+        ...(view.relationships ?? []).flatMap(
+            (r) => model.findRelationshipById(r.id) ?? [],
+        ),
+    ];
+    const names = perspectiveNames(model, items);
+    if (names.length === 0) return;
+
+    const selected = addressPerspective();
+    const on = selected !== null && names.includes(selected);
+    const group = document.createElement("div");
+    group.className = `perspective-buttons ${styles.btnGroup}`;
+    const button = document.createElement("button");
+    button.className = "perspective";
+    button.innerHTML = on ? perspectiveOnIcon : perspectiveIcon;
+    button.dataset.active = on ? "true" : "";
+    button.setAttribute("aria-pressed", String(on));
+    button.setAttribute("aria-haspopup", "menu");
+    const title = on
+        ? `Perspective: ${selected} (Alt+P)`
+        : "Perspectives (Alt+P)";
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    group.appendChild(button);
+    container.querySelector(".actions")?.after(group);
+
+    button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (closePicker) {
+            closePicker();
+            return;
+        }
+        const menu = document.createElement("div");
+        menu.setAttribute("role", "menu");
+        const box = button.getBoundingClientRect();
+        Object.assign(menu.style, {
+            position: "fixed",
+            top: `${box.bottom + 4}px`,
+            left: `${Math.max(8, box.right - 200)}px`,
+            width: "200px",
+            zIndex: "1000",
+            background: "Canvas",
+            color: "CanvasText",
+            border: "1px solid color-mix(in srgb, CanvasText 20%, transparent)",
+            borderRadius: "6px",
+            boxShadow: "0 4px 16px rgb(0 0 0 / 0.15)",
+            padding: "4px",
+            font: "inherit",
+            fontSize: "14px",
+        });
+        const entries: [string, string | null][] = [
+            ["No perspective", null],
+            ...names.map((n): [string, string | null] => [n, n]),
+        ];
+        for (const [label, name] of entries) {
+            const item = document.createElement("button");
+            item.setAttribute("role", "menuitemradio");
+            const checked = (on ? selected : null) === name;
+            item.setAttribute("aria-checked", String(checked));
+            item.textContent = `${checked ? "✓ " : "\u2003"}${label}`;
+            Object.assign(item.style, {
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "6px 8px",
+                border: "0",
+                borderRadius: "4px",
+                background: "transparent",
+                color: "inherit",
+                font: "inherit",
+                cursor: "pointer",
+            });
+            item.addEventListener("mouseenter", () => {
+                item.style.background =
+                    "color-mix(in srgb, CanvasText 10%, transparent)";
+            });
+            item.addEventListener("mouseleave", () => {
+                item.style.background = "transparent";
+            });
+            item.addEventListener("click", () => {
+                closePicker?.();
+                setAddressPerspective(name);
+                addPerspectivePicker(container, view, model);
+            });
+            menu.appendChild(item);
+            if (label === "No perspective") {
+                const rule = document.createElement("hr");
+                Object.assign(rule.style, {
+                    border: "0",
+                    borderTop:
+                        "1px solid color-mix(in srgb, CanvasText 15%, transparent)",
+                    margin: "4px 0",
+                });
+                menu.appendChild(rule);
+            }
+        }
+        document.body.appendChild(menu);
+        const outside = (e: Event) => {
+            if (!menu.contains(e.target as Node)) closePicker?.();
+        };
+        const onEscape = (e: KeyboardEvent) => {
+            if (e.key === "Escape") closePicker?.();
+        };
+        document.addEventListener("click", outside);
+        document.addEventListener("keydown", onEscape);
+        closePicker = () => {
+            menu.remove();
+            document.removeEventListener("click", outside);
+            document.removeEventListener("keydown", onEscape);
+            closePicker = null;
+        };
+        (
+            menu.querySelector("[aria-checked=true]") as HTMLElement | null
+        )?.focus();
+    });
+    group.addEventListener("remove", () => closePicker?.());
+
+    if (!altPListening) {
+        altPListening = true;
+        document.addEventListener("keydown", (e) => {
+            if (!e.altKey || e.code !== "KeyP" || e.metaKey || e.ctrlKey)
+                return;
+            const target = e.target as HTMLElement | null;
+            if (target?.closest("input, textarea, [contenteditable]")) return;
+            const current =
+                document.querySelector<HTMLButtonElement>("button.perspective");
+            if (!current) return;
+            e.preventDefault();
+            current.click();
+        });
     }
 }

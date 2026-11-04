@@ -413,8 +413,8 @@ export type Graph = {
     key: string;
     /** PROTOTYPE (perspectives map): the perspective the view is drawn under. */
     perspective?: string;
-    /** PROTOTYPE: set when nothing in the view carries `perspective`. */
-    perspectiveEmpty?: boolean;
+    /** PROTOTYPE: the perspective the address names when nothing in the view carries it. */
+    perspectiveMissing?: string;
     title: string;
     background: string;
     /** The scheme's default text color, for what the canvas itself says. */
@@ -849,16 +849,17 @@ function drawView(
     const { mermaid } = view;
     // PROTOTYPE (perspectives map): the perspective comes from the address
     // and Mermaid diagrams ignore it.
-    const perspective = mermaid ? undefined : prototypePerspective();
-    let carried = false;
-    const fade = (item: Parameters<typeof carriesPerspective>[1]) => {
-        if (!perspective) return 1;
-        if (carriesPerspective(model, item, perspective)) {
-            carried = true;
-            return 1;
-        }
-        return PERSPECTIVE_FADE;
-    };
+    // On a view where nothing carries it, the perspective switches off.
+    const named = mermaid ? undefined : prototypePerspective();
+    const carries = (item: Parameters<typeof carriesPerspective>[1]) =>
+        named !== undefined && carriesPerspective(model, item, named);
+    const carried =
+        view.elements.some(
+            (p) => !boundaries.has(p.id) && carries(p.element),
+        ) || view.relationships.some((p) => carries(p.relationship));
+    const perspective = carried ? named : undefined;
+    const fade = (item: Parameters<typeof carriesPerspective>[1]) =>
+        !perspective || carries(item) ? 1 : PERSPECTIVE_FADE;
 
     const entitySize = mermaid && collapsedEntitySize(model, view, measure);
 
@@ -1285,7 +1286,8 @@ function drawView(
         })),
         focusOrder: readingOrder(elements, drawnBoundaries, routed),
         ...(animation && { animation }),
-        ...(perspective && { perspective, perspectiveEmpty: !carried }),
+        ...(perspective && { perspective }),
+        ...(named && !carried && { perspectiveMissing: named }),
     };
 }
 

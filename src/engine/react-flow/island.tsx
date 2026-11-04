@@ -167,6 +167,10 @@ import {
 } from "./graph";
 import styles from "./island.module.css";
 import { showNotice } from "../../components/toast";
+
+/** PROTOTYPE (perspectives map): what the picker dispatches. */
+export const PERSPECTIVE_EVENT = "renderizr:perspective";
+const prototypeFirstDraw = { done: false };
 import { type SequenceShape, sequenceGroups } from "./sequence-graph";
 
 export type IslandState = {
@@ -2305,17 +2309,30 @@ function Canvas({
             const view = model.findViewByKey(viewKey);
             return view !== undefined && isEditable(view);
         }, [model, viewKey, state.editing]);
+    // PROTOTYPE (perspectives map): the picker announces a change of address.
+    const [perspectiveTick, setPerspectiveTick] = useState(0);
+    useEffect(() => {
+        const bump = () => setPerspectiveTick((n) => n + 1);
+        window.addEventListener(PERSPECTIVE_EVENT, bump);
+        return () => window.removeEventListener(PERSPECTIVE_EVENT, bump);
+    }, []);
     // A new step is not a new graph: nothing is laid out again (spec 11).
     const drawn = useMemo(
-        () => buildGraph(model, viewKey, scheme, labels, measure, edited),
-        [model, viewKey, scheme, labels, measure, edited],
+        // PROTOTYPE: `perspectiveTick` redraws when the picker changes the address.
+        () => {
+            void perspectiveTick;
+            return buildGraph(model, viewKey, scheme, labels, measure, edited);
+        },
+        [model, viewKey, scheme, labels, measure, edited, perspectiveTick],
     );
-    // PROTOTYPE (perspectives map): tell the reader when nothing in the view
-    // carries the perspective the address names.
+    // PROTOTYPE (perspectives map): a shared link that names a perspective
+    // the view lacks says so, once, on the page's first view.
     useEffect(() => {
-        if (drawn?.perspectiveEmpty) {
+        if (!drawn || prototypeFirstDraw.done) return;
+        prototypeFirstDraw.done = true;
+        if (drawn.perspectiveMissing) {
             showNotice(
-                `Nothing in this view carries the ${drawn.perspective} perspective.`,
+                `Nothing in this view carries the ${drawn.perspectiveMissing} perspective.`,
             );
         }
     }, [drawn]);
