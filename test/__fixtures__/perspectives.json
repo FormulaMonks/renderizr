@@ -363,7 +363,7 @@
                 "order": 2,
                 "softwareSystemId": "2",
                 "title": "Shop containers",
-                "description": "Values High, Medium, Low and Unknown; Customer to Email System carries Security while both its ends lack it",
+                "description": "Security has no styles, so it only fades; Ownership styles Team A, and Worker's Team B matches none. Customer to Email System carries Security while both its ends lack it",
                 "automaticLayout": {
                     "implementation": "Graphviz",
                     "rankDirection": "TopBottom",
@@ -478,26 +478,6 @@
                         "background": "#999999"
                     },
                     {
-                        "tag": "Perspective:Security",
-                        "background": "#6d6d6d",
-                        "color": "#ffffff"
-                    },
-                    {
-                        "tag": "Perspective:Security[value==High]",
-                        "background": "#c62828",
-                        "color": "#ffffff"
-                    },
-                    {
-                        "tag": "Perspective:Security[value==Medium]",
-                        "background": "#f9a825",
-                        "color": "#000000"
-                    },
-                    {
-                        "tag": "Perspective:Security[value==Low]",
-                        "background": "#2e7d32",
-                        "color": "#ffffff"
-                    },
-                    {
                         "tag": "Perspective:Ownership[value==Team A]",
                         "background": "#6a1b9a",
                         "color": "#ffffff"
@@ -509,16 +489,8 @@
                         "color": "#707070"
                     },
                     {
-                        "tag": "Perspective:Security",
-                        "color": "#333333"
-                    },
-                    {
-                        "tag": "Perspective:Security[value==High]",
-                        "color": "#c62828"
-                    },
-                    {
-                        "tag": "Perspective:Security[value==Low]",
-                        "color": "#2e7d32"
+                        "tag": "Perspective:Ownership[value==Team B]",
+                        "color": "#6a1b9a"
                     }
                 ]
             }
