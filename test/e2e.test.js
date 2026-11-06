@@ -26,7 +26,12 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { fixture, REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
-import { findChrome, renderPage, serveDirectory } from "./support/browser.js";
+import {
+    findChrome,
+    openBrowser,
+    renderPage,
+    serveDirectory,
+} from "./support/browser.js";
 import { parseDocument } from "./support/dom.js";
 
 const CHROME = findChrome();
@@ -508,6 +513,97 @@ test("the --artifact folder draws the view when served, and logs nothing", {
     assert.equal(document.querySelector("h1").textContent, WORKSPACE_NAME);
     assertDrawnView(document);
     assert.deepEqual(logs, [], "the page logged to the console");
+});
+
+/**
+ * Like `OFFLINE`, with Google Fonts stubbed: the branding fixture names a
+ * font, and this embeds one without going out to the network.
+ */
+const STUBBED_FONTS = {
+    NODE_OPTIONS: [
+        process.env.NODE_OPTIONS,
+        `--import ${pathToFileURL(fixture("stub-fonts.js")).href}`,
+    ]
+        .filter(Boolean)
+        .join(" "),
+};
+
+const brandedArtifactFolder = once(async () => {
+    const out = join(SCRATCH, "artifact-branded");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/branding.json"),
+            "--out",
+            out,
+            "--artifact",
+        ],
+        { env: STUBBED_FONTS },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+
+/** In the page: the branding it shows, once its font has loaded. */
+const BRANDING_SHOWN = `(async () => {
+    await document.fonts.ready;
+    const logo = document.querySelector("header img, nav img, #workspace-navigation img");
+    return {
+        theme: document.documentElement.dataset.theme,
+        logo: logo && {
+            alt: logo.alt,
+            src: logo.getAttribute("src").slice(0, 18),
+            href: logo.closest("a")?.getAttribute("href") ?? null,
+        },
+        primary: getComputedStyle(document.documentElement)
+            .getPropertyValue("--color-primary")
+            .trim(),
+        font: getComputedStyle(document.body).fontFamily,
+        loaded: [...document.fonts].some(
+            (face) => face.family.replace(/["']/g, "") === "Inter" && face.status === "loaded",
+        ),
+    };
+})()`;
+
+test("the --artifact folder shows the workspace's logo, primary color and font, in light and dark", {
+    skip: SKIP,
+}, async () => {
+    const { origin } = await brandedArtifactFolder();
+    const browser = await openBrowser(CHROME);
+    try {
+        for (const theme of ["light", "dark"]) {
+            const page = await browser.open(`${origin}/index.html`);
+            await page.waitFor("document.querySelector('h1')");
+            await page.evaluate(
+                `localStorage.setItem("renderizr:theme", "${theme}"); location.reload()`,
+            );
+            await page.waitFor(
+                `document.documentElement.dataset.theme === "${theme}" && document.querySelector('h1 img')`,
+            );
+            assert.deepEqual(
+                await page.evaluate(BRANDING_SHOWN),
+                {
+                    theme,
+                    logo: {
+                        alt: "Acme",
+                        src: "data:image/svg+xml",
+                        href: "https://acme.example",
+                    },
+                    primary: "#e4572e",
+                    font: "Inter, Helvetica, Arial, sans-serif",
+                    loaded: true,
+                },
+                `the ${theme} page shows other branding`,
+            );
+        }
+    } finally {
+        await browser.close();
+    }
 });
 
 test("artifact.html draws the view with nothing beside it", {

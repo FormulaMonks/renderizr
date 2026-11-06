@@ -85,7 +85,9 @@ export function createConfig({
             // First, before the plugins that fold the output into the page
             // or the artifact's folder: Vite runs `post` plugins in order.
             ...(mode === "build" ? [shortLines()] : []),
-            brandingPlugin({ font, primaryColor }),
+            // Under `--artifact`, the shell links the font faces in
+            // `branding.css` rather than holding them.
+            brandingPlugin({ font: artifact ? null : font, primaryColor }),
             ...(devSet ??
                 (artifact
                     ? artifactPlugins({

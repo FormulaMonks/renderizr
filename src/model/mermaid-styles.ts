@@ -70,10 +70,10 @@ export const PAGE_PRIMARY_COLORS: Record<ColorScheme, string> = {
 };
 
 /**
- * The primary color of the workspace the reader entered last in a set
- * (ADR 26); `undefined` until the page enters one, which keeps the build's.
+ * The primary color of the workspace the reader is in (ADR 26), which the
+ * page applies as it starts and on every workspace the reader enters.
  */
-let enteredPrimaryColor: string | null | undefined;
+let enteredPrimaryColor: string | null = null;
 
 /** Fill silent Mermaid sources with the entered workspace's `color`. */
 export function setMermaidPrimaryColor(color: string | null) {
@@ -86,9 +86,7 @@ export function setMermaidPrimaryColor(color: string | null) {
  * draws it as a literal, so it can't be read from the stylesheet.
  */
 export const mermaidPrimaryColor = (scheme: ColorScheme) =>
-    (enteredPrimaryColor === undefined
-        ? __RENDERIZR_PRIMARY_COLOR__
-        : enteredPrimaryColor) ?? PAGE_PRIMARY_COLORS[scheme];
+    enteredPrimaryColor ?? PAGE_PRIMARY_COLORS[scheme];
 
 /** `#rgb` or `#rrggbb` with every channel moved by `by`, clamped; any other color as it is. */
 export function shiftChannels(color: string, by: number): string {

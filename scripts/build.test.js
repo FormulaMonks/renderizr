@@ -701,6 +701,157 @@ test("no file of an --artifact build references a network asset", async () => {
     }
 });
 
+/* ------------------------------------------------------- --artifact branding */
+
+/**
+ * Like `OFFLINE`, with Google Fonts stubbed: the branding fixture names a
+ * font, and this embeds one without going out to the network.
+ */
+const STUBBED_FONTS = {
+    NODE_OPTIONS: [
+        process.env.NODE_OPTIONS,
+        `--import ${pathToFileURL(fixture("stub-fonts.js")).href}`,
+    ]
+        .filter(Boolean)
+        .join(" "),
+};
+
+/** Render `workspace` with `--artifact` into `name`, with fonts stubbed. */
+const buildBrandedArtifact = async (name, workspace, args = []) => {
+    const out = join(SCRATCH, name);
+    const result = await runCli(
+        [workspace, "--out", out, "--artifact", ...args],
+        { env: STUBBED_FONTS },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    return { out, ...result };
+};
+const BRANDING = join(REPO_ROOT, "test/__fixtures__/branding.json");
+const brandedArtifact = once(() =>
+    buildBrandedArtifact("artifact-branded", BRANDING),
+);
+
+/** The `workspace.json` an `--artifact` build wrote into `out`. */
+const payloadOf = async (out) =>
+    JSON.parse(await readFile(join(out, "workspace.json"), "utf-8"));
+
+test("--artifact puts the workspace's branding in workspace.json and its font faces in branding.css", async () => {
+    const { out } = await brandedArtifact();
+    const { branding } = await payloadOf(out);
+    const css = await readFile(join(out, "branding.css"), "utf-8");
+
+    assert.equal(branding.logo.alt, "Acme");
+    assert.equal(branding.logo.href, "https://acme.example");
+    assert.ok(
+        branding.logo.src.startsWith("data:image/svg+xml"),
+        "the logo is not a data URI",
+    );
+    assert.equal(branding.primaryColor, "#e4572e");
+    assert.deepEqual(
+        branding.font,
+        { family: "Inter", css: null },
+        "the payload holds the faces that branding.css holds",
+    );
+    assert.match(css, /@font-face\s*\{[^}]*font-family:\s*'Inter'/);
+    assert.match(css, /url\(data:font\/woff2;base64,/);
+    assert.match(css, /--renderizr-font:'Inter'/);
+});
+
+test("--artifact links branding.css from the shell and lists it under the branding layer", async () => {
+    const { out } = await brandedArtifact();
+    const manifest = await manifestOf(out);
+    const shell = await readFile(join(out, "index.html"), "utf-8");
+
+    assert.deepEqual(
+        manifest.files
+            .filter((file) => file.layer === "branding")
+            .map((file) => file.path),
+        ["branding.css"],
+    );
+    assert.match(shell, /<link rel="stylesheet" href="\.\/branding\.css">/);
+    assert.ok(
+        !shell.includes("@font-face"),
+        "the shell holds the font faces as well",
+    );
+    assert.match(
+        shell,
+        /--color-primary: #e4572e/,
+        "the shell does not paint the primary color before the page starts",
+    );
+});
+
+test("--artifact writes no branding.css when the render embeds no font", async () => {
+    const { out } = await emptyArtifact();
+    const shell = await readFile(join(out, "index.html"), "utf-8");
+
+    assert.ok(!existsSync(join(out, "branding.css")), "branding.css written");
+    assert.ok(!shell.includes("branding.css"), "the shell links branding.css");
+});
+
+test("the runtime of a branded and an unbranded --artifact render is byte-identical", async () => {
+    const [branded, empty] = await Promise.all([
+        brandedArtifact(),
+        emptyArtifact(),
+    ]);
+    const runtime = runtimeOf(await manifestOf(empty.out));
+
+    assert.deepEqual(
+        runtimeOf(await manifestOf(branded.out)),
+        runtime,
+        "the manifests list different runtimes",
+    );
+    for (const { path } of runtime) {
+        const code = await readFile(join(branded.out, path), "utf-8");
+        for (const value of ["#e4572e", "acme.example", "'Inter'"])
+            assert.ok(!code.includes(value), `${path} holds ${value}`);
+    }
+});
+
+test("branding flags override the workspace's properties under --artifact", async () => {
+    const { out } = await buildBrandedArtifact(
+        "artifact-branding-flags",
+        BRANDING,
+        [
+            "--primary-color",
+            "#123456",
+            "--logo-alt",
+            "Acme Corp",
+            "--logo-href",
+            "https://corp.example",
+            "--font",
+            "Lora",
+        ],
+    );
+    const { branding } = await payloadOf(out);
+
+    assert.equal(branding.primaryColor, "#123456");
+    assert.equal(branding.logo.alt, "Acme Corp");
+    assert.equal(branding.logo.href, "https://corp.example");
+    assert.equal(branding.font.family, "Lora");
+    assert.match(
+        await readFile(join(out, "branding.css"), "utf-8"),
+        /font-family:\s*'Lora'/,
+    );
+});
+
+test("a branding flag brands a workspace with no branding under --artifact", async () => {
+    const { out } = await buildBrandedArtifact(
+        "artifact-branding-flag-only",
+        EMPTY,
+        ["--primary-color", "#123456", "--logo", LOGO],
+    );
+    const { branding } = await payloadOf(out);
+
+    assert.equal(branding.primaryColor, "#123456");
+    assert.ok(branding.logo.src.startsWith("data:image/svg+xml"));
+    assert.equal(branding.font, null);
+    assert.ok(!existsSync(join(out, "branding.css")), "branding.css written");
+});
+
 test("--artifact with --single-file fails with the usage", async () => {
     const out = join(SCRATCH, "artifact-and-single");
     const { code, stderr } = await runCli([

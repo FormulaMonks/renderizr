@@ -66,7 +66,7 @@ export default class Navigation extends Component {
     constructor(
         element: HTMLElement,
         workspace: WorkspaceSummary,
-        logo: Logo | null = __RENDERIZR_LOGO__,
+        logo: Logo | null = null,
         parent: ParentWorkspace | null = null,
     ) {
         super(element);

@@ -23,7 +23,11 @@ import {
  *   specific to one workspace is compiled in.
  * - The workspace payloads: `workspace.json` for the landscape scoped
  *   workspace, or a lone workspace, and `<slug>.json` for each other
- *   workspace of a set (ADR 26).
+ *   workspace of a set (ADR 26). Each holds its workspace's branding, which
+ *   the page applies as it starts or as the reader enters the workspace.
+ * - `branding.css`, the landscape scoped workspace's embedded font faces,
+ *   when the render embeds a font. The faces stay data URIs: whether the
+ *   artifact viewer loads a font from a published file is untested.
  * - `manifest.json`, which lists every file with its layer, size and hash.
  */
 
@@ -38,6 +42,9 @@ export const ENTRY_FILE = "renderizr.js";
 
 /** The runtime's stylesheet, which the shell links. */
 export const STYLESHEET_FILE = "renderizr.css";
+
+/** The embedded font faces, which the shell links when there are any. */
+export const BRANDING_FILE = "branding.css";
 
 /**
  * The Rollup output options that give the runtime fixed names, with no
@@ -83,7 +90,11 @@ const isVendor = (id) =>
  */
 export const landscapePayload = ({ workspace, branding, set, buildDate }) => ({
     workspace,
-    branding,
+    // Its faces are in `branding.css`, which the shell links.
+    branding: {
+        ...branding,
+        font: branding.font && { family: branding.font.family, css: null },
+    },
     crossings: set?.crossings ?? [],
     workspaces: (set?.workspaces ?? []).map(({ slug, payload }) => ({
         slug,
@@ -119,10 +130,11 @@ const SET_MODULE_SOURCE = [
 /** The layer of the file `path`, by its fixed name. */
 export function layerOf(path) {
     if (path === "index.html" || path === MANIFEST_FILE) return "shell";
+    if (path === BRANDING_FILE) return "branding";
     if (path.endsWith(".json")) return "workspace";
     if (/^renderizr(-[\w-]+)?\.(js|css)$/.test(path)) return "runtime";
     throw new Error(
-        `Expected only the shell, the runtime and the workspace payloads in an artifact, got ${path}`,
+        `Expected only the shell, the runtime, the workspace payloads and branding in an artifact, got ${path}`,
     );
 }
 
@@ -165,14 +177,15 @@ const STYLE_ELEMENT = /<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi;
 
 /**
  * The shell for the `index.html` Vite wrote: the page's `<title>`, its
- * inline scripts (the theme script) and styles, then the stylesheet, the
- * mount point and the entry's module script, with no document skeleton.
+ * inline scripts (the theme script), the stylesheet, `branding.css` when
+ * `branded`, the inline styles (the primary color), then the mount point
+ * and the entry's module script, with no document skeleton.
  * The host supplies the skeleton and drops what it puts in `<head>`, so
  * the title comes first, where the host reads it, and the entry comes
  * last. Vite's own `index.html` holds no bundled code, so its tags can be
  * read with patterns.
  */
-export function shellOf(html) {
+export function shellOf(html, { branded = false } = {}) {
     const head = html.slice(0, html.indexOf("<body>"));
     const body = html.slice(
         html.indexOf("<body>") + "<body>".length,
@@ -185,6 +198,7 @@ export function shellOf(html) {
         head.match(TITLE)?.[0],
         ...inlineScripts,
         `<link rel="stylesheet" href="./${STYLESHEET_FILE}">`,
+        branded && `<link rel="stylesheet" href="./${BRANDING_FILE}">`,
         ...(head.match(STYLE_ELEMENT) ?? []),
         body.replace(SCRIPT_ELEMENT, "").trim(),
         `<script type="module" src="./${ENTRY_FILE}"></script>`,
@@ -196,7 +210,8 @@ export function shellOf(html) {
 
 /**
  * The Vite plugins for `--artifact`. `workspace`, `branding` and `set` are
- * as `createConfig` takes them; `version` names the runtime in the
+ * as `createConfig` takes them, `branding` the landscape scoped
+ * workspace's; `version` names the runtime in the
  * manifest; `buildDate` goes into `workspace.json`.
  *
  * The first plugin provides the page's workspace and set modules: an empty
@@ -205,6 +220,7 @@ export function shellOf(html) {
  */
 export function artifact({ workspace, branding, set, version, buildDate }) {
     const landscape = landscapePayload({ workspace, branding, set, buildDate });
+    const faces = branding.font?.css ?? null;
     const payloads = [
         [WORKSPACE_FILE, landscape],
         ...(set?.workspaces ?? []).map(({ slug, payload }) => [
@@ -236,7 +252,9 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
                 const html = bundle["index.html"];
                 files.push({
                     path: "index.html",
-                    source: shellOf(String(html.source)),
+                    source: shellOf(String(html.source), {
+                        branded: faces !== null,
+                    }),
                 });
                 delete bundle["index.html"];
 
@@ -262,6 +280,8 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
                 }
                 for (const [path, payload] of payloads)
                     files.push({ path, source: payloadSource(payload) });
+                if (faces !== null)
+                    files.push({ path: BRANDING_FILE, source: `${faces}\n` });
 
                 // The artifact upload reads each file as text and refuses
                 // these; find them before the files are written rather than

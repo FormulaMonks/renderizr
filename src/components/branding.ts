@@ -5,7 +5,9 @@ import { setMermaidPrimaryColor } from "../model/mermaid-styles";
  * Apply a workspace's branding when the reader enters it (ADR 26): its
  * primary color and its font. The header draws its logo.
  *
- * The workspace the page lands on is branded from first paint by the build.
+ * The workspace the page lands on is branded from first paint by the build,
+ * in the page or, under `--artifact`, in the shell and `branding.css`; the
+ * page applies its branding once more as it starts.
  * Every other workspace takes a value from the landscape scoped workspace
  * when it sets none of its own, so a workspace that has no value here has
  * none in the page either. Both go through the CSSOM: the primary color as

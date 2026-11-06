@@ -25,6 +25,7 @@ const {
     sequenceOf,
     whyNotEditable,
     NOTHING_TO_EXPORT,
+    setMermaidPrimaryColor,
 } = await importSrc("model/index");
 const { buildGraph } = await importSrc("engine/react-flow/graph");
 const { estimateText } = await importSrc("engine/geometry/boundary");
@@ -509,13 +510,13 @@ test("a silent source fills its nodes with the page's primary color per scheme, 
 });
 
 test("the branding's primary color fills a silent source", () => {
-    globalThis.__RENDERIZR_PRIMARY_COLOR__ = "#e4572e";
+    setMermaidPrimaryColor("#e4572e");
     try {
         const node = box(graphOf(modelOf("flowchart TD\n  A --> B\n")), "A");
         assert.equal(node.background, "#e4572e");
         assert.equal(node.stroke, "#b22500");
     } finally {
-        globalThis.__RENDERIZR_PRIMARY_COLOR__ = null;
+        setMermaidPrimaryColor(null);
     }
 });
 
