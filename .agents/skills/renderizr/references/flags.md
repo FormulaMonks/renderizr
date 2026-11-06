@@ -33,7 +33,7 @@ Several positionals, in any order, render a **set**: one landscape scoped worksp
 
 | Flag | Default | What it does |
 |---|---|---|
-| `--font <family>` | system fonts | A Google Web Font family, e.g. `Inter` or `Source Sans 3`. Fetched at build time and embedded as woff2 data URIs. Costs roughly 45–70 KB gzipped. |
+| `--font <family>` | system fonts | A Google Web Font family, e.g. `Inter` or `Source Sans 3`. Fetched at build time and embedded as woff2 data URIs. Two weights add about a tenth to the page, and about a fifth once compressed, since font files barely compress. |
 | `--font-weights <list>` | `400,700` | Comma-separated weights. Renderizr prefers a variable font covering the range when one exists. |
 | `--font-subsets <list>` | `latin` | Comma-separated subsets. Add e.g. `latin-ext` or `greek` only if the workspace needs them, since each one costs bytes. |
 | `--font-italic` | off | Also embed the italic faces. Roughly doubles the font weight. |
