@@ -305,7 +305,7 @@ function quoteLiteral(raw) {
  * specifiers and import attributes are written, and none of those can be
  * replaced by a call.
  */
-function isValuePosition(node, parent) {
+export function isValuePosition(node, parent) {
     if (!parent) return true;
 
     switch (parent.type) {
@@ -337,7 +337,7 @@ function isValuePosition(node, parent) {
  * the `TemplateLiteral` holding it, so a guard that wants to know whether it
  * sits inside a `TaggedTemplateExpression` has to look one level further up.
  */
-function walk(node, parent, visit, grandparent = null) {
+export function walk(node, parent, visit, grandparent = null) {
     if (!node || typeof node !== "object") return;
 
     if (Array.isArray(node)) {

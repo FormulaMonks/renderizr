@@ -246,10 +246,52 @@ test("the multi-file build serves the public directory and splits assets", () =>
         undefined,
     );
     assert.deepEqual(pluginNames(config), [
+        "renderizr:short-lines",
         "renderizr:branding",
         "renderizr:workspace",
         "renderizr:set",
     ]);
+});
+
+test("--artifact names the runtime files, inlines assets and loads the workspace in place of the compiled-in one", () => {
+    const config = createConfig({
+        workspace: WORKSPACE,
+        artifact: true,
+        base: "/docs/",
+    });
+    const { output } = config.build.rollupOptions;
+
+    assert.equal(config.publicDir, false);
+    assert.equal(config.base, "", "--base reached the artifact");
+    assert.equal(config.build.assetsInlineLimit, Number.MAX_SAFE_INTEGER);
+    assert.equal(output.entryFileNames, "renderizr.js");
+    assert.equal(output.assetFileNames, "renderizr[extname]");
+    assert.deepEqual(pluginNames(config), [
+        "renderizr:short-lines",
+        "renderizr:branding",
+        "renderizr:artifact-modules",
+        "renderizr:artifact",
+    ]);
+});
+
+test("--artifact compiles in no value that changes from one workspace or build to the next", () => {
+    const { define } = createConfig({
+        workspace: WORKSPACE,
+        artifact: true,
+        branding: {
+            logo: { src: "data:image/svg+xml,x", alt: "Acme" },
+            font: { family: "Inter", css: null },
+            primaryColor: "#e4572e",
+        },
+    });
+
+    for (const name of [
+        "__RENDERIZR_LOGO__",
+        "__RENDERIZR_FONT__",
+        "__RENDERIZR_PRIMARY_COLOR__",
+        "__RENDERIZR_BUILD_DATE__",
+    ])
+        assert.equal(define[name], "null", `${name} is compiled in`);
 });
 
 test("the single-file build inlines everything and drops the public directory", () => {

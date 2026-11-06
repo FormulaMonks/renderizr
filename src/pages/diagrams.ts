@@ -37,6 +37,7 @@ import {
 import styles from "./diagrams.module.css";
 import { disclaimerKind, showDisclaimer } from "../components/disclaimer";
 import {
+    buildDate,
     crossWorkspace,
     currentWorkspace,
     setLinksOf,
@@ -205,6 +206,7 @@ export default class Diagrams extends Page {
                 set,
                 view: first,
                 font: entered.branding.font?.family ?? null,
+                buildDate,
                 colorScheme: getDiagramTheme(),
                 labels: readLabelState(),
                 perspective: this.#perspective.selected(),

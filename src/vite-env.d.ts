@@ -17,9 +17,11 @@ declare const __RENDERIZR_VERSION__: string | null;
 /**
  * When the site was built (or the dev server or edit mode started), as an
  * ISO timestamp: the export's title block gives its date when the workspace
- * holds no `lastModifiedDate`.
+ * holds no `lastModifiedDate`. `null` under `--artifact`, whose
+ * `workspace.json` carries it, so the runtime holds nothing that changes
+ * from one build to the next.
  */
-declare const __RENDERIZR_BUILD_DATE__: string;
+declare const __RENDERIZR_BUILD_DATE__: string | null;
 
 /**
  * The branding's primary color (`--primary-color`, then
@@ -97,6 +99,21 @@ declare module "virtual:renderizr/set" {
         branding: Branding;
         crossings: Crossing[];
     };
+    /**
+     * What `workspace.json` holds under `--artifact`: the landscape scoped
+     * workspace's payload, the set's other workspaces by slug and name, and
+     * when the site was built.
+     */
+    export type LandscapePayload = WorkspacePayload & {
+        workspaces: { slug: string; name: string }[];
+        buildDate: string;
+    };
+    /**
+     * The landscape scoped workspace, loaded from `workspace.json` before
+     * the page starts, under `--artifact`; `null` wherever the page holds it
+     * compiled in.
+     */
+    export const landscape: LandscapePayload | null;
     /** The landscape scoped workspace's crossings. */
     export const crossings: Crossing[];
     /** The set's other workspaces, by slug and name. */

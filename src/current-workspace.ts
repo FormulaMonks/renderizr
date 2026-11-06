@@ -3,6 +3,7 @@ import landscapeWorkspace from "virtual:renderizr/workspace";
 import {
     crossings,
     inlined,
+    landscape,
     type WorkspacePayload,
     workspaces,
 } from "virtual:renderizr/set";
@@ -24,7 +25,8 @@ import {
  *     await enterWorkspace("payments");
  *
  * The landscape scoped workspace, or a lone workspace, is compiled into the
- * page with its branding; its slug is `null`. Each other workspace loads the
+ * page with its branding, or under `--artifact` loads from `workspace.json`
+ * before the page starts; its slug is `null`. Each other workspace loads the
  * first time the reader enters it: from `./<slug>.json` beside the page in a
  * multi-file build, or from the page itself under `--single-file`. Edit mode
  * holds one workspace, so its set has no other.
@@ -47,7 +49,9 @@ async function load(slug: string): Promise<WorkspacePayload> {
 }
 
 const set = createWorkspaceSet({
-    landscape: {
+    // `--artifact` loads it from `workspace.json`, so its runtime is the
+    // same for every workspace.
+    landscape: landscape ?? {
         workspace: landscapeWorkspace,
         branding: {
             logo: __RENDERIZR_LOGO__,
@@ -62,6 +66,12 @@ const set = createWorkspaceSet({
     workspaces,
     load,
 });
+
+/**
+ * When the site was built: the export's title block gives it when the
+ * workspace holds no `lastModifiedDate`.
+ */
+export const buildDate = landscape?.buildDate ?? __RENDERIZR_BUILD_DATE__;
 
 /** The set's other workspaces, by slug and name. */
 export const setWorkspaces = set.workspaces;
