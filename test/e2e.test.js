@@ -178,33 +178,19 @@ test("the single-file document draws a diagram", { skip: SKIP }, async () => {
     );
 });
 
-test("artifact.html — the file uploaded as a Claude artifact — renders too", {
-    skip: SKIP,
-}, async () => {
-    // A fragment rather than a whole document, and the one output whose
-    // whole purpose is to run somewhere with no network at all.
-    const out = await singleFile();
-    const document = await render(fileUrl(join(out, "artifact.html")));
-
-    assert.equal(document.querySelector("h1").textContent, WORKSPACE_NAME);
-    assert.ok(
-        document.querySelectorAll("#structurizr-diagram-target svg").length > 0,
-    );
-});
-
-test("artifact.html draws its diagrams, drawer and toolbar while the viewer never answers for downloads", {
+test("the --artifact folder draws its diagrams, drawer and toolbar while the viewer never answers for downloads", {
     skip: SKIP,
 }, async () => {
     // A viewer whose `downloads` answer hangs must not hold the page
     // back; the export group stays hidden until an answer that never
-    // comes.
-    const out = await singleFile();
-    const hung = join(out, "artifact-hung-downloads.html");
+    // comes. The shell is a fragment, as the artifact host serves it, so
+    // the stand-in for the viewer goes in front of it.
+    const { out, origin } = await artifactFolder();
     await writeFile(
-        hung,
-        `<script>window.claude = { use: () => new Promise(() => {}) };</script>${await readFile(join(out, "artifact.html"), "utf-8")}`,
+        join(out, "hung-downloads.html"),
+        `<script>window.claude = { use: () => new Promise(() => {}) };</script>${await readFile(join(out, "index.html"), "utf-8")}`,
     );
-    const document = await render(fileUrl(hung));
+    const document = await render(`${origin}/hung-downloads.html`);
 
     assert.ok(
         document.querySelectorAll(
@@ -379,7 +365,7 @@ test("the multi-file site renders when served over HTTP", {
     );
 });
 
-test("the artifact renders with no server, no siblings and no network", {
+test("the single file renders with no server, no siblings and no network", {
     skip: SKIP,
 }, async () => {
     // The strongest offline proof available: copy the one file somewhere
@@ -388,9 +374,9 @@ test("the artifact renders with no server, no siblings and no network", {
     // fetched. Anything that had not been inlined would be missing here.
     const out = await singleFile();
     const alone = await mkdtemp(join(tmpdir(), "renderizr-alone-"));
-    const copy = join(alone, "artifact.html");
+    const copy = join(alone, "index.html");
 
-    await writeFile(copy, await readFile(join(out, "artifact.html")));
+    await writeFile(copy, await readFile(join(out, "index.html")));
 
     const document = await render(fileUrl(copy));
 
@@ -731,13 +717,13 @@ test("the --artifact folder of a set crosses into a software system scoped works
     }
 });
 
-test("artifact.html draws the view with nothing beside it", {
+test("the single file draws the view with nothing beside it", {
     skip: SKIP,
 }, async () => {
     const out = await singleFile();
     const alone = await mkdtemp(join(tmpdir(), "renderizr-alone-"));
-    const copy = join(alone, "artifact.html");
-    await writeFile(copy, await readFile(join(out, "artifact.html")));
+    const copy = join(alone, "index.html");
+    await writeFile(copy, await readFile(join(out, "index.html")));
 
     assertDrawnView(await render(`${fileUrl(copy)}${CONTEXT_VIEW}`));
 

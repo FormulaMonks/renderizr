@@ -299,16 +299,14 @@ test("--base prefixes every asset reference", async () => {
 
 /* -------------------------------------------------------------- single-file */
 
-test("a single-file build writes index.html and artifact.html and nothing else", async () => {
+test("a single-file build writes index.html and nothing else", async () => {
     const { out, stdout } = await singleFile();
 
     assert.match(stdout, /Complete\. Open /);
-    assert.match(stdout, /upload .*artifact\.html as a Claude artifact/);
+    assert.match(stdout, /--artifact .*Claude artifact/);
+    assert.doesNotMatch(stdout, /artifact\.html/);
 
-    assert.deepEqual((await readdir(out)).sort(), [
-        "artifact.html",
-        "index.html",
-    ]);
+    assert.deepEqual(await readdir(out), ["index.html"]);
 });
 
 /** Nothing in `html` can start a request: the self-containment property. */
@@ -423,29 +421,6 @@ test("the logo is inlined into the single file as a data URI", async () => {
     );
 });
 
-test("artifact.html is a fragment with no document scaffolding", async () => {
-    const { out } = await singleFile();
-    const artifact = await readFile(join(out, "artifact.html"), "utf-8");
-    const skeleton = htmlSkeleton(artifact);
-
-    for (const tag of ["<!doctype", "<html", "<head", "<body", "<title"]) {
-        assert.ok(
-            !skeleton.toLowerCase().includes(tag),
-            `the fragment carries ${tag}`,
-        );
-    }
-
-    assert.ok(skeleton.includes('<div id="app"></div>'));
-    for (const { attribute, value } of assetReferences(skeleton)) {
-        assert.ok(
-            value.startsWith("#") || value.startsWith("data:"),
-            `${attribute}="${value}" would start a request`,
-        );
-    }
-    assert.ok(!/https?:\/\//i.test(skeleton), "the fragment names a URL");
-    assert.ok(artifact.includes("Fixture Workspace"));
-});
-
 /* -------------------------------------------------------------------- a set */
 
 const ENTERPRISE = join(REPO_ROOT, "test/__fixtures__/enterprise");
@@ -516,10 +491,7 @@ test("the page holds the landscape scoped workspace and none of the others", asy
 
 test("--single-file inlines every workspace of a set into the one file", async () => {
     const { out } = await singleFileSet();
-    assert.deepEqual((await readdir(out)).sort(), [
-        "artifact.html",
-        "index.html",
-    ]);
+    assert.deepEqual(await readdir(out), ["index.html"]);
     const html = await readFile(join(out, "index.html"), "utf-8");
     assertSelfContained(html);
     for (const description of ["The software systems of Acme", "Payment API"])
@@ -876,6 +848,7 @@ test("--artifact with --single-file fails with the usage", async () => {
 test("--help describes --artifact", async () => {
     const { stdout } = await runCli(["--help"]);
     assert.match(stdout, /--artifact\s+\S/);
+    assert.doesNotMatch(stdout, /artifact\.html/);
 });
 
 /* ------------------------------------------------------- --artifact, a set */
@@ -1182,15 +1155,11 @@ test("the binary refuses to run without a workspace", async () => {
     assert.match(stderr, /Missing the workspace to render\./);
 });
 
-test("artifact.html passes the escaping and fragment checks", async () => {
+test("the single file passes the escaping check", async () => {
     const { out } = await singleFile();
-    const artifact = await readFile(join(out, "artifact.html"), "utf-8");
-    const skeleton = htmlSkeleton(artifact);
+    const html = await readFile(join(out, "index.html"), "utf-8");
 
-    assert.deepEqual(findUnspellable(artifact), []);
-    assertSelfContained(artifact);
-    assert.ok(skeleton.includes('<div id="app"></div>'));
-    assert.ok(!/https?:\/\//i.test(skeleton), "the fragment names a URL");
+    assert.deepEqual(findUnspellable(html), []);
 });
 
 /* ------------------------------------------------------ the engine report */
@@ -1393,7 +1362,7 @@ test("package.json depends on Preact in place of React", async () => {
 
 /**
  * The single file as the fixture workspace renders it with the default flags,
- * in bytes: `index.html` with every asset inlined, the larger of the two files
+ * in bytes: `index.html` with every asset inlined, the one file
  * `--single-file` writes, measured once the page ran on Preact in place of
  * React (ADR 28), which took about a fifth off it. The budget covers only
  * what Renderizr ships, so it leaves out the logo, fonts and imagery a user
@@ -1403,33 +1372,19 @@ test("package.json depends on Preact in place of React", async () => {
 const SINGLE_FILE_BYTES = 758_408;
 
 /**
- * The most a Claude artifact page may weigh, read as decimal megabytes, the
- * stricter reading of 16 MB. People upload `artifact.html` there.
- */
-const ARTIFACT_LIMIT_BYTES = 16_000_000;
-
-/**
  * The single file's measured size plus 10%: past it, the page grows more
  * than planned.
  */
 const SINGLE_FILE_BUDGET_BYTES = Math.floor(SINGLE_FILE_BYTES * 1.1);
 
-test("each file a default --single-file build writes stays within index.html's measured size plus 10%, and within a tenth of a Claude artifact's limit", async () => {
+test("a default --single-file build stays within its measured size plus 10%", async () => {
     const { out } = await defaultSingleFile();
+    const { length } = await readFile(join(out, "index.html"));
 
-    for (const name of ["index.html", "artifact.html"]) {
-        const { length } = await readFile(join(out, name));
-        assert.ok(
-            length <= SINGLE_FILE_BUDGET_BYTES,
-            `${name} is ${length} bytes, over the ${SINGLE_FILE_BUDGET_BYTES}-byte budget`,
-        );
-        // The rest of the limit belongs to the workspace: its documentation,
-        // decisions and any imagery they embed.
-        assert.ok(
-            length * 10 <= ARTIFACT_LIMIT_BYTES,
-            `${name} is ${length} bytes, more than a tenth of the ${ARTIFACT_LIMIT_BYTES}-byte artifact limit`,
-        );
-    }
+    assert.ok(
+        length <= SINGLE_FILE_BUDGET_BYTES,
+        `index.html is ${length} bytes, over the ${SINGLE_FILE_BUDGET_BYTES}-byte budget`,
+    );
 });
 
 /* ---------------------------------------------------- the --artifact budget */

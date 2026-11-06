@@ -42,8 +42,8 @@ Workspaces
 
 Options
   -o, --out <dir>          Output directory (default: structurizr-output)
-      --single-file        Emit one self-contained .html with every asset inlined,
-                           plus an artifact.html fragment for Claude artifacts
+      --single-file        Emit one self-contained index.html with every asset
+                           inlined, to open from disk, email or host anywhere
       --artifact           Emit a folder to publish as a Claude artifact: a small
                            index.html, the runtime, which is the same for every
                            workspace, workspace.json and a manifest.json that
