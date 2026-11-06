@@ -18,6 +18,8 @@ Referenced by [21. Build exports from the view's geometry as a pure SVG](0021-bu
 
 Referenced by [24. Add support for Mermaid diagrams](0024-add-support-for-mermaid-diagrams.md).
 
+Referenced by [28. Run every page on Preact through preact/compat](0028-run-every-page-on-preact-through-preact-compat.md).
+
 ## Context
 
 The engine needs pan, zoom, fit, nested nodes and edges. React Flow (`@xyflow/react`, MIT) provides the viewport, parent-relative nesting, arrow markers and a node and edge store; shapes, boundaries, edge paths and labels are custom work with any library. The rest of Renderizr (router, view drawer, toolbar, documentation and decision pages) is vanilla TypeScript, and the output must work as a single file from `file://` under a strict CSP. A prototype and an audit confirmed React Flow makes no network requests, injects no styles at runtime and survives the artifact build unchanged.

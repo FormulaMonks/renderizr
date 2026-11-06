@@ -51,7 +51,7 @@ A rendered page opens from `file://`, as one self-contained file, offline, under
 
 ### The engine boundary
 
-- React lives in `src/engine/react-flow/island.tsx` and `index.ts` only; write `.tsx` nowhere else. The page reaches the island through `mountEngine` and the `Engine` handle, and `contract.ts` names nothing from React ([3. Mount React Flow as an island behind the engine contract](architecture/decisions/0003-mount-react-flow-as-an-island-behind-the-engine-contract.md)).
+- React lives in `src/engine/react-flow/island.tsx` and `index.ts` only; write `.tsx` nowhere else. The page reaches the island through `mountEngine` and the `Engine` handle, and `contract.ts` names nothing from React ([3. Mount React Flow as an island behind the engine contract](architecture/decisions/0003-mount-react-flow-as-an-island-behind-the-engine-contract.md)). The island imports React by name, and `scripts/config.js` sends every such import to `preact/compat`, so the page runs on Preact ([28. Run every page on Preact through preact/compat](architecture/decisions/0028-run-every-page-on-preact-through-preact-compat.md)).
 - Geometry and the model are pure functions over numbers and JSON, with no DOM and no React, so they run under `node --test`.
 - The page mounts the engine through `src/engine/index.ts`. Components that render the engine's state, such as the toolbar, may import the contract's types and constants from `src/engine/contract.ts`.
 - Ported upstream code carries the Apache-2.0 header naming the upstream files and what changed, as `src/model/` does, and `THIRD-PARTY-NOTICES.md` lists the package.

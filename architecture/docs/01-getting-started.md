@@ -76,7 +76,7 @@ Renderizr reads documentation and decisions from the workspace level (`documenta
 
 ## License
 
-Renderizr is MIT-licensed, copyright (c) 2024-2026 Monks Tech Services. Every rendered page bundles code Renderizr did not write: React and React Flow (MIT), Dagre (MIT), [Bootstrap Icons](https://icons.getbootstrap.com) (MIT) and the other libraries the page needs. Its model layer derives from Structurizr's own code (Apache 2.0). [THIRD-PARTY-NOTICES.md](https://github.com/FormulaMonks/renderizr/blob/main/THIRD-PARTY-NOTICES.md) lists each one with its version, license and copyright line, and says whether it ships in the output or only runs during the build. [NOTICE](https://github.com/FormulaMonks/renderizr/blob/main/NOTICE) is the short form.
+Renderizr is MIT-licensed, copyright (c) 2024-2026 Monks Tech Services. Every rendered page bundles code Renderizr did not write: Preact and React Flow (MIT), Dagre (MIT), [Bootstrap Icons](https://icons.getbootstrap.com) (MIT) and the other libraries the page needs. Its model layer derives from Structurizr's own code (Apache 2.0). [THIRD-PARTY-NOTICES.md](https://github.com/FormulaMonks/renderizr/blob/main/THIRD-PARTY-NOTICES.md) lists each one with its version, license and copyright line, and says whether it ships in the output or only runs during the build. [NOTICE](https://github.com/FormulaMonks/renderizr/blob/main/NOTICE) is the short form.
 
 ## Next steps
 

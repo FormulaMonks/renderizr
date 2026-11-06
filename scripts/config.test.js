@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { createConfig } from "./config.js";
 import { REPO_ROOT } from "./__fixtures__/helpers.js";
 
@@ -114,6 +115,69 @@ test("the dev server's set plugins serve the set in place of the compiled-in one
         "the compiled-in workspace module stayed",
     );
     assert.equal(config.define.__RENDERIZR_EDIT_MODE__, "false");
+});
+
+/* ------------------------------------------------------------------ Preact */
+
+/** What the page imports React by, as React Flow and the island spell it. */
+const REACT_SPECIFIERS = [
+    "react",
+    "react-dom",
+    "react-dom/client",
+    "react/jsx-runtime",
+    "react/jsx-dev-runtime",
+];
+
+/** Where `config`'s aliases send `specifier`, or null when none matches. */
+const aliasOf = (config, specifier) => {
+    const alias = (config.resolve?.alias ?? []).find(({ find }) =>
+        find instanceof RegExp ? find.test(specifier) : find === specifier,
+    );
+    return alias ? specifier.replace(alias.find, alias.replacement) : null;
+};
+
+test("the dev server, edit mode and every build send React to Preact", () => {
+    const configs = {
+        build: createConfig({ workspace: WORKSPACE }),
+        "--single-file": createConfig({
+            workspace: WORKSPACE,
+            singleFile: true,
+        }),
+        "pnpm dev": createConfig({
+            workspace: WORKSPACE,
+            devSet: DEV_SET,
+            mode: "serve",
+        }),
+        "edit mode": createConfig({ editMode: EDIT_MODE, mode: "edit" }),
+    };
+    for (const [name, config] of Object.entries(configs)) {
+        for (const specifier of REACT_SPECIFIERS) {
+            const target = aliasOf(config, specifier);
+            assert.ok(target, `${name} leaves ${specifier} to React`);
+            assert.match(
+                target,
+                /^preact\/compat(\/|$)/,
+                `${name} sends ${specifier} to ${target}`,
+            );
+            assert.ok(
+                existsSync(fileURLToPath(import.meta.resolve(target))),
+                `${name}: ${target} resolves to no file`,
+            );
+        }
+        // React Flow sits where pnpm gives it no `preact` of its own, so
+        // Vite has to resolve the alias from the package root.
+        assert.ok(
+            config.resolve.dedupe.includes("preact"),
+            `${name} resolves preact from wherever imports it`,
+        );
+    }
+});
+
+test("an import that only starts like React's keeps its own package", () => {
+    const config = createConfig({ workspace: WORKSPACE });
+    for (const specifier of ["react-flow", "@xyflow/react", "reactive"]) {
+        assert.equal(aliasOf(config, specifier), null, specifier);
+    }
 });
 
 test("no logo and no font are embedded as nulls, not as undefined", () => {

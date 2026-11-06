@@ -1274,17 +1274,54 @@ test("the Mermaid parser runs in the build and never reaches the page (ADR 24)",
     }
 });
 
+/* ------------------------------------------------------------------ Preact */
+
+/**
+ * Strings only React DOM's production build carries: the link its minified
+ * errors point to and the name of its internals. Preact carries neither.
+ */
+const REACT_MARKERS = [
+    "react.dev/errors",
+    "__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE",
+];
+
+test("every build runs the page on Preact and ships no React", async () => {
+    for (const { out } of [await multiFile(), await singleFile()]) {
+        const output = await builtOutput(out);
+        for (const marker of REACT_MARKERS) {
+            assert.ok(
+                !output.includes(marker),
+                `${out} carries React: ${marker}`,
+            );
+        }
+    }
+});
+
+test("package.json depends on Preact in place of React", async () => {
+    const { dependencies } = JSON.parse(
+        await readFile(join(REPO_ROOT, "package.json"), "utf-8"),
+    );
+    assert.ok(dependencies.preact, "preact is no dependency");
+    assert.equal(dependencies.react, undefined, "react is still a dependency");
+    assert.equal(
+        dependencies["react-dom"],
+        undefined,
+        "react-dom is still a dependency",
+    );
+});
+
 /* --------------------------------------------------- the single-file budget */
 
 /**
  * The single file as the fixture workspace renders it with the default flags,
  * in bytes: `index.html` with every asset inlined, the larger of the two files
- * `--single-file` writes, measured with the React Flow engine as the only
- * engine. The budget covers only what Renderizr ships, so it leaves out the
- * logo, fonts and imagery a user may add. The page's code makes up nearly all
- * of it; the fixture workspace adds a few kilobytes.
+ * `--single-file` writes, measured once the page ran on Preact in place of
+ * React (ADR 28), which took about a fifth off it. The budget covers only
+ * what Renderizr ships, so it leaves out the logo, fonts and imagery a user
+ * may add. The page's code makes up nearly all of it; the fixture workspace
+ * adds a few kilobytes.
  */
-const SINGLE_FILE_BYTES = 926_955;
+const SINGLE_FILE_BYTES = 758_408;
 
 /**
  * The most a Claude artifact page may weigh, read as decimal megabytes, the
