@@ -29,7 +29,7 @@ import {
  * page with its branding, or under `--artifact` loads from `workspace.json`
  * before the page starts; its slug is `null`. Each other workspace loads the
  * first time the reader enters it: from `./<slug>.json` beside the page in a
- * multi-file build, or from the page itself under `--single-file`. Edit mode
+ * multi-file build or under `--artifact`, or from the page itself under `--single-file`. Edit mode
  * holds one workspace, so its set has no other.
  *
  * The address names the workspace the reader is in, through the workspace
@@ -37,14 +37,25 @@ import {
  * another workspace enters it.
  */
 
+/**
+ * The slugs whose `<slug>.json` would be a file `--artifact` always writes,
+ * as `payloadFile` in `scripts/plugins.js` lists them.
+ */
+const RESERVED_SLUGS = new Set(["workspace", "manifest"]);
+
+/** The file beside the page that holds the workspace `slug`. */
+const payloadFile = (slug: string) =>
+    RESERVED_SLUGS.has(slug) ? `${slug}--payload.json` : `${slug}.json`;
+
 /** The payload of the workspace `slug`, from the page or its file. */
 async function load(slug: string): Promise<WorkspacePayload> {
     const held = inlined?.[slug];
     if (held) return held;
-    const response = await fetch(`./${encodeURIComponent(slug)}.json`);
+    const file = payloadFile(slug);
+    const response = await fetch(`./${encodeURIComponent(file)}`);
     if (!response.ok)
         throw new Error(
-            `Couldn't load ${slug}.json: ${response.status} ${response.statusText}`,
+            `Couldn't load ${file}: ${response.status} ${response.statusText}`,
         );
     return response.json();
 }

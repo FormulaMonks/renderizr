@@ -25,6 +25,7 @@ import {
     readJsonFixture,
     runCli,
     writeBrokenWorkspace,
+    writeReservedSlugSet,
 } from "./__fixtures__/helpers.js";
 
 /**
@@ -929,6 +930,41 @@ test("changing one software system scoped workspace of a set changes only its pa
     );
     assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
     assert.deepEqual(changed, ["payments.json"]);
+});
+
+test("--artifact keeps workspace.json and manifest.json its own when a software system's slug is workspace or manifest", async () => {
+    const from = await writeReservedSlugSet(join(SCRATCH, "reserved-slugs"));
+    const { out } = await buildArtifactSet("artifact-reserved-slugs", from);
+    const manifest = await manifestOf(out);
+
+    assert.deepEqual(
+        manifest.files
+            .filter((file) => file.layer === "workspace")
+            .map((file) => file.path)
+            .sort(),
+        [
+            "manifest--payload.json",
+            "storefront.json",
+            "workspace--payload.json",
+            "workspace.json",
+        ],
+    );
+    const landscape = JSON.parse(
+        await readFile(join(out, "workspace.json"), "utf-8"),
+    );
+    assert.equal(landscape.workspace.name, "Acme");
+    assert.deepEqual(landscape.workspaces.map(({ slug }) => slug).sort(), [
+        "manifest",
+        "storefront",
+        "workspace",
+    ]);
+    for (const [file, name] of [
+        ["workspace--payload.json", "Workspace"],
+        ["manifest--payload.json", "Manifest"],
+    ]) {
+        const payload = JSON.parse(await readFile(join(out, file), "utf-8"));
+        assert.equal(payload.workspace.name, name, `${file} holds ${name}`);
+    }
 });
 
 /* -------------------------------- --artifact, the documentation runtime */

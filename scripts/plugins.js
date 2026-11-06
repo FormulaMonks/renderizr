@@ -134,8 +134,20 @@ export function pageSet(set, branding) {
     };
 }
 
-/** What a workspace's file is called in `--out`: its slug. */
-const payloadFile = (slug) => `${slug}.json`;
+/**
+ * The slugs whose `<slug>.json` would be a file `--artifact` always writes:
+ * `workspace.json` and `manifest.json`. `src/current-workspace.ts` holds the
+ * same list.
+ */
+const RESERVED_SLUGS = new Set(["workspace", "manifest"]);
+
+/**
+ * What a workspace's file is called in `--out`: its slug, or for a reserved
+ * slug its slug and `--payload`, which no slug spells, since `slugOf`
+ * collapses every run of hyphens into one.
+ */
+export const payloadFile = (slug) =>
+    RESERVED_SLUGS.has(slug) ? `${slug}--payload.json` : `${slug}.json`;
 
 /**
  * A payload as its file holds it: pretty-printed, so each line stays short

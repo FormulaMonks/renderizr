@@ -25,7 +25,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
-import { fixture, REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
+import {
+    fixture,
+    REPO_ROOT,
+    runCli,
+    writeReservedSlugSet,
+} from "../scripts/__fixtures__/helpers.js";
 import {
     findChrome,
     openBrowser,
@@ -713,6 +718,43 @@ test("the --artifact folder of a set crosses into a software system scoped works
              document.title.startsWith("Acme") &&
              !location.hash.includes("payments") &&
              !document.querySelector("a[data-back]")`,
+        );
+    } finally {
+        await browser.close();
+    }
+});
+
+test("the --artifact folder of a set crosses into a software system whose slug is workspace", {
+    skip: SKIP,
+}, async () => {
+    // Payments, renamed Workspace, loads from a file of its own beside the
+    // landscape's workspace.json.
+    const from = await writeReservedSlugSet(join(SCRATCH, "reserved-slugs"));
+    const out = join(SCRATCH, "artifact-reserved-slugs");
+    const result = await runCli([from, "--out", out, "--artifact"], {
+        env: OFFLINE,
+    });
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    const browser = await openBrowser(CHROME);
+    try {
+        const page = await browser.open(`${server.origin}/index.html`);
+        await page.waitFor(
+            `document.querySelector("h1")?.textContent === "Acme" &&
+             !!document.querySelector('[data-ready="true"] [data-focus-item="element:4"]')`,
+        );
+        await page.evaluate(
+            `document.querySelector('[data-focus-item="element:4"]').click()`,
+        );
+        await page.waitFor(
+            `document.title.startsWith("Workspace") &&
+             location.hash.startsWith("#/workspace/") &&
+             !!document.querySelector('[data-ready="true"] [aria-label^="Payment API"]')`,
         );
     } finally {
         await browser.close();

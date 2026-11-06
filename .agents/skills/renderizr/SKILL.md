@@ -46,7 +46,7 @@ That writes a folder, and `manifest.json` says what each file is:
 | `shell` | `index.html`, `manifest.json` | The page that loads the rest, with the workspace's name in its `<title>`, and the manifest itself |
 | `runtime` | `renderizr.js`, `renderizr-vendor.js`, `renderizr.css` | Renderizr's code and styles, the same byte for byte for every workspace at a Renderizr version |
 | `docs-runtime` | `renderizr-docs.js` | The code of the documentation and decisions pages. Left out when no workspace has documentation or decisions |
-| `workspace` | `workspace.json`, one `<slug>.json` per other workspace of a set | The workspace payloads: each workspace with its branding |
+| `workspace` | `workspace.json`, one `<slug>.json` per other workspace of a set (`<slug>--payload.json` for the slugs `workspace` and `manifest`) | The workspace payloads: each workspace with its branding |
 | `branding` | `branding.css` | Embedded font faces, when the render embeds a font |
 
 The manifest also names the Renderizr version that built the runtime (`renderizr`) and the build date (`buildDate`), and gives each file its `bytes` and `sha256`. It lists itself last, with no hash.

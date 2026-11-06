@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 import {
+    payloadFile,
     payloadSource,
     RESOLVED_SET_MODULE,
     RESOLVED_WORKSPACE_MODULE,
@@ -27,7 +28,8 @@ import {
  *   of the set has documentation or decisions.
  * - The workspace payloads: `workspace.json` for the landscape scoped
  *   workspace, or a lone workspace, and `<slug>.json` for each other
- *   workspace of a set (ADR 26). Each holds only what its workspace gives,
+ *   workspace of a set (ADR 26), `<slug>--payload.json` for a slug that
+ *   would name a file of the folder. Each holds only what its workspace gives,
  *   its branding included, so a render changes only the payloads of the
  *   workspaces that changed. The page applies a workspace's branding as it
  *   starts or as the reader enters the workspace.
@@ -310,7 +312,7 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
     const payloads = [
         [WORKSPACE_FILE, landscape],
         ...(set?.workspaces ?? []).map(({ slug, payload }) => [
-            `${slug}.json`,
+            payloadFile(slug),
             payload,
         ]),
     ];

@@ -157,7 +157,7 @@ npx github:FormulaMonks/renderizr ./workspace.json --artifact
 | `renderizr.js`, `renderizr-vendor.js`, `renderizr.css` | The runtime, the same byte for byte for every workspace at a Renderizr version |
 | `renderizr-docs.js` | The documentation runtime: the documentation and decisions pages. The build leaves it out when no workspace has documentation or decisions |
 | `workspace.json` | The workspace payload of the landscape scoped workspace, or of a lone workspace, with its branding |
-| `<slug>.json` | The workspace payload of each other workspace of a [set](#render-a-set) |
+| `<slug>.json` | The workspace payload of each other workspace of a [set](#render-a-set). A software system whose slug is `workspace` or `manifest` gets `<slug>--payload.json`, so it keeps clear of `workspace.json` and `manifest.json` |
 | `branding.css` | The embedded font faces, when the build embeds a font |
 | `manifest.json` | The manifest: every file with its layer, size and hash, the Renderizr version that built the runtime, and the build date |
 
