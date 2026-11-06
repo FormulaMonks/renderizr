@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -154,6 +155,14 @@ test("index.html is titled after the workspace and links the built assets", asyn
  * `asciidoc.test.js`, which import `src/` directly.
  */
 
+/**
+ * `code` with each string the build broke across lines to keep them short
+ * joined again, as it reads once evaluated: the minifier ends a line inside
+ * a string with a backslash, and `scripts/short-lines.js` writes a literal
+ * as `"one"+⏎"two"`.
+ */
+const unbroken = (code) => code.replace(/\\\n|"\+\n"/g, "");
+
 /** The entry chunk, which is where the embedded workspace ends up. */
 const entryChunk = async (out) => {
     const dir = join(out, "assets");
@@ -162,7 +171,7 @@ const entryChunk = async (out) => {
         (file) => file.startsWith("index-") && file.endsWith(".js"),
     );
     assert.ok(name, `no entry chunk in ${files.join(", ")}`);
-    return readFile(join(dir, name), "utf-8");
+    return unbroken(await readFile(join(dir, name), "utf-8"));
 };
 
 test("the workspace name and description reach the entry chunk", async () => {
@@ -507,7 +516,254 @@ test("--single-file inlines every workspace of a set into the one file", async (
     const html = await readFile(join(out, "index.html"), "utf-8");
     assertSelfContained(html);
     for (const description of ["The software systems of Acme", "Payment API"])
-        assert.ok(html.includes(description), `${description} is missing`);
+        assert.ok(
+            unbroken(html).includes(description),
+            `${description} is missing`,
+        );
+});
+
+/* ---------------------------------------------------------------- --artifact */
+
+/** Render `workspace` with `--artifact` into `name`, offline. */
+const buildArtifact = async (name, workspace, args = []) => {
+    const out = join(SCRATCH, name);
+    const result = await runCli(
+        [workspace, "--out", out, "--artifact", ...args],
+        { env: OFFLINE },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    return { out, ...result };
+};
+const EMPTY = join(REPO_ROOT, "test/__fixtures__/empty.json");
+const BIG_BANK = join(REPO_ROOT, "test/__fixtures__/big-bank-plc.json");
+const emptyArtifact = once(() => buildArtifact("artifact-empty", EMPTY));
+const bigBankArtifact = once(() =>
+    buildArtifact("artifact-big-bank", BIG_BANK),
+);
+
+/** The manifest an `--artifact` build wrote into `out`. */
+const manifestOf = async (out) =>
+    JSON.parse(await readFile(join(out, "manifest.json"), "utf-8"));
+
+/** The runtime files a manifest lists. */
+const runtimeOf = (manifest) =>
+    manifest.files.filter((file) => file.layer === "runtime");
+
+test("--artifact writes exactly the files its manifest lists, with their sizes and hashes", async () => {
+    const { out, stdout } = await emptyArtifact();
+    const manifest = await manifestOf(out);
+
+    assert.match(stdout, /Complete\. Publish .* as a Claude artifact/);
+    assert.deepEqual(
+        manifest.files.map((file) => file.path).sort(),
+        (await readdir(out, { recursive: true })).sort(),
+        "the manifest and the folder disagree",
+    );
+    for (const { path, bytes, sha256 } of manifest.files) {
+        const body = await readFile(join(out, path));
+        assert.equal(body.length, bytes, `${path} is not ${bytes} bytes`);
+        if (path === "manifest.json") continue;
+        assert.equal(
+            createHash("sha256").update(body).digest("hex"),
+            sha256,
+            `${path} does not match its hash`,
+        );
+    }
+});
+
+test("--artifact's manifest names the Renderizr version and lists itself last, with no hash", async () => {
+    const { out } = await emptyArtifact();
+    const manifest = await manifestOf(out);
+    const { version } = JSON.parse(
+        await readFile(join(REPO_ROOT, "package.json"), "utf-8"),
+    );
+
+    assert.equal(manifest.renderizr, version);
+    const last = manifest.files.at(-1);
+    assert.equal(last.path, "manifest.json");
+    assert.equal(last.sha256, undefined, "the manifest hashes itself");
+    assert.deepEqual(
+        Object.fromEntries(
+            manifest.files.map(({ path, layer }) => [path, layer]),
+        ),
+        {
+            "index.html": "shell",
+            "renderizr.js": "runtime",
+            "renderizr-vendor.js": "runtime",
+            "renderizr.css": "runtime",
+            "workspace.json": "workspace",
+            "manifest.json": "shell",
+        },
+    );
+});
+
+test("two --artifact renders of different workspaces write byte-identical runtime files", async () => {
+    const [empty, bigBank] = await Promise.all([
+        emptyArtifact(),
+        bigBankArtifact(),
+    ]);
+    const runtime = runtimeOf(await manifestOf(empty.out));
+
+    assert.ok(runtime.length > 0, "the manifest lists no runtime");
+    for (const { path } of runtime) {
+        assert.ok(
+            (await readFile(join(empty.out, path))).equals(
+                await readFile(join(bigBank.out, path)),
+            ),
+            `${path} differs between the two workspaces`,
+        );
+    }
+    assert.deepEqual(
+        runtimeOf(await manifestOf(bigBank.out)),
+        runtime,
+        "the manifests list different runtimes",
+    );
+});
+
+test("--artifact's workspace.json holds the workspace and the build date, and the runtime holds neither", async () => {
+    const { out } = await bigBankArtifact();
+    const payload = JSON.parse(
+        await readFile(join(out, "workspace.json"), "utf-8"),
+    );
+
+    assert.equal(payload.workspace.name, "Big Bank plc");
+    assert.ok(
+        !Number.isNaN(Date.parse(payload.buildDate)),
+        `${payload.buildDate} is no date`,
+    );
+    for (const name of ["renderizr.js", "renderizr-vendor.js"]) {
+        const code = await readFile(join(out, name), "utf-8");
+        assert.ok(
+            !code.includes("Big Bank plc"),
+            `${name} holds the workspace`,
+        );
+        assert.ok(
+            !code.includes(payload.buildDate),
+            `${name} holds the build date`,
+        );
+    }
+});
+
+test("--artifact's index.html is a fragment with the workspace's name in a <title> in its first 8 KB", async () => {
+    const { out } = await bigBankArtifact();
+    const shell = await readFile(join(out, "index.html"), "utf-8");
+    const skeleton = htmlSkeleton(shell).toLowerCase();
+
+    assert.match(
+        shell.slice(0, 8192),
+        /<title>Big Bank plc[^<]*<\/title>/,
+        "no <title> naming the workspace in the first 8 KB",
+    );
+    for (const tag of ["<!doctype", "<html", "<head", "<body"]) {
+        assert.ok(!skeleton.includes(tag), `the shell carries ${tag}`);
+    }
+    assert.ok(skeleton.includes('<div id="app"></div>'), "no mount point");
+    assert.ok(shell.includes("prefers-color-scheme"), "no theme script");
+    assert.match(skeleton, /<link rel="stylesheet" href="\.\/renderizr\.css">/);
+    assert.match(
+        skeleton,
+        /<script type="module" src="\.\/renderizr\.js"><\/script>/,
+    );
+});
+
+test("no file of an --artifact build references a network asset", async () => {
+    const { out } = await bigBankArtifact();
+    const { files } = await manifestOf(out);
+    const written = new Set(files.map((file) => file.path));
+
+    for (const { path } of files) {
+        const text = await readFile(join(out, path), "utf-8");
+        assert.deepEqual(findUnspellable(text), [], `${path} has escapes`);
+        assert.ok(
+            !/url\(\s*["']?https?:/i.test(text),
+            `${path} fetches a remote asset from a stylesheet`,
+        );
+        assert.ok(
+            !/@import\s+(url\()?["']?https?:/i.test(text),
+            `${path} @imports a URL`,
+        );
+    }
+    const skeleton = htmlSkeleton(
+        await readFile(join(out, "index.html"), "utf-8"),
+    );
+    assert.ok(!/https?:\/\//i.test(skeleton), "the shell names a URL");
+    for (const { attribute, value } of assetReferences(skeleton)) {
+        assert.ok(
+            value.startsWith("#") ||
+                value.startsWith("data:") ||
+                written.has(value.replace(/^\.\//, "")),
+            `${attribute}="${value}" names no file of the artifact`,
+        );
+    }
+});
+
+test("--artifact with --single-file fails with the usage", async () => {
+    const out = join(SCRATCH, "artifact-and-single");
+    const { code, stderr } = await runCli([
+        EMPTY,
+        "--out",
+        out,
+        "--artifact",
+        "--single-file",
+    ]);
+
+    assert.equal(code, 1);
+    assert.match(stderr, /--artifact and --single-file/);
+    assert.match(stderr, /Renderizr: render a Structurizr workspace/);
+    assert.ok(!existsSync(out), "an output directory was created anyway");
+});
+
+test("--help describes --artifact", async () => {
+    const { stdout } = await runCli(["--help"]);
+    assert.match(stdout, /--artifact\s+\S/);
+});
+
+/* --------------------------------------------------------------- short lines */
+
+/**
+ * The longest line any file may hold outside a data URI: twice the 400
+ * characters the minifier aims for, since it breaks a line at the first
+ * place it can once the line passes them.
+ */
+const LONGEST_LINE = 800;
+
+/**
+ * The lines of `text` longer than `LONGEST_LINE` once data URIs are gone,
+ * and in a JSON file `json`, once its strings are empty: JSON cannot break
+ * a string across lines, and the workspace's own strings, such as
+ * Structurizr's `structurizr.dsl` property, can be any length.
+ */
+const longLines = (text, { json = false } = {}) =>
+    text
+        .split("\n")
+        .map((line) => line.replace(/data:[^"'`)\s]+/g, "data:"))
+        .map((line) => (json ? line.replace(/"(?:[^"\\]|\\.)*"/g, '""') : line))
+        .filter((line) => line.length > LONGEST_LINE);
+
+test("no file of any build holds a line longer than the limit outside a data URI or a JSON string", async () => {
+    for (const { out } of [
+        await multiFile(),
+        await multiFileSet(),
+        await defaultSingleFile(),
+        await emptyArtifact(),
+        await bigBankArtifact(),
+    ]) {
+        for (const path of await readdir(out, { recursive: true })) {
+            if (!/\.(html|js|css|json)$/.test(path)) continue;
+            const long = longLines(await readFile(join(out, path), "utf-8"), {
+                json: path.endsWith(".json"),
+            });
+            assert.deepEqual(
+                long.map((line) => `${line.length}: ${line.slice(0, 80)}`),
+                [],
+                `${join(out, path)} holds ${long.length} long line(s)`,
+            );
+        }
+    }
 });
 
 /* ------------------------------------------------------------ failure modes */
@@ -681,7 +937,11 @@ const builtOutput = async (out) => {
 };
 
 test("no edit-mode code reaches a build's output", async () => {
-    for (const { out } of [await multiFile(), await singleFile()]) {
+    for (const { out } of [
+        await multiFile(),
+        await singleFile(),
+        await bigBankArtifact(),
+    ]) {
         const output = await builtOutput(out);
         for (const marker of EDIT_MODE_MARKERS) {
             assert.ok(
@@ -702,7 +962,11 @@ const DEV_SET_MARKERS = [
 ];
 
 test("no pnpm dev code reaches a build's output", async () => {
-    for (const { out } of [await multiFile(), await singleFile()]) {
+    for (const { out } of [
+        await multiFile(),
+        await singleFile(),
+        await bigBankArtifact(),
+    ]) {
         const output = await builtOutput(out);
         for (const marker of DEV_SET_MARKERS) {
             assert.ok(
@@ -759,7 +1023,11 @@ test("the Mermaid parser runs in the build and never reaches the page (ADR 24)",
             `the parser never carries ${marker}`,
         );
     }
-    for (const { out } of [await multiFile(), await singleFile()]) {
+    for (const { out } of [
+        await multiFile(),
+        await singleFile(),
+        await bigBankArtifact(),
+    ]) {
         const output = await builtOutput(out);
         for (const marker of MERMAID_PARSER_MARKERS) {
             assert.ok(

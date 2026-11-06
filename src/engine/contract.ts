@@ -78,6 +78,11 @@ export type EngineOptions = {
      * entered workspace's branding (ADR 26). None leaves the fallback stack.
      */
     font?: string | null;
+    /**
+     * When the site was built, as an ISO timestamp: the export's title
+     * block gives it when the workspace holds no `lastModifiedDate`.
+     */
+    buildDate?: string | null;
     /** Mount in editing (spec 9.2). Only edit mode sets it. */
     editing?: boolean;
     /**

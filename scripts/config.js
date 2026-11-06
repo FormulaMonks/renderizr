@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ARTIFACT_OUTPUT, artifact as artifactPlugins } from "./artifact.js";
 import {
     branding as brandingPlugin,
     NO_BRANDING,
@@ -8,6 +9,7 @@ import {
     singleFile,
     workspaceModule,
 } from "./plugins.js";
+import { LINE_LIMIT, shortLines } from "./short-lines.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -46,12 +48,18 @@ export const version = (() => {
  * `devSet` is the dev server's plugins (`scripts/dev-set.js`). They serve
  * the workspace and the set from the last set that loaded, in place of the
  * compiled-in ones, and reload them on every change (spec 264).
+ *
+ * `artifact` writes the page as a folder for a Claude artifact
+ * (`scripts/artifact.js`): the page loads its workspace from
+ * `workspace.json`, so nothing specific to one workspace is compiled into
+ * the runtime, and `base` has no meaning.
  */
 export function createConfig({
     workspace,
     branding = NO_BRANDING,
     set = null,
     singleFile: asSingleFile = false,
+    artifact = false,
     out = "structurizr-output",
     base = "",
     engineReport = false,
@@ -61,21 +69,36 @@ export function createConfig({
 }) {
     const outDir = resolve(process.cwd(), out);
     const { logo, font, primaryColor } = branding;
+    const buildDate = new Date().toISOString();
+    /** `value` as a define; under `--artifact`, only the payload holds it. */
+    const compiled = (value) => JSON.stringify(artifact ? null : value);
 
     return {
         root,
-        base,
+        base: artifact ? "" : base,
         // scripts/main.js and edit mode already hold the complete
         // configuration; letting Vite also load vite.config.ts would re-parse
         // argv in dev-server mode.
         ...(mode === "build" || editMode ? { configFile: false } : {}),
-        publicDir: asSingleFile ? false : resolve(root, "public"),
+        publicDir: asSingleFile || artifact ? false : resolve(root, "public"),
         plugins: [
+            // First, before the plugins that fold the output into the page
+            // or the artifact's folder: Vite runs `post` plugins in order.
+            ...(mode === "build" ? [shortLines()] : []),
             brandingPlugin({ font, primaryColor }),
-            ...(devSet ?? [
-                editMode ?? workspaceModule(workspace),
-                setModule({ ...set, inline: asSingleFile }),
-            ]),
+            ...(devSet ??
+                (artifact
+                    ? artifactPlugins({
+                          workspace,
+                          branding,
+                          set,
+                          version,
+                          buildDate,
+                      })
+                    : [
+                          editMode ?? workspaceModule(workspace),
+                          setModule({ ...set, inline: asSingleFile }),
+                      ])),
             ...(asSingleFile ? [singleFile()] : []),
         ],
         build: {
@@ -85,15 +108,20 @@ export function createConfig({
             emptyOutDir: true,
             modulePreload: false,
             chunkSizeWarningLimit: 2048,
-            assetsInlineLimit: asSingleFile
-                ? Number.MAX_SAFE_INTEGER
-                : undefined,
+            assetsInlineLimit:
+                asSingleFile || artifact ? Number.MAX_SAFE_INTEGER : undefined,
             rollupOptions: {
-                output: asSingleFile ? { inlineDynamicImports: true } : {},
+                output: asSingleFile
+                    ? { inlineDynamicImports: true }
+                    : artifact
+                      ? ARTIFACT_OUTPUT
+                      : {},
             },
         },
-        // The React Flow island is the one place JSX is written.
-        esbuild: { jsx: "automatic" },
+        // The React Flow island is the one place JSX is written. Vite hands
+        // `lineLimit` to the minifier too, which keeps every script's lines
+        // short (spec 296).
+        esbuild: { jsx: "automatic", lineLimit: LINE_LIMIT },
         // esbuild injects the JSX runtime, so Vite's scan never sees it and
         // finds it only on first request. Vite skips that late discovery for
         // an importer under node_modules, which is where `src` sits when
@@ -101,15 +129,15 @@ export function createConfig({
         // as is. Naming it here pre-bundles it wherever the package lives.
         optimizeDeps: { include: ["react/jsx-dev-runtime"] },
         define: {
-            __RENDERIZR_LOGO__: JSON.stringify(logo),
-            __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),
+            __RENDERIZR_LOGO__: compiled(logo),
+            __RENDERIZR_FONT__: compiled(font ? font.family : null),
             __RENDERIZR_VERSION__: JSON.stringify(version),
             // The export's title block gives it when the workspace holds no
             // `lastModifiedDate`.
-            __RENDERIZR_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+            __RENDERIZR_BUILD_DATE__: compiled(buildDate),
             // A silent Mermaid source fills its nodes with it, and export
             // needs it as a literal rather than the stylesheet's variable.
-            __RENDERIZR_PRIMARY_COLOR__: JSON.stringify(primaryColor),
+            __RENDERIZR_PRIMARY_COLOR__: compiled(primaryColor),
             // The engine's geometry report, for the acceptance harness only
             // (spec 15.1); `false` compiles the writer out of the bundle.
             __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),

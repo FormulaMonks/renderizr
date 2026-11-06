@@ -17,7 +17,8 @@ Several positionals, in any order, render a **set**: one landscape scoped worksp
 |---|---|---|
 | `-o, --out <dir>` | `structurizr-output` | Where Renderizr writes the build, relative to the current directory. **Renderizr empties the directory first.** |
 | `--single-file` | off | Inlines every asset and the workspace into one document, and emits `artifact.html` alongside it. See [artifacts](./artifacts.md). |
-| `--base <path>` | `""` | Base public path for the **multi-file** build. Rewrites `./assets/…` to `<base>/assets/…`. Set it when you serve the site from a subdirectory, e.g. `--base /renderizr/` for a GitHub project Pages site. Has no meaning with `--single-file`, where there are no separate assets. |
+| `--artifact` | off | Writes the page as a folder to publish as a Claude artifact: a small `index.html` with the workspace's name in its `<title>`, the runtime (`renderizr.js`, `renderizr-vendor.js`, `renderizr.css`), which is byte for byte the same for every workspace at a Renderizr version, the workspace in `workspace.json`, and `manifest.json`, which lists each file with its layer, size and hash. Fails with `--single-file`. |
+| `--base <path>` | `""` | Base public path for the **multi-file** build. Rewrites `./assets/…` to `<base>/assets/…`. Set it when you serve the site from a subdirectory, e.g. `--base /renderizr/` for a GitHub project Pages site. Has no meaning with `--single-file`, where there are no separate assets, or with `--artifact`, whose host serves every file next to the page. |
 | `-h, --help` | | Print the usage and exit |
 
 ## Branding

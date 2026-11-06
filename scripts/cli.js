@@ -13,6 +13,7 @@ export const OPTIONS = {
     "font-italic": { type: "boolean", default: false },
     "primary-color": { type: "string" },
     "single-file": { type: "boolean", default: false },
+    artifact: { type: "boolean", default: false },
     out: { type: "string", short: "o", default: "structurizr-output" },
     base: { type: "string", default: "" },
     help: { type: "boolean", short: "h", default: false },
@@ -43,7 +44,12 @@ Options
   -o, --out <dir>          Output directory (default: structurizr-output)
       --single-file        Emit one self-contained .html with every asset inlined,
                            plus an artifact.html fragment for Claude artifacts
-      --base <path>        Base public path for the multi-file build (default: "")
+      --artifact           Emit a folder to publish as a Claude artifact: a small
+                           index.html, the runtime, which is the same for every
+                           workspace, workspace.json and a manifest.json that
+                           lists each file's layer, size and hash
+      --base <path>        Base public path for the multi-file build (default: "").
+                           No meaning with --single-file or --artifact
 
   --logo <path|url>        Image shown top-left in the header. Embedded as a data URI
   --logo-alt <text>        Alt text for the logo. When it matches the workspace
@@ -84,12 +90,13 @@ Edit options (renderizr edit [path]; renderizr edit --help says more)
       --port <n>           Port for the local server (default: ${DEFAULT_PORT})
       --open               Also open the URL in the browser
   Edit mode takes the --logo and --font options above, and refuses --out,
-  --single-file and --base.
+  --single-file, --artifact and --base.
 
 Examples
   renderizr ./workspace.json
   renderizr https://example.com/workspace.json --single-file
   renderizr ./workspace.json --single-file --font Inter --logo ./logo.svg
+  renderizr ./workspace.json --artifact --out ./artifact
   renderizr ./landscape/workspace.dsl ./teams
   renderizr edit ./workspace.dsl --font Inter
 
@@ -141,6 +148,14 @@ export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
         process.exit(1);
     }
 
+    if (values.artifact && values["single-file"]) {
+        process.stderr.write(
+            "Choose one of --artifact and --single-file: each writes the page its own way.\n\n",
+        );
+        usage(process.stderr);
+        process.exit(1);
+    }
+
     if (positionals.length === 0) {
         process.stderr.write("Missing the workspace to render.\n\n");
         usage(process.stderr);
@@ -153,6 +168,7 @@ export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
         out: values.out,
         base: values.base,
         singleFile: values["single-file"],
+        artifact: values.artifact,
         ...branding(values),
     };
 }
@@ -210,6 +226,7 @@ export const EDIT_OPTIONS = {
 const REFUSED_BY_EDIT = new Map([
     ["out", "edit mode writes no output"],
     ["single-file", "edit mode writes no output"],
+    ["artifact", "edit mode writes no output"],
     ["base", "edit mode writes no output"],
     ["engine", "edit mode always runs the React Flow engine"],
 ]);

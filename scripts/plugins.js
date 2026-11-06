@@ -138,13 +138,22 @@ export function pageSet(set, branding) {
 const payloadFile = (slug) => `${slug}.json`;
 
 /**
+ * A payload as its file holds it: pretty-printed, so each line stays short
+ * and Claude can read the file a range of lines at a time (spec 296).
+ */
+export const payloadSource = (payload) =>
+    `${JSON.stringify(payload, null, 2)}\n`;
+
+/**
  * The source of `SET_MODULE`: the landscape scoped workspace's
  * `crossings`, each other workspace's slug and name as `workspaces`, and
  * as `inlined` every payload by slug when the page holds them, `null` when
- * it loads each from its file.
+ * it loads each from its file. `landscape` is `null`: the page holds the
+ * landscape scoped workspace compiled in.
  */
 const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
     [
+        "export const landscape = null;",
         `export const crossings = ${JSON.stringify(crossings)};`,
         `export const workspaces = ${JSON.stringify(
             workspaces.map(({ slug, payload }) => ({
@@ -211,7 +220,7 @@ export function setModule(set = {}) {
                 this.emitFile({
                     type: "asset",
                     fileName,
-                    source: JSON.stringify(payload),
+                    source: payloadSource(payload),
                 });
         },
     };
@@ -244,6 +253,8 @@ export function branding({ font, primaryColor = null }) {
         },
     };
 }
+
+/* ------------------------------------------------------------ single file */
 
 const SCRIPT_ELEMENT = /<script\b[\s\S]*?<\/script\b[^>]*>/gi;
 const SCRIPT_SRC = /^<script\b[^>]*\ssrc="([^"]+)"/i;

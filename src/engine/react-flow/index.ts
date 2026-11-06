@@ -269,7 +269,7 @@ export function mountEngine(
                         workspace,
                         graph.title,
                         view.description,
-                        __RENDERIZR_BUILD_DATE__,
+                        options.buildDate,
                         __RENDERIZR_VERSION__,
                         graph.perspective,
                     ),

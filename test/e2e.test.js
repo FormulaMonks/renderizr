@@ -88,6 +88,12 @@ const multiFile = once(async () => {
     servers.push(server);
     return { out, origin: server.origin };
 });
+const artifactFolder = once(async () => {
+    const out = await build("artifact", ["--artifact"]);
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
 
 /**
  * Load a URL in Chrome and parse the document it ends up with.
@@ -485,6 +491,23 @@ test("the multi-file site draws the view when served", {
 }, async () => {
     const { origin } = await multiFile();
     assertDrawnView(await render(`${origin}/index.html${CONTEXT_VIEW}`));
+});
+
+test("the --artifact folder draws the view when served, and logs nothing", {
+    skip: SKIP,
+}, async () => {
+    // The shell is a fragment, as the artifact host serves it, and the page
+    // loads its workspace from workspace.json beside it.
+    const { origin } = await artifactFolder();
+    const { html, console: logs } = await renderPage(
+        CHROME,
+        `${origin}/index.html${CONTEXT_VIEW}`,
+    );
+    const document = parseDocument(html);
+
+    assert.equal(document.querySelector("h1").textContent, WORKSPACE_NAME);
+    assertDrawnView(document);
+    assert.deepEqual(logs, [], "the page logged to the console");
 });
 
 test("artifact.html draws the view with nothing beside it", {

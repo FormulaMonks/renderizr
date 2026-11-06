@@ -37,6 +37,7 @@ test("a bare workspace takes every default", () => {
         out: "structurizr-output",
         base: "",
         singleFile: false,
+        artifact: false,
         branding: {
             logo: null,
             logoAlt: null,
