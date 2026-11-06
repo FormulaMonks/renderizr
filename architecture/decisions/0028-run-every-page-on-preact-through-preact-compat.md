@@ -6,6 +6,8 @@ Date: 2026-11-06
 
 Accepted
 
+Referenced by [29. Load the landscape scoped workspace from its payload under --artifact](0029-load-the-landscape-scoped-workspace-from-its-payload-under-artifact.md).
+
 References [3. Mount React Flow as an island behind the engine contract](0003-mount-react-flow-as-an-island-behind-the-engine-contract.md): the island and React Flow stay as it decided.
 
 ## Context

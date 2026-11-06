@@ -4,7 +4,9 @@ Date: 2026-10-29
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [29. Load the landscape scoped workspace from its payload under --artifact](0029-load-the-landscape-scoped-workspace-from-its-payload-under-artifact.md).
 
 Amends [16. Open workspace.dsl through Structurizr's merge](0016-open-workspace-dsl-through-structurizrs-merge.md): the consequence that every build stays free of a JVM.
 

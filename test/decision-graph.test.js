@@ -684,13 +684,14 @@ test("our own decisions get back the three links the importer drops", () => {
     }
 });
 
-test("our own decisions make six amend edges and 33 references", () => {
+test("our own decisions make seven amend edges and 34 references", () => {
     const edges = edgesOf(layoutDecisionGraph(OURS));
 
-    assert.equal(edges.length, 39);
+    assert.equal(edges.length, 41);
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
         [
+            "29 amend 26",
             "26 amend 16",
             "25 amend 23",
             "24 amend 13",
@@ -713,12 +714,14 @@ test("our own decisions need 12 columns", () => {
 
     assert.equal(layout.columns, 12);
     assert.deepEqual(lanesOf(layout), [
-        lane(2, ["3"], ["28", "24", "21", "18", "15", "6"]),
-        // 26 amends 16 and is newer than every decision that references 16.
-        { ...lane(3, ["26", "16"], ["24", "22", "17"]), top: "26" },
-        lane(3, ["11"], ["12"]),
-        lane(4, ["22"], ["26"]),
-        lane(4, ["20", "12"], []),
+        // 29 amends 26, which amends 16, and 29 is newer than every
+        // decision that references either.
+        { ...lane(2, ["29", "26", "16"], ["24", "22", "17"]), top: "29" },
+        lane(2, ["11"], ["12"]),
+        lane(3, ["28"], ["29"]),
+        lane(3, ["22"], ["26"]),
+        lane(3, ["20", "12"], []),
+        lane(4, ["3"], ["28", "24", "21", "18", "15", "6"]),
         lane(5, ["25", "23"], []),
         lane(5, ["15"], ["22", "16"]),
         lane(6, ["2"], ["24", "13", "12", "11", "9", "7", "5", "3"]),
@@ -731,7 +734,7 @@ test("our own decisions need 12 columns", () => {
     ]);
     assert.deepEqual(
         loneOf(layout),
-        ["28", "27", "19", "18", "17", "8", "6", "5", "1"],
+        ["27", "19", "18", "17", "8", "6", "5", "1"],
         "every other decision is a lone dot",
     );
 });
