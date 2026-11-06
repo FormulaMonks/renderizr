@@ -21,6 +21,10 @@ import {
  *   byte for byte the same for every workspace at a Renderizr version. The
  *   page loads its workspace from `workspace.json` at startup, so nothing
  *   specific to one workspace is compiled in.
+ * - The docs runtime: `renderizr-docs.js`, the documentation stack, which
+ *   the entry imports only to show documentation or decisions. The same
+ *   for every workspace at a version too, and left out when no workspace
+ *   of the set has documentation or decisions.
  * - The workspace payloads: `workspace.json` for the landscape scoped
  *   workspace, or a lone workspace, and `<slug>.json` for each other
  *   workspace of a set (ADR 26). Each holds only what its workspace gives,
@@ -49,17 +53,32 @@ export const STYLESHEET_FILE = "renderizr.css";
 /** The embedded font faces, which the shell links when there are any. */
 export const BRANDING_FILE = "branding.css";
 
+/** The documentation runtime, which the entry imports on demand. */
+export const DOCS_RUNTIME_FILE = "renderizr-docs.js";
+
+/**
+ * The page modules that hold the documentation and decision pages, which
+ * the entry imports dynamically, and only for a workspace that has any.
+ */
+const DOCS_PAGES = ["/src/pages/docs.ts", "/src/pages/adrs.ts"];
+
 /**
  * The Rollup output options that give the runtime fixed names, with no
  * content hash, so an update replaces each file in place and the manifest's
- * hash says whether it changed. Vendor code goes to `renderizr-vendor.js`;
- * Renderizr's own code, the documentation pages with it, goes to the entry.
+ * hash says whether it changed. The documentation stack goes to
+ * `renderizr-docs.js`; the rest of the vendor code to
+ * `renderizr-vendor.js`; Renderizr's own code to the entry.
  */
 export const ARTIFACT_OUTPUT = Object.freeze({
     entryFileNames: ENTRY_FILE,
     chunkFileNames: "renderizr-[name].js",
     assetFileNames: "renderizr[extname]",
-    manualChunks: (id) => (isVendor(id) ? "vendor" : "renderizr"),
+    manualChunks: (id, { getModuleIds, getModuleInfo }) =>
+        docsModulesOf(getModuleIds, getModuleInfo).has(id)
+            ? "docs"
+            : isVendor(id)
+              ? "vendor"
+              : "renderizr",
 });
 
 /**
@@ -72,6 +91,50 @@ const isVendor = (id) =>
     (id.startsWith("\0") &&
         id !== RESOLVED_WORKSPACE_MODULE &&
         id !== RESOLVED_SET_MODULE);
+
+/** `docsModulesOf`'s answer for each build's module graph. */
+const docsModules = new WeakMap();
+
+/**
+ * The documentation stack: every module the documentation and decision
+ * pages import, directly or not, that the entry does not import itself.
+ * Markdown-it, highlight.js, the pages and the decision graph come out of
+ * it; code the diagrams share with them stays with the diagrams, so a page
+ * with no documentation never loads `renderizr-docs.js`.
+ */
+function docsModulesOf(getModuleIds, getModuleInfo) {
+    // `getModuleInfo` is one function per build, so it keys the answer.
+    if (docsModules.has(getModuleInfo)) return docsModules.get(getModuleInfo);
+    const ids = [...getModuleIds()];
+    const reach = (from) => {
+        const seen = new Set();
+        const queue = [...from];
+        while (queue.length) {
+            const id = queue.pop();
+            if (seen.has(id)) continue;
+            seen.add(id);
+            queue.push(...(getModuleInfo(id)?.importedIds ?? []));
+        }
+        return seen;
+    };
+    const statics = reach(ids.filter((id) => getModuleInfo(id)?.isEntry));
+    const docs = new Set(
+        [
+            ...reach(
+                ids.filter((id) =>
+                    DOCS_PAGES.some((page) => id.endsWith(page)),
+                ),
+            ),
+        ].filter((id) => !statics.has(id)),
+    );
+    docsModules.set(getModuleInfo, docs);
+    return docs;
+}
+
+/** Whether `workspace` has documentation or decisions to show. */
+const hasDocumentation = (workspace) =>
+    (workspace.documentation?.sections?.length ?? 0) > 0 ||
+    (workspace.documentation?.decisions?.length ?? 0) > 0;
 
 /* --------------------------------------------------------------- payload */
 
@@ -139,9 +202,10 @@ export function layerOf(path) {
     if (path === "index.html" || path === MANIFEST_FILE) return "shell";
     if (path === BRANDING_FILE) return "branding";
     if (path.endsWith(".json")) return "workspace";
+    if (path === DOCS_RUNTIME_FILE) return "docs-runtime";
     if (/^renderizr(-[\w-]+)?\.(js|css)$/.test(path)) return "runtime";
     throw new Error(
-        `Expected only the shell, the runtime, the workspace payloads and branding in an artifact, got ${path}`,
+        `Expected only the shell, the runtime, the docs runtime, the workspace payloads and branding in an artifact, got ${path}`,
     );
 }
 
@@ -250,6 +314,9 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
             payload,
         ]),
     ];
+    const documented = payloads.some(([, payload]) =>
+        hasDocumentation(payload.workspace),
+    );
     return [
         {
             name: "renderizr:artifact-modules",
@@ -281,6 +348,11 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
                 delete bundle["index.html"];
 
                 for (const [fileName, output] of Object.entries(bundle)) {
+                    delete bundle[fileName];
+                    // The entry still names it, behind the documentation
+                    // and decision pages, which a set with no documentation
+                    // or decisions never shows.
+                    if (fileName === DOCS_RUNTIME_FILE && !documented) continue;
                     files.push({
                         path: fileName,
                         source:
@@ -298,7 +370,6 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
                                   )
                                 : String(output.source),
                     });
-                    delete bundle[fileName];
                 }
                 for (const [path, payload] of payloads)
                     files.push({ path, source: payloadSource(payload) });

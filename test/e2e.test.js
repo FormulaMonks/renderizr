@@ -606,6 +606,71 @@ test("the --artifact folder shows the workspace's logo, primary color and font, 
     }
 });
 
+/**
+ * Renderizr's own workspace, with documentation and decisions, as an
+ * `--artifact` folder served over HTTP. It embeds Inter, so fonts are
+ * stubbed.
+ */
+const architectureArtifactFolder = once(async () => {
+    const out = join(SCRATCH, "artifact-architecture");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "architecture/workspace.json"),
+            "--out",
+            out,
+            "--artifact",
+        ],
+        { env: STUBBED_FONTS },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+
+test("the --artifact folder opens a documentation page from renderizr-docs.js, and logs nothing", {
+    skip: SKIP,
+}, async () => {
+    const { origin } = await architectureArtifactFolder();
+    const { html, console: logs } = await renderPage(
+        CHROME,
+        `${origin}/index.html#/?page=docs`,
+    );
+    const document = parseDocument(html);
+
+    assert.ok(document.querySelector("#docs-menu"), "no documentation sidebar");
+    assert.match(
+        document.querySelector("#docs-content").textContent,
+        /Getting started/,
+    );
+    assert.deepEqual(logs, [], "the page logged to the console");
+});
+
+test("the --artifact folder opens a decision from renderizr-docs.js, and logs nothing", {
+    skip: SKIP,
+}, async () => {
+    const { origin } = await architectureArtifactFolder();
+    const { html, console: logs } = await renderPage(
+        CHROME,
+        `${origin}/index.html#/?page=adrs&adr=1`,
+    );
+    const document = parseDocument(html);
+
+    assert.equal(
+        document.querySelector("#decision-title h2").textContent,
+        "0001 Record architecture decisions",
+    );
+    assert.ok(
+        document.querySelector("#decision-content").textContent.length > 0,
+        "the decision has no body",
+    );
+    assert.deepEqual(logs, [], "the page logged to the console");
+});
+
 /** The enterprise fixture, a set, as an `--artifact` folder served over HTTP. */
 const artifactSet = once(async () => {
     const out = join(SCRATCH, "artifact-set");

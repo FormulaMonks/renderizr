@@ -958,6 +958,84 @@ test("changing one software system scoped workspace of a set changes only its pa
     assert.deepEqual(changed, ["payments.json"]);
 });
 
+/* ------------------------------------------ --artifact, the docs runtime */
+
+const ARCHITECTURE = join(REPO_ROOT, "architecture/workspace.json");
+/** Renderizr's own workspace: documentation, decisions and the Inter font. */
+const architectureArtifact = once(() =>
+    buildBrandedArtifact("artifact-architecture", ARCHITECTURE),
+);
+/** The fixture workspace, with documentation and decisions of its own. */
+const fixtureArtifact = once(() =>
+    buildArtifact("artifact-fixture", WORKSPACE),
+);
+
+/** The docs runtime's file. */
+const DOCS_RUNTIME = "renderizr-docs.js";
+
+/**
+ * Text only the documentation stack holds: markdown-it's link validator,
+ * highlight.js's class prefix and the decision graph's dot marks.
+ */
+const DOCS_MARKERS = ["markdown-it", "hljs-", 'data-mark="dot"'];
+
+test("--artifact writes no renderizr-docs.js for a workspace with no documentation or decisions, and the manifest lists none", async () => {
+    const { out } = await bigBankArtifact();
+    const { files } = await manifestOf(out);
+
+    assert.ok(!existsSync(join(out, DOCS_RUNTIME)), `${DOCS_RUNTIME} written`);
+    assert.deepEqual(
+        files.filter((file) => file.layer === "docs-runtime"),
+        [],
+        "the manifest lists a docs runtime",
+    );
+});
+
+test("--artifact puts the documentation stack in renderizr-docs.js, under the docs-runtime layer, and nowhere else", async () => {
+    const { out } = await architectureArtifact();
+    const { files } = await manifestOf(out);
+
+    assert.deepEqual(
+        files
+            .filter((file) => file.layer === "docs-runtime")
+            .map((file) => file.path),
+        [DOCS_RUNTIME],
+    );
+    const docs = await readFile(join(out, DOCS_RUNTIME), "utf-8");
+    for (const marker of DOCS_MARKERS) {
+        assert.ok(docs.includes(marker), `${DOCS_RUNTIME} lacks ${marker}`);
+        for (const name of ["renderizr.js", "renderizr-vendor.js"])
+            assert.ok(
+                !(await readFile(join(out, name), "utf-8")).includes(marker),
+                `${name} holds ${marker}`,
+            );
+    }
+});
+
+test("two --artifact renders of different workspaces with documentation write a byte-identical renderizr-docs.js", async () => {
+    const [architecture, fixtureWorkspace] = await Promise.all([
+        architectureArtifact(),
+        fixtureArtifact(),
+    ]);
+
+    assert.ok(
+        (await readFile(join(architecture.out, DOCS_RUNTIME))).equals(
+            await readFile(join(fixtureWorkspace.out, DOCS_RUNTIME)),
+        ),
+        `${DOCS_RUNTIME} differs between the two workspaces`,
+    );
+});
+
+test("--artifact writes the same runtime for a workspace with documentation as for one with none", async () => {
+    const [architecture, empty] = await Promise.all([
+        architectureArtifact(),
+        emptyArtifact(),
+    ]);
+    const runtime = runtimeOf(await manifestOf(empty.out));
+
+    assert.deepEqual(runtimeOf(await manifestOf(architecture.out)), runtime);
+});
+
 /* --------------------------------------------------------------- short lines */
 
 /**
@@ -987,6 +1065,7 @@ test("no file of any build holds a line longer than the limit outside a data URI
         await defaultSingleFile(),
         await emptyArtifact(),
         await bigBankArtifact(),
+        await architectureArtifact(),
     ]) {
         for (const path of await readdir(out, { recursive: true })) {
             if (!/\.(html|js|css|json)$/.test(path)) continue;
@@ -1349,6 +1428,52 @@ test("each file a default --single-file build writes stays within index.html's m
         assert.ok(
             length * 10 <= ARTIFACT_LIMIT_BYTES,
             `${name} is ${length} bytes, more than a tenth of the ${ARTIFACT_LIMIT_BYTES}-byte artifact limit`,
+        );
+    }
+});
+
+/* ---------------------------------------------------- the --artifact budget */
+
+/**
+ * The runtime `--artifact` writes, in bytes: `renderizr.js`,
+ * `renderizr-vendor.js` and `renderizr.css` together, measured once the page
+ * ran on Preact (ADR 28) and the documentation stack moved to
+ * `renderizr-docs.js`. It is the same for every workspace at a version, so
+ * any fixture measures it.
+ */
+const RUNTIME_BYTES = 536_716;
+
+/**
+ * `renderizr-docs.js`, in bytes: markdown-it, highlight.js, the
+ * documentation and decision pages and the decision graph.
+ */
+const DOCS_RUNTIME_BYTES = 219_953;
+
+/** Each part of the `--artifact` runtime, with its measured size. */
+const ARTIFACT_BUDGETS = [
+    {
+        name: "the runtime",
+        files: ["renderizr.js", "renderizr-vendor.js", "renderizr.css"],
+        bytes: RUNTIME_BYTES,
+    },
+    {
+        name: "the docs runtime",
+        files: [DOCS_RUNTIME],
+        bytes: DOCS_RUNTIME_BYTES,
+    },
+];
+
+test("the --artifact runtime and docs runtime each stay within their measured size plus 10%", async () => {
+    const { out } = await fixtureArtifact();
+
+    for (const { name, files, bytes } of ARTIFACT_BUDGETS) {
+        let length = 0;
+        for (const file of files)
+            length += (await readFile(join(out, file))).length;
+        const budget = Math.floor(bytes * 1.1);
+        assert.ok(
+            length <= budget,
+            `${name} (${files.join(", ")}) is ${length} bytes, over the ${budget}-byte budget`,
         );
     }
 });
