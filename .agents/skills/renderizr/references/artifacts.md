@@ -34,7 +34,7 @@ That is a checkable claim, not a promise. See [verifying](./verifying.md).
 
 ## Size
 
-Weigh a render against the page Renderizr ships. The page (the diagram engine, React, the styles and the documentation pages) makes up nearly all of a render, so size stays close to constant as a model grows.
+Weigh a render against the page Renderizr ships. The page (the diagram engine, Preact, the styles and the documentation pages) makes up nearly all of a render, so size stays close to constant as a model grows.
 
 | What you add | Raw | Gzipped |
 |---|---|---|

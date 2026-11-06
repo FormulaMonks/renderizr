@@ -1,3 +1,4 @@
+import { options } from "preact";
 import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -37,6 +38,16 @@ import {
     writeReport,
 } from "./report-script";
 import { ShownListeners } from "./shown";
+
+/*
+ * `react` is Preact's compatibility layer here (ADR 28). Preact runs effects
+ * after the next frame; React runs them as soon as it commits an update from
+ * the page's store. React Flow takes its nodes and edges in an effect, so on
+ * Preact's timing a step, a scheme or a discarded edit reached the canvas a
+ * frame after the page changed it. Running effects right after the commit
+ * keeps the canvas in step with the page, as it was on React.
+ */
+options.requestAnimationFrame = queueMicrotask;
 
 /** Hears that an element or a relationship was activated, and where. */
 type ActivationListener = (id: string, anchor: Anchor) => void;

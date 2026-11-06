@@ -12,6 +12,23 @@ import {
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 /**
+ * Every way the page and React Flow import React, sent to Preact's
+ * compatibility layer (ADR 28). One list for the dev server, edit mode, the
+ * multi-file build and `--single-file`, so all four run the same library.
+ * Anchored, so `@xyflow/react` and `react-flow` keep their own packages.
+ */
+const PREACT_ALIASES = [
+    { find: /^react$/, replacement: "preact/compat" },
+    { find: /^react-dom$/, replacement: "preact/compat" },
+    { find: /^react-dom\/client$/, replacement: "preact/compat/client" },
+    { find: /^react\/jsx-runtime$/, replacement: "preact/compat/jsx-runtime" },
+    {
+        find: /^react\/jsx-dev-runtime$/,
+        replacement: "preact/compat/jsx-dev-runtime",
+    },
+];
+
+/**
  * The version stamped into the rendered site's footer.
  *
  * Read from package.json rather than hard-coded, so the release that bumps the
@@ -92,14 +109,22 @@ export function createConfig({
                 output: asSingleFile ? { inlineDynamicImports: true } : {},
             },
         },
+        resolve: {
+            alias: PREACT_ALIASES,
+            // pnpm gives React Flow no `preact` of its own to resolve the
+            // aliases against, so Vite resolves it from the package root,
+            // which also keeps the page to one copy of Preact.
+            dedupe: ["preact"],
+        },
         // The React Flow island is the one place JSX is written.
         esbuild: { jsx: "automatic" },
         // esbuild injects the JSX runtime, so Vite's scan never sees it and
         // finds it only on first request. Vite skips that late discovery for
         // an importer under node_modules, which is where `src` sits when
-        // `npx` installs the package, and would serve React's CommonJS file
-        // as is. Naming it here pre-bundles it wherever the package lives.
-        optimizeDeps: { include: ["react/jsx-dev-runtime"] },
+        // `npx` installs the package, and would serve the file as is, a
+        // second copy of Preact beside the pre-bundled one React Flow uses.
+        // Naming it here pre-bundles it wherever the package lives.
+        optimizeDeps: { include: ["preact/compat/jsx-dev-runtime"] },
         define: {
             __RENDERIZR_LOGO__: JSON.stringify(logo),
             __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),

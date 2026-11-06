@@ -1,6 +1,6 @@
 # Licensing and attribution
 
-Renderizr is MIT-licensed. The pages it produces are not purely Renderizr: every rendered `index.html` is a bundle of minified third-party code (React, React Flow, Dagre, highlight.js, markdown-it and two dozen others under MIT, ISC and BSD terms) and a model layer derived from Structurizr's Apache-2.0 code. This page explains who owes attribution to whom, and the routes by which that attribution can reach the page a reader actually opens.
+Renderizr is MIT-licensed. The pages it produces are not purely Renderizr: every rendered `index.html` is a bundle of minified third-party code (Preact, React Flow, Dagre, highlight.js, markdown-it and two dozen others under MIT, ISC and BSD terms) and a model layer derived from Structurizr's Apache-2.0 code. This page explains who owes attribution to whom, and the routes by which that attribution can reach the page a reader actually opens.
 
 The component-by-component list, with versions, exact copyright lines and full license texts, is [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md). The short-form block meant for pasting is [`NOTICE`](../NOTICE). This page is about plumbing, not inventory.
 
@@ -57,7 +57,7 @@ Add a section to your workspace JSON:
         "filename": "colophon.md",
         "order": 99,
         "format": "Markdown",
-        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr (portions derived from): Copyright Structurizr, Apache-2.0\n- React: Copyright (c) Meta Platforms, Inc. and affiliates, MIT\n- React Flow: Copyright (c) 2019-2025 webkid GmbH, MIT\n- Bootstrap Icons: Copyright (c) 2019-2024 The Bootstrap Authors, MIT\n- highlight.js: Copyright (c) 2006, Ivan Sagalaev, BSD-3-Clause\n"
+        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr (portions derived from): Copyright Structurizr, Apache-2.0\n- Preact: Copyright (c) 2015-present Jason Miller, MIT\n- React Flow: Copyright (c) 2019-2025 webkid GmbH, MIT\n- Bootstrap Icons: Copyright (c) 2019-2024 The Bootstrap Authors, MIT\n- highlight.js: Copyright (c) 2006, Ivan Sagalaev, BSD-3-Clause\n"
       }
     ]
   }
