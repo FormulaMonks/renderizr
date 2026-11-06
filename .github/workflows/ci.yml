@@ -9,8 +9,9 @@
 #           Node, and guards the product's core promise: `--single-file` output
 #           that makes no network requests. It also runs the React Flow
 #           engine's acceptance harness over every view of the acceptance set
-#   consumer  the >=20 floor, via npm and production dependencies only — what
-#             `npx github:FormulaMonks/renderizr` actually does
+#   consumer  the >=22.13 floor, on Node 22.13 exactly, via npm and production
+#             dependencies only — what `npx github:FormulaMonks/renderizr`
+#             actually does
 #   structurizr  Structurizr's own tools, pinned: the committed acceptance
 #                fixture matches what `pnpm fixtures:acceptance` writes, and
 #                architecture/workspace.json matches what
@@ -21,22 +22,24 @@
 # every acceptance view for people to review, on pull requests that touch the
 # engine.
 #
-# Node matrix: two different contracts, proved two different ways.
+# Node matrix: one floor, proved two ways (ADR 27).
 #
-# `engines.node` says ">=20" and README.md badges it, but that is a promise to
-# people who *run* Renderizr — `npx github:FormulaMonks/renderizr`, which is npm
-# installing the runtime dependencies and executing scripts/build.js. It is not
-# a promise that the repository can be developed on Node 20, and it cannot be:
-# pnpm 11 requires Node >=22.13 (it imports `node:sqlite`), so every pnpm-based
-# job dies at setup on 20 before a single test runs.
+# `engines.node` says ">=22.13" and README.md badges it. That is the floor for
+# people who *run* Renderizr — `npx github:FormulaMonks/renderizr`, which is
+# npm installing the runtime dependencies and executing scripts/build.js — and
+# for people who develop it: pnpm 11 requires Node >=22.13 (it imports
+# `node:sqlite`).
 #
-# So the pnpm jobs — static, test, e2e — run on 22 and 24, and a separate
-# `consumer` job proves the >=20 floor the way a user actually meets it: npm,
-# production dependencies only, no pnpm and no dev toolchain. If that job ever
-# fails, `engines.node` is a lie and the floor has to move.
+# The pnpm jobs — test, e2e — run on 22, 24 and 26, which means the newest
+# release of each line. A separate `consumer` job proves the floor itself, on
+# 22.13 exactly, the way a user actually meets it: npm, production
+# dependencies only, no pnpm and no dev toolchain. If that job ever fails,
+# `engines.node` is a lie and the floor has to move.
 #
-# .nvmrc/.mise.toml pin 24 for development; that is the toolchain, not the
-# supported range.
+# .nvmrc/.mise.toml pin 26 for development; that is the toolchain, not the
+# supported range. Every job that reads `node-version-file: .nvmrc` (static,
+# structurizr, the contact sheet, and the pages and release workflows) runs on
+# it.
 #
 # test/__fixtures__/ holds byte-for-byte copies of Structurizr's Big Bank plc,
 # groups and Amazon Web Services workspaces, so the end-to-end render and the
@@ -167,7 +170,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["22", "24"]
+        node: ["22", "24", "26"]
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -198,7 +201,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["22", "24"]
+        node: ["22", "24", "26"]
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -316,7 +319,7 @@ jobs:
         run: node --test test/acceptance.test.js
 
       - name: Upload the rendered example
-        if: matrix.node == '24'
+        if: matrix.node == '26'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: big-bank-plc-single-file
@@ -472,7 +475,8 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-  # The `engines.node: ">=20"` floor, proved the way a user meets it.
+  # The `engines.node: ">=22.13"` floor, proved the way a user meets it: on
+  # Node 22.13 exactly, the lowest Node a user may run.
   #
   # Deliberately uses npm and not pnpm, and installs production dependencies
   # only: that is what `npx github:FormulaMonks/renderizr` does. No lockfile, no
@@ -482,7 +486,7 @@ jobs:
   # The fixture is committed, so this job needs no network, which a user on a
   # locked-down machine will not have either.
   consumer:
-    name: consumer (node 20, npm)
+    name: consumer (node 22.13, npm)
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -490,10 +494,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Node 20
+      - name: Set up Node 22.13
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "20"
+          node-version: "22.13"
 
       - name: Install runtime dependencies only, with npm
         run: npm install --omit=dev --no-audit --no-fund

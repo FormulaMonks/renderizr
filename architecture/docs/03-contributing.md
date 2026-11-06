@@ -6,11 +6,11 @@ This section takes you from a fresh clone to a merged pull request. Bug reports,
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| Node | 22.13 or newer | pnpm 11 needs it. Renderizr itself runs on Node 20 or newer, and CI checks that floor with npm in a separate job |
+| Node | 22.13 or newer | The same floor Renderizr sets for everyone who runs it. pnpm 11 needs it too, because it imports `node:sqlite`, and CI checks the floor with npm in a separate job |
 | pnpm | 11 | The lockfile is `pnpm-lock.yaml`, and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn drift the lockfile |
 | git | any | To clone the repository |
 
-Development runs on Node 24, which `.mise.toml` pins and `mise.lock` resolves. With [mise](https://mise.jdx.dev) installed, `mise install` in the repository root gets you the exact Node and pnpm the maintainers use. Any Node and pnpm that meet the table work too; nothing in the build reads mise.
+Development runs on Node 26, which `.mise.toml` and `.nvmrc` pin and `mise.lock` resolves. With [mise](https://mise.jdx.dev) installed, `mise install` in the repository root gets you the exact Node and pnpm the maintainers use. Any Node and pnpm that meet the table work too; nothing in the build reads mise.
 
 ## Get the code
 
@@ -74,7 +74,7 @@ Then build something real, as [Local development](04-reference.md#local-developm
 
 ## Reviews
 
-CI runs lint, type checks, the test suite on Node 22 and 24, an npm install and build on Node 20, the end-to-end render and the pull request title check; CodeQL runs too. A maintainer reviews the pull request, usually within a week. Reviewers label each comment:
+CI runs lint, type checks, the test suite and the end-to-end render on Node 22, 24 and 26, an npm install and build on Node 22.13 and the pull request title check; CodeQL runs too. A maintainer reviews the pull request, usually within a week. Reviewers label each comment:
 
 - **blocking**: change it before merge.
 - **suggestion**: take it or explain why not; either answer merges.

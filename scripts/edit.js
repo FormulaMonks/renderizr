@@ -23,7 +23,7 @@ import { WorkspaceWriter } from "./workspace-writer.js";
 /**
  * `renderizr edit` (spec 4, ADR 15): which workspace a path opens, what the
  * terminal says about it, and the local Vite server that serves the site in
- * edit mode. `scripts/cli.js` parses the arguments and `scripts/build.js`
+ * edit mode. `scripts/cli.js` parses the arguments and `scripts/main.js`
  * dispatches to it; `scripts/edit-plugin.js` is the server's own plugin.
  */
 
@@ -152,9 +152,9 @@ export function sessionNotices(session) {
  * branding at start, from the flags and the workspace it opens, and an
  * invalid workspace value stops it before the server starts.
  *
- * Resolves with the Vite `server`, the `url` to open, the `token`, the DSL
- * `pipeline` or `null`, the branding `notices` to print, and a `close` that
- * stops the server.
+ * Resolves, once Vite's watcher watches the workspace, with the Vite
+ * `server`, the `url` to open, the `token`, the DSL `pipeline` or `null`, the
+ * branding `notices` to print, and a `close` that stops the server.
  */
 export async function startEditServer({
     session,
@@ -204,21 +204,22 @@ export async function startEditServer({
     const token = randomBytes(24).toString("base64url");
     const entry = `/?token=${token}`;
 
+    const plugin = editMode({
+        workspace: session.json,
+        branding: {
+            flags: branding,
+            properties: brandingProperties(workspace),
+        },
+        token,
+        agent,
+        writer,
+        pipeline,
+    });
     const server = await createServer({
         ...createConfig({
             branding: brandingOf(loadedBranding),
             mode: "edit",
-            editMode: editMode({
-                workspace: session.json,
-                branding: {
-                    flags: branding,
-                    properties: brandingProperties(workspace),
-                },
-                token,
-                agent,
-                writer,
-                pipeline,
-            }),
+            editMode: plugin,
         }),
         logLevel,
         // The terminal keeps the hints printed before the server started.
@@ -233,6 +234,8 @@ export async function startEditServer({
         },
     });
     await server.listen();
+    // Only a change made once the watcher is set up reaches the page.
+    await plugin.watching();
 
     const { port: listening } = server.httpServer.address();
     return {

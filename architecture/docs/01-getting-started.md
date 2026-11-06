@@ -10,7 +10,7 @@ Renderizr renders a workspace and leaves its definition to you: the model, the v
 
 ## Requirements
 
-- **Node 20 or newer.** The build checks the version before anything else and stops with a clear message, because `npx` runs whatever Node comes first on the `PATH`.
+- **Node 22.13 or newer.** The build checks the version before anything else and stops with a clear message, because `npx` runs whatever Node comes first on the `PATH`.
 - **A workspace in JSON.** [structurizr-cli](https://docs.structurizr.com/cli) exports one from your DSL, and the Structurizr [server API](https://docs.structurizr.com/commands) hands one back. Renderizr never parses DSL.
 - **Network access at build time**, only when the workspace, the logo or the font is remote, or when the workspace references themes or icons by URL. The rendered output never needs it.
 
