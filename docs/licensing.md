@@ -84,7 +84,7 @@ That prints one line: a ready-to-paste JSON string value for `content`, fenced s
 
 — outer quotes included, because the quoted string *is* the JSON value. If you generate the workspace from DSL or from a script, do the same read-and-inject there rather than maintaining a second copy by hand.
 
-The result is a "Colophon" entry in the Documentation navigation, rendered like any other documentation page — verified against a `--single-file` build of the Big Bank plc example. Because the section lives in the workspace, it survives every build flag, including `--single-file` and `artifact.html`.
+The result is a "Colophon" entry in the Documentation navigation, rendered like any other documentation page — verified against a `--single-file` build of the Big Bank plc example. Because the section lives in the workspace, it survives every build flag, including `--single-file` and `--artifact`.
 
 If you would rather not give attribution a whole page, the same content works appended to the end of an existing section.
 

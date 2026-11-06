@@ -16,7 +16,7 @@ Four things a reader needs to know before trusting the list. **None of them is a
 
 Renderizr minifies through esbuild and Rollup with no legal-comment preservation configured. Verified by building the Big Bank plc example and searching the output: **no license banner or copyright line of any component listed below survives**.
 
-The practical consequence: **a Renderizr-generated `index.html` or `artifact.html`, distributed on its own, does not carry the copyright and permission notices that MIT, ISC, BSD-2-Clause and BSD-3-Clause require.** Handing someone the HTML file and nothing else is a compliance gap, not a technicality.
+The practical consequence: **a Renderizr-generated page, distributed on its own, does not carry the copyright and permission notices that MIT, ISC, BSD-2-Clause and BSD-3-Clause require.** Handing someone the HTML file and nothing else is a compliance gap, not a technicality.
 
 The fix is attribution that reaches the reader of the page rather than only the reader of this repository. [`docs/licensing.md`](https://github.com/FormulaMonks/renderizr/blob/main/docs/licensing.md) describes the routes, from the zero-effort one (ship `NOTICE` next to the output) to the thorough one (a colophon inside the page). That one link is absolute rather than repo-relative on purpose: `docs/` is not in `package.json`'s `files` array, so it is the one document referenced here that an installed copy of this package does not contain. See [finding 4](#4-the-release-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
 

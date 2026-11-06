@@ -21,8 +21,9 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | Flag | Effect |
 | --- | --- |
 | `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. The build empties it first |
-| `--single-file` | Emit one self-contained `index.html` with every asset inlined, plus `artifact.html` |
-| `--base <path>` | Base public path for the multi-file build. The default is empty, which emits relative URLs (`./assets/…`) that work from any folder. Set it to a path such as `/renderizr/` when the page must reference its assets absolutely |
+| `--single-file` | Emit one self-contained `index.html` with every asset inlined |
+| `--artifact` | Emit a folder to publish as a [Claude artifact](#claude-artifact), with a `manifest.json` that lists each file. It fails with `--single-file` |
+| `--base <path>` | Base public path for the multi-file build. The default is empty, which emits relative URLs (`./assets/…`) that work from any folder. Set it to a path such as `/renderizr/` when the page must reference its assets absolutely. It means nothing with `--single-file` or `--artifact` |
 | `--logo <path\|url>` | Image at the top left of the header: a path relative to the current directory, a URL or a `data:` URI. The build fetches it, minifies it when it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes, and rejects an SVG that holds a script |
 | `--logo-alt <text>` | Alt text for the logo. Default empty. When it matches the workspace name, the logo stands in for the title in the header, so a logo that spells the name does not repeat it |
 | `--logo-href <url>` | Wraps the logo in a link |
@@ -124,7 +125,7 @@ In a [set](#render-a-set), each value comes from its flag, then the workspace's 
 
 ## Default output
 
-Without `--single-file`, the build writes `index.html`, an `assets/` folder and a favicon, and for a set, one JSON file per software system scoped workspace. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
+Without `--single-file` or `--artifact`, the build writes `index.html`, an `assets/` folder and a favicon, and for a set, one JSON file per software system scoped workspace. The files use relative URLs, so the site works from any folder of a static host such as GitHub Pages or S3. Use `--base` when a host needs absolute asset paths.
 
 The footer of every page says what is on screen and which Renderizr built it: a C4 view is in C4 notation and drawn with React Flow, a Mermaid diagram comes from Mermaid source and is drawn with React Flow, a picture names only the workspace, and the documentation and decisions pages say whose they are.
 
@@ -136,16 +137,35 @@ The footer of every page says what is on screen and which Renderizr built it: a 
 npx github:FormulaMonks/renderizr ./workspace.json --single-file
 ```
 
-The build writes two files:
-
-| File | Use it for |
-| --- | --- |
-| `index.html` | Anywhere a URL can point: GitHub Pages, S3, an email attachment, or straight off your disk over `file://` |
-| `artifact.html` | Hosts that supply their own document scaffolding, such as a Claude artifact. It holds the same page without its own `<html>`, `<head>` or `<body>` |
+The build writes one file, `index.html`, that works anywhere a URL can point: GitHub Pages, S3, an email attachment, or straight off your disk over `file://`.
 
 Pick the single file when a folder of files is hard to hand over. One file goes in a chat message, an email, a wiki attachment or a bucket with no build step, and it opens off a USB stick on a machine with no network.
 
 The build fetches themes, element icons and a logo referenced by URL, and folds them all in. The page never reaches for the network, so it also works under a strict content security policy.
+
+## Claude artifact
+
+`--artifact` writes the page as a folder to publish as a Claude artifact. It splits the page into files by how often each one changes, so an agent that publishes it reads the code once per Renderizr version and sends only the workspace after that:
+
+```bash
+npx github:FormulaMonks/renderizr ./workspace.json --artifact
+```
+
+| File | What it holds |
+| --- | --- |
+| `index.html` | The shell: the page that loads the rest, with the workspace's name as its title. It has no `<html>`, `<head>` or `<body>`, since the artifact host supplies the document |
+| `renderizr.js`, `renderizr-vendor.js`, `renderizr.css` | The runtime, the same byte for byte for every workspace at a Renderizr version |
+| `renderizr-docs.js` | The documentation runtime: the documentation and decisions pages. The build leaves it out when no workspace has documentation or decisions |
+| `workspace.json` | The workspace payload of the landscape scoped workspace, or of a lone workspace, with its branding |
+| `<slug>.json` | The workspace payload of each other workspace of a [set](#render-a-set) |
+| `branding.css` | The embedded font faces, when the build embeds a font |
+| `manifest.json` | The manifest: every file with its layer, size and hash, the Renderizr version that built the runtime, and the build date |
+
+Publish the whole folder, the manifest included: the page reads the build date from it. The page loads only files of its own folder, by relative paths, and never reaches for the network, so it opens under the artifact viewer's content security policy as the single file does. A browser refuses module scripts over `file://`, so serve the folder to open it locally.
+
+The runtime makes up the bulk of a render with no documentation. The documentation runtime adds about two fifths of the runtime's weight, and a workspace payload grows with the model and its documentation. The whole folder weighs about what the single file does.
+
+The [agent skill](#use-renderizr-from-an-ai-agent) publishes the folder for you, copies the runtime from an artifact of the same version instead of sending it again, and sends only the files whose hash changed when the workspace changes.
 
 ## Perspectives
 
@@ -203,7 +223,7 @@ The file takes the workspace's name and the view's key in kebab-case, then the s
 
 In edit mode, an export shows the layout as you left it, saved or not, without the selection, guides or canvas fill.
 
-Inside a Claude artifact, the page saves an export through the artifact viewer's `downloads` capability, which asks the reader to confirm each file. A save the reader declines ends quietly. An artifact published without `downloads` can't save a file, so its toolbar shows no export buttons: declare `downloads` when you publish `artifact.html`.
+Inside a Claude artifact, the page saves an export through the artifact viewer's `downloads` capability, which asks the reader to confirm each file. A save the reader declines ends quietly. An artifact published without `downloads` can't save a file, so its toolbar shows no export buttons: declare `downloads` when you publish the [artifact](#claude-artifact).
 
 An element icon given as an `http(s)` URL stays blank in an export. A build embeds every icon in the page, so this only happens on the dev server, which leaves such icons as URLs.
 
@@ -406,7 +426,7 @@ Edit mode saves 5 seconds after your last change, and at once on Cmd/Ctrl+S. A d
 | `--port <n>` | Port for the local server. Default `7341`, or the next free one when that one is taken |
 | `--open` | Also open the URL in your browser. Without it, edit mode only prints the URL |
 
-It refuses `--out`, `--single-file`, `--base` and `--engine`: edit mode writes no output and always draws with the React Flow engine. `renderizr edit --help` lists the flags.
+It refuses `--out`, `--single-file`, `--artifact`, `--base` and `--engine`: edit mode writes no output and always draws with the React Flow engine. `renderizr edit --help` lists the flags.
 
 The server listens on `127.0.0.1` only, so nothing but your machine reaches it, and every save carries a token that only the printed URL holds.
 
@@ -461,7 +481,7 @@ Renderizr ships an agent skill, so a coding agent can render a workspace for you
 npx skills add formulamonks/renderizr
 ```
 
-The skill teaches the agent the command, which of the two `--single-file` outputs to hand over, how to get JSON out of a DSL workspace, and how to check that the result is self-contained before passing it on. Ask for "an artifact of the architecture" and you get one back.
+The skill teaches the agent the command, how to publish an `--artifact` folder as a Claude artifact while reading as little as it can, how to get JSON out of a DSL workspace, and how to check that the result is self-contained before passing it on. Ask for "an artifact of the architecture" and you get one back.
 
 It pairs with [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/), whose skill authors a workspace for this one to render: `npx skills add formulamonks/scaffoldizr`. The skill lives in [`.agents/skills/renderizr`](https://github.com/FormulaMonks/renderizr/tree/main/.agents/skills/renderizr) if you want to read it first.
 
