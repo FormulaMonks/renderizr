@@ -66,17 +66,17 @@ export const version = (() => {
  * the workspace and the set from the last set that loaded, in place of the
  * compiled-in ones, and reload them on every change (spec 264).
  *
- * `artifact` writes the page as a folder for a Claude artifact
- * (`scripts/artifact.js`): the page loads its workspace from
- * `workspace.json`, so nothing specific to one workspace is compiled into
- * the runtime, and `base` has no meaning.
+ * `output` says how the build writes the page: `"site"`, the multi-file
+ * build; `"single-file"`, one self-contained `index.html`; or `"artifact"`,
+ * a folder for a Claude artifact (`scripts/artifact.js`), whose page loads
+ * its workspace from `workspace.json`, so nothing specific to one workspace
+ * is compiled into the runtime, and `base` has no meaning.
  */
 export function createConfig({
     workspace,
     branding = NO_BRANDING,
     set = null,
-    singleFile: asSingleFile = false,
-    artifact = false,
+    output = "site",
     out = "structurizr-output",
     base = "",
     engineReport = false,
@@ -87,8 +87,14 @@ export function createConfig({
     const outDir = resolve(process.cwd(), out);
     const { logo, font, primaryColor } = branding;
     const buildDate = new Date().toISOString();
-    /** `value` as a define; under `--artifact`, only the payload holds it. */
-    const compiled = (value) => JSON.stringify(artifact ? null : value);
+    const asSingleFile = output === "single-file";
+    const artifact = output === "artifact";
+    /**
+     * `value` as a define, or `null` under `--artifact`, where only the
+     * payloads and the manifest hold it.
+     */
+    const blankedUnderArtifact = (value) =>
+        JSON.stringify(artifact ? null : value);
 
     return {
         root,
@@ -156,15 +162,15 @@ export function createConfig({
         // Naming it here pre-bundles it wherever the package lives.
         optimizeDeps: { include: ["preact/compat/jsx-dev-runtime"] },
         define: {
-            __RENDERIZR_LOGO__: compiled(logo),
-            __RENDERIZR_FONT__: compiled(font ? font.family : null),
+            __RENDERIZR_LOGO__: blankedUnderArtifact(logo),
+            __RENDERIZR_FONT__: blankedUnderArtifact(font ? font.family : null),
             __RENDERIZR_VERSION__: JSON.stringify(version),
             // The export's title block gives it when the workspace holds no
             // `lastModifiedDate`.
-            __RENDERIZR_BUILD_DATE__: compiled(buildDate),
+            __RENDERIZR_BUILD_DATE__: blankedUnderArtifact(buildDate),
             // A silent Mermaid source fills its nodes with it, and export
             // needs it as a literal rather than the stylesheet's variable.
-            __RENDERIZR_PRIMARY_COLOR__: compiled(primaryColor),
+            __RENDERIZR_PRIMARY_COLOR__: blankedUnderArtifact(primaryColor),
             // The engine's geometry report, for the acceptance harness only
             // (spec 15.1); `false` compiles the writer out of the bundle.
             __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),

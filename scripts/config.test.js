@@ -141,7 +141,7 @@ test("the dev server, edit mode and every build send React to Preact", () => {
         build: createConfig({ workspace: WORKSPACE }),
         "--single-file": createConfig({
             workspace: WORKSPACE,
-            singleFile: true,
+            output: "single-file",
         }),
         "pnpm dev": createConfig({
             workspace: WORKSPACE,
@@ -256,7 +256,7 @@ test("the multi-file build serves the public directory and splits assets", () =>
 test("--artifact names the runtime files, inlines assets and loads the workspace in place of the compiled-in one", () => {
     const config = createConfig({
         workspace: WORKSPACE,
-        artifact: true,
+        output: "artifact",
         base: "/docs/",
     });
     const { output } = config.build.rollupOptions;
@@ -277,7 +277,7 @@ test("--artifact names the runtime files, inlines assets and loads the workspace
 test("--artifact compiles in no value that changes from one workspace or build to the next", () => {
     const { define } = createConfig({
         workspace: WORKSPACE,
-        artifact: true,
+        output: "artifact",
         branding: {
             logo: { src: "data:image/svg+xml,x", alt: "Acme" },
             font: { family: "Inter", css: null },
@@ -295,7 +295,10 @@ test("--artifact compiles in no value that changes from one workspace or build t
 });
 
 test("the single-file build inlines everything and drops the public directory", () => {
-    const config = createConfig({ workspace: WORKSPACE, singleFile: true });
+    const config = createConfig({
+        workspace: WORKSPACE,
+        output: "single-file",
+    });
 
     assert.equal(config.publicDir, false);
     assert.equal(config.build.assetsInlineLimit, Number.MAX_SAFE_INTEGER);
@@ -307,8 +310,8 @@ test("the single-file build inlines everything and drops the public directory", 
 });
 
 test("the build keeps one stylesheet and preloads no modules", () => {
-    for (const singleFile of [false, true]) {
-        const config = createConfig({ workspace: WORKSPACE, singleFile });
+    for (const output of ["site", "single-file"]) {
+        const config = createConfig({ workspace: WORKSPACE, output });
         assert.equal(config.build.cssCodeSplit, false);
         assert.equal(config.build.modulePreload, false);
     }

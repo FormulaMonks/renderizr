@@ -167,8 +167,11 @@ export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
         workspaces: positionals,
         out: values.out,
         base: values.base,
-        singleFile: values["single-file"],
-        artifact: values.artifact,
+        output: values.artifact
+            ? "artifact"
+            : values["single-file"]
+              ? "single-file"
+              : "site",
         ...branding(values),
     };
 }
