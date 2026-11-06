@@ -193,10 +193,24 @@ export function shellOf(html) {
         ...inlineScripts,
         `<link rel="stylesheet" href="./${STYLESHEET_FILE}">`,
         ...(head.match(STYLE_ELEMENT) ?? []),
-        body.replace(SCRIPT_ELEMENT, "").trim(),
+        withoutScripts(body).trim(),
         `<script type="module" src="./${ENTRY_FILE}"></script>`,
     ];
     return `${parts.filter(Boolean).join("\n")}\n`;
+}
+
+/**
+ * `html` with every script element taken out. One pass can join the halves
+ * of a nested tag into a new one, so it repeats until nothing changes.
+ */
+function withoutScripts(html) {
+    let previous;
+    let current = html;
+    do {
+        previous = current;
+        current = current.replace(SCRIPT_ELEMENT, "");
+    } while (current !== previous);
+    return current;
 }
 
 /* ---------------------------------------------------------------- plugins */
