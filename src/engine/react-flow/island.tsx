@@ -937,6 +937,7 @@ function BoxElement({ data }: NodeProps<BoxNode>) {
                 <g opacity={data.opacity}>
                     {data.parts.map((part, index) => (
                         <path
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a shape's parts are a fixed list, drawn back to front
                             key={index}
                             data-paint={part.paint}
                             d={part.d}
@@ -1010,6 +1011,7 @@ function TextLines({
             }}
         >
             {block.lines.map((line, index) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: wrapped lines are a fixed list, top to bottom
                 <div key={index}>{line}</div>
             ))}
         </div>
@@ -1028,6 +1030,7 @@ function TextLines({
  */
 function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
     const { band, accessibleName } = data;
+    // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
     const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
     // Its label band is what activates the element it is drawn for.
     const target = useTargetProps(
@@ -1230,6 +1233,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
     );
     // In editing every edge takes the pointer, to be selected, to take a
     // vertex and to have its label dragged (spec 12.1, 12.3, 12.7).
+    // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
     const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
     if (!data) return null;
     const {
@@ -1364,6 +1368,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                                     }}
                                 >
                                     {labelLines.description.map((line, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
                                         <div key={i}>{line}</div>
                                     ))}
                                 </div>
@@ -1380,6 +1385,7 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                                     }}
                                 >
                                     {labelLines.technology.map((line, i) => (
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and never reorder
                                         <div key={i}>{line}</div>
                                     ))}
                                 </div>
@@ -1826,6 +1832,7 @@ function EdgeMarks({
                     line.vertices.map((vertex, index) => (
                         // biome-ignore lint/a11y/noStaticElementInteractions: vertex handles are pointer-only; the keyboard nudges the selection instead
                         <circle
+                            // biome-ignore lint/suspicious/noArrayIndexKey: a vertex is its place in the route
                             key={`${line.key}:${index}`}
                             data-vertex-handle={`${line.key}:${index}`}
                             cx={vertex.x}
@@ -2303,6 +2310,7 @@ function Canvas({
         () => whenFontLoads(document.fonts, font, () => setFontsLoaded(true)),
         [font],
     );
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a new measure once the faces load is what re-derives the boundaries
     const measure = useMemo(
         () => canvasMeasure(document, family),
         [family, fontsLoaded],
@@ -2321,6 +2329,7 @@ function Canvas({
     // hooks, and builds call none of edit mode's (ADR 15).
     const editable =
         __RENDERIZR_EDIT_MODE__ &&
+        // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
         useMemo(() => {
             if (!state.editing) return false;
             const view = model.findViewByKey(viewKey);
@@ -2347,14 +2356,17 @@ function Canvas({
      * every render calls the same hooks, and builds call none (ADR 15).
      */
     const [drag, setDrag] = __RENDERIZR_EDIT_MODE__
-        ? useState<Frame | null>(null)
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useState<Frame | null>(null)
         : [null, () => {}];
     const dragging = __RENDERIZR_EDIT_MODE__
-        ? useRef(drag)
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useRef(drag)
         : { current: null as Frame | null };
     if (__RENDERIZR_EDIT_MODE__) dragging.current = drag;
     const framed = __RENDERIZR_EDIT_MODE__
-        ? useMemo(
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useMemo(
               () =>
                   drag && drag.key === viewKey
                       ? buildGraph(
@@ -2384,6 +2396,7 @@ function Canvas({
     const selection = __RENDERIZR_EDIT_MODE__
         ? // The flag is a build-time constant, so every render calls the
           // same hooks, and builds call none (ADR 15).
+          // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
           useEditSelection(
               viewKey,
               editable,
@@ -2499,6 +2512,7 @@ function Canvas({
         },
         [toggleEntity],
     );
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a flip draws a new graph, which is when the toggle is back
     useEffect(() => {
         const item = refocus.current;
         if (!item) return;
@@ -2537,9 +2551,11 @@ function Canvas({
     // (spec 10.1, 13, 17.2). The flag is a build-time constant, so builds
     // call neither hook (ADR 15).
     if (__RENDERIZR_EDIT_MODE__)
+        // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
         useKeepViewport(viewKey, edited, model, moved, painted);
     const editKey = __RENDERIZR_EDIT_MODE__
-        ? useEditKeys({
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useEditKeys({
               wrapper,
               commands,
               view:
@@ -2892,7 +2908,8 @@ function Canvas({
      * 10.2), or null.
      */
     const toggling = __RENDERIZR_EDIT_MODE__
-        ? useRef<{ id: string; x: number; y: number } | null>(null)
+        ? // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
+          useRef<{ id: string; x: number; y: number } | null>(null)
         : null;
 
     const itemElement = (item: FocusRef | undefined) =>
