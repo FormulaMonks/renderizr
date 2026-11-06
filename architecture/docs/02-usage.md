@@ -23,7 +23,7 @@ npx github:FormulaMonks/renderizr ./workspace.json \
 | `-o, --out <dir>` | Output directory, relative to the current directory. Default `structurizr-output`. The build empties it first |
 | `--single-file` | Emit one self-contained `index.html` with every asset inlined |
 | `--artifact` | Emit a folder to publish as a [Claude artifact](#claude-artifact), with a `manifest.json` that lists each file. It fails with `--single-file` |
-| `--base <path>` | Base public path for the multi-file build. The default is empty, which emits relative URLs (`./assets/…`) that work from any folder. Set it to a path such as `/renderizr/` when the page must reference its assets absolutely. It means nothing with `--single-file` or `--artifact` |
+| `--base <path>` | Base public path for the multi-file build. The default is empty, which emits relative URLs (`./assets/…`) that work from any folder. Set it to a path such as `/renderizr/` when the page must reference its assets absolutely. It means nothing with `--single-file` and fails with `--artifact` |
 | `--logo <path\|url>` | Image at the top left of the header: a path relative to the current directory, a URL or a `data:` URI. The build fetches it, minifies it when it is SVG, and embeds it as a data URI. It recognizes PNG, JPEG, GIF, WebP and SVG from their bytes, and rejects an SVG that holds a script |
 | `--logo-alt <text>` | Alt text for the logo. Default empty. When it matches the workspace name, the logo stands in for the title in the header, so a logo that spells the name does not repeat it |
 | `--logo-href <url>` | Wraps the logo in a link |

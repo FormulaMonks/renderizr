@@ -57,7 +57,6 @@ test("the defaults in OPTIONS are the ones the usage text promises", () => {
     assert.equal(OPTIONS["font-subsets"].default, "latin");
     assert.equal(OPTIONS["font-italic"].default, false);
     assert.equal(OPTIONS["single-file"].default, false);
-    assert.equal(OPTIONS.base.default, "");
     assert.equal(OPTIONS.help.short, "h");
 });
 
@@ -328,6 +327,17 @@ test("--artifact with --single-file is a usage error", async () => {
     await rejects(
         ["w.json", "--artifact", "--single-file"],
         /Choose one of --artifact and --single-file/,
+    );
+});
+
+test("--artifact with --base is a usage error, an empty --base too", async () => {
+    await rejects(
+        ["w.json", "--artifact", "--base", "/docs/"],
+        /--artifact takes no --base/,
+    );
+    await rejects(
+        ["w.json", "--base=", "--artifact"],
+        /--artifact takes no --base/,
     );
 });
 

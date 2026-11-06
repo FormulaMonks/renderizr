@@ -15,7 +15,8 @@ export const OPTIONS = {
     "single-file": { type: "boolean", default: false },
     artifact: { type: "boolean", default: false },
     out: { type: "string", short: "o", default: "structurizr-output" },
-    base: { type: "string", default: "" },
+    // No default: `--artifact` refuses a `--base` the run gave, even "".
+    base: { type: "string" },
     help: { type: "boolean", short: "h", default: false },
 };
 
@@ -49,7 +50,7 @@ Options
                            workspace, workspace.json and a manifest.json that
                            lists each file's layer, size and hash
       --base <path>        Base public path for the multi-file build (default: "").
-                           No meaning with --single-file or --artifact
+                           No meaning with --single-file; fails with --artifact
 
   --logo <path|url>        Image shown top-left in the header. Embedded as a data URI
   --logo-alt <text>        Alt text for the logo. When it matches the workspace
@@ -156,6 +157,14 @@ export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
         process.exit(1);
     }
 
+    if (values.artifact && values.base !== undefined) {
+        process.stderr.write(
+            "--artifact takes no --base: the artifact host serves every file next to the page.\n\n",
+        );
+        usage(process.stderr);
+        process.exit(1);
+    }
+
     if (positionals.length === 0) {
         process.stderr.write("Missing the workspace to render.\n\n");
         usage(process.stderr);
@@ -166,7 +175,7 @@ export function parseCliArgs(args = withoutSeparator(process.argv.slice(2))) {
         // The set loader (`scripts/workspace-set.js`) reads them (ADR 26).
         workspaces: positionals,
         out: values.out,
-        base: values.base,
+        base: values.base ?? "",
         output: values.artifact
             ? "artifact"
             : values["single-file"]
