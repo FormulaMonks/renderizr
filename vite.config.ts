@@ -55,7 +55,7 @@ export default async () => {
             workspace,
             branding,
             devSet: dev.plugins,
-            singleFile,
+            output: singleFile ? "single-file" : "site",
             mode: "serve",
         }),
     );

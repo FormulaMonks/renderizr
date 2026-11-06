@@ -59,14 +59,14 @@ export default class Navigation extends Component {
     #unlisten: (() => void) | null = null;
 
     /**
-     * `logo` is the branding of the workspace the reader is in (ADR 26):
-     * by default the one the page lands on. `parent` is the workspace the
-     * header leads back to, off the landscape.
+     * `logo` is the branding of the workspace the reader is in (ADR 26),
+     * which the caller takes from that workspace's payload. `parent` is the
+     * workspace the header leads back to, off the landscape.
      */
     constructor(
         element: HTMLElement,
         workspace: WorkspaceSummary,
-        logo: Logo | null = __RENDERIZR_LOGO__,
+        logo: Logo | null = null,
         parent: ParentWorkspace | null = null,
     ) {
         super(element);

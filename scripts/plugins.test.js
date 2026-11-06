@@ -75,23 +75,6 @@ const runSingleFile = (bundle) => {
     return context;
 };
 
-const artifactOf = (context) =>
-    String(
-        context.emitted.find((file) => file.fileName === "artifact.html")
-            .source,
-    );
-
-/** `html` with every script element gone, removed again until none is left. */
-function withoutScripts(html) {
-    let previous;
-    let current = html;
-    do {
-        previous = current;
-        current = current.replace(/<script\b[\s\S]*?<\/script\b[^>]*>/gi, "");
-    } while (current !== previous);
-    return current;
-}
-
 /* -------------------------------------------------------- branding plugin */
 
 test("branding injects nothing when no font was embedded", () => {
@@ -205,77 +188,12 @@ test("a reference the bundle does not contain is left alone", () => {
     assert.ok(html.includes("<style>body{color:red}</style>"));
 });
 
-/* ------------------------------------------------------------ artifact.html */
+test("the single file is the one file the plugin leaves", () => {
+    const bundle = makeBundle();
+    const context = runSingleFile(bundle);
 
-test("artifact.html is a fragment: styles, then the mount point, then the code", () => {
-    const context = runSingleFile(makeBundle());
-    const artifact = artifactOf(context);
-
-    assert.ok(
-        !artifact.includes("<head"),
-        "the fragment carries a document head",
-    );
-    assert.ok(!artifact.includes("<body"), "the fragment carries a body tag");
-    assert.ok(
-        !artifact.includes("<!doctype"),
-        "the fragment carries a doctype",
-    );
-
-    const styleAt = artifact.indexOf("<style>");
-    const mountAt = artifact.indexOf('<div id="app">');
-    const codeAt = artifact.indexOf('<script type="module">');
-
-    assert.ok(
-        styleAt >= 0 && mountAt > styleAt && codeAt > mountAt,
-        artifact.slice(0, 200),
-    );
-});
-
-test("only module scripts reach the fragment; the head's inline script does not", () => {
-    const artifact = artifactOf(runSingleFile(makeBundle()));
-
-    assert.equal((artifact.match(/<script/g) ?? []).length, 1);
-    assert.ok(!artifact.includes("documentElement.dataset.theme"));
-});
-
-test("markup-shaped strings inside the bundle are not scraped into the fragment", () => {
-    // Structurizr's SVG export builds this string at runtime. Lifting it out of
-    // the code and into the document turns an unevaluated concatenation into
-    // two live stylesheet requests.
-    const code =
-        "const svg = '<style>@import url(\"' + font.url + '\");</style>'; export default svg;";
-    const context = runSingleFile(makeBundle({ code }));
-    const artifact = artifactOf(context);
-
-    assert.ok(artifact.includes(code), "the code did not survive intact");
-
-    // Outside the module script the fragment carries exactly one stylesheet:
-    // the bundle's own. The `@import` stays where it was, inert, inside a
-    // string in the code.
-    const outsideCode = withoutScripts(artifact);
-    assert.equal(
-        (outsideCode.match(/<style>/g) ?? []).length,
-        1,
-        "a stylesheet was scraped out of the bundled code",
-    );
-    assert.ok(!outsideCode.includes("@import"));
-});
-
-test("anything an artifact upload would reject stops the build", () => {
-    const bundle = makeBundle({
-        // Not routed through the code path, so `makeArtifactSafe` never sees it.
-        css: `a::after{content:"�"}`,
-    });
-
-    assert.throws(
-        () => runSingleFile(bundle),
-        /artifact\.html still spells out 1 sequence\(s\) a Claude artifact upload rejects/,
-    );
-});
-
-test("a clean bundle raises no artifact-upload error", () => {
-    const context = runSingleFile(makeBundle());
-    assert.deepEqual(context.errors, []);
+    assert.deepEqual(Object.keys(bundle), ["index.html"]);
+    assert.deepEqual(context.emitted, []);
 });
 
 test("html files in the bundle are never inlined into themselves", () => {
@@ -290,10 +208,10 @@ test("html files in the bundle are never inlined into themselves", () => {
 
     assert.ok("nested/other.html" in bundle, "a second html file was deleted");
     assert.equal(
-        context.emitted.filter((file) => file.fileName === "artifact.html")
-            .length,
-        2,
+        String(bundle["nested/other.html"].source),
+        "<html><body>other</body></html>",
     );
+    assert.deepEqual(context.emitted, []);
 });
 
 /* ------------------------------------------------------------- set module */

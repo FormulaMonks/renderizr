@@ -49,9 +49,11 @@ Attribution for the components that ship inside every page Renderizr renders
   free, the bundle is minified, and escape sequences a Claude artifact upload
   rejects are rewritten.
 
-  React (react, react-dom, scheduler, use-sync-external-store)
-  react 19.3.0, react-dom 19.3.0, scheduler 0.28.0,
-  use-sync-external-store 1.7.0
+  Preact (preact, with preact/compat): version 11.1.1
+  Copyright (c) 2015-present Jason Miller
+  Licensed under the MIT License (text below)
+
+  use-sync-external-store: version 1.7.0
   Copyright (c) Meta Platforms, Inc. and affiliates.
   Licensed under the MIT License (text below)
 

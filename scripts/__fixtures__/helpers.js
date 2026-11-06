@@ -6,7 +6,15 @@
 
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import {
+    cp,
+    mkdtemp,
+    open,
+    readdir,
+    readFile,
+    rm,
+    writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -204,6 +212,30 @@ export async function writeBrokenWorkspace(dir) {
     const path = join(dir, "broken.json");
     await writeFile(path, BROKEN_JSON);
     return path;
+}
+
+/**
+ * The enterprise set (`test/__fixtures__/enterprise`) copied into `dir`,
+ * with Payments renamed Workspace and Orders renamed Manifest: software
+ * systems whose slugs, `workspace` and `manifest`, are the stems of the
+ * files `--artifact` always writes. Returns `dir`.
+ */
+export async function writeReservedSlugSet(dir) {
+    await cp(join(REPO_ROOT, "test/__fixtures__/enterprise"), dir, {
+        recursive: true,
+    });
+    for (const name of await readdir(dir)) {
+        if (!name.endsWith(".json")) continue;
+        const path = join(dir, name);
+        const text = await readFile(path, "utf-8");
+        await writeFile(
+            path,
+            text
+                .replaceAll('"Payments"', '"Workspace"')
+                .replaceAll('"Orders"', '"Manifest"'),
+        );
+    }
+    return dir;
 }
 
 /** A real, decodable 1x1 transparent GIF. */

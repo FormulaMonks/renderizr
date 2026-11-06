@@ -1,4 +1,4 @@
-import { findUnspellable, makeArtifactSafe } from "./escapes.js";
+import { makeArtifactSafe } from "./escapes.js";
 
 /**
  * The name a workspace goes by when it gives none: the page title's and the
@@ -134,17 +134,39 @@ export function pageSet(set, branding) {
     };
 }
 
-/** What a workspace's file is called in `--out`: its slug. */
-const payloadFile = (slug) => `${slug}.json`;
+/**
+ * The slugs whose `<slug>.json` would be a file `--artifact` always writes:
+ * `workspace.json` and `manifest.json`. `src/current-workspace.ts` holds the
+ * same list.
+ */
+const RESERVED_SLUGS = new Set(["workspace", "manifest"]);
+
+/**
+ * What a workspace's file is called in `--out`: its slug, or for a reserved
+ * slug its slug and `--payload`, which no slug spells, since `slugOf`
+ * collapses every run of hyphens into one.
+ */
+export const payloadFile = (slug) =>
+    RESERVED_SLUGS.has(slug) ? `${slug}--payload.json` : `${slug}.json`;
+
+/**
+ * A payload as its file holds it: pretty-printed, so each line stays short
+ * and Claude can read the file a range of lines at a time (spec 296).
+ */
+export const payloadSource = (payload) =>
+    `${JSON.stringify(payload, null, 2)}\n`;
 
 /**
  * The source of `SET_MODULE`: the landscape scoped workspace's
  * `crossings`, each other workspace's slug and name as `workspaces`, and
  * as `inlined` every payload by slug when the page holds them, `null` when
- * it loads each from its file.
+ * it loads each from its file. `landscape` and `buildDate` are `null`: the
+ * page holds the landscape scoped workspace and the build date compiled in.
  */
 const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
     [
+        "export const landscape = null;",
+        "export const buildDate = null;",
         `export const crossings = ${JSON.stringify(crossings)};`,
         `export const workspaces = ${JSON.stringify(
             workspaces.map(({ slug, payload }) => ({
@@ -211,7 +233,7 @@ export function setModule(set = {}) {
                 this.emitFile({
                     type: "asset",
                     fileName,
-                    source: JSON.stringify(payload),
+                    source: payloadSource(payload),
                 });
         },
     };
@@ -245,7 +267,13 @@ export function branding({ font, primaryColor = null }) {
     };
 }
 
-const SCRIPT_ELEMENT = /<script\b[\s\S]*?<\/script\b[^>]*>/gi;
+/* ------------------------------------------------------------ single file */
+
+/**
+ * A script element, open tag to close tag. Vite's own `index.html` holds no
+ * bundled code, so its tags can be read with patterns.
+ */
+export const SCRIPT_ELEMENT = /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi;
 const SCRIPT_SRC = /^<script\b[^>]*\ssrc="([^"]+)"/i;
 const STYLE_TAG =
     /<link[^>]*\shref="([^"]+)"[^>]*\srel="stylesheet"[^>]*>|<link[^>]*\srel="stylesheet"[^>]*\shref="([^"]+)"[^>]*>/g;
@@ -256,8 +284,7 @@ const basename = (href) => href.replace(/^.*[/\\]/, "").split("?")[0];
 
 /**
  * Folds every emitted chunk and stylesheet into the HTML, leaving one file with
- * no network dependencies at all. Also emits `artifact.html`, a bare fragment
- * for hosts that supply their own document scaffolding.
+ * no network dependencies at all.
  */
 export function singleFile() {
     return {
@@ -294,7 +321,7 @@ export function singleFile() {
                 // inside minified vendor code are not treated as substitution
                 // patterns — that failure produces a plausible-looking file
                 // with vendor bundles spliced into each other.
-                let html = String(output.source)
+                const html = String(output.source)
                     .replace(PRELOAD_TAG, () => "")
                     .replace(ICON_TAG, () => "")
                     .replace(STYLE_TAG, (tag, href, hrefAlt) => {
@@ -311,62 +338,7 @@ export function singleFile() {
                             : `<script type="module">${code}</script>`;
                     });
 
-                html = html.replace(/\n\s*\n/g, "\n");
-                output.source = html;
-
-                // A fragment for hosts that supply their own document
-                // scaffolding: styles, then the mount point, then the code —
-                // Vite puts module scripts in <head>, which such a host drops.
-                //
-                // Scripts are lifted out before anything else is matched.
-                // Bundled JavaScript contains strings that look exactly like
-                // markup — Structurizr's SVG export builds one reading
-                // `<style>@import url("+font.url+");</style>` — and scraping
-                // those into the document turns an unevaluated string
-                // concatenation into two live stylesheet requests. They go
-                // again until none is left, so no removal joins the halves of
-                // another script tag.
-                const inlineCode = [];
-                let previous;
-                let withoutCode = html;
-                do {
-                    previous = withoutCode;
-                    withoutCode = withoutCode.replace(SCRIPT_ELEMENT, (tag) => {
-                        if (tag.startsWith('<script type="module">')) {
-                            inlineCode.push(tag);
-                        }
-                        return "";
-                    });
-                } while (withoutCode !== previous);
-
-                const inlineStyles =
-                    withoutCode.match(/<style>[\s\S]*?<\/style>/g) ?? [];
-                const body = withoutCode
-                    .slice(
-                        withoutCode.indexOf("<body>") + "<body>".length,
-                        withoutCode.indexOf("</body>"),
-                    )
-                    .trim();
-
-                const artifact = `${inlineStyles.join("")}\n${body}\n${inlineCode.join("")}`;
-
-                // The deploy API reads the file as text, so anything it refuses
-                // to carry has to be gone before the file is written rather
-                // than discovered on upload. `makeArtifactSafe` above handles
-                // the bundle; this catches whatever reached the page by some
-                // other route.
-                const rejected = findUnspellable(artifact);
-                if (rejected.length) {
-                    this.error(
-                        `artifact.html still spells out ${rejected.length} sequence(s) a Claude artifact upload rejects:\n${rejected.slice(0, 5).join("\n")}`,
-                    );
-                }
-
-                this.emitFile({
-                    type: "asset",
-                    fileName: "artifact.html",
-                    source: artifact,
-                });
+                output.source = html.replace(/\n\s*\n/g, "\n");
             }
         },
     };

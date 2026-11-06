@@ -163,8 +163,12 @@ async function init() {
         else router = new Router(content, routes);
     };
 
-    // The page lands branded and titled by the build; each other workspace
-    // of a set brings its own when the reader enters it (ADR 26).
+    // The page lands titled by the build, and painted in its primary color
+    // and font before it starts. Apply the landing workspace's branding all
+    // the same: under `--artifact` it arrives with `workspace.json`, and
+    // Mermaid's fill reads it from here. Each other workspace of a set
+    // brings its own when the reader enters it (ADR 26).
+    applyBranding(currentWorkspace().branding);
     onWorkspaceEntered((entered) => {
         applyBranding(entered.branding);
         document.title = `${entered.name} | Structurizr`;

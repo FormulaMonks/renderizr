@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { createConfig } from "./config.js";
 import { REPO_ROOT } from "./__fixtures__/helpers.js";
 
@@ -116,6 +117,69 @@ test("the dev server's set plugins serve the set in place of the compiled-in one
     assert.equal(config.define.__RENDERIZR_EDIT_MODE__, "false");
 });
 
+/* ------------------------------------------------------------------ Preact */
+
+/** What the page imports React by, as React Flow and the island spell it. */
+const REACT_SPECIFIERS = [
+    "react",
+    "react-dom",
+    "react-dom/client",
+    "react/jsx-runtime",
+    "react/jsx-dev-runtime",
+];
+
+/** Where `config`'s aliases send `specifier`, or null when none matches. */
+const aliasOf = (config, specifier) => {
+    const alias = (config.resolve?.alias ?? []).find(({ find }) =>
+        find instanceof RegExp ? find.test(specifier) : find === specifier,
+    );
+    return alias ? specifier.replace(alias.find, alias.replacement) : null;
+};
+
+test("the dev server, edit mode and every build send React to Preact", () => {
+    const configs = {
+        build: createConfig({ workspace: WORKSPACE }),
+        "--single-file": createConfig({
+            workspace: WORKSPACE,
+            output: "single-file",
+        }),
+        "pnpm dev": createConfig({
+            workspace: WORKSPACE,
+            devSet: DEV_SET,
+            mode: "serve",
+        }),
+        "edit mode": createConfig({ editMode: EDIT_MODE, mode: "edit" }),
+    };
+    for (const [name, config] of Object.entries(configs)) {
+        for (const specifier of REACT_SPECIFIERS) {
+            const target = aliasOf(config, specifier);
+            assert.ok(target, `${name} leaves ${specifier} to React`);
+            assert.match(
+                target,
+                /^preact\/compat(\/|$)/,
+                `${name} sends ${specifier} to ${target}`,
+            );
+            assert.ok(
+                existsSync(fileURLToPath(import.meta.resolve(target))),
+                `${name}: ${target} resolves to no file`,
+            );
+        }
+        // React Flow sits where pnpm gives it no `preact` of its own, so
+        // Vite has to resolve the alias from the package root.
+        assert.ok(
+            config.resolve.dedupe.includes("preact"),
+            `${name} resolves preact from wherever imports it`,
+        );
+    }
+});
+
+test("an import that only starts like React's keeps its own package", () => {
+    const config = createConfig({ workspace: WORKSPACE });
+    for (const specifier of ["react-flow", "@xyflow/react", "reactive"]) {
+        assert.equal(aliasOf(config, specifier), null, specifier);
+    }
+});
+
 test("no logo and no font are embedded as nulls, not as undefined", () => {
     const { define } = createConfig({ workspace: WORKSPACE });
 
@@ -182,14 +246,59 @@ test("the multi-file build serves the public directory and splits assets", () =>
         undefined,
     );
     assert.deepEqual(pluginNames(config), [
+        "renderizr:short-lines",
         "renderizr:branding",
         "renderizr:workspace",
         "renderizr:set",
     ]);
 });
 
+test("--artifact names the runtime files, inlines assets and loads the workspace in place of the compiled-in one", () => {
+    const config = createConfig({
+        workspace: WORKSPACE,
+        output: "artifact",
+        base: "/docs/",
+    });
+    const { output } = config.build.rollupOptions;
+
+    assert.equal(config.publicDir, false);
+    assert.equal(config.base, "", "--base reached the artifact");
+    assert.equal(config.build.assetsInlineLimit, Number.MAX_SAFE_INTEGER);
+    assert.equal(output.entryFileNames, "renderizr.js");
+    assert.equal(output.assetFileNames, "renderizr[extname]");
+    assert.deepEqual(pluginNames(config), [
+        "renderizr:short-lines",
+        "renderizr:branding",
+        "renderizr:artifact-modules",
+        "renderizr:artifact",
+    ]);
+});
+
+test("--artifact compiles in no value that changes from one workspace or build to the next", () => {
+    const { define } = createConfig({
+        workspace: WORKSPACE,
+        output: "artifact",
+        branding: {
+            logo: { src: "data:image/svg+xml,x", alt: "Acme" },
+            font: { family: "Inter", css: null },
+            primaryColor: "#e4572e",
+        },
+    });
+
+    for (const name of [
+        "__RENDERIZR_LOGO__",
+        "__RENDERIZR_FONT__",
+        "__RENDERIZR_PRIMARY_COLOR__",
+        "__RENDERIZR_BUILD_DATE__",
+    ])
+        assert.equal(define[name], "null", `${name} is compiled in`);
+});
+
 test("the single-file build inlines everything and drops the public directory", () => {
-    const config = createConfig({ workspace: WORKSPACE, singleFile: true });
+    const config = createConfig({
+        workspace: WORKSPACE,
+        output: "single-file",
+    });
 
     assert.equal(config.publicDir, false);
     assert.equal(config.build.assetsInlineLimit, Number.MAX_SAFE_INTEGER);
@@ -201,8 +310,8 @@ test("the single-file build inlines everything and drops the public directory", 
 });
 
 test("the build keeps one stylesheet and preloads no modules", () => {
-    for (const singleFile of [false, true]) {
-        const config = createConfig({ workspace: WORKSPACE, singleFile });
+    for (const output of ["site", "single-file"]) {
+        const config = createConfig({ workspace: WORKSPACE, output });
         assert.equal(config.build.cssCodeSplit, false);
         assert.equal(config.build.modulePreload, false);
     }

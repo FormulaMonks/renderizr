@@ -16,7 +16,7 @@ Four things a reader needs to know before trusting the list. **None of them is a
 
 Renderizr minifies through esbuild and Rollup with no legal-comment preservation configured. Verified by building the Big Bank plc example and searching the output: **no license banner or copyright line of any component listed below survives**.
 
-The practical consequence: **a Renderizr-generated `index.html` or `artifact.html`, distributed on its own, does not carry the copyright and permission notices that MIT, ISC, BSD-2-Clause and BSD-3-Clause require.** Handing someone the HTML file and nothing else is a compliance gap, not a technicality.
+The practical consequence: **a Renderizr-generated page, distributed on its own, does not carry the copyright and permission notices that MIT, ISC, BSD-2-Clause and BSD-3-Clause require.** Handing someone the HTML file and nothing else is a compliance gap, not a technicality.
 
 The fix is attribution that reaches the reader of the page rather than only the reader of this repository. [`docs/licensing.md`](https://github.com/FormulaMonks/renderizr/blob/main/docs/licensing.md) describes the routes, from the zero-effort one (ship `NOTICE` next to the output) to the thorough one (a colophon inside the page). That one link is absolute rather than repo-relative on purpose: `docs/` is not in `package.json`'s `files` array, so it is the one document referenced here that an installed copy of this package does not contain. See [finding 4](#4-the-release-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
 
@@ -62,7 +62,7 @@ This file's own obligations do not depend on that: everything a redistributor is
 
 ## How this list was produced
 
-Not from `package.json`. The runtime dependency block there is a poor guide to what ships: React Flow pulls in `@xyflow/system`, `zustand`, `classcat` and eight `d3-*` modules that `package.json` never names, and React pulls in `scheduler` and `use-sync-external-store`.
+Not from `package.json`. The runtime dependency block there is a poor guide to what ships: React Flow pulls in `@xyflow/system`, `zustand`, `classcat` and eight `d3-*` modules that `package.json` never names, and zustand pulls in `use-sync-external-store`.
 
 The list of components that reach the bundle was taken from Rollup itself, by running the real `--single-file` build of the Big Bank plc example with a plugin that records the `node_modules` package of every module Rollup parses, and of every `?raw` import it loads:
 
@@ -74,7 +74,7 @@ cfg.plugins.push({
 });
 ```
 
-That produced exactly the twenty-nine npm packages in the table below. Everything else in `node_modules` (a few hundred transitive build dependencies) never enters the output.
+That produced exactly the twenty-seven npm packages in the table below. Everything else in `node_modules` (a few hundred transitive build dependencies) never enters the output.
 
 To re-verify after a dependency change, repeat that scan and diff it against this table.
 
@@ -87,9 +87,7 @@ Everything in this section is present, minified, inside every `index.html` Rende
 | Component | Version | License | Copyright line as shipped |
 | --- | --- | --- | --- |
 | [Structurizr](https://github.com/structurizr/structurizr) (portions derived from, in `src/model/`) | ported from `structurizr-workspace.js`, `structurizr-ui.js`, `structurizr-util.js` and `structurizr-diagram.js` | Apache-2.0 | Structurizr; no per-file header; repository `LICENSE` and `pom.xml` |
-| [React](https://github.com/facebook/react) (`react`) | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. |
-| [React DOM](https://github.com/facebook/react) (`react-dom`) | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. |
-| [scheduler](https://github.com/facebook/react) | 0.28.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. |
+| [Preact](https://github.com/preactjs/preact) (`preact`, with `preact/compat`) | 11.1.1 | MIT | Copyright (c) 2015-present Jason Miller |
 | [use-sync-external-store](https://github.com/facebook/react) | 1.7.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. |
 | [@xyflow/react](https://github.com/xyflow/xyflow) (React Flow) | 12.12.0 | MIT | Copyright (c) 2019-2025 webkid GmbH |
 | [@xyflow/system](https://github.com/xyflow/xyflow) | 0.0.83 | MIT | Copyright (c) 2019-2025 webkid GmbH |
@@ -122,7 +120,7 @@ Everything in this section is present, minified, inside every `index.html` Rende
 
 **Structurizr (portions derived from)**: `src/model/` is a typed port of the workspace model, the finders and the style resolution in four files of `structurizr-application/src/main/resources/static/static/js/` in [structurizr/structurizr](https://github.com/structurizr/structurizr). Each ported file names the upstream files it came from in its header. Renderizr **modified** that code, stated here as Apache-2.0 section 4(b) requires: it ported it to typed TypeScript, made it side-effect free and took the color scheme as an input to style resolution; at build time, esbuild minifies it and `scripts/escapes.js` rewrites escape sequences in the bundle that a Claude artifact upload rejects. The upstream repository contains **no NOTICE file**, so nothing is owed under section 4(d). Renderizr no longer ships any of Structurizr's code verbatim. `submodules/structurizr` stays as a checkout of the upstream repository for the acceptance fixtures only.
 
-**React and React Flow**: React Flow (`@xyflow/react`) draws every diagram inside a React root. `@xyflow/system` is its framework-independent core, `zustand` holds its store, `classcat` builds its class names, and the eight `d3-*` modules handle panning, zooming, dragging and the transitions between viewports. React brings `scheduler`, and zustand brings `use-sync-external-store`. React Flow's "React Flow" attribution badge is turned off; the footer of every page credits React Flow by name instead.
+**Preact and React Flow**: React Flow (`@xyflow/react`) draws every diagram inside a root that Preact renders through `preact/compat`, which the build puts in place of React and React DOM. `@xyflow/system` is React Flow's framework-independent core, `zustand` holds its store, `classcat` builds its class names, and the eight `d3-*` modules handle panning, zooming, dragging and the transitions between viewports. zustand brings `use-sync-external-store`. React Flow's "React Flow" attribution badge is turned off; the footer of every page credits React Flow by name instead.
 
 **dagre / graphlib**: imported by `src/engine/layout/automatic.ts` for automatic layout, at the exact version of dagre `package.json` pins. Dagre's build bundles graphlib, at the version Dagre depends on. `src/engine/layout/dagre-order.ts` also ports the pieces of Dagre's ordering step that `automatic.ts` runs itself, and carries Dagre's MIT notice in its header.
 
@@ -184,7 +182,7 @@ Vite bundles Rollup, esbuild and PostCSS inside its own distribution; their lice
 
 ### MIT License
 
-Applies to React, react-dom, scheduler, use-sync-external-store, @xyflow/react, @xyflow/system, zustand, classcat, dagre, graphlib, Bootstrap Icons, history, markdown-it, markdown-it-shift-headings, linkify-it, mdurl, punycode.js, uc.micro, and the build-time components marked MIT above. The text is identical in each case; substitute the copyright line from the tables.
+Applies to Preact, use-sync-external-store, @xyflow/react, @xyflow/system, zustand, classcat, dagre, graphlib, Bootstrap Icons, history, markdown-it, markdown-it-shift-headings, linkify-it, mdurl, punycode.js, uc.micro, and the build-time components marked MIT above. The text is identical in each case; substitute the copyright line from the tables.
 
 ```
 Copyright (c) <year> <copyright holders>

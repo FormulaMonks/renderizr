@@ -50,8 +50,8 @@ const workspace = ({ docs = true, decisions = true, ...rest } = {}) => ({
     },
 });
 
-const render = (options) => {
-    const nav = new Navigation(host, workspace(options));
+const render = (options, logo = null) => {
+    const nav = new Navigation(host, workspace(options), logo);
     nav.render();
     return nav;
 };
@@ -168,14 +168,15 @@ test("no logo means no image in the header", () => {
 });
 
 test("a logo is rendered with its alt text and intrinsic size", () => {
-    globalThis.__RENDERIZR_LOGO__ = {
-        src: "data:image/svg+xml;base64,PHN2Zy8+",
-        alt: "Acme",
-        width: 120,
-        height: 40,
-    };
-
-    render();
+    render(
+        {},
+        {
+            src: "data:image/svg+xml;base64,PHN2Zy8+",
+            alt: "Acme",
+            width: 120,
+            height: 40,
+        },
+    );
     const logo = host.querySelector("img");
 
     assert.equal(
@@ -189,13 +190,14 @@ test("a logo is rendered with its alt text and intrinsic size", () => {
 });
 
 test("a logo with a href is wrapped in a link that opens away from the page", () => {
-    globalThis.__RENDERIZR_LOGO__ = {
-        src: "data:image/png;base64,AA==",
-        alt: "Acme",
-        href: "https://example.com",
-    };
-
-    render();
+    render(
+        {},
+        {
+            src: "data:image/png;base64,AA==",
+            alt: "Acme",
+            href: "https://example.com",
+        },
+    );
     const link = host.querySelector(".brand a");
 
     assert.equal(link.getAttribute("href"), "https://example.com");
@@ -205,12 +207,13 @@ test("a logo with a href is wrapped in a link that opens away from the page", ()
 });
 
 test("a logo named after the workspace takes the title's place in the h1", () => {
-    globalThis.__RENDERIZR_LOGO__ = {
-        src: "data:image/svg+xml;base64,PHN2Zy8+",
-        alt: "fixture workspace",
-    };
-
-    render();
+    render(
+        {},
+        {
+            src: "data:image/svg+xml;base64,PHN2Zy8+",
+            alt: "fixture workspace",
+        },
+    );
     const titles = host.querySelectorAll("h1");
 
     assert.equal(titles.length, 1);
@@ -222,13 +225,14 @@ test("a logo named after the workspace takes the title's place in the h1", () =>
 });
 
 test("a linked logo named after the workspace keeps its link inside the h1", () => {
-    globalThis.__RENDERIZR_LOGO__ = {
-        src: "data:image/png;base64,AA==",
-        alt: "Fixture Workspace",
-        href: "https://example.com",
-    };
-
-    render();
+    render(
+        {},
+        {
+            src: "data:image/png;base64,AA==",
+            alt: "Fixture Workspace",
+            href: "https://example.com",
+        },
+    );
 
     assert.equal(
         host.querySelector("h1 a").getAttribute("href"),
@@ -237,12 +241,13 @@ test("a linked logo named after the workspace keeps its link inside the h1", () 
 });
 
 test("a logo with other alt text sits beside the title", () => {
-    globalThis.__RENDERIZR_LOGO__ = {
-        src: "data:image/png;base64,AA==",
-        alt: "Acme",
-    };
-
-    render();
+    render(
+        {},
+        {
+            src: "data:image/png;base64,AA==",
+            alt: "Acme",
+        },
+    );
 
     assert.equal(host.querySelector("h1").textContent, "Fixture Workspace");
     assert.equal(host.querySelectorAll("h1 img").length, 0);
@@ -321,11 +326,7 @@ test("clear() empties the header and stops repainting the toggle", () => {
 
 /* -------------------------------------------------- a workspace of a set */
 
-test("the header draws the logo of the workspace the reader entered, over the build's", () => {
-    globalThis.__RENDERIZR_LOGO__ = {
-        src: "data:image/png;base64,AA==",
-        alt: "Acme",
-    };
+test("the header draws the logo of the workspace the reader entered", () => {
     const nav = new Navigation(host, workspace(), {
         src: "data:image/png;base64,BB==",
         alt: "Payments",

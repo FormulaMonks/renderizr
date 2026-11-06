@@ -44,11 +44,11 @@ body:
     id: output-mode
     attributes:
       label: Output mode
-      description: "--single-file writes two documents; which one you opened changes what we look at, so please pick the exact one."
+      description: "Each output loads the page differently, so please pick the exact one."
       options:
         - Default (a directory of index.html + assets/)
-        - Single file (--single-file) — opened index.html
-        - Single file (--single-file) — opened artifact.html, e.g. as a Claude artifact
+        - Single file (--single-file)
+        - Claude artifact (--artifact)
         - Both, or not sure
     validations:
       required: true

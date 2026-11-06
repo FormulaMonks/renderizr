@@ -183,18 +183,21 @@ jobs:
       - name: Render the single-file example
         run: pnpm render scripts/__fixtures__/workspace.json --single-file --out example-single
 
-      # The single-file promise is "no network requests". Assert it on the
-      # artifact that is about to be attached, matching asset-bearing tags
+      - name: Render the --artifact example
+        run: pnpm render scripts/__fixtures__/workspace.json --artifact --out example-artifact
+
+      # The single-file and --artifact promise is "no network requests".
+      # Assert it on the files that are about to be attached, matching asset-bearing tags
       # specifically: ordinary hyperlinks in the rendered documentation are
       # content, not a dependency, and a blanket search for "https://" would
       # fail on them forever.
-      - name: Assert the single-file output loads nothing over the network
+      - name: Assert the single-file and --artifact outputs load nothing over the network
         run: |
           set -euo pipefail
           pattern='<(script|link|img|source|iframe|embed|video|audio|track|object)[^>]+(src|href|srcset|data)[[:space:]]*=[[:space:]]*["'"'"']?(https?:)?//'
-          for file in example-single/index.html example-single/artifact.html; do
+          for file in example-single/index.html example-artifact/*; do
             if grep -Eoi "$pattern" "$file"; then
-              echo "::error file=$file::$file references an external asset; --single-file must inline everything"
+              echo "::error file=$file::$file references an external asset; the page must carry everything it loads"
               exit 1
             fi
             echo "ok: $file has no external asset references"
@@ -210,7 +213,7 @@ jobs:
         run: |
           set -euo pipefail
           cp example-single/index.html "artifacts/renderizr-example-${VERSION}.html"
-          cp example-single/artifact.html "artifacts/renderizr-example-artifact-${VERSION}.html"
+          (cd example-artifact && zip -qr "../artifacts/renderizr-example-artifact-${VERSION}.zip" .)
           (cd example-site && zip -qr "../artifacts/renderizr-example-site-${VERSION}.zip" .)
           (cd artifacts && sha256sum ./* > SHA256SUMS.txt)
           ls -l artifacts

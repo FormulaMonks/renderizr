@@ -153,6 +153,9 @@ Renovate raises the pin as a dependency update and never merges it on its own: r
 | `scripts/config.js` | The Vite configuration, shared with the dev server |
 | `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
 | `scripts/escapes.js` | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive |
+| `scripts/artifact.js` | `--artifact`: the shell, the runtime under fixed names, the workspace payloads and the manifest |
+| `scripts/short-lines.js` | Keeps every line a build writes short, so Claude can read any file a range of lines at a time |
+| `scripts/ast.js` | Walking a chunk's syntax tree, for `scripts/escapes.js` and `scripts/short-lines.js` |
 | `scripts/mermaid/` | Reading the Mermaid source an image view carries: decoding it, the generated parser and the plain model of each diagram the page draws |
 | `vite.config.ts` | The dev server only; the production build goes through `scripts/build.js` |
 | `src/` | The page that ships in the output, in TypeScript, bundled by Vite |

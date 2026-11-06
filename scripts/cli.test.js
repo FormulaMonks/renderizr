@@ -36,7 +36,7 @@ test("a bare workspace takes every default", () => {
         workspaces: ["workspace.json"],
         out: "structurizr-output",
         base: "",
-        singleFile: false,
+        output: "site",
         branding: {
             logo: null,
             logoAlt: null,
@@ -57,7 +57,6 @@ test("the defaults in OPTIONS are the ones the usage text promises", () => {
     assert.equal(OPTIONS["font-subsets"].default, "latin");
     assert.equal(OPTIONS["font-italic"].default, false);
     assert.equal(OPTIONS["single-file"].default, false);
-    assert.equal(OPTIONS.base.default, "");
     assert.equal(OPTIONS.help.short, "h");
 });
 
@@ -81,9 +80,13 @@ test("--base sets the public path", () => {
     assert.equal(parseCliArgs(["w.json", "--base", "/docs/"]).base, "/docs/");
 });
 
-test("--single-file is a boolean flag", () => {
-    assert.equal(parseCliArgs(["w.json"]).singleFile, false);
-    assert.equal(parseCliArgs(["w.json", "--single-file"]).singleFile, true);
+test("--single-file and --artifact each choose the output", () => {
+    assert.equal(parseCliArgs(["w.json"]).output, "site");
+    assert.equal(
+        parseCliArgs(["w.json", "--single-file"]).output,
+        "single-file",
+    );
+    assert.equal(parseCliArgs(["w.json", "--artifact"]).output, "artifact");
 });
 
 /* --------------------------------------------------------------------- logo */
@@ -317,6 +320,24 @@ test("a --primary-color that isn't a CSS color is a usage error", async () => {
     await rejects(
         ["w.json", "--primary-color", "red;}"],
         /--primary-color takes a CSS color, such as "#e4572e"/,
+    );
+});
+
+test("--artifact with --single-file is a usage error", async () => {
+    await rejects(
+        ["w.json", "--artifact", "--single-file"],
+        /Choose one of --artifact and --single-file/,
+    );
+});
+
+test("--artifact with --base is a usage error, an empty --base too", async () => {
+    await rejects(
+        ["w.json", "--artifact", "--base", "/docs/"],
+        /--artifact takes no --base/,
+    );
+    await rejects(
+        ["w.json", "--base=", "--artifact"],
+        /--artifact takes no --base/,
     );
 });
 

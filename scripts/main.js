@@ -35,7 +35,7 @@ async function buildSite() {
             workspace,
             branding: brandingOf(branding.landscape),
             set: pageSet(set, branding),
-            singleFile: options.singleFile,
+            output: options.output,
             out: options.out,
             base: options.base,
             // Not a CLI flag: only the acceptance harness asks for the engine's
@@ -45,9 +45,11 @@ async function buildSite() {
     );
 
     process.stdout.write(
-        options.singleFile
-            ? `Complete. Open ${outDir}/index.html directly, or upload ${outDir}/artifact.html as a Claude artifact.\n`
-            : `Complete. Serve ${outDir} with any static server; add --single-file for one self-contained document instead.\n`,
+        {
+            artifact: `Complete. Publish ${outDir} as a Claude artifact: ${outDir}/manifest.json lists each file and its layer.\n`,
+            "single-file": `Complete. Open ${outDir}/index.html directly; render with --artifact instead to publish a Claude artifact.\n`,
+            site: `Complete. Serve ${outDir} with any static server; add --single-file for one self-contained document instead.\n`,
+        }[options.output],
     );
 }
 

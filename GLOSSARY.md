@@ -203,3 +203,15 @@ _Avoid_: theme (that is a Structurizr style set), skin
 **Toast**:
 The message at the bottom right of the page that tells the reader what the page did for them, or tells the author what went wrong: a notice that leaves after a few seconds, or an error that stays until it no longer applies or someone closes it. Every system message goes there, in built sites, in `pnpm dev` and in edit mode.
 _Avoid_: snackbar, banner, bar, notification
+
+**Runtime**:
+The code and styles every page of a Renderizr version runs, the same byte for byte whatever workspace it renders. The documentation runtime is the part only the documentation and decisions pages need, so a render whose workspaces have neither leaves it out.
+_Avoid_: bundle, app, engine (that is what draws a view)
+
+**Workspace payload**:
+One workspace of a render as the page loads it, with its branding and its crossings: everything in a render that is specific to that workspace.
+_Avoid_: workspace file, data file
+
+**Manifest**:
+The list of the files a render for a Claude artifact holds, with each file's layer, size and hash, and the Renderizr version that built its runtime. The layers are the shell (the page that loads the rest), the runtime, the documentation runtime, the workspace payloads and the branding.
+_Avoid_: index, file list

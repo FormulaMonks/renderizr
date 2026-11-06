@@ -1,12 +1,12 @@
 # Licensing and attribution
 
-Renderizr is MIT-licensed. The pages it produces are not purely Renderizr: every rendered `index.html` is a bundle of minified third-party code (React, React Flow, Dagre, highlight.js, markdown-it and two dozen others under MIT, ISC and BSD terms) and a model layer derived from Structurizr's Apache-2.0 code. This page explains who owes attribution to whom, and the routes by which that attribution can reach the page a reader actually opens.
+Renderizr is MIT-licensed. The pages it produces are not purely Renderizr: every page it renders runs minified third-party code (Preact, React Flow, Dagre, highlight.js, markdown-it and two dozen others under MIT, ISC and BSD terms) and a model layer derived from Structurizr's Apache-2.0 code. This page explains who owes attribution to whom, and the routes by which that attribution can reach the page a reader actually opens.
 
 The component-by-component list, with versions, exact copyright lines and full license texts, is [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md). The short-form block meant for pasting is [`NOTICE`](../NOTICE). This page is about plumbing, not inventory.
 
 ## Three parties, three obligations
 
-**Renderizr the project** owes the notices for everything it bundles and derives. `LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses/Apache-2.0.txt` discharge that obligation, all committed in the repository. They arrive with every install by either route: `npx github:FormulaMonks/renderizr` clones the repository, and an npm tarball carries all four because `package.json`'s `files` array names `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses` (`LICENSE` npm includes unasked). Verified with `npm pack --dry-run`: 99 files, all four present. The one file that is *not* in the tarball is this page: `docs/` is not in `files`. See [finding 4](../THIRD-PARTY-NOTICES.md#4-the-release-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
+**Renderizr the project** owes the notices for everything it ships and derives. `LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses/Apache-2.0.txt` discharge that obligation, all committed in the repository. They arrive with every install by either route: `npx github:FormulaMonks/renderizr` clones the repository, and an npm tarball carries all four because `package.json`'s `files` array names `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses` (`LICENSE` npm includes unasked). Verified with `npm pack --dry-run`: 99 files, all four present. The one file that is *not* in the tarball is this page: `docs/` is not in `files`. See [finding 4](../THIRD-PARTY-NOTICES.md#4-the-release-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
 
 **You, running `renderizr your-workspace.json`,** produce a new distribution: an HTML file containing minified copies of all that third-party code. MIT, ISC and BSD all require the copyright and permission notices to travel with binary distributions, and Apache-2.0 requires recipients to get a copy of its license. **Renderizr's build does not put those notices into the HTML for you.** Minification strips every license header. If you hand someone the rendered file and nothing else, the notices did not travel.
 
@@ -57,7 +57,7 @@ Add a section to your workspace JSON:
         "filename": "colophon.md",
         "order": 99,
         "format": "Markdown",
-        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr (portions derived from): Copyright Structurizr, Apache-2.0\n- React: Copyright (c) Meta Platforms, Inc. and affiliates, MIT\n- React Flow: Copyright (c) 2019-2025 webkid GmbH, MIT\n- Bootstrap Icons: Copyright (c) 2019-2024 The Bootstrap Authors, MIT\n- highlight.js: Copyright (c) 2006, Ivan Sagalaev, BSD-3-Clause\n"
+        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr (portions derived from): Copyright Structurizr, Apache-2.0\n- Preact: Copyright (c) 2015-present Jason Miller, MIT\n- React Flow: Copyright (c) 2019-2025 webkid GmbH, MIT\n- Bootstrap Icons: Copyright (c) 2019-2024 The Bootstrap Authors, MIT\n- highlight.js: Copyright (c) 2006, Ivan Sagalaev, BSD-3-Clause\n"
       }
     ]
   }
@@ -84,7 +84,7 @@ That prints one line: a ready-to-paste JSON string value for `content`, fenced s
 
 — outer quotes included, because the quoted string *is* the JSON value. If you generate the workspace from DSL or from a script, do the same read-and-inject there rather than maintaining a second copy by hand.
 
-The result is a "Colophon" entry in the Documentation navigation, rendered like any other documentation page — verified against a `--single-file` build of the Big Bank plc example. Because the section lives in the workspace, it survives every build flag, including `--single-file` and `artifact.html`.
+The result is a "Colophon" entry in the Documentation navigation, rendered like any other documentation page — verified against a `--single-file` build of the Big Bank plc example. Because the section lives in the workspace, it survives every build flag, including `--single-file` and `--artifact`.
 
 If you would rather not give attribution a whole page, the same content works appended to the end of an existing section.
 
@@ -109,7 +109,7 @@ Renderizr embeds the workspace JSON, its documentation and decision records, and
 ## Before a release
 
 - [ ] `LICENSE` year range still covers the current year.
-- [ ] `THIRD-PARTY-NOTICES.md` matches the resolved dependency tree. The way to check is to re-run the Rollup scan described under [How this list was produced](../THIRD-PARTY-NOTICES.md#how-this-list-was-produced) — not to read `package.json`, which lists ranges that do not match what the build bundles.
+- [ ] `THIRD-PARTY-NOTICES.md` matches the resolved dependency tree. The way to check is to re-run the Rollup scan described under [How this list was produced](../THIRD-PARTY-NOTICES.md#how-this-list-was-produced) — not to read `package.json`, which lists ranges that do not match what the build ships.
 - [ ] A file ported from Structurizr into `src/model/` carries the Apache-2.0 header naming its upstream files and saying that Renderizr modified it.
 - [ ] The "ships in the rendered output" table lists any new runtime dependency, with its license checked on disk, in `node_modules`, rather than guessed from the package name.
 - [ ] Escalate a new license family (anything reciprocal, such as MPL-2.0 or the GPL family, anything with an advertising clause, anything unlicensed) rather than add it quietly. No copyleft component ships in the output today.

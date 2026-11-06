@@ -20,13 +20,30 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+    copyFile,
+    mkdir,
+    mkdtemp,
+    readFile,
+    rm,
+    writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { pathToFileURL } from "node:url";
-import { fixture, REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
-import { findChrome, renderPage, serveDirectory } from "./support/browser.js";
+import {
+    fixture,
+    REPO_ROOT,
+    runCli,
+    writeReservedSlugSet,
+} from "../scripts/__fixtures__/helpers.js";
+import {
+    findChrome,
+    openBrowser,
+    renderPage,
+    serveDirectory,
+} from "./support/browser.js";
 import { parseDocument } from "./support/dom.js";
 
 const CHROME = findChrome();
@@ -84,6 +101,12 @@ const build = async (name, args) => {
 const singleFile = once(() => build("single", ["--single-file"]));
 const multiFile = once(async () => {
     const out = await build("multi", []);
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+const artifactFolder = once(async () => {
+    const out = await build("artifact", ["--artifact"]);
     const server = await serveDirectory(out);
     servers.push(server);
     return { out, origin: server.origin };
@@ -167,33 +190,19 @@ test("the single-file document draws a diagram", { skip: SKIP }, async () => {
     );
 });
 
-test("artifact.html — the file uploaded as a Claude artifact — renders too", {
-    skip: SKIP,
-}, async () => {
-    // A fragment rather than a whole document, and the one output whose
-    // whole purpose is to run somewhere with no network at all.
-    const out = await singleFile();
-    const document = await render(fileUrl(join(out, "artifact.html")));
-
-    assert.equal(document.querySelector("h1").textContent, WORKSPACE_NAME);
-    assert.ok(
-        document.querySelectorAll("#structurizr-diagram-target svg").length > 0,
-    );
-});
-
-test("artifact.html draws its diagrams, drawer and toolbar while the viewer never answers for downloads", {
+test("the --artifact folder draws its diagrams, drawer and toolbar while the viewer never answers for downloads", {
     skip: SKIP,
 }, async () => {
     // A viewer whose `downloads` answer hangs must not hold the page
     // back; the export group stays hidden until an answer that never
-    // comes.
-    const out = await singleFile();
-    const hung = join(out, "artifact-hung-downloads.html");
+    // comes. The shell is a fragment, as the artifact host serves it, so
+    // the stand-in for the viewer goes in front of it.
+    const { out, origin } = await artifactFolder();
     await writeFile(
-        hung,
-        `<script>window.claude = { use: () => new Promise(() => {}) };</script>${await readFile(join(out, "artifact.html"), "utf-8")}`,
+        join(out, "hung-downloads.html"),
+        `<script>window.claude = { use: () => new Promise(() => {}) };</script>${await readFile(join(out, "index.html"), "utf-8")}`,
     );
-    const document = await render(fileUrl(hung));
+    const document = await render(`${origin}/hung-downloads.html`);
 
     assert.ok(
         document.querySelectorAll(
@@ -368,7 +377,7 @@ test("the multi-file site renders when served over HTTP", {
     );
 });
 
-test("the artifact renders with no server, no siblings and no network", {
+test("the single file renders with no server, no siblings and no network", {
     skip: SKIP,
 }, async () => {
     // The strongest offline proof available: copy the one file somewhere
@@ -377,9 +386,9 @@ test("the artifact renders with no server, no siblings and no network", {
     // fetched. Anything that had not been inlined would be missing here.
     const out = await singleFile();
     const alone = await mkdtemp(join(tmpdir(), "renderizr-alone-"));
-    const copy = join(alone, "artifact.html");
+    const copy = join(alone, "index.html");
 
-    await writeFile(copy, await readFile(join(out, "artifact.html")));
+    await writeFile(copy, await readFile(join(out, "index.html")));
 
     const document = await render(fileUrl(copy));
 
@@ -487,13 +496,362 @@ test("the multi-file site draws the view when served", {
     assertDrawnView(await render(`${origin}/index.html${CONTEXT_VIEW}`));
 });
 
-test("artifact.html draws the view with nothing beside it", {
+test("the --artifact folder draws the view when served, and logs nothing", {
+    skip: SKIP,
+}, async () => {
+    // The shell is a fragment, as the artifact host serves it, and the page
+    // loads its workspace from workspace.json beside it.
+    const { origin } = await artifactFolder();
+    const { html, console: logs } = await renderPage(
+        CHROME,
+        `${origin}/index.html${CONTEXT_VIEW}`,
+    );
+    const document = parseDocument(html);
+
+    assert.equal(document.querySelector("h1").textContent, WORKSPACE_NAME);
+    assertDrawnView(document);
+    assert.deepEqual(logs, [], "the page logged to the console");
+});
+
+/**
+ * Like `OFFLINE`, with Google Fonts stubbed: the branding fixture names a
+ * font, and this embeds one without going out to the network.
+ */
+const STUBBED_FONTS = {
+    NODE_OPTIONS: [
+        process.env.NODE_OPTIONS,
+        `--import ${pathToFileURL(fixture("stub-fonts.js")).href}`,
+    ]
+        .filter(Boolean)
+        .join(" "),
+};
+
+const brandedArtifactFolder = once(async () => {
+    const out = join(SCRATCH, "artifact-branded");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/branding.json"),
+            "--out",
+            out,
+            "--artifact",
+        ],
+        { env: STUBBED_FONTS },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+
+/** In the page: the branding it shows, once its font has loaded. */
+const BRANDING_SHOWN = `(async () => {
+    await document.fonts.ready;
+    const logo = document.querySelector("header img, nav img, #workspace-navigation img");
+    return {
+        theme: document.documentElement.dataset.theme,
+        logo: logo && {
+            alt: logo.alt,
+            src: logo.getAttribute("src").slice(0, 18),
+            href: logo.closest("a")?.getAttribute("href") ?? null,
+        },
+        primary: getComputedStyle(document.documentElement)
+            .getPropertyValue("--color-primary")
+            .trim(),
+        font: getComputedStyle(document.body).fontFamily,
+        loaded: [...document.fonts].some(
+            (face) => face.family.replace(/["']/g, "") === "Inter" && face.status === "loaded",
+        ),
+    };
+})()`;
+
+test("the --artifact folder shows the workspace's logo, primary color and font, in light and dark", {
+    skip: SKIP,
+}, async () => {
+    const { origin } = await brandedArtifactFolder();
+    const browser = await openBrowser(CHROME);
+    try {
+        for (const theme of ["light", "dark"]) {
+            const page = await browser.open(`${origin}/index.html`);
+            await page.waitFor("document.querySelector('h1')");
+            // Mark the page before the reload, so the wait below passes only
+            // on the reloaded page: the light page already meets the rest.
+            await page.evaluate(
+                `window.beforeReload = true; localStorage.setItem("renderizr:theme", "${theme}"); location.reload()`,
+            );
+            await page.waitFor(
+                `!window.beforeReload && document.documentElement.dataset.theme === "${theme}" && document.querySelector('h1 img')`,
+            );
+            assert.deepEqual(
+                await page.evaluate(BRANDING_SHOWN),
+                {
+                    theme,
+                    logo: {
+                        alt: "Acme",
+                        src: "data:image/svg+xml",
+                        href: "https://acme.example",
+                    },
+                    primary: "#e4572e",
+                    font: "Inter, Helvetica, Arial, sans-serif",
+                    loaded: true,
+                },
+                `the ${theme} page shows other branding`,
+            );
+        }
+    } finally {
+        await browser.close();
+    }
+});
+
+/**
+ * The Mermaid flowchart fixture with the branding fixture's properties, in
+ * a folder of its own beside the branding fixture's logo: a branded
+ * workspace whose silent Mermaid source takes the primary color.
+ */
+const brandedMermaid = once(async () => {
+    const dir = join(SCRATCH, "branded-mermaid-source");
+    await mkdir(dir, { recursive: true });
+    const workspace = JSON.parse(
+        await readFile(
+            join(REPO_ROOT, "test/__fixtures__/mermaid-flowchart.json"),
+            "utf8",
+        ),
+    );
+    const { properties } = JSON.parse(
+        await readFile(
+            join(REPO_ROOT, "test/__fixtures__/branding.json"),
+            "utf8",
+        ),
+    );
+    workspace.properties = { ...workspace.properties, ...properties };
+    await copyFile(
+        join(REPO_ROOT, "test/__fixtures__/logo.svg"),
+        join(dir, "logo.svg"),
+    );
+    const source = join(dir, "workspace.json");
+    await writeFile(source, JSON.stringify(workspace));
+    return source;
+});
+
+/** Build the branded Mermaid workspace into `name` with `args`. */
+const buildBrandedMermaid = async (name, args) => {
+    const out = join(SCRATCH, name);
+    const result = await runCli(
+        [await brandedMermaid(), "--out", out, ...args],
+        { env: STUBBED_FONTS },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    return out;
+};
+
+/** The fill of the silent Mermaid source's Web shop node in `document`. */
+const shopFill = (document) =>
+    document
+        .querySelector(
+            '[data-element-id="mermaid:shop"] path[data-paint="body"]',
+        )
+        ?.getAttribute("fill");
+
+test("a branded workspace's silent Mermaid source takes its primary color on first paint, in the multi-file and the single-file build", {
+    skip: SKIP,
+}, async () => {
+    // The page applies the branding as it starts rather than compiling it
+    // in, so the first view it draws has the branding already.
+    const view = "#/?page=diagrams&view=plain";
+    const multi = await buildBrandedMermaid("branded-mermaid-multi", []);
+    const server = await serveDirectory(multi);
+    servers.push(server);
+    const single = await buildBrandedMermaid("branded-mermaid-single", [
+        "--single-file",
+    ]);
+
+    for (const [name, url] of [
+        ["multi-file", `${server.origin}/index.html${view}`],
+        ["single-file", `${fileUrl(join(single, "index.html"))}${view}`],
+    ])
+        assert.equal(
+            shopFill(await render(url)),
+            "#e4572e",
+            `the ${name} page fills the node with another color`,
+        );
+});
+
+/**
+ * Renderizr's own workspace, with documentation and decisions, as an
+ * `--artifact` folder served over HTTP. It embeds Inter, so fonts are
+ * stubbed.
+ */
+const architectureArtifactFolder = once(async () => {
+    const out = join(SCRATCH, "artifact-architecture");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "architecture/workspace.json"),
+            "--out",
+            out,
+            "--artifact",
+        ],
+        { env: STUBBED_FONTS },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+
+test("the --artifact folder opens a documentation page from renderizr-docs.js, and logs nothing", {
+    skip: SKIP,
+}, async () => {
+    const { origin } = await architectureArtifactFolder();
+    const { html, console: logs } = await renderPage(
+        CHROME,
+        `${origin}/index.html#/?page=docs`,
+    );
+    const document = parseDocument(html);
+
+    assert.ok(document.querySelector("#docs-menu"), "no documentation sidebar");
+    assert.match(
+        document.querySelector("#docs-content").textContent,
+        /Getting started/,
+    );
+    assert.deepEqual(logs, [], "the page logged to the console");
+});
+
+test("the --artifact folder opens a decision from renderizr-docs.js, and logs nothing", {
+    skip: SKIP,
+}, async () => {
+    const { origin } = await architectureArtifactFolder();
+    const { html, console: logs } = await renderPage(
+        CHROME,
+        `${origin}/index.html#/?page=adrs&adr=1`,
+    );
+    const document = parseDocument(html);
+
+    assert.equal(
+        document.querySelector("#decision-title h2").textContent,
+        "0001 Record architecture decisions",
+    );
+    assert.ok(
+        document.querySelector("#decision-content").textContent.length > 0,
+        "the decision has no body",
+    );
+    assert.deepEqual(logs, [], "the page logged to the console");
+});
+
+/** The enterprise fixture, a set, as an `--artifact` folder served over HTTP. */
+const artifactSet = once(async () => {
+    const out = join(SCRATCH, "artifact-set");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/enterprise"),
+            "--out",
+            out,
+            "--artifact",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+
+test("the --artifact folder of a set crosses into a software system scoped workspace and back over the workspace trail", {
+    skip: SKIP,
+}, async () => {
+    // The landscape loads from workspace.json, Payments from payments.json
+    // the first time the reader enters it (ADR 26).
+    const { origin } = await artifactSet();
+    const browser = await openBrowser(CHROME);
+    try {
+        const page = await browser.open(`${origin}/index.html`);
+        await page.waitFor(
+            `document.querySelector("h1")?.textContent === "Acme" &&
+             !!document.querySelector('[data-ready="true"] [data-focus-item="element:4"]')`,
+        );
+
+        // Payments, element 4 of the landscape, leads into its workspace.
+        await page.evaluate(
+            `document.querySelector('[data-focus-item="element:4"]').click()`,
+        );
+        await page.waitFor(
+            `document.title.startsWith("Payments") &&
+             location.hash.startsWith("#/payments/") &&
+             !!document.querySelector('[data-ready="true"] [aria-label^="Payment API"]')`,
+        );
+
+        // Payments shows its logo in the header, not its name. The header's
+        // button leads back up the trail.
+        await page.evaluate(`document.querySelector("a[data-back]").click()`);
+        await page.waitFor(
+            `document.querySelector("h1")?.textContent === "Acme" &&
+             document.title.startsWith("Acme") &&
+             !location.hash.includes("payments") &&
+             !document.querySelector("a[data-back]")`,
+        );
+    } finally {
+        await browser.close();
+    }
+});
+
+test("the --artifact folder of a set crosses into a software system whose slug is workspace", {
+    skip: SKIP,
+}, async () => {
+    // Payments, renamed Workspace, loads from a file of its own beside the
+    // landscape's workspace.json.
+    const from = await writeReservedSlugSet(join(SCRATCH, "reserved-slugs"));
+    const out = join(SCRATCH, "artifact-reserved-slugs");
+    const result = await runCli([from, "--out", out, "--artifact"], {
+        env: OFFLINE,
+    });
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    const browser = await openBrowser(CHROME);
+    try {
+        const page = await browser.open(`${server.origin}/index.html`);
+        await page.waitFor(
+            `document.querySelector("h1")?.textContent === "Acme" &&
+             !!document.querySelector('[data-ready="true"] [data-focus-item="element:4"]')`,
+        );
+        await page.evaluate(
+            `document.querySelector('[data-focus-item="element:4"]').click()`,
+        );
+        await page.waitFor(
+            `document.title.startsWith("Workspace") &&
+             location.hash.startsWith("#/workspace/") &&
+             !!document.querySelector('[data-ready="true"] [aria-label^="Payment API"]')`,
+        );
+    } finally {
+        await browser.close();
+    }
+});
+
+test("the single file draws the view with nothing beside it", {
     skip: SKIP,
 }, async () => {
     const out = await singleFile();
     const alone = await mkdtemp(join(tmpdir(), "renderizr-alone-"));
-    const copy = join(alone, "artifact.html");
-    await writeFile(copy, await readFile(join(out, "artifact.html")));
+    const copy = join(alone, "index.html");
+    await writeFile(copy, await readFile(join(out, "index.html")));
 
     assertDrawnView(await render(`${fileUrl(copy)}${CONTEXT_VIEW}`));
 

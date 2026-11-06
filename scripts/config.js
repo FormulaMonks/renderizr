@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ARTIFACT_OUTPUT, artifact as artifactPlugins } from "./artifact.js";
 import {
     branding as brandingPlugin,
     NO_BRANDING,
@@ -8,8 +9,26 @@ import {
     singleFile,
     workspaceModule,
 } from "./plugins.js";
+import { LINE_LIMIT, shortLines } from "./short-lines.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+
+/**
+ * Every way the page and React Flow import React, sent to Preact's
+ * compatibility layer (ADR 28). One list for the dev server, edit mode, the
+ * multi-file build and `--single-file`, so all four run the same library.
+ * Anchored, so `@xyflow/react` and `react-flow` keep their own packages.
+ */
+const PREACT_ALIASES = [
+    { find: /^react$/, replacement: "preact/compat" },
+    { find: /^react-dom$/, replacement: "preact/compat" },
+    { find: /^react-dom\/client$/, replacement: "preact/compat/client" },
+    { find: /^react\/jsx-runtime$/, replacement: "preact/compat/jsx-runtime" },
+    {
+        find: /^react\/jsx-dev-runtime$/,
+        replacement: "preact/compat/jsx-dev-runtime",
+    },
+];
 
 /**
  * The version stamped into the rendered site's footer.
@@ -46,12 +65,18 @@ export const version = (() => {
  * `devSet` is the dev server's plugins (`scripts/dev-set.js`). They serve
  * the workspace and the set from the last set that loaded, in place of the
  * compiled-in ones, and reload them on every change (spec 264).
+ *
+ * `output` says how the build writes the page: `"site"`, the multi-file
+ * build; `"single-file"`, one self-contained `index.html`; or `"artifact"`,
+ * a folder for a Claude artifact (`scripts/artifact.js`), whose page loads
+ * its workspace from `workspace.json`, so nothing specific to one workspace
+ * is compiled into the runtime, and `base` has no meaning.
  */
 export function createConfig({
     workspace,
     branding = NO_BRANDING,
     set = null,
-    singleFile: asSingleFile = false,
+    output = "site",
     out = "structurizr-output",
     base = "",
     engineReport = false,
@@ -61,21 +86,44 @@ export function createConfig({
 }) {
     const outDir = resolve(process.cwd(), out);
     const { logo, font, primaryColor } = branding;
+    const buildDate = new Date().toISOString();
+    const asSingleFile = output === "single-file";
+    const artifact = output === "artifact";
+    /**
+     * `value` as a define, or `null` under `--artifact`, where only the
+     * payloads and the manifest hold it.
+     */
+    const blankedUnderArtifact = (value) =>
+        JSON.stringify(artifact ? null : value);
 
     return {
         root,
-        base,
+        base: artifact ? "" : base,
         // scripts/main.js and edit mode already hold the complete
         // configuration; letting Vite also load vite.config.ts would re-parse
         // argv in dev-server mode.
         ...(mode === "build" || editMode ? { configFile: false } : {}),
-        publicDir: asSingleFile ? false : resolve(root, "public"),
+        publicDir: asSingleFile || artifact ? false : resolve(root, "public"),
         plugins: [
-            brandingPlugin({ font, primaryColor }),
-            ...(devSet ?? [
-                editMode ?? workspaceModule(workspace),
-                setModule({ ...set, inline: asSingleFile }),
-            ]),
+            // First, before the plugins that fold the output into the page
+            // or the artifact's folder: Vite runs `post` plugins in order.
+            ...(mode === "build" ? [shortLines()] : []),
+            // Under `--artifact`, the shell links the font faces in
+            // `branding.css` rather than holding them.
+            brandingPlugin({ font: artifact ? null : font, primaryColor }),
+            ...(devSet ??
+                (artifact
+                    ? artifactPlugins({
+                          workspace,
+                          branding,
+                          set,
+                          version,
+                          buildDate,
+                      })
+                    : [
+                          editMode ?? workspaceModule(workspace),
+                          setModule({ ...set, inline: asSingleFile }),
+                      ])),
             ...(asSingleFile ? [singleFile()] : []),
         ],
         build: {
@@ -85,31 +133,44 @@ export function createConfig({
             emptyOutDir: true,
             modulePreload: false,
             chunkSizeWarningLimit: 2048,
-            assetsInlineLimit: asSingleFile
-                ? Number.MAX_SAFE_INTEGER
-                : undefined,
+            assetsInlineLimit:
+                asSingleFile || artifact ? Number.MAX_SAFE_INTEGER : undefined,
             rollupOptions: {
-                output: asSingleFile ? { inlineDynamicImports: true } : {},
+                output: asSingleFile
+                    ? { inlineDynamicImports: true }
+                    : artifact
+                      ? ARTIFACT_OUTPUT
+                      : {},
             },
         },
-        // The React Flow island is the one place JSX is written.
-        esbuild: { jsx: "automatic" },
+        resolve: {
+            alias: PREACT_ALIASES,
+            // pnpm gives React Flow no `preact` of its own to resolve the
+            // aliases against, so Vite resolves it from the package root,
+            // which also keeps the page to one copy of Preact.
+            dedupe: ["preact"],
+        },
+        // The React Flow island is the one place JSX is written. Vite hands
+        // `lineLimit` to the minifier too, which keeps every script's lines
+        // short (spec 296).
+        esbuild: { jsx: "automatic", lineLimit: LINE_LIMIT },
         // esbuild injects the JSX runtime, so Vite's scan never sees it and
         // finds it only on first request. Vite skips that late discovery for
         // an importer under node_modules, which is where `src` sits when
-        // `npx` installs the package, and would serve React's CommonJS file
-        // as is. Naming it here pre-bundles it wherever the package lives.
-        optimizeDeps: { include: ["react/jsx-dev-runtime"] },
+        // `npx` installs the package, and would serve the file as is, a
+        // second copy of Preact beside the pre-bundled one React Flow uses.
+        // Naming it here pre-bundles it wherever the package lives.
+        optimizeDeps: { include: ["preact/compat/jsx-dev-runtime"] },
         define: {
-            __RENDERIZR_LOGO__: JSON.stringify(logo),
-            __RENDERIZR_FONT__: JSON.stringify(font ? font.family : null),
+            __RENDERIZR_LOGO__: blankedUnderArtifact(logo),
+            __RENDERIZR_FONT__: blankedUnderArtifact(font ? font.family : null),
             __RENDERIZR_VERSION__: JSON.stringify(version),
             // The export's title block gives it when the workspace holds no
             // `lastModifiedDate`.
-            __RENDERIZR_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+            __RENDERIZR_BUILD_DATE__: blankedUnderArtifact(buildDate),
             // A silent Mermaid source fills its nodes with it, and export
             // needs it as a literal rather than the stylesheet's variable.
-            __RENDERIZR_PRIMARY_COLOR__: JSON.stringify(primaryColor),
+            __RENDERIZR_PRIMARY_COLOR__: blankedUnderArtifact(primaryColor),
             // The engine's geometry report, for the acceptance harness only
             // (spec 15.1); `false` compiles the writer out of the bundle.
             __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),
