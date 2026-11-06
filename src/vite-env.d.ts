@@ -101,12 +101,10 @@ declare module "virtual:renderizr/set" {
     };
     /**
      * What `workspace.json` holds under `--artifact`: the landscape scoped
-     * workspace's payload, the set's other workspaces by slug and name, and
-     * when the site was built.
+     * workspace's payload and the set's other workspaces by slug and name.
      */
     export type LandscapePayload = WorkspacePayload & {
         workspaces: { slug: string; name: string }[];
-        buildDate: string;
     };
     /**
      * The landscape scoped workspace, loaded from `workspace.json` before
@@ -114,6 +112,11 @@ declare module "virtual:renderizr/set" {
      * compiled in.
      */
     export const landscape: LandscapePayload | null;
+    /**
+     * When the site was built, from `manifest.json` under `--artifact`;
+     * `null` wherever the page holds it compiled in, or without a manifest.
+     */
+    export const buildDate: string | null;
     /** The landscape scoped workspace's crossings. */
     export const crossings: Crossing[];
     /** The set's other workspaces, by slug and name. */

@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+    cp,
+    mkdtemp,
+    readFile,
+    readdir,
+    rm,
+    writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
@@ -624,27 +631,25 @@ test("two --artifact renders of different workspaces write byte-identical runtim
     );
 });
 
-test("--artifact's workspace.json holds the workspace and the build date, and the runtime holds neither", async () => {
+test("--artifact's workspace.json holds the workspace, the manifest the build date, and the runtime neither", async () => {
     const { out } = await bigBankArtifact();
     const payload = JSON.parse(
         await readFile(join(out, "workspace.json"), "utf-8"),
     );
+    const { buildDate } = await manifestOf(out);
 
     assert.equal(payload.workspace.name, "Big Bank plc");
-    assert.ok(
-        !Number.isNaN(Date.parse(payload.buildDate)),
-        `${payload.buildDate} is no date`,
-    );
+    // The manifest goes out on every publish anyway; in a payload, the date
+    // would change its hash on every render.
+    assert.equal(payload.buildDate, undefined, "the payload holds the date");
+    assert.ok(!Number.isNaN(Date.parse(buildDate)), `${buildDate} is no date`);
     for (const name of ["renderizr.js", "renderizr-vendor.js"]) {
         const code = await readFile(join(out, name), "utf-8");
         assert.ok(
             !code.includes("Big Bank plc"),
             `${name} holds the workspace`,
         );
-        assert.ok(
-            !code.includes(payload.buildDate),
-            `${name} holds the build date`,
-        );
+        assert.ok(!code.includes(buildDate), `${name} holds the build date`);
     }
 });
 
@@ -720,6 +725,86 @@ test("--artifact with --single-file fails with the usage", async () => {
 test("--help describes --artifact", async () => {
     const { stdout } = await runCli(["--help"]);
     assert.match(stdout, /--artifact\s+\S/);
+});
+
+/* ------------------------------------------------------- --artifact, a set */
+
+/** Render the set in `from` with `--artifact` into `name`, offline. */
+const buildArtifactSet = (name, from = ENTERPRISE) => buildArtifact(name, from);
+const artifactSet = once(() => buildArtifactSet("artifact-set"));
+
+/** Each file the manifest in `out` lists, by path, with its hash. */
+const hashesOf = async (out) =>
+    Object.fromEntries(
+        (await manifestOf(out)).files.map(({ path, sha256 }) => [path, sha256]),
+    );
+
+test("--artifact renders a set as workspace.json for the landscape scoped workspace and one <slug>.json for each other, all listed as workspaces", async () => {
+    const { out } = await artifactSet();
+    const { files } = await manifestOf(out);
+    const workspaces = files
+        .filter((file) => file.layer === "workspace")
+        .map((file) => file.path);
+
+    assert.deepEqual(workspaces.sort(), [...SET_FILES, "workspace.json"]);
+    const landscape = JSON.parse(
+        await readFile(join(out, "workspace.json"), "utf-8"),
+    );
+    assert.equal(landscape.workspace.name, "Acme");
+    assert.deepEqual(landscape.workspaces.map(({ slug }) => slug).sort(), [
+        "orders",
+        "payments",
+        "storefront",
+    ]);
+    assert.ok(landscape.crossings.length > 0, "the landscape crosses nowhere");
+
+    // Each payload carries its own workspace and branding.
+    const payments = JSON.parse(
+        await readFile(join(out, "payments.json"), "utf-8"),
+    );
+    assert.equal(payments.workspace.name, "Payments");
+    assert.ok(payments.branding, "payments.json carries no branding");
+    for (const name of ["renderizr.js", "renderizr-vendor.js"]) {
+        const code = await readFile(join(out, name), "utf-8");
+        for (const text of ["Acme", "Payment API"])
+            assert.ok(!code.includes(text), `${name} holds ${text}`);
+    }
+});
+
+test("--artifact writes a set's runtime byte for byte the same as a lone workspace's", async () => {
+    const [set, lone] = await Promise.all([artifactSet(), emptyArtifact()]);
+    const runtime = runtimeOf(await manifestOf(lone.out));
+
+    assert.deepEqual(runtimeOf(await manifestOf(set.out)), runtime);
+    for (const { path } of runtime)
+        assert.ok(
+            (await readFile(join(set.out, path))).equals(
+                await readFile(join(lone.out, path)),
+            ),
+            `${path} differs between the set and the lone workspace`,
+        );
+});
+
+test("changing one software system scoped workspace of a set changes only its payload's hash", async () => {
+    const from = join(SCRATCH, "enterprise-changed");
+    await cp(ENTERPRISE, from, { recursive: true });
+    const before = await hashesOf(
+        (await buildArtifactSet("artifact-set-before", from)).out,
+    );
+
+    const file = join(from, "payments-workspace.json");
+    const payments = JSON.parse(await readFile(file, "utf-8"));
+    payments.description = "Takes the money, now with a changed description";
+    await writeFile(file, JSON.stringify(payments));
+    const after = await hashesOf(
+        (await buildArtifactSet("artifact-set-after", from)).out,
+    );
+
+    const changed = Object.keys(after).filter(
+        (path) => after[path] !== before[path],
+    );
+    assert.deepEqual(Object.keys(after).sort(), Object.keys(before).sort());
+    assert.deepEqual(changed, ["payments.json"]);
 });
 
 /* --------------------------------------------------------------- short lines */
