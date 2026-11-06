@@ -5,6 +5,7 @@ import {
     payloadSource,
     RESOLVED_SET_MODULE,
     RESOLVED_WORKSPACE_MODULE,
+    SCRIPT_ELEMENT,
     SET_MODULE,
     UNNAMED_WORKSPACE,
     WORKSPACE_MODULE,
@@ -246,7 +247,6 @@ export function manifestSource({ version, buildDate, files }) {
 /* ------------------------------------------------------------------ shell */
 
 const TITLE = /<title>[\s\S]*?<\/title>/i;
-const SCRIPT_ELEMENT = /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi;
 const STYLE_ELEMENT = /<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi;
 
 /**

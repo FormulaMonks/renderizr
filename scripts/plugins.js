@@ -269,7 +269,11 @@ export function branding({ font, primaryColor = null }) {
 
 /* ------------------------------------------------------------ single file */
 
-const SCRIPT_ELEMENT = /<script\b[\s\S]*?<\/script\b[^>]*>/gi;
+/**
+ * A script element, open tag to close tag. Vite's own `index.html` holds no
+ * bundled code, so its tags can be read with patterns.
+ */
+export const SCRIPT_ELEMENT = /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi;
 const SCRIPT_SRC = /^<script\b[^>]*\ssrc="([^"]+)"/i;
 const STYLE_TAG =
     /<link[^>]*\shref="([^"]+)"[^>]*\srel="stylesheet"[^>]*>|<link[^>]*\srel="stylesheet"[^>]*\shref="([^"]+)"[^>]*>/g;
