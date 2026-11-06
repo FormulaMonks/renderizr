@@ -250,24 +250,33 @@ jobs:
 
       - name: Assert the single-file output is one document
         run: |
-          test -f dist-single/index.html
-          test -f dist-single/artifact.html
-          # Nothing else: no assets directory to go with it.
-          test ! -d dist-single/assets
+          # index.html and nothing else: no assets directory to go with it.
+          test "$(ls dist-single)" = "index.html"
           # A real page, not a stub. The Big Bank render is ~1 MB.
           test "$(wc -c < dist-single/index.html)" -gt 500000
-          # artifact.html is the same page without its own document
-          # scaffolding — that is the whole reason it is a second file.
           grep -q 'Big Bank plc' dist-single/index.html
           grep -q '<html' dist-single/index.html
-          if grep -q '<html' dist-single/artifact.html; then
-            echo "artifact.html must not carry its own <html> element" >&2
+
+      - name: Render Big Bank plc (--artifact)
+        run: pnpm render "$BIG_BANK" --artifact --out dist-artifact
+
+      - name: Assert the --artifact output is a folder to publish
+        run: |
+          test -f dist-artifact/manifest.json
+          test -f dist-artifact/renderizr.js
+          grep -q 'Big Bank plc' dist-artifact/workspace.json
+          # The shell is a fragment: the artifact host supplies the document
+          # scaffolding, so the page carries none of its own.
+          grep -q '<title>' dist-artifact/index.html
+          if grep -q '<html' dist-artifact/index.html; then
+            echo "the --artifact index.html must not carry its own <html> element" >&2
             exit 1
           fi
 
       # The core promise: opened over file://, from an email attachment or
       # inside a sandboxed frame, the single-file build makes no network
-      # requests. Asset-bearing tags only — ordinary <a href="https://..."> in
+      # requests, and neither does the --artifact folder under the artifact
+      # viewer's CSP. Asset-bearing tags only — ordinary <a href="https://..."> in
       # the rendered documentation is content, not a request, and a blanket
       # `grep https://` would fail forever on it.
       - name: Assert no external asset references
@@ -303,14 +312,14 @@ jobs:
           }
 
           if (failures > 0) {
-            console.error(`FAIL: ${failures} external asset reference(s) in the single-file build`);
+            console.error(`FAIL: ${failures} external asset reference(s) in the single-file and --artifact builds`);
             process.exit(1);
           }
           console.log("OK: no external asset references");
           CHECK
           node "${RUNNER_TEMP}/no-external-assets.mjs" \
             dist-single/index.html \
-            dist-single/artifact.html
+            dist-artifact/*
 
       # Spec 15: every view of the acceptance set drawn by the React Flow
       # engine in headless Chrome (preinstalled on ubuntu-latest) and checked
