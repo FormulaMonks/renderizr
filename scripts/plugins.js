@@ -148,12 +148,13 @@ export const payloadSource = (payload) =>
  * The source of `SET_MODULE`: the landscape scoped workspace's
  * `crossings`, each other workspace's slug and name as `workspaces`, and
  * as `inlined` every payload by slug when the page holds them, `null` when
- * it loads each from its file. `landscape` is `null`: the page holds the
- * landscape scoped workspace compiled in.
+ * it loads each from its file. `landscape` and `buildDate` are `null`: the
+ * page holds the landscape scoped workspace and the build date compiled in.
  */
 const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
     [
         "export const landscape = null;",
+        "export const buildDate = null;",
         `export const crossings = ${JSON.stringify(crossings)};`,
         `export const workspaces = ${JSON.stringify(
             workspaces.map(({ slug, payload }) => ({

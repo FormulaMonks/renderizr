@@ -23,12 +23,15 @@ import {
  *   specific to one workspace is compiled in.
  * - The workspace payloads: `workspace.json` for the landscape scoped
  *   workspace, or a lone workspace, and `<slug>.json` for each other
- *   workspace of a set (ADR 26). Each holds its workspace's branding, which
- *   the page applies as it starts or as the reader enters the workspace.
+ *   workspace of a set (ADR 26). Each holds only what its workspace gives,
+ *   its branding included, so a render changes only the payloads of the
+ *   workspaces that changed. The page applies a workspace's branding as it
+ *   starts or as the reader enters the workspace.
  * - `branding.css`, the landscape scoped workspace's embedded font faces,
  *   when the render embeds a font. The faces stay data URIs: whether the
  *   artifact viewer loads a font from a published file is untested.
- * - `manifest.json`, which lists every file with its layer, size and hash.
+ * - `manifest.json`, which lists every file with its layer, size and hash,
+ *   and says when the site was built.
  */
 
 /** The file the page loads its landscape scoped workspace from. */
@@ -75,20 +78,17 @@ const isVendor = (id) =>
 /**
  * @typedef {import("./plugins.js").WorkspacePayload & {
  *     workspaces: { slug: string, name: string }[],
- *     buildDate: string,
  * }} LandscapePayload
- *   What `workspace.json` holds: the landscape scoped workspace's payload,
- *   the set's other workspaces by slug and name, and when the site was
- *   built, which the export's title block gives when the workspace holds no
- *   `lastModifiedDate`.
+ *   What `workspace.json` holds: the landscape scoped workspace's payload
+ *   and the set's other workspaces by slug and name.
  */
 
 /**
  * The landscape scoped workspace's payload: `workspace`, its `branding`
- * and the `set` as `pageSet` gives it, built at `buildDate`.
+ * and the `set` as `pageSet` gives it.
  * @returns {LandscapePayload}
  */
-export const landscapePayload = ({ workspace, branding, set, buildDate }) => ({
+export const landscapePayload = ({ workspace, branding, set }) => ({
     workspace,
     // Its faces are in `branding.css`, which the shell links.
     branding: {
@@ -100,21 +100,28 @@ export const landscapePayload = ({ workspace, branding, set, buildDate }) => ({
         slug,
         name: payload.workspace.name ?? UNNAMED_WORKSPACE,
     })),
-    buildDate,
 });
 
 /**
  * The source of `SET_MODULE` under `--artifact`: the landscape scoped
  * workspace's payload, loaded from `workspace.json` before the page starts,
- * and the set it names. Top-level await holds back every module that
- * imports it, so the page starts with the workspace in hand, as it does
- * when the workspace is compiled in.
+ * the set it names, and the build date from `manifest.json`. Top-level
+ * await holds back every module that imports it, so the page starts with
+ * the workspace in hand, as it does when the workspace is compiled in.
+ *
+ * The build date lives in the manifest, which goes out on every publish
+ * anyway: in `workspace.json` it would change that payload's hash on every
+ * render. Without the manifest the page still opens, with no build date.
  */
 const SET_MODULE_SOURCE = [
-    `const response = await fetch("./${WORKSPACE_FILE}");`,
+    "const [response, manifest] = await Promise.all([",
+    `    fetch("./${WORKSPACE_FILE}"),`,
+    `    fetch("./${MANIFEST_FILE}").then((r) => (r.ok ? r.json() : null)).catch(() => null),`,
+    "]);",
     "if (!response.ok)",
     `    throw new Error(\`Couldn't load ${WORKSPACE_FILE}: \${response.status} \${response.statusText}\`);`,
     "export const landscape = await response.json();",
+    "export const buildDate = manifest?.buildDate ?? null;",
     "export const crossings = landscape.crossings;",
     "export const workspaces = landscape.workspaces;",
     "export const inlined = null;",
@@ -142,11 +149,11 @@ const sha256 = (source) => createHash("sha256").update(source).digest("hex");
 
 /**
  * The source of `manifest.json` for `files`, each `{ path, layer, source }`
- * in the order to list them, built by Renderizr `version`. The manifest
- * lists itself last, with its own size and no hash, since a hash of itself
- * cannot be inside it.
+ * in the order to list them, built by Renderizr `version` at `buildDate`.
+ * The manifest lists itself last, with its own size and no hash, since a
+ * hash of itself cannot be inside it.
  */
-export function manifestSource({ version, files }) {
+export function manifestSource({ version, buildDate, files }) {
     const listed = files.map(({ path, layer, source }) => ({
         path,
         layer,
@@ -156,6 +163,7 @@ export function manifestSource({ version, files }) {
     const sourceOf = (bytes) =>
         payloadSource({
             renderizr: version,
+            buildDate,
             files: [...listed, { path: MANIFEST_FILE, layer: "shell", bytes }],
         });
     // Its own size counts its own digits: settle on a size that names
@@ -225,15 +233,15 @@ function withoutScripts(html) {
 /**
  * The Vite plugins for `--artifact`. `workspace`, `branding` and `set` are
  * as `createConfig` takes them, `branding` the landscape scoped
- * workspace's; `version` names the runtime in the
- * manifest; `buildDate` goes into `workspace.json`.
+ * workspace's; `version` names the runtime in the manifest; `buildDate`
+ * goes into the manifest too.
  *
  * The first plugin provides the page's workspace and set modules: an empty
  * workspace module, and a set module that loads `workspace.json`. The
  * second writes the folder once Vite has written the page.
  */
 export function artifact({ workspace, branding, set, version, buildDate }) {
-    const landscape = landscapePayload({ workspace, branding, set, buildDate });
+    const landscape = landscapePayload({ workspace, branding, set });
     const faces = branding.font?.css ?? null;
     const payloads = [
         [WORKSPACE_FILE, landscape],
@@ -316,7 +324,11 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
                     ...listed,
                     {
                         path: MANIFEST_FILE,
-                        source: manifestSource({ version, files: listed }),
+                        source: manifestSource({
+                            version,
+                            buildDate,
+                            files: listed,
+                        }),
                     },
                 ])
                     this.emitFile({ type: "asset", fileName: path, source });

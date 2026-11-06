@@ -606,6 +606,66 @@ test("the --artifact folder shows the workspace's logo, primary color and font, 
     }
 });
 
+/** The enterprise fixture, a set, as an `--artifact` folder served over HTTP. */
+const artifactSet = once(async () => {
+    const out = join(SCRATCH, "artifact-set");
+    const result = await runCli(
+        [
+            join(REPO_ROOT, "test/__fixtures__/enterprise"),
+            "--out",
+            out,
+            "--artifact",
+        ],
+        { env: OFFLINE },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    const server = await serveDirectory(out);
+    servers.push(server);
+    return { out, origin: server.origin };
+});
+
+test("the --artifact folder of a set crosses into a software system scoped workspace and back over the workspace trail", {
+    skip: SKIP,
+}, async () => {
+    // The landscape loads from workspace.json, Payments from payments.json
+    // the first time the reader enters it (ADR 26).
+    const { origin } = await artifactSet();
+    const browser = await openBrowser(CHROME);
+    try {
+        const page = await browser.open(`${origin}/index.html`);
+        await page.waitFor(
+            `document.querySelector("h1")?.textContent === "Acme" &&
+             !!document.querySelector('[data-ready="true"] [data-focus-item="element:4"]')`,
+        );
+
+        // Payments, element 4 of the landscape, leads into its workspace.
+        await page.evaluate(
+            `document.querySelector('[data-focus-item="element:4"]').click()`,
+        );
+        await page.waitFor(
+            `document.title.startsWith("Payments") &&
+             location.hash.startsWith("#/payments/") &&
+             !!document.querySelector('[data-ready="true"] [aria-label^="Payment API"]')`,
+        );
+
+        // Payments shows its logo in the header, not its name. The header's
+        // button leads back up the trail.
+        await page.evaluate(`document.querySelector("a[data-back]").click()`);
+        await page.waitFor(
+            `document.querySelector("h1")?.textContent === "Acme" &&
+             document.title.startsWith("Acme") &&
+             !location.hash.includes("payments") &&
+             !document.querySelector("a[data-back]")`,
+        );
+    } finally {
+        await browser.close();
+    }
+});
+
 test("artifact.html draws the view with nothing beside it", {
     skip: SKIP,
 }, async () => {

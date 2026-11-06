@@ -1,6 +1,7 @@
 import history from "history/hash";
 import landscapeWorkspace from "virtual:renderizr/workspace";
 import {
+    buildDate as loadedBuildDate,
     crossings,
     inlined,
     landscape,
@@ -71,7 +72,7 @@ const set = createWorkspaceSet({
  * When the site was built: the export's title block gives it when the
  * workspace holds no `lastModifiedDate`.
  */
-export const buildDate = landscape?.buildDate ?? __RENDERIZR_BUILD_DATE__;
+export const buildDate = loadedBuildDate ?? __RENDERIZR_BUILD_DATE__;
 
 /** The set's other workspaces, by slug and name. */
 export const setWorkspaces = set.workspaces;
