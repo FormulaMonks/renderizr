@@ -18,7 +18,7 @@ declare const __RENDERIZR_VERSION__: string | null;
  * When the site was built (or the dev server or edit mode started), as an
  * ISO timestamp: the export's title block gives its date when the workspace
  * holds no `lastModifiedDate`. `null` under `--artifact`, whose
- * `workspace.json` carries it, so the runtime holds nothing that changes
+ * `manifest.json` carries it, so the runtime holds nothing that changes
  * from one build to the next.
  */
 declare const __RENDERIZR_BUILD_DATE__: string | null;
