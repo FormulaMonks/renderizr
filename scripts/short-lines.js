@@ -1,5 +1,5 @@
 import { parseAst, transformWithEsbuild } from "vite";
-import { isValuePosition, walk } from "./escapes.js";
+import { isValuePosition, walk } from "./ast.js";
 
 /**
  * Keeps every line a build writes short, so Claude can read any file a range
