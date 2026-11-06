@@ -20,7 +20,14 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+    copyFile,
+    mkdir,
+    mkdtemp,
+    readFile,
+    rm,
+    writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
@@ -597,6 +604,83 @@ test("the --artifact folder shows the workspace's logo, primary color and font, 
     } finally {
         await browser.close();
     }
+});
+
+/**
+ * The Mermaid flowchart fixture with the branding fixture's properties, in
+ * a folder of its own beside the branding fixture's logo: a branded
+ * workspace whose silent Mermaid source takes the primary color.
+ */
+const brandedMermaid = once(async () => {
+    const dir = join(SCRATCH, "branded-mermaid-source");
+    await mkdir(dir, { recursive: true });
+    const workspace = JSON.parse(
+        await readFile(
+            join(REPO_ROOT, "test/__fixtures__/mermaid-flowchart.json"),
+            "utf8",
+        ),
+    );
+    const { properties } = JSON.parse(
+        await readFile(
+            join(REPO_ROOT, "test/__fixtures__/branding.json"),
+            "utf8",
+        ),
+    );
+    workspace.properties = { ...workspace.properties, ...properties };
+    await copyFile(
+        join(REPO_ROOT, "test/__fixtures__/logo.svg"),
+        join(dir, "logo.svg"),
+    );
+    const source = join(dir, "workspace.json");
+    await writeFile(source, JSON.stringify(workspace));
+    return source;
+});
+
+/** Build the branded Mermaid workspace into `name` with `args`. */
+const buildBrandedMermaid = async (name, args) => {
+    const out = join(SCRATCH, name);
+    const result = await runCli(
+        [await brandedMermaid(), "--out", out, ...args],
+        { env: STUBBED_FONTS },
+    );
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    return out;
+};
+
+/** The fill of the silent Mermaid source's Web shop node in `document`. */
+const shopFill = (document) =>
+    document
+        .querySelector(
+            '[data-element-id="mermaid:shop"] path[data-paint="body"]',
+        )
+        ?.getAttribute("fill");
+
+test("a branded workspace's silent Mermaid source takes its primary color on first paint, in the multi-file and the single-file build", {
+    skip: SKIP,
+}, async () => {
+    // The page applies the branding as it starts rather than compiling it
+    // in, so the first view it draws has the branding already.
+    const view = "#/?page=diagrams&view=plain";
+    const multi = await buildBrandedMermaid("branded-mermaid-multi", []);
+    const server = await serveDirectory(multi);
+    servers.push(server);
+    const single = await buildBrandedMermaid("branded-mermaid-single", [
+        "--single-file",
+    ]);
+
+    for (const [name, url] of [
+        ["multi-file", `${server.origin}/index.html${view}`],
+        ["single-file", `${fileUrl(join(single, "index.html"))}${view}`],
+    ])
+        assert.equal(
+            shopFill(await render(url)),
+            "#e4572e",
+            `the ${name} page fills the node with another color`,
+        );
 });
 
 /**
