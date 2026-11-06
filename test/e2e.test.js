@@ -579,11 +579,13 @@ test("the --artifact folder shows the workspace's logo, primary color and font, 
         for (const theme of ["light", "dark"]) {
             const page = await browser.open(`${origin}/index.html`);
             await page.waitFor("document.querySelector('h1')");
+            // Mark the page before the reload, so the wait below passes only
+            // on the reloaded page: the light page already meets the rest.
             await page.evaluate(
-                `localStorage.setItem("renderizr:theme", "${theme}"); location.reload()`,
+                `window.beforeReload = true; localStorage.setItem("renderizr:theme", "${theme}"); location.reload()`,
             );
             await page.waitFor(
-                `document.documentElement.dataset.theme === "${theme}" && document.querySelector('h1 img')`,
+                `!window.beforeReload && document.documentElement.dataset.theme === "${theme}" && document.querySelector('h1 img')`,
             );
             assert.deepEqual(
                 await page.evaluate(BRANDING_SHOWN),
