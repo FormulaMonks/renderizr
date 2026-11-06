@@ -35,7 +35,7 @@ npx github:FormulaMonks/renderizr ./architecture/workspace.json --artifact --out
 }
 ```
 
-- `renderizr` is the version that built the runtime. Runtime and docs runtime files carry the same hashes for every render at that version.
+- `renderizr` is the version that built the runtime. Runtime and documentation runtime files carry the same hashes for every render at that version.
 - `buildDate` is when the render ran. The page fetches `manifest.json` at runtime to show it in exports, so the published artifact must hold the manifest.
 - `files` lists every file the render wrote, with the path as published, relative to `index.html`. The manifest lists itself last, with no hash.
 
@@ -45,7 +45,7 @@ npx github:FormulaMonks/renderizr ./architecture/workspace.json --artifact --out
 2. `index.html`, the shell. It holds the theme script, the mount point, the links to the stylesheets and the module script for `renderizr.js`. It carries no `<html>`, `<head>` or `<body>`, since the artifact host supplies the document.
 3. Each workspace payload: `workspace.json`, then each `<slug>.json`.
 4. `branding.css`, when the manifest lists it.
-5. The runtime and docs runtime, last, and only when you have to send them (below).
+5. The runtime and documentation runtime, last, and only when you have to send them (below).
 
 A workspace payload can hold very long lines: documentation and decision content, the `structurizr.dsl` property and data URIs (logos, images) each stay one JSON string. Every other file keeps its lines short. Read a payload with a tool that shows whole lines.
 
@@ -81,7 +81,7 @@ Weigh a render against its runtime, which is the same for every workspace:
 | Part | Weight |
 |---|---|
 | The runtime | the bulk of a render with no documentation |
-| The docs runtime | about two fifths of the runtime |
+| The documentation runtime | about two fifths of the runtime |
 | A workspace payload | grows with the model and its documentation: about a seventh of the runtime for Big Bank plc, more than the whole runtime for a workspace with long documentation and many decisions |
 | `branding.css` for `--font` | about an eighth of the runtime per family |
 | The shell and the manifest | next to nothing |

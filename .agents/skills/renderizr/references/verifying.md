@@ -60,7 +60,7 @@ Renderizr will sometimes stop rather than write a file:
 Cannot make this bundle artifact-safe: …
 ```
 
-This is deliberate and means the bundle holds something a Claude artifact upload would reject: a lone surrogate or a U+FFFD in a position the build cannot safely rewrite. The message names the offset and the snippet. A message that names a file and says it "still spells out" such sequences means the same for that file.
+This is deliberate and means the page's code holds something a Claude artifact upload would reject: a lone surrogate or a U+FFFD in a position the build cannot safely rewrite. The message names the offset and the snippet. A message that names a file and says it "still spells out" such sequences means the same for that file.
 
 **Do not work around it by disabling the check or hand-editing the output.** A refusal is the tool telling you that something downstream would reject or corrupt the artifact. Report the message; the offending literal is almost always in a dependency, and the fix belongs there or in the build.
 

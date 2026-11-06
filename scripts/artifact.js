@@ -21,7 +21,7 @@ import {
  *   byte for byte the same for every workspace at a Renderizr version. The
  *   page loads its workspace from `workspace.json` at startup, so nothing
  *   specific to one workspace is compiled in.
- * - The docs runtime: `renderizr-docs.js`, the documentation stack, which
+ * - The documentation runtime: `renderizr-docs.js`, the documentation stack, which
  *   the entry imports only to show documentation or decisions. The same
  *   for every workspace at a version too, and left out when no workspace
  *   of the set has documentation or decisions.
@@ -205,7 +205,7 @@ export function layerOf(path) {
     if (path === DOCS_RUNTIME_FILE) return "docs-runtime";
     if (/^renderizr(-[\w-]+)?\.(js|css)$/.test(path)) return "runtime";
     throw new Error(
-        `Expected only the shell, the runtime, the docs runtime, the workspace payloads and branding in an artifact, got ${path}`,
+        `Expected only the shell, the runtime, the documentation runtime, the workspace payloads and branding in an artifact, got ${path}`,
     );
 }
 

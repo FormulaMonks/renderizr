@@ -931,7 +931,7 @@ test("changing one software system scoped workspace of a set changes only its pa
     assert.deepEqual(changed, ["payments.json"]);
 });
 
-/* ------------------------------------------ --artifact, the docs runtime */
+/* -------------------------------- --artifact, the documentation runtime */
 
 const ARCHITECTURE = join(REPO_ROOT, "architecture/workspace.json");
 /** Renderizr's own workspace: documentation, decisions and the Inter font. */
@@ -943,7 +943,7 @@ const fixtureArtifact = once(() =>
     buildArtifact("artifact-fixture", WORKSPACE),
 );
 
-/** The docs runtime's file. */
+/** The documentation runtime's file. */
 const DOCS_RUNTIME = "renderizr-docs.js";
 
 /**
@@ -960,7 +960,7 @@ test("--artifact writes no renderizr-docs.js for a workspace with no documentati
     assert.deepEqual(
         files.filter((file) => file.layer === "docs-runtime"),
         [],
-        "the manifest lists a docs runtime",
+        "the manifest lists a documentation runtime",
     );
 });
 
@@ -1412,13 +1412,13 @@ const ARTIFACT_BUDGETS = [
         bytes: RUNTIME_BYTES,
     },
     {
-        name: "the docs runtime",
+        name: "the documentation runtime",
         files: [DOCS_RUNTIME],
         bytes: DOCS_RUNTIME_BYTES,
     },
 ];
 
-test("the --artifact runtime and docs runtime each stay within their measured size plus 10%", async () => {
+test("the --artifact runtime and documentation runtime each stay within their measured size plus 10%", async () => {
     const { out } = await fixtureArtifact();
 
     for (const { name, files, bytes } of ARTIFACT_BUDGETS) {
