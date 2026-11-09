@@ -234,7 +234,9 @@ export async function startEditServer({
         },
     });
     await server.listen();
-    // Only a change made once the watcher is set up reaches the page.
+    // A change made before the watcher is ready never reaches the page. On
+    // macOS the watcher can start watching the workspace a moment later
+    // still (see `editMode`).
     await plugin.watching();
 
     const { port: listening } = server.httpServer.address();
