@@ -67,7 +67,7 @@ async function pagesOf(
     const resolveImage = createImageResolver(images);
 
     if (nav.hasDocs) {
-        const DocsPage = (await import("./pages/docs.ts")).default;
+        const { DocsPage } = await import("./pages/documentation.ts");
         routes.push(
             new DocsPage(
                 null,
@@ -80,7 +80,7 @@ async function pagesOf(
     }
 
     if (nav.hasDecisions) {
-        const DecisionsPage = (await import("./pages/adrs.ts")).default;
+        const { DecisionsPage } = await import("./pages/documentation.ts");
         routes.push(
             new DecisionsPage(
                 null,

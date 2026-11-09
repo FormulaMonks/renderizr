@@ -154,7 +154,7 @@ npx github:FormulaMonks/renderizr ./workspace.json --artifact
 | File | What it holds |
 | --- | --- |
 | `index.html` | The shell: the page that loads the rest, with the workspace's name as its title. It has no `<html>`, `<head>` or `<body>`, since the artifact host supplies the document |
-| `renderizr.js`, `renderizr-vendor.js`, `renderizr.css` | The runtime, the same byte for byte for every workspace at a Renderizr version |
+| `renderizr.js`, `renderizr-vendor.js`, `renderizr-rolldown-runtime.js`, `renderizr.css` | The runtime, the same byte for byte for every workspace at a Renderizr version |
 | `renderizr-docs.js` | The documentation runtime: the documentation and decisions pages. The build leaves it out when no workspace has documentation or decisions |
 | `workspace.json` | The workspace payload of the landscape scoped workspace, or of a lone workspace, with its branding |
 | `<slug>.json` | The workspace payload of each other workspace of a [set](#render-a-set). A software system whose slug is `workspace` or `manifest` gets `<slug>--payload.json`, so it keeps clear of `workspace.json` and `manifest.json` |

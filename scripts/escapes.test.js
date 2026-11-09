@@ -104,8 +104,10 @@ test("a brace escape inside the BMP is carried through too", () => {
  * actually produce one.
  */
 const REFUSED = {
-    "an import binding named by a string": String.raw`import { "\uD800" as x } from "y";`,
-    "an export binding named by a string": String.raw`const x = 1; export { x as "\uD800" };`,
+    // A module export name must be well-formed Unicode, so the parser itself
+    // refuses a lone surrogate there; U+FFFD is the one that reaches the check.
+    "an import binding named by a string": `import { "${FFFD}" as x } from "y";`,
+    "an export binding named by a string": `const x = 1; export { x as "${FFFD}" };`,
     "a property key": `({ "${FFFD}": 1 })`,
     "a destructured key": `const { "${FFFD}": a } = o;`,
 };
@@ -120,16 +122,12 @@ for (const [position, source] of Object.entries(REFUSED)) {
 }
 
 /**
- * A directive prologue belongs in the list above — it is a string in a position
- * no expression can occupy — but it never reaches that check, because rollup's
- * native parser panics on it first: `"\uD800";` as source text makes it unwrap
- * a `None`. Verified across rollup 4.59 to 4.62, and narrower than it sounds —
- * it needs the escape *sequence*, in a directive, holding a lone surrogate. A
- * raw surrogate parses, and the same escape parses everywhere else.
- *
- * What matters is the guarantee, which is unchanged: the build stops rather
- * than emit an artifact the upload would reject. So this asserts the refusal
- * and the fail-closed behavior, not which of the two produced it.
+ * A directive prologue belongs in the list above: it is a string in a position
+ * no expression can occupy. It needs the escape *sequence*, `"\uD800";` as
+ * source text, holding a lone surrogate, which Rollup's parser once panicked
+ * on. What matters is the guarantee: the build stops rather than emit an
+ * artifact the upload would reject. So this asserts the refusal, not which
+ * check gave it.
  */
 test("refuses to rewrite a directive prologue, whoever gives up first", () => {
     assert.throws(
@@ -359,25 +357,9 @@ const spelledValue = (tokens) =>
         )
         .join("");
 
-/** A high-surrogate escape, as the last thing spelled so far. */
-const ENDS_IN_HIGH_SURROGATE_ESCAPE = /\\u[dD][89abAB][0-9a-fA-F]{2}$/;
-
-/**
- * `tokens` as a literal quoted with `quote`. A brace escape right after a
- * high-surrogate escape is spelled `\uXXXX` instead: Rollup's parser rejects
- * that pair, and the test after the properties pins the refusal.
- */
+/** `tokens` as a literal quoted with `quote`. */
 function literal(tokens, quote) {
-    let body = "";
-    for (const each of tokens) {
-        const brace = each.spelling === "brace";
-        const spelling =
-            brace && ENDS_IN_HIGH_SURROGATE_ESCAPE.test(body)
-                ? { ...each, spelling: each.point === undefined ? "u" : "pair" }
-                : each;
-        body += spell(spelling, quote);
-    }
-    return `(${quote}${body}${quote})`;
+    return `(${quote}${tokens.map((each) => spell(each, quote)).join("")}${quote})`;
 }
 
 for (const quote of [`"`, `'`, "`"]) {
@@ -446,22 +428,19 @@ test("a regular expression keeps its source and flags and spells nothing the upl
 });
 
 /**
- * Rollup's native parser rejects a high-surrogate escape followed directly by
- * a brace escape, `"\uD800\u{20}"`, with "expected 4 hex characters", though
- * the JavaScript is valid. fast-check found it, and it holds in strings and
- * templates. As with the directive prologue above, what matters is the
- * guarantee: the build stops rather than emit an artifact the upload would
- * reject.
+ * A high-surrogate escape followed directly by a brace escape,
+ * `"\uD800\u{20}"`, is valid JavaScript that Rollup's parser once rejected.
+ * fast-check found it, in strings and templates. It is rewritten like any
+ * other lone surrogate.
  */
-test("a high-surrogate escape before a brace escape is refused, never passed through", () => {
+test("a high-surrogate escape before a brace escape is rewritten", () => {
     for (const source of [
         String.raw`("\uD800\u{20}")`,
         `(${BACKTICK}\\uDBFF\\u{20}${BACKTICK})`,
     ]) {
-        assert.throws(
-            () => makeArtifactSafe(source),
-            /Cannot make this bundle artifact-safe:/,
-            source,
-        );
+        const rewritten = makeArtifactSafe(source);
+        assert.deepEqual(findUnspellable(rewritten), [], rewritten);
+        // biome-ignore lint/security/noGlobalEval: comparing results is the test
+        assert.equal(eval(rewritten), eval(source), rewritten);
     }
 });

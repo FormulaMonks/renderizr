@@ -241,10 +241,7 @@ test("the multi-file build serves the public directory and splits assets", () =>
 
     assert.equal(config.publicDir, resolve(REPO_ROOT, "public"));
     assert.equal(config.build.assetsInlineLimit, undefined);
-    assert.equal(
-        config.build.rollupOptions.output.inlineDynamicImports,
-        undefined,
-    );
+    assert.equal(config.build.rolldownOptions.output.codeSplitting, undefined);
     assert.deepEqual(pluginNames(config), [
         "renderizr:short-lines",
         "renderizr:branding",
@@ -259,12 +256,20 @@ test("--artifact names the runtime files, inlines assets and loads the workspace
         output: "artifact",
         base: "/docs/",
     });
-    const { output } = config.build.rollupOptions;
+    const { output } = config.build.rolldownOptions;
 
     assert.equal(config.publicDir, false);
     assert.equal(config.base, "", "--base reached the artifact");
     assert.equal(config.build.assetsInlineLimit, Number.MAX_SAFE_INTEGER);
-    assert.equal(output.entryFileNames, "renderizr.js");
+    assert.equal(output.chunkFileNames({ name: "renderizr" }), "renderizr.js");
+    assert.equal(
+        output.chunkFileNames({ name: "documentation" }),
+        "renderizr-docs.js",
+    );
+    assert.equal(
+        output.chunkFileNames({ name: "vendor" }),
+        "renderizr-[name].js",
+    );
     assert.equal(output.assetFileNames, "renderizr[extname]");
     assert.deepEqual(pluginNames(config), [
         "renderizr:short-lines",
@@ -302,7 +307,7 @@ test("the single-file build inlines everything and drops the public directory", 
 
     assert.equal(config.publicDir, false);
     assert.equal(config.build.assetsInlineLimit, Number.MAX_SAFE_INTEGER);
-    assert.equal(config.build.rollupOptions.output.inlineDynamicImports, true);
+    assert.equal(config.build.rolldownOptions.output.codeSplitting, false);
     assert.ok(
         pluginNames(config).includes("renderizr:single-file"),
         "the single-file plugin was not added",
@@ -348,11 +353,17 @@ test("build mode adds no dev server settings", () => {
     assert.ok(!("server" in createConfig({ workspace: WORKSPACE })));
 });
 
-test("the React Flow island's JSX is built by esbuild", () => {
-    assert.equal(
-        createConfig({ workspace: WORKSPACE }).esbuild.jsx,
-        "automatic",
-    );
+test("the React Flow island's JSX is built by Oxc", () => {
+    assert.deepEqual(createConfig({ workspace: WORKSPACE }).oxc.jsx, {
+        runtime: "automatic",
+    });
+});
+
+test("the build leaves minifying to the short-lines plugin", () => {
+    const { build } = createConfig({ workspace: WORKSPACE });
+
+    assert.equal(build.minify, false);
+    assert.equal(build.cssMinify, false);
 });
 
 test("the engine report is compiled out unless asked for", () => {

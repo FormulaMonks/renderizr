@@ -12,6 +12,7 @@ npx github:FormulaMonks/renderizr ./architecture/workspace.json --artifact --out
 ├── manifest.json         shell: every file with its layer, size and hash
 ├── renderizr.js          runtime
 ├── renderizr-vendor.js   runtime
+├── renderizr-rolldown-runtime.js  runtime: the bundler's helpers
 ├── renderizr.css         runtime
 ├── renderizr-docs.js     docs-runtime, only when a workspace has documentation or decisions
 ├── workspace.json        workspace: the landscape scoped or lone workspace

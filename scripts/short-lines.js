@@ -1,18 +1,19 @@
-import { parseAst, transformWithEsbuild } from "vite";
+import { transform } from "esbuild";
+import { parseAst } from "vite";
 import { isValuePosition, walk } from "./ast.js";
 
 /**
  * Keeps every line a build writes short, so Claude can read any file a range
  * of lines at a time (spec 296).
  *
- * esbuild's `lineLimit` does most of it: `scripts/config.js` hands it to the
- * script minifier, which breaks a line at the first place it can once the
- * line passes the limit, inside a string too, with a line continuation.
- * Three things get past it. Vite minifies the stylesheet onto one line and
- * passes no `lineLimit` to that minifier. A regular expression literal is
- * one token that cannot be continued: `uc.micro`'s Unicode tables run to
- * about 3 KB each. And a line runs past the limit by the token esbuild was
- * in when it reached it.
+ * esbuild's `lineLimit` does most of it. Oxc, which Vite minifies with by
+ * default, has no such option, so `scripts/config.js` turns Vite's minifier
+ * off and the plugin below minifies every chunk and the stylesheet with
+ * esbuild. Its minifier breaks a line at the first place it can once the line
+ * passes the limit, inside a string too, with a line continuation. Two things
+ * get past it. A regular expression literal is one token that cannot be
+ * continued: `uc.micro`'s Unicode tables run to about 3 KB each. And a line
+ * runs past the limit by the token esbuild was in when it reached it.
  */
 
 /**
@@ -67,9 +68,23 @@ export function breakLongPatterns(code) {
 }
 
 /**
- * The Vite plugin that keeps each chunk's literals and the stylesheet's
- * lines short. It runs before anything inlines either, which
- * `--single-file` and `--artifact` do.
+ * What esbuild minifies with: the options Vite 7 gave its own esbuild
+ * minifier, and the line limit.
+ */
+const MINIFY = Object.freeze({
+    minify: true,
+    lineLimit: LINE_LIMIT,
+    target: "esnext",
+    charset: "utf8",
+    legalComments: "none",
+});
+
+/**
+ * The Vite plugin that minifies each chunk and the stylesheet with short
+ * lines, then breaks each chunk's long literals. It works on the bundle
+ * Rolldown wrote, since Rolldown prints each chunk again after its
+ * `renderChunk` hooks, and it runs before anything inlines a chunk or the
+ * stylesheet, which `--single-file` and `--artifact` do.
  */
 export function shortLines() {
     return {
@@ -78,13 +93,19 @@ export function shortLines() {
         async generateBundle(_options, bundle) {
             for (const output of Object.values(bundle)) {
                 if (output.type === "chunk") {
-                    output.code = breakLongPatterns(output.code);
+                    const { code } = await transform(output.code, {
+                        ...MINIFY,
+                        loader: "js",
+                        format: "esm",
+                        sourcefile: output.fileName,
+                    });
+                    output.code = breakLongPatterns(code);
                 } else if (output.fileName.endsWith(".css")) {
-                    const { code } = await transformWithEsbuild(
-                        String(output.source),
-                        output.fileName,
-                        { loader: "css", minify: true, lineLimit: LINE_LIMIT },
-                    );
+                    const { code } = await transform(String(output.source), {
+                        ...MINIFY,
+                        loader: "css",
+                        sourcefile: output.fileName,
+                    });
                     output.source = code;
                 }
             }
