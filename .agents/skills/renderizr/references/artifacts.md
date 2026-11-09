@@ -25,13 +25,23 @@ npx github:FormulaMonks/renderizr ./architecture/workspace.json --artifact --out
 
 ```json
 {
-  "renderizr": "2.8.0",
-  "buildDate": "2026-11-06T16:29:09.023Z",
-  "files": [
-    { "path": "index.html", "layer": "shell", "bytes": 826, "sha256": "79ca…" },
-    { "path": "renderizr.js", "layer": "runtime", "bytes": 205073, "sha256": "8d85…" },
-    { "path": "manifest.json", "layer": "shell", "bytes": 1053 }
-  ]
+    "renderizr": "2.8.0",
+    "buildDate": "2026-11-06T16:29:09.023Z",
+    "files": [
+        {
+            "path": "index.html",
+            "layer": "shell",
+            "bytes": 826,
+            "sha256": "79ca…"
+        },
+        {
+            "path": "renderizr.js",
+            "layer": "runtime",
+            "bytes": 205073,
+            "sha256": "8d85…"
+        },
+        { "path": "manifest.json", "layer": "shell", "bytes": 1053 }
+    ]
 }
 ```
 
@@ -78,13 +88,13 @@ Check it before you publish: see [verifying](./verifying.md).
 
 Weigh a render against its runtime, which is the same for every workspace:
 
-| Part | Weight |
-|---|---|
-| The runtime | the bulk of a render with no documentation |
-| The documentation runtime | about two fifths of the runtime |
-| A workspace payload | grows with the model and its documentation: about a seventh of the runtime for Big Bank plc, more than the whole runtime for a workspace with long documentation and many decisions |
-| `branding.css` for `--font` | about an eighth of the runtime per family |
-| The shell and the manifest | next to nothing |
+| Part                        | Weight                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The runtime                 | the bulk of a render with no documentation                                                                                                                                          |
+| The documentation runtime   | about two fifths of the runtime                                                                                                                                                     |
+| A workspace payload         | grows with the model and its documentation: about a seventh of the runtime for Big Bank plc, more than the whole runtime for a workspace with long documentation and many decisions |
+| `branding.css` for `--font` | about an eighth of the runtime per family                                                                                                                                           |
+| The shell and the manifest  | next to nothing                                                                                                                                                                     |
 
 What you read per publish matters more than the total. A first publish that copies the runtime from another artifact reads only the shell, the payloads and the branding; an update reads only what changed. The whole folder weighs about what `--single-file`'s `index.html` does, far below the 16 MB a Claude artifact allows. If a render ever approaches the limit, look for embedded imagery in the workspace or its documentation: the number of elements barely moves the size.
 

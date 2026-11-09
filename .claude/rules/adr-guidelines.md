@@ -41,11 +41,11 @@ When linking to another ADR from a `## Status` section, the link text is the tar
 
 To supersede or amend a decision, create a **new ADR**. **Both ADRs always point at each other** — the forward pointer on the new ADR, the back-pointer on the old one. There are exactly **three** relationships; do not invent a fourth wording (no "refines", "delivers", "builds on", "extends", "revisits"):
 
-| Relationship | Means | On the new ADR | On the older ADR |
-| --- | --- | --- | --- |
-| **Supersede** | Full replacement — the old decision stops being current | `Supersedes [<n>. <Title>](000X-title.md).` | `Superseded by [<n>. <Title>](000Y-title.md).` **replaces** the status word |
-| **Amend** | **Partial extension without full supersession** — the old decision stays in force | `Amends [<n>. <Title>](000X-title.md).` | `Amended by [<n>. <Title>](000Y-title.md).`, and the status word becomes `Amended` |
-| **Reference** | Neither — the new ADR depends on or draws on the old one, and changes nothing about it | `References [<n>. <Title>](000X-title.md).` | `Referenced by [<n>. <Title>](000Y-title.md).` |
+| Relationship  | Means                                                                                  | On the new ADR                              | On the older ADR                                                                   |
+| ------------- | -------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Supersede** | Full replacement — the old decision stops being current                                | `Supersedes [<n>. <Title>](000X-title.md).` | `Superseded by [<n>. <Title>](000Y-title.md).` **replaces** the status word        |
+| **Amend**     | **Partial extension without full supersession** — the old decision stays in force      | `Amends [<n>. <Title>](000X-title.md).`     | `Amended by [<n>. <Title>](000Y-title.md).`, and the status word becomes `Amended` |
+| **Reference** | Neither — the new ADR depends on or draws on the old one, and changes nothing about it | `References [<n>. <Title>](000X-title.md).` | `Referenced by [<n>. <Title>](000Y-title.md).`                                     |
 
 **Amend** is the relationship for every partial change, whatever its flavor: adding to the old decision, narrowing it, or settling a point it left open or deferred. Optionally name what changed after a colon, so the reader knows which part moved: `Amends [<n>. <Title>](000X-title.md): the X it deferred.`
 

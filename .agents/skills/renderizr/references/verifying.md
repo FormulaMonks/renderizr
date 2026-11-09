@@ -6,7 +6,7 @@ A render makes no network requests: the `--artifact` folder loads only its own f
 
 A rendered page contains plenty of `https://`: hyperlinks in the documentation, links to `structurizr.com` and `c4model.com`, the SVG namespace `http://www.w3.org/2000/svg`. **None of those is a leak.** They are content, and a page full of them is still self-contained.
 
-What matters is whether the page *loads* anything over the network: `<script src>`, `<link href>`, `<img src>`, `<source>`, and their relatives.
+What matters is whether the page _loads_ anything over the network: `<script src>`, `<link href>`, `<img src>`, `<source>`, and their relatives.
 
 A naive `grep https://` therefore fails forever and teaches you to ignore it. Match asset-bearing tags instead, across every file of the folder:
 

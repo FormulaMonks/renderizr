@@ -20,10 +20,10 @@ Dagre nests each boundary in ranks of its own and then removes the ranks nothing
 
 Measured in headless Chrome, as the width and height in pixels the elements of each view span:
 
-| View | Dagre 1.1.8 | Dagre 2.0.4 |
-|---|---|---|
-| `groups.json` SystemLandscape | 650 × 5,911 | 650 × 2,911 |
-| `groups.json` Containers | 1,350 × 2,339 | 1,350 × 1,439 |
+| View                              | Dagre 1.1.8     | Dagre 2.0.4    |
+| --------------------------------- | --------------- | -------------- |
+| `groups.json` SystemLandscape     | 650 × 5,911     | 650 × 2,911    |
+| `groups.json` Containers          | 1,350 × 2,339   | 1,350 × 1,439  |
 | `cyclic-groups.json` CyclicGroups | 13,303 × 15,143 | 13,303 × 9,143 |
 
 Dagre 2.x and 3.x ship one bundled build each, and their `exports` map closes `lib/`. `src/engine/layout/automatic.ts` runs Dagre's ordering step itself through `customOrder` and imported its pieces from `lib/order/`.

@@ -6,14 +6,14 @@ Everything about Renderizr happens in this repository. There is no forum, no cha
 
 Something already written down answers most questions:
 
-| If you are wondering | Read |
-| --- | --- |
+| If you are wondering                   | Read                                                                                                                                      |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | How do I run it? What do the flags do? | [The documentation](https://formulamonks.github.io/renderizr/#/?page=docs&section=02-usage) — usage, the full flag table, `--single-file` |
-| What does flag *x* do exactly? | `npx github:FormulaMonks/renderizr --help` — the authoritative list, generated from `scripts/cli.js` |
-| How do I work on Renderizr itself? | [CONTRIBUTING.md](CONTRIBUTING.md) — clone, install, dev server, tests, commits, review |
-| Who maintains this, and how do I join? | [MAINTAINERS.md](MAINTAINERS.md) |
-| I found a vulnerability | [SECURITY.md](SECURITY.md) — **do not open a public issue** |
-| How do I write the workspace itself? | [Structurizr's own documentation](https://docs.structurizr.com) — Renderizr renders workspaces, it does not define them |
+| What does flag _x_ do exactly?         | `npx github:FormulaMonks/renderizr --help` — the authoritative list, generated from `scripts/cli.js`                                      |
+| How do I work on Renderizr itself?     | [CONTRIBUTING.md](CONTRIBUTING.md) — clone, install, dev server, tests, commits, review                                                   |
+| Who maintains this, and how do I join? | [MAINTAINERS.md](MAINTAINERS.md)                                                                                                          |
+| I found a vulnerability                | [SECURITY.md](SECURITY.md) — **do not open a public issue**                                                                               |
+| How do I write the workspace itself?   | [Structurizr's own documentation](https://docs.structurizr.com) — Renderizr renders workspaces, it does not define them                   |
 
 Then [search the existing issues](https://github.com/FormulaMonks/renderizr/issues?q=is%3Aissue), including closed ones. Closed issues are where the answers usually are.
 
@@ -21,12 +21,12 @@ Then [search the existing issues](https://github.com/FormulaMonks/renderizr/issu
 
 GitHub Issues is the only channel. Pick the one that fits:
 
-| You have | Open |
-| --- | --- |
-| A question — "how do I…", "is it supposed to…", "why does it…" | [an issue](https://github.com/FormulaMonks/renderizr/issues/new/choose), and we will label it `question` |
-| Something broken — a crash, a wrong render, output that does not match what you expected | [a bug report](https://github.com/FormulaMonks/renderizr/issues/new/choose) |
-| An idea — a flag, a rendering behavior, a format Renderizr should understand | [a feature request](https://github.com/FormulaMonks/renderizr/issues/new/choose) |
-| A change you already wrote | [a pull request](https://github.com/FormulaMonks/renderizr/pulls), after reading [CONTRIBUTING.md](CONTRIBUTING.md) |
+| You have                                                                                 | Open                                                                                                                |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| A question — "how do I…", "is it supposed to…", "why does it…"                           | [an issue](https://github.com/FormulaMonks/renderizr/issues/new/choose), and we will label it `question`            |
+| Something broken — a crash, a wrong render, output that does not match what you expected | [a bug report](https://github.com/FormulaMonks/renderizr/issues/new/choose)                                         |
+| An idea — a flag, a rendering behavior, a format Renderizr should understand             | [a feature request](https://github.com/FormulaMonks/renderizr/issues/new/choose)                                    |
+| A change you already wrote                                                               | [a pull request](https://github.com/FormulaMonks/renderizr/pulls), after reading [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 The issue templates ask for what we need. GitHub Discussions is deliberately not enabled: two places to ask means half the answers end up in the place you did not look.
 
@@ -64,4 +64,4 @@ If something goes quiet for two weeks, a comment on the thread is welcome and wi
 ## What is out of scope
 
 - **Structurizr itself** — the DSL, the workspace format, the cloud service, the modeling questions. Those belong at [structurizr/structurizr](https://github.com/structurizr/structurizr) or on the [Structurizr community forum](https://github.com/structurizr/structurizr/discussions). Renderizr renders a workspace; it does not author one.
-- **General hosting and static-site questions** — how to configure S3, GitHub Pages or your CDN. We will happily fix anything about the output that *makes* it hard to host.
+- **General hosting and static-site questions** — how to configure S3, GitHub Pages or your CDN. We will happily fix anything about the output that _makes_ it hard to host.

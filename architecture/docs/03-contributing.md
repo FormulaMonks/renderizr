@@ -4,11 +4,11 @@ This section takes you from a fresh clone to a merged pull request. Bug reports,
 
 ## Prerequisites
 
-| Tool | Version | Why |
-| --- | --- | --- |
+| Tool | Version        | Why                                                                                                                                                                |
+| ---- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Node | 22.13 or newer | The same floor Renderizr sets for everyone who runs it. pnpm 11 needs it too, because it imports `node:sqlite`, and CI checks the floor with npm in a separate job |
-| pnpm | 11 | The lockfile is `pnpm-lock.yaml`, and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn drift the lockfile |
-| git | any | To clone the repository |
+| pnpm | 11             | The lockfile is `pnpm-lock.yaml`, and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn drift the lockfile                                          |
+| git  | any            | To clone the repository                                                                                                                                            |
 
 Development runs on Node 26, which `.mise.toml` and `.nvmrc` pin and `mise.lock` resolves. With [mise](https://mise.jdx.dev) installed, `mise install` in the repository root gets you the exact Node and pnpm the maintainers use. Any Node and pnpm that meet the table work too; nothing in the build reads mise.
 
@@ -45,11 +45,11 @@ A maintainer squash-merges every pull request, so the pull request title becomes
 
 `pnpm hooks` installs three hooks from `.husky/`:
 
-| Hook | Runs | Purpose |
-| --- | --- | --- |
-| `prepare-commit-msg` | `pnpm exec czg --hook` | Opens an interactive prompt that writes the commit message when you pass no `-m` |
-| `pre-commit` | `pnpm exec lint-staged` | Runs `biome ci` over the staged source files |
-| `commit-msg` | `pnpm exec commitlint --edit` | Checks the message against Conventional Commits |
+| Hook                 | Runs                          | Purpose                                                                          |
+| -------------------- | ----------------------------- | -------------------------------------------------------------------------------- |
+| `prepare-commit-msg` | `pnpm exec czg --hook`        | Opens an interactive prompt that writes the commit message when you pass no `-m` |
+| `pre-commit`         | `pnpm exec lint-staged`       | Runs `biome ci` over the staged source files                                     |
+| `commit-msg`         | `pnpm exec commitlint --edit` | Checks the message against Conventional Commits                                  |
 
 When `pre-commit` fails, run `pnpm format`, stage the files again and commit. When `commit-msg` fails, the output names the rule; run `git commit` again and let czg write the message. A per-clone switch turns each hook off, such as `git config custom.hooks.pre-commit false`, and `git config --unset` turns it back on. CI runs the same checks either way.
 

@@ -27,11 +27,11 @@ Do **not** use this skill to author or edit a model: that is Scaffoldizr's job. 
 
 ## Pick the output
 
-| Flag | What it writes | Use it for |
-|---|---|---|
-| `--artifact` | A folder of separate files and a `manifest.json` that lists them | **Publishing a Claude artifact** |
-| `--single-file` | One self-contained `index.html` | Opening from disk, emailing, dropping in a bucket |
-| neither | `index.html`, `assets/` and a favicon | A static host such as GitHub Pages |
+| Flag            | What it writes                                                   | Use it for                                        |
+| --------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
+| `--artifact`    | A folder of separate files and a `manifest.json` that lists them | **Publishing a Claude artifact**                  |
+| `--single-file` | One self-contained `index.html`                                  | Opening from disk, emailing, dropping in a bucket |
+| neither         | `index.html`, `assets/` and a favicon                            | A static host such as GitHub Pages                |
 
 ## Publishing a Claude artifact
 
@@ -41,13 +41,13 @@ npx github:FormulaMonks/renderizr <workspace.json|url> --artifact --out <dir>
 
 That writes a folder, and `manifest.json` says what each file is:
 
-| Layer | Files | What it is |
-|---|---|---|
-| `shell` | `index.html`, `manifest.json` | The page that loads the rest, with the workspace's name in its `<title>`, and the manifest itself |
-| `runtime` | `renderizr.js`, `renderizr-vendor.js`, `renderizr.css` | Renderizr's code and styles, the same byte for byte for every workspace at a Renderizr version |
-| `docs-runtime` | `renderizr-docs.js` | The code of the documentation and decisions pages. Left out when no workspace has documentation or decisions |
-| `workspace` | `workspace.json`, one `<slug>.json` per other workspace of a set (`<slug>--payload.json` for the slugs `workspace` and `manifest`) | The workspace payloads: each workspace with its branding |
-| `branding` | `branding.css` | Embedded font faces, when the render embeds a font |
+| Layer          | Files                                                                                                                              | What it is                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `shell`        | `index.html`, `manifest.json`                                                                                                      | The page that loads the rest, with the workspace's name in its `<title>`, and the manifest itself            |
+| `runtime`      | `renderizr.js`, `renderizr-vendor.js`, `renderizr.css`                                                                             | Renderizr's code and styles, the same byte for byte for every workspace at a Renderizr version               |
+| `docs-runtime` | `renderizr-docs.js`                                                                                                                | The code of the documentation and decisions pages. Left out when no workspace has documentation or decisions |
+| `workspace`    | `workspace.json`, one `<slug>.json` per other workspace of a set (`<slug>--payload.json` for the slugs `workspace` and `manifest`) | The workspace payloads: each workspace with its branding                                                     |
+| `branding`     | `branding.css`                                                                                                                     | Embedded font faces, when the render embeds a font                                                           |
 
 The manifest also names the Renderizr version that built the runtime (`renderizr`) and the build date (`buildDate`), and gives each file its `bytes` and `sha256`. It lists itself last, with no hash.
 
@@ -93,14 +93,14 @@ In a Scaffoldizr repository `workspace.json` holds the views' layout as well as 
 
 Full reference in [flags](./references/flags.md). The ones that matter most:
 
-| Flag | Effect |
-|---|---|
-| `--artifact` | A folder to publish as a Claude artifact, with a manifest. **Use for artifacts.** |
-| `--single-file` | One self-contained `index.html` |
-| `-o, --out <dir>` | Output directory (default `structurizr-output`) |
-| `--base <path>` | Base public path for the multi-file build, e.g. `/repo-name/` for project Pages |
-| `--logo <path\|url>` | Image top-left in the header, embedded as a data URI |
-| `--font <family>` | A Google Web Font, fetched at build time and embedded as woff2 |
+| Flag                 | Effect                                                                            |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `--artifact`         | A folder to publish as a Claude artifact, with a manifest. **Use for artifacts.** |
+| `--single-file`      | One self-contained `index.html`                                                   |
+| `-o, --out <dir>`    | Output directory (default `structurizr-output`)                                   |
+| `--base <path>`      | Base public path for the multi-file build, e.g. `/repo-name/` for project Pages   |
+| `--logo <path\|url>` | Image top-left in the header, embedded as a data URI                              |
+| `--font <family>`    | A Google Web Font, fetched at build time and embedded as woff2                    |
 
 `--font` and a remote `--logo` are the only things that need network access during a build. Without them a render is fully offline.
 
@@ -114,8 +114,8 @@ We verified each of these against the tool:
 - **An artifact without `downloads` can't export.** The artifact viewer lets a page save a file only through its `downloads` capability. Publish without declaring it and the page hides its export buttons.
 - **A workspace payload can hold very long lines.** Documentation and decision content, the `structurizr.dsl` property and data URIs each stay one JSON string. Read a payload with a tool that shows whole lines.
 - **Renderizr empties the output directory** before writing. Never point `--out` at a directory holding anything you want to keep.
-- **`https://` in the output is not a leak.** A rendered page contains ordinary hyperlinks to `structurizr.com`, `c4model.com` and the like. Self-containment is about *asset* references (`<script src>`, `<link href>`, `<img src>`) that point off the page's own files, of which there are none. Check the right thing; see [verifying](./references/verifying.md).
-- **Working inside a clone of the Renderizr repository is different.** `pnpm render <workspace> [flags]`, and specifically *not* `pnpm render -- <workspace> --flag`, which makes the flag arrive as a second workspace. `pnpm dev` is the opposite and does want the `--`. This only applies inside the repository; `npx` users are unaffected.
+- **`https://` in the output is not a leak.** A rendered page contains ordinary hyperlinks to `structurizr.com`, `c4model.com` and the like. Self-containment is about _asset_ references (`<script src>`, `<link href>`, `<img src>`) that point off the page's own files, of which there are none. Check the right thing; see [verifying](./references/verifying.md).
+- **Working inside a clone of the Renderizr repository is different.** `pnpm render <workspace> [flags]`, and specifically _not_ `pnpm render -- <workspace> --flag`, which makes the flag arrive as a second workspace. `pnpm dev` is the opposite and does want the `--`. This only applies inside the repository; `npx` users are unaffected.
 
 ## References
 

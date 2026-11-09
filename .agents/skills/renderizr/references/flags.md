@@ -1,6 +1,6 @@
 # Flags
 
-The authoritative list is `npx github:FormulaMonks/renderizr --help`, which the CLI generates from the parser itself. This page says what each flag is *for* and what it costs.
+The authoritative list is `npx github:FormulaMonks/renderizr --help`, which the CLI generates from the parser itself. This page says what each flag is _for_ and what it costs.
 
 ```
 renderizr <workspace.json|url> [options]
@@ -13,30 +13,30 @@ Several positionals, in any order, render a **set**: one landscape scoped worksp
 
 ## Output
 
-| Flag | Default | What it does |
-|---|---|---|
-| `-o, --out <dir>` | `structurizr-output` | Where Renderizr writes the build, relative to the current directory. **Renderizr empties the directory first.** |
-| `--single-file` | off | Inlines every asset and the workspace, or every workspace of a set, into one `index.html` to open from disk, email or host anywhere. It is a whole document, so publish `--artifact` as a Claude artifact instead. |
-| `--artifact` | off | Writes the page as a folder to publish as a Claude artifact: a small `index.html` with the workspace's name in its `<title>`, the runtime (`renderizr.js`, `renderizr-vendor.js`, `renderizr.css`), which is byte for byte the same for every workspace at a Renderizr version, `renderizr-docs.js` when a workspace has documentation or decisions, one workspace payload per workspace (`workspace.json`, then `<slug>.json` for each other workspace of a set), `branding.css` when the render embeds a font, and `manifest.json`, which lists each file with its layer, size and hash. See [artifacts](./artifacts.md). Fails with `--single-file`. |
-| `--base <path>` | `""` | Base public path for the **multi-file** build. Rewrites `./assets/…` to `<base>/assets/…`. Set it when you serve the site from a subdirectory, e.g. `--base /renderizr/` for a GitHub project Pages site. Has no meaning with `--single-file`, where there are no separate assets. Fails with `--artifact`, whose host serves every file next to the page. |
-| `-h, --help` | | Print the usage and exit |
+| Flag              | Default              | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-o, --out <dir>` | `structurizr-output` | Where Renderizr writes the build, relative to the current directory. **Renderizr empties the directory first.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `--single-file`   | off                  | Inlines every asset and the workspace, or every workspace of a set, into one `index.html` to open from disk, email or host anywhere. It is a whole document, so publish `--artifact` as a Claude artifact instead.                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `--artifact`      | off                  | Writes the page as a folder to publish as a Claude artifact: a small `index.html` with the workspace's name in its `<title>`, the runtime (`renderizr.js`, `renderizr-vendor.js`, `renderizr.css`), which is byte for byte the same for every workspace at a Renderizr version, `renderizr-docs.js` when a workspace has documentation or decisions, one workspace payload per workspace (`workspace.json`, then `<slug>.json` for each other workspace of a set), `branding.css` when the render embeds a font, and `manifest.json`, which lists each file with its layer, size and hash. See [artifacts](./artifacts.md). Fails with `--single-file`. |
+| `--base <path>`   | `""`                 | Base public path for the **multi-file** build. Rewrites `./assets/…` to `<base>/assets/…`. Set it when you serve the site from a subdirectory, e.g. `--base /renderizr/` for a GitHub project Pages site. Has no meaning with `--single-file`, where there are no separate assets. Fails with `--artifact`, whose host serves every file next to the page.                                                                                                                                                                                                                                                                                              |
+| `-h, --help`      |                      | Print the usage and exit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ## Branding
 
-| Flag | Default | What it does |
-|---|---|---|
-| `--logo <path\|url>` | none | Image shown top-left in the header, embedded as a data URI. Renderizr reads a local path from disk and fetches a URL at build time. |
-| `--logo-alt <text>` | `""` | Alt text for the logo. Set it: the logo is otherwise an unlabeled image. |
-| `--logo-href <url>` | none | Wraps the logo in a link, usually back to the team or product homepage. |
+| Flag                 | Default | What it does                                                                                                                        |
+| -------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `--logo <path\|url>` | none    | Image shown top-left in the header, embedded as a data URI. Renderizr reads a local path from disk and fetches a URL at build time. |
+| `--logo-alt <text>`  | `""`    | Alt text for the logo. Set it: the logo is otherwise an unlabeled image.                                                            |
+| `--logo-href <url>`  | none    | Wraps the logo in a link, usually back to the team or product homepage.                                                             |
 
 ## Typography
 
-| Flag | Default | What it does |
-|---|---|---|
-| `--font <family>` | system fonts | A Google Web Font family, e.g. `Inter` or `Source Sans 3`. Fetched at build time and embedded as woff2 data URIs. Two weights add about a tenth to the page, and about a fifth once compressed, since font files barely compress. |
-| `--font-weights <list>` | `400,700` | Comma-separated weights. Renderizr prefers a variable font covering the range when one exists. |
-| `--font-subsets <list>` | `latin` | Comma-separated subsets. Add e.g. `latin-ext` or `greek` only if the workspace needs them, since each one costs bytes. |
-| `--font-italic` | off | Also embed the italic faces. Roughly doubles the font weight. |
+| Flag                    | Default      | What it does                                                                                                                                                                                                                      |
+| ----------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--font <family>`       | system fonts | A Google Web Font family, e.g. `Inter` or `Source Sans 3`. Fetched at build time and embedded as woff2 data URIs. Two weights add about a tenth to the page, and about a fifth once compressed, since font files barely compress. |
+| `--font-weights <list>` | `400,700`    | Comma-separated weights. Renderizr prefers a variable font covering the range when one exists.                                                                                                                                    |
+| `--font-subsets <list>` | `latin`      | Comma-separated subsets. Add e.g. `latin-ext` or `greek` only if the workspace needs them, since each one costs bytes.                                                                                                            |
+| `--font-italic`         | off          | Also embed the italic faces. Roughly doubles the font weight.                                                                                                                                                                     |
 
 Renderizr embeds the font in the page, so a finished branded build is exactly as offline as an unbranded one.
 

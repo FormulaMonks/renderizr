@@ -1,5 +1,5 @@
 {
-    "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.6.5/schema.json",
     "files": {
         "includes": [
             "**",
@@ -32,12 +32,22 @@
             "linter": {
                 "rules": { "a11y": { "noSvgWithoutTitle": "off" } }
             }
+        },
+        {
+            "includes": ["CHANGELOG.md"],
+            "formatter": { "enabled": false }
         }
     ],
     "css": {
         "parser": {
             "cssModules": true
         }
+    },
+    "markdown": {
+        "parser": { "frontmatter": true }
+    },
+    "yaml": {
+        "formatter": { "indentWidth": 2 }
     },
     "formatter": {
         "indentWidth": 4,
