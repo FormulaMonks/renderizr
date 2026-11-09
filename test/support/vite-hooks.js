@@ -5,8 +5,8 @@
  *
  * Three things stand between `src/*.ts` and a plain `import()`:
  *
- *   1. It is TypeScript. The transform is done here with the esbuild that
- *      Vite already depends on — the same transformer the real build uses.
+ *   1. It is TypeScript. The transform is done here with Vite's Oxc
+ *      transform, the same transformer the real build uses.
  *   2. Imports are extensionless (`./markdown-alerts`), which TypeScript
  *      resolves and Node does not.
  *   3. Two import forms only exist inside Vite: CSS modules
@@ -24,15 +24,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-const require = createRequire(import.meta.url);
-
-/**
- * esbuild is Vite's dependency, not ours, so it is reached through Vite rather
- * than through the top level of `node_modules` (which, under pnpm, does not
- * have it).
- */
-const esbuild = createRequire(require.resolve("vite"))("esbuild");
+import { transformWithOxc } from "vite";
 
 const CSS_PREFIX = "renderizr-css:";
 const RAW_PREFIX = "renderizr-raw:";
@@ -137,15 +129,18 @@ export async function load(url, context, next) {
     if (url.endsWith(".ts")) {
         const path = fileURLToPath(url);
         // An inline source map is what lets `--experimental-test-coverage`
-        // report against the TypeScript line numbers rather than esbuild's.
-        const { code } = esbuild.transformSync(readFileSync(path, "utf-8"), {
-            loader: "ts",
-            format: "esm",
-            target: "esnext",
-            sourcefile: path,
-            sourcemap: "inline",
-        });
-        return { format: "module", shortCircuit: true, source: code };
+        // report against the TypeScript line numbers rather than Oxc's.
+        const { code, map } = await transformWithOxc(
+            readFileSync(path, "utf-8"),
+            path,
+            { lang: "ts", target: "esnext", sourcemap: true },
+        );
+        const inlineMap = Buffer.from(JSON.stringify(map)).toString("base64");
+        return {
+            format: "module",
+            shortCircuit: true,
+            source: `${code}\n//# sourceMappingURL=data:application/json;base64,${inlineMap}\n`,
+        };
     }
 
     return next(url, context);
