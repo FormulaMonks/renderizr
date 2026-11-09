@@ -643,10 +643,6 @@ test("a Mermaid node with a click link offers it, and one linking to itself or n
     assert.deepEqual(box(graph, "self").targets, []);
     assert.deepEqual(box(graph, "none").targets, []);
     assert.ok(
-        graph.boundaries.every((b) => b.targets.length === 0),
-        "subgraphs offer nothing",
-    );
-    assert.ok(
         graph.edges.every((e) => e.targets.length === 0),
         "edges offer nothing",
     );

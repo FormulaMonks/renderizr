@@ -15,7 +15,7 @@
 }
 
 /*
- * An element, boundary band or edge label with targets. React Flow turns
+ * An element or edge label with targets. React Flow turns
  * pointer events off on a node that is neither selectable nor draggable, so
  * an item with targets turns them back on; one without lets a drag through
  * to pan. The ring is drawn in the zoomed diagram, so it is 2 model units

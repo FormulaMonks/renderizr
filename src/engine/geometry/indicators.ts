@@ -1,9 +1,9 @@
 /**
  * Indicators (spec 9.2, 10.9): one 20-unit glyph per kind of target an
- * element, boundary or relationship offers, in a row. Each label template
- * keeps room for its row, so the glyphs never cover text: an element's
- * label gives up description lines, a boundary's band and an edge's label
- * wrap short of them. An item without targets draws none and keeps the room.
+ * element or relationship offers, in a row. Each label template keeps
+ * room for its row, so the glyphs never cover text: an element's label
+ * gives up description lines and an edge's label wraps short of them. An
+ * item without targets draws none and keeps the room.
  */
 
 import type { TargetKind } from "../../model/index";

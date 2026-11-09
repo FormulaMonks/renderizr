@@ -85,11 +85,7 @@ import {
     placeEdgeLabels,
 } from "../geometry/edge-label";
 import { indicatorKinds } from "../geometry/indicators";
-import {
-    type IconPosition,
-    iconPositionOf,
-    labelText,
-} from "../geometry/label";
+import { type IconPosition, iconPositionOf } from "../geometry/label";
 import { arrowheadPath, type LineStyle } from "../geometry/line";
 import {
     type EndMarker,
@@ -149,13 +145,12 @@ export type Activation = { type: ActivationType; id: string };
 
 /**
  * What the reader can activate, by keyboard as by pointer (spec 6.2): an
- * element, a boundary's label band or an edge's label, by its node id or
- * edge key, with what it activates and the box focusing it brings on
- * screen, in model units.
+ * element or an edge's label, by its node id or edge key, with what it
+ * activates and the box focusing it brings on screen, in model units.
  */
 export type FocusItem =
     | {
-          type: "element" | "boundary" | "edge";
+          type: "element" | "edge";
           id: string;
           activation: Activation;
           box: Bounds;
@@ -234,15 +229,6 @@ export type ElementBox = {
 /** A boundary drawn around its children, with its label band (spec 8). */
 export type BoundaryBox = DerivedBoundary & {
     kind: BoundaryKind;
-    /** The element the boundary is drawn for, which its band activates. */
-    elementId?: string;
-    /** As an element's: what activating its label band offers. */
-    targets: TargetKind[];
-    /**
-     * Its accessible name and title: name, metadata and description, as an
-     * element's (spec 6.2).
-     */
-    accessibleName: string;
     /** 0 for an outermost boundary; inner ones are drawn above outer ones. */
     depth: number;
     /** 20 for the RoundedBox family, square otherwise. */
@@ -1030,21 +1016,9 @@ function drawView(
                 : boundaryStyle(model, b, colorScheme),
         ]),
     );
-    // Groups and the enterprise boundary lead nowhere.
-    const boundaryTargets = new Map(
-        view.boundaries.map((b) => [
-            b.id,
-            b.kind === "Element" ? kindsFor(b.element) : [],
-        ]),
-    );
-    const inputs = boundaryInputs(
-        model,
-        view.boundaries,
-        styles,
-        labels,
-        boundaryTargets,
-    ).map((input) =>
-        mermaid ? { ...input, padding: MERMAID_GROUP_PADDING } : input,
+    const inputs = boundaryInputs(model, view.boundaries, styles, labels).map(
+        (input) =>
+            mermaid ? { ...input, padding: MERMAID_GROUP_PADDING } : input,
     );
     const keys = edgeKeys(view.relationships, drawn);
     const edges: EdgeDraft[] = [];
@@ -1203,10 +1177,8 @@ function drawView(
         view.boundaries,
         inputs,
         styles,
-        boundaryTargets,
         elements,
         colorScheme,
-        labels,
         measure,
     );
 
@@ -1314,7 +1286,7 @@ function drawView(
             ...p,
             name: names.get(p.id) ?? "",
         })),
-        focusOrder: readingOrder(elements, drawnBoundaries, routed),
+        focusOrder: readingOrder(elements, routed),
         ...(animation && { animation }),
     };
 }
@@ -1357,14 +1329,10 @@ function collapsedEntitySize(
 
 /**
  * Every item with targets in reading order (spec 6.2): by the top, then the
- * left, of an element's box, a boundary's label band or an edge's label.
+ * left, of an element's box or an edge's label.
  * An ERD entity's toggle takes its entity's place (spec: ERD entities).
  */
-function readingOrder(
-    elements: ElementBox[],
-    boundaries: BoundaryBox[],
-    edges: EdgeLine[],
-): FocusItem[] {
+function readingOrder(elements: ElementBox[], edges: EdgeLine[]): FocusItem[] {
     const items: FocusItem[] = [
         ...elements
             .filter((e) => e.targets.length > 0)
@@ -1381,25 +1349,6 @@ function readingOrder(
                 id: e.id,
                 box: { x: e.x, y: e.y, width: e.width, height: e.height },
             })),
-        ...boundaries.flatMap((b) =>
-            b.targets.length > 0 && b.elementId
-                ? [
-                      {
-                          type: "boundary" as const,
-                          id: b.id,
-                          activation: {
-                              type: "element" as const,
-                              id: b.elementId,
-                          },
-                          box: {
-                              ...b.band,
-                              x: b.x + b.band.x,
-                              y: b.y + b.band.y,
-                          },
-                      },
-                  ]
-                : [],
-        ),
         ...edges.flatMap((e) =>
             e.targets.length > 0 && e.labelBox
                 ? [
@@ -1634,7 +1583,6 @@ function boundaryInputs(
     resolved: ResolvedBoundary[],
     styles: ReadonlyMap<string, ElementStyle>,
     labels: Labels,
-    targets: ReadonlyMap<string, TargetKind[]>,
 ): BoundaryInput[] {
     return resolved.map((boundary) => {
         const style = styles.get(boundary.id)!;
@@ -1649,8 +1597,6 @@ function boundaryInputs(
                 icon: Boolean(style.icon),
                 instances: formatInstanceCount(element?.instances),
                 metadataSetsWidth: element?.type === "DeploymentNode",
-                indicators: indicatorKinds(targets.get(boundary.id) ?? [])
-                    .length,
             },
         };
     });
@@ -1664,10 +1610,8 @@ function boundaryBoxes(
     resolved: ResolvedBoundary[],
     inputs: BoundaryInput[],
     styles: ReadonlyMap<string, ElementStyle>,
-    targets: ReadonlyMap<string, TargetKind[]>,
     elements: ElementBox[],
     scheme: ModelColorScheme,
-    labels: Labels,
     measure: MeasureText,
 ): BoundaryBox[] {
     const derived = new Map(
@@ -1684,24 +1628,9 @@ function boundaryBoxes(
         if (!box) continue;
         const style = styles.get(boundary.id)!;
         const defaults = SCHEME_DEFAULTS[scheme];
-        const description =
-            boundary.kind === "Element" &&
-            labels.descriptions &&
-            style.description
-                ? (boundary.element.description ?? "")
-                : "";
         boxes.push({
             ...box,
             kind: boundary.kind,
-            ...(boundary.kind === "Element" && {
-                elementId: boundary.element.id,
-            }),
-            targets: targets.get(boundary.id) ?? [],
-            accessibleName: labelText(
-                box.name.lines.join(" "),
-                box.metadata?.lines.join(" ") ?? "",
-                description,
-            ),
             depth: boundary.depth,
             radius: boundaryRadius(style.shape),
             background: style.background,

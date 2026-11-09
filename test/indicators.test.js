@@ -1,8 +1,7 @@
 /**
  * `src/engine/geometry/indicators.ts` and the room each label template
  * keeps for its indicators (spec 9.2, 10.9): one 20-unit glyph per target
- * kind, in an element's label, at the right end of a boundary's label band,
- * and after an edge label's text.
+ * kind, in an element's label and after an edge label's text.
  */
 
 import assert from "node:assert/strict";
@@ -21,9 +20,6 @@ const {
 } = await importSrc("engine/geometry/indicators");
 const { fitLabel, INDICATOR_ROW_HEIGHT } = await importSrc(
     "engine/geometry/label",
-);
-const { BAND_GAP, BAND_MARGIN, deriveBoundaries } = await importSrc(
-    "engine/geometry/boundary",
 );
 const { EDGE_LABEL_PADDING, layoutEdgeLabel } = await importSrc(
     "engine/geometry/edge-label",
@@ -96,73 +92,6 @@ test("an icon that only fits without the indicators is dropped", () => {
 
     assert.equal(fitLabel(tight).icon, true);
     assert.equal(fitLabel({ ...tight, indicators: true }).icon, false);
-});
-
-/* ---------------------------------------------------------- boundaries */
-
-const derive = (label) =>
-    deriveBoundaries(
-        [{ id: "b", children: ["a"], label }],
-        new Map([["a", { x: 0, y: 0, width: 400, height: 100 }]]),
-        measure,
-    )[0];
-
-test("a boundary's indicators sit at the right end of its label band, bottom-aligned with the text", () => {
-    const boundary = derive({
-        name: "Shop",
-        metadata: "",
-        fontSize: 24,
-        icon: false,
-        indicators: 2,
-    });
-    const row = indicatorRowWidth(2);
-
-    assert.deepEqual(boundary.indicators, {
-        x: boundary.width - BAND_MARGIN - row,
-        y: boundary.name.y + boundary.name.height - INDICATOR_SIZE,
-        width: row,
-        height: INDICATOR_SIZE,
-    });
-});
-
-test("a boundary's indicators sit left of its instance count, and its name wraps short of both", () => {
-    const name = "Kubernetes cluster for the whole shop";
-    const plain = derive({
-        name,
-        metadata: "",
-        fontSize: 24,
-        icon: false,
-        instances: "x3",
-    });
-    const boundary = derive({
-        name,
-        metadata: "",
-        fontSize: 24,
-        icon: false,
-        instances: "x3",
-        indicators: 1,
-    });
-
-    assert.equal(
-        boundary.indicators.x + boundary.indicators.width + BAND_GAP,
-        boundary.instances.x,
-    );
-    assert.equal(
-        boundary.name.width,
-        plain.name.width - INDICATOR_SIZE - BAND_GAP,
-        "the text column gives up the row and its gap",
-    );
-});
-
-test("a boundary without targets keeps its band as it was", () => {
-    const boundary = derive({
-        name: "Shop",
-        metadata: "",
-        fontSize: 24,
-        icon: false,
-    });
-
-    assert.equal(boundary.indicators, undefined);
 });
 
 /* --------------------------------------------------------------- edges */

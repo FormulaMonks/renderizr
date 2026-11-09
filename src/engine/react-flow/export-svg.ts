@@ -584,7 +584,7 @@ function element(element: ElementBox, text: TextSetting): string {
 
 /* ---------------- boundaries */
 
-/** A boundary: its box, and the band's icon, text and indicators. */
+/** A boundary: its box, and the band's icon and text. */
 function boundary(box: BoundaryBox, text: TextSetting): string {
     const origin = { x: box.x, y: box.y };
     return [
@@ -611,14 +611,6 @@ function boundary(box: BoundaryBox, text: TextSetting): string {
         box.metadata ? block(box.metadata, origin, box.color, text) : "",
         box.instances
             ? block(box.instances, origin, box.color, text, true)
-            : "",
-        box.indicators
-            ? indicatorRow(
-                  box.targets,
-                  box.x + box.indicators.x,
-                  box.y + box.indicators.y,
-                  box.color,
-              )
             : "",
     ].join("");
 }
