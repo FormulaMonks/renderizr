@@ -544,6 +544,28 @@ async function writeUntil(file, text, sent, check, message) {
     }, message);
 }
 
+/**
+ * Change `json` until edit mode tells the pages, so the watcher is surely
+ * watching it before a test times changes of its own. The server can start
+ * a moment before the watcher watches the file: Vite's watcher says it is
+ * ready once it has scanned a file added after its first scan, and on macOS
+ * starts the file's FSEvents stream only afterwards. A change made in
+ * between never reaches the watcher.
+ */
+async function untilWatched(json, sent) {
+    const workspace = JSON.parse(await readFile(json, "utf8"));
+    workspace.description = "Watched";
+    const text = JSON.stringify(workspace);
+    const version = versionOf(text);
+    await writeUntil(
+        json,
+        text,
+        sent,
+        () => sent.some(({ data }) => data?.version === version),
+        "the watcher never reported workspace.json",
+    );
+}
+
 test("the save endpoint writes the layout into workspace.json and answers with the new version", async () => {
     await withEditServer({}, async ({ url, token, json }) => {
         const { origin } = new URL(url);
@@ -720,6 +742,7 @@ test("a save reaches every page once, as a workspace event naming the page that 
 test("two outside changes close together reach the page in order, the last one last", async () => {
     await withEditServer({}, async ({ server, json }) => {
         const sent = recordEvents(server);
+        await untilWatched(json, sent);
         const workspace = JSON.parse(await readFile(json, "utf8"));
         workspace.description = "First change";
         await writeFile(json, JSON.stringify(workspace));
@@ -766,6 +789,7 @@ test("a workspace.json that won't load reaches the page as an error event, and t
 test("a workspace.json caught halfway through a write reaches the page once the write ends, with no error", async () => {
     await withEditServer({}, async ({ server, json }) => {
         const sent = recordEvents(server);
+        await untilWatched(json, sent);
         const workspace = JSON.parse(await readFile(json, "utf8"));
         workspace.description = "Written in two goes";
         const text = JSON.stringify(workspace, null, 2);

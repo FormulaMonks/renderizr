@@ -220,9 +220,11 @@ const emptyWorkspace = (folder) => ({
  * left out. `branding` holds the run's branding `flags` and the
  * `properties` edit mode started with.
  *
- * The plugin's `watching()` resolves once Vite's watcher has set up its
- * watches, `workspace` and the DSL's folder among them. A change made before
- * then may never reach the watcher.
+ * The plugin's `watching()` resolves once Vite's watcher says it is ready. A
+ * change made before then may never reach the watcher, and on macOS one made
+ * just after can miss it too: the watcher says it is ready once it has
+ * scanned `workspace` and the DSL's folder, and starts their FSEvents
+ * streams only afterwards.
  */
 export function editMode({
     workspace,
