@@ -1,5 +1,5 @@
 {
-    "*.{json,ts,js,cjs,mjs,mts,css,tsx,jsx}": [
+    "*.{json,ts,js,cjs,mjs,mts,css,tsx,jsx,md,yml,yaml}": [
         "pnpm exec biome ci --no-errors-on-unmatched"
     ]
 }
