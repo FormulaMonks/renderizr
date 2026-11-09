@@ -10,11 +10,11 @@ npx github:FormulaMonks/renderizr <workspace.json>
 
 which resolves to the default branch. That makes `main` the shipping surface, and it is the only version that receives fixes.
 
-| Version | Supported |
-| --- | --- |
-| `main` | Yes — fixes land here and reach users on their next `npx` run |
-| Tagged releases | The most recent tag only, once tagging begins |
-| Any older tag, or a pinned commit | No — update to `main` |
+| Version                           | Supported                                                     |
+| --------------------------------- | ------------------------------------------------------------- |
+| `main`                            | Yes — fixes land here and reach users on their next `npx` run |
+| Tagged releases                   | The most recent tag only, once tagging begins                 |
+| Any older tag, or a pinned commit | No — update to `main`                                         |
 
 There are no tagged releases yet. When there are, this table stands: we patch the newest release and `main`, and we do not backport.
 
@@ -41,12 +41,12 @@ The more of this you have, the faster the fix:
 
 ### What to expect
 
-| Stage | Target |
-| --- | --- |
-| Acknowledgement that a human has read it | 3 business days |
-| Initial assessment — confirmed or not, and a rough severity | 10 business days |
-| Fix on `main` for a confirmed high-severity issue | 30 days |
-| Published advisory and credit | With the fix, unless you ask us to hold it |
+| Stage                                                       | Target                                     |
+| ----------------------------------------------------------- | ------------------------------------------ |
+| Acknowledgement that a human has read it                    | 3 business days                            |
+| Initial assessment — confirmed or not, and a rough severity | 10 business days                           |
+| Fix on `main` for a confirmed high-severity issue           | 30 days                                    |
+| Published advisory and credit                               | With the fix, unless you ask us to hold it |
 
 A small number of people maintain this small project. If a target slips, we will say so on the advisory thread rather than leave you guessing. Please give us 90 days before disclosing publicly; if we go quiet on you for more than 30 days, treat that as the clock running out and disclose.
 
@@ -54,13 +54,13 @@ We have no bug bounty. We do have genuine gratitude, and a credit line on the ad
 
 ## Scope
 
-Renderizr is a build tool. You point it at a workspace — a local file or a URL — and it reads that workspace, fetches whatever the workspace and your flags refer to, and writes an HTML page. Both the input and the fetch targets are things *the person running the command* supplies. That shapes what counts as a vulnerability.
+Renderizr is a build tool. You point it at a workspace — a local file or a URL — and it reads that workspace, fetches whatever the workspace and your flags refer to, and writes an HTML page. Both the input and the fetch targets are things _the person running the command_ supplies. That shapes what counts as a vulnerability.
 
 ### In scope
 
-- **Code execution or file access on the build machine** triggered by a workspace's *content* — anything in a `workspace.json` that makes `scripts/` execute code, read files outside the workspace, or write files outside `--out`.
+- **Code execution or file access on the build machine** triggered by a workspace's _content_ — anything in a `workspace.json` that makes `scripts/` execute code, read files outside the workspace, or write files outside `--out`.
 - **Path traversal** through `--out`, `--base`, `--logo`, or any workspace-supplied filename that escapes the intended output directory.
-- **Escaping the artifact-safety pass** — `scripts/escapes.js` exists to guarantee the emitted bundle contains no escape sequence a Claude artifact upload rejects, and to fail the build loudly rather than emit one. A construction that slips a rejected sequence through *silently* is a bug we want to hear about.
+- **Escaping the artifact-safety pass** — `scripts/escapes.js` exists to guarantee the emitted bundle contains no escape sequence a Claude artifact upload rejects, and to fail the build loudly rather than emit one. A construction that slips a rejected sequence through _silently_ is a bug we want to hear about.
 - **Broken isolation in `--single-file` output.** The whole promise of `--single-file` is a document with zero network requests. An input that causes the emitted HTML to reach for the network at view time defeats that promise and is in scope.
 - **Fetching a host nobody asked for** — a workspace whose theme, icon or branding URL causes a request to a host that is not derivable from the workspace or the flags, or that leaks local credentials or file contents to a remote host.
 - **Supply chain**: a compromised or tampered dependency in `pnpm-lock.yaml`.

@@ -18,4 +18,3 @@ How to write every Markdown file in this repo (ADRs, pages in `architecture/docs
 - **Use no em dashes.** Use a colon, a comma, parentheses or a new sentence instead. En dashes are fine for ranges (`1–10`).
 - **Never hard-wrap.** One paragraph per line, one list item per line.
 - **Use the glossary's terms** (`GLOSSARY.md`), and none of the words it lists under _Avoid_.
-

@@ -16,14 +16,14 @@ Dagre ranks a graph with network simplex by default, and the Structurizr rendere
 
 We timed both rankers in Node on generated grouped views with two relationships per element and one group per 15 elements, laid out in tiers, three seeds each:
 
-| Elements | Network simplex | Tight-tree |
-|---|---|---|
-| 50 | 49–62 ms | 44–59 ms |
-| 100 | 142–191 ms | 84–110 ms |
-| 125 | 376–479 ms | 102–125 ms |
-| 150 | 452–5012 ms | 138–208 ms |
-| 200 | 1349–72180 ms | 203–229 ms |
-| 300 | 12.3 s (the large acceptance view) | 337–414 ms |
+| Elements | Network simplex                    | Tight-tree |
+| -------- | ---------------------------------- | ---------- |
+| 50       | 49–62 ms                           | 44–59 ms   |
+| 100      | 142–191 ms                         | 84–110 ms  |
+| 125      | 376–479 ms                         | 102–125 ms |
+| 150      | 452–5012 ms                        | 138–208 ms |
+| 200      | 1349–72180 ms                      | 203–229 ms |
+| 300      | 12.3 s (the large acceptance view) | 337–414 ms |
 
 Up to 100 elements network simplex stays well under a second. Past about 125 its time grows without bound, and the same size can take half a second or a minute depending on the relationships. Apart from the large acceptance view, the largest automatic view in the acceptance set has 11 elements.
 

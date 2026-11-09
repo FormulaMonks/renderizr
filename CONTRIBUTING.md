@@ -2,7 +2,7 @@
 
 Thanks for being here. This document aims to take you from a fresh clone to a merged pull request without needing to ask anyone a question. If it fails at that, that is a bug in this file — [open an issue](https://github.com/FormulaMonks/renderizr/issues/new/choose) and say where it lost you.
 
-We expect everyone taking part to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Questions about *using* Renderizr belong in [SUPPORT.md](SUPPORT.md); security problems belong in [SECURITY.md](SECURITY.md), and you must never file them as public issues.
+We expect everyone taking part to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Questions about _using_ Renderizr belong in [SUPPORT.md](SUPPORT.md); security problems belong in [SECURITY.md](SECURITY.md), and you must never file them as public issues.
 
 The [architecture site](https://formulamonks.github.io/renderizr/) carries a shorter version of this guide under _Contributing_, next to Renderizr's views and decisions. This file goes into more depth; when the two disagree, fix whichever one is wrong.
 
@@ -23,11 +23,11 @@ The [architecture site](https://formulamonks.github.io/renderizr/) carries a sho
 
 ## Prerequisites
 
-| Tool | Version | Why |
-| --- | --- | --- |
+| Tool | Version        | Why                                                                                                                                                                                                                                                                                                                 |
+| ---- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Node | 22.13 or newer | One floor for running Renderizr and for developing it: `package.json` declares it in `"engines": { "node": ">=22.13" }`, `scripts/build.js` checks it before it loads the build, and pnpm 11 needs it because it imports `node:sqlite`. [ADR 27](architecture/decisions/0027-support-node-from-22-13.md) records it |
-| pnpm | 11 | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile |
-| git | any | To clone the repository |
+| pnpm | 11             | The lockfile is `pnpm-lock.yaml` and `pnpm-workspace.yaml` carries the build allow-list. npm and yarn will appear to work and will drift the lockfile                                                                                                                                                               |
+| git  | any            | To clone the repository                                                                                                                                                                                                                                                                                             |
 
 That is the whole list. No IDE is required, no JDK, no global CLI.
 
@@ -69,19 +69,19 @@ git config --get core.hooksPath   # should print .husky/_
 
 Run every command below from the repository root.
 
-| Command | What it does |
-| --- | --- |
-| `pnpm dev` | Vite dev server on <http://localhost:5173>, rendering this repository's own workspace (`architecture/workspace.json`) |
-| `pnpm dev -- path/to/workspace.json` | Same, against a workspace of your choice — a local path or a URL |
-| `pnpm render <workspace> [flags]` | Type-checks with `tsc`, then runs the real production build into `./structurizr-output` |
-| `pnpm test` | `node --test` over `scripts/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own |
-| `pnpm exec biome check .` | Lint + format check, reports only |
-| `pnpm exec biome check --write .` | Lint + format, fixes in place |
-| `pnpm exec biome ci .` | Exactly what the pre-commit hook and CI run: check, never fix, non-zero on any finding |
-| `pnpm exec tsc --noEmit` | Type-check `src/` on its own |
-| `pnpm fixtures:large` | Write `test/__fixtures__/large-landscape.json` again from its generator, `test/support/large-landscape.js` |
-| `pnpm fixtures:acceptance` | Merge `test/__fixtures__/acceptance/workspace.dsl` into the `workspace.json` beside it, which holds the fixture's layout, with Structurizr's tools (`STRUCTURIZR_CLI` as a whole command, such as `java -jar structurizr.war`, or `structurizr-cli` on the `PATH`), then format it. CI runs it with the pinned `structurizr.war` and fails when the committed fixture differs |
-| `pnpm architecture:merge` | Write `architecture/workspace.json` again from `architecture/workspace.dsl` the way a DSL session of `renderizr edit` writes it: `merge` with the committed file as the layout, through the same writer, so a file that matches its DSL stays byte for byte. It takes `STRUCTURIZR_CLI` as `pnpm fixtures:acceptance` does. CI runs it with the pinned `structurizr.war` and fails when the committed workspace differs, because GitHub Pages publishes it |
+| Command                              | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                           | Vite dev server on <http://localhost:5173>, rendering this repository's own workspace (`architecture/workspace.json`)                                                                                                                                                                                                                                                                                                                                      |
+| `pnpm dev -- path/to/workspace.json` | Same, against a workspace of your choice — a local path or a URL                                                                                                                                                                                                                                                                                                                                                                                           |
+| `pnpm render <workspace> [flags]`    | Type-checks with `tsc`, then runs the real production build into `./structurizr-output`                                                                                                                                                                                                                                                                                                                                                                    |
+| `pnpm test`                          | `node --test` over `scripts/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own                                                                                                                                                                                                                                                                                                                      |
+| `pnpm exec biome check .`            | Lint + format check, reports only                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `pnpm exec biome check --write .`    | Lint + format, fixes in place                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `pnpm exec biome ci .`               | Exactly what the pre-commit hook and CI run: check, never fix, non-zero on any finding                                                                                                                                                                                                                                                                                                                                                                     |
+| `pnpm exec tsc --noEmit`             | Type-check `src/` on its own                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `pnpm fixtures:large`                | Write `test/__fixtures__/large-landscape.json` again from its generator, `test/support/large-landscape.js`                                                                                                                                                                                                                                                                                                                                                 |
+| `pnpm fixtures:acceptance`           | Merge `test/__fixtures__/acceptance/workspace.dsl` into the `workspace.json` beside it, which holds the fixture's layout, with Structurizr's tools (`STRUCTURIZR_CLI` as a whole command, such as `java -jar structurizr.war`, or `structurizr-cli` on the `PATH`), then format it. CI runs it with the pinned `structurizr.war` and fails when the committed fixture differs                                                                              |
+| `pnpm architecture:merge`            | Write `architecture/workspace.json` again from `architecture/workspace.dsl` the way a DSL session of `renderizr edit` writes it: `merge` with the committed file as the layout, through the same writer, so a file that matches its DSL stays byte for byte. It takes `STRUCTURIZR_CLI` as `pnpm fixtures:acceptance` does. CI runs it with the pinned `structurizr.war` and fails when the committed workspace differs, because GitHub Pages publishes it |
 
 ### Dev server
 
@@ -117,7 +117,7 @@ pnpm render https://raw.githubusercontent.com/structurizr/structurizr/main/struc
 Output lands in `./structurizr-output` unless `--out` says otherwise. `pnpm render` runs `tsc` first, so a type error fails the build before Vite starts.
 
 > [!NOTE]
-> `pnpm render` needs no `--` separator, and takes one: `pnpm render -- <workspace> --flag` works too, since the CLI drops a leading `--` that pnpm forwards. `pnpm dev` *does* want the separator, `pnpm dev -- <workspace>`, because Vite would otherwise try to interpret the path itself.
+> `pnpm render` needs no `--` separator, and takes one: `pnpm render -- <workspace> --flag` works too, since the CLI drops a leading `--` that pnpm forwards. `pnpm dev` _does_ want the separator, `pnpm dev -- <workspace>`, because Vite would otherwise try to interpret the path itself.
 
 ### Lint and format
 
@@ -169,11 +169,11 @@ pnpm exec czg
 
 Three hooks live in `.husky/`, and `pnpm hooks` installs all of them.
 
-| Hook | Runs | Purpose |
-| --- | --- | --- |
-| `prepare-commit-msg` | `pnpm exec czg --hook` | Opens the interactive message prompt when you did not pass `-m`. Skips itself on amend, on rebase, and when a message is already set |
-| `pre-commit` | `pnpm exec lint-staged` | Runs `biome ci` over staged `.json .ts .js .cjs .mjs .mts .css .tsx .jsx` files (`.lintstagedrc.json`) |
-| `commit-msg` | `pnpm exec commitlint --edit` | Validates the message you just wrote |
+| Hook                 | Runs                          | Purpose                                                                                                                              |
+| -------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `prepare-commit-msg` | `pnpm exec czg --hook`        | Opens the interactive message prompt when you did not pass `-m`. Skips itself on amend, on rebase, and when a message is already set |
+| `pre-commit`         | `pnpm exec lint-staged`       | Runs `biome ci` over staged `.json .ts .js .cjs .mjs .mts .css .tsx .jsx` files (`.lintstagedrc.json`)                               |
+| `commit-msg`         | `pnpm exec commitlint --edit` | Validates the message you just wrote                                                                                                 |
 
 ### When a hook fails
 
@@ -216,7 +216,7 @@ git config --unset custom.hooks.pre-commit    # back on
 
 `git commit --no-verify` skips `pre-commit` and `commit-msg` for a single commit.
 
-Either way the checks still run in CI — the switches save you time locally, they do not lower the bar. Specifically: `biome ci` runs in the `static` job, and the `pr title` job runs the *same* `commitlint.config.cjs` over your pull request **title**. That is the one message that has to be conventional no matter what you did locally, because a maintainer squash-merges every PR and the title becomes the squash commit, the one release-please reads. Individual commit messages inside the branch do not survive the squash, so a hook you skipped costs you nothing; a title you did not think about fails the build.
+Either way the checks still run in CI — the switches save you time locally, they do not lower the bar. Specifically: `biome ci` runs in the `static` job, and the `pr title` job runs the _same_ `commitlint.config.cjs` over your pull request **title**. That is the one message that has to be conventional no matter what you did locally, because a maintainer squash-merges every PR and the title becomes the squash commit, the one release-please reads. Individual commit messages inside the branch do not survive the squash, so a hook you skipped costs you nothing; a title you did not think about fails the build.
 
 ## Project layout
 
@@ -228,32 +228,32 @@ architecture/   Renderizr's own Structurizr workspace, which the dev server rend
 public/         static files copied into every build (currently the favicon)
 ```
 
-| Path | What lives there |
-| --- | --- |
-| `scripts/build.js` | CLI entry point (`bin: renderizr`). Enforces the Node floor, then loads `scripts/main.js` |
-| `scripts/node-version.js` | The Node floor and the check against it, with no imports so it loads on any Node |
-| `scripts/main.js` | Parses arguments, loads assets and runs Vite, or starts edit mode |
-| `scripts/cli.js` | Option definitions and `--help` text |
-| `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
-| `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
-| `scripts/config.js` | The Vite configuration, shared by the build and the dev server |
-| `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
-| `scripts/escapes.js` | Rewrites escape sequences a Claude artifact upload rejects; fails the build if any survive |
-| `scripts/*.test.js` | Tests for the build pipeline, next to the module each one covers |
-| `test/*.test.js` | Tests for `src/` — router, menu, pages, theme, markdown, plus an end-to-end build |
-| `test/support/` | The harness those tests import: `dom.js`, `ts.js`, `vite-hooks.js`, `browser.js`, `history.js` |
-| `test/support/acceptance.js` | The acceptance set (spec 15.3) and how each of its workspaces is built offline, for the acceptance harness and the contact sheet |
-| `test/support/engine-checks.js` | The rules the acceptance harness holds every engine report to, as plain functions over numbers |
+| Path                              | What lives there                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `scripts/build.js`                | CLI entry point (`bin: renderizr`). Enforces the Node floor, then loads `scripts/main.js`                                            |
+| `scripts/node-version.js`         | The Node floor and the check against it, with no imports so it loads on any Node                                                     |
+| `scripts/main.js`                 | Parses arguments, loads assets and runs Vite, or starts edit mode                                                                    |
+| `scripts/cli.js`                  | Option definitions and `--help` text                                                                                                 |
+| `scripts/assets.js`               | Fetching and embedding the workspace, themes, element icons, logo and font                                                           |
+| `scripts/branding.js`             | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
+| `scripts/config.js`               | The Vite configuration, shared by the build and the dev server                                                                       |
+| `scripts/plugins.js`              | Build plugins: branding injection and single-file inlining                                                                           |
+| `scripts/escapes.js`              | Rewrites escape sequences a Claude artifact upload rejects; fails the build if any survive                                           |
+| `scripts/*.test.js`               | Tests for the build pipeline, next to the module each one covers                                                                     |
+| `test/*.test.js`                  | Tests for `src/` — router, menu, pages, theme, markdown, plus an end-to-end build                                                    |
+| `test/support/`                   | The harness those tests import: `dom.js`, `ts.js`, `vite-hooks.js`, `browser.js`, `history.js`                                       |
+| `test/support/acceptance.js`      | The acceptance set (spec 15.3) and how each of its workspaces is built offline, for the acceptance harness and the contact sheet     |
+| `test/support/engine-checks.js`   | The rules the acceptance harness holds every engine report to, as plain functions over numbers                                       |
 | `test/support/large-landscape.js` | The seeded generator of the large fixture (spec 15.3); `pnpm fixtures:large` writes `test/__fixtures__/large-landscape.json` from it |
-| `test/support/fixtures.js` | What the fixture writers share: the model's people and software systems, and the format a committed fixture keeps |
-| `test/contact-sheet.js` | Screenshots every acceptance view into one HTML page for people to review; run by hand or by CI, never by `pnpm test` |
-| `src/main.ts` | App entry point |
-| `src/components/` | Reusable UI: router, menu, navigation, theme, markdown renderer, scroll-spy |
-| `src/pages/` | The three top-level pages: `diagrams`, `docs`, `adrs` |
-| `src/model/` | The typed workspace model and style resolution, ported from Structurizr, and `resolveView` |
-| `src/engine/` | The React Flow engine: the contract in `index.ts`, geometry, layout and the island |
-| `src/types/` | Type declarations for the workspace's documentation shapes |
-| `vite.config.ts` | Dev server only — production goes through `scripts/build.js` |
+| `test/support/fixtures.js`        | What the fixture writers share: the model's people and software systems, and the format a committed fixture keeps                    |
+| `test/contact-sheet.js`           | Screenshots every acceptance view into one HTML page for people to review; run by hand or by CI, never by `pnpm test`                |
+| `src/main.ts`                     | App entry point                                                                                                                      |
+| `src/components/`                 | Reusable UI: router, menu, navigation, theme, markdown renderer, scroll-spy                                                          |
+| `src/pages/`                      | The three top-level pages: `diagrams`, `docs`, `adrs`                                                                                |
+| `src/model/`                      | The typed workspace model and style resolution, ported from Structurizr, and `resolveView`                                           |
+| `src/engine/`                     | The React Flow engine: the contract in `index.ts`, geometry, layout and the island                                                   |
+| `src/types/`                      | Type declarations for the workspace's documentation shapes                                                                           |
+| `vite.config.ts`                  | Dev server only — production goes through `scripts/build.js`                                                                         |
 
 One rule follows from that shape: **`scripts/` is JavaScript, `src/` is TypeScript.** `tsconfig.json` includes only `src`, so `pnpm exec tsc --noEmit` will not type-check the pipeline; the tests in `scripts/` are what guard it. Keep `scripts/` plain ESM so `npx` can run it with no build step.
 
@@ -261,10 +261,10 @@ One rule follows from that shape: **`scripts/` is JavaScript, `src/` is TypeScri
 
 Tests use the Node built-in runner — no Jest, no Vitest, no config. There are two directories, and which one a test belongs in follows from what it covers:
 
-| Testing | Put it in | Imports |
-| --- | --- | --- |
-| Anything in `scripts/` — the CLI, asset loading, the Vite config, the build plugins | `scripts/<module>.test.js`, next to the module | The module directly: `import { parseCliArgs } from "./cli.js"` |
-| Anything in `src/` — the router, the menu, a page, the markdown renderer | `test/<subject>.test.js` | `test/support/ts.js`, which installs the DOM and the TypeScript hooks: `const { default: Menu } = await importSrc("components/menu")` |
+| Testing                                                                             | Put it in                                      | Imports                                                                                                                               |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Anything in `scripts/` — the CLI, asset loading, the Vite config, the build plugins | `scripts/<module>.test.js`, next to the module | The module directly: `import { parseCliArgs } from "./cli.js"`                                                                        |
+| Anything in `src/` — the router, the menu, a page, the markdown renderer            | `test/<subject>.test.js`                       | `test/support/ts.js`, which installs the DOM and the TypeScript hooks: `const { default: Menu } = await importSrc("components/menu")` |
 
 `pnpm test` expands both globs, so it picks up a new file ending in `.test.js` in either directory with nothing else to register. The one exception is `test/acceptance.test.js`, which runs after the others, by itself (see below). Files under `test/support/` are the harness, not tests, and the glob does not match them.
 
@@ -332,7 +332,7 @@ node test/contact-sheet.js        # writes contact-sheet/index.html
 pnpm test:coverage
 ```
 
-Read the number it prints with one caveat in mind: V8's in-process coverage only sees files *that process loaded*, so five source files never appear in the table at all: `src/main.ts`, `src/pages/diagrams.ts`, `src/engine/index.ts`, `src/engine/react-flow/index.ts` and `src/engine/react-flow/island.tsx`. Only the headless-Chrome end-to-end test and the acceptance harness exercise them, in a browser V8 cannot instrument from here. A high "all files" percentage is a statement about the files in the table, not about `main.ts` or the island.
+Read the number it prints with one caveat in mind: V8's in-process coverage only sees files _that process loaded_, so five source files never appear in the table at all: `src/main.ts`, `src/pages/diagrams.ts`, `src/engine/index.ts`, `src/engine/react-flow/index.ts` and `src/engine/react-flow/island.tsx`. Only the headless-Chrome end-to-end test and the acceptance harness exercise them, in a browser V8 cannot instrument from here. A high "all files" percentage is a statement about the files in the table, not about `main.ts` or the island.
 
 ## Pull requests
 
@@ -366,14 +366,14 @@ What a good pull request looks like here:
 - **Conventional commits throughout**, because release-please generates the changelog and the version bump from them. A `feat:` in a PR of `fix:` commits changes what the next release is called.
 - **A description that says what changed and why.** For anything visual, a before/after screenshot or a link to a rendered `--single-file` output is worth more than a paragraph.
 - **Tests for anything in `scripts/`.** New behavior gets a test; a fixed bug gets the test that would have caught it.
-- **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text *and* the flag table in `architecture/docs/02-usage.md`. A changed workflow means this file and `architecture/docs/03-contributing.md`, and a changed script or folder means `architecture/docs/04-reference.md`.
+- **Docs updated in the same PR.** A new CLI flag means `scripts/cli.js` usage text _and_ the flag table in `architecture/docs/02-usage.md`. A changed workflow means this file and `architecture/docs/03-contributing.md`, and a changed script or folder means `architecture/docs/04-reference.md`.
 - **No unrelated reformatting.** Biome's settings are the settings; if a diff is mostly whitespace, something is configured wrong locally.
 - **No new runtime dependency without saying why.** Everything in `dependencies` ends up inlined into a self-contained HTML file that people email around — weight is a feature here, and adding to it needs a sentence of justification in the PR.
 - **Draft PRs are welcome** for work you want eyes on early. Mark it ready when CI is green.
 
 ## How a review goes
 
-1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite and the end-to-end render on Node 22, 24 and 26, an npm install and build on Node 22.13, and a check that the PR *title* is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
+1. You open the PR against `main`. Two workflows run on it: CI (`.github/workflows/ci.yml`) — lint, typecheck, the test suite and the end-to-end render on Node 22, 24 and 26, an npm install and build on Node 22.13, and a check that the PR _title_ is a conventional commit — and CodeQL (`.github/workflows/codeql.yml`). The OpenSSF Scorecard check (`.github/workflows/scorecard.yml`) does **not** run on pull requests, deliberately: it scores properties of the repository itself (branch protection, token permissions, pinned dependencies, maintenance activity) rather than of your diff, and `publish_results: true` needs an `id-token: write` token that a pull request — a fork's especially — does not get. It runs on pushes to `main`, on branch-protection changes and weekly. A red Scorecard is therefore a maintainer's problem, never a blocker on your PR.
 2. A maintainer (see [MAINTAINERS.md](MAINTAINERS.md)) reviews it. Expect a first response within about a week; this is a small project and reviews come in bursts. A ping on the PR after that is entirely fair.
 3. Review comments come in three flavors, and reviewers label them so you never have to guess:
    - **blocking** — must change before merge.
