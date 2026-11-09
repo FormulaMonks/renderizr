@@ -9,7 +9,7 @@ import {
     singleFile,
     workspaceModule,
 } from "./plugins.js";
-import { LINE_LIMIT, shortLines } from "./short-lines.js";
+import { shortLines } from "./short-lines.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
@@ -135,9 +135,13 @@ export function createConfig({
             chunkSizeWarningLimit: 2048,
             assetsInlineLimit:
                 asSingleFile || artifact ? Number.MAX_SAFE_INTEGER : undefined,
-            rollupOptions: {
+            // `shortLines` minifies the scripts itself, to keep their lines
+            // short (spec 296), and the stylesheet with them.
+            minify: false,
+            cssMinify: false,
+            rolldownOptions: {
                 output: asSingleFile
-                    ? { inlineDynamicImports: true }
+                    ? { codeSplitting: false }
                     : artifact
                       ? ARTIFACT_OUTPUT
                       : {},
@@ -150,11 +154,9 @@ export function createConfig({
             // which also keeps the page to one copy of Preact.
             dedupe: ["preact"],
         },
-        // The React Flow island is the one place JSX is written. Vite hands
-        // `lineLimit` to the minifier too, which keeps every script's lines
-        // short (spec 296).
-        esbuild: { jsx: "automatic", lineLimit: LINE_LIMIT },
-        // esbuild injects the JSX runtime, so Vite's scan never sees it and
+        // The React Flow island is the one place JSX is written.
+        oxc: { jsx: { runtime: "automatic" } },
+        // Oxc injects the JSX runtime, so Vite's scan never sees it and
         // finds it only on first request. Vite skips that late discovery for
         // an importer under node_modules, which is where `src` sits when
         // `npx` installs the package, and would serve the file as is, a

@@ -60,34 +60,9 @@ export const BRANDING_FILE = "branding.css";
 export const DOCS_RUNTIME_FILE = "renderizr-docs.js";
 
 /**
- * The page modules that hold the documentation and decision pages, which
- * the entry imports dynamically, and only for a workspace that has any.
- */
-const DOCS_PAGES = ["/src/pages/docs.ts", "/src/pages/adrs.ts"];
-
-/**
- * The Rollup output options that give the runtime fixed names, with no
- * content hash, so an update replaces each file in place and the manifest's
- * hash says whether it changed. The documentation stack goes to
- * `renderizr-docs.js`; the rest of the vendor code to
- * `renderizr-vendor.js`; Renderizr's own code to the entry.
- */
-export const ARTIFACT_OUTPUT = Object.freeze({
-    entryFileNames: ENTRY_FILE,
-    chunkFileNames: "renderizr-[name].js",
-    assetFileNames: "renderizr[extname]",
-    manualChunks: (id, { getModuleIds, getModuleInfo }) =>
-        docsModulesOf(getModuleIds, getModuleInfo).has(id)
-            ? "docs"
-            : isVendor(id)
-              ? "vendor"
-              : "renderizr",
-});
-
-/**
  * Whether the module `id` is vendor code: a package, or one of the helpers
- * Rollup and Vite add, which packages import too. Keeping those helpers out
- * of the entry keeps the vendor chunk from importing the entry back.
+ * Vite adds, which packages import too. Keeping those helpers out of the
+ * entry keeps the vendor chunk from importing the entry back.
  */
 const isVendor = (id) =>
     id.includes("/node_modules/") ||
@@ -95,44 +70,54 @@ const isVendor = (id) =>
         id !== RESOLVED_WORKSPACE_MODULE &&
         id !== RESOLVED_SET_MODULE);
 
-/** `docsModulesOf`'s answer for each build's module graph. */
-const docsModules = new WeakMap();
+/** The file the bundler would give the entry, were it ever written. */
+const UNUSED_ENTRY_FILE = "renderizr-entry.js";
+
+/** The fixed file of each chunk the artifact names, by chunk name. */
+const CHUNK_FILES = {
+    // The group that holds Renderizr's own code, the entry module included.
+    renderizr: ENTRY_FILE,
+    // The chunk behind the entry's one dynamic import, named after
+    // `src/pages/documentation.ts`.
+    documentation: DOCS_RUNTIME_FILE,
+};
 
 /**
- * The documentation stack: every module the documentation and decision
- * pages import, directly or not, that the entry does not import itself.
- * Markdown-it, highlight.js, the pages and the decision graph come out of
- * it; code the diagrams share with them stays with the diagrams, so a page
- * with no documentation never loads `renderizr-docs.js`.
+ * The Rolldown output options that give the runtime fixed names, with no
+ * content hash, so an update replaces each file in place and the manifest's
+ * hash says whether it changed.
+ *
+ * Two groups split the code the page loads at startup, which Rolldown tags
+ * `$initial`: vendor code goes to `renderizr-vendor.js`, Renderizr's own
+ * code to `renderizr.js`. What only the documentation and decision pages
+ * import is left to Rolldown, which puts it in the chunk of the entry's one
+ * dynamic import, `renderizr-docs.js`. Rolldown writes its own helpers to
+ * `renderizr-rolldown-runtime.js` whenever it splits the code into groups.
+ *
+ * The own-code group holds the entry module, so Rolldown leaves the entry
+ * chunk empty and Vite drops it. The group takes the entry's file name;
+ * the entry gets another, so the two never collide.
  */
-function docsModulesOf(getModuleIds, getModuleInfo) {
-    // `getModuleInfo` is one function per build, so it keys the answer.
-    if (docsModules.has(getModuleInfo)) return docsModules.get(getModuleInfo);
-    const ids = [...getModuleIds()];
-    const reach = (from) => {
-        const seen = new Set();
-        const queue = [...from];
-        while (queue.length) {
-            const id = queue.pop();
-            if (seen.has(id)) continue;
-            seen.add(id);
-            queue.push(...(getModuleInfo(id)?.importedIds ?? []));
-        }
-        return seen;
-    };
-    const statics = reach(ids.filter((id) => getModuleInfo(id)?.isEntry));
-    const docs = new Set(
-        [
-            ...reach(
-                ids.filter((id) =>
-                    DOCS_PAGES.some((page) => id.endsWith(page)),
-                ),
-            ),
-        ].filter((id) => !statics.has(id)),
-    );
-    docsModules.set(getModuleInfo, docs);
-    return docs;
-}
+export const ARTIFACT_OUTPUT = Object.freeze({
+    entryFileNames: UNUSED_ENTRY_FILE,
+    chunkFileNames: ({ name }) => CHUNK_FILES[name] ?? "renderizr-[name].js",
+    assetFileNames: "renderizr[extname]",
+    codeSplitting: {
+        groups: [
+            {
+                name: "vendor",
+                test: isVendor,
+                tags: ["$initial"],
+                priority: 1,
+            },
+            {
+                name: "renderizr",
+                test: (id) => !isVendor(id),
+                tags: ["$initial"],
+            },
+        ],
+    },
+});
 
 /** Whether `workspace` has documentation or decisions to show. */
 const hasDocumentation = (workspace) =>
@@ -347,10 +332,13 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
                         branded: faces !== null,
                     }),
                 });
-                delete bundle["index.html"];
 
+                // Chunks leave the bundle and come back as assets. Assets
+                // stay, with their new source, since Rolldown warns when a
+                // file is emitted twice under one name.
                 for (const [fileName, output] of Object.entries(bundle)) {
-                    delete bundle[fileName];
+                    if (fileName === "index.html") continue;
+                    if (output.type === "chunk") delete bundle[fileName];
                     // The entry still names it, behind the documentation
                     // and decision pages, which a set with no documentation
                     // or decisions never shows.
@@ -403,8 +391,16 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
                             files: listed,
                         }),
                     },
-                ])
-                    this.emitFile({ type: "asset", fileName: path, source });
+                ]) {
+                    const existing = bundle[path];
+                    if (existing?.type === "asset") existing.source = source;
+                    else
+                        this.emitFile({
+                            type: "asset",
+                            fileName: path,
+                            source,
+                        });
+                }
             },
         },
     ];

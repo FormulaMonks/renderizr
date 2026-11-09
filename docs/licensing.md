@@ -109,7 +109,7 @@ Renderizr embeds the workspace JSON, its documentation and decision records, and
 ## Before a release
 
 - [ ] `LICENSE` year range still covers the current year.
-- [ ] `THIRD-PARTY-NOTICES.md` matches the resolved dependency tree. The way to check is to re-run the Rollup scan described under [How this list was produced](../THIRD-PARTY-NOTICES.md#how-this-list-was-produced) — not to read `package.json`, which lists ranges that do not match what the build ships.
+- [ ] `THIRD-PARTY-NOTICES.md` matches the resolved dependency tree. The way to check is to re-run the bundler scan described under [How this list was produced](../THIRD-PARTY-NOTICES.md#how-this-list-was-produced) — not to read `package.json`, which lists ranges that do not match what the build ships.
 - [ ] A file ported from Structurizr into `src/model/` carries the Apache-2.0 header naming its upstream files and saying that Renderizr modified it.
 - [ ] The "ships in the rendered output" table lists any new runtime dependency, with its license checked on disk, in `node_modules`, rather than guessed from the package name.
 - [ ] Escalate a new license family (anything reciprocal, such as MPL-2.0 or the GPL family, anything with an advertising clause, anything unlicensed) rather than add it quietly. No copyleft component ships in the output today.
