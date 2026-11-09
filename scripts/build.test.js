@@ -233,18 +233,19 @@ test("every documentation section filename reaches the entry chunk", async () =>
     assert.ok(code.includes("02-deployment.md"));
 });
 
-test("the ADR and documentation pages are shipped as their own chunks", async () => {
+test("the ADR and documentation pages are shipped in a chunk of their own", async () => {
     const { out } = await multiFile();
     const assets = await readdir(join(out, "assets"));
+    const chunk = assets.find((file) => /^documentation-.*\.js$/.test(file));
 
-    assert.ok(
-        assets.some((file) => /^adrs-.*\.js$/.test(file)),
-        `no ADR page chunk in ${assets.join(", ")}`,
-    );
-    assert.ok(
-        assets.some((file) => /^docs-.*\.js$/.test(file)),
-        `no documentation page chunk in ${assets.join(", ")}`,
-    );
+    assert.ok(chunk, `no documentation chunk in ${assets.join(", ")}`);
+    const code = await readFile(join(out, "assets", chunk), "utf-8");
+    const entry = await entryChunk(out);
+    // The decision graph's dot marks, and highlight.js's class prefix.
+    for (const marker of ['data-mark="dot"', "hljs-"]) {
+        assert.ok(code.includes(marker), `${chunk} lacks ${marker}`);
+        assert.ok(!entry.includes(marker), `the entry chunk holds ${marker}`);
+    }
 });
 
 test("the React Flow engine reaches the entry chunk, and the vendored renderer does not", async () => {
@@ -574,6 +575,7 @@ test("--artifact's manifest names the Renderizr version and lists itself last, w
             "index.html": "shell",
             "renderizr.js": "runtime",
             "renderizr-vendor.js": "runtime",
+            "renderizr-rolldown-runtime.js": "runtime",
             "renderizr.css": "runtime",
             "workspace.json": "workspace",
             "manifest.json": "shell",
@@ -1427,7 +1429,8 @@ test("a default --single-file build stays within its measured size plus 10%", as
 
 /**
  * The runtime `--artifact` writes, in bytes: `renderizr.js`,
- * `renderizr-vendor.js` and `renderizr.css` together, measured once the page
+ * `renderizr-vendor.js`, `renderizr-rolldown-runtime.js` and `renderizr.css`
+ * together, measured once the page
  * ran on Preact (ADR 28) and the documentation stack moved to
  * `renderizr-docs.js`. It is the same for every workspace at a version, so
  * any fixture measures it.
@@ -1444,7 +1447,12 @@ const DOCS_RUNTIME_BYTES = 219_953;
 const ARTIFACT_BUDGETS = [
     {
         name: "the runtime",
-        files: ["renderizr.js", "renderizr-vendor.js", "renderizr.css"],
+        files: [
+            "renderizr.js",
+            "renderizr-vendor.js",
+            "renderizr-rolldown-runtime.js",
+            "renderizr.css",
+        ],
         bytes: RUNTIME_BYTES,
     },
     {

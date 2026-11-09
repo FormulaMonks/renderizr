@@ -14,7 +14,7 @@ Four things a reader needs to know before trusting the list. **None of them is a
 
 ### 1. The build strips every license header. This file is the notice.
 
-Renderizr minifies through esbuild and Rollup with no legal-comment preservation configured. Verified by building the Big Bank plc example and searching the output: **no license banner or copyright line of any component listed below survives**.
+Renderizr bundles through Rolldown and minifies through esbuild with no legal-comment preservation configured. Verified by building the Big Bank plc example and searching the output: **no license banner or copyright line of any component listed below survives**.
 
 The practical consequence: **a Renderizr-generated page, distributed on its own, does not carry the copyright and permission notices that MIT, ISC, BSD-2-Clause and BSD-3-Clause require.** Handing someone the HTML file and nothing else is a compliance gap, not a technicality.
 
@@ -64,7 +64,7 @@ This file's own obligations do not depend on that: everything a redistributor is
 
 Not from `package.json`. The runtime dependency block there is a poor guide to what ships: React Flow pulls in `@xyflow/system`, `zustand`, `classcat` and eight `d3-*` modules that `package.json` never names, and zustand pulls in `use-sync-external-store`.
 
-The list of components that reach the bundle was taken from Rollup itself, by running the real `--single-file` build of the Big Bank plc example with a plugin that records the `node_modules` package of every module Rollup parses, and of every `?raw` import it loads:
+The list of components that reach the bundle was taken from the bundler itself, by running the real `--single-file` build of the Big Bank plc example with a plugin that records the `node_modules` package of every module the bundler parses, and of every `?raw` import it loads:
 
 ```js
 cfg.plugins.push({
@@ -142,29 +142,30 @@ Everything in this section is present, minified, inside every `index.html` Rende
 
 These run on the machine performing the build. None of their code appears in the rendered output, so none of them creates an attribution obligation for anyone distributing a Renderizr-generated page. They are listed because distributing this _repository_ distributes the manifest that pulls them in.
 
-| Component                                                                                            | Version | License           | Copyright line                                                                          |
-| ---------------------------------------------------------------------------------------------------- | ------- | ----------------- | --------------------------------------------------------------------------------------- |
-| [Vite](https://github.com/vitejs/vite)                                                               | 7.3.7   | MIT               | Copyright (c) 2019-present, VoidZero Inc. and Vite contributors                         |
-| [Rollup](https://github.com/rollup/rollup)                                                           | 4.64.5  | MIT               | Copyright (c) 2017 [these people](https://github.com/rollup/rollup/graphs/contributors) |
-| [TypeScript](https://github.com/microsoft/TypeScript)                                                | 5.9.3   | Apache-2.0        | Microsoft Corporation                                                                   |
-| [Biome](https://github.com/biomejs/biome)                                                            | 1.9.4   | MIT OR Apache-2.0 | Copyright (c) 2023 Biome Developers and Contributors                                    |
-| [@commitlint/cli](https://github.com/conventional-changelog/commitlint)                              | 20.5.3  | MIT               | Mario Nebl                                                                              |
-| [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint)              | 20.5.3  | MIT               | Mario Nebl                                                                              |
-| [czg](https://github.com/Zhengqbbb/cz-git)                                                           | 1.14.0  | MIT               | Zhengqbbb                                                                               |
-| [husky](https://github.com/typicode/husky)                                                           | 9.1.7   | MIT               | typicode                                                                                |
-| [lint-staged](https://github.com/lint-staged/lint-staged)                                            | 16.4.0  | MIT               | Andrey Okonetchnikov                                                                    |
-| [fast-check](https://github.com/dubzzz/fast-check)                                                   | 4.10.2  | MIT               | Copyright (c) 2017 Nicolas DUBIEN                                                       |
-| [@types/markdown-it](https://github.com/DefinitelyTyped/DefinitelyTyped)                             | 14.2.0  | MIT               | DefinitelyTyped contributors                                                            |
-| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped)                                    | 22.20.5 | MIT               | DefinitelyTyped contributors                                                            |
-| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped)                                   | 19.3.0  | MIT               | DefinitelyTyped contributors                                                            |
-| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped)                               | 19.3.0  | MIT               | DefinitelyTyped contributors                                                            |
-| [Mermaid](https://github.com/mermaid-js/mermaid) (portions bundled into `scripts/mermaid/parser.js`) | 12.2.0  | MIT               | Copyright (c) 2014 - 2022 Knut Sveidqvist                                               |
-| [js-yaml](https://github.com/nodeca/js-yaml) (bundled into `scripts/mermaid/parser.js`)              | 5.4.3   | MIT               | Copyright (C) 2011-2015 by Vitaly Puzrin                                                |
-| [khroma](https://github.com/fabiospampinato/khroma) (bundled into `scripts/mermaid/parser.js`)       | 2.1.0   | MIT               | Copyright (c) 2019-present Fabio Spampinato, Andrew Maney                               |
+| Component                                                                                            | Version | License           | Copyright line                                                  |
+| ---------------------------------------------------------------------------------------------------- | ------- | ----------------- | --------------------------------------------------------------- |
+| [Vite](https://github.com/vitejs/vite)                                                               | 8.3.6   | MIT               | Copyright (c) 2019-present, VoidZero Inc. and Vite contributors |
+| [Rolldown](https://github.com/rolldown/rolldown)                                                     | 1.2.16  | MIT               | Copyright (c) 2024-present VoidZero Inc. & Contributors         |
+| [esbuild](https://github.com/evanw/esbuild)                                                          | 0.28.2  | MIT               | Copyright (c) 2020 Evan Wallace                                 |
+| [TypeScript](https://github.com/microsoft/TypeScript)                                                | 5.9.3   | Apache-2.0        | Microsoft Corporation                                           |
+| [Biome](https://github.com/biomejs/biome)                                                            | 1.9.4   | MIT OR Apache-2.0 | Copyright (c) 2023 Biome Developers and Contributors            |
+| [@commitlint/cli](https://github.com/conventional-changelog/commitlint)                              | 20.5.3  | MIT               | Mario Nebl                                                      |
+| [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint)              | 20.5.3  | MIT               | Mario Nebl                                                      |
+| [czg](https://github.com/Zhengqbbb/cz-git)                                                           | 1.14.0  | MIT               | Zhengqbbb                                                       |
+| [husky](https://github.com/typicode/husky)                                                           | 9.1.7   | MIT               | typicode                                                        |
+| [lint-staged](https://github.com/lint-staged/lint-staged)                                            | 16.4.0  | MIT               | Andrey Okonetchnikov                                            |
+| [fast-check](https://github.com/dubzzz/fast-check)                                                   | 4.10.2  | MIT               | Copyright (c) 2017 Nicolas DUBIEN                               |
+| [@types/markdown-it](https://github.com/DefinitelyTyped/DefinitelyTyped)                             | 14.2.0  | MIT               | DefinitelyTyped contributors                                    |
+| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped)                                    | 22.20.5 | MIT               | DefinitelyTyped contributors                                    |
+| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped)                                   | 19.3.0  | MIT               | DefinitelyTyped contributors                                    |
+| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped)                               | 19.3.0  | MIT               | DefinitelyTyped contributors                                    |
+| [Mermaid](https://github.com/mermaid-js/mermaid) (portions bundled into `scripts/mermaid/parser.js`) | 12.2.0  | MIT               | Copyright (c) 2014 - 2022 Knut Sveidqvist                       |
+| [js-yaml](https://github.com/nodeca/js-yaml) (bundled into `scripts/mermaid/parser.js`)              | 5.4.3   | MIT               | Copyright (C) 2011-2015 by Vitaly Puzrin                        |
+| [khroma](https://github.com/fabiospampinato/khroma) (bundled into `scripts/mermaid/parser.js`)       | 2.1.0   | MIT               | Copyright (c) 2019-present Fabio Spampinato, Andrew Maney       |
 
 **Mermaid, js-yaml and khroma** reach this repository and the published package inside one generated file, `scripts/mermaid/parser.js`, which the build runs to read the Mermaid source an image view carries. It holds Mermaid's flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, with js-yaml for the frontmatter and khroma for the themes. The file opens with Mermaid's MIT notice in full and ends with js-yaml's license line. None of it reaches a rendered page: the page draws from the plain model the build hands it. `mermaid` itself is never a dependency; `pnpm mermaid:parser` installs it and the bundling tools into a temporary folder to write the file.
 
-Vite bundles Rollup, esbuild and PostCSS inside its own distribution; their licenses are reproduced in `node_modules/vite/LICENSE.md`, which Vite ships for exactly this purpose. TypeScript ships `node_modules/typescript/ThirdPartyNoticeText.txt` covering its own dependencies. Biome is dual-licensed and may be taken under either MIT or Apache-2.0; nothing here depends on the choice, since Biome only lints.
+Vite bundles PostCSS and its plugins inside its own distribution; their licenses are reproduced in `node_modules/vite/LICENSE.md`, which Vite ships for exactly this purpose. Rolldown and esbuild are packages of their own, each with its own license file. TypeScript ships `node_modules/typescript/ThirdPartyNoticeText.txt` covering its own dependencies. Biome is dual-licensed and may be taken under either MIT or Apache-2.0; nothing here depends on the choice, since Biome only lints.
 
 `test/__fixtures__/big-bank-plc.json`, `test/__fixtures__/groups.json` and `test/__fixtures__/amazon-web-services.json` are unmodified copies of the workspaces in `structurizr-export/src/test/resources/` of the Apache-2.0 [structurizr/structurizr](https://github.com/structurizr/structurizr) repository, at commit `9ff16634`. The tests render them. The build never reads them, and `package.json` leaves `test/` out of the package.
 
