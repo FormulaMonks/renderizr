@@ -2,8 +2,8 @@
 
 ## Current maintainers
 
-| Name | GitHub | Areas |
-| --- | --- | --- |
+| Name         | GitHub                                                     | Areas                                                                                               |
+| ------------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Andrés Zorro | [@andreszorro-monks](https://github.com/andreszorro-monks) | Everything: the build pipeline in `scripts/`, the app and the React Flow engine in `src/`, releases |
 
 [Monks Tech Services](https://www.monkstechservices.com) stewards Renderizr and licenses it under [MIT](LICENSE). Contact for anything that needs to reach a human privately: **andres.zorro@monks.com**.
@@ -26,12 +26,12 @@ The job, for anyone in the table above:
 
 - **Triage.** Read new issues, reproduce or ask for what is missing, label, close duplicates. Every issue form stamps `needs triage` alongside its domain label, so the queue is [`is:issue is:open label:"needs triage"`](https://github.com/FormulaMonks/renderizr/issues?q=is%3Aissue+is%3Aopen+label%3A%22needs+triage%22) and removing that label is what "triaged" means here. GitHub silently drops labels that do not exist, so this only works once someone runs `gh label create "needs triage" --color FBCA04 --description "Reporter-selected; a maintainer has not confirmed it yet"` — it is on the [repository-setup checklist](#repository-setup-still-to-be-done) and is not done yet.
 - **Review.** Read pull requests against the expectations in [CONTRIBUTING.md](CONTRIBUTING.md#pull-requests), mark comments as blocking / suggestion / nit, and say yes or no rather than leaving things to rot.
-- **Merge.** Squash-merge approved, green pull requests, writing a squash message that describes the whole change as a conventional commit — that line becomes the changelog entry. GitHub prefills the squash message from the pull request title, and the `pr title` job in [`ci.yml`](.github/workflows/ci.yml) already ran the repository's `commitlint.config.cjs` over that title, so a green PR has a parseable message waiting. Check that it describes the *whole* change rather than the last commit; the machine can only check the grammar.
+- **Merge.** Squash-merge approved, green pull requests, writing a squash message that describes the whole change as a conventional commit — that line becomes the changelog entry. GitHub prefills the squash message from the pull request title, and the `pr title` job in [`ci.yml`](.github/workflows/ci.yml) already ran the repository's `commitlint.config.cjs` over that title, so a green PR has a parseable message waiting. Check that it describes the _whole_ change rather than the last commit; the machine can only check the grammar.
 - **Release.** Nobody tags by hand — either the workflow does it or `pnpm release:pr` does, and both run the same tool. With the `RENOVATE_TOKEN` secret set, `.github/workflows/release.yml` runs release-please on every push to `main`, which keeps a `chore(main): release X.Y.Z` pull request open with the version bump and the changelog entry; merging that pull request is what creates the `vX.Y.Z` tag and publishes the GitHub Release with its artifacts. A maintainer's job is to review that PR and decide when there is enough to ship. Nothing is published to a registry: `package.json` is private and there is no publish job, so the GitHub Release is the whole distribution channel. **The first release is the exception**: `release-as` in `release-please-config.json` pins it to `0.1.0`, and a maintainer has to delete that pin once `v0.1.0` exists — see [After the first release](#after-the-first-release).
 - **Answer security reports** within the timelines in [SECURITY.md](SECURITY.md).
 - **Enforce the [Code of Conduct](CODE_OF_CONDUCT.md).**
 
-What a maintainer is *not*: an owner of the roadmap by fiat. We settle disagreements in the open, on the issue or the PR. A decision that changes something architectural belongs in `architecture/decisions` as an ADR — the directory is there, empty and waiting for its first one, and Renderizr renders its own workspace, so those decisions end up on the site the tool builds.
+What a maintainer is _not_: an owner of the roadmap by fiat. We settle disagreements in the open, on the issue or the PR. A decision that changes something architectural belongs in `architecture/decisions` as an ADR — the directory is there, empty and waiting for its first one, and Renderizr renders its own workspace, so those decisions end up on the site the tool builds.
 
 ## The rules maintainers hold themselves to
 
@@ -57,30 +57,30 @@ Nothing else in this repository depends on a setting. Discussions is deliberatel
 
 ### What is broken until the repository is public — and is expected to be
 
-Two things in `README.md` are wrong today, on purpose, and neither is a bug to file. Both break because the repository is private, both fix themselves the moment it is public and this work is on `main`, and nobody should remove either in the meantime: deleting them would mean shipping a README that is *permanently* missing a badge row and an install command in order to avoid looking wrong for a week.
+Two things in `README.md` are wrong today, on purpose, and neither is a bug to file. Both break because the repository is private, both fix themselves the moment it is public and this work is on `main`, and nobody should remove either in the meantime: deleting them would mean shipping a README that is _permanently_ missing a badge row and an install command in order to avoid looking wrong for a week.
 
 - **Two of the three README badges render an error.** shields.io reads `api.github.com` anonymously, and on a private repository those calls 404. Measured by fetching each badge URL today:
 
-  | Badge | Renders as |
-  | --- | --- |
-  | `ci` | `ci: repo or workflow not found` |
-  | `node` | `node: ≥ 20` — fine, and always will be: it is a static `img.shields.io/badge/…`, so it never touches GitHub |
-  | `license` | `license: repo not found` |
+  | Badge     | Renders as                                                                                                   |
+  | --------- | ------------------------------------------------------------------------------------------------------------ |
+  | `ci`      | `ci: repo or workflow not found`                                                                             |
+  | `node`    | `node: ≥ 20` — fine, and always will be: it is a static `img.shields.io/badge/…`, so it never touches GitHub |
+  | `license` | `license: repo not found`                                                                                    |
 
-  The `license` badge fixes itself the moment the repository is public. The `ci` badge additionally needs `.github/workflows/ci.yml` to exist *on the default branch*, so it stays broken until someone merges this branch, even after the repository is public. Expect: public + merged → both go green, with no edit to README.md.
+  The `license` badge fixes itself the moment the repository is public. The `ci` badge additionally needs `.github/workflows/ci.yml` to exist _on the default branch_, so it stays broken until someone merges this branch, even after the repository is public. Expect: public + merged → both go green, with no edit to README.md.
 - **`npx github:FormulaMonks/renderizr` hangs for anyone without repo access.** It is the first command in README.md, and on a machine that has never authenticated to GitHub it produces no output at all — a clean-machine smoke test had it still running, silent, at 120 seconds. The cause is not npm: `npx` shells out to `git`, and this repository is not readable anonymously. Confirm the cause without a clean machine —
 
   ```bash
   curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/FormulaMonks/renderizr
   ```
 
-  404 today, 200 once it is public. Anonymous git then has nothing to authenticate with, the credential helper blocks on a prompt, and a piped `npx` never answers it — hence silence rather than an error. Nothing in this repository can improve that; it is git's prompt, not ours. Note that a maintainer *cannot* reproduce it on their own laptop: the macOS keychain helper supplies credentials and the clone simply works. Public repository → the clone succeeds for everyone and the command works as documented.
+  404 today, 200 once it is public. Anonymous git then has nothing to authenticate with, the credential helper blocks on a prompt, and a piped `npx` never answers it — hence silence rather than an error. Nothing in this repository can improve that; it is git's prompt, not ours. Note that a maintainer _cannot_ reproduce it on their own laptop: the macOS keychain helper supplies credentials and the clone simply works. Public repository → the clone succeeds for everyone and the command works as documented.
 
 Do not "fix" either by removing it. The only correct action is to make the repository public and merge this branch, then re-check both in a browser and on a machine that has never authenticated to GitHub.
 
 ### After the first release
 
-- [ ] **Remove `release-as` from `release-please-config.json`.** It pins the version to `0.1.0` so that the first generated release matches the version `CHANGELOG.md` already names. It is not self-clearing: left in place, release-please would also propose *every* subsequent release as `0.1.0`. Delete the line in the first pull request after the `v0.1.0` tag exists, in the same review that drops the hand-written `## [Unreleased]` section from `CHANGELOG.md`.
+- [ ] **Remove `release-as` from `release-please-config.json`.** It pins the version to `0.1.0` so that the first generated release matches the version `CHANGELOG.md` already names. It is not self-clearing: left in place, release-please would also propose _every_ subsequent release as `0.1.0`. Delete the line in the first pull request after the `v0.1.0` tag exists, in the same review that drops the hand-written `## [Unreleased]` section from `CHANGELOG.md`.
 
 ## Becoming a maintainer
 

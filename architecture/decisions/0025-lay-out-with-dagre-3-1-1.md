@@ -21,17 +21,17 @@ Dagre 3 can also order a dynamic layout against its earlier layout. `customOrder
 
 Measured in Node on the acceptance set and the test fixtures, as the width and height in units the elements of each view span:
 
-| View | Dagre 2.0.4 | Dagre 3.1.1 | Elements along their rank |
-|---|---|---|---|
-| Big Bank plc SystemLandscape | 3,068 × 2,176 | 2,700 × 2,176 | swapped on 2 of 4 ranks |
-| Big Bank plc SystemLandscape, tight | 2,418 × 1,676 | 2,208 × 1,676 | swapped on 2 of 4 ranks |
-| Big Bank plc Components | 3,790 × 2,767 | 3,903 × 2,767 | mirrored on 3 of 4 ranks |
-| Big Bank plc Components, tight | 3,125 × 1,967 | 3,238 × 1,967 | mirrored on 3 of 4 ranks |
-| Big Bank plc SystemContext | 1,200 × 1,821 | 1,200 × 1,821 | same order, 2 elements shift |
-| Big Bank plc SystemContext, tight | 1,000 × 1,421 | 1,043 × 1,421 | same order, 3 elements shift |
-| `cyclic-groups.json` CyclicGroups | 13,303 × 9,143 | 12,170 × 9,143 | reordered on 10 of 13 ranks |
-| `large-landscape.json` LargeLandscapeAutomatic | 156,323 × 2,608 | 154,778 × 2,608 | reordered on all 4 ranks |
-| Acceptance LandscapeAutomatic | 2,030 × 2,839 | 2,085 × 2,839 | same order, every element shifts |
+| View                                           | Dagre 2.0.4     | Dagre 3.1.1     | Elements along their rank        |
+| ---------------------------------------------- | --------------- | --------------- | -------------------------------- |
+| Big Bank plc SystemLandscape                   | 3,068 × 2,176   | 2,700 × 2,176   | swapped on 2 of 4 ranks          |
+| Big Bank plc SystemLandscape, tight            | 2,418 × 1,676   | 2,208 × 1,676   | swapped on 2 of 4 ranks          |
+| Big Bank plc Components                        | 3,790 × 2,767   | 3,903 × 2,767   | mirrored on 3 of 4 ranks         |
+| Big Bank plc Components, tight                 | 3,125 × 1,967   | 3,238 × 1,967   | mirrored on 3 of 4 ranks         |
+| Big Bank plc SystemContext                     | 1,200 × 1,821   | 1,200 × 1,821   | same order, 2 elements shift     |
+| Big Bank plc SystemContext, tight              | 1,000 × 1,421   | 1,043 × 1,421   | same order, 3 elements shift     |
+| `cyclic-groups.json` CyclicGroups              | 13,303 × 9,143  | 12,170 × 9,143  | reordered on 10 of 13 ranks      |
+| `large-landscape.json` LargeLandscapeAutomatic | 156,323 × 2,608 | 154,778 × 2,608 | reordered on all 4 ranks         |
+| Acceptance LandscapeAutomatic                  | 2,030 × 2,839   | 2,085 × 2,839   | same order, every element shifts |
 
 Every other automatic view keeps every element and every route where it was.
 

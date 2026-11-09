@@ -32,25 +32,25 @@ pnpm render architecture/workspace.json --single-file
 
 Run every script from the repository root.
 
-| Command | What it does |
-| --- | --- |
-| `pnpm dev` | Serves a workspace with Vite and hot reload, as [Local development](#local-development) shows |
-| `pnpm render <workspace> [options]` | Type-checks, then runs the production build. It takes the CLI's [options](02-usage.md#options) |
-| `pnpm preview` | Builds `architecture/workspace.json` and serves the output with `vite preview` |
-| `pnpm test` | `node --test` over `scripts/*.test.js` and `scripts/mermaid/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own |
-| `pnpm test:coverage` | The test suite with V8 coverage |
-| `pnpm test:structurizr` | Runs edit mode's DSL pipeline against the Structurizr tools that `STRUCTURIZR_CLI` names, and skips itself when it is not set |
-| `pnpm typecheck` | Type-checks `src/` |
-| `pnpm lint` | Runs `biome ci .`: lint and format, never fixing, failing on any finding. CI and the pre-commit hook run the same check |
-| `pnpm format` | Lint and format, fixing what Biome can fix in place |
-| `pnpm lint:renovate` | Validates `renovate.json` |
-| `pnpm architecture:merge` | Writes `architecture/workspace.json` again from `architecture/workspace.dsl` with Structurizr's tools, the way a DSL session of edit mode writes it. CI fails when the committed workspace differs from its DSL |
-| `pnpm fixtures:acceptance` | Merges the acceptance fixture's DSL into its `workspace.json` with Structurizr's tools |
-| `pnpm fixtures:large` | Writes the large landscape fixture again from its generator |
-| `pnpm mermaid:parser` | Writes `scripts/mermaid/parser.js` again from Mermaid's source at the release `MERMAID_VERSION` pins, as [The Mermaid parser](#the-mermaid-parser) describes |
-| `pnpm hooks` | Installs the git hooks, once per clone |
-| `pnpm release:pr` | Opens or updates the release pull request with your own `gh` login, for maintainers |
-| `pnpm release:tag` | Tags a merged release and creates its GitHub Release, for maintainers |
+| Command                             | What it does                                                                                                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                          | Serves a workspace with Vite and hot reload, as [Local development](#local-development) shows                                                                                                                   |
+| `pnpm render <workspace> [options]` | Type-checks, then runs the production build. It takes the CLI's [options](02-usage.md#options)                                                                                                                  |
+| `pnpm preview`                      | Builds `architecture/workspace.json` and serves the output with `vite preview`                                                                                                                                  |
+| `pnpm test`                         | `node --test` over `scripts/*.test.js` and `scripts/mermaid/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own                                           |
+| `pnpm test:coverage`                | The test suite with V8 coverage                                                                                                                                                                                 |
+| `pnpm test:structurizr`             | Runs edit mode's DSL pipeline against the Structurizr tools that `STRUCTURIZR_CLI` names, and skips itself when it is not set                                                                                   |
+| `pnpm typecheck`                    | Type-checks `src/`                                                                                                                                                                                              |
+| `pnpm lint`                         | Runs `biome ci .`: lint and format, never fixing, failing on any finding. CI and the pre-commit hook run the same check                                                                                         |
+| `pnpm format`                       | Lint and format, fixing what Biome can fix in place                                                                                                                                                             |
+| `pnpm lint:renovate`                | Validates `renovate.json`                                                                                                                                                                                       |
+| `pnpm architecture:merge`           | Writes `architecture/workspace.json` again from `architecture/workspace.dsl` with Structurizr's tools, the way a DSL session of edit mode writes it. CI fails when the committed workspace differs from its DSL |
+| `pnpm fixtures:acceptance`          | Merges the acceptance fixture's DSL into its `workspace.json` with Structurizr's tools                                                                                                                          |
+| `pnpm fixtures:large`               | Writes the large landscape fixture again from its generator                                                                                                                                                     |
+| `pnpm mermaid:parser`               | Writes `scripts/mermaid/parser.js` again from Mermaid's source at the release `MERMAID_VERSION` pins, as [The Mermaid parser](#the-mermaid-parser) describes                                                    |
+| `pnpm hooks`                        | Installs the git hooks, once per clone                                                                                                                                                                          |
+| `pnpm release:pr`                   | Opens or updates the release pull request with your own `gh` login, for maintainers                                                                                                                             |
+| `pnpm release:tag`                  | Tags a merged release and creates its GitHub Release, for maintainers                                                                                                                                           |
 
 The script that renders a workspace is `render`, never `build`. npm prepares a git dependency with a full `npm install --include dev` whenever its `package.json` has a `build`, `prepare`, `prepack`, `install`, `preinstall` or `postinstall` script, and that slows every cold `npx` by seconds. `scripts/install.test.js` fails when one of those names comes back.
 
@@ -92,41 +92,41 @@ The build prints two kinds of notice about [Mermaid diagrams](02-usage.md#mermai
 
 A diagram Renderizr can't draw prints its reason, and the page shows the same text in place of the canvas: `Mermaid diagram "<key>": <reason>.`
 
-| Reason | When |
-| --- | --- |
-| the image view carries no Mermaid source | A content field names the Mermaid server's `/svg/` or `/img/` path but holds nothing Renderizr can decode as text |
-| a parse error at line N: … | Mermaid's own grammar stops on the source. The line counts from the top of the `.mmd` file, frontmatter included, and the message says what the parser stopped after |
-| the content fields disagree | The image view fills more than one of `content`, `contentLight` and `contentDark`, and they hold different sources once CRLF becomes LF, or one holds a picture beside the Mermaid source |
-| an edge to a subgraph isn't something Renderizr draws yet | An edge starts or ends at a subgraph. Such an edge carries meaning, so the build fails the whole diagram |
-| the arrow end "…" isn't something Renderizr draws yet | An edge ends in a marker that matches no End marker. Renderizr draws a flowchart's arrows, circles and crosses |
-| the cardinality "u" (parent) isn't something Renderizr draws yet | An ERD relationship ends in Mermaid's parent cardinality (`u\|`), which matches no End marker |
-| an ERD subgraph isn't something Renderizr draws yet | An ERD groups entities in a `subgraph` |
+| Reason                                                           | When                                                                                                                                                                                      |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the image view carries no Mermaid source                         | A content field names the Mermaid server's `/svg/` or `/img/` path but holds nothing Renderizr can decode as text                                                                         |
+| a parse error at line N: …                                       | Mermaid's own grammar stops on the source. The line counts from the top of the `.mmd` file, frontmatter included, and the message says what the parser stopped after                      |
+| the content fields disagree                                      | The image view fills more than one of `content`, `contentLight` and `contentDark`, and they hold different sources once CRLF becomes LF, or one holds a picture beside the Mermaid source |
+| an edge to a subgraph isn't something Renderizr draws yet        | An edge starts or ends at a subgraph. Such an edge carries meaning, so the build fails the whole diagram                                                                                  |
+| the arrow end "…" isn't something Renderizr draws yet            | An edge ends in a marker that matches no End marker. Renderizr draws a flowchart's arrows, circles and crosses                                                                            |
+| the cardinality "u" (parent) isn't something Renderizr draws yet | An ERD relationship ends in Mermaid's parent cardinality (`u\|`), which matches no End marker                                                                                             |
+| an ERD subgraph isn't something Renderizr draws yet              | An ERD groups entities in a `subgraph`                                                                                                                                                    |
 
 A diagram that draws but uses what Renderizr leaves out prints one warning that lists it, each entry once, in this order: the config's entries, then the subgraphs' and nodes' (an ERD's entities), then the links', then the classes': `Image view "<key>": Renderizr supports only a subset of Mermaid styling; ignored: <entries>`.
 
-| Entry | What Renderizr does instead |
-| --- | --- |
-| `theme "<name>"` | Draws Mermaid's `default` theme in place of a theme Mermaid doesn't know |
-| `theme colors` | Draws the silent look when Mermaid's theme code can't read a theme variable's color, such as `#12345` |
-| A theme variable, such as `mainBkg` | Derives the palette without a theme variable that [Styles](02-usage.md#styles) doesn't list, or on a sequence diagram that [Sequence diagrams](02-usage.md#sequence-diagrams) doesn't list |
-| `look` | Draws Mermaid's `classic` look in place of `handDrawn` or `neo` |
-| `htmlLabels` | Draws every label as plain text lines, whatever `htmlLabels` says; also named for a label that holds HTML, as Structurizr's `mermaid <viewKey>` writes it |
-| `layout: elk` | Lays the diagram out with Dagre, since Renderizr doesn't bundle ELK |
-| `elk.<option>` | Leaves out each ELK option |
-| A CSS property, such as `opacity` | Leaves out a property that a node's or subgraph's `style`, a `classDef` or a `linkStyle` sets and that [Styles](02-usage.md#styles) doesn't list. A link's `fill:none` names nothing, since a line draws no fill |
-| `shape "<name>"` | Draws a rectangle in place of a stadium, subroutine, asymmetric, parallelogram, trapezoid or double circle node, or of any other `@{ shape }` name |
-| `invisible links` | Leaves each `~~~` link out of the drawing and the layout |
-| `link length` | Lays a longer link (`--->`) out as an ordinary one |
-| `animate` | Draws an edge whose metadata sets `animate` (`e1@{ animate: true }`) as a still line |
-| `animation` | Draws an edge whose metadata sets `animation` (`e1@{ animation: fast }`) as a still line |
-| `Markdown strings` | Draws the text of a Markdown string without its emphasis |
-| `fa: icons` | Draws a label without its Font Awesome icons |
-| `click callbacks` | Leaves out a `click` line that calls a function (`click A callback`, `click A call notify()`); a `click` link still leads where it says |
-| `curve` | Draws a sequence diagram's messages as straight lines, whatever `curve` says |
-| `sequence.<text>FontSize`, `sequence.<text>FontFamily`, such as `sequence.actorFontSize` | Draws that sequence text at the size and in the family the top-level `fontSize` and `fontFamily` give |
-| `messageMargin` | Spaces a sequence diagram's messages as Renderizr's layout does |
-| `participant type "<type>"` | Draws a sequence diagram's `boundary`, `control`, `entity` or `collections` participant as the participant box |
-| `half arrows` | Draws a sequence diagram's half arrow as a whole one at the end the syntax puts it: a solid half head as an arrow, a barb as an open arrow |
+| Entry                                                                                    | What Renderizr does instead                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `theme "<name>"`                                                                         | Draws Mermaid's `default` theme in place of a theme Mermaid doesn't know                                                                                                                                         |
+| `theme colors`                                                                           | Draws the silent look when Mermaid's theme code can't read a theme variable's color, such as `#12345`                                                                                                            |
+| A theme variable, such as `mainBkg`                                                      | Derives the palette without a theme variable that [Styles](02-usage.md#styles) doesn't list, or on a sequence diagram that [Sequence diagrams](02-usage.md#sequence-diagrams) doesn't list                       |
+| `look`                                                                                   | Draws Mermaid's `classic` look in place of `handDrawn` or `neo`                                                                                                                                                  |
+| `htmlLabels`                                                                             | Draws every label as plain text lines, whatever `htmlLabels` says; also named for a label that holds HTML, as Structurizr's `mermaid <viewKey>` writes it                                                        |
+| `layout: elk`                                                                            | Lays the diagram out with Dagre, since Renderizr doesn't bundle ELK                                                                                                                                              |
+| `elk.<option>`                                                                           | Leaves out each ELK option                                                                                                                                                                                       |
+| A CSS property, such as `opacity`                                                        | Leaves out a property that a node's or subgraph's `style`, a `classDef` or a `linkStyle` sets and that [Styles](02-usage.md#styles) doesn't list. A link's `fill:none` names nothing, since a line draws no fill |
+| `shape "<name>"`                                                                         | Draws a rectangle in place of a stadium, subroutine, asymmetric, parallelogram, trapezoid or double circle node, or of any other `@{ shape }` name                                                               |
+| `invisible links`                                                                        | Leaves each `~~~` link out of the drawing and the layout                                                                                                                                                         |
+| `link length`                                                                            | Lays a longer link (`--->`) out as an ordinary one                                                                                                                                                               |
+| `animate`                                                                                | Draws an edge whose metadata sets `animate` (`e1@{ animate: true }`) as a still line                                                                                                                             |
+| `animation`                                                                              | Draws an edge whose metadata sets `animation` (`e1@{ animation: fast }`) as a still line                                                                                                                         |
+| `Markdown strings`                                                                       | Draws the text of a Markdown string without its emphasis                                                                                                                                                         |
+| `fa: icons`                                                                              | Draws a label without its Font Awesome icons                                                                                                                                                                     |
+| `click callbacks`                                                                        | Leaves out a `click` line that calls a function (`click A callback`, `click A call notify()`); a `click` link still leads where it says                                                                          |
+| `curve`                                                                                  | Draws a sequence diagram's messages as straight lines, whatever `curve` says                                                                                                                                     |
+| `sequence.<text>FontSize`, `sequence.<text>FontFamily`, such as `sequence.actorFontSize` | Draws that sequence text at the size and in the family the top-level `fontSize` and `fontFamily` give                                                                                                            |
+| `messageMargin`                                                                          | Spaces a sequence diagram's messages as Renderizr's layout does                                                                                                                                                  |
+| `participant type "<type>"`                                                              | Draws a sequence diagram's `boundary`, `control`, `entity` or `collections` participant as the participant box                                                                                                   |
+| `half arrows`                                                                            | Draws a sequence diagram's half arrow as a whole one at the end the syntax puts it: a solid half head as an arrow, a barb as an open arrow                                                                       |
 
 ## The Mermaid parser
 
@@ -138,33 +138,33 @@ Renovate raises the pin as a dependency update and never merges it on its own: r
 
 ## Project layout
 
-| Path | What lives there |
-| --- | --- |
-| `scripts/` | The build pipeline and edit mode's server, in plain ESM JavaScript that Node runs with no build step |
-| `scripts/build.js` | The CLI entry point: checks the Node version, then loads `scripts/main.js` |
-| `scripts/node-version.js` | The Node floor and the check against it, with no imports so it loads on any Node |
-| `scripts/main.js` | Parses arguments, loads assets and runs Vite, or starts edit mode |
-| `scripts/cli.js` | Option definitions and `--help`, for the build and for `renderizr edit` |
-| `scripts/assets.js` | Fetching and embedding the workspace, themes, element icons, logo and font |
-| `scripts/branding.js` | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server |
-| `scripts/edit.js`, `scripts/edit-plugin.js` | Edit mode: the session a path opens, the local server and its save endpoint |
-| `scripts/dsl-pipeline.js`, `scripts/structurizr-tools.js` | Running Structurizr's tools on a `workspace.dsl` |
-| `scripts/workspace-writer.js`, `scripts/structurizr-schema.js` | Writing `workspace.json` the way Structurizr does |
-| `scripts/config.js` | The Vite configuration, shared with the dev server |
-| `scripts/plugins.js` | Build plugins: branding injection and single-file inlining |
-| `scripts/escapes.js` | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive |
-| `scripts/artifact.js` | `--artifact`: the shell, the runtime under fixed names, the workspace payloads and the manifest |
-| `scripts/short-lines.js` | Keeps every line a build writes short, so Claude can read any file a range of lines at a time |
-| `scripts/ast.js` | Walking a chunk's syntax tree, for `scripts/escapes.js` and `scripts/short-lines.js` |
-| `scripts/mermaid/` | Reading the Mermaid source an image view carries: decoding it, the generated parser and the plain model of each diagram the page draws |
-| `vite.config.ts` | The dev server only; the production build goes through `scripts/build.js` |
-| `src/` | The page that ships in the output, in TypeScript, bundled by Vite |
-| `src/model/` | The typed workspace model and style resolution, ported from Structurizr, and `resolveView` |
-| `src/engine/` | The React Flow engine: the diagram contract in `index.ts`, geometry, layout and the island |
-| `src/pages/`, `src/components/` | The diagrams, documentation and decisions pages, and the parts they share |
-| `test/` | Tests for `src/`, and the DOM and module hooks they run on in `test/support/` |
-| `test/__fixtures__/` | Versioned workspaces for tests and for checking changes in the dev server |
-| `architecture/` | Renderizr's own workspace, which this site renders |
+| Path                                                           | What lives there                                                                                                                       |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/`                                                     | The build pipeline and edit mode's server, in plain ESM JavaScript that Node runs with no build step                                   |
+| `scripts/build.js`                                             | The CLI entry point: checks the Node version, then loads `scripts/main.js`                                                             |
+| `scripts/node-version.js`                                      | The Node floor and the check against it, with no imports so it loads on any Node                                                       |
+| `scripts/main.js`                                              | Parses arguments, loads assets and runs Vite, or starts edit mode                                                                      |
+| `scripts/cli.js`                                               | Option definitions and `--help`, for the build and for `renderizr edit`                                                                |
+| `scripts/assets.js`                                            | Fetching and embedding the workspace, themes, element icons, logo and font                                                             |
+| `scripts/branding.js`                                          | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server   |
+| `scripts/edit.js`, `scripts/edit-plugin.js`                    | Edit mode: the session a path opens, the local server and its save endpoint                                                            |
+| `scripts/dsl-pipeline.js`, `scripts/structurizr-tools.js`      | Running Structurizr's tools on a `workspace.dsl`                                                                                       |
+| `scripts/workspace-writer.js`, `scripts/structurizr-schema.js` | Writing `workspace.json` the way Structurizr does                                                                                      |
+| `scripts/config.js`                                            | The Vite configuration, shared with the dev server                                                                                     |
+| `scripts/plugins.js`                                           | Build plugins: branding injection and single-file inlining                                                                             |
+| `scripts/escapes.js`                                           | Rewrites the escape sequences a Claude artifact upload rejects, and fails the build if any survive                                     |
+| `scripts/artifact.js`                                          | `--artifact`: the shell, the runtime under fixed names, the workspace payloads and the manifest                                        |
+| `scripts/short-lines.js`                                       | Keeps every line a build writes short, so Claude can read any file a range of lines at a time                                          |
+| `scripts/ast.js`                                               | Walking a chunk's syntax tree, for `scripts/escapes.js` and `scripts/short-lines.js`                                                   |
+| `scripts/mermaid/`                                             | Reading the Mermaid source an image view carries: decoding it, the generated parser and the plain model of each diagram the page draws |
+| `vite.config.ts`                                               | The dev server only; the production build goes through `scripts/build.js`                                                              |
+| `src/`                                                         | The page that ships in the output, in TypeScript, bundled by Vite                                                                      |
+| `src/model/`                                                   | The typed workspace model and style resolution, ported from Structurizr, and `resolveView`                                             |
+| `src/engine/`                                                  | The React Flow engine: the diagram contract in `index.ts`, geometry, layout and the island                                             |
+| `src/pages/`, `src/components/`                                | The diagrams, documentation and decisions pages, and the parts they share                                                              |
+| `test/`                                                        | Tests for `src/`, and the DOM and module hooks they run on in `test/support/`                                                          |
+| `test/__fixtures__/`                                           | Versioned workspaces for tests and for checking changes in the dev server                                                              |
+| `architecture/`                                                | Renderizr's own workspace, which this site renders                                                                                     |
 
 The model layer in `src/model/` reads the workspace: a typed port of Structurizr's workspace model and style resolution, and `resolveView`, which turns any view key into a concrete view. `src/engine/geometry/` and `src/engine/layout/` are plain functions over that view: boundaries, shapes, unplaced elements, routes, and Dagre for automatic layout. The island in `src/engine/react-flow/` is a React root built on [React Flow](https://reactflow.dev) that draws the result inside the diagram target and nowhere else, and `src/engine/index.ts` is the only way in: `mountEngine` and the `Engine` it returns. The rest of the page stays plain TypeScript.
 
@@ -174,10 +174,10 @@ The model layer in `src/model/` reads the workspace: a typed port of Structurizr
 
 Tests use the Node built-in runner. Put a test where its subject lives:
 
-| Testing | Put it in | Import |
-| --- | --- | --- |
-| Anything in `scripts/` | `scripts/<module>.test.js`, next to the module | The module directly: `import { parseCliArgs } from "./cli.js"` |
-| Anything in `src/` | `test/<subject>.test.js` | Through `test/support/ts.js`, which installs the DOM and the TypeScript hooks: `await importSrc("components/menu")` |
+| Testing                | Put it in                                      | Import                                                                                                              |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Anything in `scripts/` | `scripts/<module>.test.js`, next to the module | The module directly: `import { parseCliArgs } from "./cli.js"`                                                      |
+| Anything in `src/`     | `test/<subject>.test.js`                       | Through `test/support/ts.js`, which installs the DOM and the TypeScript hooks: `await importSrc("components/menu")` |
 
 `pnpm test` picks up a new file ending in `.test.js` in either folder with nothing to register. `scripts/escapes.test.js` and `test/menu.test.js` are good models to copy.
 

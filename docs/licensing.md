@@ -6,7 +6,7 @@ The component-by-component list, with versions, exact copyright lines and full l
 
 ## Three parties, three obligations
 
-**Renderizr the project** owes the notices for everything it ships and derives. `LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses/Apache-2.0.txt` discharge that obligation, all committed in the repository. They arrive with every install by either route: `npx github:FormulaMonks/renderizr` clones the repository, and an npm tarball carries all four because `package.json`'s `files` array names `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses` (`LICENSE` npm includes unasked). Verified with `npm pack --dry-run`: 99 files, all four present. The one file that is *not* in the tarball is this page: `docs/` is not in `files`. See [finding 4](../THIRD-PARTY-NOTICES.md#4-the-release-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
+**Renderizr the project** owes the notices for everything it ships and derives. `LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses/Apache-2.0.txt` discharge that obligation, all committed in the repository. They arrive with every install by either route: `npx github:FormulaMonks/renderizr` clones the repository, and an npm tarball carries all four because `package.json`'s `files` array names `NOTICE`, `THIRD-PARTY-NOTICES.md` and `licenses` (`LICENSE` npm includes unasked). Verified with `npm pack --dry-run`: 99 files, all four present. The one file that is _not_ in the tarball is this page: `docs/` is not in `files`. See [finding 4](../THIRD-PARTY-NOTICES.md#4-the-release-tarball-carries-the-notices-the-page-they-link-to-is-not-in-it).
 
 **You, running `renderizr your-workspace.json`,** produce a new distribution: an HTML file containing minified copies of all that third-party code. MIT, ISC and BSD all require the copyright and permission notices to travel with binary distributions, and Apache-2.0 requires recipients to get a copy of its license. **Renderizr's build does not put those notices into the HTML for you.** Minification strips every license header. If you hand someone the rendered file and nothing else, the notices did not travel.
 
@@ -49,24 +49,24 @@ Add a section to your workspace JSON:
 
 ```json
 {
-  "documentation": {
-    "sections": [
-      {
-        "id": "colophon",
-        "title": "Colophon",
-        "filename": "colophon.md",
-        "order": 99,
-        "format": "Markdown",
-        "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr (portions derived from): Copyright Structurizr, Apache-2.0\n- Preact: Copyright (c) 2015-present Jason Miller, MIT\n- React Flow: Copyright (c) 2019-2025 webkid GmbH, MIT\n- Bootstrap Icons: Copyright (c) 2019-2024 The Bootstrap Authors, MIT\n- highlight.js: Copyright (c) 2006, Ivan Sagalaev, BSD-3-Clause\n"
-      }
-    ]
-  }
+    "documentation": {
+        "sections": [
+            {
+                "id": "colophon",
+                "title": "Colophon",
+                "filename": "colophon.md",
+                "order": 99,
+                "format": "Markdown",
+                "content": "# Colophon\n\n## Credits and licenses\n\nRendered with Renderizr (MIT).\n\n- Structurizr (portions derived from): Copyright Structurizr, Apache-2.0\n- Preact: Copyright (c) 2015-present Jason Miller, MIT\n- React Flow: Copyright (c) 2019-2025 webkid GmbH, MIT\n- Bootstrap Icons: Copyright (c) 2019-2024 The Bootstrap Authors, MIT\n- highlight.js: Copyright (c) 2006, Ivan Sagalaev, BSD-3-Clause\n"
+            }
+        ]
+    }
 }
 ```
 
 The fields match the section shape declared in `src/types/structurizr-documentation.ts`. One of them is load-bearing in a way that is easy to get wrong: **a section with neither `id` nor `filename` renders as an empty Documentation page** — the nav entry appears, the content does not. Either key on its own is enough; supplying both, as above, is the safe habit.
 
-**We truncated the `content` string in that example to keep it readable.** It names 5 of the 30 components that ship in rendered output, with no versions and no license texts, so it is *not* compliant as written. Do not copy it into a workspace.
+**We truncated the `content` string in that example to keep it readable.** It names 5 of the 30 components that ship in rendered output, with no versions and no license texts, so it is _not_ compliant as written. Do not copy it into a workspace.
 
 Take the real body from [`NOTICE`](../NOTICE), which carries all 30 components with their resolved versions, the MIT and ISC permission notices, the BSD conditions and disclaimers and the Apache-2.0 license URL. JSON has no multi-line strings, so the whole file has to become one escaped string. Generate it rather than retyping it, **from the root of a Renderizr checkout**, since the path is relative and `NOTICE` lives there:
 
@@ -82,7 +82,7 @@ That prints one line: a ready-to-paste JSON string value for `content`, fenced s
 "# Colophon\n\n```\nRenderizr\nCopyright (c) 2024-2026 Monks Tech Services\n\nLicensed …
 ````
 
-— outer quotes included, because the quoted string *is* the JSON value. If you generate the workspace from DSL or from a script, do the same read-and-inject there rather than maintaining a second copy by hand.
+— outer quotes included, because the quoted string _is_ the JSON value. If you generate the workspace from DSL or from a script, do the same read-and-inject there rather than maintaining a second copy by hand.
 
 The result is a "Colophon" entry in the Documentation navigation, rendered like any other documentation page — verified against a `--single-file` build of the Big Bank plc example. Because the section lives in the workspace, it survives every build flag, including `--single-file` and `--artifact`.
 

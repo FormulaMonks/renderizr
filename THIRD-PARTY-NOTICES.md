@@ -56,7 +56,7 @@ npm pack --dry-run --json |
 
 **The one real residue is `docs/`.** It is not in the `files` array, so `docs/licensing.md` is not in the tarball, and a repo-relative link to it from [finding 1](#1-the-build-strips-every-license-header-this-file-is-the-notice) above would resolve to nothing inside an installed package. That link is therefore written as an absolute URL to the copy on GitHub, which is readable from anywhere. If `docs` is later added to `files`, the absolute link keeps working and can be turned back into a relative one at leisure.
 
-This file's own obligations do not depend on that: everything a redistributor is required to reproduce is *in this file*, not behind the link. `docs/licensing.md` explains how to route attribution into rendered output, which is guidance rather than a notice.
+This file's own obligations do not depend on that: everything a redistributor is required to reproduce is _in this file_, not behind the link. `docs/licensing.md` explains how to route attribution into rendered output, which is guidance rather than a notice.
 
 ---
 
@@ -69,8 +69,12 @@ The list of components that reach the bundle was taken from Rollup itself, by ru
 ```js
 cfg.plugins.push({
     name: "scan",
-    moduleParsed(info) { /* record info.id when it is under node_modules */ },
-    load(id) { /* record ?raw imports under node_modules too */ },
+    moduleParsed(info) {
+        /* record info.id when it is under node_modules */
+    },
+    load(id) {
+        /* record ?raw imports under node_modules too */
+    },
 });
 ```
 
@@ -84,37 +88,37 @@ To re-verify after a dependency change, repeat that scan and diff it against thi
 
 Everything in this section is present, minified, inside every `index.html` Renderizr writes, in both the multi-file and the `--single-file` build. Versions are the resolved versions actually bundled, not the ranges declared.
 
-| Component | Version | License | Copyright line as shipped |
-| --- | --- | --- | --- |
-| [Structurizr](https://github.com/structurizr/structurizr) (portions derived from, in `src/model/`) | ported from `structurizr-workspace.js`, `structurizr-ui.js`, `structurizr-util.js` and `structurizr-diagram.js` | Apache-2.0 | Structurizr; no per-file header; repository `LICENSE` and `pom.xml` |
-| [Preact](https://github.com/preactjs/preact) (`preact`, with `preact/compat`) | 11.1.1 | MIT | Copyright (c) 2015-present Jason Miller |
-| [use-sync-external-store](https://github.com/facebook/react) | 1.7.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. |
-| [@xyflow/react](https://github.com/xyflow/xyflow) (React Flow) | 12.12.0 | MIT | Copyright (c) 2019-2025 webkid GmbH |
-| [@xyflow/system](https://github.com/xyflow/xyflow) | 0.0.83 | MIT | Copyright (c) 2019-2025 webkid GmbH |
-| [zustand](https://github.com/pmndrs/zustand) | 4.5.7 | MIT | Copyright (c) 2019 Paul Henschel |
-| [classcat](https://github.com/jorgebucaran/classcat) | 5.0.5 | MIT | Copyright © Jorge Bucaran <<https://jorgebucaran.com>> |
-| [d3-color](https://github.com/d3/d3-color) | 3.1.0 | ISC | Copyright 2010-2022 Mike Bostock |
-| [d3-dispatch](https://github.com/d3/d3-dispatch) | 3.0.1 | ISC | Copyright 2010-2021 Mike Bostock |
-| [d3-drag](https://github.com/d3/d3-drag) | 3.0.0 | ISC | Copyright 2010-2021 Mike Bostock |
-| [d3-ease](https://github.com/d3/d3-ease) | 3.0.1 | BSD-3-Clause | Copyright 2010-2021 Mike Bostock; Copyright 2001 Robert Penner |
-| [d3-interpolate](https://github.com/d3/d3-interpolate) | 3.0.1 | ISC | Copyright 2010-2021 Mike Bostock |
-| [d3-selection](https://github.com/d3/d3-selection) | 3.0.0 | ISC | Copyright 2010-2021 Mike Bostock |
-| [d3-timer](https://github.com/d3/d3-timer) | 3.0.1 | ISC | Copyright 2010-2021 Mike Bostock |
-| [d3-transition](https://github.com/d3/d3-transition) | 3.0.1 | ISC | Copyright 2010-2021 Mike Bostock |
-| [d3-zoom](https://github.com/d3/d3-zoom) | 3.0.0 | ISC | Copyright 2010-2021 Mike Bostock |
-| [@dagrejs/dagre](https://github.com/dagrejs/dagre) | 3.1.1 | MIT | Copyright (c) 2012-2014 Chris Pettitt |
-| [@dagrejs/graphlib](https://github.com/dagrejs/graphlib) | 4.0.5 | MIT | Copyright (c) 2012-2014 Chris Pettitt |
-| [Bootstrap Icons](https://github.com/twbs/icons) (`bootstrap-icons`) | 1.13.2, 28 icons | MIT | Copyright (c) 2019-2024 The Bootstrap Authors |
-| [highlight.js](https://github.com/highlightjs/highlight.js) | 11.12.0 | BSD-3-Clause | Copyright (c) 2006, Ivan Sagalaev. All rights reserved. |
-| [history](https://github.com/remix-run/history) | 5.3.0 | MIT | Copyright (c) React Training 2016-2020; Copyright (c) Remix Software 2020-2021 |
-| [markdown-it](https://github.com/markdown-it/markdown-it) | 14.3.2 | MIT | Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin |
-| [markdown-it-anchor](https://github.com/valeriangalliat/markdown-it-anchor) | 9.2.1 | Unlicense | Public domain dedication; no copyright asserted |
-| [markdown-it-shift-headings](https://github.com/juliendargelos/markdown-it-shift-headings) | 1.0.2 | MIT | Copyright (c) 2019 Julien Dargelos |
-| [entities](https://github.com/fb55/entities) | 4.5.0 | BSD-2-Clause | Copyright (c) Felix Böhm. All rights reserved. |
-| [linkify-it](https://github.com/markdown-it/linkify-it) | 5.0.2 | MIT | Copyright (c) 2015 Vitaly Puzrin |
-| [mdurl](https://github.com/markdown-it/mdurl) | 2.0.0 | MIT | Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin; `.parse()` derived from Joyent's node.js `url`, Copyright Joyent, Inc. and other Node contributors |
-| [punycode.js](https://github.com/mathiasbynens/punycode.js) | 2.3.1 | MIT | Copyright Mathias Bynens, https://mathiasbynens.be/ |
-| [uc.micro](https://github.com/markdown-it/uc.micro) | 2.1.0 | MIT | Copyright Mathias Bynens, https://mathiasbynens.be/ |
+| Component                                                                                          | Version                                                                                                         | License      | Copyright line as shipped                                                                                                                           |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Structurizr](https://github.com/structurizr/structurizr) (portions derived from, in `src/model/`) | ported from `structurizr-workspace.js`, `structurizr-ui.js`, `structurizr-util.js` and `structurizr-diagram.js` | Apache-2.0   | Structurizr; no per-file header; repository `LICENSE` and `pom.xml`                                                                                 |
+| [Preact](https://github.com/preactjs/preact) (`preact`, with `preact/compat`)                      | 11.1.1                                                                                                          | MIT          | Copyright (c) 2015-present Jason Miller                                                                                                             |
+| [use-sync-external-store](https://github.com/facebook/react)                                       | 1.7.0                                                                                                           | MIT          | Copyright (c) Meta Platforms, Inc. and affiliates.                                                                                                  |
+| [@xyflow/react](https://github.com/xyflow/xyflow) (React Flow)                                     | 12.12.0                                                                                                         | MIT          | Copyright (c) 2019-2025 webkid GmbH                                                                                                                 |
+| [@xyflow/system](https://github.com/xyflow/xyflow)                                                 | 0.0.83                                                                                                          | MIT          | Copyright (c) 2019-2025 webkid GmbH                                                                                                                 |
+| [zustand](https://github.com/pmndrs/zustand)                                                       | 4.5.7                                                                                                           | MIT          | Copyright (c) 2019 Paul Henschel                                                                                                                    |
+| [classcat](https://github.com/jorgebucaran/classcat)                                               | 5.0.5                                                                                                           | MIT          | Copyright © Jorge Bucaran <<https://jorgebucaran.com>>                                                                                              |
+| [d3-color](https://github.com/d3/d3-color)                                                         | 3.1.0                                                                                                           | ISC          | Copyright 2010-2022 Mike Bostock                                                                                                                    |
+| [d3-dispatch](https://github.com/d3/d3-dispatch)                                                   | 3.0.1                                                                                                           | ISC          | Copyright 2010-2021 Mike Bostock                                                                                                                    |
+| [d3-drag](https://github.com/d3/d3-drag)                                                           | 3.0.0                                                                                                           | ISC          | Copyright 2010-2021 Mike Bostock                                                                                                                    |
+| [d3-ease](https://github.com/d3/d3-ease)                                                           | 3.0.1                                                                                                           | BSD-3-Clause | Copyright 2010-2021 Mike Bostock; Copyright 2001 Robert Penner                                                                                      |
+| [d3-interpolate](https://github.com/d3/d3-interpolate)                                             | 3.0.1                                                                                                           | ISC          | Copyright 2010-2021 Mike Bostock                                                                                                                    |
+| [d3-selection](https://github.com/d3/d3-selection)                                                 | 3.0.0                                                                                                           | ISC          | Copyright 2010-2021 Mike Bostock                                                                                                                    |
+| [d3-timer](https://github.com/d3/d3-timer)                                                         | 3.0.1                                                                                                           | ISC          | Copyright 2010-2021 Mike Bostock                                                                                                                    |
+| [d3-transition](https://github.com/d3/d3-transition)                                               | 3.0.1                                                                                                           | ISC          | Copyright 2010-2021 Mike Bostock                                                                                                                    |
+| [d3-zoom](https://github.com/d3/d3-zoom)                                                           | 3.0.0                                                                                                           | ISC          | Copyright 2010-2021 Mike Bostock                                                                                                                    |
+| [@dagrejs/dagre](https://github.com/dagrejs/dagre)                                                 | 3.1.1                                                                                                           | MIT          | Copyright (c) 2012-2014 Chris Pettitt                                                                                                               |
+| [@dagrejs/graphlib](https://github.com/dagrejs/graphlib)                                           | 4.0.5                                                                                                           | MIT          | Copyright (c) 2012-2014 Chris Pettitt                                                                                                               |
+| [Bootstrap Icons](https://github.com/twbs/icons) (`bootstrap-icons`)                               | 1.13.2, 28 icons                                                                                                | MIT          | Copyright (c) 2019-2024 The Bootstrap Authors                                                                                                       |
+| [highlight.js](https://github.com/highlightjs/highlight.js)                                        | 11.12.0                                                                                                         | BSD-3-Clause | Copyright (c) 2006, Ivan Sagalaev. All rights reserved.                                                                                             |
+| [history](https://github.com/remix-run/history)                                                    | 5.3.0                                                                                                           | MIT          | Copyright (c) React Training 2016-2020; Copyright (c) Remix Software 2020-2021                                                                      |
+| [markdown-it](https://github.com/markdown-it/markdown-it)                                          | 14.3.2                                                                                                          | MIT          | Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin                                                                                                     |
+| [markdown-it-anchor](https://github.com/valeriangalliat/markdown-it-anchor)                        | 9.2.1                                                                                                           | Unlicense    | Public domain dedication; no copyright asserted                                                                                                     |
+| [markdown-it-shift-headings](https://github.com/juliendargelos/markdown-it-shift-headings)         | 1.0.2                                                                                                           | MIT          | Copyright (c) 2019 Julien Dargelos                                                                                                                  |
+| [entities](https://github.com/fb55/entities)                                                       | 4.5.0                                                                                                           | BSD-2-Clause | Copyright (c) Felix Böhm. All rights reserved.                                                                                                      |
+| [linkify-it](https://github.com/markdown-it/linkify-it)                                            | 5.0.2                                                                                                           | MIT          | Copyright (c) 2015 Vitaly Puzrin                                                                                                                    |
+| [mdurl](https://github.com/markdown-it/mdurl)                                                      | 2.0.0                                                                                                           | MIT          | Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin; `.parse()` derived from Joyent's node.js `url`, Copyright Joyent, Inc. and other Node contributors |
+| [punycode.js](https://github.com/mathiasbynens/punycode.js)                                        | 2.3.1                                                                                                           | MIT          | Copyright Mathias Bynens, https://mathiasbynens.be/                                                                                                 |
+| [uc.micro](https://github.com/markdown-it/uc.micro)                                                | 2.1.0                                                                                                           | MIT          | Copyright Mathias Bynens, https://mathiasbynens.be/                                                                                                 |
 
 ### Details worth having
 
@@ -136,27 +140,27 @@ Everything in this section is present, minified, inside every `index.html` Rende
 
 ## Build-time only
 
-These run on the machine performing the build. None of their code appears in the rendered output, so none of them creates an attribution obligation for anyone distributing a Renderizr-generated page. They are listed because distributing this *repository* distributes the manifest that pulls them in.
+These run on the machine performing the build. None of their code appears in the rendered output, so none of them creates an attribution obligation for anyone distributing a Renderizr-generated page. They are listed because distributing this _repository_ distributes the manifest that pulls them in.
 
-| Component | Version | License | Copyright line |
-| --- | --- | --- | --- |
-| [Vite](https://github.com/vitejs/vite) | 7.3.7 | MIT | Copyright (c) 2019-present, VoidZero Inc. and Vite contributors |
-| [Rollup](https://github.com/rollup/rollup) | 4.64.5 | MIT | Copyright (c) 2017 [these people](https://github.com/rollup/rollup/graphs/contributors) |
-| [TypeScript](https://github.com/microsoft/TypeScript) | 5.9.3 | Apache-2.0 | Microsoft Corporation |
-| [Biome](https://github.com/biomejs/biome) | 1.9.4 | MIT OR Apache-2.0 | Copyright (c) 2023 Biome Developers and Contributors |
-| [@commitlint/cli](https://github.com/conventional-changelog/commitlint) | 20.5.3 | MIT | Mario Nebl |
-| [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint) | 20.5.3 | MIT | Mario Nebl |
-| [czg](https://github.com/Zhengqbbb/cz-git) | 1.14.0 | MIT | Zhengqbbb |
-| [husky](https://github.com/typicode/husky) | 9.1.7 | MIT | typicode |
-| [lint-staged](https://github.com/lint-staged/lint-staged) | 16.4.0 | MIT | Andrey Okonetchnikov |
-| [fast-check](https://github.com/dubzzz/fast-check) | 4.10.2 | MIT | Copyright (c) 2017 Nicolas DUBIEN |
-| [@types/markdown-it](https://github.com/DefinitelyTyped/DefinitelyTyped) | 14.2.0 | MIT | DefinitelyTyped contributors |
-| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped) | 22.20.5 | MIT | DefinitelyTyped contributors |
-| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT | DefinitelyTyped contributors |
-| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped) | 19.3.0 | MIT | DefinitelyTyped contributors |
-| [Mermaid](https://github.com/mermaid-js/mermaid) (portions bundled into `scripts/mermaid/parser.js`) | 12.2.0 | MIT | Copyright (c) 2014 - 2022 Knut Sveidqvist |
-| [js-yaml](https://github.com/nodeca/js-yaml) (bundled into `scripts/mermaid/parser.js`) | 5.4.3 | MIT | Copyright (C) 2011-2015 by Vitaly Puzrin |
-| [khroma](https://github.com/fabiospampinato/khroma) (bundled into `scripts/mermaid/parser.js`) | 2.1.0 | MIT | Copyright (c) 2019-present Fabio Spampinato, Andrew Maney |
+| Component                                                                                            | Version | License           | Copyright line                                                                          |
+| ---------------------------------------------------------------------------------------------------- | ------- | ----------------- | --------------------------------------------------------------------------------------- |
+| [Vite](https://github.com/vitejs/vite)                                                               | 7.3.7   | MIT               | Copyright (c) 2019-present, VoidZero Inc. and Vite contributors                         |
+| [Rollup](https://github.com/rollup/rollup)                                                           | 4.64.5  | MIT               | Copyright (c) 2017 [these people](https://github.com/rollup/rollup/graphs/contributors) |
+| [TypeScript](https://github.com/microsoft/TypeScript)                                                | 5.9.3   | Apache-2.0        | Microsoft Corporation                                                                   |
+| [Biome](https://github.com/biomejs/biome)                                                            | 1.9.4   | MIT OR Apache-2.0 | Copyright (c) 2023 Biome Developers and Contributors                                    |
+| [@commitlint/cli](https://github.com/conventional-changelog/commitlint)                              | 20.5.3  | MIT               | Mario Nebl                                                                              |
+| [@commitlint/config-conventional](https://github.com/conventional-changelog/commitlint)              | 20.5.3  | MIT               | Mario Nebl                                                                              |
+| [czg](https://github.com/Zhengqbbb/cz-git)                                                           | 1.14.0  | MIT               | Zhengqbbb                                                                               |
+| [husky](https://github.com/typicode/husky)                                                           | 9.1.7   | MIT               | typicode                                                                                |
+| [lint-staged](https://github.com/lint-staged/lint-staged)                                            | 16.4.0  | MIT               | Andrey Okonetchnikov                                                                    |
+| [fast-check](https://github.com/dubzzz/fast-check)                                                   | 4.10.2  | MIT               | Copyright (c) 2017 Nicolas DUBIEN                                                       |
+| [@types/markdown-it](https://github.com/DefinitelyTyped/DefinitelyTyped)                             | 14.2.0  | MIT               | DefinitelyTyped contributors                                                            |
+| [@types/node](https://github.com/DefinitelyTyped/DefinitelyTyped)                                    | 22.20.5 | MIT               | DefinitelyTyped contributors                                                            |
+| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped)                                   | 19.3.0  | MIT               | DefinitelyTyped contributors                                                            |
+| [@types/react-dom](https://github.com/DefinitelyTyped/DefinitelyTyped)                               | 19.3.0  | MIT               | DefinitelyTyped contributors                                                            |
+| [Mermaid](https://github.com/mermaid-js/mermaid) (portions bundled into `scripts/mermaid/parser.js`) | 12.2.0  | MIT               | Copyright (c) 2014 - 2022 Knut Sveidqvist                                               |
+| [js-yaml](https://github.com/nodeca/js-yaml) (bundled into `scripts/mermaid/parser.js`)              | 5.4.3   | MIT               | Copyright (C) 2011-2015 by Vitaly Puzrin                                                |
+| [khroma](https://github.com/fabiospampinato/khroma) (bundled into `scripts/mermaid/parser.js`)       | 2.1.0   | MIT               | Copyright (c) 2019-present Fabio Spampinato, Andrew Maney                               |
 
 **Mermaid, js-yaml and khroma** reach this repository and the published package inside one generated file, `scripts/mermaid/parser.js`, which the build runs to read the Mermaid source an image view carries. It holds Mermaid's flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, with js-yaml for the frontmatter and khroma for the themes. The file opens with Mermaid's MIT notice in full and ends with js-yaml's license line. None of it reaches a rendered page: the page draws from the plain model the build hands it. `mermaid` itself is never a dependency; `pnpm mermaid:parser` installs it and the bundling tools into a temporary folder to write the file.
 
