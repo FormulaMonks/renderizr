@@ -163,10 +163,10 @@ Attach screenshots with the GitHub CLI[^attach]: `gh pr create`, `gh pr edit` an
       ![Edges routed around the Payments boundary](./after-containers-view.png)
    ```
 
-3. Run `gh pr create` from the folder that holds the body and the screenshots, so the relative paths in the body match the `--attach` paths:
+3. Run `gh pr create` from the folder that holds the body and the screenshots, so the relative paths in the body match the `--attach` paths. Outside the checkout, `gh` cannot find the repository on its own, so name it with `-R <owner>/<repo>`:
 
    ```bash
-   gh pr create \
+   gh pr create -R FormulaMonks/renderizr \
      --title "fix(engine): route edges around boundaries" \
      --body-file pr-body.md \
      --attach ./before-containers-view.png \
