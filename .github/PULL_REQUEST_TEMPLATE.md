@@ -22,9 +22,11 @@ What a reviewer can see or try to know the change works, as an ordered list: how
 
 When there is more than one case to check, give each one its own <details> block with a <summary> and its own ordered list. Screenshots or a before/after pair help a lot for visual changes: drag them in here, or attach them with `gh pr create --attach`. -->
 
-## ⚠️ Merge danger
+## 🔴🟡🟢 Merge danger
 
-**Door:** <!-- one-way or two-way: can a revert walk this back cleanly? Add why when it is not obvious. -->
+<!-- Keep one circle in the heading: 🔴 for a one-way door (a revert cannot walk it back), 🟡 for a two-way door that needs caution (people notice before a revert lands), 🟢 for a two-way door with no major implication. -->
+
+**Door:** <!-- one-way, two-way with caution or two-way. Add why when it is not obvious. -->
 
 **Blast radius:** <!-- One or two words on what this can reach (docs only, one view, every diagram, CLI users), then what could break once it merges. -->
 

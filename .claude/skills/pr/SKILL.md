@@ -5,7 +5,7 @@ description: "Use when writing a PR body, opening a pull request with `gh pr cre
 
 # Writing a pull request
 
-Write every pull request for this repo with the body below. Keep the emoji at the start of each heading: it gives the reader a visual cue to find each section. `.claude/rules/pull-requests.md` holds the rules and `.github/PULL_REQUEST_TEMPLATE.md` holds the same sections, so a PR opened in the browser and one opened by an agent read alike. Write every word the way `.claude/rules/writing.md` says: active voice, simple tenses, American spelling, no em dashes and the terms in `GLOSSARY.md`.
+Write every pull request for this repo with the body below. Keep the emoji at the start of each heading: it gives the reader a visual cue to find each section. The _Merge danger_ heading carries a colored circle that says how risky the merge is. `.claude/rules/pull-requests.md` holds the rules and `.github/PULL_REQUEST_TEMPLATE.md` holds the same sections, so a PR opened in the browser and one opened by an agent read alike. Write every word the way `.claude/rules/writing.md` says: active voice, simple tenses, American spelling, no em dashes and the terms in `GLOSSARY.md`.
 
 ## Steps
 
@@ -31,9 +31,9 @@ Closes #<issue>
 3. <what to do there>
 4. <what the reviewer should notice, and what should look the same as before>
 
-## ⚠️ Merge danger
+## <🔴, 🟡 or 🟢> Merge danger
 
-**Door:** <one-way or two-way>
+**Door:** <one-way, two-way with caution or two-way>
 
 <optional: why>
 
@@ -111,9 +111,17 @@ Leave a blank line after every `<summary>` line and before every `</details>`, o
 
 ### Merge danger
 
-Tell the reviewer how risky the merge is, in two short parts.
+Tell the reviewer how risky the merge is, in two short parts. Start the heading with the circle that matches the door, so a reviewer sees at a glance whether to slow down:
 
-- **Door.** Write _two-way_ when a revert walks the change back cleanly, and _one-way_ when it cannot: a published package, a renamed flag or file format people already depend on, a migration, a deleted branch or data. Add one sentence on why when the answer is not obvious from the summary.
+| Heading              | Door                 | When                                                                                                                                                                         |
+| -------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `## 🔴 Merge danger` | One-way              | A revert cannot walk the change back. Review it with care before it merges.                                                                                                  |
+| `## 🟡 Merge danger` | Two-way with caution | A revert walks it back, but people notice in the meantime: a visible change to every diagram, a CLI flag that behaves differently, a dependency bump that changes the build. |
+| `## 🟢 Merge danger` | Two-way              | A revert walks it back and nobody outside the repo notices: docs, tests, dev tooling, a fix confined to one view. The reviewer can skim this section.                        |
+
+When a change falls between two colors, pick the riskier one.
+
+- **Door.** Write the door the circle stands for. Write _one-way_ when a revert cannot walk the change back: a published package, a renamed flag or file format people already depend on, a migration, a deleted branch or data. Add one sentence on why when the answer is not obvious from the summary.
 - **Blast radius.** Name in one or two words what the change can reach: _docs only_, _dev tooling_, _one view_, _every diagram_, _CLI users_. Then list what could break once it merges, such as layout shifts, a slower render, a broken `--single-file` build or a change for people who embed the output. Leave the list out when the radius is _docs only_ or _dev tooling_.
 
 ### Additional notes
