@@ -8,13 +8,14 @@ A Conventional Commit subject, written the way the squash commit should read: `f
 
 ## Body
 
-Three sections, in this order, each under its own `##` heading. The `pr` skill (`.claude/skills/pr/SKILL.md`) shows each one with examples.
+Four sections, in this order, each under its own `##` heading that starts with its emoji: 📝, 🔍, ⚠️ and 🗒️. The `pr` skill (`.claude/skills/pr/SKILL.md`) shows each one with examples.
 
 1. **What this changes.** A summary of what the change does, in plain words and less than a paragraph. Put `Closes #123` on its own line below it.
 2. **How to verify it.** What a reviewer can see or try for themselves to know the change works, as an ordered list: how to get it running (one command in a fenced code block), where to go (which page, which view, which workspace, which color scheme), what to do there and what they should notice. Say what should look the same as before too. When the reviewer has more than one case to check, give each case its own collapsed section (`<details>` with a `<summary>`) holding its own ordered list. Leave out "run the tests" and "CI is green": CI already says that, and it tells a reviewer nothing about the change. If part of the change has nothing visible yet, say so plainly and say when it will show. Write the commands the way `verification.md` says: the repo's own scripts, run against a versioned fixture.
-3. **Additional notes.** Inside one collapsed section: behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way and anything that contradicts an ADR. Write "None." rather than dropping the section.
+3. **Merge danger.** Whether the change is a one-way or a two-way door (can a revert walk it back cleanly?) and its blast radius: what the change can reach and what could break once it merges.
+4. **Additional notes.** Inside one collapsed section: behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way and anything that contradicts an ADR. Write "None." rather than dropping the section.
 
-Keep the checklist from the template below the three sections, and say why when a box stays unchecked.
+Keep the checklist from the template below the four sections, and say why when a box stays unchecked.
 
 ## Links and screenshots
 

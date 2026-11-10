@@ -5,7 +5,7 @@ description: "Use when writing a PR body, opening a pull request with `gh pr cre
 
 # Writing a pull request
 
-Write every pull request for this repo with the body below. `.claude/rules/pull-requests.md` holds the rules and `.github/PULL_REQUEST_TEMPLATE.md` holds the same sections, so a PR opened in the browser and one opened by an agent read alike. Write every word the way `.claude/rules/writing.md` says: active voice, simple tenses, American spelling, no em dashes and the terms in `GLOSSARY.md`.
+Write every pull request for this repo with the body below. Keep the emoji at the start of each heading: it gives the reader a visual cue to find each section. `.claude/rules/pull-requests.md` holds the rules and `.github/PULL_REQUEST_TEMPLATE.md` holds the same sections, so a PR opened in the browser and one opened by an agent read alike. Write every word the way `.claude/rules/writing.md` says: active voice, simple tenses, American spelling, no em dashes and the terms in `GLOSSARY.md`.
 
 ## Steps
 
@@ -18,20 +18,30 @@ Write every pull request for this repo with the body below. `.claude/rules/pull-
 ## Body
 
 ```markdown
-## What this changes
+## 📝 What this changes
 
 <one to three plain sentences on what the change does>
 
 Closes #<issue>
 
-## How to verify it
+## 🔍 How to verify it
 
 1. <how to get it running, with the command in a fenced code block>
 2. <where to go: which page, view, workspace or color scheme>
 3. <what to do there>
 4. <what the reviewer should notice, and what should look the same as before>
 
-## Additional notes
+## ⚠️ Merge danger
+
+**Door:** <one-way or two-way>
+
+<optional: why>
+
+**Blast radius:** <one or two words>
+
+<optional: what could break once it merges>
+
+## 🗒️ Additional notes
 
 <details>
 <summary>Behavior changes, follow-ups and decisions</summary>
@@ -42,7 +52,7 @@ Closes #<issue>
 
 </details>
 
-## Checklist
+## ✅ Checklist
 
 <the checklist from .github/PULL_REQUEST_TEMPLATE.md, unchanged>
 
@@ -55,7 +65,7 @@ Say what the change does, in plain words, in less than a paragraph: one to three
 
 Put `Closes #<issue>` on its own line below the summary, so GitHub links and closes the issue. When the change has no issue, leave the line out.
 
-Put no screenshots here. They belong in _How to verify it_, next to the step that shows them.
+Put no screenshots here. They belong in _🔍 How to verify it_, next to the step that shows them.
 
 ### How to verify it
 
@@ -66,7 +76,7 @@ Say what should look the same as before, too. Leave out "run the tests" and "CI 
 When the reviewer has more than one case to check (two engines, both color schemes, the dev server and a single-file build), give each case its own collapsed section[^collapsed] with its own ordered list. Open the first one with `open`, so the reviewer lands on a case without clicking:
 
 ````markdown
-## How to verify it
+## 🔍 How to verify it
 
 <details open>
 <summary>Dev server</summary>
@@ -99,6 +109,13 @@ When the reviewer has more than one case to check (two engines, both color schem
 
 Leave a blank line after every `<summary>` line and before every `</details>`, or GitHub renders the Markdown inside as plain text. Name each case in its `<summary>` by what differs, in a few words.
 
+### Merge danger
+
+Tell the reviewer how risky the merge is, in two short parts.
+
+- **Door.** Write _two-way_ when a revert walks the change back cleanly, and _one-way_ when it cannot: a published package, a renamed flag or file format people already depend on, a migration, a deleted branch or data. Add one sentence on why when the answer is not obvious from the summary.
+- **Blast radius.** Name in one or two words what the change can reach: _docs only_, _dev tooling_, _one view_, _every diagram_, _CLI users_. Then list what could break once it merges, such as layout shifts, a slower render, a broken `--single-file` build or a change for people who embed the output. Leave the list out when the radius is _docs only_ or _dev tooling_.
+
 ### Additional notes
 
 Put every note inside one collapsed section, so a reviewer opens it only when they want the detail. List behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way and anything that contradicts an ADR. Flag an ADR conflict the way `.claude/rules/domain.md` says.
@@ -107,7 +124,7 @@ When there is nothing to note, write "None." under the heading, with no collapse
 
 ### Checklist
 
-Copy the checklist from `.github/PULL_REQUEST_TEMPLATE.md` below the three sections. Check a box only when you ran the step, and say why under the list when a box stays unchecked.
+Copy the checklist from `.github/PULL_REQUEST_TEMPLATE.md` below the other sections. Check a box only when you ran the step, and say why under the list when a box stays unchecked.
 
 ## Links
 

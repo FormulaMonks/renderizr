@@ -3,11 +3,11 @@ Title this PR the way you would write the squash commit: a Conventional Commit s
 
 CONTRIBUTING.md is the long version of everything below: https://github.com/FormulaMonks/renderizr/blob/main/CONTRIBUTING.md -->
 
-## What this changes
+## 📝 What this changes
 
 <!-- What the change does, in plain words and less than a paragraph. Put the issue it closes on its own line below: "Closes #123". Cite outside links with a footnote ("ELK's router[^elk]") and put the definitions at the end of the body. -->
 
-## How to verify it
+## 🔍 How to verify it
 
 <!--
 What a reviewer can see or try to know the change works, as an ordered list: how to run it, where to go, what to do and what they should notice. Say what should look the same as before, too. Not "tests pass": CI already says that. For example:
@@ -22,7 +22,13 @@ What a reviewer can see or try to know the change works, as an ordered list: how
 
 When there is more than one case to check, give each one its own <details> block with a <summary> and its own ordered list. Screenshots or a before/after pair help a lot for visual changes: drag them in here, or attach them with `gh pr create --attach`. -->
 
-## Additional notes
+## ⚠️ Merge danger
+
+**Door:** <!-- one-way or two-way: can a revert walk this back cleanly? Add why when it is not obvious. -->
+
+**Blast radius:** <!-- One or two words on what this can reach (docs only, one view, every diagram, CLI users), then what could break once it merges. -->
+
+## 🗒️ Additional notes
 
 <details>
 <summary>Behavior changes, follow-ups and decisions</summary>
@@ -31,7 +37,7 @@ When there is more than one case to check, give each one its own <details> block
 
 </details>
 
-## Checklist
+## ✅ Checklist
 
 - [ ] The PR title is a valid Conventional Commit subject (`feat:`, `fix:`, `docs:`, `chore:`, …).
 - [ ] `pnpm install --frozen-lockfile` succeeds — the lockfile matches `package.json`.
