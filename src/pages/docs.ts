@@ -4,8 +4,7 @@ import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
-import { sectionId } from "../model/documentation";
-import type { DocumentationSection } from "../types/structurizr-documentation";
+import { type DocScope, sectionId } from "../model/documentation";
 import Page from "./_page";
 import history from "history/hash";
 import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
@@ -19,6 +18,7 @@ const SUBSECTION_PARAM = "subsection";
 /** A documentation section, already reduced to plain Markdown. */
 type DocSection = {
     id: string;
+    scope: DocScope;
     title: string;
     body: string;
 };
@@ -42,6 +42,7 @@ type FlatPage = {
     isIntro: boolean;
     sectionId: string;
     sectionTitle: string;
+    scope: DocScope;
     /** Index of the page inside its own section. */
     groupIndex: number;
 };
@@ -51,10 +52,17 @@ type DocsMenuItem = {
     title: string;
     items?: DocsMenuItem[];
     selectable?: boolean;
-    kind: "section" | "page" | "heading";
+    kind: "scope" | "section" | "page" | "heading";
     /** Page this entry navigates to; `-1` for "on this page" anchors. */
     pageIndex: number;
     headingId: string | null;
+};
+
+/** PROTOTYPE (#309): how the docs menu shows documentation scopes. */
+type Variant = "flat" | "tree" | "open" | "picker";
+const protoVariant = (): Variant => {
+    const v = new URLSearchParams(history.location.search).get("proto");
+    return v === "flat" || v === "open" || v === "picker" ? v : "tree";
 };
 
 const isHeading = (element: Element) => HEADING_TAG.test(element.tagName);
@@ -235,6 +243,11 @@ export default class Docs extends Page {
 
     // Built once, from the rendered HTML, and reused for the life of the page.
     #menuItems: DocsMenuItem[] = [];
+    // PROTOTYPE (#309): every scope, its entry and its section entries.
+    #scopes: DocScope[] = [];
+    #shownVariant: string | null = null;
+    #scopeItems = new Map<string, DocsMenuItem>();
+    #scopeSections = new Map<string, DocsMenuItem[]>();
     #sectionPages = new Map<string, DocsMenuItem[]>();
     #flatPages: FlatPage[] = [];
     #pageOwners = new Map<number, DocsMenuItem>();
@@ -259,7 +272,7 @@ export default class Docs extends Page {
     constructor(
         container: HTMLElement | null = null,
         name = "Docs",
-        sections: DocumentationSection[] = [],
+        scopes: DocScope[] = [],
         resolveLink: LinkResolver | null = null,
         resolveImage: ImageResolver | null = null,
     ) {
@@ -267,35 +280,43 @@ export default class Docs extends Page {
         this.#resolveLink = resolveLink;
         this.#resolveImage = resolveImage;
 
-        this.#sections = sections
-            .toSorted((a, b) => (a.order < b.order ? -1 : 1))
-            .map((section) => {
-                const adoc = isAsciiDoc(section.filename);
+        this.#scopes = scopes.filter((scope) => scope.sections.length);
+        this.#sections = this.#scopes.flatMap((scope) =>
+            scope.sections
+                .toSorted((a, b) => (a.order < b.order ? -1 : 1))
+                .map((section) => {
+                    const adoc = isAsciiDoc(section.filename);
 
-                return {
-                    id: sectionId(section),
-                    // The document's own first heading beats a filename every
-                    // time; "0001-record-architecture-decisions.md" only
-                    // becomes a title as a last resort.
-                    title:
-                        section.title ||
-                        (adoc
-                            ? section.content.match(/^=\s+(.+)$/m)?.[1]
-                            : section.content.match(/^#\s+(.+)$/m)?.[1]
-                        )?.trim() ||
-                        section.filename
-                            .replace(/\.[a-z]+$/i, "")
-                            .replace(/^\d+[-_. ]*/, "")
-                            .replace(/[-_]/g, " ")
-                            .replace(/\b\w/g, (match) => match.toUpperCase()),
-                    // AsciiDoc is converted once, up front: everything
-                    // downstream — rendering, page splitting, the table of
-                    // contents — then deals in Markdown only.
-                    body: adoc
-                        ? asciidocToMarkdown(section.content)
-                        : section.content,
-                };
-            });
+                    return {
+                        id: scope.key
+                            ? `${scope.key}~${sectionId(section)}`
+                            : sectionId(section),
+                        scope,
+                        // The document's own first heading beats a filename every
+                        // time; "0001-record-architecture-decisions.md" only
+                        // becomes a title as a last resort.
+                        title:
+                            section.title ||
+                            (adoc
+                                ? section.content.match(/^=\s+(.+)$/m)?.[1]
+                                : section.content.match(/^#\s+(.+)$/m)?.[1]
+                            )?.trim() ||
+                            section.filename
+                                .replace(/\.[a-z]+$/i, "")
+                                .replace(/^\d+[-_. ]*/, "")
+                                .replace(/[-_]/g, " ")
+                                .replace(/\b\w/g, (match) =>
+                                    match.toUpperCase(),
+                                ),
+                        // AsciiDoc is converted once, up front: everything
+                        // downstream — rendering, page splitting, the table of
+                        // contents — then deals in Markdown only.
+                        body: adoc
+                            ? asciidocToMarkdown(section.content)
+                            : section.content,
+                    };
+                }),
+        );
     }
 
     /**
@@ -349,6 +370,7 @@ export default class Docs extends Page {
                     isIntro: group.isIntro,
                     sectionId: section.id,
                     sectionTitle: section.title,
+                    scope: section.scope,
                     groupIndex,
                 });
 
@@ -373,6 +395,19 @@ export default class Docs extends Page {
             sectionItem.items = pageItems;
             this.#sectionPages.set(sectionItem.id, pageItems);
             this.#menuItems.push(sectionItem);
+            const scopeKey = section.scope.key;
+            if (!this.#scopeItems.has(scopeKey)) {
+                this.#scopeItems.set(scopeKey, {
+                    id: `scope:${scopeKey}`,
+                    title: section.scope.name,
+                    kind: "scope",
+                    pageIndex: sectionItem.pageIndex,
+                    headingId: null,
+                    items: [],
+                });
+                this.#scopeSections.set(scopeKey, []);
+            }
+            this.#scopeSections.get(scopeKey)!.push(sectionItem);
         }
 
         parser.clear();
@@ -493,11 +528,93 @@ export default class Docs extends Page {
                     : tree;
         }
 
-        this.#menu?.setItems(this.#menuItems);
+        this.#menu?.setItems(this.#compose(this.#flatPages[index].scope));
         // Re-entrant: `setActive` emits, and the callback lands back in
         // `#goToPage`, which bails on the page it is already showing.
         if (owner) this.#menu?.setActive(owner);
     }
+
+    /** PROTOTYPE (#309): the menu tree for the variant on screen. */
+    #compose(current: DocScope): DocsMenuItem[] {
+        const variant = protoVariant();
+        const sectionsOf = (key: string) => this.#scopeSections.get(key) ?? [];
+        if (variant === "picker") return sectionsOf(current.key);
+
+        const open = (scope: DocScope) =>
+            variant === "open" || scope.key === current.key;
+        for (const scope of this.#scopes) {
+            const item = this.#scopeItems.get(scope.key)!;
+            item.items = open(scope) ? [...sectionsOf(scope.key)] : [];
+        }
+        if (variant === "flat") {
+            return this.#scopes.map((s) => this.#scopeItems.get(s.key)!);
+        }
+        // "tree" and "open": child scopes nest under their parent's sections.
+        for (const scope of this.#scopes) {
+            if (scope.parent === null) continue;
+            this.#scopeItems
+                .get(scope.parent)
+                ?.items?.push(this.#scopeItems.get(scope.key)!);
+        }
+        return this.#scopes
+            .filter((s) => s.parent === null)
+            .map((s) => this.#scopeItems.get(s.key)!);
+    }
+
+    /** PROTOTYPE (#309): the variant switcher and the picker. */
+    #renderProto(current: DocScope) {
+        const bar = document.getElementById("docs-proto");
+        if (!bar) return;
+        const variant = protoVariant();
+        const label: Record<Variant, string> = {
+            flat: "A · Flat scope list",
+            tree: "B · Scope tree",
+            open: "C · Tree, all open",
+            picker: "D · Scope picker",
+        };
+        const picker =
+            variant !== "picker"
+                ? ""
+                : `<label class="${styles.protoPicker}">Documentation of
+                    <select id="docs-scope">${this.#scopes
+                        .map(
+                            (s) =>
+                                `<option value="${escapeHtml(s.key)}" ${s.key === current.key ? "selected" : ""}>${"\u00a0\u00a0".repeat(s.depth)}[${s.type}] ${escapeHtml(s.name)}</option>`,
+                        )
+                        .join("")}</select></label>`;
+        bar.innerHTML = `<div class="${styles.protoBar}">Prototype: ${(
+            Object.keys(label) as Variant[]
+        )
+            .map(
+                (v) =>
+                    `<button type="button" data-proto="${v}" ${v === variant ? 'aria-pressed="true"' : ""}>${label[v]}</button>`,
+            )
+            .join("")}</div>${picker}`;
+    }
+
+    #onProtoClick = (event: Event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = target.closest<HTMLElement>("[data-proto]");
+        if (!button) return;
+        const search = new URLSearchParams(history.location.search);
+        search.set("proto", button.dataset.proto!);
+        history.replace({ search: search.toString() });
+        const index = this.#currentIndex;
+        this.#currentIndex = -1;
+        this.#goToPage(index, false);
+    };
+
+    #onProtoChange = (event: Event) => {
+        const target = event.target;
+        if (
+            !(target instanceof HTMLSelectElement) ||
+            target.id !== "docs-scope"
+        )
+            return;
+        const item = this.#scopeItems.get(target.value);
+        if (item) this.#goToPage(item.pageIndex);
+    };
 
     #pagerButton(
         direction: "previous" | "next",
@@ -505,6 +622,7 @@ export default class Docs extends Page {
         target: FlatPage,
         current: FlatPage,
     ): string {
+        const crossesScope = target.scope !== current.scope;
         const crossesSection = target.sectionId !== current.sectionId;
         const next = direction === "next";
 
@@ -515,7 +633,7 @@ export default class Docs extends Page {
                 data-page-index="${targetIndex}"
             >
                 <span class="${styles.pagerLabel}">${next ? "Next" : "Previous"}</span>
-                ${crossesSection ? `<span class="${styles.pagerSection}">${escapeHtml(target.sectionTitle)}</span>` : ""}
+                ${crossesSection ? `<span class="${styles.pagerSection}">${crossesScope ? `${escapeHtml(target.scope.name)} › ` : ""}${escapeHtml(target.sectionTitle)}</span>` : ""}
                 <span class="${styles.pagerTitle}">${escapeHtml(target.title)}</span>
             </button>
         `;
@@ -526,8 +644,14 @@ export default class Docs extends Page {
         if (!pager) return;
 
         const current = this.#flatPages[index];
-        const previous = this.#flatPages[index - 1];
-        const next = this.#flatPages[index + 1];
+        // PROTOTYPE (#309): the picker keeps the pager inside its scope.
+        const inScope = (page: FlatPage | undefined) =>
+            page &&
+            (protoVariant() !== "picker" || page.scope === current.scope)
+                ? page
+                : undefined;
+        const previous = inScope(this.#flatPages[index - 1]);
+        const next = inScope(this.#flatPages[index + 1]);
 
         pager.innerHTML = [
             previous
@@ -594,9 +718,20 @@ export default class Docs extends Page {
 
         const breadcrumb = document.getElementById("docs-breadcrumb");
         if (breadcrumb) {
-            breadcrumb.textContent = target.isIntro ? "" : target.sectionTitle;
+            breadcrumb.textContent = [
+                target.scope.key
+                    ? `${target.scope.type}: ${target.scope.name}`
+                    : "",
+                target.isIntro ? "" : target.sectionTitle,
+            ]
+                .filter(Boolean)
+                .join(" › ");
         }
 
+        this.#shownVariant = new URLSearchParams(history.location.search).get(
+            "proto",
+        );
+        this.#renderProto(target.scope);
         this.#renderPager(index);
         this.#syncMenu(index, headings);
         this.#setUrl(target, push);
@@ -660,7 +795,10 @@ export default class Docs extends Page {
 
         this.container.innerHTML = `
             <div class="${styles.docs}">
-                <nav id="docs-menu" class="${styles.menu}" aria-label="Documentation"></nav>
+                <div class="${styles.menu}">
+                    <div id="docs-proto"></div>
+                    <nav id="docs-menu" aria-label="Documentation"></nav>
+                </div>
                 <article class="${styles.section}">
                     <p id="docs-breadcrumb" class="${styles.breadcrumb}"></p>
                     <div id="docs-content" class="${styles.docBody}"></div>
@@ -700,6 +838,8 @@ export default class Docs extends Page {
             .getElementById("docs-pager")
             ?.addEventListener("click", this.#onPagerClick);
         this.container.addEventListener("click", this.#onContentClick);
+        this.container.addEventListener("click", this.#onProtoClick);
+        this.container.addEventListener("change", this.#onProtoChange);
 
         this.#goToPage(this.#indexFromUrl(history.location.search), false);
 
@@ -709,6 +849,9 @@ export default class Docs extends Page {
             if (inOtherWorkspace(update.location.pathname, shown)) return;
             const params = new URLSearchParams(update.location.search);
             if (params.get("page") !== "docs") return;
+            // PROTOTYPE (#309): a variant change redraws the page on screen.
+            if (params.get("proto") !== this.#shownVariant)
+                this.#currentIndex = -1;
 
             this.#goToPage(this.#indexFromUrl(update.location.search), false);
         });
@@ -725,6 +868,8 @@ export default class Docs extends Page {
             .getElementById("docs-pager")
             ?.removeEventListener("click", this.#onPagerClick);
         this.container?.removeEventListener("click", this.#onContentClick);
+        this.container?.removeEventListener("click", this.#onProtoClick);
+        this.container?.removeEventListener("change", this.#onProtoChange);
 
         this.removeAllComponents();
         this.#menu = null;

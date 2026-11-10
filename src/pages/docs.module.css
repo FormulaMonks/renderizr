@@ -126,3 +126,28 @@
         flex: 1;
     }
 }
+
+/* PROTOTYPE (#309): the variant switcher and the scope picker. */
+.protoBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 6px;
+}
+
+.protoBar button[aria-pressed="true"] {
+    font-weight: 700;
+}
+
+.protoPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}

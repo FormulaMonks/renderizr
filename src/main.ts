@@ -18,6 +18,7 @@ import { followDevSet } from "./dev-set";
 import type { SetWorkspace } from "./workspace-set";
 import { inOtherWorkspace } from "./workspace-trail";
 import { summarizeWorkspace } from "./engine/workspace-summary";
+import { type DocScope, documentationScopes } from "./model/documentation";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";
 import { startLiveReload } from "./pages/diagrams-edit";
@@ -53,6 +54,7 @@ async function pagesOf(
     workspace: WorkspaceSummary,
     nav: Navigation,
     diagrams: Page,
+    scopes: DocScope[],
 ): Promise<Page[]> {
     const routes: Page[] = [diagrams];
 
@@ -72,7 +74,7 @@ async function pagesOf(
             new DocsPage(
                 null,
                 "docs",
-                sections,
+                scopes,
                 resolveLink("docs"),
                 resolveImage,
             ),
@@ -134,11 +136,24 @@ async function init() {
     let headerPath: string | null = null;
 
     /** The header of `entered`, leading back up the address's trail. */
+    // PROTOTYPE (#309): the header shows Documentation when any scope has
+    // sections, so the summary carries every scope's.
+    const summaryOf = (entered: SetWorkspace) => {
+        const summary = summarizeWorkspace(entered.workspace);
+        const sections = documentationScopes(entered.workspace).flatMap(
+            (scope) => scope.sections,
+        );
+        return {
+            ...summary,
+            documentation: { ...summary.documentation, sections },
+        };
+    };
+
     const headerOf = (entered: SetWorkspace) => {
         headerPath = history.location.pathname;
         return new Navigation(
             header,
-            summarizeWorkspace(entered.workspace),
+            summaryOf(entered),
             entered.branding.logo,
             parentWorkspace(headerPath),
         );
@@ -150,9 +165,10 @@ async function init() {
         const showing = shown;
         const next = headerOf(entered);
         const routes = await pagesOf(
-            summarizeWorkspace(entered.workspace),
+            summaryOf(entered),
             next,
             diagrams,
+            documentationScopes(entered.workspace),
         );
         if (showing !== shown) return;
 
