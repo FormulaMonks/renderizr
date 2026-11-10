@@ -5,21 +5,31 @@ CONTRIBUTING.md is the long version of everything below: https://github.com/Form
 
 ## What this changes
 
-<!-- What the change is about and why we needed it, in one short paragraph. Link the issue it closes: "Closes #123". -->
+<!-- What the change does, in plain words and less than a paragraph. Put the issue it closes on its own line below: "Closes #123". Cite outside links with a footnote ("ELK's router[^elk]") and put the definitions at the end of the body. -->
 
 ## How to verify it
 
 <!--
-What a reviewer can see or try to know the change works: how to run it, where to go, what to do and what they should notice. Say what should look the same as before, too. Not "tests pass": CI already says that. For example:
+What a reviewer can see or try to know the change works, as an ordered list: how to run it, where to go, what to do and what they should notice. Say what should look the same as before, too. Not "tests pass": CI already says that. For example:
 
-    pnpm render architecture/workspace.json --single-file
-    # then open structurizr-output/index.html in a browser — it needs no server
+1. Render the workspace as a single file:
 
-Screenshots or a before/after pair help a lot for visual changes. -->
+   ```bash
+   pnpm render architecture/workspace.json --single-file
+   ```
+
+2. Open structurizr-output/index.html in a browser. It needs no server.
+
+When there is more than one case to check, give each one its own <details> block with a <summary> and its own ordered list. Screenshots or a before/after pair help a lot for visual changes: drag them in here, or attach them with `gh pr create --attach`. -->
 
 ## Additional notes
 
-<!-- Behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way. Write "None." rather than deleting the section. -->
+<details>
+<summary>Behavior changes, follow-ups and decisions</summary>
+
+<!-- Behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way. When there is nothing to note, replace this block with "None." -->
+
+</details>
 
 ## Checklist
 

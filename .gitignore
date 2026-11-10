@@ -50,11 +50,13 @@ yarn.lock
 !/.agents/skills/renderizr
 /.claude/*
 !/.claude/rules/
-# verify-renderizr is ours, so it travels with the branch that changes what it
-# checks. The other skills are links into .agents/skills and stay ignored.
+# verify-renderizr and pr are ours, so they travel with the branch that changes
+# what they check or write. The other skills are links into .agents/skills and
+# stay ignored.
 !/.claude/skills/
 /.claude/skills/*
 !/.claude/skills/verify-renderizr/
+!/.claude/skills/pr/
 /.playwright-mcp/
 /skills-lock.json
 
