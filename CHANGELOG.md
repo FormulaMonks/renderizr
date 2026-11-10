@@ -21,6 +21,25 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [3.0.0](https://github.com/FormulaMonks/renderizr/compare/v2.8.0...v3.0.0) (2026-11-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* Renderizr needs Node 22.12 or newer. See docs/migrating-to-3.md for the lines to change in mise, nvm and actions/setup-node.
+
+### Added
+
+* drop Node 20 and raise the floor to Node 22.13 ([#256](https://github.com/FormulaMonks/renderizr/issues/256)) ([d17feaf](https://github.com/FormulaMonks/renderizr/commit/d17feaf2cfea739ac032f032735e8ab029f1e8de))
+* make boundaries inert ([#312](https://github.com/FormulaMonks/renderizr/issues/312)) ([7cb74c5](https://github.com/FormulaMonks/renderizr/commit/7cb74c588a00e3664890af9bd0cccb2dc9e63573)), closes [#109](https://github.com/FormulaMonks/renderizr/issues/109)
+* publish renders as a split Claude artifact with --artifact ([#303](https://github.com/FormulaMonks/renderizr/issues/303)) ([e1e0d28](https://github.com/FormulaMonks/renderizr/commit/e1e0d28943c9d605191c37a6828495417a320352))
+
+
+### Fixed
+
+* **deps:** build on Vite 8 ([#305](https://github.com/FormulaMonks/renderizr/issues/305)) ([f8c07ed](https://github.com/FormulaMonks/renderizr/commit/f8c07edd0e1f63093c8ce97ba731887c83ad2ab5))
+* **test:** wait for the watcher before timing outside changes ([#307](https://github.com/FormulaMonks/renderizr/issues/307)) ([2761f31](https://github.com/FormulaMonks/renderizr/commit/2761f31efb19563a7e98eec22f3d7ed2a5b505dc)), closes [#306](https://github.com/FormulaMonks/renderizr/issues/306)
+
 ## [2.8.0](https://github.com/FormulaMonks/renderizr/compare/v2.7.0...v2.8.0) (2026-11-04)
 
 
