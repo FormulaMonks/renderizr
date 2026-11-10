@@ -5,17 +5,23 @@ description: "Use when writing a PR body, opening a pull request with `gh pr cre
 
 # Writing a pull request
 
-Write every pull request for this repo with the body below. Keep the emoji at the start of each heading: it gives the reader a visual cue to find each section. The _Merge danger_ heading carries a colored circle that says how risky the merge is. `.claude/rules/pull-requests.md` holds the rules and `.github/PULL_REQUEST_TEMPLATE.md` holds the same sections, so a PR opened in the browser and one opened by an agent read alike. Write every word the way `.claude/rules/writing.md` says: active voice, simple tenses, American spelling, no em dashes and the terms in `GLOSSARY.md`.
+Write every pull request for this repo from the configured pull request template, and follow the guidance below for each of its sections. Keep the emoji at the start of each heading: it gives the reader a visual cue to find each section. The _Merge danger_ heading carries a colored circle that says how risky the merge is. `.claude/rules/pull-requests.md` holds the rules, so a PR opened in the browser and one opened by an agent read alike. Write every word the way `.claude/rules/writing.md` says: active voice, simple tenses, American spelling, no em dashes and the terms in `GLOSSARY.md`.
 
 ## Steps
 
 1. Read the diff against `main` (`git diff main...HEAD`) and the issue it closes (`gh issue view <number> --comments`).
 2. Check the change by hand the way `.claude/rules/verification.md` says, and capture a screenshot of every visual change while you do (see [Screenshots](#screenshots)).
 3. Write the title: a Conventional Commit subject, written the way the squash commit should read (`feat(model): add resolveView`).
-4. Write the body below into a file in your scratchpad, never inline in `--body`, so backticks and `<details>` survive the shell.
+4. Write the body from the template (see [Body](#body)) into a file in your scratchpad, never inline in `--body`, so backticks and `<details>` survive the shell.
 5. Open the pull request with `gh pr create --body-file`, passing one `--attach` per screenshot.
 
 ## Body
+
+Use the configured pull request template file. If none found, use these instructions.
+
+GitHub looks for the template in `.github/`, at the repo root and in `docs/`, as `pull_request_template.md` in any case, or as one file of several in a `PULL_REQUEST_TEMPLATE/` folder. Read the first one you find and fill in its sections in its order: replace each HTML comment with the content it asks for and keep every heading as the template writes it, unless a comment asks you to change it (this repo's template asks you to keep one circle on _Merge danger_). When the folder holds several templates, pick the one whose name matches the change, or ask.
+
+When the repo has no template, write this body:
 
 ```markdown
 ## 📝 What this changes
@@ -51,10 +57,6 @@ Closes #<issue>
 - <a decision taken along the way, or a conflict with an ADR>
 
 </details>
-
-## ✅ Checklist
-
-<the checklist from .github/PULL_REQUEST_TEMPLATE.md, unchanged>
 
 [^1]: <a link the prose above points at>
 ```
@@ -132,7 +134,7 @@ When there is nothing to note, write "None." under the heading, with no collapse
 
 ### Checklist
 
-Copy the checklist from `.github/PULL_REQUEST_TEMPLATE.md` below the other sections. Check a box only when you ran the step, and say why under the list when a box stays unchecked.
+When the template has a checklist, keep it below the other sections as the template writes it. Check a box only when you ran the step, and say why under the list when a box stays unchecked. When the template has no checklist, or the repo has no template, leave the section out.
 
 ## Links
 
