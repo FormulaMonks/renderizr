@@ -41,14 +41,8 @@ When there is more than one case to check, give each one its own <details> block
 
 ## ✅ Checklist
 
-- [ ] The PR title is a valid Conventional Commit subject (`feat:`, `fix:`, `docs:`, `chore:`, …).
-- [ ] `pnpm install --frozen-lockfile` succeeds — the lockfile matches `package.json`.
-- [ ] `pnpm exec biome ci .` reports no errors. (The pre-commit hook runs it over staged files.)
-- [ ] `pnpm exec tsc --noEmit` is clean.
-- [ ] `pnpm test` passes.
-- [ ] Tests cover the change, or there is a note below explaining why they cannot.
-- [ ] `architecture/docs/` and `--help` in `scripts/cli.js` match the new behavior — a renamed flag needs both.
-- [ ] I rendered a real workspace and looked at it, in both default and `--single-file` modes if either could be affected.
+<!-- CI checks the title, the lockfile, lint, types and tests, so they need no box here. These are the checks CI cannot make. If a box stays unchecked, say why below the list rather than deleting the line. -->
 
-<!--
-Those four commands are the four CONTRIBUTING.md asks you to run before opening a PR, in that order. If a box stays unchecked, say so here rather than deleting the line. -->
+- [ ] Tests cover the change, or there is a note below explaining why they cannot.
+- [ ] `architecture/docs/` and `--help` in `scripts/cli.js` match the new behavior. A renamed flag needs both.
+- [ ] I rendered a real workspace and looked at it, in both default and `--single-file` modes if either could be affected.

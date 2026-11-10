@@ -134,7 +134,7 @@ When there is nothing to note, write "None." under the heading, with no collapse
 
 ### Checklist
 
-When the template has a checklist, keep it below the other sections as the template writes it. Check a box only when you ran the step, and say why under the list when a box stays unchecked. When the template has no checklist, or the repo has no template, leave the section out.
+When the template has a checklist, keep it below the other sections as the template writes it. Check a box only when you ran the step, and say why under the list when a box stays unchecked. Add no box for something CI already checks, such as lint, types, tests or the title. When the template has no checklist, or the repo has no template, leave the section out.
 
 ## Links
 
