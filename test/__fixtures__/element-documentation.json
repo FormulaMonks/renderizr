@@ -335,7 +335,17 @@
                                             "content": "# Sign In Controller\n\nThe Sign In Controller lets customers sign in to the Internet Banking System.\n\n## Flow\n\nIt hands credentials to the Security Component and returns a session token.\n"
                                         }
                                     ],
-                                    "decisions": [],
+                                    "decisions": [
+                                        {
+                                            "id": "1",
+                                            "title": "Lock an account after five failed sign-ins",
+                                            "status": "Accepted",
+                                            "date": "2026-06-02T00:00:00Z",
+                                            "format": "Markdown",
+                                            "content": "# 1. Lock an account after five failed sign-ins\n\n## Status\n\nAccepted\n\n## Context\n\nA reason.\n\n## Decision\n\nLock an account after five failed sign-ins.\n\n## Consequences\n\nSomething follows.\n",
+                                            "links": []
+                                        }
+                                    ],
                                     "images": []
                                 }
                             }
@@ -558,6 +568,38 @@
                             "id": "1",
                             "date": "2020-06-05T00:00:00Z",
                             "status": "Accepted"
+                        },
+                        {
+                            "id": "2",
+                            "title": "Use a single-page application for the web",
+                            "status": "Superseded",
+                            "date": "2025-06-01T00:00:00Z",
+                            "format": "Markdown",
+                            "content": "# 2. Use a single-page application for the web\n\n## Status\n\nSuperseded\n\n## Context\n\nA reason.\n\n## Decision\n\nUse a single-page application for the web.\n\n## Consequences\n\nSomething follows.\n",
+                            "links": []
+                        },
+                        {
+                            "id": "3",
+                            "title": "Render the web on the server",
+                            "status": "Accepted",
+                            "date": "2026-02-20T00:00:00Z",
+                            "format": "Markdown",
+                            "content": "# 3. Render the web on the server\n\n## Status\n\nAccepted\n\n## Context\n\nA reason.\n\n## Decision\n\nRender the web on the server.\n\n## Consequences\n\nSomething follows.\n",
+                            "links": [
+                                {
+                                    "id": "2",
+                                    "description": "Supersedes"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "4",
+                            "title": "Sign customers in with the bank's identity provider",
+                            "status": "Accepted",
+                            "date": "2026-05-11T00:00:00Z",
+                            "format": "Markdown",
+                            "content": "# 4. Sign customers in with the bank's identity provider\n\n## Status\n\nAccepted\n\n## Context\n\nA reason.\n\n## Decision\n\nSign customers in with the bank's identity provider.\n\n## Consequences\n\nSomething follows.\n",
+                            "links": []
                         }
                     ]
                 },
@@ -1194,6 +1236,20 @@
                 "format": "Markdown",
                 "content": "# 1. Keep one workspace for the retail estate\n\n## Status\n\nAccepted\n\n## Context\n\nTeams drew their own diagrams.\n\n## Decision\n\nKeep one workspace.\n\n## Consequences\n\nOne place to look.\n",
                 "links": []
+            },
+            {
+                "id": "2",
+                "title": "Publish the workspace as a static site",
+                "status": "Accepted",
+                "date": "2026-03-30T00:00:00Z",
+                "format": "Markdown",
+                "content": "# 2. Publish the workspace as a static site\n\n## Status\n\nAccepted\n\n## Context\n\nA reason.\n\n## Decision\n\nPublish the workspace as a static site.\n\n## Consequences\n\nSomething follows.\n",
+                "links": [
+                    {
+                        "id": "1",
+                        "description": "References"
+                    }
+                ]
             }
         ],
         "images": []

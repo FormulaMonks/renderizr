@@ -179,11 +179,25 @@ export default class Menu<Item extends MenuItem> extends Component {
         link.appendChild(number);
         link.appendChild(document.createTextNode(" "));
         link.appendChild(title);
+        // PROTOTYPE (#314): a pill naming the decision's documentation scope.
+        const badge = this.#badgeFn?.(item);
+        if (badge) title.prepend(badge, document.createTextNode(" "));
+    }
+
+    #badgeFn: ((item: Item) => HTMLElement | null) | null = null;
+
+    /** PROTOTYPE (#314): draw a badge before each numbered entry's title. */
+    setBadgeFn(fn: (item: Item) => HTMLElement | null) {
+        this.#badgeFn = fn;
     }
 
     #optionText(item: Item) {
         const text = this.#textContentFn(item);
-        return this.#numberFn ? `${this.#numberFn(item)} ${text}` : text;
+        // PROTOTYPE (#314): an option has no room for a pill, so the badge's
+        // text goes in brackets.
+        const badge = this.#badgeFn?.(item)?.textContent;
+        const titled = badge ? `[${badge}] ${text}` : text;
+        return this.#numberFn ? `${this.#numberFn(item)} ${titled}` : titled;
     }
 
     #appendOptions(select: HTMLSelectElement, items: Item[], depth: number) {

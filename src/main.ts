@@ -87,7 +87,7 @@ async function pagesOf(
             new DecisionsPage(
                 null,
                 "adrs",
-                decisions,
+                scopes,
                 resolveLink("decisions"),
                 resolveImage,
             ),
@@ -140,12 +140,14 @@ async function init() {
     // sections, so the summary carries every scope's.
     const summaryOf = (entered: SetWorkspace) => {
         const summary = summarizeWorkspace(entered.workspace);
-        const sections = documentationScopes(entered.workspace).flatMap(
-            (scope) => scope.sections,
-        );
+        const scopes = documentationScopes(entered.workspace);
+        const sections = scopes.flatMap((scope) => scope.sections);
+        const decisions = scopes.flatMap(
+            (scope) => scope.decisions,
+        ) as typeof summary.documentation.decisions;
         return {
             ...summary,
-            documentation: { ...summary.documentation, sections },
+            documentation: { ...summary.documentation, sections, decisions },
         };
     };
 

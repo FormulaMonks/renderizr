@@ -1,6 +1,6 @@
 import Component from "./_component";
 import markdownIt from "markdown-it";
-// @ts-ignore
+// @ts-expect-error
 import shiftHeadings from "markdown-it-shift-headings";
 import anchor from "markdown-it-anchor";
 // `highlight.js/lib/common` registers 34 languages for roughly 150KB. These are

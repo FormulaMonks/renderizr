@@ -382,3 +382,89 @@ less the collapsed gutter, so the sidebar grows by the graph's width.
         width: calc(17rem - var(--collapsed-gutter, 0px));
     }
 }
+
+/* PROTOTYPE (#314): the documentation scope filter and its variants. */
+.protoFilter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0.5rem 0 1rem;
+    font-size: 0.8rem;
+}
+
+.protoFilter label {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    color: var(--color-muted);
+}
+
+.protoVariants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+    padding: 0.4rem;
+    font-size: 0.7rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 6px;
+}
+
+.protoChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.protoChips button {
+    padding: 0.2rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.protoChips button[aria-pressed="true"],
+.protoVariants button[aria-pressed="true"] {
+    font-weight: 700;
+    border-color: currentColor;
+}
+
+/* PROTOTYPE (#314): which documentation scope a decision belongs to. */
+.scopePill {
+    display: inline-block;
+    margin-right: 0.15rem;
+    padding: 0.05rem 0.45rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    vertical-align: 0.1em;
+    color: hsl(var(--scope-hue) 70% 72%);
+    background-color: hsl(var(--scope-hue) 60% 50% / 0.16);
+    border: 1px solid hsl(var(--scope-hue) 60% 60% / 0.45);
+    border-radius: 999px;
+}
+
+:root[data-theme="light"] .scopePill {
+    color: hsl(var(--scope-hue) 70% 32%);
+}
+
+/* PROTOTYPE (#314): the filter drop-down looks like the narrow menu's. */
+.protoFilter select {
+    width: 100%;
+    font: inherit;
+    color: var(--color-foreground);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    height: 2.75rem;
+    padding: 0 0.65rem;
+}
+
+.protoFilter label {
+    flex-direction: column;
+    align-items: stretch;
+}

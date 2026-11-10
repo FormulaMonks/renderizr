@@ -21,6 +21,22 @@ import styles from "./adrs.module.css";
 import collapseIcon from "bootstrap-icons/icons/arrows-collapse-vertical.svg?raw";
 import expandIcon from "bootstrap-icons/icons/arrows-expand-vertical.svg?raw";
 import { showDisclaimer } from "../components/disclaimer";
+import type { DocScope } from "../model/documentation";
+
+/** PROTOTYPE (#314): a decision carried by one documentation scope. */
+type ScopedDecision = Decision & { scope: DocScope; number: string };
+
+/** PROTOTYPE (#314): the address parameter that holds the filter. */
+const FILTER_PARAM = "dscope";
+/** PROTOTYPE (#314): Structurizr's name for the workspace's own scope. */
+const WORKSPACE_SCOPE = "*";
+const filterOf = (): string | null =>
+    new URLSearchParams(history.location.search).get(FILTER_PARAM);
+const filterVariant = (): "select" | "chips" =>
+    new URLSearchParams(history.location.search).get("proto") === "chips"
+        ? "chips"
+        : "select";
+const scopeKeyOf = (scope: DocScope) => scope.key || WORKSPACE_SCOPE;
 
 /**
  * The most columns the expanded decision graph takes beside the menu, from
@@ -100,6 +116,20 @@ const statusPill = (status: string) =>
 
 export default class Decisions extends Page {
     #decisions: Decision[] = [];
+    // PROTOTYPE (#314): every scope's decisions, and the scopes that carry any.
+    #all: ScopedDecision[] = [];
+    #scopes: DocScope[] = [];
+    /** PROTOTYPE (#314): whether the list on screen mixes scopes. */
+    #mixed = false;
+
+    /** PROTOTYPE (#314): the scope pill, in a hue of the scope's own. */
+    #pill(decision: Decision): string {
+        if (!this.#mixed) return "";
+        const { scope } = decision as ScopedDecision;
+        const hue = (this.#scopes.indexOf(scope) * 67 + 200) % 360;
+        const label = scope.key ? scope.name : "Workspace";
+        return `<span class="${styles.scopePill}" style="--scope-hue: ${hue}" title="[${scope.type}] ${scope.name}">${label}</span>`;
+    }
     #currentDecision: Decision | null = null;
     // Held directly rather than looked up by class name: the minifier renames
     // classes, so `components.get("Menu")` is undefined in a built file — which
@@ -119,15 +149,109 @@ export default class Decisions extends Page {
     constructor(
         container: HTMLElement | null = null,
         name = "Decisions",
-        decisions: Decision[] = [],
+        scopes: DocScope[] = [],
         resolveLink: LinkResolver | null = null,
         resolveImage: ImageResolver | null = null,
     ) {
         super(container, name);
         this.#resolveLink = resolveLink;
         this.#resolveImage = resolveImage;
-        this.#decisions = decisionOrder(decisions);
+        // PROTOTYPE (#314): decision ids repeat across scopes, so each one
+        // takes its scope's key in front, and so do its links.
+        this.#scopes = scopes.filter((scope) => scope.decisions.length);
+        const idOf = (scope: DocScope, id: string) =>
+            scope.key ? `${scope.key}~${id}` : id;
+        this.#all = decisionOrder(
+            this.#scopes.flatMap((scope) =>
+                (scope.decisions as Decision[]).map((d) => ({
+                    ...d,
+                    id: idOf(scope, d.id),
+                    number: d.id,
+                    links: (d.links ?? []).map((link) => ({
+                        ...link,
+                        id: idOf(scope, link.id),
+                    })),
+                    scope,
+                })),
+            ),
+        ) as ScopedDecision[];
+        this.#applyFilter();
     }
+
+    /** PROTOTYPE (#314): the decisions the filter keeps, labeled when mixed. */
+    #applyFilter() {
+        const filter = filterOf();
+        const kept = this.#all.filter(
+            (d) => !filter || scopeKeyOf(d.scope) === filter,
+        );
+        this.#mixed = new Set(kept.map((d) => d.scope)).size > 1;
+        this.#decisions = kept;
+    }
+
+    /** PROTOTYPE (#314): the filter control, as the variant on screen draws it. */
+    #renderFilter(): string {
+        const filter = filterOf();
+        const options = [
+            { key: "", label: "All documentation scopes", depth: 0 },
+            ...this.#scopes.map((s) => ({
+                key: scopeKeyOf(s),
+                label: `[${s.type}] ${s.name}`,
+                depth: s.depth,
+                count: s.decisions.length,
+            })),
+        ];
+        const variants = `<span class="${styles.protoVariants}">Prototype: ${(
+            ["select", "chips"] as const
+        )
+            .map(
+                (v) =>
+                    `<button type="button" data-proto="${v}" ${v === filterVariant() ? 'aria-pressed="true"' : ""}>${v === "select" ? "A · Drop-down" : "B · Chips"}</button>`,
+            )
+            .join("")}</span>`;
+        if (filterVariant() === "chips") {
+            return `<div class="${styles.protoFilter}">${variants}<div class="${styles.protoChips}">${options
+                .map(
+                    (o) =>
+                        `<button type="button" data-dscope="${o.key}" ${o.key === (filter ?? "") ? 'aria-pressed="true"' : ""}>${o.key ? o.label.replace(/^\[[^\]]+\] /, "") : "All"}${"count" in o ? ` <small>${o.count}</small>` : ""}</button>`,
+                )
+                .join("")}</div></div>`;
+        }
+        return `<div class="${styles.protoFilter}">${variants}<label>Show decisions of <select data-dscope-select>${options
+            .map(
+                (o) =>
+                    `<option value="${o.key}" ${o.key === (filter ?? "") ? "selected" : ""}>${"\u00a0\u00a0".repeat(o.depth)}${o.label}${"count" in o ? ` (${o.count})` : ""}</option>`,
+            )
+            .join("")}</select></label></div>`;
+    }
+
+    /** PROTOTYPE (#314): set the filter or the variant, then redraw the page. */
+    #onProto = (event: Event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const search = new URLSearchParams(history.location.search);
+        const select = target.closest<HTMLSelectElement>(
+            "[data-dscope-select]",
+        );
+        const chip = target.closest<HTMLElement>("[data-dscope]");
+        const variant = target.closest<HTMLElement>("[data-proto]");
+        if (event.type === "change" && select) {
+            if (select.value) search.set(FILTER_PARAM, select.value);
+            else search.delete(FILTER_PARAM);
+        } else if (event.type === "click" && chip) {
+            if (chip.dataset.dscope)
+                search.set(FILTER_PARAM, chip.dataset.dscope);
+            else search.delete(FILTER_PARAM);
+        } else if (event.type === "click" && variant) {
+            search.set("proto", variant.dataset.proto!);
+        } else return;
+        // An open decision the filter hides gives way to the index.
+        const adr = search.get("adr");
+        const filter = search.get(FILTER_PARAM);
+        const open = this.#all.find((d) => d.id === adr);
+        if (open && filter && scopeKeyOf(open.scope) !== filter)
+            search.delete("adr");
+        history.replace({ search: search.toString() });
+    };
 
     #opened = false;
 
@@ -213,7 +337,8 @@ export default class Decisions extends Page {
         this.#select(decision);
     };
 
-    #decisionTitle = (item: Decision) => `${numberSpan(item.id)} ${item.title}`;
+    #decisionTitle = (item: Decision) =>
+        `${numberSpan((item as ScopedDecision).number)} ${this.#pill(item)} ${item.title}`;
 
     /**
      * The question a reader arrives with is "which of these still stand?", and
@@ -238,11 +363,12 @@ export default class Decisions extends Page {
         // menu's.
         const row = (d: Decision) => `
             <li>
-                <a class="${styles.indexRow}" href="#${d.id}" data-item-id="${d.id}" title="${longDate(d.date)}">${numberSpan(d.id)}<span class="${styles.indexStatus} ${statusClass(d.status)}">${d.status || "Unknown"}</span><span class="${styles.indexTitle}">${d.title}</span></a>
+                <a class="${styles.indexRow}" href="#${d.id}" data-item-id="${d.id}" title="${longDate(d.date)}">${numberSpan((d as ScopedDecision).number)}<span class="${styles.indexStatus} ${statusClass(d.status)}">${d.status || "Unknown"}</span><span class="${styles.indexTitle}">${this.#pill(d)} ${d.title}</span></a>
             </li>`;
 
         return `
             <h2>Decisions</h2>
+            ${this.#renderFilter()}
             <p class="${styles.indexIntro}">${this.#decisions.length} recorded, ${inForce} in force</p>
             <div id="adrs-index-controls" class="${styles.controls} ${styles.indexControls}" hidden>${laneButtons("adrs-index-graph")}</div>
             <div class="${styles.rows}">
@@ -347,6 +473,7 @@ export default class Decisions extends Page {
                     ${this.#renderIndex()}
                 </section>
                 <section id="adrs-menu" class="${styles.menu}"${opening ? "" : " hidden"}>
+                    ${this.#renderFilter()}
                     <div id="adrs-controls" class="${styles.controls}">
                         <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
                         <button type="button" id="adrs-expand" class="${styles.expand}" aria-controls="adrs-graph"></button>
@@ -379,7 +506,16 @@ export default class Decisions extends Page {
         );
         this.#menu = menu;
 
-        menu.setNumberFn((item) => decisionNumber(item.id));
+        menu.setBadgeFn((item) => {
+            const html = this.#pill(item);
+            if (!html) return null;
+            const holder = document.createElement("span");
+            holder.innerHTML = html;
+            return holder.firstElementChild as HTMLElement;
+        });
+        menu.setNumberFn((item) =>
+            decisionNumber((item as ScopedDecision).number),
+        );
 
         const graph = this.addComponent(
             new DecisionGraph(
@@ -401,6 +537,8 @@ export default class Decisions extends Page {
         )!;
         // Held apart from the page's components, which are keyed by class
         // name and would lose the menu's decision graph to this one.
+        this.#listen(this.container, "click", this.#onProto);
+        this.#listen(this.container, "change", this.#onProto);
         const indexGraph = new DecisionGraph(
             document.getElementById("adrs-index-graph")!,
             indexRows,
@@ -453,11 +591,28 @@ export default class Decisions extends Page {
         // Back and Forward change only `adr`, and the router redraws a page
         // only when `page` changes, so the page follows `adr` itself.
         const shown = workspaceOf(history.location.pathname);
+        const shownFilter = filterOf();
+        const shownVariant = new URLSearchParams(history.location.search).get(
+            "proto",
+        );
         this.#unlisten = history.listen(({ location }) => {
             // An address in another workspace waits for that one's pages.
             if (inOtherWorkspace(location.pathname, shown)) return;
             const search = new URLSearchParams(location.search);
             if (search.get("page") !== "adrs") return;
+            // PROTOTYPE (#314): a filter or variant set from the address
+            // redraws the page.
+            const drawn = `${shownFilter}|${shownVariant}`;
+            if (
+                `${search.get(FILTER_PARAM)}|${search.get("proto")}` !== drawn
+            ) {
+                window.setTimeout(() => {
+                    this.#applyFilter();
+                    this.clear();
+                    this.render();
+                });
+                return;
+            }
 
             const decision = this.#getAdrFromUrl() ?? null;
             if (decision?.id === this.#currentDecision?.id) return;
