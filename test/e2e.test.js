@@ -1389,7 +1389,7 @@ test("a relationship with a link takes clicks on a hit stroke and its label, whi
     );
 });
 
-test("a boundary's label band carries its element's indicators", {
+test("a boundary's label band takes no interaction, even when its element has targets", {
     skip: SKIP,
 }, async () => {
     const document = await render(
@@ -1399,8 +1399,25 @@ test("a boundary's label band carries its element's indicators", {
         '[data-boundary-id="2"] [data-boundary-label]',
     );
 
-    assert.equal(band.getAttribute("role"), "button");
-    assert.deepEqual(indicatorsOf(band), ["link", "view"]);
+    for (const name of [
+        "role",
+        "aria-label",
+        "title",
+        "tabindex",
+        "data-focus-item",
+    ])
+        assert.equal(band.getAttribute(name), null, `the band has no ${name}`);
+    assert.deepEqual(indicatorsOf(band), []);
+    assert.match(
+        document.querySelector('[data-boundary-id="2"]').getAttribute("style"),
+        /pointer-events:\s*none/,
+    );
+    assert.doesNotMatch(
+        band.getAttribute("style"),
+        /pointer-events/,
+        "the band inherits none, so a drag on it pans",
+    );
+    assert.match(band.textContent, /Shop/, "its name stays in the DOM");
 });
 
 /* ------------------------------------------------------------- animation */

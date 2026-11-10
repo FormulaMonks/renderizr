@@ -376,8 +376,7 @@ const INERT: { onClick?: (event: MouseEvent) => void } = {};
 /**
  * What makes an item with targets activatable (spec 6.1, 6.2): a pointer,
  * a click, a place in the canvas's own Tab order and an accessible name.
- * An element activates itself; a boundary or an edge names what it
- * activates.
+ * An element activates itself; an edge names what it activates.
  */
 function useTargetProps(
     item: FocusRef,
@@ -1020,27 +1019,17 @@ function TextLines({
 
 /**
  * A boundary: a rectangle around its children with the label band along its
- * bottom (spec 8). Only the band takes pointer events; empty boundary area
- * lets a drag through to pan. Opacity is real alpha on fill and stroke; the
- * label and icon stay opaque, as on elements.
+ * bottom (spec 8). Opacity is real alpha on fill and stroke; the label and
+ * icon stay opaque, as on elements.
  *
- * In editing a boundary is never selected, dragged or activated (spec 10.2):
- * the band takes no pointer events either, so a drag anywhere on a boundary
- * draws a marquee.
+ * A boundary takes no interaction: no part of it takes pointer events, so a
+ * drag anywhere on it pans, or in editing draws a marquee (spec 10.2). It
+ * offers no targets, even when the element it is drawn for has some, and
+ * sits outside the focus order; its label stays in the DOM, so a screen
+ * reader still reads its name in document order.
  */
 function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
-    const { band, accessibleName } = data;
-    // biome-ignore lint/correctness/useHookAtTopLevel: the flag is a build-time constant, so every render calls the same hooks (ADR 15)
-    const editing = __RENDERIZR_EDIT_MODE__ && useContext(Editing);
-    // Its label band is what activates the element it is drawn for.
-    const target = useTargetProps(
-        { type: "boundary", id: data.id },
-        editing ? [] : data.targets,
-        accessibleName,
-        data.elementId === undefined
-            ? undefined
-            : { type: "element", id: data.elementId },
-    );
+    const { band } = data;
     return (
         <div
             data-boundary-id={data.id}
@@ -1075,15 +1064,12 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
             </svg>
             <div
                 data-boundary-label=""
-                title={accessibleName}
-                {...target}
                 style={{
                     position: "absolute",
                     left: band.x,
                     top: band.y,
                     width: band.width,
                     height: band.height,
-                    pointerEvents: editing ? "none" : "auto",
                 }}
             >
                 {data.icon && data.iconBox && (
@@ -1120,16 +1106,6 @@ function BoundaryElement({ data }: NodeProps<BoundaryNode>) {
                         color={data.color}
                         top={band.y}
                         instanceCount
-                    />
-                )}
-                {data.indicators && (
-                    <Indicators
-                        targets={data.targets}
-                        color={data.color}
-                        box={{
-                            ...data.indicators,
-                            y: data.indicators.y - band.y,
-                        }}
                     />
                 )}
             </div>
@@ -2925,9 +2901,7 @@ function Canvas({
      * order, so the canvas is one stop on the way through the page.
      */
     const onTab = (event: KeyboardEvent<HTMLDivElement>) => {
-        // A step's hidden items are inert, so they leave the walk (spec 11),
-        // and so do boundaries in editing, which take no activation (spec
-        // 10.2).
+        // A step's hidden items are inert, so they leave the walk (spec 11).
         const order = (graph?.focusOrder ?? []).filter((item) => {
             const element = itemElement(item);
             return element && !element.closest("[inert]");

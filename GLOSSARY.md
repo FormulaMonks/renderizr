@@ -65,7 +65,7 @@ An element in a stored layout that has no coordinates of its own, which the work
 _Avoid_: new element, orphan, missing position
 
 **Boundary**:
-A container drawn around elements that share a parent: a software system in a container view, a container in a component view, a group, or a deployment node. The engine draws an element as a boundary when at least one of its children is in the view, and as an ordinary element otherwise; a group is always a boundary. A boundary takes its size and position from its children, never from coordinates of its own. Boundaries nest.
+A container drawn around elements that share a parent: a software system in a container view, a container in a component view, a group, or a deployment node. The engine draws an element as a boundary when at least one of its children is in the view, and as an ordinary element otherwise; a group is always a boundary. A boundary takes its size and position from its children, never from coordinates of its own. Boundaries nest. A boundary takes no interaction: it offers no activation targets, even when the element it is drawn for has some.
 _Avoid_: group (one kind of boundary), cluster, subflow
 
 **Workspace semantics**:
@@ -93,7 +93,7 @@ The menu that lists an item's activation targets at the point of activation when
 _Avoid_: context menu, dropdown
 
 **Indicator**:
-A glyph drawn on an element, a Mermaid diagram's node, a boundary's label band or an edge's label for each target kind the item offers, so a sighted reader sees where activating it leads.
+A glyph drawn on an element, a Mermaid diagram's node or an edge's label for each target kind the item offers, so a sighted reader sees where activating it leads.
 _Avoid_: badge, affordance, icon (that is the element's own image)
 
 **Relationship**:

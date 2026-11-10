@@ -231,7 +231,7 @@
             {
                 "key": "ShopContainers",
                 "title": "Shop containers",
-                "description": "The Shop boundary's band carries its indicators",
+                "description": "The Shop boundary takes no interaction, though Shop has targets",
                 "softwareSystemId": "2",
                 "elements": [
                     {

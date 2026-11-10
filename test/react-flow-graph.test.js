@@ -1744,7 +1744,7 @@ test("an element carries the kind of each target it offers, and one with none ca
     );
 });
 
-test("a boundary of an element offers that element's targets and keeps room for its indicators", () => {
+test("a boundary offers no targets, even when the element it is drawn for has some", () => {
     const plain = buildGraph(
         containers(),
         "FixtureContainers",
@@ -1759,11 +1759,19 @@ test("a boundary of an element offers that element's targets and keeps room for 
         "light",
         LABELS,
     );
+    const [boundary] = linked.boundaries;
 
-    assert.deepEqual(plain.boundaries[0].targets, ["view"]);
-    assert.equal(plain.boundaries[0].elementId, "2");
-    assert.deepEqual(linked.boundaries[0].targets, ["link", "view"]);
-    assert.equal(linked.boundaries[0].indicators.width, 2 * 20 + 5);
+    assert.equal(boundary.targets, undefined);
+    assert.equal(boundary.indicators, undefined);
+    assert.deepEqual(
+        boundary.band,
+        plain.boundaries[0].band,
+        "the band keeps no room for indicators",
+    );
+    assert.ok(
+        linked.focusOrder.every((item) => item.type !== "boundary"),
+        "no boundary is in the focus order",
+    );
 });
 
 test("a relationship offers its link and http(s) properties, and a glyph-only label when it says nothing", () => {
@@ -1794,49 +1802,6 @@ test("an edge's accessible name reads source → target: description", () => {
 
     assert.equal(graph.edges[0].name, "Reader → Fixture System: Browses");
     assert.equal(bare.edges[0].name, "Reader → Fixture System");
-});
-
-test("a boundary's accessible name reads its name, metadata and description, as an element's does", () => {
-    const [boundary] = buildGraph(
-        containers(),
-        "FixtureContainers",
-        "light",
-        LABELS,
-    ).boundaries;
-    const [hidden] = buildGraph(containers(), "FixtureContainers", "light", {
-        ...LABELS,
-        descriptions: false,
-    }).boundaries;
-
-    assert.equal(
-        boundary.accessibleName,
-        "Fixture System\n[Software System]\nThe system under test",
-    );
-    assert.equal(
-        hidden.accessibleName,
-        "Fixture System\n[Software System]",
-        "the descriptions toggle hides it, as on an element",
-    );
-});
-
-test("a boundary's label band activates the element it is drawn for", () => {
-    const graph = buildGraph(
-        containers((json) => {
-            json.model.softwareSystems[0].url = "https://example.com/system";
-        }),
-        "FixtureContainers",
-        "light",
-        LABELS,
-    );
-    const [boundary] = graph.boundaries;
-    const item = graph.focusOrder.find((i) => i.type === "boundary");
-
-    assert.deepEqual(item.activation, { type: "element", id: "2" });
-    assert.deepEqual(item.box, {
-        ...boundary.band,
-        x: boundary.x + boundary.band.x,
-        y: boundary.y + boundary.band.y,
-    });
 });
 
 test("only items with targets are in the focus order, top to bottom then left to right", () => {

@@ -282,8 +282,8 @@ export type Engine = AnimationControls &
             ) => void,
         ): () => void;
         /**
-         * An element, or a boundary drawn for one, was activated. The engine
-         * never navigates: the page resolves its targets (spec 6.1).
+         * An element was activated. The engine never navigates: the page
+         * resolves its targets (spec 6.1).
          */
         onElementActivated(
             callback: (elementId: string, anchor: Anchor) => void,
