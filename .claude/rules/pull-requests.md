@@ -20,4 +20,5 @@ Keep the checklist from the template below the four sections, and say why when a
 ## Links and screenshots
 
 - Cite a link the prose points at with a footnote (`[^name]`), and put every footnote definition at the end of the body. Issue references and `Closes #123` stay as they are.
+- When the change can affect what Renderizr draws, show it: render a versioned workspace in every mode it can affect (the default site, `--single-file`) and attach a screenshot of each under the step that shows it.
 - Attach screenshots with `gh pr create --attach` (or `gh pr edit --attach`), referencing each file in the body at the step that shows it. The `pr` skill gives the steps.

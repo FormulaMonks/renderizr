@@ -75,6 +75,8 @@ Write the steps as an ordered list, in the order the reviewer follows them: get 
 
 Say what should look the same as before, too. Leave out "run the tests" and "CI is green": CI already says that. When part of the change has nothing visible yet, say so plainly and say when it will show.
 
+When the change can affect what Renderizr draws, show it: render a versioned workspace in every mode it can affect (the default site, `--single-file`) and attach a screenshot of each under the step that shows it. A screenshot is proof a reviewer sees for themselves, so it replaces a checkbox that says you looked. When the change cannot affect a render (docs, tooling, tests), say so in one sentence and attach nothing.
+
 When the reviewer has more than one case to check (two engines, both color schemes, the dev server and a single-file build), give each case its own collapsed section[^collapsed] with its own ordered list. Open the first one with `open`, so the reviewer lands on a case without clicking:
 
 ````markdown

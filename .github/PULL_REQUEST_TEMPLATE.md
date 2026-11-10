@@ -20,7 +20,7 @@ What a reviewer can see or try to know the change works, as an ordered list: how
 
 2. Open structurizr-output/index.html in a browser. It needs no server.
 
-When there is more than one case to check, give each one its own <details> block with a <summary> and its own ordered list. Screenshots or a before/after pair help a lot for visual changes: drag them in here, or attach them with `gh pr create --attach`. -->
+When there is more than one case to check, give each one its own <details> block with a <summary> and its own ordered list. When the change can affect what Renderizr draws, render a versioned workspace in every mode it can affect (the default site, `--single-file`) and add a screenshot of each under the step that shows it, as a before/after pair for a visual change: drag them in here, or attach them with `gh pr create --attach`. -->
 
 ## 🔴🟡🟢 Merge danger
 
@@ -45,4 +45,3 @@ When there is more than one case to check, give each one its own <details> block
 
 - [ ] Tests cover the change, or there is a note below explaining why they cannot.
 - [ ] `architecture/docs/` and `--help` in `scripts/cli.js` match the new behavior. A renamed flag needs both.
-- [ ] I rendered a real workspace and looked at it, in both default and `--single-file` modes if either could be affected.
