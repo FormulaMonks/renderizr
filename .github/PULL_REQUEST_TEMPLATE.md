@@ -3,34 +3,45 @@ Title this PR the way you would write the squash commit: a Conventional Commit s
 
 CONTRIBUTING.md is the long version of everything below: https://github.com/FormulaMonks/renderizr/blob/main/CONTRIBUTING.md -->
 
-## What this changes
+## 📝 What this changes
 
-<!-- What the change is about and why we needed it, in one short paragraph. Link the issue it closes: "Closes #123". -->
+<!-- What the change does, in plain words and less than a paragraph. Put the issue it closes on its own line below: "Closes #123". Cite outside links with a footnote ("ELK's router[^elk]") and put the definitions at the end of the body. -->
 
-## How to verify it
+## 🔍 How to verify it
 
 <!--
-What a reviewer can see or try to know the change works: how to run it, where to go, what to do and what they should notice. Say what should look the same as before, too. Not "tests pass": CI already says that. For example:
+What a reviewer can see or try to know the change works, as an ordered list: how to run it, where to go, what to do and what they should notice. Say what should look the same as before, too. Not "tests pass": CI already says that. For example:
 
-    pnpm render architecture/workspace.json --single-file
-    # then open structurizr-output/index.html in a browser — it needs no server
+1. Render the workspace as a single file:
 
-Screenshots or a before/after pair help a lot for visual changes. -->
+   ```bash
+   pnpm render architecture/workspace.json --single-file
+   ```
 
-## Additional notes
+2. Open structurizr-output/index.html in a browser. It needs no server.
 
-<!-- Behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way. Write "None." rather than deleting the section. -->
+When there is more than one case to check, give each one its own <details> block with a <summary> and its own ordered list. When the change can affect what Renderizr draws, render a versioned workspace in every mode it can affect (the default site, `--single-file`) and add a screenshot of each under the step that shows it, as a before/after pair for a visual change: drag them in here, or attach them with `gh pr create --attach`. -->
 
-## Checklist
+## 🔴🟡🟢 Merge danger
 
-- [ ] The PR title is a valid Conventional Commit subject (`feat:`, `fix:`, `docs:`, `chore:`, …).
-- [ ] `pnpm install --frozen-lockfile` succeeds — the lockfile matches `package.json`.
-- [ ] `pnpm exec biome ci .` reports no errors. (The pre-commit hook runs it over staged files.)
-- [ ] `pnpm exec tsc --noEmit` is clean.
-- [ ] `pnpm test` passes.
+<!-- Keep one circle in the heading: 🔴 for a one-way door (a revert cannot walk it back), 🟡 for a two-way door that needs caution (people notice before a revert lands), 🟢 for a two-way door with no major implication. -->
+
+**Door:** <!-- one-way, two-way with caution or two-way. Add why when it is not obvious. -->
+
+**Blast radius:** <!-- One or two words on what this can reach (docs only, one view, every diagram, CLI users), then what could break once it merges. -->
+
+## 🗒️ Additional notes
+
+<details>
+<summary>Behavior changes, follow-ups and decisions</summary>
+
+<!-- Behavior changes a reader might notice, follow-up work left out on purpose, decisions taken along the way. When there is nothing to note, replace this block with "None." -->
+
+</details>
+
+## ✅ Checklist
+
+<!-- CI checks the title, the lockfile, lint, types and tests, so they need no box here. These are the checks CI cannot make. If a box stays unchecked, say why below the list rather than deleting the line. -->
+
 - [ ] Tests cover the change, or there is a note below explaining why they cannot.
-- [ ] `architecture/docs/` and `--help` in `scripts/cli.js` match the new behavior — a renamed flag needs both.
-- [ ] I rendered a real workspace and looked at it, in both default and `--single-file` modes if either could be affected.
-
-<!--
-Those four commands are the four CONTRIBUTING.md asks you to run before opening a PR, in that order. If a box stays unchecked, say so here rather than deleting the line. -->
+- [ ] `architecture/docs/` and `--help` in `scripts/cli.js` match the new behavior. A renamed flag needs both.
