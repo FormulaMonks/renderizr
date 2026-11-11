@@ -131,3 +131,66 @@ test("without a docs page, a section link has nowhere to go", () => {
 
     assert.equal(decisionsOnly("../docs/01-context.md"), null);
 });
+
+/* ---------------------------------------------------- documentation scopes */
+
+/** A documentation scope at `path` carrying `sections` and `decisions`. */
+const scope = (path, sections = [], decisions = []) => ({
+    type: path ? "Software System" : "Workspace",
+    name: path || "Workspace",
+    elementId: path || null,
+    names: path ? [path] : [],
+    path,
+    parent: null,
+    depth: 0,
+    sections: sections.map((filename) => ({ filename, order: 1, content: "" })),
+    decisions: decisions.map((id) => ({ id })),
+    images: [],
+});
+
+const scoped = createLinkResolver({
+    docs: { page: "docs", sections: [] },
+    decisions: { page: "adrs", decisions: [] },
+    scopes: [
+        scope("", ["01-context.md"], ["1"]),
+        scope("payments", ["02-containers.md"], ["2", "3"]),
+    ],
+});
+
+test("a link in an element's decision resolves to a decision of its own scope", () => {
+    assert.equal(
+        scoped("decisions", "payments")("0003-settle-nightly.md"),
+        "#/?page=adrs&adr=payments/3",
+    );
+    assert.equal(
+        scoped("decisions", "payments")("../decisions/0002-queue.md"),
+        "#/?page=adrs&adr=payments/2",
+    );
+});
+
+test("a link in an element's documents falls back to the workspace's", () => {
+    assert.equal(
+        scoped("decisions", "payments")("0001-one-workspace.md"),
+        "#/?page=adrs&adr=1",
+    );
+    assert.equal(
+        scoped("decisions", "payments")("../docs/01-context.md"),
+        "#/?page=docs&section=01-context",
+    );
+});
+
+test("a section of the element's own scope takes the scope's slug path", () => {
+    assert.equal(
+        scoped("decisions", "payments")("../docs/02-containers.md#queues"),
+        "#/?page=docs&section=payments/02-containers&subsection=queues",
+    );
+});
+
+test("the workspace's documents never reach into an element's", () => {
+    assert.equal(scoped("decisions")("0003-settle-nightly.md"), null);
+    assert.equal(scoped("docs")("02-containers.md"), null);
+});
+
+test("a decision neither scope holds stays unresolved", () => {
+    assert.equal(scoped("decisions", "payments")("0009-missing.md"), null);
+});

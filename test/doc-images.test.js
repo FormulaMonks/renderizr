@@ -56,3 +56,16 @@ test("an image the workspace lacks, a URL or an anchor is left alone", () => {
 test("a workspace with no images resolves nothing", () => {
     assert.equal(createImageResolver(undefined)("edit-mode.png"), undefined);
 });
+
+test("an element's documents look up the element's images first, then the workspace's", () => {
+    const element = createImageResolver(
+        [{ name: "context.png", type: "image/png", content: "ELEMENT" }],
+        [
+            { name: "context.png", type: "image/png", content: "WORKSPACE" },
+            { name: "logo.png", type: "image/png", content: "LOGO" },
+        ],
+    );
+    assert.equal(element("context.png"), "data:image/png;base64,ELEMENT");
+    assert.equal(element("logo.png"), "data:image/png;base64,LOGO");
+    assert.equal(element("missing.png"), undefined);
+});

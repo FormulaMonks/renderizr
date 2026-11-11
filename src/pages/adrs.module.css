@@ -68,6 +68,60 @@ superseded no longer is. */
     color: var(--color-superseded-strong);
 }
 
+/* ---- documentation scopes ---- */
+
+/* The filter above the index and above the menu, in the narrow menu's
+drop-down styling at every width. */
+.filter {
+    margin-bottom: 0.75rem;
+
+    select {
+        width: 100%;
+        font: inherit;
+        font-size: 0.9rem;
+        color: var(--color-foreground);
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        height: 2.75rem;
+        padding: 0 0.65rem;
+    }
+}
+
+.index .filter {
+    max-width: 28rem;
+    margin-top: 0.75rem;
+}
+
+/* The documentation scope a decision belongs to, while the list mixes
+scopes. `--scope-hue` is the scope's own, so a scope's pills match down the
+list. */
+.scopePill {
+    display: inline-block;
+    padding: 0 0.45rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.5;
+    white-space: nowrap;
+    vertical-align: 0.12em;
+    color: hsl(var(--scope-hue) 65% 30%);
+    background-color: hsl(var(--scope-hue) 60% 50% / 0.12);
+    border: 1px solid hsl(var(--scope-hue) 55% 45% / 0.4);
+    border-radius: 999px;
+}
+
+:root[data-theme="dark"] .scopePill {
+    color: hsl(var(--scope-hue) 70% 74%);
+    background-color: hsl(var(--scope-hue) 60% 50% / 0.16);
+    border-color: hsl(var(--scope-hue) 60% 62% / 0.45);
+}
+
+.decision h2 .scopePill {
+    font-size: 0.8rem;
+    vertical-align: 0.35em;
+}
+
 /* ---- controls bar ---- */
 
 /* One bar above the menu, outside the menu's scroll area, so its buttons stay

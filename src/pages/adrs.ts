@@ -9,13 +9,22 @@ import Menu from "../components/menu";
 import { layoutDecisionGraph, relatedDecisions } from "../model/decision-graph";
 import {
     DECISION_STATUS,
+    decisionAddress,
     decisionNumber,
-    decisionOrder,
     decisionStatus,
+    FILTER_PARAM,
+    filterByScope,
+    mixesScopes,
+    type ScopedDecision,
+    scopeFilterOf,
+    scopeFilterOptions,
+    scopeHue,
+    scopeLabel,
+    scopedDecisions,
 } from "../model/decisions";
+import type { DocumentationScope } from "../model/documentation";
 import { readSetting, writeSetting } from "../storage";
 import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
-import type { Decision } from "../types/structurizr-documentation";
 import Page from "./_page";
 import styles from "./adrs.module.css";
 import collapseIcon from "bootstrap-icons/icons/arrows-collapse-vertical.svg?raw";
@@ -66,8 +75,18 @@ const BARE_STATUS = new RegExp(
     "i",
 );
 
-const numberSpan = (id: string) =>
-    `<span class="${styles.number}">${decisionNumber(id)}</span>`;
+const numberSpan = (decision: ScopedDecision) =>
+    `<span class="${styles.number}">${decisionNumber(decision.number)}</span>`;
+
+/**
+ * The query string of `search`. A slug path reads as written in the address
+ * bar, `adr=payments/3` rather than `adr=payments%2F3`.
+ */
+const queryOf = (search: URLSearchParams) =>
+    search.toString().replaceAll("%2F", "/");
+
+/** Each documentation scope's own resolver for a decision's links or images. */
+export type ScopedResolver<Resolver> = (scope: DocumentationScope) => Resolver;
 
 const longDate = (value?: string) =>
     value
@@ -99,45 +118,86 @@ const statusPill = (status: string) =>
     `<span class="${styles.status} ${statusClass(status)}">${status || "Unknown"}</span>`;
 
 export default class Decisions extends Page {
-    #decisions: Decision[] = [];
-    #currentDecision: Decision | null = null;
+    /** Every documentation scope's decisions, in decision order. */
+    #all: ScopedDecision[] = [];
+    /** The documentation scopes that carry decisions, in model order. */
+    #scopes: DocumentationScope[] = [];
+    /** The decisions the filter keeps: the index's, the menu's, the graph's. */
+    #decisions: ScopedDecision[] = [];
+    /** The filter the page is drawn under; `null` for every scope. */
+    #filter: string | null = null;
+    /** Whether the decisions on screen mix scopes, which shows the pills. */
+    #mixed = false;
+    #currentDecision: ScopedDecision | null = null;
     // Held directly rather than looked up by class name: the minifier renames
     // classes, so `components.get("Menu")` is undefined in a built file — which
     // is why every link out of the decisions summary once did nothing.
-    #menu: Menu<Decision> | null = null;
+    #menu: Menu<ScopedDecision> | null = null;
     #graph: DecisionGraph | null = null;
     #indexGraph: DecisionGraph | null = null;
-    #resolveLink: LinkResolver | null;
-    #resolveImage: ImageResolver | null;
+    #resolveLink: ScopedResolver<LinkResolver> | null;
+    #resolveImage: ScopedResolver<ImageResolver> | null;
     /** Whether the menu keeps only the decisions related to the open one. */
     #relatedOnly = false;
     /** The cap the index's decision graph last laid out under. */
     #indexCap: number | null = null;
     #listeners: BoundListener[] = [];
     #unlisten: (() => void) | null = null;
+    /** The deferred first paint, which `clear()` calls off. */
+    #firstPaint: number | null = null;
+    /** Whether the reader just picked a filter, and so keeps the focus. */
+    #refocus = false;
 
+    /**
+     * `scopes` are the workspace's documentation scopes; the page lists the
+     * decisions of every one. A decision's links and images resolve through
+     * its own scope's resolvers.
+     */
     constructor(
         container: HTMLElement | null = null,
         name = "Decisions",
-        decisions: Decision[] = [],
-        resolveLink: LinkResolver | null = null,
-        resolveImage: ImageResolver | null = null,
+        scopes: DocumentationScope[] = [],
+        resolveLink: ScopedResolver<LinkResolver> | null = null,
+        resolveImage: ScopedResolver<ImageResolver> | null = null,
     ) {
         super(container, name);
         this.#resolveLink = resolveLink;
         this.#resolveImage = resolveImage;
-        this.#decisions = decisionOrder(decisions);
+        this.#scopes = scopes.filter((scope) => scope.decisions.length);
+        this.#all = scopedDecisions(this.#scopes);
+        this.#decisions = this.#all;
     }
 
     #opened = false;
 
-    #setAdrInUrl(adr: Decision) {
+    /**
+     * The filter `search` names, when a scope with decisions answers to it;
+     * `null`, every scope, otherwise. A page of one scope has no filter.
+     */
+    #filterIn(search: URLSearchParams): string | null {
+        const filter = search.get(FILTER_PARAM);
+        if (this.#scopes.length < 2) return null;
+        return this.#scopes.some((scope) => scopeFilterOf(scope) === filter)
+            ? filter
+            : null;
+    }
+
+    /** Keep the decisions the address's filter keeps. */
+    #applyFilter() {
+        this.#filter = this.#filterIn(
+            new URLSearchParams(history.location.search),
+        );
+        this.#decisions = filterByScope(this.#all, this.#filter);
+        this.#mixed = mixesScopes(this.#decisions);
+    }
+
+    #setAdrInUrl(adr: ScopedDecision) {
         const search = new URLSearchParams(history.location.search);
         if (search.get("adr") === adr.id) return;
         search.set("adr", adr.id);
 
         // The decision the page opens on is where the reader already is.
-        const next = { search: search.toString() };
+        const next = { search: queryOf(search) };
         if (this.#opened) history.push(next);
         else history.replace(next);
         this.#opened = true;
@@ -147,6 +207,87 @@ export default class Decisions extends Page {
         const search = new URLSearchParams(history.location.search);
         const adrId = search.get("adr");
         return this.#decisions.find((d) => d.id === adrId);
+    }
+
+    /**
+     * The pill naming `decision`'s documentation scope, in a hue of the
+     * scope's own, while the decisions on screen mix scopes; `""` otherwise.
+     * It carries its own trailing space.
+     */
+    #pill(decision: ScopedDecision): string {
+        const pill = this.#pillElement(decision);
+        return pill ? `${pill.outerHTML} ` : "";
+    }
+
+    /** The scope pill of `decision` as an element, or `null` without one. */
+    #pillElement(decision: ScopedDecision): HTMLElement | null {
+        if (!this.#mixed) return null;
+        const { scope } = decision;
+        const pill = document.createElement("span");
+        pill.className = styles.scopePill;
+        pill.dataset.scopePill = "";
+        pill.style.setProperty(
+            "--scope-hue",
+            String(scopeHue(this.#scopes, scope)),
+        );
+        pill.title = `${scope.type}: ${scope.name}`;
+        pill.textContent = scopeLabel(scope);
+        return pill;
+    }
+
+    /**
+     * The filter drop-down, above the index or the menu: every scope with
+     * decisions, indented by the scope tree. A page of one scope has none.
+     */
+    #renderFilter(id: string): string {
+        if (this.#scopes.length < 2) return "";
+        const options = scopeFilterOptions(this.#scopes)
+            .map(
+                ({ value, label, depth }) =>
+                    // Non-breaking spaces: browsers collapse regular ones.
+                    `<option value="${value}"${value === (this.#filter ?? "") ? " selected" : ""}>${"   ".repeat(depth)}${label}</option>`,
+            )
+            .join("");
+        return `<div class="${styles.filter}"><select id="${id}" data-scope-filter aria-label="Show the decisions of a documentation scope">${options}</select></div>`;
+    }
+
+    /**
+     * Picking a scope sets `filter`, or drops it for every scope. An open
+     * decision the filter hides gives way to the index.
+     */
+    #handleFilterChange = (event: Event) => {
+        const select = (event.target as HTMLElement | null)?.closest?.(
+            "select[data-scope-filter]",
+        ) as HTMLSelectElement | null;
+        if (!select) return;
+
+        const search = new URLSearchParams(history.location.search);
+        if (select.value) search.set(FILTER_PARAM, select.value);
+        else search.delete(FILTER_PARAM);
+        const open = this.#all.find((d) => d.id === search.get("adr"));
+        if (open && select.value && scopeFilterOf(open.scope) !== select.value)
+            search.delete("adr");
+
+        this.#refocus = true;
+        history.push({ search: queryOf(search) });
+    };
+
+    /**
+     * Draw the page again under the address's filter. A filter the reader
+     * just picked from keeps the focus, on whichever drop-down now shows.
+     */
+    #redraw() {
+        const refocus = this.#refocus;
+        this.clear();
+        this.render();
+        this.#refocus = false;
+        if (!refocus) return;
+        const filters = Array.from(
+            this.container?.querySelectorAll<HTMLSelectElement>(
+                "select[data-scope-filter]",
+            ) ?? [],
+        );
+        filters.find((select) => !select.closest("section")?.hidden)?.focus();
     }
 
     #formatContent(content: string): string {
@@ -203,9 +344,11 @@ export default class Decisions extends Page {
         // decisions. A heading anchor that merely starts with a number —
         // `## 1. Option A` is `#1-option-a` — used to open decision 1.
         const id = href?.match(/^#(\d+)$/)?.[1];
-        if (!id) return;
+        if (!id || !this.#currentDecision) return;
 
-        const decision = this.#decisions.find((d) => d.id === id);
+        // The link stays inside the open decision's own scope.
+        const address = decisionAddress(this.#currentDecision.scope, id);
+        const decision = this.#decisions.find((d) => d.id === address);
         if (!decision) return;
 
         event.preventDefault();
@@ -213,7 +356,8 @@ export default class Decisions extends Page {
         this.#select(decision);
     };
 
-    #decisionTitle = (item: Decision) => `${numberSpan(item.id)} ${item.title}`;
+    #decisionTitle = (item: ScopedDecision) =>
+        `${numberSpan(item)} ${this.#pill(item)}${item.title}`;
 
     /**
      * The question a reader arrives with is "which of these still stand?", and
@@ -222,7 +366,7 @@ export default class Decisions extends Page {
      * per year, beside the decision graph with every lane.
      */
     #renderIndex() {
-        const byYear = new Map<string, Decision[]>();
+        const byYear = new Map<string, ScopedDecision[]>();
         for (const decision of this.#decisions) {
             const year = decision.date
                 ? String(new Date(decision.date).getFullYear())
@@ -236,13 +380,14 @@ export default class Decisions extends Page {
 
         // The date is the row's tooltip, so the row stays as compact as the
         // menu's.
-        const row = (d: Decision) => `
+        const row = (d: ScopedDecision) => `
             <li>
-                <a class="${styles.indexRow}" href="#${d.id}" data-item-id="${d.id}" title="${longDate(d.date)}">${numberSpan(d.id)}<span class="${styles.indexStatus} ${statusClass(d.status)}">${d.status || "Unknown"}</span><span class="${styles.indexTitle}">${d.title}</span></a>
+                <a class="${styles.indexRow}" href="#${d.id}" data-item-id="${d.id}" title="${longDate(d.date)}">${numberSpan(d)}<span class="${styles.indexStatus} ${statusClass(d.status)}">${d.status || "Unknown"}</span><span class="${styles.indexTitle}">${this.#pill(d)}${d.title}</span></a>
             </li>`;
 
         return `
             <h2>Decisions</h2>
+            ${this.#renderFilter("adrs-index-filter")}
             <p class="${styles.indexIntro}">${this.#decisions.length} recorded, ${inForce} in force</p>
             <div id="adrs-index-controls" class="${styles.controls} ${styles.indexControls}" hidden>${laneButtons("adrs-index-graph")}</div>
             <div class="${styles.rows}">
@@ -260,7 +405,7 @@ export default class Decisions extends Page {
         `;
     }
 
-    #select(decision: Decision | null) {
+    #select(decision: ScopedDecision | null) {
         if (decision) {
             this.#menu?.setActive(decision);
         } else {
@@ -327,7 +472,7 @@ export default class Decisions extends Page {
         const search = new URLSearchParams(history.location.search);
         if (search.has("adr")) {
             search.delete("adr");
-            history.push({ search: search.toString() });
+            history.push({ search: queryOf(search) });
         }
         window.scrollTo({ top: 0 });
     }
@@ -336,7 +481,17 @@ export default class Decisions extends Page {
         if (!this.container) return;
         showDisclaimer("adrs");
 
+        this.#applyFilter();
         this.#currentDecision = this.#getAdrFromUrl() ?? null;
+        // A decision the filter hides gives way to the index.
+        const search = new URLSearchParams(history.location.search);
+        if (!this.#currentDecision && search.has("adr")) {
+            const hidden = this.#all.some((d) => d.id === search.get("adr"));
+            if (hidden && this.#filter !== null) {
+                search.delete("adr");
+                history.replace({ search: queryOf(search) });
+            }
+        }
         // The first view shows at once, before the deferred first paint, so
         // a deep link never flashes the index.
         const opening = this.#currentDecision !== null;
@@ -347,6 +502,7 @@ export default class Decisions extends Page {
                     ${this.#renderIndex()}
                 </section>
                 <section id="adrs-menu" class="${styles.menu}"${opening ? "" : " hidden"}>
+                    ${this.#renderFilter("adrs-menu-filter")}
                     <div id="adrs-controls" class="${styles.controls}">
                         <button type="button" id="adrs-summary" class="${styles.summaryLink}">All decisions</button>
                         <button type="button" id="adrs-expand" class="${styles.expand}" aria-controls="adrs-graph"></button>
@@ -374,12 +530,19 @@ export default class Decisions extends Page {
             .querySelector(`#adrs-menu .${styles.rows}`)!
             .appendChild(menuContainer);
 
+        // The `<select>` keeps a value of its own, whatever `selected` says.
+        for (const select of this.container.querySelectorAll<HTMLSelectElement>(
+            "select[data-scope-filter]",
+        ))
+            select.value = this.#filter ?? "";
+
         const menu = this.addComponent(
-            new Menu<Decision>(menuContainer, this.#decisions),
+            new Menu<ScopedDecision>(menuContainer, this.#decisions),
         );
         this.#menu = menu;
 
-        menu.setNumberFn((item) => decisionNumber(item.id));
+        menu.setNumberFn((item) => decisionNumber(item.number));
+        menu.setBadgeFn((item) => this.#pillElement(item));
 
         const graph = this.addComponent(
             new DecisionGraph(
@@ -418,11 +581,15 @@ export default class Decisions extends Page {
         const decisionViewer = this.addComponent(
             new MarkdownRenderer(document.getElementById("decision-content")!),
         );
-        decisionViewer.setLinkResolver(this.#resolveLink);
-        decisionViewer.setImageResolver(this.#resolveImage);
-
         menu.onSelectionChange((item) => {
             this.#currentDecision = item;
+            // Its links and images resolve in its own scope first.
+            decisionViewer.setLinkResolver(
+                this.#resolveLink?.(item.scope) ?? null,
+            );
+            decisionViewer.setImageResolver(
+                this.#resolveImage?.(item.scope) ?? null,
+            );
             decisionViewer.setContentFormatter(this.#formatContent);
             decisionViewer.setContent(item.content);
             this.#renderTitle();
@@ -436,6 +603,7 @@ export default class Decisions extends Page {
         });
 
         this.#listen(this.container, "click", this.#handleDecisionLink);
+        this.#listen(this.container, "change", this.#handleFilterChange);
         for (const [id, handler] of [
             ["adrs-summary", this.#handleSummaryClick],
             ["adrs-expand", this.#handleExpandClick],
@@ -458,6 +626,11 @@ export default class Decisions extends Page {
             if (inOtherWorkspace(location.pathname, shown)) return;
             const search = new URLSearchParams(location.search);
             if (search.get("page") !== "adrs") return;
+            // A filter the address sets draws the page again under it.
+            if (this.#filterIn(search) !== this.#filter) {
+                this.#redraw();
+                return;
+            }
 
             const decision = this.#getAdrFromUrl() ?? null;
             if (decision?.id === this.#currentDecision?.id) return;
@@ -465,7 +638,8 @@ export default class Decisions extends Page {
         });
 
         // Wait until menu is rendered
-        window.setTimeout(() => {
+        this.#firstPaint = window.setTimeout(() => {
+            this.#firstPaint = null;
             if (this.#currentDecision) {
                 menu.setActive(this.#currentDecision);
                 this.#renderTitle();
@@ -599,6 +773,8 @@ export default class Decisions extends Page {
     clear(): void {
         this.#unlisten?.();
         this.#unlisten = null;
+        if (this.#firstPaint !== null) window.clearTimeout(this.#firstPaint);
+        this.#firstPaint = null;
         this.removeAllComponents();
         this.#indexGraph?.clear();
         this.#menu = null;

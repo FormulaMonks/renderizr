@@ -19,6 +19,10 @@ import { followDevSet } from "./dev-set";
 import type { SetWorkspace } from "./workspace-set";
 import { inOtherWorkspace } from "./workspace-trail";
 import { summarizeWorkspace } from "./engine/workspace-summary";
+import {
+    type DocumentationScope,
+    documentationScopes,
+} from "./model/documentation";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";
 import { startLiveReload } from "./pages/diagrams-edit";
@@ -54,15 +58,18 @@ async function pagesOf(
     workspace: WorkspaceSummary,
     nav: Navigation,
     diagrams: Page,
+    scopes: DocumentationScope[],
 ): Promise<Page[]> {
     const routes: Page[] = [diagrams];
 
     // Links between sections and decisions are written as relative file
-    // paths; this maps them onto the routes below.
+    // paths; this maps them onto the routes below, in each documentation
+    // scope first and then the workspace's.
     const { sections, decisions, images } = workspace.documentation;
     const resolveLink = createLinkResolver({
         docs: nav.hasDocs ? { page: "docs", sections } : null,
         decisions: nav.hasDecisions ? { page: "adrs", decisions } : null,
+        scopes,
     });
     // Images they show come from the copies Structurizr embedded.
     const resolveImage = createImageResolver(images);
@@ -86,9 +93,10 @@ async function pagesOf(
             new DecisionsPage(
                 null,
                 "adrs",
-                decisions,
-                resolveLink("decisions"),
-                resolveImage,
+                scopes,
+                (scope) => resolveLink("decisions", scope.path),
+                // An element's images first, then the workspace's.
+                (scope) => createImageResolver(scope.images, images),
             ),
         );
     }
@@ -155,6 +163,7 @@ async function init() {
             summarizeWorkspace(entered.workspace),
             next,
             diagrams,
+            documentationScopes(entered.workspace),
         );
         if (showing !== shown) return;
 

@@ -23,12 +23,17 @@ const decode = (value: string) => {
  * `documentation.images`. The page has no folder beside it to load the file
  * from, and a single-file build makes no requests at all, so the image only
  * shows as the embedded copy.
+ *
+ * An element's documents pass the workspace's images as `fallback`: they
+ * look up the element's own first, then the workspace's.
  */
 export function createImageResolver(
     images: DocumentationImage[] | undefined,
+    fallback: DocumentationImage[] = [],
 ): ImageResolver {
+    // The later entry wins, so the element's own go last.
     const sources = new Map(
-        (images ?? []).map(({ name, type, content }) => [
+        [...fallback, ...(images ?? [])].map(({ name, type, content }) => [
             name,
             content.startsWith("data:")
                 ? content
