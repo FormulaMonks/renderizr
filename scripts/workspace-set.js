@@ -2,6 +2,7 @@ import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { slugOf } from "../src/model/slug.js";
 import { parseWorkspace, prepareWorkspace, readWorkspace } from "./assets.js";
 import { errorMessage } from "./dsl-pipeline.js";
 import {
@@ -207,15 +208,11 @@ export function writeSetMessages(set, output) {
 
 /**
  * A slug of `name`, the name of the software system a workspace is scoped
- * to: kebab case, accents dropped, everything outside a-z and 0-9 left out.
+ * to, by the one slug rule documentation scopes take too (ADR 30): accents
+ * dropped, lowercase, every run of characters other than Unicode letters and
+ * numbers turned into `-`.
  */
-export const slugOf = (name) =>
-    String(name)
-        .normalize("NFKD")
-        .replace(/\p{M}/gu, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+export { slugOf };
 
 /* -------------------------------------------------------------- locations */
 

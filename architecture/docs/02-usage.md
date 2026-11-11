@@ -47,7 +47,7 @@ npx github:FormulaMonks/renderizr ./landscape/workspace.json ./teams
 ### Inputs
 
 - **Workspaces**: every argument is a `workspace.json` or `workspace.dsl` file, a URL or a folder, in any order. A folder gives the `*workspace.json` and `*workspace.dsl` files it holds, without recursing, the way `generate system-landscape -input` reads one.
-- **A software system scoped workspace** is scoped to the one software system in its model with containers, as Structurizr's scope rules have it. Renderizr names the workspace after that software system: `Payment Service` gives the slug `payment-service`.
+- **A software system scoped workspace** is scoped to the one software system in its model with containers, as Structurizr's scope rules have it. Renderizr names the workspace after that software system: `Payment Service` gives the slug `payment-service`. Accents drop and the letters of every script stay, so `Café Crème` gives `cafe-creme` and `Straße` gives `straße`.
 - **A lone workspace**, one argument whose links lead nowhere, builds as it always has, whatever its scope. The build warns of each `{workspace:N}` link in it, which leads nowhere.
 
 ### Following element links

@@ -6,6 +6,7 @@ import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { loadWorkspace } from "./assets.js";
+import { payloadFile } from "./plugins.js";
 import { DslError, loadSet, slugOf } from "./workspace-set.js";
 import { fixture, REPO_ROOT, withTempDir } from "./__fixtures__/helpers.js";
 
@@ -1036,6 +1037,44 @@ test("a slug is the software system's name in kebab case", () => {
         ["CRM2Go", "crm2go"],
     ];
     for (const [name, slug] of SLUGS) assert.equal(slugOf(name), slug, name);
+});
+
+test("a slug keeps the letters the old a-z rule mangled (ADR 30)", () => {
+    const SLUGS = [
+        // The old rule gave stra-e, ørsted's ø a hyphen and 日本 nothing.
+        ["Straße", "straße"],
+        ["Ørsted Payments", "ørsted-payments"],
+        ["日本 決済", "日本-決済"],
+    ];
+    for (const [name, slug] of SLUGS) assert.equal(slugOf(name), slug, name);
+});
+
+test("a workspace scoped to a software system named outside a-z takes the new slug", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "landscape.json": landscape([
+                system("1", "Straße", { url: "{workspace:0}/diagrams" }),
+                system("2", "日本", { url: "{workspace:0}/diagrams" }),
+            ]),
+            "strasse.json": scoped("Straße"),
+            "nihon.json": scoped("日本"),
+        });
+        const set = await load(
+            ["landscape.json", "strasse.json", "nihon.json"],
+            { cwd: dir },
+        );
+        assert.deepEqual(slugs(set), ["straße", "日本"]);
+        // Each one's file under --out takes the same slug.
+        assert.deepEqual(
+            set.workspaces.map(({ slug }) => payloadFile(slug)).sort(),
+            ["straße.json", "日本.json"],
+        );
+        assert.deepEqual(crossings(set.landscape), [
+            "1 -> straße workspace-link",
+            "2 -> 日本 workspace-link",
+        ]);
+        assert.deepEqual(set.warnings, []);
+    });
 });
 
 /* ----------------------------------------------------------------- fixture */
