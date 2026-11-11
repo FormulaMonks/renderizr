@@ -110,6 +110,21 @@ type BoundListener = {
     handler: EventListener;
 };
 
+/** Give `pill` the hue its `data-scope-hue` names. */
+const paintPill = (pill: HTMLElement) =>
+    pill.style.setProperty("--scope-hue", pill.dataset.scopeHue ?? "");
+
+/**
+ * Give each scope pill under `root` the hue its `data-scope-hue` names,
+ * through the CSSOM. A strict Content Security Policy drops a `style`
+ * attribute that arrives in markup, which is how the pills in the index and
+ * the title lost their hue.
+ */
+function paintPills(root: ParentNode) {
+    for (const pill of root.querySelectorAll<HTMLElement>("[data-scope-hue]"))
+        paintPill(pill);
+}
+
 const statusPill = (status: string) =>
     `<span class="${styles.status} ${statusClass(status)}">${status || "Unknown"}</span>`;
 
@@ -206,26 +221,27 @@ export default class Decisions extends Page {
     }
 
     /**
-     * The pill naming `decision`'s documentation scope, in a hue of the
-     * scope's own, while the decisions on screen mix scopes; `""` otherwise.
-     * It carries its own trailing space.
+     * The markup of the pill naming `decision`'s documentation scope while
+     * the decisions on screen mix scopes; `""` otherwise. It carries its own
+     * trailing space, and its hue only as `data-scope-hue`: `paintPills`
+     * gives it the hue once it is in the page.
      */
     #pill(decision: ScopedDecision): string {
         const pill = this.#pillElement(decision);
         return pill ? `${pill.outerHTML} ` : "";
     }
 
-    /** The scope pill of `decision` as an element, or `null` without one. */
+    /**
+     * The scope pill of `decision` as an element, unpainted, or `null`
+     * without one.
+     */
     #pillElement(decision: ScopedDecision): HTMLElement | null {
         if (!this.#mixed) return null;
         const { scope } = decision;
         const pill = document.createElement("span");
         pill.className = styles.scopePill;
         pill.dataset.scopePill = "";
-        pill.style.setProperty(
-            "--scope-hue",
-            String(scopeHue(this.#scopes, scope)),
-        );
+        pill.dataset.scopeHue = String(scopeHue(this.#scopes, scope));
         pill.title = `${scope.type}: ${scope.name}`;
         pill.textContent = scopeLabel(scope);
         return pill;
@@ -323,6 +339,7 @@ export default class Decisions extends Page {
             <p class="${styles.date}">${longDate(this.#currentDecision?.date)}</p>
             <p>${statusPill(this.#currentDecision?.status ?? "")}</p>
         `;
+        paintPills(decisionTitle);
     }
 
     /**
@@ -517,6 +534,7 @@ export default class Decisions extends Page {
                 </section>
             </div>
         `;
+        paintPills(this.container!);
 
         // The menu's entries sit beside the decision graph, inside the
         // menu's own scroll area, so the dots scroll with their titles.
@@ -538,7 +556,11 @@ export default class Decisions extends Page {
         this.#menu = menu;
 
         menu.setNumberFn((item) => decisionNumber(item.number));
-        menu.setBadgeFn((item) => this.#pillElement(item));
+        menu.setBadgeFn((item) => {
+            const pill = this.#pillElement(item);
+            if (pill) paintPill(pill);
+            return pill;
+        });
 
         const graph = this.addComponent(
             new DecisionGraph(

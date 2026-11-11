@@ -14,7 +14,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach } from "node:test";
-import { DOMEvent } from "./support/dom.js";
+import { DOMElement, DOMEvent } from "./support/dom.js";
 import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
@@ -2001,14 +2001,14 @@ test("clear() empties the page and detaches its listeners", () => {
 
 const { documentationScopes } = await importSrc("model/documentation");
 
-const ELEMENT_DOCUMENTATION = JSON.parse(
+const SCOPED_WORKSPACE = JSON.parse(
     readFileSync(
         new URL("./__fixtures__/element-documentation.json", import.meta.url),
         "utf-8",
     ),
 );
 
-const SCOPES = documentationScopes(ELEMENT_DOCUMENTATION);
+const SCOPES = documentationScopes(SCOPED_WORKSPACE);
 
 /** Render every documentation scope's decisions, as `main.ts` does. */
 const renderScopes = (resolveLink = null) => {
@@ -2098,6 +2098,51 @@ test("the menu and the open decision's title carry the pill too", () => {
         "0003 Internet Banking System Render the web on the server",
     );
     assert.equal(pills(menuSection()).length, 9);
+});
+
+test("pills take their scope's hue through the CSSOM, never through markup", () => {
+    // A strict Content Security Policy drops a `style` attribute that
+    // arrives in markup, which left every pill in the index and the title
+    // without its hue.
+    const written = [];
+    const descriptor = Object.getOwnPropertyDescriptor(
+        DOMElement.prototype,
+        "innerHTML",
+    );
+    Object.defineProperty(DOMElement.prototype, "innerHTML", {
+        ...descriptor,
+        set(html) {
+            written.push(String(html));
+            descriptor.set.call(this, html);
+        },
+    });
+    try {
+        history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+        renderScopes();
+    } finally {
+        Object.defineProperty(DOMElement.prototype, "innerHTML", descriptor);
+    }
+
+    assert.deepEqual(
+        written.filter((html) => /\sstyle=/.test(html)),
+        [],
+        "no markup the page writes carries a style attribute",
+    );
+    const hueOf = (pill) => pill.style.getPropertyValue("--scope-hue");
+    const hues = new Map();
+    for (const root of [index(), menuSection(), title()]) {
+        for (const pill of root.querySelectorAll("[data-scope-pill]")) {
+            assert.match(hueOf(pill), /^\d+$/, `${pill.textContent} has a hue`);
+            const known = hues.get(pill.textContent) ?? hueOf(pill);
+            assert.equal(
+                hueOf(pill),
+                known,
+                `${pill.textContent} keeps one hue`,
+            );
+            hues.set(pill.textContent, known);
+        }
+    }
+    assert.equal(hues.size, 4);
 });
 
 test("the narrow menu's drop-down puts the scope in brackets", () => {
