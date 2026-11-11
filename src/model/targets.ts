@@ -16,7 +16,12 @@
  * after its element link.
  */
 
-import { decisionOrder, FILTER_PARAM, scopeFilterOf } from "./decisions";
+import {
+    decisionOrder,
+    EVERY_SCOPE,
+    FILTER_PARAM,
+    scopeFilterOf,
+} from "./decisions";
 import {
     type DocumentationScope,
     scopedId,
@@ -703,9 +708,11 @@ function landingScope(
 /**
  * The element link of an element whose own documentation scope is `own`,
  * and that scope's targets. A link to a page of another documentation
- * scope names that scope after a middle dot ("Documentation · Workspace");
- * a link to `own`'s page of the same kind stands in for `own`'s target, in
- * the link's place.
+ * scope names that scope after a middle dot ("Documentation · Workspace"),
+ * and a link to the decisions of every scope says so ("Decisions · All
+ * documentation scopes"), so it never reads as `own`'s "Decisions"; a link
+ * to `own`'s page of the same kind stands in for `own`'s target, in the
+ * link's place.
  */
 function ownDocuments(
     model: WorkspaceModel,
@@ -721,8 +728,8 @@ function ownDocuments(
     if (scope === own) {
         return [link, targets.filter((target) => target.kind !== link.kind)];
     }
-    const label = scope ? `${link.label} · ${scopeLabel(scope)}` : link.label;
-    return [{ ...link, label }, targets];
+    const named = scope ? scopeLabel(scope) : EVERY_SCOPE;
+    return [{ ...link, label: `${link.label} · ${named}` }, targets];
 }
 
 /**

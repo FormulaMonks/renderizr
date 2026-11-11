@@ -160,6 +160,22 @@ test("an element link to another documentation scope's page names it after a mid
     );
 });
 
+test("an element link to the decisions of every scope says so after a middle dot", () => {
+    // Plain "Decisions" twice, once for the element's own and once for the
+    // index of every scope, left the reader to guess which was which.
+    for (const api of ["#/?page=adrs", "{workspace}/decisions"]) {
+        assert.deepEqual(
+            offers("api", { api }),
+            [
+                "decisions: Decisions · All documentation scopes page=adrs",
+                "documentation: Documentation page=docs&section=internet-banking-system/api-application/01-overview",
+                "decisions: Decisions page=adrs&filter=internet-banking-system/api-application",
+            ],
+            api,
+        );
+    }
+});
+
 test("an element link to the element's own documentation scope merges with its own target", () => {
     assert.deepEqual(
         offers("api", {

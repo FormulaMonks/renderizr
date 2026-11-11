@@ -107,6 +107,12 @@ export function decisionAddress(
 export const FILTER_PARAM = "filter";
 
 /**
+ * What names the decisions of every documentation scope: the filter's
+ * first entry, and a link to the unfiltered index after a middle dot.
+ */
+export const EVERY_SCOPE = "All documentation scopes";
+
+/**
  * What `filter` holds for `scope`: its slug path, or for the workspace's own
  * Structurizr's name for it, `*`.
  */
@@ -198,7 +204,7 @@ export function scopeFilterOptions(
         return depth;
     };
     return [
-        { value: "", label: "All documentation scopes", depth: 0 },
+        { value: "", label: EVERY_SCOPE, depth: 0 },
         ...scopes
             .filter((scope) => scope.decisions.length)
             .map((scope) => ({
