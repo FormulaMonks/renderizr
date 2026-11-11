@@ -162,7 +162,16 @@ export function createConfig({
         // `npx` installs the package, and would serve the file as is, a
         // second copy of Preact beside the pre-bundled one React Flow uses.
         // Naming it here pre-bundles it wherever the package lives.
-        optimizeDeps: { include: ["preact/compat/jsx-dev-runtime"] },
+        //
+        // `entries` names the page's one HTML entry. Without it, Vite scans
+        // every `**/*.html` under the root and skips the build's folder by a
+        // glob that only matches a relative `outDir`, so after `renderizr`
+        // writes `structurizr-output/index.html`, a cold dev server parses
+        // that built page and its scan fails.
+        optimizeDeps: {
+            include: ["preact/compat/jsx-dev-runtime"],
+            entries: ["index.html"],
+        },
         define: {
             __RENDERIZR_LOGO__: blankedUnderArtifact(logo),
             __RENDERIZR_FONT__: blankedUnderArtifact(font ? font.family : null),
