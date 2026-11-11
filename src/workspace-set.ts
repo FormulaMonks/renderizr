@@ -1,3 +1,4 @@
+import type { SetMember } from "./model";
 import type {
     Branding,
     Crossing,
@@ -32,9 +33,6 @@ export type SetWorkspace = {
     /** Its elements that lead into another workspace of the set. */
     crossings: Crossing[];
 };
-
-/** A software system scoped workspace the set holds, before it loads. */
-export type SetMember = { slug: string; name: string };
 
 /** What a set is made of. */
 export type WorkspaceSetSource = {

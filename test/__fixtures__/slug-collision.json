@@ -1,0 +1,61 @@
+{
+    "name": "Slug Collision",
+    "description": "Two containers, API and Api, whose names slug the same and which both carry documentation, so the later one's documents take api-2.",
+    "model": {
+        "softwareSystems": [
+            {
+                "id": "1",
+                "name": "Orders",
+                "tags": "Element,Software System",
+                "containers": [
+                    {
+                        "id": "2",
+                        "name": "API",
+                        "tags": "Element,Container",
+                        "documentation": {
+                            "sections": [
+                                {
+                                    "id": "01-public",
+                                    "title": "Public API",
+                                    "content": "# Public API\n\nThe API customers call.",
+                                    "filename": "01-public.md",
+                                    "format": "Markdown",
+                                    "order": 1
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "id": "3",
+                        "name": "Api",
+                        "tags": "Element,Container",
+                        "documentation": {
+                            "sections": [
+                                {
+                                    "id": "01-internal",
+                                    "title": "Internal API",
+                                    "content": "# Internal API\n\nThe API the back office calls.",
+                                    "filename": "01-internal.md",
+                                    "format": "Markdown",
+                                    "order": 1
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "views": {
+        "containerViews": [
+            {
+                "key": "Containers",
+                "softwareSystemId": "1",
+                "elements": [
+                    { "id": "2", "x": 100, "y": 100 },
+                    { "id": "3", "x": 600, "y": 100 }
+                ]
+            }
+        ]
+    }
+}

@@ -6,6 +6,7 @@ import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { loadWorkspace } from "./assets.js";
+import { payloadFile } from "./plugins.js";
 import { DslError, loadSet, slugOf } from "./workspace-set.js";
 import { fixture, REPO_ROOT, withTempDir } from "./__fixtures__/helpers.js";
 
@@ -1038,6 +1039,44 @@ test("a slug is the software system's name in kebab case", () => {
     for (const [name, slug] of SLUGS) assert.equal(slugOf(name), slug, name);
 });
 
+test("a slug keeps the letters outside a-z (ADR 30)", () => {
+    const SLUGS = [
+        // An a-z rule would give stra-e, ørsted's ø a hyphen and 日本 nothing.
+        ["Straße", "straße"],
+        ["Ørsted Payments", "ørsted-payments"],
+        ["日本 決済", "日本-決済"],
+    ];
+    for (const [name, slug] of SLUGS) assert.equal(slugOf(name), slug, name);
+});
+
+test("a workspace scoped to a software system named outside a-z takes a slug that keeps its letters", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "landscape.json": landscape([
+                system("1", "Straße", { url: "{workspace:0}/diagrams" }),
+                system("2", "日本", { url: "{workspace:0}/diagrams" }),
+            ]),
+            "strasse.json": scoped("Straße"),
+            "nihon.json": scoped("日本"),
+        });
+        const set = await load(
+            ["landscape.json", "strasse.json", "nihon.json"],
+            { cwd: dir },
+        );
+        assert.deepEqual(slugs(set), ["straße", "日本"]);
+        // Each one's file under --out takes the same slug.
+        assert.deepEqual(
+            set.workspaces.map(({ slug }) => payloadFile(slug)).sort(),
+            ["straße.json", "日本.json"],
+        );
+        assert.deepEqual(crossings(set.landscape), [
+            "1 -> straße workspace-link",
+            "2 -> 日本 workspace-link",
+        ]);
+        assert.deepEqual(set.warnings, []);
+    });
+});
+
 /* ----------------------------------------------------------------- fixture */
 
 test("the enterprise fixture loads as a set, warning only of its one crossing to a missing view", async () => {
@@ -1059,4 +1098,142 @@ test("the enterprise fixture loads as a set, warning only of its one crossing to
     for (const crossing of set.landscape.crossings) {
         assert.equal(crossing.via, "workspace-link");
     }
+});
+
+/* -------------------------------------------------- documentation scopes */
+
+/** A workspace scoped to `name` whose software system carries `documentation`. */
+const documented = (name, documentation, options) => {
+    const workspace = scoped(name, options);
+    workspace.model.softwareSystems[0].documentation = documentation;
+    return workspace;
+};
+
+test("the loader records whether each workspace's software system carries documentation or decisions", async () => {
+    await withTempDir(async (dir) => {
+        await write(dir, {
+            "landscape.json": landscape([
+                system("1", "Orders"),
+                system("2", "Payments"),
+                system("3", "Shipping"),
+                system("4", "Billing"),
+            ]),
+            "orders.json": documented("Orders", {
+                sections: [{ filename: "01-context.md", order: 1 }],
+                decisions: [{ id: "1" }],
+            }),
+            "payments.json": documented("Payments", {
+                decisions: [{ id: "1" }],
+            }),
+            // The workspace's own documentation isn't the software system's.
+            "shipping.json": scoped("Shipping", {
+                documentation: { sections: [{ filename: "01.md" }] },
+            }),
+            "billing.json": scoped("Billing"),
+        });
+        const set = await load(
+            [
+                "landscape.json",
+                "orders.json",
+                "payments.json",
+                "shipping.json",
+                "billing.json",
+            ],
+            { cwd: dir },
+        );
+        assert.deepEqual(
+            Object.fromEntries(
+                set.workspaces.map((member) => [member.slug, member.documents]),
+            ),
+            {
+                orders: {
+                    scope: "orders",
+                    documentation: true,
+                    decisions: true,
+                },
+                payments: {
+                    scope: "payments",
+                    documentation: false,
+                    decisions: true,
+                },
+                shipping: null,
+                billing: null,
+            },
+        );
+        assert.equal(set.landscape.documents, null);
+    });
+});
+
+test("the slug path a software system records takes -2 after an earlier sibling that slugs the same", async () => {
+    await withTempDir(async (dir) => {
+        const workspace = documented(
+            "Payments",
+            { sections: [{ filename: "01.md" }] },
+            { others: [system("9", "payments!")] },
+        );
+        workspace.model.softwareSystems.reverse();
+        await write(dir, {
+            "landscape.json": landscape([system("1", "Payments")]),
+            "payments.json": workspace,
+        });
+        const set = await load(["landscape.json", "payments.json"], {
+            cwd: dir,
+        });
+        assert.equal(set.workspaces[0].documents.scope, "payments-2");
+    });
+});
+
+test("a crossing to an element's documentation or decisions warns only when no documentation scope of the target carries them", async () => {
+    await withTempDir(async (dir) => {
+        const payments = scoped("Payments", { id: 3 });
+        payments.model.softwareSystems[0].containers[0].documentation = {
+            sections: [{ filename: "01-api.md" }],
+            decisions: [{ id: "1" }],
+        };
+        await write(dir, {
+            "landscape.json": landscape([
+                system("1", "Payments", {
+                    url: "{workspace:0}/documentation/Payments/API#01-api",
+                }),
+                system("2", "Orders", {
+                    relationships: [
+                        {
+                            id: "5",
+                            sourceId: "2",
+                            destinationId: "1",
+                            url: "{workspace:3}/decisions/Payments/API#1",
+                        },
+                    ],
+                }),
+            ]),
+            "payments.json": payments,
+        });
+        const set = await load(["landscape.json", "payments.json"], {
+            cwd: dir,
+        });
+        assert.deepEqual(set.warnings, []);
+        assert.deepEqual(crossings(set.landscape), [
+            "1 -> payments workspace-link",
+            "5 -> payments workspace-link",
+        ]);
+    });
+});
+
+test("the element-documentation.json fixture loads as a set whose Payments workspace carries documentation and decisions on Payments alone", async () => {
+    const set = await load(["test/__fixtures__/enterprise-documentation"], {
+        cwd: REPO_ROOT,
+    });
+    assert.deepEqual(set.warnings, []);
+    assert.deepEqual(
+        set.workspaces.map(({ slug, documents }) => [slug, documents]),
+        [
+            [
+                "payments",
+                { scope: "payments", documentation: true, decisions: true },
+            ],
+        ],
+    );
+    // A landscape scoped workspace carries none of a software system's.
+    assert.equal(set.landscape.documents, null);
+    assert.equal(set.landscape.workspace.documentation, undefined);
 });

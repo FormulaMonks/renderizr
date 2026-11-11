@@ -2,6 +2,8 @@ import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { anyScopeCarries, carries } from "../src/model/carries.js";
+import { siblingSlugs, slugOf } from "../src/model/slug.js";
 import { parseWorkspace, prepareWorkspace, readWorkspace } from "./assets.js";
 import { errorMessage } from "./dsl-pipeline.js";
 import {
@@ -64,6 +66,11 @@ import {
  * @property {Crossing[]} crossings The elements of this workspace that lead
  *   into another workspace of the set, at most one per element and target,
  *   in element order.
+ * @property {import("../src/model/targets").SetDocuments | null} documents
+ *   What the software system the workspace is scoped to carries as a
+ *   documentation scope, so the landscape scoped workspace can offer it
+ *   without loading the workspace; `null` where `slug` is, or when it
+ *   carries no sections or decisions.
  *
  * @typedef {object} WorkspaceSet
  * @property {SetMember} landscape The landscape scoped workspace, where the
@@ -170,6 +177,7 @@ export async function loadSet(
                 slug: null,
                 system: null,
                 crossings: [],
+                documents: null,
             },
             workspaces: [],
             // The page gives its `{workspace:N}` links no target, so the
@@ -187,9 +195,15 @@ export async function loadSet(
         slug,
         system,
         crossings,
+        documents: documentsOf(workspace, system),
     });
     return {
-        landscape: { ...result(landscape), slug: null, system: null },
+        landscape: {
+            ...result(landscape),
+            slug: null,
+            system: null,
+            documents: null,
+        },
         workspaces: members.filter((other) => other !== landscape).map(result),
         warnings,
         notices,
@@ -207,15 +221,11 @@ export function writeSetMessages(set, output) {
 
 /**
  * A slug of `name`, the name of the software system a workspace is scoped
- * to: kebab case, accents dropped, everything outside a-z and 0-9 left out.
+ * to, by the one slug rule documentation scopes take too (ADR 30): accents
+ * dropped, lowercase, every run of characters other than Unicode letters and
+ * numbers turned into `-`.
  */
-export const slugOf = (name) =>
-    String(name)
-        .normalize("NFKD")
-        .replace(/\p{M}/gu, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+export { slugOf };
 
 /* -------------------------------------------------------------- locations */
 
@@ -377,6 +387,25 @@ function member(location, workspace) {
         slug: system && slugOf(system.name),
         crossings: [],
     };
+}
+
+/**
+ * What `system`, the software system `workspace` is scoped to, carries as a
+ * documentation scope, or `null` when it carries nothing. Its slug path is
+ * the one `documentationScopes` in `src/model/documentation.ts` gives it:
+ * its sibling slug among the workspace's software systems.
+ */
+function documentsOf(workspace, system) {
+    if (!system) return null;
+    const systems = softwareSystems(workspace);
+    const at = systems.findIndex(({ id }) => String(id) === system.id);
+    const { documentation } = systems[at] ?? {};
+    const documents = {
+        scope: siblingSlugs(systems.map(({ name }) => name))[at],
+        documentation: carries(documentation, ["sections"]),
+        decisions: carries(documentation, ["decisions"]),
+    };
+    return documents.documentation || documents.decisions ? documents : null;
 }
 
 /** Why software system scoped `workspace` has no one software system. */
@@ -587,7 +616,8 @@ const viewKeys = (workspace) =>
  * Why the crossing `url` can't land where it says in `target`, or `null`.
  * The path after `{workspace:N}` reads against the target the way an
  * element link reads against its own workspace: `/diagrams#key` names a
- * view, `/documentation` and `/decisions` name those pages.
+ * view, `/documentation` and `/decisions` name those pages, which any
+ * documentation scope of the target may hold.
  */
 function missingLanding(url, target) {
     const rest = url.replace(WORKSPACE_LINK, "");
@@ -605,9 +635,7 @@ function missingLanding(url, target) {
     for (const page of ["documentation", "decisions"]) {
         if (!segments.includes(page)) continue;
         const ids = page === "documentation" ? "sections" : "decisions";
-        return (workspace.documentation?.[ids] ?? []).length === 0
-            ? `no ${page}`
-            : null;
+        return anyScopeCarries(workspace, [ids]) ? null : `no ${page}`;
     }
     return null;
 }

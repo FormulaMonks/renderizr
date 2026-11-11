@@ -128,6 +128,30 @@ A diagram that draws but uses what Renderizr leaves out prints one warning that 
 | `participant type "<type>"`                                                              | Draws a sequence diagram's `boundary`, `control`, `entity` or `collections` participant as the participant box                                                                                                   |
 | `half arrows`                                                                            | Draws a sequence diagram's half arrow as a whole one at the end the syntax puts it: a solid half head as an arrow, a barb as an open arrow                                                                       |
 
+## Element links to documents
+
+An element link, a relationship's link or a Mermaid flowchart node's `click` link can lead to the sections and decisions of any documentation scope: the workspace's, or those of a software system, a container or a component.
+
+| Link                                                           | Leads to                                                                                              |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `{workspace}/documentation#<section>`                          | The workspace's section `<section>`                                                                   |
+| `{workspace}/documentation/<name>[/<name>[/<name>]]#<section>` | The section `<section>` of the element at that name path                                              |
+| `{workspace}/decisions#<id>`                                   | The workspace's decision `<id>`                                                                       |
+| `{workspace}/decisions/<name>[/<name>[/<name>]]#<id>`          | The decision `<id>` of the element at that name path                                                  |
+| `#/?page=docs&section=<slug path>/<section>`                   | The section `<section>` of the documentation scope at `<slug path>`                                   |
+| `#/?page=adrs&adr=<slug path>/<id>`                            | The decision `<id>` of the documentation scope at `<slug path>`                                       |
+| `#/?page=adrs&filter=<slug path>`                              | The decisions index, narrowed to the documentation scope at `<slug path>`, or `*` for the workspace's |
+
+The name path follows Structurizr's: one element name per segment, from the software system down, so `Internet Banking System/API Application` names a container. Names match as written or percent-encoded (`Internet%20Banking%20System`), ignoring case, and `*` names the workspace. A page on Structurizr's own hosts, such as `https://structurizr.com/share/1234/documentation/Internet%20Banking%20System#01-context`, reads the same way. The fragment holds a section id, the section's file name without `.md`, or a decision id.
+
+An element's documents have addresses of their own: the documentation scope's slug path rides in front of the document's id, one segment per element from the software system down, each the slug of the element's name (ADR 30). `?page=docs&section=internet-banking-system/api-application/01-overview` opens a section of the API Application container, and `?page=adrs&adr=internet-banking-system/3` a decision of the Internet Banking System software system. The workspace's own documents add no slug path, so `?page=docs&section=01-about` and `?page=adrs&adr=1` keep the addresses they always had.
+
+A link that names a document a documentation scope lacks still leads somewhere:
+
+- An unknown section or decision in a known documentation scope opens that scope's first section, or its newest decision. For the workspace's own, it opens the page as before.
+- A name path or slug path that names no documentation scope, or an element that carries no sections (or no decisions), opens the documentation page (or the decisions page) where it lands on its own.
+- When no documentation scope carries sections (or decisions), the link leads nowhere, and a page on Structurizr's hosts opens there in a new tab.
+
 ## The Mermaid parser
 
 The build reads Mermaid source with `scripts/mermaid/parser.js`: Mermaid's own flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, cut loose from the rest of Mermaid and bundled into one ES module with Mermaid's MIT notice at the top. Only the build runs it; the page never carries it, and `mermaid` never enters Renderizr's dependencies.

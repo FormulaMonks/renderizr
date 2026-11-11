@@ -14,7 +14,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach } from "node:test";
-import { DOMEvent } from "./support/dom.js";
+import { DOMElement, DOMEvent } from "./support/dom.js";
 import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
@@ -43,10 +43,24 @@ beforeEach(() => {
     history.replace({ search: "?page=adrs", hash: "" });
 });
 
+/** The workspace's own documentation scope, carrying `decisions`. */
+const workspaceScope = (decisions) => ({
+    type: "Workspace",
+    name: "Workspace",
+    elementId: null,
+    names: [],
+    path: "",
+    parent: null,
+    depth: 0,
+    sections: [],
+    decisions,
+    images: [],
+});
+
 /** Render the page and run the deferred first paint. */
 const renderPage = (decisions = FIXTURE_DECISIONS) => {
     rendered?.clear();
-    const page = new Decisions(host, "adrs", decisions);
+    const page = new Decisions(host, "adrs", [workspaceScope(decisions)]);
     rendered = page;
     page.render();
     dom.runTimers();
@@ -1935,14 +1949,18 @@ test("a relative link to another decision is routed through the resolver", () =>
         host,
         "adrs",
         [
-            decision("1"),
-            decision("2", {
-                content:
-                    "# 2. Second\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nSee [the first](0001-first.md).\n",
-            }),
+            workspaceScope([
+                decision("1"),
+                decision("2", {
+                    content:
+                        "# 2. Second\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nSee [the first](0001-first.md).\n",
+                }),
+            ]),
         ],
-        (href) => (href === "0001-first.md" ? "#/?page=adrs&adr=1" : undefined),
+        () => (href) =>
+            href === "0001-first.md" ? "#/?page=adrs&adr=1" : undefined,
     );
+    rendered = page;
     page.render();
     dom.runTimers();
 
@@ -1977,4 +1995,381 @@ test("clear() empties the page and detaches its listeners", () => {
 
     assert.equal(host.innerHTML, "");
     assert.equal(document.getElementById("decision-content"), null);
+});
+
+/* ---------------------------------------------- documentation scopes -- */
+
+const { documentationScopes } = await importSrc("model/documentation");
+
+const SCOPED_WORKSPACE = JSON.parse(
+    readFileSync(
+        new URL("./__fixtures__/element-documentation.json", import.meta.url),
+        "utf-8",
+    ),
+);
+
+const SCOPES = documentationScopes(SCOPED_WORKSPACE);
+
+/** Render every documentation scope's decisions, as `main.ts` does. */
+const renderScopes = (resolveLink = null) => {
+    rendered?.clear();
+    const page = new Decisions(host, "adrs", SCOPES, resolveLink);
+    rendered = page;
+    page.render();
+    dom.runTimers();
+    return page;
+};
+
+const search = () => new URLSearchParams(history.location.search);
+
+/** The text of each scope pill under `root`. */
+const pills = (root) =>
+    root.querySelectorAll("[data-scope-pill]").map((pill) => pill.textContent);
+
+const filterOf = (section) =>
+    document.querySelector(`#${section} select[data-scope-filter]`);
+
+/** Pick `value` in the filter above `section`. */
+const pickFilter = (section, value) => {
+    const select = filterOf(section);
+    select.value = value;
+    select.dispatchEvent(new DOMEvent("change", { bubbles: true }));
+    dom.runTimers();
+};
+
+const SIGN_IN = "internet-banking-system/api-application/sign-in-controller";
+
+test("the index lists every documentation scope's decisions, newest first", () => {
+    renderScopes();
+
+    assert.equal(indexRows().length, 9);
+    assert.match(index().querySelector("p").textContent, /^9 recorded/);
+    assert.deepEqual(
+        indexRows()
+            .slice(0, 3)
+            .map((row) => row.dataset.itemId),
+        [
+            `${SIGN_IN}/1`,
+            "internet-banking-system/4",
+            "internet-banking-system/api-application/2",
+        ],
+    );
+});
+
+test("each decision shows its own number, however many scopes share it", () => {
+    renderScopes();
+
+    const numbers = indexRows().map(
+        (row) => row.querySelector("span").textContent,
+    );
+    assert.equal(numbers.filter((number) => number === "0001").length, 4);
+});
+
+test("while the list mixes scopes, every row carries a pill naming its scope", () => {
+    renderScopes();
+
+    assert.deepEqual(pills(index()).slice(0, 3), [
+        "Sign In Controller",
+        "Internet Banking System",
+        "API Application",
+    ]);
+    assert.equal(pills(index()).length, 9);
+    assert.ok(pills(index()).includes("Workspace"));
+});
+
+test("a scope's pills share a hue of the scope's own", () => {
+    renderScopes();
+
+    const hues = new Map();
+    for (const pill of index().querySelectorAll("[data-scope-pill]")) {
+        const hue = pill.getAttribute("style");
+        assert.ok(hues.get(pill.textContent) ?? hue, hue);
+        hues.set(pill.textContent, hue);
+    }
+    assert.equal(new Set(hues.values()).size, 4);
+});
+
+test("the menu and the open decision's title carry the pill too", () => {
+    history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+    renderScopes();
+
+    assert.equal(
+        title().querySelector("h2").textContent,
+        "0003 Internet Banking System Render the web on the server",
+    );
+    assert.equal(pills(menuSection()).length, 9);
+});
+
+test("pills take their scope's hue through the CSSOM, never through markup", () => {
+    // A strict Content Security Policy drops a `style` attribute that
+    // arrives in markup, which left every pill in the index and the title
+    // without its hue.
+    const written = [];
+    const descriptor = Object.getOwnPropertyDescriptor(
+        DOMElement.prototype,
+        "innerHTML",
+    );
+    Object.defineProperty(DOMElement.prototype, "innerHTML", {
+        ...descriptor,
+        set(html) {
+            written.push(String(html));
+            descriptor.set.call(this, html);
+        },
+    });
+    try {
+        history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+        renderScopes();
+    } finally {
+        Object.defineProperty(DOMElement.prototype, "innerHTML", descriptor);
+    }
+
+    assert.deepEqual(
+        written.filter((html) => /\sstyle=/.test(html)),
+        [],
+        "no markup the page writes carries a style attribute",
+    );
+    const hueOf = (pill) => pill.style.getPropertyValue("--scope-hue");
+    const hues = new Map();
+    for (const root of [index(), menuSection(), title()]) {
+        for (const pill of root.querySelectorAll("[data-scope-pill]")) {
+            assert.match(hueOf(pill), /^\d+$/, `${pill.textContent} has a hue`);
+            const known = hues.get(pill.textContent) ?? hueOf(pill);
+            assert.equal(
+                hueOf(pill),
+                known,
+                `${pill.textContent} keeps one hue`,
+            );
+            hues.set(pill.textContent, known);
+        }
+    }
+    assert.equal(hues.size, 4);
+});
+
+test("the narrow menu's drop-down puts the scope in brackets", () => {
+    dom.setViewportWidth(600);
+    history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+    renderScopes();
+
+    assert.ok(
+        document
+            .querySelectorAll("#adrs-menu option")
+            .map((option) => option.textContent)
+            .includes("0002 [API Application] Version the API in the path"),
+    );
+});
+
+test("a decision opened from the full list names its scope in adr and keeps the filter off", () => {
+    renderScopes();
+
+    indexRows()
+        .find((row) => row.dataset.itemId === "internet-banking-system/3")
+        .click();
+
+    assert.equal(search().get("adr"), "internet-banking-system/3");
+    assert.equal(search().has("filter"), false);
+    assert.match(history.location.search, /adr=internet-banking-system\/3/);
+});
+
+test("the workspace's own decisions keep their addresses", () => {
+    history.replace({ search: "?page=adrs&adr=2" });
+    renderScopes();
+
+    assert.equal(
+        title().querySelector("h2").textContent,
+        "0002 Workspace Publish the workspace as a static site",
+    );
+});
+
+test("a decision's links stay inside its own scope", () => {
+    history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+    renderScopes();
+
+    assert.deepEqual(
+        document
+            .querySelectorAll("#adrs-menu a[data-linked]")
+            .map((link) => link.dataset.itemId),
+        ["internet-banking-system/2"],
+    );
+});
+
+test("a link between decisions written as #2 opens the decision of the same scope", () => {
+    const scopes = [
+        workspaceScope([decision("2")]),
+        {
+            ...workspaceScope([
+                decision("2"),
+                decision("3", {
+                    content:
+                        "# 3. Third\n\n## Status\n\nAccepted\n\n## Context\n\nSee [two](#2).\n",
+                }),
+            ]),
+            type: "Software System",
+            name: "Payments",
+            path: "payments",
+        },
+    ];
+    rendered?.clear();
+    rendered = new Decisions(host, "adrs", scopes);
+    history.replace({ search: "?page=adrs&adr=payments/3" });
+    rendered.render();
+    dom.runTimers();
+
+    content().querySelector('a[href="#2"]').click();
+
+    assert.equal(search().get("adr"), "payments/2");
+});
+
+test("a decision's relative links resolve in its own scope", () => {
+    const asked = [];
+    history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+    renderScopes((scope) => {
+        asked.push(scope.path);
+        return () => undefined;
+    });
+
+    assert.ok(asked.includes("internet-banking-system"));
+});
+
+test("the filter sits above the index and above the menu, listing every scope with decisions", () => {
+    renderScopes();
+
+    for (const section of ["adrs-index", "adrs-menu"]) {
+        const select = filterOf(section);
+        assert.ok(select, section);
+        assert.deepEqual(
+            select
+                .querySelectorAll("option")
+                .map((option) => option.textContent.trim()),
+            [
+                "All documentation scopes",
+                "[Workspace] Big Bank plc, documented at every scope (2)",
+                "[Software System] Internet Banking System (4)",
+                "[Container] API Application (2)",
+                "[Component] Sign In Controller (1)",
+            ],
+        );
+        assert.equal(select.value, "");
+    }
+});
+
+test("a workspace whose decisions are all its own shows no filter and no pills", () => {
+    renderPage();
+
+    assert.equal(filterOf("adrs-index"), null);
+    assert.equal(filterOf("adrs-menu"), null);
+    assert.deepEqual(pills(index()), []);
+});
+
+test("the filter narrows the index, the menu and the decision graph, and the pills go away", () => {
+    renderScopes();
+
+    pickFilter("adrs-index", "internet-banking-system");
+
+    assert.equal(search().get("filter"), "internet-banking-system");
+    assert.equal(indexRows().length, 4);
+    assert.deepEqual(pills(index()), []);
+    assert.equal(
+        document.querySelectorAll('#adrs-index [data-mark="dot"]').length,
+        4,
+    );
+    assert.equal(
+        document.querySelectorAll("#adrs-menu a[data-item-id]").length,
+        4,
+    );
+    assert.equal(
+        document.querySelectorAll('#adrs-menu [data-mark="dot"]').length,
+        4,
+    );
+    assert.equal(filterOf("adrs-index").value, "internet-banking-system");
+});
+
+test("the filter rides in the address: * for the workspace's own, none for every scope", () => {
+    history.replace({ search: "?page=adrs&filter=*" });
+    renderScopes();
+
+    assert.deepEqual(
+        indexRows().map((row) => row.dataset.itemId),
+        ["2", "1"],
+    );
+
+    pickFilter("adrs-index", "");
+
+    assert.equal(search().has("filter"), false);
+    assert.equal(indexRows().length, 9);
+});
+
+test("a filter from the address with a slug path keeps its slashes", () => {
+    renderScopes();
+
+    pickFilter("adrs-index", "internet-banking-system/api-application");
+
+    assert.match(
+        history.location.search,
+        /filter=internet-banking-system\/api-application/,
+    );
+    assert.equal(indexRows().length, 2);
+});
+
+test("an open decision the filter hides gives way to the index", () => {
+    history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+    renderScopes();
+
+    pickFilter("adrs-menu", "*");
+
+    assert.equal(search().has("adr"), false);
+    assert.equal(search().get("filter"), "*");
+    assert.equal(index().hidden, false);
+    assert.equal(decisionSection().hidden, true);
+    assert.equal(indexRows().length, 2);
+});
+
+test("an open decision the filter keeps stays open", () => {
+    history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
+    renderScopes();
+
+    pickFilter("adrs-menu", "internet-banking-system");
+
+    assert.equal(search().get("adr"), "internet-banking-system/3");
+    assert.equal(decisionSection().hidden, false);
+    assert.equal(
+        title().querySelector("h2").textContent,
+        "0003 Render the web on the server",
+    );
+});
+
+test("an address whose decision the filter hides opens on the index", () => {
+    history.replace({
+        search: "?page=adrs&filter=*&adr=internet-banking-system/3",
+    });
+    renderScopes();
+
+    assert.equal(index().hidden, false);
+    assert.equal(search().has("adr"), false);
+});
+
+test("Back undoes the filter", () => {
+    renderScopes();
+    pickFilter("adrs-index", "*");
+
+    window.history.back();
+    dom.runTimers();
+
+    assert.equal(search().has("filter"), false);
+    assert.equal(indexRows().length, 9);
+});
+
+test("Related only stays inside the filtered list", () => {
+    history.replace({
+        search: "?page=adrs&filter=internet-banking-system&adr=internet-banking-system/3",
+    });
+    renderScopes();
+
+    document.getElementById("adrs-related").click();
+
+    assert.deepEqual(
+        document
+            .querySelectorAll("#adrs-menu a[data-item-id]")
+            .map((link) => link.dataset.itemId),
+        ["internet-banking-system/3", "internet-banking-system/2"],
+    );
 });

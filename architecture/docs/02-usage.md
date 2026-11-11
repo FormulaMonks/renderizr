@@ -47,7 +47,7 @@ npx github:FormulaMonks/renderizr ./landscape/workspace.json ./teams
 ### Inputs
 
 - **Workspaces**: every argument is a `workspace.json` or `workspace.dsl` file, a URL or a folder, in any order. A folder gives the `*workspace.json` and `*workspace.dsl` files it holds, without recursing, the way `generate system-landscape -input` reads one.
-- **A software system scoped workspace** is scoped to the one software system in its model with containers, as Structurizr's scope rules have it. Renderizr names the workspace after that software system: `Payment Service` gives the slug `payment-service`.
+- **A software system scoped workspace** is scoped to the one software system in its model with containers, as Structurizr's scope rules have it. Renderizr names the workspace after that software system: `Payment Service` gives the slug `payment-service`. Accents drop and the letters of every script stay, so `Café Crème` gives `cafe-creme` and `Straße` gives `straße`.
 - **A lone workspace**, one argument whose links lead nowhere, builds as it always has, whatever its scope. The build warns of each `{workspace:N}` link in it, which leads nowhere.
 
 ### Following element links
@@ -129,6 +129,57 @@ Without `--single-file` or `--artifact`, the build writes `index.html`, an `asse
 
 The footer of every page says what is on screen and which Renderizr built it: a C4 view is in C4 notation and drawn with React Flow, a Mermaid diagram comes from Mermaid source and is drawn with React Flow, a picture names only the workspace, and the documentation and decisions pages say whose they are.
 
+### Documentation and decisions
+
+Renderizr renders the documentation sections and decisions of every documentation scope: the workspace's, and those that `!docs` and `!adrs` written inside a software system, a container or a component give that element. The documentation page lists the workspace and each software system at the top of its menu, with a container under its software system and a component under its container, and opens the sections of one documentation scope at a time. An element's sections take addresses of their own, with the element's slug path in front of the section id: `?page=docs&section=internet-banking-system/api-application/01-overview`. A relative link in an element's documentation leads to a section of the same element first, then to one of the workspace's, and an image comes from the element's own images first, then from the workspace's. `pnpm dev` and edit mode update an element's documentation the way they update the workspace's.
+
+Write `!docs` and `!adrs` inside an element's block, with a folder path relative to `workspace.dsl`, the same way you write them at the top of the workspace. A container or a component can carry decisions without sections:
+
+```
+workspace "Big Bank plc" {
+    !docs docs
+    !adrs adrs
+
+    model {
+        internetBanking = softwareSystem "Internet Banking System" {
+            !docs internet-banking-system/docs
+            !adrs internet-banking-system/adrs
+
+            apiApplication = container "API Application" {
+                !docs internet-banking-system/api-application/docs
+                !adrs internet-banking-system/api-application/adrs
+
+                signIn = component "Sign In Controller" {
+                    !adrs internet-banking-system/api-application/sign-in-controller/adrs
+                }
+            }
+        }
+    }
+}
+```
+
+Any folder layout works. Mirroring the model, one folder per element under its parent's, keeps each element's files beside the ones they belong with:
+
+```
+workspace.dsl
+docs/01-introduction.md
+adrs/0001-record-architecture-decisions.md
+internet-banking-system/
+├── docs/01-overview.md
+├── docs/02-deployment.md
+├── adrs/0001-render-the-web-on-the-server.md
+└── api-application/
+    ├── docs/01-endpoints.md
+    ├── adrs/0001-version-the-api-in-the-path.md
+    └── sign-in-controller/adrs/0001-lock-an-account-after-five-failed-sign-ins.md
+```
+
+`test/__fixtures__/element-documentation-dsl/` holds this workspace in full. Render it to see every documentation scope on the docs page and the decisions of all four on the decisions page. A DSL build needs Structurizr's tools, as [DSL in a build](#dsl-in-a-build) says:
+
+```bash
+pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
+```
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
@@ -155,7 +206,7 @@ npx github:FormulaMonks/renderizr ./workspace.json --artifact
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `index.html`                                                                            | The shell: the page that loads the rest, with the workspace's name as its title. It has no `<html>`, `<head>` or `<body>`, since the artifact host supplies the document                                                  |
 | `renderizr.js`, `renderizr-vendor.js`, `renderizr-rolldown-runtime.js`, `renderizr.css` | The runtime, the same byte for byte for every workspace at a Renderizr version                                                                                                                                            |
-| `renderizr-docs.js`                                                                     | The documentation runtime: the documentation and decisions pages. The build leaves it out when no workspace has documentation or decisions                                                                                |
+| `renderizr-docs.js`                                                                     | The documentation runtime: the documentation and decisions pages. The build leaves it out when no documentation scope of any workspace has documentation or decisions                                                     |
 | `workspace.json`                                                                        | The workspace payload of the landscape scoped workspace, or of a lone workspace, with its branding                                                                                                                        |
 | `<slug>.json`                                                                           | The workspace payload of each other workspace of a [set](#render-a-set). A software system whose slug is `workspace` or `manifest` gets `<slug>--payload.json`, so it keeps clear of `workspace.json` and `manifest.json` |
 | `branding.css`                                                                          | The embedded font faces, when the build embeds a font                                                                                                                                                                     |
@@ -285,7 +336,7 @@ A flowchart that Structurizr writes from a C4 view with `mermaid <viewKey>` draw
 
 #### Click links
 
-A `click` line that gives a node a link, `click A href "#orders"` or `click A "https://example.com/shop"`, makes the node an activation target, the way an element link does. The link reads as an element link reads: `#<key>`, `?view=<key>` and `{workspace}/diagrams#<key>` open that view, a page on Structurizr's own hosts opens the matching view or document here when the workspace has it, and any other address opens in a new tab. A link to the view on screen, to a view the workspace doesn't have or to a script offers nothing and warns about nothing. A tooltip after the link, `click A "https://example.com/shop" "Open the shop"`, shows when the pointer rests on the node.
+A `click` line that gives a node a link, `click A href "#orders"` or `click A "https://example.com/shop"`, makes the node an activation target, the way an element link does. The link reads as an element link reads: `#<key>`, `?view=<key>` and `{workspace}/diagrams#<key>` open that view, the [links to documents](04-reference.md#element-links-to-documents) open a documentation scope's section or decision, a page on Structurizr's own hosts opens the matching view or document here when the workspace has it, and any other address opens in a new tab. A link to the view on screen, to a view the workspace doesn't have or to a script offers nothing and warns about nothing. A tooltip after the link, `click A "https://example.com/shop" "Open the shop"`, shows when the pointer rests on the node.
 
 A node with a link draws the indicator for where it leads under its label and grows to fit it, joins the Tab order in reading order, and exports with its indicator. Subgraphs and edges never lead anywhere. A `click` line that calls a function, `click A callback` or `click A call notify()`, does nothing and warns, since the page runs no script from the source. In edit mode nothing activates, as on every view.
 
@@ -495,12 +546,12 @@ It pairs with [Scaffoldizr](https://formulamonks.github.io/scaffoldizr/), whose 
 | Input                       | Workspace JSON                                                                                               | Structurizr DSL, read by the official parser, also straight from a git repository |
 | Diagrams                    | Renderizr's own engine, which honors the workspace's layout and styles: pan, zoom and dynamic-view animation | PlantUML export to SVG, PNG and `.puml`, downloadable as files                    |
 | Output shape                | One page with hash routing, or one file                                                                      | A page per view and per software system, crawlable and linkable                   |
-| Documentation and decisions | Workspace level                                                                                              | Workspace level and per software system                                           |
+| Documentation and decisions | Workspace level and per software system, container and component                                             | Workspace level and per software system                                           |
 | Full-text search            | No                                                                                                           | Yes, a Lunr index over the whole site                                             |
 | Several branches            | No                                                                                                           | Yes, side by side                                                                 |
 | Network at runtime          | None: every asset is inlined or local                                                                        | Browser dependencies come from a CDN by default                                   |
 | Styling                     | Your workspace's own styles and themes, plus a logo, a font and a primary color                              | Site colors, favicon and a custom stylesheet, set as view properties in the model |
 
-Pick **structurizr-site-generatr** for a browsable documentation site with search, one URL per system, several branches published together and per-system documentation, when a JVM or Docker in the pipeline is fine.
+Pick **structurizr-site-generatr** for a browsable documentation site with search, one URL per system and several branches published together, when a JVM or Docker in the pipeline is fine.
 
 Pick **Renderizr** when the workspace should keep the layout and styling you gave it in Structurizr and should travel: a live engine, no toolchain beyond Node, and output you can attach to a message or drop into a bucket. If you keep your model in DSL, export the JSON with [structurizr-cli](https://docs.structurizr.com/cli) first and hand that to Renderizr.

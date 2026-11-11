@@ -179,10 +179,34 @@ export default class Menu<Item extends MenuItem> extends Component {
         link.appendChild(number);
         link.appendChild(document.createTextNode(" "));
         link.appendChild(title);
+
+        const badge = this.#badgeFn?.(item);
+        if (badge) {
+            const text = title.firstChild;
+            title.insertBefore(badge, text);
+            title.insertBefore(document.createTextNode(" "), text);
+        }
+    }
+
+    /**
+     * Set when a numbered entry carries a badge before its title, such as a
+     * decision's documentation scope pill.
+     */
+    #badgeFn: ((item: Item) => HTMLElement | null) | null = null;
+
+    /**
+     * Draw this badge before each numbered entry's title. An option has no
+     * room for one, so the narrow-screen select puts its text in brackets.
+     */
+    setBadgeFn(fn: ((item: Item) => HTMLElement | null) | null) {
+        this.#badgeFn = fn;
     }
 
     #optionText(item: Item) {
-        const text = this.#textContentFn(item);
+        const badge = this.#badgeFn?.(item)?.textContent;
+        const text = badge
+            ? `[${badge}] ${this.#textContentFn(item)}`
+            : this.#textContentFn(item);
         return this.#numberFn ? `${this.#numberFn(item)} ${text}` : text;
     }
 

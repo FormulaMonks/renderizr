@@ -98,7 +98,9 @@ export const brandingOf = ({ logo, font, primaryColor }) => ({
  * @typedef {object} PageSet
  *   The set as the page takes it.
  * @property {object[]} crossings The landscape scoped workspace's crossings.
- * @property {{ slug: string, payload: WorkspacePayload }[]} workspaces
+ * @property {{ slug: string, documents?: object | null, payload: WorkspacePayload }[]} workspaces
+ *   Each other workspace, with what its software system carries as a
+ *   documentation scope, as `loadSet` records it in `documents`.
  * @property {boolean} [inline] Whether the page holds every payload, as
  *   `--single-file` needs, rather than loading each from its file.
  */
@@ -117,6 +119,7 @@ export function pageSet(set, branding) {
             const { logo, font, primaryColor } = branding.workspaces[at];
             return {
                 slug: member.slug,
+                documents: member.documents ?? null,
                 payload: {
                     workspace: member.workspace,
                     branding: {
@@ -157,8 +160,20 @@ export const payloadSource = (payload) =>
     `${JSON.stringify(payload, null, 2)}\n`;
 
 /**
+ * A workspace of `PageSet.workspaces` as the page names it before loading
+ * it: its slug, its name, and what its software system carries as a
+ * documentation scope when it carries anything.
+ */
+export const setMemberOf = ({ slug, documents, payload }) => ({
+    slug,
+    name: payload.workspace.name ?? UNNAMED_WORKSPACE,
+    ...(documents ? { documents } : {}),
+});
+
+/**
  * The source of `SET_MODULE`: the landscape scoped workspace's
- * `crossings`, each other workspace's slug and name as `workspaces`, and
+ * `crossings`, each other workspace as `setMemberOf` names it as
+ * `workspaces`, and
  * as `inlined` every payload by slug when the page holds them, `null` when
  * it loads each from its file. `landscape` and `buildDate` are `null`: the
  * page holds the landscape scoped workspace and the build date compiled in.
@@ -169,10 +184,7 @@ const setModuleSource = ({ crossings = [], workspaces = [], inline = false }) =>
         "export const buildDate = null;",
         `export const crossings = ${JSON.stringify(crossings)};`,
         `export const workspaces = ${JSON.stringify(
-            workspaces.map(({ slug, payload }) => ({
-                slug,
-                name: payload.workspace.name ?? UNNAMED_WORKSPACE,
-            })),
+            workspaces.map(setMemberOf),
         )};`,
         `export const inlined = ${
             inline

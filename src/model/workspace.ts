@@ -22,7 +22,12 @@
  * ordering, terminology and view titles the model layer needs.
  */
 
-import { sectionId } from "./documentation";
+import {
+    type DocumentationScope,
+    type DocumentedWorkspace,
+    documentationScopes,
+    sectionId,
+} from "./documentation";
 import { NO_SET, type SetLinks } from "./targets";
 import type {
     ElementType,
@@ -93,6 +98,13 @@ export class WorkspaceModel {
      */
     readonly documentation: { sections: string[]; decisions: string[] };
     /**
+     * The workspace's documentation scopes in model order: the workspace and
+     * every software system, container and component that carries sections
+     * or decisions. What an element link that names an element's documents
+     * may lead to.
+     */
+    readonly scopes: readonly DocumentationScope[];
+    /**
      * What the workspace knows of the set it belongs to (ADR 26): the other
      * workspaces and its crossings into them, which its element links and
      * software systems lead to. A lone workspace knows none.
@@ -106,6 +118,9 @@ export class WorkspaceModel {
 
     constructor(json: Json, set: SetLinks = NO_SET) {
         this.set = set;
+        // Before the model sorts its elements by name: scopes go in model
+        // order, which also settles which of two siblings takes `-2`.
+        this.scopes = documentationScopes((json ?? {}) as DocumentedWorkspace);
         const workspace: Json = structuredClone(json ?? {});
         this.name = workspace.name ?? "";
         this.description = workspace.description ?? "";

@@ -22,6 +22,16 @@ test("the config roots itself at the package, not the caller's directory", () =>
     );
 });
 
+test("the dependency scan reads the page's own entry, never a built page", () => {
+    const config = createConfig({ workspace: WORKSPACE, mode: "serve" });
+
+    // Vite's default scan takes every `**/*.html` under the root and misses
+    // an absolute `outDir`, so a built `structurizr-output/index.html` beside
+    // the root would break a cold dev server.
+    assert.deepEqual(config.optimizeDeps.entries, ["index.html"]);
+    assert.ok(existsSync(resolve(config.root, "index.html")));
+});
+
 test("the output directory is resolved against the working directory", () => {
     assert.equal(
         createConfig({ workspace: WORKSPACE, out: "site" }).build.outDir,

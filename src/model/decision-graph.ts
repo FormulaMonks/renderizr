@@ -253,10 +253,10 @@ function placeLanes(rows: Decision[], edges: Edge[], references: boolean) {
  * its Status section lists. A decision missing from the set has no
  * relatives.
  */
-export function relatedDecisions(
-    decisions: Decision[],
+export function relatedDecisions<D extends Decision>(
+    decisions: D[],
     id: string,
-): Decision[] {
+): D[] {
     const rows = decisionOrder(decisions);
     const open = rows.findIndex((row) => row.id === id);
     if (open < 0) return [];

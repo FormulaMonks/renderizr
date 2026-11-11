@@ -16,6 +16,12 @@ export type WorkspaceSummary = {
         decisions: Decision[];
         images: DocumentationImage[];
     };
+    /**
+     * Whether any documentation scope, the workspace's or an element's,
+     * carries sections or decisions. Without it the header reads the
+     * workspace's own.
+     */
+    offers?: { sections: boolean; decisions: boolean };
 };
 import history from "history/hash";
 import type { Logo } from "virtual:renderizr/set";
@@ -124,11 +130,17 @@ export default class Navigation extends Component {
     }
 
     get hasDocs() {
-        return this.#workspace.documentation.sections?.length > 0;
+        return (
+            this.#workspace.offers?.sections ??
+            this.#workspace.documentation.sections?.length > 0
+        );
     }
 
     get hasDecisions() {
-        return this.#workspace.documentation.decisions?.length > 0;
+        return (
+            this.#workspace.offers?.decisions ??
+            this.#workspace.documentation.decisions?.length > 0
+        );
     }
 
     get hasDocsAndDecisions() {

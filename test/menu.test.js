@@ -314,6 +314,45 @@ test("the select shows the number before the title", () => {
     );
 });
 
+/** A badge naming `item`'s scope, or none for the workspace's own. */
+const scopeBadge = (item) => {
+    if (!item.scope) return null;
+    const badge = document.createElement("span");
+    badge.textContent = item.scope;
+    return badge;
+};
+
+test("a badge sits before a numbered entry's title", () => {
+    const menu = new Menu(host, [
+        { id: "api/2", title: "Version the API", scope: "API Application" },
+        { id: "2", title: "Publish the site" },
+    ]);
+    menu.setNumberFn(() => "0002");
+    menu.setBadgeFn(scopeBadge);
+    menu.render();
+
+    assert.equal(
+        anchorFor("api/2").textContent,
+        "0002 API Application Version the API",
+    );
+    assert.equal(anchorFor("2").textContent, "0002 Publish the site");
+});
+
+test("the select puts a badge's text in brackets", () => {
+    dom.setViewportWidth(600);
+    const menu = new Menu(host, [
+        { id: "api/2", title: "Version the API", scope: "API Application" },
+    ]);
+    menu.setNumberFn(() => "0002");
+    menu.setBadgeFn(scopeBadge);
+    menu.render();
+
+    assert.equal(
+        host.querySelector("option").textContent,
+        "0002 [API Application] Version the API",
+    );
+});
+
 test("changing the select selects the entry it names", () => {
     dom.setViewportWidth(600);
     const menu = renderMenu();

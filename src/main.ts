@@ -8,6 +8,7 @@ import Navigation, { type WorkspaceSummary } from "./components/navigation.ts";
 import { createImageResolver } from "./components/doc-images.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
 import { takeSessionToken } from "./components/session-token.ts";
+import { createSlugCollisionWarner } from "./components/slug-collisions.ts";
 import {
     currentWorkspace,
     followWorkspaceTrail,
@@ -18,6 +19,10 @@ import { followDevSet } from "./dev-set";
 import type { SetWorkspace } from "./workspace-set";
 import { inOtherWorkspace } from "./workspace-trail";
 import { summarizeWorkspace } from "./engine/workspace-summary";
+import {
+    type DocumentedWorkspace,
+    documentationScopes,
+} from "./model/documentation";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";
 import { startLiveReload } from "./pages/diagrams-edit";
@@ -57,24 +62,38 @@ async function pagesOf(
     const routes: Page[] = [diagrams];
 
     // Links between sections and decisions are written as relative file
-    // paths; this maps them onto the routes below.
+    // paths; this maps them onto the routes below, in each documentation
+    // scope first and then the workspace's.
     const { sections, decisions, images } = workspace.documentation;
+    const scopes = documentationScopes(workspace as DocumentedWorkspace);
     const resolveLink = createLinkResolver({
-        docs: nav.hasDocs ? { page: "docs", sections } : null,
-        decisions: nav.hasDecisions ? { page: "adrs", decisions } : null,
+        docs: nav.hasDocs ? { page: "docs", sections, scopes } : null,
+        decisions: nav.hasDecisions
+            ? { page: "adrs", decisions, scopes }
+            : null,
     });
     // Images they show come from the copies Structurizr embedded.
     const resolveImage = createImageResolver(images);
 
     if (nav.hasDocs) {
         const { DocsPage } = await import("./pages/documentation.ts");
+        // An element's sections show its own images first, then the
+        // workspace's.
+        const imagesOf = new Map(
+            scopes.map((scope) => [
+                scope.path,
+                scope.path
+                    ? createImageResolver(scope.images, images)
+                    : resolveImage,
+            ]),
+        );
         routes.push(
             new DocsPage(
                 null,
                 "docs",
-                sections,
-                resolveLink("docs"),
-                resolveImage,
+                scopes,
+                (scope) => resolveLink("docs", scope),
+                (scope) => imagesOf.get(scope) ?? resolveImage,
             ),
         );
     }
@@ -85,9 +104,10 @@ async function pagesOf(
             new DecisionsPage(
                 null,
                 "adrs",
-                decisions,
-                resolveLink("decisions"),
-                resolveImage,
+                scopes,
+                (scope) => resolveLink("decisions", scope.path),
+                // An element's images first, then the workspace's.
+                (scope) => createImageResolver(scope.images, images),
             ),
         );
     }
@@ -132,6 +152,7 @@ async function init() {
     let shown = 0;
     /** The address path the header leads back from. */
     let headerPath: string | null = null;
+    const warnOfSlugCollisions = createSlugCollisionWarner();
 
     /** The header of `entered`, leading back up the address's trail. */
     const headerOf = (entered: SetWorkspace) => {
@@ -161,6 +182,10 @@ async function init() {
         nav.render();
         if (router) router.replacePages(routes);
         else router = new Router(content, routes);
+        // Siblings whose documents share an address warn the author, in
+        // `pnpm dev` and edit mode only (ADR 30).
+        if (import.meta.hot || __RENDERIZR_EDIT_MODE__)
+            warnOfSlugCollisions(entered.workspace);
     };
 
     // The page lands titled by the build, and painted in its primary color

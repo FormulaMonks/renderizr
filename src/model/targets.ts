@@ -5,9 +5,10 @@
  * target menu. Both ask this module, so they never disagree.
  *
  * The order is the spec's: the element link, the drill-down views, the
- * element's image views, then properties whose value is an `http(s)` URL.
- * Element-scoped documentation and decisions come fourth once Renderizr has
- * a page for them (#37); until then there are none.
+ * element's image views, the element's own documentation and decisions,
+ * then properties whose value is an `http(s)` URL. An element offers only
+ * its own documentation scope, and an instance the one of the element it
+ * instantiates.
  *
  * In a set (ADR 26), an element can also lead into another workspace of the
  * set, as the set loader recorded it in the carrying workspace's crossings;
@@ -15,6 +16,21 @@
  * after its element link.
  */
 
+import {
+    decisionOrder,
+    EVERY_SCOPE,
+    FILTER_PARAM,
+    scopeFilterOf,
+} from "./decisions";
+import {
+    type DocumentationScope,
+    scopedId,
+    scopeLabel,
+    searchOf,
+    sectionId,
+    slugOf,
+    WORKSPACE_SCOPE,
+} from "./documentation";
 import type { ModelElement, ModelRelationship } from "./types";
 import type { WorkspaceModel } from "./workspace";
 
@@ -35,15 +51,24 @@ export type PageKind = "documentation" | "decisions";
 
 /**
  * Where a crossing lands in the workspace it enters: a view, the
- * documentation or decisions page (at document `id` when it is set), or
- * `null` for the target's default view.
+ * documentation or decisions page (at document `id` when it is set, and
+ * the decisions index under `filter` when that is), or `null` for the
+ * target's default view. A document's `id` carries its documentation
+ * scope's slug path (ADR 30); a slug path alone opens that scope's first
+ * section.
  */
-export type Landing = { view: string } | { page: PageKind; id: string } | null;
+export type Landing =
+    | { view: string }
+    | { page: PageKind; id: string; filter?: string }
+    | null;
 
 /**
  * Another workspace of the set, labeled with its name, and where the
  * crossing lands there. An authored address that names a full workspace
- * trail carries that `trail`, which replaces the reader's.
+ * trail carries that `trail`, which replaces the reader's. A crossing into
+ * the documentation or decisions of the software system a workspace is
+ * scoped to `shows` them: it is labeled and drawn as the element's own
+ * documents are.
  */
 export type WorkspaceTarget = {
     kind: "workspace";
@@ -51,6 +76,7 @@ export type WorkspaceTarget = {
     label: string;
     landing: Landing;
     trail?: string[];
+    shows?: PageKind;
 };
 
 /** One destination, labeled as the target menu lists it. */
@@ -74,11 +100,34 @@ export type Crossing = {
 };
 
 /**
- * What a workspace knows of the set it belongs to: the other workspaces
- * by slug and name, and its own crossings into them.
+ * What the software system a workspace of the set is scoped to carries as
+ * a documentation scope, as the set loader records it: its slug path in
+ * that workspace, and whether it carries sections and decisions.
+ */
+export type SetDocuments = {
+    scope: string;
+    documentation: boolean;
+    decisions: boolean;
+};
+
+/**
+ * Another workspace of the set, named before it loads: its slug, its name,
+ * and what its software system carries as a documentation scope when it
+ * carries anything. The set loader writes it (`setMemberOf` in
+ * `scripts/plugins.js`), and the page and the model read this one shape.
+ */
+export type SetMember = {
+    slug: string;
+    name: string;
+    documents?: SetDocuments;
+};
+
+/**
+ * What a workspace knows of the set it belongs to: the other workspaces,
+ * and its own crossings into them.
  */
 export type SetLinks = {
-    workspaces: readonly { slug: string; name: string }[];
+    workspaces: readonly SetMember[];
     crossings: readonly Crossing[];
 };
 
@@ -149,21 +198,79 @@ function viewTarget(model: WorkspaceModel, key: string): Target | undefined {
     return { kind: "view", key, label: model.getTitleForView(view) };
 }
 
+/** The documentation scopes of `model` that carry documents of `kind`. */
+const scopesWith = (model: WorkspaceModel, kind: PageKind) =>
+    model.scopes.filter((scope) => scope[PAGES[kind].ids].length);
+
 /**
- * The documentation or decisions page, opened at document `id` when the
- * workspace has it. `undefined` when the workspace has no such documents.
+ * The ids of `scope`'s documents of `kind`, in the order its page lists
+ * them: sections by their order, decisions newest first.
+ */
+const idsOf = (scope: DocumentationScope, kind: PageKind): string[] =>
+    kind === "documentation"
+        ? scope.sections
+              .toSorted((a, b) => (a.order < b.order ? -1 : 1))
+              .map(sectionId)
+        : decisionOrder(scope.decisions).map((decision) => decision.id);
+
+/** Where on a document page a target opens; every part may be left out. */
+type PageRoute = {
+    /** The documentation scope whose document it opens. */
+    scope?: DocumentationScope;
+    /** The document's own id in `scope`. */
+    id?: string;
+    /** The decisions page's filter, as `scopeFilterOf` names a scope. */
+    filter?: string | null;
+};
+
+/**
+ * The documentation or decisions page, opened at document `id` of `scope`.
+ * An id the scope lacks opens the scope's first document, or the page's
+ * landing for the workspace's own, as it always did. A scope that carries
+ * no such documents, or no scope at all, opens the landing. A route to the
+ * decisions keeps a `filter` that some scope answers to. `undefined` when
+ * no documentation scope carries such documents.
  */
 function pageTarget(
     model: WorkspaceModel,
     kind: PageKind,
-    id: string,
+    { scope, id = "", filter = null }: PageRoute = {},
 ): Target | undefined {
-    const { page, param, ids, label } = PAGES[kind];
-    const known = model.documentation[ids];
-    if (known.length === 0) return undefined;
-    const query = new URLSearchParams({ page });
-    if (known.includes(id)) query.set(param, id);
-    return { kind, search: query.toString(), label };
+    const { page, param, label } = PAGES[kind];
+    const scopes = scopesWith(model, kind);
+    if (scopes.length === 0) return undefined;
+    const query: Record<string, string> = { page };
+    if (scope && scopes.includes(scope)) {
+        const ids = idsOf(scope, kind);
+        const known = ids.includes(id) ? id : scope.path ? ids[0] : undefined;
+        if (known !== undefined) query[param] = scopedId(scope.path, known);
+    }
+    if (filter && scopes.some((s) => scopeFilterOf(s) === filter)) {
+        query[FILTER_PARAM] = filter;
+    }
+    return { kind, search: searchOf(query), label };
+}
+
+/**
+ * The documentation scope and document id that `address` names, a
+ * document's id as Renderizr addresses it: the scope's slug path, then the
+ * document's own id (`internet-banking-system/01-context`, ADR 30). An id
+ * of the workspace's own reads as written. The scope is `undefined` when
+ * the slug path names no documentation scope.
+ */
+function addressed(
+    model: WorkspaceModel,
+    kind: PageKind,
+    address: string,
+): [DocumentationScope | undefined, string] {
+    const own = model.scopes.find((scope) => scope.path === "");
+    const slash = address.lastIndexOf("/");
+    if (slash < 0 || (own && idsOf(own, kind).includes(address))) {
+        return [own, address];
+    }
+    const path = address.slice(0, slash);
+    const scope = model.scopes.find((s) => s.path !== "" && s.path === path);
+    return [scope, address.slice(slash + 1)];
 }
 
 /** Renderizr's own route, as its query string: `?view=key`, `?page=docs…`. */
@@ -171,7 +278,10 @@ function routeTarget(model: WorkspaceModel, query: string): Target | undefined {
     const params = new URLSearchParams(query);
     const kind = PAGE_KINDS.find((k) => PAGES[k].page === params.get("page"));
     if (kind) {
-        return pageTarget(model, kind, params.get(PAGES[kind].param) ?? "");
+        const address = params.get(PAGES[kind].param) ?? "";
+        const [scope, id] = addressed(model, kind, address);
+        const filter = kind === "decisions" ? params.get(FILTER_PARAM) : null;
+        return pageTarget(model, kind, { scope, id, filter });
     }
     const view = params.get("view");
     return view === null ? undefined : viewTarget(model, view);
@@ -181,16 +291,48 @@ function routeTarget(model: WorkspaceModel, query: string): Target | undefined {
 function routeLanding(query: string): Landing {
     const params = new URLSearchParams(query);
     const page = PAGE_KINDS.find((k) => PAGES[k].page === params.get("page"));
-    if (page) return { page, id: params.get(PAGES[page].param) ?? "" };
+    if (page) {
+        const id = params.get(PAGES[page].param) ?? "";
+        const filter = page === "decisions" && params.get(FILTER_PARAM);
+        return filter ? { page, id, filter } : { page, id };
+    }
     const view = params.get("view");
     return view ? { view } : null;
 }
 
 /**
+ * The document page a Structurizr path names, `…/documentation/<name>…` or
+ * `…/decisions/<name>…`: its kind, and the names after it, which name a
+ * documentation scope. `undefined` when no segment names one.
+ */
+function pageSegments(
+    segments: readonly string[],
+): { kind: PageKind; names: string[] } | undefined {
+    const at = segments.findIndex((segment) =>
+        PAGE_KINDS.includes(segment as PageKind),
+    );
+    if (at < 0) return undefined;
+    return { kind: segments[at] as PageKind, names: segments.slice(at + 1) };
+}
+
+/**
+ * The slug path that Structurizr's name path `names` gives a documentation
+ * scope in a workspace this one hasn't loaded: each name's slug, from the
+ * software system down. No name, or `*`, is the workspace's own, `""`.
+ */
+const namedPath = (names: readonly string[]) =>
+    names.length === 0 || (names.length === 1 && names[0] === WORKSPACE_SCOPE)
+        ? ""
+        : names.map((name) => slugOf(decode(name))).join("/");
+
+/**
  * Where the path after `{workspace:N}` lands in the workspace it enters,
  * read the way `structurizrTarget` reads it: `/diagrams#key` at that view,
  * `/documentation` and `/decisions` at those pages, and anything else at
- * the default view.
+ * the default view. Names after the page's name the documentation scope:
+ * the documentation lands at the section the fragment names in it, or its
+ * first; the decisions at the decision the fragment names, or the index
+ * filtered to the scope.
  */
 function linkLanding(link: string): Landing {
     const rest = link.replace(WORKSPACE_LINK, "");
@@ -201,8 +343,14 @@ function linkLanding(link: string): Landing {
     if (segments[segments.length - 1] === "diagrams") {
         return fragment ? { view: fragment } : null;
     }
-    const page = PAGE_KINDS.find((k) => segments.includes(k));
-    return page ? { page, id: fragment } : null;
+    const named = pageSegments(segments);
+    if (!named) return null;
+    const page = named.kind;
+    const scope = namedPath(named.names);
+    if (!scope || fragment) return { page, id: scopedId(scope, fragment) };
+    return page === "documentation"
+        ? { page, id: scope }
+        : { page, id: "", filter: scope };
 }
 
 /** The query of the address a crossing to `landing` pushes. */
@@ -211,7 +359,8 @@ export function landingSearch(landing: Landing): string {
         const { page, param } = PAGES[landing.page];
         const query = new URLSearchParams({ page });
         if (landing.id) query.set(param, landing.id);
-        return query.toString();
+        if (landing.filter) query.set(FILTER_PARAM, landing.filter);
+        return searchOf(query);
     }
     const query = new URLSearchParams({ page: "diagrams" });
     if (landing) query.set("view", landing.view);
@@ -222,7 +371,7 @@ export function landingSearch(landing: Landing): string {
  * What the workspace `model` lacks of `landing`, as the reader is told it
  * ("view Deployment", "documentation"), or `null` when the crossing lands
  * where it says. A document page that lacks only the document named opens
- * at its first.
+ * at its first. A page counts every documentation scope of `model`.
  */
 export function missingLanding(
     model: WorkspaceModel,
@@ -234,9 +383,7 @@ export function missingLanding(
             ? null
             : `view ${landing.view}`;
     }
-    return model.documentation[PAGES[landing.page].ids].length === 0
-        ? landing.page
-        : null;
+    return scopesWith(model, landing.page).length === 0 ? landing.page : null;
 }
 
 /** The workspace `slug` of the set, as a target landing at `landing`. */
@@ -293,9 +440,31 @@ function trailTarget(
 }
 
 /**
+ * The documentation scope that Structurizr's name path `names` names, one
+ * element name from the software system down, matched as written or
+ * percent-encoded and ignoring case. No name, or `*`, names the
+ * workspace's. `undefined` when no documentation scope answers to it.
+ */
+function scopeNamed(
+    model: WorkspaceModel,
+    names: readonly string[],
+): DocumentationScope | undefined {
+    const wanted = names.map((name) => decode(name).toLowerCase());
+    if (wanted.length === 0 || wanted.join("/") === WORKSPACE_SCOPE) {
+        return model.scopes.find((scope) => scope.path === "");
+    }
+    return model.scopes.find(
+        (scope) =>
+            scope.names.length === wanted.length &&
+            scope.names.every((name, i) => name.toLowerCase() === wanted[i]),
+    );
+}
+
+/**
  * Structurizr's own pages under a workspace's address: `…/diagrams#key`,
- * `…/documentation…` and `…/decisions…`. `undefined` for any other
- * path.
+ * `…/documentation[/<name>…]#section` and `…/decisions[/<name>…]#id`,
+ * where the names after the page's name an element's documentation scope.
+ * `undefined` for any other path.
  */
 function structurizrTarget(
     model: WorkspaceModel,
@@ -306,8 +475,12 @@ function structurizrTarget(
     if (segments[segments.length - 1] === "diagrams") {
         return viewTarget(model, fragment);
     }
-    const kind = PAGE_KINDS.find((k) => segments.includes(k));
-    return kind && pageTarget(model, kind, fragment);
+    const named = pageSegments(segments);
+    if (!named) return undefined;
+    return pageTarget(model, named.kind, {
+        scope: scopeNamed(model, named.names),
+        id: fragment,
+    });
 }
 
 /** The path of a link to a page on Structurizr's hosts, or `undefined`. */
@@ -419,6 +592,14 @@ function drillDownViews(model: WorkspaceModel, element: ModelElement) {
     }
 }
 
+/**
+ * The indicator drawn for `target`: its kind, or for a crossing into
+ * another workspace's documentation or decisions, the glyph of those
+ * documents.
+ */
+export const indicatorOf = (target: Target): TargetKind =>
+    target.kind === "workspace" && target.shows ? target.shows : target.kind;
+
 /** The same destination reached two ways. */
 const identity = (target: Target) => {
     switch (target.kind) {
@@ -428,7 +609,9 @@ const identity = (target: Target) => {
         case "decisions":
             return `${target.kind}:${target.search}`;
         case "workspace":
-            return `workspace:${target.slug}`;
+            return target.shows
+                ? `workspace:${target.slug}:${target.shows}`
+                : `workspace:${target.slug}`;
         case "link":
             return `link:${target.url}`;
     }
@@ -462,15 +645,184 @@ const nameMatches = (model: WorkspaceModel, element: ModelElement) =>
         .filter((c) => c.element === element.id && c.via === "name")
         .map((c) => workspaceTarget(model, c.slug, null));
 
+/**
+ * The documentation scope `element` offers: its own, or for a software
+ * system instance or container instance the one of the element it
+ * instantiates. `undefined` when that element carries no documents. An
+ * element never offers an ancestor's.
+ */
+function ownScope(
+    model: WorkspaceModel,
+    element: ModelElement,
+): DocumentationScope | undefined {
+    const id =
+        element.type === "SoftwareSystemInstance"
+            ? element.softwareSystemId
+            : element.type === "ContainerInstance"
+              ? element.containerId
+              : element.id;
+    if (!id) return undefined;
+    return model.scopes.find((scope) => scope.elementId === id);
+}
+
+/**
+ * The targets of `scope`'s own documents: "Documentation" at its first
+ * section and "Decisions" at the index filtered to it, each only when the
+ * scope carries such documents.
+ */
+function scopeTargets(
+    model: WorkspaceModel,
+    scope: DocumentationScope,
+): Target[] {
+    const targets: (Target | undefined)[] = [
+        scope.sections.length
+            ? pageTarget(model, "documentation", { scope })
+            : undefined,
+        scope.decisions.length
+            ? pageTarget(model, "decisions", { filter: scopeFilterOf(scope) })
+            : undefined,
+    ];
+    return targets.filter((target) => target !== undefined);
+}
+
+/**
+ * The documentation scope a documentation or decisions target lands in:
+ * the one its document's id names, the one its decisions filter names, or
+ * for the docs page's landing the first scope with sections. `undefined`
+ * for the decisions index of every scope.
+ */
+function landingScope(
+    model: WorkspaceModel,
+    target: Target & { kind: PageKind },
+): DocumentationScope | undefined {
+    const params = new URLSearchParams(target.search);
+    const address = params.get(PAGES[target.kind].param);
+    if (address !== null) return addressed(model, target.kind, address)[0];
+    if (target.kind === "documentation") {
+        return scopesWith(model, "documentation")[0];
+    }
+    const filter = params.get(FILTER_PARAM);
+    return model.scopes.find((scope) => scopeFilterOf(scope) === filter);
+}
+
+/**
+ * The element link of an element whose own documentation scope is `own`,
+ * and that scope's targets. A link to a page of another documentation
+ * scope names that scope after a middle dot ("Documentation · Workspace"),
+ * and a link to the decisions of every scope says so ("Decisions · All
+ * documentation scopes"), so it never reads as `own`'s "Decisions"; a link
+ * to `own`'s page of the same kind stands in for `own`'s target, in the
+ * link's place.
+ */
+function ownDocuments(
+    model: WorkspaceModel,
+    link: Target | undefined,
+    own: DocumentationScope | undefined,
+): [Target | undefined, Target[]] {
+    if (!own) return [link, []];
+    const targets = scopeTargets(model, own);
+    if (link?.kind !== "documentation" && link?.kind !== "decisions") {
+        return [link, targets];
+    }
+    const scope = landingScope(model, link);
+    if (scope === own) {
+        return [link, targets.filter((target) => target.kind !== link.kind)];
+    }
+    const named = scope ? scopeLabel(scope) : EVERY_SCOPE;
+    return [{ ...link, label: `${link.label} · ${named}` }, targets];
+}
+
+/**
+ * The workspace of the set the software system `element` crosses into, by
+ * the slug the set loader recorded on its crossing, and what that
+ * workspace's software system carries there. The recorded slug, not the
+ * slug of `element`'s own name: a `{workspace:N}` link matches by id too.
+ * `undefined` for any other element, for one whose workspace's software
+ * system carries nothing, and in that workspace itself, which records no
+ * crossing to itself.
+ */
+function scopedWorkspace(model: WorkspaceModel, element: ModelElement) {
+    if (element.type !== "SoftwareSystem") return undefined;
+    for (const crossing of model.set.crossings) {
+        if (crossing.element !== element.id) continue;
+        const { slug } = crossing;
+        const member = model.set.workspaces.find((w) => w.slug === slug);
+        if (member?.documents) return { slug, documents: member.documents };
+    }
+    return undefined;
+}
+
+/** The slug path of the documentation scope `landing` lands in. */
+function landingPath(landing: Landing): string | undefined {
+    if (!landing || !("page" in landing)) return undefined;
+    if (landing.filter) return landing.filter;
+    const slash = landing.id.lastIndexOf("/");
+    if (slash >= 0) return landing.id.slice(0, slash);
+    // A slug path alone names the scope whose first section opens.
+    return landing.page === "documentation" ? landing.id : undefined;
+}
+
+/**
+ * The element link of the software system `element`, and the crossings
+ * into the documentation and decisions its software system scoped
+ * workspace carries on it (spec: _Across a set_): "Documentation" at
+ * its first section and "Decisions" at the index filtered to it. A link
+ * into that workspace that lands on the same documentation scope's page of
+ * one kind stands in for that crossing, in the link's place.
+ */
+function crossingDocuments(
+    model: WorkspaceModel,
+    link: Target | undefined,
+    element: ModelElement,
+): [Target | undefined, Target[]] {
+    const scoped = scopedWorkspace(model, element);
+    if (!scoped) return [link, []];
+    const { slug, documents } = scoped;
+    const landings: Record<PageKind, Landing> = {
+        documentation: { page: "documentation", id: documents.scope },
+        decisions: { page: "decisions", id: "", filter: documents.scope },
+    };
+    const targets = PAGE_KINDS.filter((kind) => documents[kind]).map(
+        (kind): WorkspaceTarget => ({
+            kind: "workspace",
+            slug,
+            label: PAGES[kind].label,
+            landing: landings[kind],
+            shows: kind,
+        }),
+    );
+    if (link?.kind !== "workspace" || link.slug !== slug) {
+        return [link, targets];
+    }
+    const landing = link.landing;
+    const merged = targets.find(
+        (target) =>
+            landing !== null &&
+            "page" in landing &&
+            target.shows === landing.page &&
+            landingPath(landing) === documents.scope,
+    );
+    if (!merged) return [link, targets];
+    return [
+        { ...link, label: merged.label, shows: merged.shows },
+        targets.filter((target) => target !== merged),
+    ];
+}
+
 /** Everything activating `element` offers, from the view `current`. */
 export function elementTargets(
     model: WorkspaceModel,
     element: ModelElement,
     current: string,
 ): Target[] {
+    const link = classifyLink(model, element.url, element.id);
+    const own = ownScope(model, element);
+    const [first, documents] = own
+        ? ownDocuments(model, link, own)
+        : crossingDocuments(model, link, element);
     return distinct(
         [
-            classifyLink(model, element.url, element.id),
+            first,
             ...nameMatches(model, element),
             ...drillDownViews(model, element).map((view) =>
                 viewTarget(model, view.key),
@@ -478,6 +830,7 @@ export function elementTargets(
             ...model
                 .findImageViewsForElement(element.id)
                 .map((view) => viewTarget(model, view.key)),
+            ...documents,
             ...propertyTargets(element.properties ?? {}),
         ],
         current,
