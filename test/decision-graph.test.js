@@ -684,13 +684,14 @@ test("our own decisions get back the three links the importer drops", () => {
     }
 });
 
-test("our own decisions make seven amend edges and 34 references", () => {
+test("our own decisions make eight amend edges and 34 references", () => {
     const edges = edgesOf(layoutDecisionGraph(OURS));
 
-    assert.equal(edges.length, 41);
+    assert.equal(edges.length, 42);
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
         [
+            "30 amend 26",
             "29 amend 26",
             "26 amend 16",
             "25 amend 23",
@@ -714,10 +715,11 @@ test("our own decisions need 12 columns", () => {
 
     assert.equal(layout.columns, 12);
     assert.deepEqual(lanesOf(layout), [
-        // 29 amends 26, which amends 16, and 29 is newer than every
-        // decision that references either.
-        { ...lane(2, ["29", "26", "16"], ["24", "22", "17"]), top: "29" },
+        // 29 amends 26, which amends 16. 30 amends 26 too, so it joins
+        // the lane from a lane of its own, and tops it as its newest link.
+        lane(2, ["29", "26", "16"], ["30", "24", "22", "17"]),
         lane(2, ["11"], ["12"]),
+        lane(3, ["30"], []),
         lane(3, ["28"], ["29"]),
         lane(3, ["22"], ["26"]),
         lane(3, ["20", "12"], []),

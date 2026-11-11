@@ -8,6 +8,8 @@ Amended
 
 Amended by [29. Load the landscape scoped workspace from its payload under --artifact](0029-load-the-landscape-scoped-workspace-from-its-payload-under-artifact.md).
 
+Amended by [30. Address documentation scopes and workspaces by one Unicode slug rule](0030-address-documentation-scopes-and-workspaces-by-one-unicode-slug-rule.md).
+
 Amends [16. Open workspace.dsl through Structurizr's merge](0016-open-workspace-dsl-through-structurizrs-merge.md): the consequence that every build stays free of a JVM.
 
 References [22. Read branding from renderizr workspace properties](0022-read-branding-from-renderizr-workspace-properties.md): each workspace of a set keeps the branding its properties set.
