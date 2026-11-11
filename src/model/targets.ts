@@ -106,16 +106,23 @@ export type SetDocuments = {
 };
 
 /**
- * What a workspace knows of the set it belongs to: the other workspaces
- * by slug and name, with what each one's software system carries as a
- * documentation scope, and its own crossings into them.
+ * Another workspace of the set, named before it loads: its slug, its name,
+ * and what its software system carries as a documentation scope when it
+ * carries anything. The set loader writes it (`setMemberOf` in
+ * `scripts/plugins.js`), and the page and the model read this one shape.
+ */
+export type SetMember = {
+    slug: string;
+    name: string;
+    documents?: SetDocuments;
+};
+
+/**
+ * What a workspace knows of the set it belongs to: the other workspaces,
+ * and its own crossings into them.
  */
 export type SetLinks = {
-    workspaces: readonly {
-        slug: string;
-        name: string;
-        documents?: SetDocuments;
-    }[];
+    workspaces: readonly SetMember[];
     crossings: readonly Crossing[];
 };
 
@@ -201,6 +208,16 @@ const idsOf = (scope: DocumentationScope, kind: PageKind): string[] =>
               .map(sectionId)
         : decisionOrder(scope.decisions).map((decision) => decision.id);
 
+/** Where on a document page a target opens; every part may be left out. */
+type PageRoute = {
+    /** The documentation scope whose document it opens. */
+    scope?: DocumentationScope;
+    /** The document's own id in `scope`. */
+    id?: string;
+    /** The decisions page's filter, as `scopeFilterOf` names a scope. */
+    filter?: string | null;
+};
+
 /**
  * The documentation or decisions page, opened at document `id` of `scope`.
  * An id the scope lacks opens the scope's first document, or the page's
@@ -212,9 +229,7 @@ const idsOf = (scope: DocumentationScope, kind: PageKind): string[] =>
 function pageTarget(
     model: WorkspaceModel,
     kind: PageKind,
-    scope: DocumentationScope | undefined,
-    id: string,
-    filter: string | null = null,
+    { scope, id = "", filter = null }: PageRoute = {},
 ): Target | undefined {
     const { page, param, label } = PAGES[kind];
     const scopes = scopesWith(model, kind);
@@ -261,7 +276,7 @@ function routeTarget(model: WorkspaceModel, query: string): Target | undefined {
         const address = params.get(PAGES[kind].param) ?? "";
         const [scope, id] = addressed(model, kind, address);
         const filter = kind === "decisions" ? params.get(FILTER_PARAM) : null;
-        return pageTarget(model, kind, scope, id, filter);
+        return pageTarget(model, kind, { scope, id, filter });
     }
     const view = params.get("view");
     return view === null ? undefined : viewTarget(model, view);
@@ -278,6 +293,21 @@ function routeLanding(query: string): Landing {
     }
     const view = params.get("view");
     return view ? { view } : null;
+}
+
+/**
+ * The document page a Structurizr path names, `…/documentation/<name>…` or
+ * `…/decisions/<name>…`: its kind, and the names after it, which name a
+ * documentation scope. `undefined` when no segment names one.
+ */
+function pageSegments(
+    segments: readonly string[],
+): { kind: PageKind; names: string[] } | undefined {
+    const at = segments.findIndex((segment) =>
+        PAGE_KINDS.includes(segment as PageKind),
+    );
+    if (at < 0) return undefined;
+    return { kind: segments[at] as PageKind, names: segments.slice(at + 1) };
 }
 
 /**
@@ -308,12 +338,10 @@ function linkLanding(link: string): Landing {
     if (segments[segments.length - 1] === "diagrams") {
         return fragment ? { view: fragment } : null;
     }
-    const at = segments.findIndex((segment) =>
-        PAGE_KINDS.includes(segment as PageKind),
-    );
-    if (at < 0) return null;
-    const page = segments[at] as PageKind;
-    const scope = namedPath(segments.slice(at + 1));
+    const named = pageSegments(segments);
+    if (!named) return null;
+    const page = named.kind;
+    const scope = namedPath(named.names);
     if (!scope || fragment) return { page, id: scopedId(scope, fragment) };
     return page === "documentation"
         ? { page, id: scope }
@@ -442,17 +470,12 @@ function structurizrTarget(
     if (segments[segments.length - 1] === "diagrams") {
         return viewTarget(model, fragment);
     }
-    const at = segments.findIndex((segment) =>
-        PAGE_KINDS.includes(segment as PageKind),
-    );
-    if (at < 0) return undefined;
-    const kind = segments[at] as PageKind;
-    return pageTarget(
-        model,
-        kind,
-        scopeNamed(model, segments.slice(at + 1)),
-        fragment,
-    );
+    const named = pageSegments(segments);
+    if (!named) return undefined;
+    return pageTarget(model, named.kind, {
+        scope: scopeNamed(model, named.names),
+        id: fragment,
+    });
 }
 
 /** The path of a link to a page on Structurizr's hosts, or `undefined`. */
@@ -648,16 +671,10 @@ function scopeTargets(
 ): Target[] {
     const targets: (Target | undefined)[] = [
         scope.sections.length
-            ? pageTarget(model, "documentation", scope, "")
+            ? pageTarget(model, "documentation", { scope })
             : undefined,
         scope.decisions.length
-            ? pageTarget(
-                  model,
-                  "decisions",
-                  undefined,
-                  "",
-                  scopeFilterOf(scope),
-              )
+            ? pageTarget(model, "decisions", { filter: scopeFilterOf(scope) })
             : undefined,
     ];
     return targets.filter((target) => target !== undefined);

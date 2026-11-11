@@ -66,17 +66,11 @@ import {
  * @property {Crossing[]} crossings The elements of this workspace that lead
  *   into another workspace of the set, at most one per element and target,
  *   in element order.
- * @property {Documents | null} documents What the software system the
- *   workspace is scoped to carries as a documentation scope, so the
- *   landscape scoped workspace can offer it without loading the workspace;
- *   `null` where `slug` is, or when it carries no sections or decisions.
- *
- * @typedef {object} Documents
- *   The documentation scope of the software system a workspace is scoped
- *   to, as its software system on the landscape offers it.
- * @property {string} scope Its slug path in its workspace (ADR 30).
- * @property {boolean} documentation Whether it carries sections.
- * @property {boolean} decisions Whether it carries decisions.
+ * @property {import("../src/model/targets").SetDocuments | null} documents
+ *   What the software system the workspace is scoped to carries as a
+ *   documentation scope, so the landscape scoped workspace can offer it
+ *   without loading the workspace; `null` where `slug` is, or when it
+ *   carries no sections or decisions.
  *
  * @typedef {object} WorkspaceSet
  * @property {SetMember} landscape The landscape scoped workspace, where the

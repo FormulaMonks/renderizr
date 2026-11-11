@@ -124,7 +124,7 @@ export const ARTIFACT_OUTPUT = Object.freeze({
 
 /**
  * @typedef {import("./plugins.js").WorkspacePayload & {
- *     workspaces: { slug: string, name: string, documents?: object }[],
+ *     workspaces: import("../src/model/targets").SetMember[],
  * }} LandscapePayload
  *   What `workspace.json` holds: the landscape scoped workspace's payload
  *   and the set's other workspaces as `setMemberOf` names them.

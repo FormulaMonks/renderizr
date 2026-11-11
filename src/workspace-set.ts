@@ -1,4 +1,4 @@
-import type { SetDocuments } from "./model";
+import type { SetMember } from "./model";
 import type {
     Branding,
     Crossing,
@@ -32,14 +32,6 @@ export type SetWorkspace = {
     branding: Branding;
     /** Its elements that lead into another workspace of the set. */
     crossings: Crossing[];
-};
-
-/** A software system scoped workspace the set holds, before it loads. */
-export type SetMember = {
-    slug: string;
-    name: string;
-    /** What its software system carries as a documentation scope. */
-    documents?: SetDocuments;
 };
 
 /** What a set is made of. */

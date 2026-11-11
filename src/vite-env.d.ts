@@ -93,20 +93,8 @@ declare module "virtual:renderizr/set" {
         via: "workspace-link" | "followed-link" | "name";
         url?: string;
     };
-    /**
-     * Another workspace of the set, named before it loads: its slug, its
-     * name, and what its software system carries as a documentation scope
-     * when it carries anything.
-     */
-    export type SetMember = {
-        slug: string;
-        name: string;
-        documents?: {
-            scope: string;
-            documentation: boolean;
-            decisions: boolean;
-        };
-    };
+    /** Another workspace of the set, named before it loads. */
+    export type SetMember = import("./model").SetMember;
     /** A workspace of the set as the page enters it: `<slug>.json`. */
     export type WorkspacePayload = {
         workspace: Record<string, unknown>;
