@@ -503,6 +503,64 @@ test("--single-file inlines every workspace of a set into the one file", async (
         );
 });
 
+/* ----------------------------------------- a set with element documentation */
+
+/**
+ * A set whose only documentation and decisions sit on the Payments software
+ * system, in the workspace scoped to it.
+ */
+const DOCUMENTED_SET = join(
+    REPO_ROOT,
+    "test/__fixtures__/enterprise-documentation",
+);
+
+/** Build `DOCUMENTED_SET` into `name` with `args`. */
+const buildDocumentedSet = async (name, args) => {
+    const out = join(SCRATCH, name);
+    const result = await runCli([DOCUMENTED_SET, "--out", out, ...args], {
+        env: OFFLINE,
+    });
+    assert.equal(
+        result.code,
+        0,
+        `build failed:\n${result.stdout}\n${result.stderr}`,
+    );
+    return { out, ...result };
+};
+
+test("a set whose only documentation sits on a software system scoped workspace's element ships the documentation runtime in a multi-file build", async () => {
+    const { out } = await buildDocumentedSet("documented-set-multi", []);
+    const assets = await readdir(join(out, "assets"));
+    const chunk = assets.find((file) => /^documentation-.*\.js$/.test(file));
+    assert.ok(chunk, `no documentation chunk in ${assets.join(", ")}`);
+    // The landscape names what Payments carries, without holding it.
+    const code = await entryChunk(out);
+    assert.match(
+        unbroken(code),
+        /documents"?:\{"?scope"?:"payments"/,
+        "the page doesn't name what Payments carries",
+    );
+    assert.ok(!code.includes("Settle in batches"), "the page holds Payments");
+    const payments = JSON.parse(
+        await readFile(join(out, "payments.json"), "utf-8"),
+    );
+    assert.equal(
+        payments.workspace.model.softwareSystems[0].documentation.decisions
+            .length,
+        2,
+    );
+});
+
+test("a set whose only documentation sits on a software system scoped workspace's element ships the documentation runtime under --single-file", async () => {
+    const { out } = await buildDocumentedSet("documented-set-single", [
+        "--single-file",
+    ]);
+    const html = unbroken(await readFile(join(out, "index.html"), "utf-8"));
+    for (const marker of DOCS_MARKERS)
+        assert.ok(html.includes(marker), `index.html lacks ${marker}`);
+    assert.ok(html.includes("Settle in batches"), "Payments isn't inlined");
+});
+
 /* ---------------------------------------------------------------- --artifact */
 
 /** Render `workspace` with `--artifact` into `name`, offline. */
@@ -1000,6 +1058,35 @@ test("--artifact writes no renderizr-docs.js for a workspace with no documentati
         [],
         "the manifest lists a documentation runtime",
     );
+});
+
+test("--artifact writes renderizr-docs.js for a set whose only documentation sits on an element of a software system scoped workspace", async () => {
+    const { out } = await buildArtifact(
+        "artifact-documented-set",
+        DOCUMENTED_SET,
+    );
+    const { files } = await manifestOf(out);
+
+    assert.deepEqual(
+        files
+            .filter((file) => file.layer === "docs-runtime")
+            .map((file) => file.path),
+        [DOCS_RUNTIME],
+    );
+    const landscape = JSON.parse(
+        await readFile(join(out, "workspace.json"), "utf-8"),
+    );
+    assert.deepEqual(landscape.workspaces, [
+        {
+            slug: "payments",
+            name: "Payments",
+            documents: {
+                scope: "payments",
+                documentation: true,
+                decisions: true,
+            },
+        },
+    ]);
 });
 
 test("--artifact writes renderizr-docs.js for a workspace whose documentation sits on an element alone", async () => {

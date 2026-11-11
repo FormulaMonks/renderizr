@@ -7,7 +7,7 @@ import {
     RESOLVED_WORKSPACE_MODULE,
     SCRIPT_ELEMENT,
     SET_MODULE,
-    UNNAMED_WORKSPACE,
+    setMemberOf,
     WORKSPACE_MODULE,
     workspaceModuleSource,
 } from "./plugins.js";
@@ -145,10 +145,10 @@ const hasDocumentation = (workspace) =>
 
 /**
  * @typedef {import("./plugins.js").WorkspacePayload & {
- *     workspaces: { slug: string, name: string }[],
+ *     workspaces: { slug: string, name: string, documents?: object }[],
  * }} LandscapePayload
  *   What `workspace.json` holds: the landscape scoped workspace's payload
- *   and the set's other workspaces by slug and name.
+ *   and the set's other workspaces as `setMemberOf` names them.
  */
 
 /**
@@ -164,10 +164,7 @@ export const landscapePayload = ({ workspace, branding, set }) => ({
         font: branding.font && { family: branding.font.family, css: null },
     },
     crossings: set?.crossings ?? [],
-    workspaces: (set?.workspaces ?? []).map(({ slug, payload }) => ({
-        slug,
-        name: payload.workspace.name ?? UNNAMED_WORKSPACE,
-    })),
+    workspaces: (set?.workspaces ?? []).map(setMemberOf),
 });
 
 /**

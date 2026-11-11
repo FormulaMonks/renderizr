@@ -234,6 +234,11 @@ const SET = {
             slug: "payments",
             workspace: { name: "Payments" },
             crossings: [{ element: "7", slug: "orders", via: "name" }],
+            documents: {
+                scope: "payments",
+                documentation: true,
+                decisions: false,
+            },
         },
     ],
 };
@@ -316,9 +321,15 @@ test("a multi-file build writes one JSON file per workspace, named after its slu
     const plugin = setModule(pageSet(SET, SET_BRANDING));
     const { crossings, workspaces, inlined } = setModuleExports(plugin);
     assert.deepEqual(crossings, SET.landscape.crossings);
+    // Each names what its software system carries as a documentation
+    // scope, when it carries anything, for the landscape to offer.
     assert.deepEqual(workspaces, [
         { slug: "orders", name: "Orders" },
-        { slug: "payments", name: "Payments" },
+        {
+            slug: "payments",
+            name: "Payments",
+            documents: SET.workspaces[1].documents,
+        },
     ]);
     assert.equal(inlined, null);
 

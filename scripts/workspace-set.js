@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { slugOf } from "../src/model/slug.js";
+import { siblingSlugs, slugOf } from "../src/model/slug.js";
 import { parseWorkspace, prepareWorkspace, readWorkspace } from "./assets.js";
 import { errorMessage } from "./dsl-pipeline.js";
 import {
@@ -65,6 +65,17 @@ import {
  * @property {Crossing[]} crossings The elements of this workspace that lead
  *   into another workspace of the set, at most one per element and target,
  *   in element order.
+ * @property {Documents | null} documents What the software system the
+ *   workspace is scoped to carries as a documentation scope, so the
+ *   landscape scoped workspace can offer it without loading the workspace;
+ *   `null` where `slug` is, or when it carries no sections or decisions.
+ *
+ * @typedef {object} Documents
+ *   The documentation scope of the software system a workspace is scoped
+ *   to, as its software system on the landscape offers it.
+ * @property {string} scope Its slug path in its workspace (ADR 30).
+ * @property {boolean} documentation Whether it carries sections.
+ * @property {boolean} decisions Whether it carries decisions.
  *
  * @typedef {object} WorkspaceSet
  * @property {SetMember} landscape The landscape scoped workspace, where the
@@ -171,6 +182,7 @@ export async function loadSet(
                 slug: null,
                 system: null,
                 crossings: [],
+                documents: null,
             },
             workspaces: [],
             // The page gives its `{workspace:N}` links no target, so the
@@ -188,9 +200,15 @@ export async function loadSet(
         slug,
         system,
         crossings,
+        documents: documentsOf(workspace, system),
     });
     return {
-        landscape: { ...result(landscape), slug: null, system: null },
+        landscape: {
+            ...result(landscape),
+            slug: null,
+            system: null,
+            documents: null,
+        },
         workspaces: members.filter((other) => other !== landscape).map(result),
         warnings,
         notices,
@@ -375,6 +393,47 @@ function member(location, workspace) {
         crossings: [],
     };
 }
+
+/** Whether `documentation` holds any document of the list `ids`. */
+const holds = (documentation, ids) => (documentation?.[ids] ?? []).length > 0;
+
+/**
+ * What `system`, the software system `workspace` is scoped to, carries as a
+ * documentation scope, or `null` when it carries nothing. Its slug path is
+ * the one `documentationScopes` in `src/model/documentation.ts` gives it:
+ * its sibling slug among the workspace's software systems.
+ */
+function documentsOf(workspace, system) {
+    if (!system) return null;
+    const systems = softwareSystems(workspace);
+    const at = systems.findIndex(({ id }) => String(id) === system.id);
+    const { documentation } = systems[at] ?? {};
+    const documents = {
+        scope: siblingSlugs(systems.map(({ name }) => name))[at],
+        documentation: holds(documentation, "sections"),
+        decisions: holds(documentation, "decisions"),
+    };
+    return documents.documentation || documents.decisions ? documents : null;
+}
+
+/**
+ * Whether any documentation scope of `workspace` carries documents of the
+ * list `ids`: the workspace, or any software system, container or
+ * component.
+ */
+const anyScopeHolds = (workspace, ids) =>
+    holds(workspace.documentation, ids) ||
+    softwareSystems(workspace).some(
+        (system) =>
+            holds(system.documentation, ids) ||
+            (system.containers ?? []).some(
+                (container) =>
+                    holds(container.documentation, ids) ||
+                    (container.components ?? []).some((component) =>
+                        holds(component.documentation, ids),
+                    ),
+            ),
+    );
 
 /** Why software system scoped `workspace` has no one software system. */
 function detailProblem(workspace) {
@@ -584,7 +643,8 @@ const viewKeys = (workspace) =>
  * Why the crossing `url` can't land where it says in `target`, or `null`.
  * The path after `{workspace:N}` reads against the target the way an
  * element link reads against its own workspace: `/diagrams#key` names a
- * view, `/documentation` and `/decisions` name those pages.
+ * view, `/documentation` and `/decisions` name those pages, which any
+ * documentation scope of the target may hold.
  */
 function missingLanding(url, target) {
     const rest = url.replace(WORKSPACE_LINK, "");
@@ -602,9 +662,7 @@ function missingLanding(url, target) {
     for (const page of ["documentation", "decisions"]) {
         if (!segments.includes(page)) continue;
         const ids = page === "documentation" ? "sections" : "decisions";
-        return (workspace.documentation?.[ids] ?? []).length === 0
-            ? `no ${page}`
-            : null;
+        return anyScopeHolds(workspace, ids) ? null : `no ${page}`;
     }
     return null;
 }
