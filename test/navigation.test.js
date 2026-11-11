@@ -20,6 +20,7 @@ import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: Navigation } = await importSrc("components/navigation");
 const { getMode, setMode } = await importSrc("components/theme");
+const { summarizeWorkspace } = await importSrc("engine/workspace-summary");
 
 const { document, window } = dom;
 
@@ -100,6 +101,46 @@ test("a workspace with no documentation has no Documentation tab", () => {
     assert.equal(nav.hasDocs, false);
     assert.equal(nav.hasDecisions, true);
     assert.equal(nav.hasDocsAndDecisions, false);
+});
+
+test("an element's sections and decisions bring Documentation and Decisions to the header", () => {
+    // Big Bank keeps every section and decision on Internet Banking System.
+    const json = JSON.parse(
+        readFileSync(
+            new URL("./__fixtures__/big-bank-plc-stored.json", import.meta.url),
+            "utf-8",
+        ),
+    );
+    assert.equal(json.documentation?.sections?.length ?? 0, 0);
+    const nav = new Navigation(host, summarizeWorkspace(json));
+    nav.render();
+
+    assert.deepEqual(tabs(), ["diagrams", "docs", "adrs"]);
+    assert.equal(nav.hasDocs, true);
+    assert.equal(nav.hasDecisions, true);
+});
+
+test("an element's decisions alone bring only Decisions to the header", () => {
+    const nav = new Navigation(
+        host,
+        summarizeWorkspace({
+            name: "W",
+            model: {
+                softwareSystems: [
+                    {
+                        id: "1",
+                        name: "Orders",
+                        documentation: {
+                            decisions: WORKSPACE.documentation.decisions,
+                        },
+                    },
+                ],
+            },
+        }),
+    );
+    nav.render();
+
+    assert.deepEqual(tabs(), ["diagrams", "adrs"]);
 });
 
 test("a workspace with only diagrams shows no tabs at all", () => {

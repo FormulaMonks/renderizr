@@ -8,6 +8,7 @@ import Navigation, { type WorkspaceSummary } from "./components/navigation.ts";
 import { createImageResolver } from "./components/doc-images.ts";
 import { createLinkResolver } from "./components/doc-links.ts";
 import { takeSessionToken } from "./components/session-token.ts";
+import { createSlugCollisionWarner } from "./components/slug-collisions.ts";
 import {
     currentWorkspace,
     followWorkspaceTrail,
@@ -132,6 +133,7 @@ async function init() {
     let shown = 0;
     /** The address path the header leads back from. */
     let headerPath: string | null = null;
+    const warnOfSlugCollisions = createSlugCollisionWarner();
 
     /** The header of `entered`, leading back up the address's trail. */
     const headerOf = (entered: SetWorkspace) => {
@@ -161,6 +163,10 @@ async function init() {
         nav.render();
         if (router) router.replacePages(routes);
         else router = new Router(content, routes);
+        // Siblings whose documents share an address warn the author, in
+        // `pnpm dev` and edit mode only (ADR 30).
+        if (import.meta.hot || __RENDERIZR_EDIT_MODE__)
+            warnOfSlugCollisions(entered.workspace);
     };
 
     // The page lands titled by the build, and painted in its primary color

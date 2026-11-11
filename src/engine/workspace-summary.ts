@@ -1,9 +1,15 @@
 import type { WorkspaceSummary } from "../components/navigation";
+import {
+    type DocumentedWorkspace,
+    documentationScopes,
+} from "../model/documentation";
 
 /**
  * The header and documentation summary of a workspace JSON: empty text for a
  * missing name or description, now for a missing date, and empty lists for
- * missing documentation.
+ * missing documentation. `documentation` holds the workspace's own, and
+ * `offers` says whether any documentation scope carries sections or
+ * decisions.
  */
 export function summarizeWorkspace(
     json: Record<string, unknown> & {
@@ -11,6 +17,7 @@ export function summarizeWorkspace(
     },
 ): WorkspaceSummary {
     const documentation = json.documentation ?? {};
+    const scopes = documentationScopes(json as DocumentedWorkspace);
     return {
         ...(json as unknown as WorkspaceSummary),
         name: typeof json.name === "string" ? json.name : "",
@@ -24,6 +31,10 @@ export function summarizeWorkspace(
             sections: documentation.sections ?? [],
             decisions: documentation.decisions ?? [],
             images: documentation.images ?? [],
+        },
+        offers: {
+            sections: scopes.some((scope) => scope.sections.length > 0),
+            decisions: scopes.some((scope) => scope.decisions.length > 0),
         },
     };
 }
