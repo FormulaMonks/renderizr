@@ -39,6 +39,12 @@ export const searchOf = (params: URLSearchParams | Record<string, string>) =>
 
 /* ---------------------------------------------------- documentation scopes */
 
+/**
+ * Structurizr's name for the workspace's own documentation scope, in a name
+ * path; the decisions page's filter holds it for the same scope.
+ */
+export const WORKSPACE_SCOPE = "*";
+
 /** What a documentation scope is: the workspace or the element it belongs to. */
 export type DocumentationScopeType =
     | "Workspace"
@@ -79,6 +85,13 @@ export type DocumentationScope = {
     decisions: Decision[];
     images: DocumentationImage[];
 };
+
+/**
+ * What names `scope` beside other documentation scopes: the element's name,
+ * or "Workspace" for the workspace's own.
+ */
+export const scopeLabel = (scope: Pick<DocumentationScope, "type" | "name">) =>
+    scope.type === "Workspace" ? "Workspace" : scope.name;
 
 /**
  * Two or more siblings whose names slug the same, where it reaches a

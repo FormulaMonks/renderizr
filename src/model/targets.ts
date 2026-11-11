@@ -16,18 +16,15 @@
  * after its element link.
  */
 
-import {
-    decisionOrder,
-    FILTER_PARAM,
-    scopeFilterOf,
-    scopeLabel,
-} from "./decisions";
+import { decisionOrder, FILTER_PARAM, scopeFilterOf } from "./decisions";
 import {
     type DocumentationScope,
     scopedId,
+    scopeLabel,
     searchOf,
     sectionId,
     slugOf,
+    WORKSPACE_SCOPE,
 } from "./documentation";
 import type { ModelElement, ModelRelationship } from "./types";
 import type { WorkspaceModel } from "./workspace";
@@ -408,9 +405,6 @@ function trailTarget(
     );
     return target && { ...target, trail };
 }
-
-/** Structurizr's name for the workspace's own documentation scope. */
-const WORKSPACE_SCOPE = "*";
 
 /**
  * The documentation scope that Structurizr's name path `names` names, one

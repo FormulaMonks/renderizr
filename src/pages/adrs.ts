@@ -19,10 +19,13 @@ import {
     scopeFilterOf,
     scopeFilterOptions,
     scopeHue,
-    scopeLabel,
     scopedDecisions,
 } from "../model/decisions";
-import { type DocumentationScope, searchOf } from "../model/documentation";
+import {
+    type DocumentationScope,
+    scopeLabel,
+    searchOf,
+} from "../model/documentation";
 import { readSetting, writeSetting } from "../storage";
 import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
 import Page from "./_page";
@@ -77,12 +80,6 @@ const BARE_STATUS = new RegExp(
 
 const numberSpan = (decision: ScopedDecision) =>
     `<span class="${styles.number}">${decisionNumber(decision.number)}</span>`;
-
-/**
- * The query string of `search`. A slug path reads as written in the address
- * bar, `adr=payments/3` rather than `adr=payments%2F3`.
- */
-const queryOf = (search: URLSearchParams) => searchOf(search);
 
 /** Each documentation scope's own resolver for a decision's links or images. */
 export type ScopedResolver<Resolver> = (scope: DocumentationScope) => Resolver;
@@ -196,7 +193,7 @@ export default class Decisions extends Page {
         search.set("adr", adr.id);
 
         // The decision the page opens on is where the reader already is.
-        const next = { search: queryOf(search) };
+        const next = { search: searchOf(search) };
         if (this.#opened) history.push(next);
         else history.replace(next);
         this.#opened = true;
@@ -268,7 +265,7 @@ export default class Decisions extends Page {
             search.delete("adr");
 
         this.#refocus = true;
-        history.push({ search: queryOf(search) });
+        history.push({ search: searchOf(search) });
     };
 
     /**
@@ -471,7 +468,7 @@ export default class Decisions extends Page {
         const search = new URLSearchParams(history.location.search);
         if (search.has("adr")) {
             search.delete("adr");
-            history.push({ search: queryOf(search) });
+            history.push({ search: searchOf(search) });
         }
         window.scrollTo({ top: 0 });
     }
@@ -488,7 +485,7 @@ export default class Decisions extends Page {
             const hidden = this.#all.some((d) => d.id === search.get("adr"));
             if (hidden && this.#filter !== null) {
                 search.delete("adr");
-                history.replace({ search: queryOf(search) });
+                history.replace({ search: searchOf(search) });
             }
         }
         // The first view shows at once, before the deferred first paint, so

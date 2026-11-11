@@ -7,6 +7,7 @@ import ScrollSpy from "../components/scroll-spy";
 import {
     type DocumentationScope,
     scopedId,
+    scopeLabel,
     searchOf,
     sectionId,
 } from "../model/documentation";
@@ -64,9 +65,12 @@ type DocsMenuItem = {
     headingId: string | null;
 };
 
-/** What a documentation scope is called in the menu and the pager. */
+/**
+ * What a documentation scope is called in the menu and the pager: the
+ * workspace's own goes by the workspace's name while it has one.
+ */
 const scopeTitle = (scope: DocumentationScope) =>
-    scope.name || (scope.type === "Workspace" ? "Workspace" : "");
+    scope.name || scopeLabel(scope);
 
 /**
  * The scope's slug path, and the paths of the scopes above it, nearest

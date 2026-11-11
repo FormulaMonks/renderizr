@@ -5,7 +5,11 @@
  */
 
 import type { Decision } from "../types/structurizr-documentation";
-import { type DocumentationScope, scopedId } from "./documentation";
+import {
+    type DocumentationScope,
+    scopedId,
+    WORKSPACE_SCOPE,
+} from "./documentation";
 
 /** The four states a decision can be in, as the page colors them. */
 export type DecisionStatus = "draft" | "accepted" | "amended" | "superseded";
@@ -92,20 +96,22 @@ export type ScopedDecision = Decision & {
  * path, then the decision's own id. The workspace scope adds nothing, so
  * the workspace's own decisions keep the addresses they always had.
  */
-export const decisionAddress = (
+export function decisionAddress(
     scope: Pick<DocumentationScope, "path">,
     id: string,
-): string => scopedId(scope.path, id);
-
-/** What `filter` holds for the workspace's own decisions. */
-export const WORKSPACE_FILTER = "*";
+): string {
+    return scopedId(scope.path, id);
+}
 
 /** The address parameter that holds the decisions page's filter. */
 export const FILTER_PARAM = "filter";
 
-/** What `filter` holds for `scope`: its slug path, `*` for the workspace. */
+/**
+ * What `filter` holds for `scope`: its slug path, or for the workspace's own
+ * Structurizr's name for it, `*`.
+ */
 export const scopeFilterOf = (scope: Pick<DocumentationScope, "path">) =>
-    scope.path || WORKSPACE_FILTER;
+    scope.path || WORKSPACE_SCOPE;
 
 /**
  * Every documentation scope's decisions in decision order, each addressed
@@ -154,18 +160,16 @@ export function filterByScope(
 export const mixesScopes = (decisions: readonly ScopedDecision[]) =>
     new Set(decisions.map((d) => d.scope)).size > 1;
 
-/** What a scope pill says: the element's name, or "Workspace". */
-export const scopeLabel = (scope: Pick<DocumentationScope, "type" | "name">) =>
-    scope.type === "Workspace" ? "Workspace" : scope.name;
-
 /**
  * The hue of `scope`'s pill, from its place among `scopes`: a golden-angle
  * step apart, so neighbors in the list never look alike.
  */
-export const scopeHue = (
+export function scopeHue(
     scopes: readonly DocumentationScope[],
     scope: DocumentationScope,
-) => Math.round((210 + scopes.indexOf(scope) * 137.5) % 360);
+): number {
+    return Math.round((210 + scopes.indexOf(scope) * 137.5) % 360);
+}
 
 /** An entry of the decisions page's filter. */
 export type ScopeFilterOption = {

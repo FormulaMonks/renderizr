@@ -10,7 +10,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { importSrc, srcTest as test } from "./support/ts.js";
 
-const { documentationScopes } = await importSrc("model/documentation");
+const { documentationScopes, scopeLabel } = await importSrc(
+    "model/documentation",
+);
 const {
     decisionAddress,
     filterByScope,
@@ -18,7 +20,6 @@ const {
     scopeFilterOf,
     scopeFilterOptions,
     scopeHue,
-    scopeLabel,
     scopedDecisions,
 } = await importSrc("model/decisions");
 
