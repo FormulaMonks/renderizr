@@ -19,6 +19,10 @@ import { followDevSet } from "./dev-set";
 import type { SetWorkspace } from "./workspace-set";
 import { inOtherWorkspace } from "./workspace-trail";
 import { summarizeWorkspace } from "./engine/workspace-summary";
+import {
+    type DocumentedWorkspace,
+    documentationScopes,
+} from "./model/documentation";
 import type Page from "./pages/_page.ts";
 import DiagramsPage from "./pages/diagrams";
 import { startLiveReload } from "./pages/diagrams-edit";
@@ -60,8 +64,9 @@ async function pagesOf(
     // Links between sections and decisions are written as relative file
     // paths; this maps them onto the routes below.
     const { sections, decisions, images } = workspace.documentation;
+    const scopes = documentationScopes(workspace as DocumentedWorkspace);
     const resolveLink = createLinkResolver({
-        docs: nav.hasDocs ? { page: "docs", sections } : null,
+        docs: nav.hasDocs ? { page: "docs", sections, scopes } : null,
         decisions: nav.hasDecisions ? { page: "adrs", decisions } : null,
     });
     // Images they show come from the copies Structurizr embedded.
@@ -69,13 +74,23 @@ async function pagesOf(
 
     if (nav.hasDocs) {
         const { DocsPage } = await import("./pages/documentation.ts");
+        // An element's sections show its own images first, then the
+        // workspace's.
+        const imagesOf = new Map(
+            scopes.map((scope) => [
+                scope.path,
+                scope.path
+                    ? createImageResolver(scope.images, images)
+                    : resolveImage,
+            ]),
+        );
         routes.push(
             new DocsPage(
                 null,
                 "docs",
-                sections,
-                resolveLink("docs"),
-                resolveImage,
+                scopes,
+                (scope) => resolveLink("docs", scope),
+                (scope) => imagesOf.get(scope) ?? resolveImage,
             ),
         );
     }

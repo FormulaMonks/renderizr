@@ -21,6 +21,22 @@ export { siblingSlugs, slugOf };
 export const sectionId = (section: DocumentationSection): string =>
     section.id ?? section.filename.replace(/\.md$/, "");
 
+/**
+ * The id a document of the documentation scope at slug path `path` is
+ * addressed by: the slug path rides in front of the document's own id, and
+ * the workspace scope (`""`) adds nothing (ADR 30).
+ */
+export const scopedId = (path: string, id: string): string =>
+    path ? `${path}/${id}` : id;
+
+/**
+ * The query string of `params`, keeping the `/` of a slug path as it is:
+ * `section=internet-banking-system/01-context` reads better than `%2F`, and
+ * a query may hold a `/` unencoded.
+ */
+export const searchOf = (params: URLSearchParams | Record<string, string>) =>
+    new URLSearchParams(params).toString().replace(/%2F/gi, "/");
+
 /* ---------------------------------------------------- documentation scopes */
 
 /** What a documentation scope is: the workspace or the element it belongs to. */

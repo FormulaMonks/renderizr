@@ -21,6 +21,7 @@ import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
 const { default: Docs } = await importSrc("pages/docs");
+const { documentationScopes } = await importSrc("model/documentation");
 
 const { document, window } = dom;
 
@@ -74,8 +75,12 @@ beforeEach(() => {
     history.replace({ search: "?page=docs", hash: "" });
 });
 
+/** The documentation scopes of a workspace whose own sections are these. */
+const workspaceOf = (sections) =>
+    documentationScopes({ name: "Guidebook", documentation: { sections } });
+
 const renderPage = (sections = [GUIDE, OPERATIONS]) => {
-    const page = new Docs(host, "docs", sections);
+    const page = new Docs(host, "docs", workspaceOf(sections));
     page.render();
     return page;
 };
@@ -496,14 +501,14 @@ test("links between sections are routed through the resolver it was given", () =
     const page = new Docs(
         host,
         "docs",
-        [
+        workspaceOf([
             {
                 ...GUIDE,
                 content: `${GUIDE.content}\nSee [ops](02-operations.md).\n`,
             },
             OPERATIONS,
-        ],
-        (href) =>
+        ]),
+        () => (href) =>
             href === "02-operations.md"
                 ? "#/?page=docs&section=02-operations"
                 : undefined,
@@ -517,6 +522,285 @@ test("links between sections are routed through the resolver it was given", () =
         ),
         "the sibling link was not rerouted",
     );
+});
+
+/* ---------------------------------------------------- documentation scopes */
+
+const section = (filename, order, content) => ({ filename, order, content });
+
+const IBS_CONTEXT = section(
+    "01-context.md",
+    1,
+    "# Context\n\nWhy it exists.\n",
+);
+const IBS_DEPLOYMENT = section(
+    "02-deployment.md",
+    2,
+    "# Deployment\n\nWhere it runs.\n",
+);
+// The author titles the element's first section after the element.
+const API_OVERVIEW = section(
+    "01-overview.md",
+    1,
+    "# API Application\n\nServes JSON.\n",
+);
+const API_OPERATIONS = section(
+    "02-operations.md",
+    2,
+    "# Operations\n\nKeep it up.\n\n## Restarts\n\nRestart it.\n\n## Alerts\n\nPage someone.\n\n### Paging\n\nAt night too.\n",
+);
+const MAINFRAME_NOTES = section("01-notes.md", 1, "# Notes\n\nOld iron.\n");
+
+/** A workspace with documentation on itself and on three of its elements. */
+const bigBank = (own = [GUIDE]) => ({
+    name: "Big Bank plc",
+    documentation: { sections: own },
+    model: {
+        softwareSystems: [
+            {
+                id: "1",
+                name: "Internet Banking System",
+                documentation: { sections: [IBS_CONTEXT, IBS_DEPLOYMENT] },
+                containers: [
+                    {
+                        id: "2",
+                        name: "API Application",
+                        documentation: {
+                            sections: [API_OPERATIONS, API_OVERVIEW],
+                        },
+                    },
+                ],
+            },
+            { id: "3", name: "Email System" },
+            {
+                id: "4",
+                name: "Mainframe Banking System",
+                documentation: { sections: [MAINFRAME_NOTES] },
+            },
+        ],
+    },
+});
+
+const renderScopes = (workspace = bigBank(), ...resolvers) => {
+    const page = new Docs(
+        host,
+        "docs",
+        documentationScopes(workspace),
+        ...resolvers,
+    );
+    page.render();
+    return page;
+};
+
+const breadcrumb = () => document.getElementById("docs-breadcrumb").textContent;
+
+const pagerText = () =>
+    document
+        .querySelectorAll("#docs-pager button")
+        .map((button) => button.textContent.replace(/\s+/g, " ").trim());
+
+test("the scope tree opens only the scope on screen, its children nested under their element", () => {
+    renderScopes();
+
+    assert.deepEqual(menuEntries(), [
+        "0:Big Bank plc",
+        "1:Guide",
+        "2:Install",
+        "2:Configure",
+        "0:Internet Banking System",
+        "1:API Application",
+        "0:Mainframe Banking System",
+    ]);
+});
+
+test("a closed scope opens on its first page, and then it alone shows its sections", () => {
+    renderScopes();
+
+    menuItem("Internet Banking System").click();
+
+    assert.deepEqual(visible(), ["H1:Context", "P:Why it exists."]);
+    assert.equal(params().get("section"), "internet-banking-system/01-context");
+    assert.deepEqual(menuEntries(), [
+        "0:Big Bank plc",
+        "0:Internet Banking System",
+        "1:Context",
+        "1:Deployment",
+        "1:API Application",
+        "0:Mainframe Banking System",
+    ]);
+});
+
+test("a container's scope opens under its software system, which stays closed", () => {
+    history.replace({
+        search: "?page=docs&section=internet-banking-system/api-application/02-operations&subsection=alerts",
+    });
+    renderScopes();
+
+    assert.deepEqual(menuEntries(), [
+        "0:Big Bank plc",
+        "0:Internet Banking System",
+        "1:API Application",
+        "2:API Application",
+        "2:Operations",
+        "3:Restarts",
+        "3:Alerts",
+        "4:Paging",
+        "0:Mainframe Banking System",
+    ]);
+});
+
+test("titles stay the author's, even when the first section repeats the element's name", () => {
+    history.replace({
+        search: "?page=docs&section=internet-banking-system/api-application",
+    });
+    renderScopes();
+
+    const titles = menuEntries().filter((entry) =>
+        entry.endsWith(":API Application"),
+    );
+    assert.deepEqual(titles, ["1:API Application", "2:API Application"]);
+    assert.deepEqual(visible(), ["H1:API Application", "P:Serves JSON."]);
+});
+
+test("the pager runs through every scope in menu order, naming the scope it crosses into", () => {
+    renderScopes();
+
+    menuItem("Configure").click();
+    assert.deepEqual(pagerText(), [
+        "Previous Install",
+        "Next Internet Banking System › Context Context",
+    ]);
+
+    document.querySelectorAll("#docs-pager button").at(-1).click();
+    assert.deepEqual(pagerText(), [
+        "Previous Big Bank plc › Guide Configure",
+        "Next Deployment Deployment",
+    ]);
+
+    document.querySelectorAll("#docs-pager button").at(-1).click();
+    assert.deepEqual(pagerText(), [
+        "Previous Context Context",
+        "Next API Application › API Application API Application",
+    ]);
+});
+
+test("the pager ends at the last scope's last page", () => {
+    history.replace({
+        search: "?page=docs&section=mainframe-banking-system/01-notes",
+    });
+    renderScopes();
+
+    assert.deepEqual(pagerText(), [
+        "Previous API Application › Operations Alerts",
+    ]);
+});
+
+test("the breadcrumb names an element's scope by type and name, and the workspace's adds nothing", () => {
+    renderScopes();
+    assert.equal(breadcrumb(), "");
+    menuItem("Install").click();
+    assert.equal(breadcrumb(), "Guide");
+
+    menuItem("Internet Banking System").click();
+    assert.equal(breadcrumb(), "Software System: Internet Banking System");
+
+    history.push({
+        search: "?page=docs&section=internet-banking-system/api-application/02-operations&subsection=restarts",
+    });
+    assert.equal(breadcrumb(), "Container: API Application › Operations");
+});
+
+test("landing with no section opens the workspace's first section", () => {
+    renderScopes();
+
+    assert.deepEqual(visible(), ["H1:Guide", "P:Everything starts here."]);
+    assert.equal(params().get("section"), "01-guide");
+});
+
+test("landing without workspace sections opens the first scope with sections", () => {
+    const workspace = bigBank([]);
+    // Decisions alone give the workspace no page of the docs.
+    workspace.documentation.decisions = [{ id: "1", title: "Record" }];
+    renderScopes(workspace);
+
+    assert.deepEqual(visible(), ["H1:Context", "P:Why it exists."]);
+    assert.equal(params().get("section"), "internet-banking-system/01-context");
+    assert.equal(menuEntries()[0], "0:Internet Banking System");
+});
+
+test("a workspace with no element documentation keeps its flat menu and its addresses", () => {
+    renderScopes({
+        name: "Big Bank plc",
+        documentation: { sections: [GUIDE, OPERATIONS] },
+        model: { softwareSystems: [{ id: "1", name: "Internet Banking" }] },
+    });
+
+    assert.deepEqual(menuEntries(), [
+        "0:Guide",
+        "1:Install",
+        "1:Configure",
+        "0:Operations",
+    ]);
+    menuItem("Operations").click();
+    assert.equal(params().get("section"), "02-operations");
+});
+
+test("a heading inside an element's section rides in subsection", () => {
+    history.replace({
+        search: "?page=docs&section=internet-banking-system/api-application/02-operations&subsection=paging",
+    });
+    renderScopes();
+
+    assert.equal(visible()[0], "H1:Alerts");
+    assert.equal(params().get("subsection"), "alerts");
+});
+
+test("an unknown section in a known scope opens that scope's first page", () => {
+    history.replace({
+        search: "?page=docs&section=internet-banking-system/99-nope",
+    });
+    renderScopes();
+
+    assert.deepEqual(visible(), ["H1:Context", "P:Why it exists."]);
+});
+
+test("each scope's sections render through the link and image resolvers of their own scope", () => {
+    const asked = [];
+    const workspace = bigBank();
+    workspace.model.softwareSystems[0].documentation.sections[0] = section(
+        "01-context.md",
+        1,
+        "# Context\n\nSee [deployment](02-deployment.md).\n\n![Map](map.png)\n",
+    );
+    renderScopes(
+        workspace,
+        (scope) => (href) => {
+            asked.push(`link ${scope}`);
+            return href === "02-deployment.md"
+                ? `#/?page=docs&section=${scope}/02-deployment`
+                : undefined;
+        },
+        (scope) => (src) => {
+            asked.push(`image ${scope}`);
+            return src === "map.png"
+                ? `data:image/png;base64,${scope}`
+                : undefined;
+        },
+    );
+
+    menuItem("Internet Banking System").click();
+
+    assert.ok(
+        document.querySelector(
+            '.markdown-renderer a[href="#/?page=docs&section=internet-banking-system/02-deployment"]',
+        ),
+        "the link was not resolved in its own scope",
+    );
+    assert.equal(
+        document.querySelector(".markdown-renderer img")?.getAttribute("src"),
+        "data:image/png;base64,internet-banking-system",
+    );
+    assert.ok(asked.includes("link internet-banking-system"), `${asked}`);
 });
 
 /* ------------------------------------------------ the committed workspace */

@@ -131,3 +131,99 @@ test("without a docs page, a section link has nowhere to go", () => {
 
     assert.equal(decisionsOnly("../docs/01-context.md"), null);
 });
+
+/* ------------------------------------------------- documentation scopes */
+
+const { documentationScopes } = await importSrc("model/documentation");
+
+const SCOPED = documentationScopes({
+    name: "Big Bank plc",
+    documentation: { sections: SECTIONS },
+    model: {
+        softwareSystems: [
+            {
+                id: "1",
+                name: "Internet Banking System",
+                documentation: {
+                    sections: [
+                        { filename: "01-context.md", order: 1, content: "" },
+                        { filename: "02-deployment.md", order: 2, content: "" },
+                    ],
+                },
+                containers: [
+                    {
+                        id: "2",
+                        name: "API Application",
+                        documentation: {
+                            sections: [
+                                {
+                                    filename: "01-overview.md",
+                                    order: 1,
+                                    content: "",
+                                },
+                            ],
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+});
+
+const scoped = createLinkResolver({
+    docs: { page: "docs", sections: SECTIONS, scopes: SCOPED },
+    decisions: { page: "adrs", decisions: DECISIONS },
+});
+
+test("a relative link inside an element's documentation resolves in its own scope first", () => {
+    assert.equal(
+        scoped("docs", "internet-banking-system")("01-context.md#goals"),
+        "#/?page=docs&section=internet-banking-system/01-context&subsection=goals",
+    );
+    assert.equal(
+        scoped(
+            "docs",
+            "internet-banking-system/api-application",
+        )("01-overview.md"),
+        "#/?page=docs&section=internet-banking-system/api-application/01-overview",
+    );
+});
+
+test("a relative link its own scope lacks falls back to the workspace's", () => {
+    assert.equal(
+        scoped(
+            "docs",
+            "internet-banking-system/api-application",
+        )("../../04-file-definitions.md"),
+        "#/?page=docs&section=04-file-definitions",
+    );
+});
+
+test("a relative link neither its scope nor the workspace holds stays broken", () => {
+    assert.equal(
+        scoped("docs", "internet-banking-system")("09-missing.md"),
+        null,
+    );
+});
+
+test("a relative link never reaches another element's sections", () => {
+    // 02-deployment.md lives on Internet Banking System, not on its container.
+    assert.equal(
+        scoped(
+            "docs",
+            "internet-banking-system/api-application",
+        )("02-deployment.md"),
+        null,
+    );
+});
+
+test("the workspace scope resolves links as before", () => {
+    assert.equal(
+        scoped("docs")("01-context.md"),
+        "#/?page=docs&section=01-context",
+    );
+    assert.equal(
+        scoped("docs", "")("01-context.md"),
+        "#/?page=docs&section=01-context",
+    );
+});

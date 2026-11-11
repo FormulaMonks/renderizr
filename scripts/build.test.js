@@ -1002,6 +1002,23 @@ test("--artifact writes no renderizr-docs.js for a workspace with no documentati
     );
 });
 
+test("--artifact writes renderizr-docs.js for a workspace whose documentation sits on an element alone", async () => {
+    // Big Bank keeps every section and decision on Internet Banking System.
+    const { out } = await buildArtifact(
+        "artifact-element-documentation",
+        join(REPO_ROOT, "test/__fixtures__/big-bank-plc-stored.json"),
+    );
+    const { files } = await manifestOf(out);
+
+    assert.ok(existsSync(join(out, DOCS_RUNTIME)), `${DOCS_RUNTIME} missing`);
+    assert.deepEqual(
+        files
+            .filter((file) => file.layer === "docs-runtime")
+            .map((file) => file.path),
+        [DOCS_RUNTIME],
+    );
+});
+
 test("--artifact puts the documentation stack in renderizr-docs.js, under the docs-runtime layer, and nowhere else", async () => {
     const { out } = await architectureArtifact();
     const { files } = await manifestOf(out);

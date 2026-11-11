@@ -1,4 +1,9 @@
-import { sectionId } from "../model/documentation";
+import {
+    type DocumentationScope,
+    scopedId,
+    searchOf,
+    sectionId,
+} from "../model/documentation";
 import type {
     Decision,
     DocumentationSection,
@@ -19,7 +24,16 @@ export type LinkResolver = (href: string) => ResolvedLink;
 export type LinkContext = "docs" | "decisions";
 
 type LinkResolverOptions = {
-    docs?: { page: string; sections: DocumentationSection[] } | null;
+    docs?: {
+        page: string;
+        /** The workspace's own sections. */
+        sections: DocumentationSection[];
+        /**
+         * Every documentation scope, so a link inside an element's
+         * documentation reaches that element's sections first.
+         */
+        scopes?: DocumentationScope[];
+    } | null;
     decisions?: { page: string; decisions: Decision[] } | null;
 };
 
@@ -71,12 +85,26 @@ export const githubSlug = (text: string): string =>
 export function createLinkResolver({
     docs,
     decisions,
-}: LinkResolverOptions): (context: LinkContext) => LinkResolver {
-    const sections = new Map(
-        (docs?.sections ?? []).map((section) => [
-            (section.filename.split("/").pop() ?? "").toLowerCase(),
-            sectionId(section),
-        ]),
+}: LinkResolverOptions): (
+    context: LinkContext,
+    scope?: string,
+) => LinkResolver {
+    /** File name -> addressed section id, of the scope at each slug path. */
+    const sectionsIn = (path: string, list: DocumentationSection[]) =>
+        new Map(
+            list.map((section) => [
+                (section.filename.split("/").pop() ?? "").toLowerCase(),
+                scopedId(path, sectionId(section)),
+            ]),
+        );
+    const sections = sectionsIn("", docs?.sections ?? []);
+    const scopeSections = new Map(
+        (docs?.scopes ?? [])
+            .filter((scope) => scope.path)
+            .map((scope) => [
+                scope.path,
+                sectionsIn(scope.path, scope.sections),
+            ]),
     );
     const decisionIds = new Map(
         (decisions?.decisions ?? []).map((decision) => [
@@ -85,10 +113,11 @@ export function createLinkResolver({
         ]),
     );
 
-    const route = (search: Record<string, string>) =>
-        `#/?${new URLSearchParams(search).toString()}`;
+    const route = (search: Record<string, string>) => `#/?${searchOf(search)}`;
 
-    return (context) => (href) => {
+    // `scope` is the slug path of the documentation scope the link sits in;
+    // its own sections come first, then the workspace's.
+    return (context, scope) => (href) => {
         if (!href || href.startsWith("#") || href.startsWith("/")) return;
         if (HAS_SCHEME.test(href)) return;
 
@@ -102,7 +131,9 @@ export function createLinkResolver({
         const segments = decode(path).split("/").filter(Boolean);
         const name = (segments.pop() ?? "").toLowerCase();
 
-        const section = docs && sections.get(name);
+        const section =
+            docs &&
+            (scopeSections.get(scope ?? "")?.get(name) ?? sections.get(name));
         if (docs && section) {
             return route({
                 page: docs.page,
