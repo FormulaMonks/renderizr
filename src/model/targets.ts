@@ -5,9 +5,10 @@
  * target menu. Both ask this module, so they never disagree.
  *
  * The order is the spec's: the element link, the drill-down views, the
- * element's image views, then properties whose value is an `http(s)` URL.
- * Element-scoped documentation and decisions come fourth once Renderizr has
- * a page for them (#37); until then there are none.
+ * element's image views, the element's own documentation and decisions,
+ * then properties whose value is an `http(s)` URL. An element offers only
+ * its own documentation scope, and an instance the one of the element it
+ * instantiates.
  *
  * In a set (ADR 26), an element can also lead into another workspace of the
  * set, as the set loader recorded it in the carrying workspace's crossings;
@@ -15,7 +16,12 @@
  * after its element link.
  */
 
-import { decisionOrder, FILTER_PARAM, scopeFilterOf } from "./decisions";
+import {
+    decisionOrder,
+    FILTER_PARAM,
+    scopeFilterOf,
+    scopeLabel,
+} from "./decisions";
 import {
     type DocumentationScope,
     scopedId,
@@ -556,15 +562,111 @@ const nameMatches = (model: WorkspaceModel, element: ModelElement) =>
         .filter((c) => c.element === element.id && c.via === "name")
         .map((c) => workspaceTarget(model, c.slug, null));
 
+/**
+ * The documentation scope `element` offers: its own, or for a software
+ * system instance or container instance the one of the element it
+ * instantiates. `undefined` when that element carries no documents. An
+ * element never offers an ancestor's.
+ */
+function ownScope(
+    model: WorkspaceModel,
+    element: ModelElement,
+): DocumentationScope | undefined {
+    const id =
+        element.type === "SoftwareSystemInstance"
+            ? element.softwareSystemId
+            : element.type === "ContainerInstance"
+              ? element.containerId
+              : element.id;
+    if (!id) return undefined;
+    return model.scopes.find((scope) => scope.elementId === id);
+}
+
+/**
+ * The targets of `scope`'s own documents: "Documentation" at its first
+ * section and "Decisions" at the index filtered to it, each only when the
+ * scope carries such documents.
+ */
+function scopeTargets(
+    model: WorkspaceModel,
+    scope: DocumentationScope,
+): Target[] {
+    const targets: (Target | undefined)[] = [
+        scope.sections.length
+            ? pageTarget(model, "documentation", scope, "")
+            : undefined,
+        scope.decisions.length
+            ? pageTarget(
+                  model,
+                  "decisions",
+                  undefined,
+                  "",
+                  scopeFilterOf(scope),
+              )
+            : undefined,
+    ];
+    return targets.filter((target) => target !== undefined);
+}
+
+/**
+ * The documentation scope a documentation or decisions target lands in:
+ * the one its document's id names, the one its decisions filter names, or
+ * for the docs page's landing the first scope with sections. `undefined`
+ * for the decisions index of every scope.
+ */
+function landingScope(
+    model: WorkspaceModel,
+    target: Target & { kind: PageKind },
+): DocumentationScope | undefined {
+    const params = new URLSearchParams(target.search);
+    const address = params.get(PAGES[target.kind].param);
+    if (address !== null) return addressed(model, target.kind, address)[0];
+    if (target.kind === "documentation") {
+        return scopesWith(model, "documentation")[0];
+    }
+    const filter = params.get(FILTER_PARAM);
+    return model.scopes.find((scope) => scopeFilterOf(scope) === filter);
+}
+
+/**
+ * The element link of an element whose own documentation scope is `own`,
+ * and that scope's targets. A link to a page of another documentation
+ * scope names that scope after a middle dot ("Documentation · Workspace");
+ * a link to `own`'s page of the same kind stands in for `own`'s target, in
+ * the link's place.
+ */
+function ownDocuments(
+    model: WorkspaceModel,
+    link: Target | undefined,
+    own: DocumentationScope | undefined,
+): [Target | undefined, Target[]] {
+    if (!own) return [link, []];
+    const targets = scopeTargets(model, own);
+    if (link?.kind !== "documentation" && link?.kind !== "decisions") {
+        return [link, targets];
+    }
+    const scope = landingScope(model, link);
+    if (scope === own) {
+        return [link, targets.filter((target) => target.kind !== link.kind)];
+    }
+    const label = scope ? `${link.label} · ${scopeLabel(scope)}` : link.label;
+    return [{ ...link, label }, targets];
+}
+
 /** Everything activating `element` offers, from the view `current`. */
 export function elementTargets(
     model: WorkspaceModel,
     element: ModelElement,
     current: string,
 ): Target[] {
+    const [link, documents] = ownDocuments(
+        model,
+        classifyLink(model, element.url, element.id),
+        ownScope(model, element),
+    );
     return distinct(
         [
-            classifyLink(model, element.url, element.id),
+            link,
             ...nameMatches(model, element),
             ...drillDownViews(model, element).map((view) =>
                 viewTarget(model, view.key),
@@ -572,6 +674,7 @@ export function elementTargets(
             ...model
                 .findImageViewsForElement(element.id)
                 .map((view) => viewTarget(model, view.key)),
+            ...documents,
             ...propertyTargets(element.properties ?? {}),
         ],
         current,
