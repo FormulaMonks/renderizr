@@ -15,6 +15,13 @@
  * after its element link.
  */
 
+import { decisionOrder, FILTER_PARAM, scopeFilterOf } from "./decisions";
+import {
+    type DocumentationScope,
+    scopedId,
+    searchOf,
+    sectionId,
+} from "./documentation";
 import type { ModelElement, ModelRelationship } from "./types";
 import type { WorkspaceModel } from "./workspace";
 
@@ -149,21 +156,71 @@ function viewTarget(model: WorkspaceModel, key: string): Target | undefined {
     return { kind: "view", key, label: model.getTitleForView(view) };
 }
 
+/** The documentation scopes of `model` that carry documents of `kind`. */
+const scopesWith = (model: WorkspaceModel, kind: PageKind) =>
+    model.scopes.filter((scope) => scope[PAGES[kind].ids].length);
+
 /**
- * The documentation or decisions page, opened at document `id` when the
- * workspace has it. `undefined` when the workspace has no such documents.
+ * The ids of `scope`'s documents of `kind`, in the order its page lists
+ * them: sections by their order, decisions newest first.
+ */
+const idsOf = (scope: DocumentationScope, kind: PageKind): string[] =>
+    kind === "documentation"
+        ? scope.sections
+              .toSorted((a, b) => (a.order < b.order ? -1 : 1))
+              .map(sectionId)
+        : decisionOrder(scope.decisions).map((decision) => decision.id);
+
+/**
+ * The documentation or decisions page, opened at document `id` of `scope`.
+ * An id the scope lacks opens the scope's first document, or the page's
+ * landing for the workspace's own, as it always did. A scope that carries
+ * no such documents, or no scope at all, opens the landing. A route to the
+ * decisions keeps a `filter` that some scope answers to. `undefined` when
+ * no documentation scope carries such documents.
  */
 function pageTarget(
     model: WorkspaceModel,
     kind: PageKind,
+    scope: DocumentationScope | undefined,
     id: string,
+    filter: string | null = null,
 ): Target | undefined {
-    const { page, param, ids, label } = PAGES[kind];
-    const known = model.documentation[ids];
-    if (known.length === 0) return undefined;
-    const query = new URLSearchParams({ page });
-    if (known.includes(id)) query.set(param, id);
-    return { kind, search: query.toString(), label };
+    const { page, param, label } = PAGES[kind];
+    const scopes = scopesWith(model, kind);
+    if (scopes.length === 0) return undefined;
+    const query: Record<string, string> = { page };
+    if (scope && scopes.includes(scope)) {
+        const ids = idsOf(scope, kind);
+        const known = ids.includes(id) ? id : scope.path ? ids[0] : undefined;
+        if (known !== undefined) query[param] = scopedId(scope.path, known);
+    }
+    if (filter && scopes.some((s) => scopeFilterOf(s) === filter)) {
+        query[FILTER_PARAM] = filter;
+    }
+    return { kind, search: searchOf(query), label };
+}
+
+/**
+ * The documentation scope and document id that `address` names, a
+ * document's id as Renderizr addresses it: the scope's slug path, then the
+ * document's own id (`internet-banking-system/01-context`, ADR 30). An id
+ * of the workspace's own reads as written. The scope is `undefined` when
+ * the slug path names no documentation scope.
+ */
+function addressed(
+    model: WorkspaceModel,
+    kind: PageKind,
+    address: string,
+): [DocumentationScope | undefined, string] {
+    const own = model.scopes.find((scope) => scope.path === "");
+    const slash = address.lastIndexOf("/");
+    if (slash < 0 || (own && idsOf(own, kind).includes(address))) {
+        return [own, address];
+    }
+    const path = address.slice(0, slash);
+    const scope = model.scopes.find((s) => s.path !== "" && s.path === path);
+    return [scope, address.slice(slash + 1)];
 }
 
 /** Renderizr's own route, as its query string: `?view=key`, `?page=docs…`. */
@@ -171,7 +228,10 @@ function routeTarget(model: WorkspaceModel, query: string): Target | undefined {
     const params = new URLSearchParams(query);
     const kind = PAGE_KINDS.find((k) => PAGES[k].page === params.get("page"));
     if (kind) {
-        return pageTarget(model, kind, params.get(PAGES[kind].param) ?? "");
+        const address = params.get(PAGES[kind].param) ?? "";
+        const [scope, id] = addressed(model, kind, address);
+        const filter = kind === "decisions" ? params.get(FILTER_PARAM) : null;
+        return pageTarget(model, kind, scope, id, filter);
     }
     const view = params.get("view");
     return view === null ? undefined : viewTarget(model, view);
@@ -292,10 +352,35 @@ function trailTarget(
     return target && { ...target, trail };
 }
 
+/** Structurizr's name for the workspace's own documentation scope. */
+const WORKSPACE_SCOPE = "*";
+
+/**
+ * The documentation scope that Structurizr's name path `names` names, one
+ * element name from the software system down, matched as written or
+ * percent-encoded and ignoring case. No name, or `*`, names the
+ * workspace's. `undefined` when no documentation scope answers to it.
+ */
+function scopeNamed(
+    model: WorkspaceModel,
+    names: readonly string[],
+): DocumentationScope | undefined {
+    const wanted = names.map((name) => decode(name).toLowerCase());
+    if (wanted.length === 0 || wanted.join("/") === WORKSPACE_SCOPE) {
+        return model.scopes.find((scope) => scope.path === "");
+    }
+    return model.scopes.find(
+        (scope) =>
+            scope.names.length === wanted.length &&
+            scope.names.every((name, i) => name.toLowerCase() === wanted[i]),
+    );
+}
+
 /**
  * Structurizr's own pages under a workspace's address: `…/diagrams#key`,
- * `…/documentation…` and `…/decisions…`. `undefined` for any other
- * path.
+ * `…/documentation[/<name>…]#section` and `…/decisions[/<name>…]#id`,
+ * where the names after the page's name an element's documentation scope.
+ * `undefined` for any other path.
  */
 function structurizrTarget(
     model: WorkspaceModel,
@@ -306,8 +391,17 @@ function structurizrTarget(
     if (segments[segments.length - 1] === "diagrams") {
         return viewTarget(model, fragment);
     }
-    const kind = PAGE_KINDS.find((k) => segments.includes(k));
-    return kind && pageTarget(model, kind, fragment);
+    const at = segments.findIndex((segment) =>
+        PAGE_KINDS.includes(segment as PageKind),
+    );
+    if (at < 0) return undefined;
+    const kind = segments[at] as PageKind;
+    return pageTarget(
+        model,
+        kind,
+        scopeNamed(model, segments.slice(at + 1)),
+        fragment,
+    );
 }
 
 /** The path of a link to a page on Structurizr's hosts, or `undefined`. */

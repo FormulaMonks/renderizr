@@ -131,6 +131,7 @@
                 "tags": "Element,Software System,Existing System",
                 "name": "E-mail System",
                 "description": "The internal Microsoft Exchange e-mail system.",
+                "url": "{workspace}/decisions/Internet Banking System/API Application/Sign In Controller#1",
                 "relationships": [
                     {
                         "id": "11",
@@ -402,6 +403,7 @@
                         "name": "Database",
                         "description": "Stores user registration information, hashed authentication credentials, access logs, etc.",
                         "technology": "Oracle Database Schema",
+                        "url": "#/?page=adrs&adr=internet-banking-system/3",
                         "documentation": {},
                         "parentId": "7",
                         "type": "Container",
@@ -611,6 +613,7 @@
                 "tags": "Element,Software System,Existing System",
                 "name": "Mainframe Banking System",
                 "description": "Stores all of the core banking information about customers, accounts, transactions, etc.",
+                "url": "{workspace}/documentation/Internet%20Banking%20System/API%20Application#02-operations",
                 "location": "Internal",
                 "documentation": {},
                 "type": "SoftwareSystem",

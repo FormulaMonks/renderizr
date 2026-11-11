@@ -190,6 +190,29 @@ test("an edge to a subgraph fails the diagram as a construct not drawn yet", () 
 
 /* ------------------------------------------------------ the flowchart model */
 
+test("a node keeps a link to an element's documents as written", () => {
+    const links = [
+        "{workspace}/documentation/Internet%20Banking%20System#01-context",
+        "{workspace}/decisions/Internet%20Banking%20System/API%20Application#1",
+        "#/?page=docs&section=internet-banking-system/01-context",
+    ];
+    const { mermaid } = readOne(
+        [
+            "flowchart LR",
+            "  A --> B",
+            "  B --> C",
+            ...links.map(
+                (link, i) => `  click ${"ABC"[i]} href "${link}" "Open it"`,
+            ),
+        ].join("\n"),
+    );
+
+    assert.deepEqual(
+        mermaid.nodes.map((n) => n.link),
+        links,
+    );
+});
+
 test("nodes carry their label lines, shape, subgraph, classes, styles and link", () => {
     const { mermaid } = readOne(
         [
