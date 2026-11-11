@@ -733,21 +733,23 @@ function ownDocuments(
 }
 
 /**
- * The workspace of the set scoped to the software system `element`, and
- * what that software system carries there, when `element` crosses into
- * it. `undefined` for any other element, and in that workspace itself,
- * which records no crossing to itself.
+ * The workspace of the set the software system `element` crosses into, by
+ * the slug the set loader recorded on its crossing, and what that
+ * workspace's software system carries there. The recorded slug, not the
+ * slug of `element`'s own name: a `{workspace:N}` link matches by id too.
+ * `undefined` for any other element, for one whose workspace's software
+ * system carries nothing, and in that workspace itself, which records no
+ * crossing to itself.
  */
 function scopedWorkspace(model: WorkspaceModel, element: ModelElement) {
     if (element.type !== "SoftwareSystem") return undefined;
-    const slug = slugOf(element.name);
-    const member = model.set.workspaces.find((w) => w.slug === slug);
-    const crosses = model.set.crossings.some(
-        (c) => c.element === element.id && c.slug === slug,
-    );
-    return member?.documents && crosses
-        ? { slug, documents: member.documents }
-        : undefined;
+    for (const crossing of model.set.crossings) {
+        if (crossing.element !== element.id) continue;
+        const { slug } = crossing;
+        const member = model.set.workspaces.find((w) => w.slug === slug);
+        if (member?.documents) return { slug, documents: member.documents };
+    }
+    return undefined;
 }
 
 /** The slug path of the documentation scope `landing` lands in. */

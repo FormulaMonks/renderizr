@@ -132,6 +132,46 @@ test("a software system offers only what its workspace's software system carries
     assert.deepEqual(offered(inSet(), "billing"), []);
 });
 
+test("a software system offers the documents of the workspace its crossing records, whatever its own name slugs to", () => {
+    // Payments Gateway links Payments' workspace by its id, so the loader
+    // records the crossing under the slug payments, not payments-gateway.
+    const url = "{workspace:42}/diagrams";
+    const json = landscape();
+    json.model.softwareSystems.push({
+        id: "gateway",
+        name: "Payments Gateway",
+        url,
+    });
+    const m = inSet(json, {
+        ...SET,
+        crossings: [
+            ...SET.crossings,
+            {
+                element: "gateway",
+                slug: "payments",
+                via: "workspace-link",
+                url,
+            },
+        ],
+    });
+    assert.deepEqual(
+        offered(m, "gateway").map(({ label, slug, shows }) => ({
+            label,
+            slug,
+            shows,
+        })),
+        [
+            { label: "Payments", slug: "payments", shows: undefined },
+            {
+                label: "Documentation",
+                slug: "payments",
+                shows: "documentation",
+            },
+            { label: "Decisions", slug: "payments", shows: "decisions" },
+        ],
+    );
+});
+
 test("a software system without a crossing into its workspace offers none of its documents", () => {
     const m = inSet(landscape(), { ...SET, crossings: [] });
     assert.deepEqual(offered(m, "payments"), []);
