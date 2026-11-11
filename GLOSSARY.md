@@ -81,7 +81,7 @@ The `url` an element or relationship carries in the workspace. It points to a vi
 _Avoid_: hyperlink, href
 
 **Activation target**:
-One destination that activating an element, a relationship or a Mermaid diagram's flowchart node offers the reader, by pointer or by keyboard. An element offers its element link, its drill-down views, its image views and then its properties whose value is an `http(s)` URL, each destination once and never the view on screen; a relationship offers its element link and its `http(s)` properties; a flowchart node offers the link its `click` line names. An item with no activation targets is inert.
+One destination that activating an element, a relationship or a Mermaid diagram's flowchart node offers the reader, by pointer or by keyboard. An element offers its element link, its drill-down views, its image views, its documentation, its decisions and then its properties whose value is an `http(s)` URL, each destination once and never the view on screen; a relationship offers its element link and its `http(s)` properties; a flowchart node offers the link its `click` line names. An item with no activation targets is inert.
 _Avoid_: hotspot, link (one target kind), activation (a sequence diagram's is an activation bar)
 
 **Target kind**:
@@ -187,6 +187,10 @@ _Avoid_: magnet
 **Alignment guide**:
 The dashed line edit mode draws while a dragged element or vertex lines up with another element, vertex or edge end.
 _Avoid_: smart guide, snap line
+
+**Documentation scope**:
+The workspace, a software system, a container or a component, with the documentation sections and decisions it carries. The documentation page holds the sections of every documentation scope in one tree that follows the model, and the decisions page holds the decisions of every documentation scope in one list. An element offers its own documentation scope, and an instance offers the one of the element it instantiates.
+_Avoid_: scope (that is a workspace scope), element documentation, docs scope
 
 **Decision graph**:
 The drawing beside the decisions menu that shows how decisions link to one another: a dot per decision, colored by its status, and a lane for each decision that later decisions link to.
