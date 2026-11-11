@@ -2,6 +2,7 @@ import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { anyScopeCarries, carries } from "../src/model/carries.js";
 import { siblingSlugs, slugOf } from "../src/model/slug.js";
 import { parseWorkspace, prepareWorkspace, readWorkspace } from "./assets.js";
 import { errorMessage } from "./dsl-pipeline.js";
@@ -394,9 +395,6 @@ function member(location, workspace) {
     };
 }
 
-/** Whether `documentation` holds any document of the list `ids`. */
-const holds = (documentation, ids) => (documentation?.[ids] ?? []).length > 0;
-
 /**
  * What `system`, the software system `workspace` is scoped to, carries as a
  * documentation scope, or `null` when it carries nothing. Its slug path is
@@ -410,30 +408,11 @@ function documentsOf(workspace, system) {
     const { documentation } = systems[at] ?? {};
     const documents = {
         scope: siblingSlugs(systems.map(({ name }) => name))[at],
-        documentation: holds(documentation, "sections"),
-        decisions: holds(documentation, "decisions"),
+        documentation: carries(documentation, ["sections"]),
+        decisions: carries(documentation, ["decisions"]),
     };
     return documents.documentation || documents.decisions ? documents : null;
 }
-
-/**
- * Whether any documentation scope of `workspace` carries documents of the
- * list `ids`: the workspace, or any software system, container or
- * component.
- */
-const anyScopeHolds = (workspace, ids) =>
-    holds(workspace.documentation, ids) ||
-    softwareSystems(workspace).some(
-        (system) =>
-            holds(system.documentation, ids) ||
-            (system.containers ?? []).some(
-                (container) =>
-                    holds(container.documentation, ids) ||
-                    (container.components ?? []).some((component) =>
-                        holds(component.documentation, ids),
-                    ),
-            ),
-    );
 
 /** Why software system scoped `workspace` has no one software system. */
 function detailProblem(workspace) {
@@ -662,7 +641,7 @@ function missingLanding(url, target) {
     for (const page of ["documentation", "decisions"]) {
         if (!segments.includes(page)) continue;
         const ids = page === "documentation" ? "sections" : "decisions";
-        return anyScopeHolds(workspace, ids) ? null : `no ${page}`;
+        return anyScopeCarries(workspace, [ids]) ? null : `no ${page}`;
     }
     return null;
 }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { anyScopeCarries } from "../src/model/carries.js";
 import { findUnspellable, makeArtifactSafe } from "./escapes.js";
 import {
     payloadFile,
@@ -118,28 +119,6 @@ export const ARTIFACT_OUTPUT = Object.freeze({
         ],
     },
 });
-
-/** Whether `documented` carries sections or decisions of its own. */
-const carries = (documented) =>
-    (documented?.documentation?.sections?.length ?? 0) > 0 ||
-    (documented?.documentation?.decisions?.length ?? 0) > 0;
-
-/**
- * Whether any documentation scope of `workspace` has documentation or
- * decisions to show: the workspace, or any software system, container or
- * component.
- */
-const hasDocumentation = (workspace) =>
-    carries(workspace) ||
-    (workspace.model?.softwareSystems ?? []).some(
-        (system) =>
-            carries(system) ||
-            (system.containers ?? []).some(
-                (container) =>
-                    carries(container) ||
-                    (container.components ?? []).some(carries),
-            ),
-    );
 
 /* --------------------------------------------------------------- payload */
 
@@ -316,7 +295,7 @@ export function artifact({ workspace, branding, set, version, buildDate }) {
         ]),
     ];
     const documented = payloads.some(([, payload]) =>
-        hasDocumentation(payload.workspace),
+        anyScopeCarries(payload.workspace),
     );
     return [
         {

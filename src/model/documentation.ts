@@ -9,6 +9,7 @@ import type {
     DocumentationImage,
     DocumentationSection,
 } from "../types/structurizr-documentation";
+import { carries } from "./carries.js";
 import { siblingSlugs, slugOf } from "./slug.js";
 
 export { siblingSlugs, slugOf };
@@ -154,11 +155,6 @@ const CHILDREN: Record<
     Container: { type: "Component", of: (element) => element.components },
     Component: undefined,
 };
-
-const carries = (documentation: Documentation | undefined) =>
-    Boolean(
-        documentation?.sections?.length || documentation?.decisions?.length,
-    );
 
 /**
  * Every software system, container and component of `workspace` in model
