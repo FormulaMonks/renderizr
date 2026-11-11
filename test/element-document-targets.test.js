@@ -1,7 +1,7 @@
 /**
  * `elementTargets` in `src/model/targets.ts`: elements that carry their own
  * documentation or decisions offer them as activation targets, and
- * instances offer what they instantiate (spec #316, _Activation targets_).
+ * instances offer what they instantiate (spec: _Activation targets_).
  */
 
 import assert from "node:assert/strict";

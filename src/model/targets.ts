@@ -745,7 +745,7 @@ function landingPath(landing: Landing): string | undefined {
 /**
  * The element link of the software system `element`, and the crossings
  * into the documentation and decisions its software system scoped
- * workspace carries on it (spec #316, _Across a set_): "Documentation" at
+ * workspace carries on it (spec: _Across a set_): "Documentation" at
  * its first section and "Decisions" at the index filtered to it. A link
  * into that workspace that lands on the same documentation scope's page of
  * one kind stands in for that crossing, in the link's place.

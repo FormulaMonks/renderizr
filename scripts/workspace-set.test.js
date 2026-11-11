@@ -1039,9 +1039,9 @@ test("a slug is the software system's name in kebab case", () => {
     for (const [name, slug] of SLUGS) assert.equal(slugOf(name), slug, name);
 });
 
-test("a slug keeps the letters the old a-z rule mangled (ADR 30)", () => {
+test("a slug keeps the letters outside a-z (ADR 30)", () => {
     const SLUGS = [
-        // The old rule gave stra-e, ørsted's ø a hyphen and 日本 nothing.
+        // An a-z rule would give stra-e, ørsted's ø a hyphen and 日本 nothing.
         ["Straße", "straße"],
         ["Ørsted Payments", "ørsted-payments"],
         ["日本 決済", "日本-決済"],
@@ -1049,7 +1049,7 @@ test("a slug keeps the letters the old a-z rule mangled (ADR 30)", () => {
     for (const [name, slug] of SLUGS) assert.equal(slugOf(name), slug, name);
 });
 
-test("a workspace scoped to a software system named outside a-z takes the new slug", async () => {
+test("a workspace scoped to a software system named outside a-z takes a slug that keeps its letters", async () => {
     await withTempDir(async (dir) => {
         await write(dir, {
             "landscape.json": landscape([
@@ -1100,7 +1100,7 @@ test("the enterprise fixture loads as a set, warning only of its one crossing to
     }
 });
 
-/* ------------------------------------------------- element documentation */
+/* -------------------------------------------------- documentation scopes */
 
 /** A workspace scoped to `name` whose software system carries `documentation`. */
 const documented = (name, documentation, options) => {
@@ -1219,7 +1219,7 @@ test("a crossing to an element's documentation or decisions warns only when no d
     });
 });
 
-test("the element documentation fixture loads as a set whose Payments workspace carries documentation and decisions on Payments alone", async () => {
+test("the element-documentation.json fixture loads as a set whose Payments workspace carries documentation and decisions on Payments alone", async () => {
     const set = await load(["test/__fixtures__/enterprise-documentation"], {
         cwd: REPO_ROOT,
     });

@@ -503,7 +503,7 @@ test("--single-file inlines every workspace of a set into the one file", async (
         );
 });
 
-/* ----------------------------------------- a set with element documentation */
+/* -------------------------- a set whose elements carry documentation scopes */
 
 /**
  * A set whose only documentation and decisions sit on the Payments software
@@ -1092,7 +1092,7 @@ test("--artifact writes renderizr-docs.js for a set whose only documentation sit
 test("--artifact writes renderizr-docs.js for a workspace whose documentation sits on an element alone", async () => {
     // Big Bank keeps every section and decision on Internet Banking System.
     const { out } = await buildArtifact(
-        "artifact-element-documentation",
+        "artifact-element-scope",
         join(REPO_ROOT, "test/__fixtures__/big-bank-plc-stored.json"),
     );
     const { files } = await manifestOf(out);

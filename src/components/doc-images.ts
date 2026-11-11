@@ -24,7 +24,7 @@ const decode = (value: string) => {
  * from, and a single-file build makes no requests at all, so the image only
  * shows as the embedded copy.
  *
- * An element's documentation passes its own images, then the workspace's as
+ * An element's documentation scope passes its own images, then the workspace's as
  * `fallback`: an image its own documentation lacks comes from the
  * workspace's.
  */

@@ -1,8 +1,9 @@
 /**
  * Decisions across documentation scopes, from `src/model/decisions.ts`
- * (spec 316): every scope's decisions in one list, told apart by scope and
- * id, their links kept inside their own scope, the pill only while the list
- * mixes scopes, and the filter that narrows it to one scope.
+ * (spec: _The decisions page_): every scope's decisions in one list, told
+ * apart by scope and id, their links kept inside their own scope, the pill
+ * only while the list mixes scopes, and the filter that narrows it to one
+ * scope.
  */
 
 import assert from "node:assert/strict";

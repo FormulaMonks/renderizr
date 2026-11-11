@@ -1,6 +1,6 @@
 /**
- * Element documentation across a workspace set (spec #316, _Activation
- * targets_ and _Addresses_): a software system on the landscape scoped
+ * Documentation scopes across a workspace set (spec: _Activation targets_
+ * and _Addresses_): a software system on the landscape scoped
  * workspace crosses into its own workspace's documentation and decisions,
  * and `{workspace:N}/documentation|decisions/<path>#…` links lead into the
  * documentation scope they name in another workspace of the set.

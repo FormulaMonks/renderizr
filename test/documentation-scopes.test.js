@@ -1,9 +1,10 @@
 /**
- * Documentation scopes, from `src/model/documentation.ts` (spec 316, ADR 30):
- * the workspace, each software system, container and component with the
- * sections and decisions it carries, in model order, each with the slug path
- * its documents are addressed by. And the one slug rule that names every
- * element in an address, from `src/model/slug.js`.
+ * Documentation scopes, from `src/model/documentation.ts` (spec:
+ * _Documentation scopes_; ADR 30): the workspace, each software system,
+ * container and component with the sections and decisions it carries, in
+ * model order, each with the slug path its documents are addressed by. And
+ * the one slug rule that names every element in an address, from
+ * `src/model/slug.js`.
  */
 
 import assert from "node:assert/strict";
@@ -220,7 +221,7 @@ test("an element's scope carries its own images", () => {
     assert.deepEqual(scope.images, [image]);
 });
 
-test("the element documentation fixture holds five scopes and nine decisions", () => {
+test("the element-documentation.json fixture holds five scopes and nine decisions", () => {
     const json = fixture("element-documentation");
     assert.deepEqual(outline(json), [
         ["Workspace", "", null, 0],

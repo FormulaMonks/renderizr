@@ -1,8 +1,8 @@
 /**
- * The author's warning of sibling slug collisions (spec 316, ADR 30), from
- * `src/components/slug-collisions.ts`: `pnpm dev` and edit mode say in a
- * toast when two siblings that reach a documentation scope slug the same,
- * once for each workspace that does.
+ * The author's warning of sibling slug collisions (spec: _Addresses_;
+ * ADR 30), from `src/components/slug-collisions.ts`: `pnpm dev` and edit
+ * mode say in a toast when two siblings that reach a documentation scope
+ * slug the same, once for each workspace that does.
  */
 
 import assert from "node:assert/strict";

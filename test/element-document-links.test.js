@@ -1,7 +1,7 @@
 /**
  * `classifyLink` in `src/model/targets.ts`: element links, and Mermaid
  * flowchart nodes' links, that name an element's documents lead to them
- * (spec #316, _Element links and links between documents_). Structurizr's
+ * (spec: _Element links and links between documents_). Structurizr's
  * `{workspace}/documentation/<name>…#<section>` and
  * `{workspace}/decisions/<path>#<id>` and Renderizr's own routes with a slug
  * path all land on the documentation scope they name.

@@ -728,7 +728,7 @@ test("landing without workspace sections opens the first scope with sections", (
     assert.equal(menuEntries()[0], "0:Internet Banking System");
 });
 
-test("a workspace with no element documentation keeps its flat menu and its addresses", () => {
+test("a workspace whose only documentation scope is its own keeps its flat menu and its addresses", () => {
     renderScopes({
         name: "Big Bank plc",
         documentation: { sections: [GUIDE, OPERATIONS] },
