@@ -22,7 +22,7 @@ import {
     scopeLabel,
     scopedDecisions,
 } from "../model/decisions";
-import type { DocumentationScope } from "../model/documentation";
+import { type DocumentationScope, searchOf } from "../model/documentation";
 import { readSetting, writeSetting } from "../storage";
 import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
 import Page from "./_page";
@@ -82,8 +82,7 @@ const numberSpan = (decision: ScopedDecision) =>
  * The query string of `search`. A slug path reads as written in the address
  * bar, `adr=payments/3` rather than `adr=payments%2F3`.
  */
-const queryOf = (search: URLSearchParams) =>
-    search.toString().replaceAll("%2F", "/");
+const queryOf = (search: URLSearchParams) => searchOf(search);
 
 /** Each documentation scope's own resolver for a decision's links or images. */
 export type ScopedResolver<Resolver> = (scope: DocumentationScope) => Resolver;

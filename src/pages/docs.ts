@@ -4,8 +4,12 @@ import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
-import { sectionId } from "../model/documentation";
-import type { DocumentationSection } from "../types/structurizr-documentation";
+import {
+    type DocumentationScope,
+    scopedId,
+    searchOf,
+    sectionId,
+} from "../model/documentation";
 import Page from "./_page";
 import history from "history/hash";
 import { inOtherWorkspace, workspaceOf } from "../workspace-trail";
@@ -18,7 +22,9 @@ const SUBSECTION_PARAM = "subsection";
 
 /** A documentation section, already reduced to plain Markdown. */
 type DocSection = {
+    /** The id the section is addressed by, its scope's slug path in front. */
     id: string;
+    scope: DocumentationScope;
     title: string;
     body: string;
 };
@@ -42,6 +48,7 @@ type FlatPage = {
     isIntro: boolean;
     sectionId: string;
     sectionTitle: string;
+    scope: DocumentationScope;
     /** Index of the page inside its own section. */
     groupIndex: number;
 };
@@ -51,10 +58,25 @@ type DocsMenuItem = {
     title: string;
     items?: DocsMenuItem[];
     selectable?: boolean;
-    kind: "section" | "page" | "heading";
+    kind: "scope" | "section" | "page" | "heading";
     /** Page this entry navigates to; `-1` for "on this page" anchors. */
     pageIndex: number;
     headingId: string | null;
+};
+
+/** What a documentation scope is called in the menu and the pager. */
+const scopeTitle = (scope: DocumentationScope) =>
+    scope.name || (scope.type === "Workspace" ? "Workspace" : "");
+
+/**
+ * The scope's slug path, and the paths of the scopes above it, nearest
+ * first: the path minus one trailing segment at a time.
+ */
+const ancestorPaths = (path: string) => {
+    const segments = path.split("/");
+    return segments
+        .slice(1)
+        .map((_, index) => segments.slice(0, -(index + 1)).join("/"));
 };
 
 const isHeading = (element: Element) => HEADING_TAG.test(element.tagName);
@@ -241,8 +263,19 @@ export default class Docs extends Page {
     /** `section:heading` -> the page that holds it, across every section. */
     #headingIndex = new Map<string, number>();
     #modelBuilt = false;
-    #resolveLink: LinkResolver | null;
-    #resolveImage: ImageResolver | null;
+    /** The documentation scopes that carry sections, in model order. */
+    #scopes: DocumentationScope[] = [];
+    /** Each scope's entry in the scope tree, by slug path. */
+    #scopeItems = new Map<string, DocsMenuItem>();
+    /** Each scope's section entries, by slug path. */
+    #scopeSections = new Map<string, DocsMenuItem[]>();
+    /**
+     * Whether the menu is a scope tree. A workspace whose elements carry no
+     * sections keeps the flat list of its own sections.
+     */
+    #scoped = false;
+    #resolveLink: ((scope: string) => LinkResolver) | null;
+    #resolveImage: ((scope: string) => ImageResolver) | null;
 
     #groups: PageGroup[] = [];
     #renderedSectionId: string | null = null;
@@ -259,21 +292,32 @@ export default class Docs extends Page {
     constructor(
         container: HTMLElement | null = null,
         name = "Docs",
-        sections: DocumentationSection[] = [],
-        resolveLink: LinkResolver | null = null,
-        resolveImage: ImageResolver | null = null,
+        scopes: DocumentationScope[] = [],
+        /** The link resolver for the scope at each slug path. */
+        resolveLink: ((scope: string) => LinkResolver) | null = null,
+        /** The image resolver for the scope at each slug path. */
+        resolveImage: ((scope: string) => ImageResolver) | null = null,
     ) {
         super(container, name);
         this.#resolveLink = resolveLink;
         this.#resolveImage = resolveImage;
 
-        this.#sections = sections
+        this.#scopes = scopes.filter((scope) => scope.sections.length);
+        this.#scoped = this.#scopes.some((scope) => scope.type !== "Workspace");
+        this.#sections = this.#scopes.flatMap((scope) =>
+            this.#sectionsOf(scope),
+        );
+    }
+
+    #sectionsOf(scope: DocumentationScope): DocSection[] {
+        return scope.sections
             .toSorted((a, b) => (a.order < b.order ? -1 : 1))
             .map((section) => {
                 const adoc = isAsciiDoc(section.filename);
 
                 return {
-                    id: sectionId(section),
+                    id: scopedId(scope.path, sectionId(section)),
+                    scope,
                     // The document's own first heading beats a filename every
                     // time; "0001-record-architecture-decisions.md" only
                     // becomes a title as a last resort.
@@ -349,6 +393,7 @@ export default class Docs extends Page {
                     isIntro: group.isIntro,
                     sectionId: section.id,
                     sectionTitle: section.title,
+                    scope: section.scope,
                     groupIndex,
                 });
 
@@ -373,6 +418,24 @@ export default class Docs extends Page {
             sectionItem.items = pageItems;
             this.#sectionPages.set(sectionItem.id, pageItems);
             this.#menuItems.push(sectionItem);
+
+            const { path } = section.scope;
+            const scopeItem = this.#scopeItems.get(path) ?? {
+                id: `scope:${path}`,
+                title: scopeTitle(section.scope),
+                kind: "scope",
+                pageIndex: -1,
+                headingId: null,
+                items: [],
+            };
+            // A scope entry opens its first page.
+            if (scopeItem.pageIndex < 0)
+                scopeItem.pageIndex = sectionItem.pageIndex;
+            this.#scopeItems.set(path, scopeItem);
+            this.#scopeSections.set(path, [
+                ...(this.#scopeSections.get(path) ?? []),
+                sectionItem,
+            ]);
         }
 
         parser.clear();
@@ -405,8 +468,17 @@ export default class Docs extends Page {
         const first = this.#flatPages.findIndex(
             (page) => page.sectionId === sectionId,
         );
+        if (first >= 0) return first;
 
-        return first >= 0 ? first : 0;
+        // An unknown section of a known scope opens that scope's first page.
+        const scope = [sectionId, ...ancestorPaths(sectionId)].find((path) =>
+            this.#scopeItems.has(path),
+        );
+        const scopeFirst = scope
+            ? (this.#scopeItems.get(scope)?.pageIndex ?? -1)
+            : -1;
+
+        return Math.max(scopeFirst, 0);
     }
 
     #setUrl(page: FlatPage, push: boolean) {
@@ -416,7 +488,7 @@ export default class Docs extends Page {
         if (page.isIntro) search.delete(SUBSECTION_PARAM);
         else search.set(SUBSECTION_PARAM, page.id);
 
-        const next = search.toString();
+        const next = searchOf(search);
         if (next === history.location.search.replace(/^\?/, "")) return;
 
         // The page the reader arrives on is where they already are.
@@ -429,6 +501,11 @@ export default class Docs extends Page {
         const section = this.#sections.find((item) => item.id === sectionId);
 
         if (!(content && section && this.#viewer)) return;
+
+        // Links and images resolve in the section's own scope first.
+        const { path } = section.scope;
+        this.#viewer.setLinkResolver(this.#resolveLink?.(path) ?? null);
+        this.#viewer.setImageResolver(this.#resolveImage?.(path) ?? null);
 
         // `MarkdownRenderer.render()` bails on empty content, which would
         // leave the previous section on screen.
@@ -493,10 +570,43 @@ export default class Docs extends Page {
                     : tree;
         }
 
-        this.#menu?.setItems(this.#menuItems);
+        this.#menu?.setItems(
+            this.#scoped
+                ? this.#scopeTree(this.#flatPages[index].scope)
+                : this.#menuItems,
+        );
         // Re-entrant: `setActive` emits, and the callback lands back in
         // `#goToPage`, which bails on the page it is already showing.
         if (owner) this.#menu?.setActive(owner);
+    }
+
+    /**
+     * The scope tree: the workspace and each software system at the top
+     * level, a scope under the nearest scope above it. Only `current` holds
+     * its sections; every other scope is one entry, holding only the scopes
+     * under it.
+     */
+    #scopeTree(current: DocumentationScope): DocsMenuItem[] {
+        const roots: DocsMenuItem[] = [];
+
+        for (const scope of this.#scopes) {
+            const item = this.#scopeItems.get(scope.path);
+            if (!item) continue;
+            item.items =
+                scope.path === current.path
+                    ? [...(this.#scopeSections.get(scope.path) ?? [])]
+                    : [];
+
+            const parent = scope.path
+                ? ancestorPaths(scope.path)
+                      .map((path) => this.#scopeItems.get(path))
+                      .find(Boolean)
+                : undefined;
+            if (parent) parent.items?.push(item);
+            else roots.push(item);
+        }
+
+        return roots;
     }
 
     #pagerButton(
@@ -506,7 +616,11 @@ export default class Docs extends Page {
         current: FlatPage,
     ): string {
         const crossesSection = target.sectionId !== current.sectionId;
+        const crossesScope = target.scope !== current.scope;
         const next = direction === "next";
+        const section = crossesScope
+            ? `${scopeTitle(target.scope)} › ${target.sectionTitle}`
+            : target.sectionTitle;
 
         return `
             <button
@@ -515,7 +629,7 @@ export default class Docs extends Page {
                 data-page-index="${targetIndex}"
             >
                 <span class="${styles.pagerLabel}">${next ? "Next" : "Previous"}</span>
-                ${crossesSection ? `<span class="${styles.pagerSection}">${escapeHtml(target.sectionTitle)}</span>` : ""}
+                ${crossesSection ? `<span class="${styles.pagerSection}">${escapeHtml(section)}</span>` : ""}
                 <span class="${styles.pagerTitle}">${escapeHtml(target.title)}</span>
             </button>
         `;
@@ -594,7 +708,16 @@ export default class Docs extends Page {
 
         const breadcrumb = document.getElementById("docs-breadcrumb");
         if (breadcrumb) {
-            breadcrumb.textContent = target.isIntro ? "" : target.sectionTitle;
+            // An element's scope leads, by type and name; the workspace's
+            // adds nothing.
+            breadcrumb.textContent = [
+                target.scope.type === "Workspace"
+                    ? ""
+                    : `${target.scope.type}: ${target.scope.name}`,
+                target.isIntro ? "" : target.sectionTitle,
+            ]
+                .filter(Boolean)
+                .join(" › ");
         }
 
         this.#renderPager(index);
@@ -678,8 +801,6 @@ export default class Docs extends Page {
         this.#viewer = this.addComponent(
             new MarkdownRenderer(document.getElementById("docs-content")!),
         );
-        this.#viewer.setLinkResolver(this.#resolveLink);
-        this.#viewer.setImageResolver(this.#resolveImage);
 
         this.#buildModel();
 

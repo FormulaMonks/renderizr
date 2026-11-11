@@ -119,10 +119,27 @@ export const ARTIFACT_OUTPUT = Object.freeze({
     },
 });
 
-/** Whether `workspace` has documentation or decisions to show. */
+/** Whether `documented` carries sections or decisions of its own. */
+const carries = (documented) =>
+    (documented?.documentation?.sections?.length ?? 0) > 0 ||
+    (documented?.documentation?.decisions?.length ?? 0) > 0;
+
+/**
+ * Whether any documentation scope of `workspace` has documentation or
+ * decisions to show: the workspace, or any software system, container or
+ * component.
+ */
 const hasDocumentation = (workspace) =>
-    (workspace.documentation?.sections?.length ?? 0) > 0 ||
-    (workspace.documentation?.decisions?.length ?? 0) > 0;
+    carries(workspace) ||
+    (workspace.model?.softwareSystems ?? []).some(
+        (system) =>
+            carries(system) ||
+            (system.containers ?? []).some(
+                (container) =>
+                    carries(container) ||
+                    (container.components ?? []).some(carries),
+            ),
+    );
 
 /* --------------------------------------------------------------- payload */
 

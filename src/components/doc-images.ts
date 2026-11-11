@@ -24,14 +24,14 @@ const decode = (value: string) => {
  * from, and a single-file build makes no requests at all, so the image only
  * shows as the embedded copy.
  *
- * An element's documents pass the workspace's images as `fallback`: they
- * look up the element's own first, then the workspace's.
+ * An element's documentation passes its own images, then the workspace's as
+ * `fallback`: an image its own documentation lacks comes from the
+ * workspace's.
  */
 export function createImageResolver(
     images: DocumentationImage[] | undefined,
     fallback: DocumentationImage[] = [],
 ): ImageResolver {
-    // The later entry wins, so the element's own go last.
     const sources = new Map(
         [...fallback, ...(images ?? [])].map(({ name, type, content }) => [
             name,

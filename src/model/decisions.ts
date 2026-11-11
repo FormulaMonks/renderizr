@@ -5,7 +5,7 @@
  */
 
 import type { Decision } from "../types/structurizr-documentation";
-import type { DocumentationScope } from "./documentation";
+import { type DocumentationScope, scopedId } from "./documentation";
 
 /** The four states a decision can be in, as the page colors them. */
 export type DecisionStatus = "draft" | "accepted" | "amended" | "superseded";
@@ -95,7 +95,7 @@ export type ScopedDecision = Decision & {
 export const decisionAddress = (
     scope: Pick<DocumentationScope, "path">,
     id: string,
-): string => (scope.path ? `${scope.path}/${id}` : id);
+): string => scopedId(scope.path, id);
 
 /** What `filter` holds for the workspace's own decisions. */
 export const WORKSPACE_FILTER = "*";

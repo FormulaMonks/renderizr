@@ -20,7 +20,7 @@ import type { SetWorkspace } from "./workspace-set";
 import { inOtherWorkspace } from "./workspace-trail";
 import { summarizeWorkspace } from "./engine/workspace-summary";
 import {
-    type DocumentationScope,
+    type DocumentedWorkspace,
     documentationScopes,
 } from "./model/documentation";
 import type Page from "./pages/_page.ts";
@@ -58,7 +58,6 @@ async function pagesOf(
     workspace: WorkspaceSummary,
     nav: Navigation,
     diagrams: Page,
-    scopes: DocumentationScope[],
 ): Promise<Page[]> {
     const routes: Page[] = [diagrams];
 
@@ -66,23 +65,35 @@ async function pagesOf(
     // paths; this maps them onto the routes below, in each documentation
     // scope first and then the workspace's.
     const { sections, decisions, images } = workspace.documentation;
+    const scopes = documentationScopes(workspace as DocumentedWorkspace);
     const resolveLink = createLinkResolver({
-        docs: nav.hasDocs ? { page: "docs", sections } : null,
-        decisions: nav.hasDecisions ? { page: "adrs", decisions } : null,
-        scopes,
+        docs: nav.hasDocs ? { page: "docs", sections, scopes } : null,
+        decisions: nav.hasDecisions
+            ? { page: "adrs", decisions, scopes }
+            : null,
     });
     // Images they show come from the copies Structurizr embedded.
     const resolveImage = createImageResolver(images);
 
     if (nav.hasDocs) {
         const { DocsPage } = await import("./pages/documentation.ts");
+        // An element's sections show its own images first, then the
+        // workspace's.
+        const imagesOf = new Map(
+            scopes.map((scope) => [
+                scope.path,
+                scope.path
+                    ? createImageResolver(scope.images, images)
+                    : resolveImage,
+            ]),
+        );
         routes.push(
             new DocsPage(
                 null,
                 "docs",
-                sections,
-                resolveLink("docs"),
-                resolveImage,
+                scopes,
+                (scope) => resolveLink("docs", scope),
+                (scope) => imagesOf.get(scope) ?? resolveImage,
             ),
         );
     }
@@ -163,7 +174,6 @@ async function init() {
             summarizeWorkspace(entered.workspace),
             next,
             diagrams,
-            documentationScopes(entered.workspace),
         );
         if (showing !== shown) return;
 

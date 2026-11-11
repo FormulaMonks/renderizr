@@ -132,10 +132,106 @@ test("without a docs page, a section link has nowhere to go", () => {
     assert.equal(decisionsOnly("../docs/01-context.md"), null);
 });
 
-/* ---------------------------------------------------- documentation scopes */
+/* ------------------------------------------------- documentation scopes */
+
+const { documentationScopes } = await importSrc("model/documentation");
+
+const SCOPED = documentationScopes({
+    name: "Big Bank plc",
+    documentation: { sections: SECTIONS },
+    model: {
+        softwareSystems: [
+            {
+                id: "1",
+                name: "Internet Banking System",
+                documentation: {
+                    sections: [
+                        { filename: "01-context.md", order: 1, content: "" },
+                        { filename: "02-deployment.md", order: 2, content: "" },
+                    ],
+                },
+                containers: [
+                    {
+                        id: "2",
+                        name: "API Application",
+                        documentation: {
+                            sections: [
+                                {
+                                    filename: "01-overview.md",
+                                    order: 1,
+                                    content: "",
+                                },
+                            ],
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+});
+
+const scoped = createLinkResolver({
+    docs: { page: "docs", sections: SECTIONS, scopes: SCOPED },
+    decisions: { page: "adrs", decisions: DECISIONS },
+});
+
+test("a relative link inside an element's documentation resolves in its own scope first", () => {
+    assert.equal(
+        scoped("docs", "internet-banking-system")("01-context.md#goals"),
+        "#/?page=docs&section=internet-banking-system/01-context&subsection=goals",
+    );
+    assert.equal(
+        scoped(
+            "docs",
+            "internet-banking-system/api-application",
+        )("01-overview.md"),
+        "#/?page=docs&section=internet-banking-system/api-application/01-overview",
+    );
+});
+
+test("a relative link its own scope lacks falls back to the workspace's", () => {
+    assert.equal(
+        scoped(
+            "docs",
+            "internet-banking-system/api-application",
+        )("../../04-file-definitions.md"),
+        "#/?page=docs&section=04-file-definitions",
+    );
+});
+
+test("a relative link neither its scope nor the workspace holds stays broken", () => {
+    assert.equal(
+        scoped("docs", "internet-banking-system")("09-missing.md"),
+        null,
+    );
+});
+
+test("a relative link never reaches another element's sections", () => {
+    // 02-deployment.md lives on Internet Banking System, not on its container.
+    assert.equal(
+        scoped(
+            "docs",
+            "internet-banking-system/api-application",
+        )("02-deployment.md"),
+        null,
+    );
+});
+
+test("the workspace scope resolves links as before", () => {
+    assert.equal(
+        scoped("docs")("01-context.md"),
+        "#/?page=docs&section=01-context",
+    );
+    assert.equal(
+        scoped("docs", "")("01-context.md"),
+        "#/?page=docs&section=01-context",
+    );
+});
+
+/* -------------------------------------- decisions of documentation scopes */
 
 /** A documentation scope at `path` carrying `sections` and `decisions`. */
-const scope = (path, sections = [], decisions = []) => ({
+const scopeOf = (path, sections = [], decisions = []) => ({
     type: path ? "Software System" : "Workspace",
     name: path || "Workspace",
     elementId: path || null,
@@ -148,49 +244,58 @@ const scope = (path, sections = [], decisions = []) => ({
     images: [],
 });
 
-const scoped = createLinkResolver({
-    docs: { page: "docs", sections: [] },
-    decisions: { page: "adrs", decisions: [] },
-    scopes: [
-        scope("", ["01-context.md"], ["1"]),
-        scope("payments", ["02-containers.md"], ["2", "3"]),
-    ],
+const PAYMENTS = [
+    scopeOf("", ["01-context.md"], ["1"]),
+    scopeOf("payments", ["02-containers.md"], ["2", "3"]),
+];
+
+const inScope = createLinkResolver({
+    docs: {
+        page: "docs",
+        sections: PAYMENTS[0].sections,
+        scopes: PAYMENTS,
+    },
+    decisions: {
+        page: "adrs",
+        decisions: PAYMENTS[0].decisions,
+        scopes: PAYMENTS,
+    },
 });
 
 test("a link in an element's decision resolves to a decision of its own scope", () => {
     assert.equal(
-        scoped("decisions", "payments")("0003-settle-nightly.md"),
+        inScope("decisions", "payments")("0003-settle-nightly.md"),
         "#/?page=adrs&adr=payments/3",
     );
     assert.equal(
-        scoped("decisions", "payments")("../decisions/0002-queue.md"),
+        inScope("decisions", "payments")("../decisions/0002-queue.md"),
         "#/?page=adrs&adr=payments/2",
     );
 });
 
 test("a link in an element's documents falls back to the workspace's", () => {
     assert.equal(
-        scoped("decisions", "payments")("0001-one-workspace.md"),
+        inScope("decisions", "payments")("0001-one-workspace.md"),
         "#/?page=adrs&adr=1",
     );
     assert.equal(
-        scoped("decisions", "payments")("../docs/01-context.md"),
+        inScope("decisions", "payments")("../docs/01-context.md"),
         "#/?page=docs&section=01-context",
     );
 });
 
 test("a section of the element's own scope takes the scope's slug path", () => {
     assert.equal(
-        scoped("decisions", "payments")("../docs/02-containers.md#queues"),
+        inScope("decisions", "payments")("../docs/02-containers.md#queues"),
         "#/?page=docs&section=payments/02-containers&subsection=queues",
     );
 });
 
 test("the workspace's documents never reach into an element's", () => {
-    assert.equal(scoped("decisions")("0003-settle-nightly.md"), null);
-    assert.equal(scoped("docs")("02-containers.md"), null);
+    assert.equal(inScope("decisions")("0003-settle-nightly.md"), null);
+    assert.equal(inScope("docs")("02-containers.md"), null);
 });
 
 test("a decision neither scope holds stays unresolved", () => {
-    assert.equal(scoped("decisions", "payments")("0009-missing.md"), null);
+    assert.equal(inScope("decisions", "payments")("0009-missing.md"), null);
 });

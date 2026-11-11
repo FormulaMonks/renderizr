@@ -1,4 +1,9 @@
-import { type DocumentationScope, sectionId } from "../model/documentation";
+import {
+    type DocumentationScope,
+    scopedId,
+    searchOf,
+    sectionId,
+} from "../model/documentation";
 import type {
     Decision,
     DocumentationSection,
@@ -19,21 +24,27 @@ export type LinkResolver = (href: string) => ResolvedLink;
 export type LinkContext = "docs" | "decisions";
 
 type LinkResolverOptions = {
-    docs?: { page: string; sections: DocumentationSection[] } | null;
-    decisions?: { page: string; decisions: Decision[] } | null;
-    /**
-     * Every documentation scope, when elements carry documents of their
-     * own. Their sections and decisions stand in for `docs.sections` and
-     * `decisions.decisions`, which then say only which page holds them.
-     */
-    scopes?: readonly DocumentationScope[];
+    docs?: {
+        page: string;
+        /** The workspace's own sections. */
+        sections: DocumentationSection[];
+        /**
+         * Every documentation scope, so a link inside an element's
+         * documentation reaches that element's sections first.
+         */
+        scopes?: DocumentationScope[];
+    } | null;
+    decisions?: {
+        page: string;
+        /** The workspace's own decisions. */
+        decisions: Decision[];
+        /**
+         * Every documentation scope, so a link inside an element's
+         * documentation reaches that element's decisions first.
+         */
+        scopes?: DocumentationScope[];
+    } | null;
 };
-
-/** Where a link sits: its context, and the slug path of its scope. */
-export type ScopedLinkResolver = (
-    context: LinkContext,
-    scope?: string,
-) => LinkResolver;
 
 const DOCUMENT_FILE = /\.(md|markdown|adoc|asciidoc)$/i;
 const DECISION_FILE = /^(\d+)[-_. ]/;
@@ -83,91 +94,90 @@ export const githubSlug = (text: string): string =>
 export function createLinkResolver({
     docs,
     decisions,
-    scopes,
-}: LinkResolverOptions): ScopedLinkResolver {
-    // Each scope's ids by file name and number, under its slug path. An id
-    // of an element's scope is addressed by its slug path (ADR 30).
-    const within = (path: string, id: string) => (path ? `${path}/${id}` : id);
-    const sectionsOf = new Map<string, Map<string, string>>();
-    const decisionsOf = new Map<string, Map<number, string>>();
-    for (const { path, sections, decisions: held } of scopes ?? [
-        {
-            path: "",
-            sections: docs?.sections ?? [],
-            decisions: decisions?.decisions ?? [],
-        },
-    ]) {
-        sectionsOf.set(
-            path,
-            new Map(
-                sections.map((section) => [
-                    (section.filename.split("/").pop() ?? "").toLowerCase(),
-                    within(path, sectionId(section)),
-                ]),
-            ),
+}: LinkResolverOptions): (
+    context: LinkContext,
+    scope?: string,
+) => LinkResolver {
+    /** File name -> addressed section id, of the scope at each slug path. */
+    const sectionsIn = (path: string, list: DocumentationSection[]) =>
+        new Map(
+            list.map((section) => [
+                (section.filename.split("/").pop() ?? "").toLowerCase(),
+                scopedId(path, sectionId(section)),
+            ]),
         );
-        decisionsOf.set(
-            path,
-            new Map(
-                held.map((decision) => [
-                    Number(decision.id),
-                    within(path, decision.id),
-                ]),
-            ),
+    const sections = sectionsIn("", docs?.sections ?? []);
+    const scopeSections = new Map(
+        (docs?.scopes ?? [])
+            .filter((scope) => scope.path)
+            .map((scope) => [
+                scope.path,
+                sectionsIn(scope.path, scope.sections),
+            ]),
+    );
+    /** Number -> addressed decision id, of the scope at each slug path. */
+    const decisionsIn = (path: string, list: Decision[]) =>
+        new Map(
+            list.map((decision) => [
+                Number(decision.id),
+                scopedId(path, decision.id),
+            ]),
         );
-    }
-    /** The link's own scope first, then the workspace's. */
-    const lookUp = <Key>(
-        held: Map<string, Map<Key, string>>,
-        scope: string,
-        key: Key,
-    ) => held.get(scope)?.get(key) ?? held.get("")?.get(key);
+    const decisionIds = decisionsIn("", decisions?.decisions ?? []);
+    const scopeDecisions = new Map(
+        (decisions?.scopes ?? [])
+            .filter((scope) => scope.path)
+            .map((scope) => [
+                scope.path,
+                decisionsIn(scope.path, scope.decisions),
+            ]),
+    );
 
-    // A slug path reads as written: `adr=payments/3`, not `payments%2F3`.
-    const route = (search: Record<string, string>) =>
-        `#/?${new URLSearchParams(search).toString().replaceAll("%2F", "/")}`;
+    const route = (search: Record<string, string>) => `#/?${searchOf(search)}`;
 
-    return (context, scope = "") =>
-        (href) => {
-            if (!href || href.startsWith("#") || href.startsWith("/")) return;
-            if (HAS_SCHEME.test(href)) return;
+    // `scope` is the slug path of the documentation scope the link sits in;
+    // its own sections come first, then the workspace's.
+    return (context, scope) => (href) => {
+        if (!href || href.startsWith("#") || href.startsWith("/")) return;
+        if (HAS_SCHEME.test(href)) return;
 
-            const hashAt = href.indexOf("#");
-            const path = (hashAt >= 0 ? href.slice(0, hashAt) : href).split(
-                "?",
-            )[0];
-            const fragment = hashAt >= 0 ? decode(href.slice(hashAt + 1)) : "";
+        const hashAt = href.indexOf("#");
+        const path = (hashAt >= 0 ? href.slice(0, hashAt) : href).split("?")[0];
+        const fragment = hashAt >= 0 ? decode(href.slice(hashAt + 1)) : "";
 
-            // An image or a CSV next to the markdown is not ours to reroute.
-            if (!DOCUMENT_FILE.test(path)) return;
+        // An image or a CSV next to the markdown is not ours to reroute.
+        if (!DOCUMENT_FILE.test(path)) return;
 
-            const segments = decode(path).split("/").filter(Boolean);
-            const name = (segments.pop() ?? "").toLowerCase();
+        const segments = decode(path).split("/").filter(Boolean);
+        const name = (segments.pop() ?? "").toLowerCase();
 
-            const section = docs && lookUp(sectionsOf, scope, name);
-            if (docs && section) {
-                return route({
-                    page: docs.page,
-                    section,
-                    ...(fragment ? { subsection: fragment } : {}),
-                });
-            }
+        const section =
+            docs &&
+            (scopeSections.get(scope ?? "")?.get(name) ?? sections.get(name));
+        if (docs && section) {
+            return route({
+                page: docs.page,
+                section,
+                ...(fragment ? { subsection: fragment } : {}),
+            });
+        }
 
-            // `0003-foo.md` is a decision when it sits in a decisions directory,
-            // or next to the decision linking to it.
-            const number = name.match(DECISION_FILE)?.[1];
-            const inDecisions =
-                segments.some((segment) => DECISIONS_DIRECTORY.test(segment)) ||
-                (context === "decisions" && !segments.length);
-            const decision =
-                number !== undefined && inDecisions
-                    ? lookUp(decisionsOf, scope, Number(number))
-                    : undefined;
+        // `0003-foo.md` is a decision when it sits in a decisions directory,
+        // or next to the decision linking to it.
+        const number = name.match(DECISION_FILE)?.[1];
+        const inDecisions =
+            segments.some((segment) => DECISIONS_DIRECTORY.test(segment)) ||
+            (context === "decisions" && !segments.length);
+        const decision =
+            number !== undefined && inDecisions
+                ? (scopeDecisions.get(scope ?? "")?.get(Number(number)) ??
+                  decisionIds.get(Number(number)))
+                : undefined;
 
-            if (decisions && decision !== undefined) {
-                return route({ page: decisions.page, adr: decision });
-            }
+        if (decisions && decision !== undefined) {
+            return route({ page: decisions.page, adr: decision });
+        }
 
-            return null;
-        };
+        return null;
+    };
 }
