@@ -133,6 +133,53 @@ The footer of every page says what is on screen and which Renderizr built it: a 
 
 Renderizr renders the documentation sections and decisions of every documentation scope: the workspace's, and those that `!docs` and `!adrs` written inside a software system, a container or a component give that element. The documentation page lists the workspace and each software system at the top of its menu, with a container under its software system and a component under its container, and opens the sections of one documentation scope at a time. An element's sections take addresses of their own, with the element's slug path in front of the section id: `?page=docs&section=internet-banking-system/api-application/01-overview`. A relative link in an element's documentation leads to a section of the same element first, then to one of the workspace's, and an image comes from the element's own images first, then from the workspace's. `pnpm dev` and edit mode update an element's documentation the way they update the workspace's.
 
+Write `!docs` and `!adrs` inside an element's block, with a folder path relative to `workspace.dsl`, the same way you write them at the top of the workspace. A container or a component can carry decisions without sections:
+
+```
+workspace "Big Bank plc" {
+    !docs docs
+    !adrs adrs
+
+    model {
+        internetBanking = softwareSystem "Internet Banking System" {
+            !docs internet-banking-system/docs
+            !adrs internet-banking-system/adrs
+
+            apiApplication = container "API Application" {
+                !docs internet-banking-system/api-application/docs
+                !adrs internet-banking-system/api-application/adrs
+
+                signIn = component "Sign In Controller" {
+                    !adrs internet-banking-system/api-application/sign-in-controller/adrs
+                }
+            }
+        }
+    }
+}
+```
+
+Any folder layout works. Mirroring the model, one folder per element under its parent's, keeps each element's files beside the ones they belong with:
+
+```
+workspace.dsl
+docs/01-introduction.md
+adrs/0001-record-architecture-decisions.md
+internet-banking-system/
+├── docs/01-overview.md
+├── docs/02-deployment.md
+├── adrs/0001-render-the-web-on-the-server.md
+└── api-application/
+    ├── docs/01-endpoints.md
+    ├── adrs/0001-version-the-api-in-the-path.md
+    └── sign-in-controller/adrs/0001-lock-an-account-after-five-failed-sign-ins.md
+```
+
+`test/__fixtures__/element-documentation-dsl/` holds this workspace in full. Render it to see every documentation scope on the docs page and the decisions of all four on the decisions page. A DSL build needs Structurizr's tools, as [DSL in a build](#dsl-in-a-build) says:
+
+```bash
+pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
+```
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
