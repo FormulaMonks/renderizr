@@ -93,6 +93,20 @@ declare module "virtual:renderizr/set" {
         via: "workspace-link" | "followed-link" | "name";
         url?: string;
     };
+    /**
+     * Another workspace of the set, named before it loads: its slug, its
+     * name, and what its software system carries as a documentation scope
+     * when it carries anything.
+     */
+    export type SetMember = {
+        slug: string;
+        name: string;
+        documents?: {
+            scope: string;
+            documentation: boolean;
+            decisions: boolean;
+        };
+    };
     /** A workspace of the set as the page enters it: `<slug>.json`. */
     export type WorkspacePayload = {
         workspace: Record<string, unknown>;
@@ -104,7 +118,7 @@ declare module "virtual:renderizr/set" {
      * workspace's payload and the set's other workspaces by slug and name.
      */
     export type LandscapePayload = WorkspacePayload & {
-        workspaces: { slug: string; name: string }[];
+        workspaces: SetMember[];
     };
     /**
      * The landscape scoped workspace, loaded from `workspace.json` before
@@ -120,7 +134,7 @@ declare module "virtual:renderizr/set" {
     /** The landscape scoped workspace's crossings. */
     export const crossings: Crossing[];
     /** The set's other workspaces, by slug and name. */
-    export const workspaces: { slug: string; name: string }[];
+    export const workspaces: SetMember[];
     /** Every other workspace by slug under `--single-file`; `null` otherwise. */
     export const inlined: Record<string, WorkspacePayload> | null;
 }

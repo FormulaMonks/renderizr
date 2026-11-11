@@ -27,6 +27,7 @@ import {
     findElementStyle,
     findEnterpriseStyle,
     findGroupStyle,
+    indicatorOf,
     findRelationshipStyle,
     findViewError,
     getMetadataForElement,
@@ -796,11 +797,9 @@ function drawView(
         focusOrder: [],
     });
     const kindsFor = (element: ModelElement) =>
-        elementTargets(model, element, key).map((target) => target.kind);
+        elementTargets(model, element, key).map(indicatorOf);
     const relationshipKinds = (relationship: ModelRelationship) =>
-        relationshipTargets(model, relationship, key).map(
-            (target) => target.kind,
-        );
+        relationshipTargets(model, relationship, key).map(indicatorOf);
 
     const error = findViewError(model, key);
     if (error) {
@@ -890,7 +889,7 @@ function drawView(
         // The workspace's model doesn't know a Mermaid node; its one link
         // comes from the diagram's own model.
         const targets = node
-            ? mermaidNodeTargets(model, node.link, key).map((t) => t.kind)
+            ? mermaidNodeTargets(model, node.link, key).map(indicatorOf)
             : kindsFor(placed.element);
         const style: MermaidNodeStyle =
             mermaid && node

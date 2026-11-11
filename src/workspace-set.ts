@@ -1,3 +1,4 @@
+import type { SetDocuments } from "./model";
 import type {
     Branding,
     Crossing,
@@ -34,7 +35,12 @@ export type SetWorkspace = {
 };
 
 /** A software system scoped workspace the set holds, before it loads. */
-export type SetMember = { slug: string; name: string };
+export type SetMember = {
+    slug: string;
+    name: string;
+    /** What its software system carries as a documentation scope. */
+    documents?: SetDocuments;
+};
 
 /** What a set is made of. */
 export type WorkspaceSetSource = {
