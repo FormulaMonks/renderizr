@@ -21,6 +21,13 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [3.1.1](https://github.com/FormulaMonks/renderizr/compare/v3.1.0...v3.1.1) (2026-11-13)
+
+
+### Fixed
+
+* keep blank lines in the documentation a single file embeds ([#337](https://github.com/FormulaMonks/renderizr/issues/337)) ([476d77b](https://github.com/FormulaMonks/renderizr/commit/476d77b9fe72de7e941d7e5c6fc51264872cde4e)), closes [#336](https://github.com/FormulaMonks/renderizr/issues/336)
+
 ## [3.1.0](https://github.com/FormulaMonks/renderizr/compare/v3.0.0...v3.1.0) (2026-11-12)
 
 
