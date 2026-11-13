@@ -1,0 +1,223 @@
+{
+    "id": 0,
+    "name": "GitHub formatting",
+    "description": "One documentation section per GitHub formatting feature, an AsciiDoc section with their counterparts and a decision that uses a few of them.",
+    "lastModifiedDate": "2026-11-13T00:00:00Z",
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "tags": "Element,Person",
+                "name": "Author",
+                "description": "Writes the documentation on GitHub.",
+                "location": "Unspecified",
+                "relationships": [
+                    {
+                        "id": "3",
+                        "tags": "Relationship",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "Writes documentation for"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "tags": "Element,Software System",
+                "name": "Documentation site",
+                "description": "Renders the workspace's documentation and decisions.",
+                "location": "Unspecified"
+            }
+        ]
+    },
+    "documentation": {
+        "sections": [
+            {
+                "filename": "01-tables.md",
+                "order": 1,
+                "format": "Markdown",
+                "content": "# Tables\n\nYou can create tables with pipes `|` and hyphens `-`. Hyphens create each column's header, while pipes separate each column.\n\n| First Header  | Second Header |\n| ------------- | ------------- |\n| Content Cell  | Content Cell  |\n| Content Cell  | Content Cell  |\n\n## Alignment\n\nYou can align text to the left, right, or center of a column by including colons `:` to the left, right, or on both sides of the hyphens within the header row.\n\n| Left-aligned | Center-aligned | Right-aligned |\n| :---         |     :---:      |          ---: |\n| git status   | git status     | git status    |\n| git diff     | git diff       | git diff      |\n\n## Formatting inside cells\n\nYou can use formatting such as links, inline code blocks, and text styling within your table. To include a pipe `|` as content within your cell, use a `\\` before the pipe:\n\n| Command | Description |\n| --- | --- |\n| `git status` | List all *new or modified* files |\n| `git diff` | Show file differences that **haven't been** staged |\n| `a \\| b` | A cell with an escaped pipe |\n| [Docs](https://docs.github.com) | A link in a cell |\n"
+            },
+            {
+                "filename": "02-collapsed-sections.md",
+                "order": 2,
+                "format": "Markdown",
+                "content": "# Collapsed sections\n\nYou can temporarily obscure sections of your Markdown by creating a collapsed section that the reader can choose to expand.\n\n<details>\n\n<summary>Tips for collapsed sections</summary>\n\n### You can add a header\n\nYou can add text within a collapsed section.\n\nYou can add an image or a code block, too.\n\n```ruby\n   puts \"Hello World\"\n```\n\n</details>\n\n## Open by default\n\nTo make the content appear open by default, add the `open` attribute to the `<details>` tag:\n\n<details open>\n<summary>Open by default</summary>\n\nThis section starts **expanded**. Markdown still works inside it when a blank line separates it from the tags.\n\n- one\n- two\n\n</details>\n\n## Nested collapsed sections\n\n<details>\n<summary>Outer</summary>\n\nOuter text.\n\n<details>\n<summary>Inner</summary>\n\nInner text with `code`.\n\n</details>\n\n</details>\n\n## Without blank lines\n\n<details><summary>Tight markup</summary>\n**This bold text** sits on the line after the summary, with no blank line.\n</details>\n"
+            },
+            {
+                "filename": "03-code-blocks.md",
+                "order": 3,
+                "format": "Markdown",
+                "content": "# Code blocks\n\nYou can create fenced code blocks by placing triple backticks ` ``` ` before and after the code block.\n\n```\nfunction test() {\n  console.log(\"notice the blank line before this function?\");\n}\n```\n\n    An indented code block,\n    four spaces in.\n\n## Syntax highlighting\n\nYou can add an optional language identifier to enable syntax highlighting in your fenced code block.\n\n```ruby\nrequire 'redcarpet'\nmarkdown = Redcarpet.new(\"Hello World!\")\nputs markdown.to_html\n```\n\n```javascript\nconst greet = (name) => `Hello, ${name}`;\nexport default greet;\n```\n\n```json\n{ \"name\": \"renderizr\", \"private\": true }\n```\n\n```diff\n- const color = \"colour\";\n+ const color = \"color\";\n```\n\n```shell\n$ pnpm render workspace.json --single-file\n```\n\n```go\npackage main\n\nfunc main() { println(\"hello\") }\n```\n\n```dockerfile\nFROM node:24-alpine\nRUN corepack enable\n```\n\n```hcl\nresource \"aws_s3_bucket\" \"site\" {\n  bucket = \"renderizr-site\"\n}\n```\n\n## Fences inside fences\n\nTo display triple backticks in a fenced code block, wrap them inside quadruple backticks.\n\n````\n```\nLook! You can see my backticks.\n```\n````\n\n~~~yaml\ntildes: also fence\n~~~\n"
+            },
+            {
+                "filename": "04-structurizr-dsl.md",
+                "order": 4,
+                "format": "Markdown",
+                "content": "# Structurizr DSL\n\nThe workspace behind this site, as its author writes it.\n\n```structurizr\n/*\n * Internet Banking System\n * The workspace a team keeps beside its code.\n */\nworkspace \"Big Bank plc\" \"The software architecture of the Internet Banking System.\" {\n\n    !identifiers hierarchical\n    !docs docs\n    !adrs decisions\n\n    model {\n        customer = person \"Personal Banking Customer\" \"A customer of the bank, with personal bank accounts.\" \"Customer\"\n\n        group \"Big Bank plc\" {\n            supportStaff = person \"Customer Service Staff\" \"Customer service staff within the bank.\" \"Bank Staff\"\n\n            mainframe = softwareSystem \"Mainframe Banking System\" \"Stores all of the core banking information about customers, accounts, transactions, etc.\" \"Existing System\"\n\n            internetBanking = softwareSystem \"Internet Banking System\" \"Allows customers to view information about their bank accounts, and make payments.\" {\n                spa = container \"Single-Page Application\" \"Provides all of the Internet banking functionality to customers via their web browser.\" \"JavaScript and Angular\" \"Web Browser\"\n                api = container \"API Application\" \"Provides Internet banking functionality via a JSON/HTTPS API.\" \"Java and Spring MVC\" {\n                    signin = component \"Sign In Controller\" \"Allows users to sign in to the Internet Banking System.\" \"Spring MVC Rest Controller\"\n                    security = component \"Security Component\" \"Provides functionality related to signing in, changing passwords, etc.\" \"Spring Bean\"\n                }\n                database = container \"Database\" \"Stores user registration information, hashed authentication credentials, access logs, etc.\" \"Oracle Database Schema\" \"Database\"\n            }\n        }\n\n        # A single-line comment, the hash way.\n        customer -> internetBanking.spa \"Views account balances, and makes payments using\"\n        internetBanking.spa -> internetBanking.api \"Makes API calls to\" \"JSON/HTTPS\"\n        internetBanking.api.signin -> internetBanking.api.security \"Uses\"\n        internetBanking.api.security -> internetBanking.database \"Reads from and writes to\" \"SQL/TCP\" {\n            tags \"Synchronous\"\n            properties {\n                \"structurizr.dsl.identifier\" \"rel1\"\n            }\n        }\n        internetBanking -> mainframe \"Gets account information from, and makes payments using\" \"XML/HTTPS\"\n\n        live = deploymentEnvironment \"Live\" {\n            deploymentNode \"Big Bank plc\" \"\" \"Big Bank plc data center\" {\n                deploymentNode \"bigbank-api***\" \"\" \"Ubuntu 16.04 LTS\" \"\" 8 {\n                    containerInstance internetBanking.api\n                }\n            }\n        }\n    }\n\n    views {\n        systemContext internetBanking \"SystemContext\" {\n            include *\n            autoLayout lr\n            description \"\"\"\n                The system context diagram for the Internet Banking System.\n                It spans more than one line.\n            \"\"\"\n        }\n\n        container internetBanking \"Containers\" {\n            include *\n            animation {\n                customer\n                internetBanking.spa\n                internetBanking.api internetBanking.database\n            }\n            autoLayout\n        }\n\n        dynamic internetBanking.api \"SignIn\" \"Summarises how the sign in feature works in the single-page application.\" {\n            internetBanking.spa -> internetBanking.api.signin \"Submits credentials to\"\n            internetBanking.api.signin -> internetBanking.api.security \"Validates credentials using\"\n            autoLayout\n        }\n\n        styles {\n            element \"Person\" {\n                color #ffffff\n                fontSize 22\n                shape Person\n            }\n            element \"Existing System\" {\n                background #999999\n                color #ffffff\n            }\n            element \"Database\" {\n                shape Cylinder\n            }\n            relationship \"Synchronous\" {\n                dashed false\n                routing Orthogonal\n            }\n        }\n\n        theme default\n    }\n\n    configuration {\n        scope softwaresystem\n    }\n}\n```\n"
+            },
+            {
+                "filename": "05-diagrams.md",
+                "order": 5,
+                "format": "Markdown",
+                "content": "# Diagrams\n\nYou can create diagrams in Markdown using four different syntaxes: mermaid, geoJSON, topoJSON, and ASCII STL.\n\n## Mermaid\n\n```mermaid\ngraph TD;\n    A-->B;\n    A-->C;\n    B-->D;\n    C-->D;\n```\n\n```mermaid\nsequenceDiagram\n    Alice->>John: Hello John, how are you?\n    John-->>Alice: Great!\n```\n\n## GeoJSON\n\n```geojson\n{\n  \"type\": \"Polygon\",\n  \"coordinates\": [\n      [\n          [-90,30],\n          [-90,35],\n          [-90,35],\n          [-85,35],\n          [-85,30]\n      ]\n  ]\n}\n```\n\n## TopoJSON\n\n```topojson\n{\n  \"type\": \"Topology\",\n  \"transform\": {\n    \"scale\": [0.0005000500050005, 0.00010001000100010001],\n    \"translate\": [100, 0]\n  },\n  \"objects\": {\n    \"example\": {\n      \"type\": \"GeometryCollection\",\n      \"geometries\": [\n        {\n          \"type\": \"Point\",\n          \"properties\": {\"prop0\": \"value0\"},\n          \"coordinates\": [4000, 5000]\n        }\n      ]\n    }\n  },\n  \"arcs\": []\n}\n```\n\n## STL\n\n```stl\nsolid cube_corner\n  facet normal 0.0 -1.0 0.0\n    outer loop\n      vertex 0.0 0.0 0.0\n      vertex 1.0 0.0 0.0\n      vertex 0.0 0.0 1.0\n    endloop\n  endfacet\n  facet normal 0.0 0.0 -1.0\n    outer loop\n      vertex 0.0 0.0 0.0\n      vertex 0.0 1.0 0.0\n      vertex 1.0 0.0 0.0\n    endloop\n  endfacet\nendsolid\n```\n"
+            },
+            {
+                "filename": "06-math.md",
+                "order": 6,
+                "format": "Markdown",
+                "content": "# Mathematical expressions\n\nTo enable clear communication of mathematical expressions, GitHub supports LaTeX formatted math within Markdown.\n\n## Inline expressions\n\nTo include a math expression inline with your text, delimit the expression with a dollar symbol `$`.\n\nThis sentence uses `$` delimiters to show math inline: $\\sqrt{3x-1}+(1+x)^2$\n\nTo include a math expression inline with your text, delimit the expression with a dollar symbol and a backtick.\n\nThis sentence uses $\\` and \\`$ delimiters to show math inline: $`\\sqrt{3x-1}+(1+x)^2`$\n\n## Expressions as blocks\n\nTo add a math expression as a block, start a new line and delimit the expression with two dollar symbols `$$`.\n\n**The Cauchy-Schwarz Inequality**\n\n$$\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq \\left( \\sum_{k=1}^n a_k^2 \\right) \\left( \\sum_{k=1}^n b_k^2 \\right)$$\n\nAlternatively, you can use the ` ```math ` code block syntax to display a math expression as a block.\n\n**The Cauchy-Schwarz Inequality**\n\n```math\n\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq \\left( \\sum_{k=1}^n a_k^2 \\right) \\left( \\sum_{k=1}^n b_k^2 \\right)\n```\n\n## Dollar signs in and around expressions\n\nTo display a dollar sign as a character in the same line as a mathematical expression, you need to escape the non-delimiter `$`.\n\nThis expression uses `\\$` to display a dollar sign: $`\\sqrt{\\$4}`$\n\nTo split \\$100 in half, we calculate $100/2$\n"
+            },
+            {
+                "filename": "07-autolinks.md",
+                "order": 7,
+                "format": "Markdown",
+                "content": "# Autolinked references and URLs\n\n## URLs\n\nGitHub automatically creates links from standard URLs.\n\nVisit https://github.com\n\nAlso www.github.com, a trailing period https://example.com/path. and an email address octocat@github.com.\n\nAngle brackets always link: <https://structurizr.com>\n\n## Issues and pull requests\n\nWithin conversations on GitHub, references to issues and pull requests are automatically converted to shortened links.\n\n- Issue or pull request URL: https://github.com/jlord/sheetsee.js/issues/26\n- `#` and issue or pull request number: #26\n- `GH-` and issue or pull request number: GH-26\n- `Username/Repository#` and issue or pull request number: jlord/sheetsee.js#26\n- `Organization_name/Repository#` and issue or pull request number: github-linguist/linguist#4039\n\n## Commit SHAs\n\n- Commit URL: https://github.com/jlord/sheetsee.js/commit/a5c3785ed8d6a35868bc169f07e40e889087fd2e\n- SHA: a5c3785ed8d6a35868bc169f07e40e889087fd2e\n- `User@SHA`: jlord@a5c3785ed8d6a35868bc169f07e40e889087fd2e\n- `Username/Repository@SHA`: jlord/sheetsee.js@a5c3785ed8d6a35868bc169f07e40e889087fd2e\n\n## Mentions\n\nPing @octocat or the team @github/docs.\n\n## Custom autolinks\n\nA repository admin can link `JIRA-123` to an external tracker.\n"
+            },
+            {
+                "filename": "08-attached-files.md",
+                "order": 8,
+                "format": "Markdown",
+                "content": "# Attached files\n\nGitHub uploads a file you drag into a comment and writes a link to it. An image becomes an image, a video plays in place, and any other file becomes a link.\n\n## An image beside the document\n\n![A diagram the workspace embeds](images/attached-diagram.svg)\n\n## An uploaded image\n\n![Screenshot](https://github.com/user-attachments/assets/2a1d5d1e-0000-4000-8000-000000000001)\n\n## An uploaded video\n\nhttps://github.com/user-attachments/assets/2a1d5d1e-0000-4000-8000-000000000002\n\n## Another file\n\n[runbook.pdf](https://github.com/user-attachments/files/123456/runbook.pdf)\n\n## Sizing with HTML\n\n<img src=\"images/attached-diagram.svg\" width=\"120\" alt=\"The same diagram at 120 pixels wide\">\n"
+            },
+            {
+                "filename": "09-permalinks-and-keywords.md",
+                "order": 9,
+                "format": "Markdown",
+                "content": "# Permalinks and keywords\n\n## Permanent links to code\n\nA permanent link to a specific line or range of lines in a file renders as a code snippet in issues and pull requests of the same repository.\n\nhttps://github.com/octo-org/octo-repo/blob/9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b/README.md?plain=1#L14-L16\n\nA permanent link to a Markdown file with `?plain=1`:\n\nhttps://github.com/github/docs/blob/main/README.md?plain=1#L3\n\n## Keywords in issues and pull requests\n\nA pull request description that says these lines closes the issues when it merges:\n\nCloses #10\n\nFixes octo-org/octo-repo#100\n\nResolves #10, resolves #123\n"
+            },
+            {
+                "filename": "10-footnotes.md",
+                "order": 10,
+                "format": "Markdown",
+                "content": "# Footnotes\n\nYou can add footnotes to your content by using this bracket syntax:\n\nHere is a simple footnote[^1].\n\nA footnote can also have multiple lines[^2].\n\nA footnote with a one-word definition[^word].\n\nA named footnote[^note] keeps its number by order of reference.\n\n[^1]: My reference.\n[^2]: To add line breaks within a footnote, prefix new lines with 2 spaces.\n  This is a second line.\n[^word]: Single.\n[^note]: Named footnotes still render with numbers, in the order they are referenced.\n"
+            },
+            {
+                "filename": "11-task-lists.md",
+                "order": 11,
+                "format": "Markdown",
+                "content": "# Task lists\n\nTo create a task list, preface list items with a hyphen and space followed by `[ ]`. To mark a task as complete, use `[x]`.\n\n- [x] #739\n- [ ] https://github.com/octo-org/octo-repo/issues/740\n- [ ] Add delight to the experience when all tasks are complete :tada:\n\nIf a task list item description begins with a parenthesis, you'll need to escape it with `\\`:\n\n- [ ] \\(Optional) Open a followup issue\n\n## Nested task lists\n\n1. [ ] Write the spec\n   - [x] Draft\n   - [ ] Review\n2. [X] Ship it\n"
+            },
+            {
+                "filename": "12-emoji.md",
+                "order": 12,
+                "format": "Markdown",
+                "content": "# Emoji\n\nYou can add emoji to your writing by typing `:EMOJICODE:`, a colon followed by the name of the emoji.\n\n@octocat :+1: This PR looks great - it's ready to merge! :shipit:\n\nCommon shortcodes: :smile: :tada: :rocket: :warning: :white_check_mark: :x: :heart: :eyes:\n\nGitHub's own custom emoji: :octocat: :shipit: :atom:\n\nA Unicode emoji typed directly: 🚀 ✅\n\nA time that looks like a shortcode: 10:30:45\n"
+            },
+            {
+                "filename": "13-color-scheme-images.md",
+                "order": 13,
+                "format": "Markdown",
+                "content": "# Images that follow the color scheme\n\nYou can specify the theme an image is displayed for in Markdown by using the HTML `<picture>` element in combination with the `prefers-color-scheme` media feature.\n\n## The picture element\n\n<picture>\n  <source media=\"(prefers-color-scheme: dark)\" srcset=\"images/scheme-dark.svg\">\n  <source media=\"(prefers-color-scheme: light)\" srcset=\"images/scheme-light.svg\">\n  <img alt=\"Shows LIGHT on a light page and DARK on a dark one\" src=\"images/scheme-light.svg\">\n</picture>\n\n## The picture element with embedded images\n\nThe yellow image is the light one, the blue image the dark one.\n\n<picture>\n  <source media=\"(prefers-color-scheme: dark)\" srcset=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAYCAIAAACKi2/DAAAASElEQVR42u3YoREAIAwAsVpGZeVOgUIhcMiq4nL3E0R+rH1UFAgANQGNmXoBAgQIECBAgAABAgQIECBAgAABAsSlBpInDehDF+cI6arSqqU4AAAAAElFTkSuQmCC\">\n  <source media=\"(prefers-color-scheme: light)\" srcset=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAYCAIAAACKi2/DAAAASUlEQVR42u3YoREAIAwAsW6CwHQJ9h+AgcAhq4rL3U8Q+TFmqigQAGoCOnvpBQgQIECAAAECBAgQIECAAAECBAgQlxpInjSgD12HPiL3CVRrpQAAAABJRU5ErkJggg==\">\n  <img alt=\"Yellow on a light page, blue on a dark one\" src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAYCAIAAACKi2/DAAAASUlEQVR42u3YoREAIAwAsW6CwHQJ9h+AgcAhq4rL3U8Q+TFmqigQAGoCOnvpBQgQIECAAAECBAgQIECAAAECBAgQlxpInjSgD12HPiL3CVRrpQAAAABJRU5ErkJggg==\">\n</picture>\n\n## URL fragments\n\nThe older way appends `#gh-dark-mode-only` or `#gh-light-mode-only` to the image URL.\n\n![Light mode only](images/scheme-light.svg#gh-light-mode-only)\n![Dark mode only](images/scheme-dark.svg#gh-dark-mode-only)\n\n## URL fragments on embedded images\n\nThe yellow image is the light one, the blue image the dark one. GitHub shows one of them.\n\n![Light mode only](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAYCAIAAACKi2/DAAAASUlEQVR42u3YoREAIAwAsW6CwHQJ9h+AgcAhq4rL3U8Q+TFmqigQAGoCOnvpBQgQIECAAAECBAgQIECAAAECBAgQlxpInjSgD12HPiL3CVRrpQAAAABJRU5ErkJggg==#gh-light-mode-only)\n![Dark mode only](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAAAYCAIAAACKi2/DAAAASElEQVR42u3YoREAIAwAsVpGZeVOgUIhcMiq4nL3E0R+rH1UFAgANQGNmXoBAgQIECBAgAABAgQIECBAgAABAsSlBpInDehDF+cI6arSqqU4AAAAAElFTkSuQmCC#gh-dark-mode-only)\n"
+            },
+            {
+                "filename": "14-html-tags.md",
+                "order": 14,
+                "format": "Markdown",
+                "content": "# HTML tags\n\n## Keyboard keys\n\nPress <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> to open the command palette, or <kbd>⌘</kbd><kbd>K</kbd> on a Mac.\n\n## Subscript and superscript\n\nThis is a <sub>subscript</sub> text, and H<sub>2</sub>O is water.\n\nThis is a <sup>superscript</sup> text, and E = mc<sup>2</sup>.\n\n## Underline, insert and mark\n\n<ins>This text is underlined</ins> and <mark>this text is marked</mark>.\n\n## Line breaks\n\nA line that ends with two spaces  \nbreaks here, one that ends with a backslash\\\nbreaks here, and one that ends with a tag<br>\nbreaks here too.\n\n## Comments\n\n<!-- This content will not appear in the rendered Markdown -->\n\nThe comment above stays hidden.\n\n## Attributes GitHub strips\n\n<span style=\"color: red\">GitHub drops the style attribute, so this text shows in the body color there.</span>\n\n<p align=\"center\">GitHub keeps <code>align</code> on a paragraph.</p>\n"
+            },
+            {
+                "filename": "15-alerts.md",
+                "order": 15,
+                "format": "Markdown",
+                "content": "# Alerts\n\nAlerts are a Markdown extension based on the blockquote syntax that you can use to emphasize critical information.\n\n> [!NOTE]\n> Useful information that users should know, even when skimming content.\n\n> [!TIP]\n> Helpful advice for doing things better or more easily.\n\n> [!IMPORTANT]\n> Key information users need to know to achieve their goal.\n\n> [!WARNING]\n> Urgent info that needs immediate user attention to avoid problems.\n\n> [!CAUTION]\n> Advises about risks or negative outcomes of certain actions.\n\n## Alerts with more inside\n\n> [!NOTE]\n> A first paragraph.\n>\n> A second paragraph with a list:\n>\n> - one\n> - two\n\n> [!tip]\n> A lowercase marker.\n\n> [!NOTE] Custom title\n> GitHub renders text after the marker as a plain blockquote.\n"
+            },
+            {
+                "filename": "16-strikethrough.md",
+                "order": 16,
+                "format": "Markdown",
+                "content": "# Strikethrough\n\n~~This was mistaken text~~ with two tildes.\n\n~One tilde~ also strikes through on GitHub.\n\n<del>The del tag</del> and <s>the s tag</s> strike through too.\n"
+            },
+            {
+                "filename": "17-split-pages.md",
+                "order": 17,
+                "format": "Markdown",
+                "content": "# Split pages\n\nThis section opens with an intro, then splits into pages at each `##` heading. A footnote referenced here[^intro] has its definition on the last page.\n\n## First page\n\nThe first page references a footnote[^first] and holds a collapsed section with a heading inside it.\n\n<details>\n<summary>A collapsed section with headings</summary>\n\n## A page-level heading inside details\n\nText under the page-level heading inside the collapsed section.\n\n### A subheading inside details\n\nText under the subheading.\n\n</details>\n\nText after the collapsed section, still on the first page.\n\n### A subheading on the first page\n\nThe docs menu lists this subheading under the first page.\n\n## Second page\n\nThe second page references the same footnote again[^first] and one of its own[^second].\n\n<details>\n<summary>Tight details with a heading</summary>\n<h3>An HTML heading inside details</h3>\n<p>Written in HTML.</p>\n</details>\n\n## Third page\n\nThe last page holds every footnote definition. It links back to [a subheading on the first page](#a-subheading-on-the-first-page) and to [the heading inside the collapsed section](#a-page-level-heading-inside-details).\n\n[^intro]: Defined at the end of the section, after the third page heading.\n[^first]: The first page's footnote, referenced twice.\n[^second]: The second page's footnote.\n"
+            },
+            {
+                "filename": "18-asciidoc.adoc",
+                "order": 18,
+                "format": "AsciiDoc",
+                "content": "= AsciiDoc counterparts\n:experimental:\n:stem: latexmath\n\nThe AsciiDoc spelling of the same features, written as Asciidoctor's own documentation writes them.\n\n== Tables\n\n[cols=\"1,1,1\"]\n|===\n|Left |Center |Right\n\n|git status\n|git status\n|git status\n\n|git diff\n|git diff\n|git diff\n|===\n\n== Collapsible blocks\n\n.Tips for collapsible blocks\n[%collapsible]\n====\nYou can add text within a collapsible block.\n\n[source,ruby]\n----\nputs \"Hello World\"\n----\n====\n\n== Source blocks\n\n[source,javascript]\n----\nconst greet = (name) => `Hello, ${name}`;\n----\n\n[source,structurizr]\n----\nworkspace {\n    model {\n        user = person \"User\"\n    }\n}\n----\n\n== Math\n\nInline math: stem:[\\sqrt{3x-1}+(1+x)^2] and latexmath:[E = mc^2].\n\n[stem]\n++++\n\\left( \\sum_{k=1}^n a_k b_k \\right)^2 \\leq \\left( \\sum_{k=1}^n a_k^2 \\right)\n++++\n\n== Footnotes\n\nA simple footnote.footnote:[My reference.] A named one.footnote:disclaimer[Named footnotes can repeat.] And again.footnote:disclaimer[]\n\n== Checklists\n\n* [*] checked\n* [x] also checked\n* [ ] not checked\n* normal list item\n\n== Keyboard keys\n\nPress kbd:[Ctrl+Shift+P] to open the command palette, or kbd:[⌘ K] on a Mac. Choose menu:File[Save].\n\n== Subscript and superscript\n\nH~2~O is water, and E = mc^2^.\n\n== Strikethrough\n\n[.line-through]#This was mistaken text#\n\n== Admonitions\n\nNOTE: Useful information that users should know, even when skimming content.\n\nTIP: Helpful advice for doing things better or more easily.\n\n[WARNING]\n====\nUrgent info that needs immediate user attention to avoid problems.\n\nA second paragraph inside the warning.\n====\n\n[CAUTION]\n.Title of the caution\n====\nAdvises about risks or negative outcomes of certain actions.\n====\n\n== Diagrams\n\n[mermaid]\n....\ngraph TD;\n    A-->B;\n....\n\n== Links\n\nVisit https://github.com and https://structurizr.com[Structurizr].\n\n== Images\n\nimage::images/attached-diagram.svg[A diagram the workspace embeds]\n\nInline image:images/attached-diagram.svg[An inline diagram,40] in a sentence.\n"
+            },
+            {
+                "title": "",
+                "order": 19,
+                "format": "Markdown",
+                "filename": "19-mermaid-in-documentation.md",
+                "content": "# Mermaid in documentation\n\nA Mermaid block of a type Renderizr draws becomes a diagram on the diagrams page; the section links to it.\n\n## Order flow\n\n```mermaid\n---\ntitle: Checkout flow\n---\nflowchart LR\n  Cart --> Checkout --> Payment\n  Payment -->|declined| Cart\n```\n\n## Data model\n\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : places\n  ORDER ||--|{ LINE_ITEM : contains\n```\n\n## Types Renderizr does not draw\n\n```mermaid\npie title Traffic by channel\n  \"Web\" : 62\n  \"Mobile\" : 31\n  \"Partner API\" : 7\n```\n\n```mermaid\nclassDiagram\n  class Order {\n    +String id\n    +submit()\n  }\n  Order --> Customer\n  Order --> LineItem\n```\n\n## A block that fails to parse\n\n```mermaid\nflowchart TD\n  A -->\n```\n\n## Through Structurizr's Mermaid plugin\n\nStructurizr's opt-in Mermaid documentation plugin writes an image link in place of the block:\n\n![](https://mermaid.ink/svg/Zmxvd2NoYXJ0IFRECiAgUGx1Z2luW1dyaXR0ZW4gYnkgdGhlIHBsdWdpbl0gLS0+IEltYWdlW0RyYXduIGJ5IFJlbmRlcml6cl0=)\n"
+            }
+        ],
+        "decisions": [
+            {
+                "id": "1",
+                "title": "Write the documentation in GitHub Flavored Markdown",
+                "date": "2026-11-13T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 1. Write the documentation in GitHub Flavored Markdown\n\nDate: 2026-11-13\n\n## Status\n\nAccepted\n\n## Context\n\nAuthors read the documentation on GitHub first[^github], and they write it with the features GitHub renders.\n\n| Feature | Where authors use it |\n| --- | --- |\n| Alerts | Every runbook |\n| ~~Wiki pages~~ | Nowhere now |\n\n> [!IMPORTANT]\n> The site must read the same as GitHub.\n\n<details>\n<summary>What GitHub renders</summary>\n\n- [x] Tables\n- [x] Alerts\n- [ ] Math such as $E = mc^2$\n\n</details>\n\n## Decision\n\nWrite every section in GitHub Flavored Markdown. Press <kbd>Ctrl</kbd>+<kbd>S</kbd> to save, and keep H<sub>2</sub>O and x<sup>2</sup> readable. :rocket:\n\n```mermaid\ngraph LR;\n    Author-->GitHub;\n    Author-->Renderizr;\n```\n\n```math\na^2 + b^2 = c^2\n```\n\n## Consequences\n\nThe site needs to render what GitHub renders. See https://docs.github.com/en/get-started/writing-on-github for the list.\n\n[^github]: Most readers open a pull request before they open the site.\n",
+                "links": []
+            },
+            {
+                "id": "2",
+                "date": "2026-11-13T00:00:00Z",
+                "status": "Proposed",
+                "title": "Draw documentation diagrams on the diagrams page",
+                "format": "Markdown",
+                "links": [],
+                "content": "# 2. Draw documentation diagrams on the diagrams page\n\nDate: 2026-11-13\n\n## Status\n\nProposed\n\n## Context\n\nThe reader asks for a diagram; the page answers.\n\n```mermaid\nsequenceDiagram\n  Reader->>Docs: opens the section\n  Docs->>Diagrams: follows the link\n  Diagrams-->>Reader: draws the diagram\n```\n\n## Decision\n\nLink from the section to the diagram."
+            }
+        ],
+        "images": [
+            {
+                "name": "images/scheme-light.svg",
+                "type": "image/svg+xml",
+                "content": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNDAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyNDAgNjAiPjxyZWN0IHdpZHRoPSIyNDAiIGhlaWdodD0iNjAiIHJ4PSI4IiBmaWxsPSIjZmZmZmZmIiBzdHJva2U9IiMxZjIzMjgiIHN0cm9rZS13aWR0aD0iMiIvPjx0ZXh0IHg9IjEyMCIgeT0iMzciIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMWYyMzI4Ij5MSUdIVCBpbWFnZTwvdGV4dD48L3N2Zz4="
+            },
+            {
+                "name": "images/scheme-dark.svg",
+                "type": "image/svg+xml",
+                "content": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNDAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyNDAgNjAiPjxyZWN0IHdpZHRoPSIyNDAiIGhlaWdodD0iNjAiIHJ4PSI4IiBmaWxsPSIjMGQxMTE3IiBzdHJva2U9IiNmMGY2ZmMiIHN0cm9rZS13aWR0aD0iMiIvPjx0ZXh0IHg9IjEyMCIgeT0iMzciIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZjBmNmZjIj5EQVJLIGltYWdlPC90ZXh0Pjwvc3ZnPg=="
+            },
+            {
+                "name": "images/attached-diagram.svg",
+                "type": "image/svg+xml",
+                "content": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNDAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyNDAgNjAiPjxyZWN0IHdpZHRoPSIyNDAiIGhlaWdodD0iNjAiIHJ4PSI4IiBmaWxsPSIjZGRmNGZmIiBzdHJva2U9IiMwOTY5ZGEiIHN0cm9rZS13aWR0aD0iMiIvPjx0ZXh0IHg9IjEyMCIgeT0iMzciIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjIwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDk2OWRhIj5BdHRhY2hlZCBkaWFncmFtPC90ZXh0Pjwvc3ZnPg=="
+            }
+        ]
+    },
+    "views": {
+        "systemContextViews": [
+            {
+                "key": "SystemContext",
+                "title": "Documentation site",
+                "softwareSystemId": "2",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    },
+                    {
+                        "id": "2",
+                        "x": 100,
+                        "y": 500
+                    }
+                ],
+                "relationships": [
+                    {
+                        "id": "3"
+                    }
+                ]
+            }
+        ],
+        "configuration": {
+            "styles": {},
+            "properties": {
+                "mermaid.url": "https://mermaid.ink"
+            }
+        }
+    }
+}

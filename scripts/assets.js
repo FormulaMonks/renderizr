@@ -1,5 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+    collectDocumentationDiagrams,
+    writeDocumentationLinks,
+} from "./mermaid/documentation.js";
 import { readMermaidDiagrams } from "./mermaid/index.js";
 
 /** Google only serves woff2 to browsers it recognizes. */
@@ -636,9 +640,12 @@ export async function prepareWorkspace(workspace) {
     // than fetch its picture from the Mermaid server. A diagram that can't be
     // drawn warns and the build finishes (spec: When a diagram can't be
     // drawn).
+    // PROTOTYPE (#331): Mermaid blocks in documentation become image views.
+    const documentationDiagrams = collectDocumentationDiagrams(workspace);
     for (const notice of readMermaidDiagrams(workspace)) {
         process.stderr.write(`warning: ${notice}\n`);
     }
+    writeDocumentationLinks(workspace, documentationDiagrams);
     await inlineWorkspaceAssets(workspace);
 
     return workspace;

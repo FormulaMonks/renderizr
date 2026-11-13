@@ -563,3 +563,107 @@ separator has to be matched with the id here too. */
     text-underline-offset: 0.2em;
     cursor: help;
 }
+
+/* PROTOTYPE (#331): a Mermaid block in documentation links to its diagram
+on the diagrams page; a type Renderizr doesn't draw shows a note. */
+.markdownRenderer :global(.rz-diagram-link) {
+    max-width: var(--md-measure);
+    margin: 1.35rem 0;
+}
+
+.markdownRenderer :global(.rz-diagram-link) > a {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface-alt);
+    color: var(--color-foreground);
+    text-decoration: none;
+}
+
+.markdownRenderer :global(.rz-diagram-link) > a:hover,
+.markdownRenderer :global(.rz-diagram-link) > a:focus-visible {
+    border-color: var(--color-muted);
+}
+
+.markdownRenderer :global(.rz-diagram-link__icon) {
+    flex: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--color-muted) 14%, transparent);
+    display: grid;
+    place-items: center;
+}
+
+.markdownRenderer :global(.rz-diagram-link__icon) svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--color-primary);
+}
+
+.markdownRenderer :global(.rz-diagram-link__text) {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.markdownRenderer :global(.rz-diagram-link__kind) {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+    color: var(--color-muted);
+}
+
+.markdownRenderer :global(.rz-diagram-link__title) {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.markdownRenderer :global(.rz-diagram-link__error) {
+    font-size: 0.8rem;
+    color: var(--md-hljs-deletion, #c0392b);
+}
+
+.markdownRenderer :global(.rz-diagram-link__open) {
+    flex: none;
+    font-size: 0.85rem;
+    color: var(--color-primary);
+}
+
+.markdownRenderer :global(.rz-diagram-link__open)::after {
+    content: " →";
+}
+
+@media (max-width: 40rem) {
+    .markdownRenderer :global(.rz-diagram-link__open) {
+        display: none;
+    }
+}
+
+.markdownRenderer :global(.rz-diagram-unsupported) {
+    max-width: var(--md-measure);
+    margin: 1.35rem 0;
+    padding: 0.8rem 1rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 0.5rem;
+}
+
+.markdownRenderer :global(.rz-diagram-unsupported__label) {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-muted);
+}
+
+.markdownRenderer :global(.rz-diagram-unsupported__hint) {
+    margin: 0;
+    max-height: 6.5rem;
+    overflow: hidden;
+    opacity: 0.75;
+    mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
