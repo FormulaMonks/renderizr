@@ -1,0 +1,55 @@
+{
+    "id": 0,
+    "name": "Blank lines",
+    "description": "Documentation and a decision whose Markdown depends on blank lines: separate paragraphs, a collapsed section and a code block",
+    "lastModifiedDate": null,
+    "model": {
+        "softwareSystems": [
+            {
+                "id": "1",
+                "tags": "Element,Software System",
+                "name": "Shop",
+                "location": "Internal"
+            }
+        ]
+    },
+    "documentation": {
+        "sections": [
+            {
+                "order": 1,
+                "filename": "01-blank-lines.md",
+                "format": "Markdown",
+                "content": "# Blank lines\n\nEach paragraph in this section stands on its own. The first paragraph ends here.\n\nThe second paragraph starts after a blank line and stays apart from the first.\n\n## Collapsed section\n\n<details>\n<summary>Show the details</summary>\n\nThe body of the collapsed section is **Markdown**, so it needs a blank line on each side.\n\n</details>\n\nThe paragraph after the collapsed section renders as its own paragraph.\n\n## Code block\n\n```js\nconst first = 1;\n\nconst second = 2;\n```\n"
+            }
+        ],
+        "decisions": [
+            {
+                "id": "1",
+                "title": "Keep blank lines in embedded Markdown",
+                "date": "2026-11-13T00:00:00Z",
+                "status": "Accepted",
+                "format": "Markdown",
+                "content": "# 1. Keep blank lines in embedded Markdown\n\nDate: 2026-11-13\n\n## Status\n\nAccepted\n\n## Context\n\nThe first paragraph of the context.\n\nThe second paragraph of the context.\n\n## Decision\n\nKeep every blank line in the documentation and decisions a page embeds.\n\n## Consequences\n\nNone recorded.\n"
+            }
+        ]
+    },
+    "views": {
+        "systemLandscapeViews": [
+            {
+                "key": "Landscape",
+                "title": "Landscape",
+                "elements": [
+                    {
+                        "id": "1",
+                        "x": 100,
+                        "y": 100
+                    }
+                ],
+                "relationships": []
+            }
+        ],
+        "configuration": {
+            "styles": {}
+        }
+    }
+}

@@ -174,6 +174,27 @@ test("$& and friends in minified vendor code are not read as substitutions", () 
     assert.ok(html.includes('a::after{content:"$&"}'));
 });
 
+test("blank lines leave the page's markup and stay in the inlined code", () => {
+    // esbuild writes documentation and decisions as template literals with
+    // real line breaks, so a blank line in the code is a Markdown paragraph
+    // break and has to survive.
+    const code = "const section = `First paragraph.\n\nSecond paragraph.`;";
+    const css = "a{color:red}\n\nb{color:blue}";
+    const bundle = makeBundle({ code, css });
+    runSingleFile(bundle);
+
+    const html = String(bundle["index.html"].source);
+    assert.ok(html.includes(code), "the inlined code lost its blank line");
+    assert.ok(html.includes(css), "the inlined stylesheet was rewritten");
+
+    const markup = html.replace(code, "").replace(css, "");
+    assert.doesNotMatch(
+        markup,
+        /\n\s*\n/,
+        "the dropped links left blank lines in the markup",
+    );
+});
+
 test("a reference the bundle does not contain is left alone", () => {
     const bundle = makeBundle({
         html: `<html><head>
