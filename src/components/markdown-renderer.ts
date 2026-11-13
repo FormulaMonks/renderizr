@@ -1,6 +1,6 @@
 import Component from "./_component";
 import markdownIt from "markdown-it";
-// @ts-ignore
+// @ts-expect-error
 import shiftHeadings from "markdown-it-shift-headings";
 import anchor from "markdown-it-anchor";
 // `highlight.js/lib/common` registers 34 languages for roughly 150KB. These are
@@ -23,6 +23,7 @@ import yaml from "highlight.js/lib/languages/yaml";
 import type { StateCore } from "markdown-it";
 import type { ImageResolver } from "./doc-images";
 import { githubSlug, type LinkResolver } from "./doc-links";
+import structurizr from "./highlight-structurizr";
 import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";
 
@@ -38,6 +39,8 @@ for (const [name, language] of Object.entries({
     typescript,
     xml,
     yaml,
+    // PROTOTYPE (#334): Structurizr DSL, a grammar of Renderizr's own.
+    structurizr,
 })) {
     hljs.registerLanguage(name, language);
 }
