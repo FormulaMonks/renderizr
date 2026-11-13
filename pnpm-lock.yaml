@@ -14,6 +14,9 @@ importers:
       '@xyflow/react':
         specifier: ^12.12.0
         version: 12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      asciimath2tex:
+        specifier: ^1.5.0
+        version: 1.5.0
       bootstrap-icons:
         specifier: ^1.13.2
         version: 1.13.2
@@ -719,6 +722,9 @@ packages:
   argue-cli@3.2.0:
     resolution: {integrity: sha512-VipTB0gXgGIFO2Rg9yEVN5wLt2AurJcZqDbgmYSwPwsykhLrQhs240/bfceev4w68lI8JshoOJIk9uW7tFzROw==}
     engines: {node: '>=22'}
+
+  asciimath2tex@1.5.0:
+    resolution: {integrity: sha512-vp0GOt71u59HDJhaH5ws18iyszRizJ+BRPT87HKlpv4DNy7zRmXDaU4ia0UPQMX1nGZ7xf4jLoeOeQOu3Lxuvw==}
 
   bootstrap-icons@1.13.2:
     resolution: {integrity: sha512-fAU1Ly3dH7hwRg+CB8EZ0Vl0fF80zgXHeUVJyfUOKzoURr+TbwISbCW5tKUoQLERaWYG2emTCybcPbD96hdD1A==}
@@ -1677,6 +1683,8 @@ snapshots:
   argparse@3.0.4: {}
 
   argue-cli@3.2.0: {}
+
+  asciimath2tex@1.5.0: {}
 
   bootstrap-icons@1.13.2: {}
 

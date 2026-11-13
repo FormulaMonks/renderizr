@@ -35,3 +35,18 @@ console.log("--- with a converter that renders stem");
 console.log(await convert(math));
 console.log("--- asciimath, the default stem, through the same converter");
 console.log(await convert(":stem:\n\nstem:[sqrt(4) = 2]"));
+
+// AsciiMath, AsciiDoc's default stem, through AsciiMath to LaTeX, then Temml.
+const { default: AsciiMathParser } = await import("asciimath2tex");
+const asciimath = new AsciiMathParser();
+for (const source of [
+    "sqrt(4) = 2",
+    "sum_(k=1)^n a_k b_k",
+    "x^2 + y^2 = r^2",
+    "f'(x) = lim_(h->0) (f(x+h)-f(x))/h",
+]) {
+    const tex = asciimath.parse(source);
+    console.log(
+        `asciimath ${JSON.stringify(source)} -> ${tex} -> ${temml.renderToString(tex).length} bytes of MathML`,
+    );
+}

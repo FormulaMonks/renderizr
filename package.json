@@ -95,6 +95,7 @@
     "dependencies": {
         "@dagrejs/dagre": "3.1.1",
         "@xyflow/react": "^12.12.0",
+        "asciimath2tex": "^1.5.0",
         "bootstrap-icons": "^1.13.2",
         "esbuild": "^0.28.2",
         "highlight.js": "^11.12.0",
