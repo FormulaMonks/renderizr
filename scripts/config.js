@@ -187,6 +187,11 @@ export function createConfig({
             __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),
             // `false` compiles edit mode's page code out of the bundle.
             __RENDERIZR_EDIT_MODE__: JSON.stringify(Boolean(editMode)),
+            // PROTOTYPE (#332): `"katex"` pulls KaTeX's stylesheet and fonts
+            // into the page.
+            __RENDERIZR_MATH__: JSON.stringify(
+                process.env.RENDERIZR_MATH ?? "temml",
+            ),
         },
         ...(mode === "serve" ? { server: { open: false } } : {}),
     };

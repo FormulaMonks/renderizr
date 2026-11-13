@@ -563,3 +563,13 @@ separator has to be matched with the id here too. */
     text-underline-offset: 0.2em;
     cursor: help;
 }
+
+/*
+ * PROTOTYPE (#332): a display expression scrolls on its own on a narrow
+ * screen. The browser draws Temml's MathML with its own math font.
+ */
+.markdownRenderer :global(.math-display) {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+}

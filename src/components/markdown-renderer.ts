@@ -1,6 +1,6 @@
 import Component from "./_component";
 import markdownIt from "markdown-it";
-// @ts-ignore
+// @ts-expect-error
 import shiftHeadings from "markdown-it-shift-headings";
 import anchor from "markdown-it-anchor";
 // `highlight.js/lib/common` registers 34 languages for roughly 150KB. These are
@@ -25,6 +25,12 @@ import type { ImageResolver } from "./doc-images";
 import { githubSlug, type LinkResolver } from "./doc-links";
 import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";
+
+// PROTOTYPE (#332): KaTeX's HTML needs its stylesheet and fonts; Temml's
+// MathML needs neither.
+declare const __RENDERIZR_MATH__: string;
+if (__RENDERIZR_MATH__ === "katex") import("katex/dist/katex.min.css");
+if (__RENDERIZR_MATH__ === "temml-css") import("temml/dist/Temml-Local.css");
 
 for (const [name, language] of Object.entries({
     bash,

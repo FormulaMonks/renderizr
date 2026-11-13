@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { renderDocumentationMath } from "./math/documentation.js";
 import { readMermaidDiagrams } from "./mermaid/index.js";
 
 /** Google only serves woff2 to browsers it recognizes. */
@@ -639,6 +640,8 @@ export async function prepareWorkspace(workspace) {
     for (const notice of readMermaidDiagrams(workspace)) {
         process.stderr.write(`warning: ${notice}\n`);
     }
+    // PROTOTYPE (#332): math in documentation renders in the build.
+    renderDocumentationMath(workspace);
     await inlineWorkspaceAssets(workspace);
 
     return workspace;
