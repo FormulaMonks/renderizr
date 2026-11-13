@@ -333,9 +333,16 @@ export function singleFile() {
                 // inside minified vendor code are not treated as substitution
                 // patterns — that failure produces a plausible-looking file
                 // with vendor bundles spliced into each other.
+                //
+                // The blank lines the dropped links leave behind go before
+                // anything is inlined. The inlined code carries the
+                // workspace's documentation and decisions as template
+                // literals, where a blank line is Markdown: it separates
+                // paragraphs and closes a `<details>` summary.
                 const html = String(output.source)
                     .replace(PRELOAD_TAG, () => "")
                     .replace(ICON_TAG, () => "")
+                    .replace(/\n\s*\n/g, "\n")
                     .replace(STYLE_TAG, (tag, href, hrefAlt) => {
                         const css = styles.get(basename(href ?? hrefAlt ?? ""));
                         return css === undefined
@@ -350,7 +357,7 @@ export function singleFile() {
                             : `<script type="module">${code}</script>`;
                     });
 
-                output.source = html.replace(/\n\s*\n/g, "\n");
+                output.source = html;
             }
         },
     };

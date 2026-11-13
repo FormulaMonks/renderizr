@@ -411,6 +411,23 @@ test("the single file still carries the whole application", async () => {
     );
 });
 
+test("the single file keeps the blank lines in the documentation and decisions it embeds", async () => {
+    const { out } = await singleFile();
+    const html = await readFile(join(out, "index.html"), "utf-8");
+
+    // A blank line is Markdown: without it, paragraphs merge and a
+    // `<details>` block swallows the rest of its section.
+    for (const markdown of [
+        "# Overview\n\nThe fixture workspace exists",
+        "Date: 2024-01-15\n\n## Status\n\nAccepted\n\n## Context\n\n",
+    ]) {
+        assert.ok(
+            html.includes(markdown),
+            `the single file lost the blank lines in ${JSON.stringify(markdown)}`,
+        );
+    }
+});
+
 test("the logo is inlined into the single file as a data URI", async () => {
     const { out } = await singleFile();
     const html = await readFile(join(out, "index.html"), "utf-8");
