@@ -19,4 +19,8 @@ export const CLASSES = Object.freeze({
     alertCaution: "rz-alert-caution",
     /** A link to a document the workspace does not contain. */
     unresolvedLink: "rz-unresolved-link",
+    /** A collapsed section's `<details>`, from Markdown or AsciiDoc. */
+    collapsed: "rz-collapsed",
+    /** A collapsed section's `<summary>`. */
+    collapsedSummary: "rz-collapsed-summary",
 });

@@ -1,0 +1,193 @@
+/*
+ * Collapsed sections: GitHub's `<details>` and AsciiDoc's `[%collapsible]`
+ * block, which the build gives the same classes
+ * (`scripts/documentation/collapsed-sections.js`). A disclosure triangle that
+ * turns, no box, and a body indented one step under the summary. Every color
+ * comes from the theme tokens in `main.css`, so both color schemes follow.
+ *
+ * The triangle hangs in the margin, so the summary lines up with the prose
+ * around it, and a nested section's triangle hangs in its parent's indent.
+ * In a list item, a table cell or an alert, and at phone width, there is no
+ * margin to hang in: the triangle sits at the left edge and the summary
+ * follows it.
+ *
+ * The body's indent is padding, so text written straight after the summary
+ * (`<details>` with no blank line) indents too. Where the browser animates
+ * `::details-content`, the padding moves onto it: its clip then leaves the
+ * indent alone, and a nested triangle hanging there stays whole.
+ */
+:global(.rz-collapsed) {
+    --rz-collapsed-gutter: 1.5rem;
+    /* The part of the indent the `<details>` itself pads. */
+    --rz-collapsed-inset: var(--rz-collapsed-gutter);
+    --rz-collapsed-pad-y: 0.15rem;
+    --rz-collapsed-wash: color-mix(
+        in srgb,
+        var(--color-foreground) 6%,
+        transparent
+    );
+
+    margin: 0.75rem 0;
+    padding-left: var(--rz-collapsed-inset);
+}
+
+/* In a table cell the section sits tight in its row. */
+:is(td, th) :global(.rz-collapsed) {
+    margin: 0;
+}
+
+/* At the top level, the section keeps the measure the prose keeps. */
+:global(.markdown-renderer) > :global(.rz-collapsed) {
+    max-width: var(--md-measure);
+}
+
+/* The summary starts at the section's left edge, the triangle in front. */
+:global(.rz-collapsed-summary) {
+    position: relative;
+    display: block;
+    margin-left: calc(-1 * var(--rz-collapsed-inset));
+    padding: var(--rz-collapsed-pad-y) 0.4rem var(--rz-collapsed-pad-y)
+        var(--rz-collapsed-gutter);
+    border-radius: 0.3rem;
+    font-weight: inherit;
+    cursor: pointer;
+    list-style: none;
+    transition: background-color 120ms ease;
+}
+
+:global(.rz-collapsed-summary)::-webkit-details-marker {
+    display: none;
+}
+
+:global(.rz-collapsed-summary)::marker {
+    content: "";
+}
+
+/* The triangle, centered on the summary's first line. */
+:global(.rz-collapsed-summary)::before {
+    content: "";
+    position: absolute;
+    left: calc((var(--rz-collapsed-gutter) - 0.45em) / 2);
+    top: calc(var(--rz-collapsed-pad-y) + 0.5lh);
+    border-left: 0.45em solid currentColor;
+    border-block: 0.3em solid transparent;
+    color: var(--color-muted);
+    transform: translateY(-50%);
+    transition:
+        transform 120ms ease,
+        color 120ms ease;
+}
+
+:global(.rz-collapsed[open]) > :global(.rz-collapsed-summary)::before {
+    transform: translateY(-50%) rotate(90deg);
+}
+
+:global(.rz-collapsed-summary):hover {
+    background: var(--rz-collapsed-wash);
+}
+
+:global(.rz-collapsed-summary):hover::before {
+    color: var(--color-foreground);
+}
+
+:global(.rz-collapsed[open]) > :global(.rz-collapsed-summary) {
+    margin-bottom: 0.35rem;
+}
+
+:global(.rz-collapsed) > :last-child,
+:global(.rz-collapsed) > :global(.content) > :last-child {
+    margin-bottom: 0;
+}
+
+/* A heading as the summary keeps its size and weight, and folds what sits
+under it. */
+:global(.rz-collapsed-summary) > :is(h1, h2, h3, h4, h5, h6) {
+    display: inline;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+
+:global(.rz-collapsed-summary):has(> :is(h1, h2, h3, h4, h5, h6))::before {
+    top: 50%;
+}
+
+:global(.rz-collapsed):has(
+    > :global(.rz-collapsed-summary) > :is(h1, h2, h3, h4, h5, h6)
+) {
+    margin-top: 1.5rem;
+}
+
+/* The triangle hangs in the margin where there is one. */
+:global(.rz-collapsed):not(
+        :is(li, td, th, :global(.rz-alert)) :global(.rz-collapsed)
+    )
+    > :global(.rz-collapsed-summary) {
+    margin-left: calc(
+        -1 *
+        var(--rz-collapsed-inset) -
+        var(--rz-collapsed-gutter)
+    );
+}
+
+@media (max-width: 767px) {
+    :global(.rz-collapsed):not(
+            :is(li, td, th, :global(.rz-alert)) :global(.rz-collapsed)
+        )
+        > :global(.rz-collapsed-summary) {
+        margin-left: calc(-1 * var(--rz-collapsed-inset));
+    }
+}
+
+/* Where the browser animates `::details-content`, the body slides open. */
+@supports selector(::details-content) {
+    :global(.rz-collapsed) {
+        --rz-collapsed-inset: 0px;
+
+        interpolate-size: allow-keywords;
+    }
+
+    :global(.rz-collapsed)::details-content {
+        block-size: 0;
+        padding-left: var(--rz-collapsed-gutter);
+        overflow: clip;
+        transition:
+            block-size 160ms ease,
+            content-visibility 160ms allow-discrete;
+    }
+
+    :global(.rz-collapsed[open])::details-content {
+        block-size: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :global(.rz-collapsed)::details-content,
+    :global(.rz-collapsed-summary),
+    :global(.rz-collapsed-summary)::before {
+        transition: none;
+    }
+}
+
+/* `collapsed-sections.ts` opens every section before printing, and the
+summary prints flush with its section, without its triangle. */
+@media print {
+    :global(.rz-collapsed-summary)::before {
+        display: none;
+    }
+
+    :global(.rz-collapsed-summary) {
+        padding-left: 0;
+    }
+
+    :global(.rz-collapsed):not(
+            :is(li, td, th, :global(.rz-alert)) :global(.rz-collapsed)
+        )
+        > :global(.rz-collapsed-summary) {
+        margin-left: calc(-1 * var(--rz-collapsed-inset));
+    }
+
+    :global(.rz-collapsed)::details-content {
+        block-size: auto;
+    }
+}

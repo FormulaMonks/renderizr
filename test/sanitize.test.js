@@ -82,7 +82,7 @@ test("a collapsed section keeps the Markdown inside it", () => {
     );
     assert.equal(
         html,
-        "<details>\n<summary>More</summary>\n<p>Some <strong>bold</strong> text.</p>\n</details>\n",
+        '<details class="rz-collapsed">\n<summary class="rz-collapsed-summary">More</summary>\n<p>Some <strong>bold</strong> text.</p>\n</details>\n',
     );
 });
 

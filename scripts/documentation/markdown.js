@@ -3,6 +3,7 @@ import anchor from "markdown-it-anchor";
 import shiftHeadings from "markdown-it-shift-headings";
 import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
+import { collapsedSections } from "./collapsed-sections.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
 import { sanitizeRawHtml } from "./sanitize.js";
@@ -167,6 +168,7 @@ export function createMarkdown() {
         `<div class="${CLASSES.tableWrap}">${self.renderToken(tokens, idx, options)}`;
     md.renderer.rules.table_close = () => "</table></div>";
 
+    md.use(collapsedSections);
     md.core.ruler.push("doc_links", resolveLinks);
     md.core.ruler.push("doc_images", resolveImages);
 
