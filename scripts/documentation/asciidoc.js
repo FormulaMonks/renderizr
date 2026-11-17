@@ -6,10 +6,14 @@ import {
 } from "@asciidoctor/core";
 import { AsciiDocConverter } from "./asciidoc-converter.js";
 import { asciidocCollapsedSections } from "./collapsed-sections.js";
+import { asciiDocColorSchemeImages } from "./color-scheme.js";
 import { asciidocFootnotes } from "./footnotes.js";
 import { embeddedViewsInAsciiDoc } from "./embeds.js";
 import { highlight } from "./highlight.js";
+import { asciiDocKeys } from "./keys.js";
+import { asciiDocMedia } from "./media.js";
 import { sanitizeHtml } from "./sanitize.js";
+import { asciiDocTaskLists } from "./task-lists.js";
 
 /**
  * Whether `document`, a section or a decision, is AsciiDoc: its `format`
@@ -68,10 +72,11 @@ AbstractNode.prototype.restorePassthroughs = function (text) {
  * The document attributes every render sets. Ids follow GitHub's AsciiDoc
  * ids (no prefix, `-` between words), so links written for GitHub land, and
  * an `xref:` to another file keeps its `.adoc`, for the link resolver to
- * find the section it names. Each ends in `@`, so a document can set its
- * own.
+ * find the section it names. `experimental` turns on the `kbd:` and `menu:`
+ * macros. Each ends in `@`, so a document can set its own.
  */
 const ATTRIBUTES = Object.freeze({
+    experimental: "@",
     idprefix: "@",
     showtitle: "@",
     idseparator: "-@",
@@ -170,10 +175,17 @@ export function createAsciiDoc() {
         },
     };
 
+    // Media and color-scheme images rewrite the whole rendered document, so
+    // they come last: they read the diagram cards embedded views write and
+    // the images `convert_image` resolves, fragment and all.
     return asciidoc
         .use(asciidocFootnotes)
         .use(asciidocCollapsedSections)
-        .use(embeddedViewsInAsciiDoc);
+        .use(embeddedViewsInAsciiDoc)
+        .use(asciiDocTaskLists)
+        .use(asciiDocKeys)
+        .use(asciiDocMedia)
+        .use(asciiDocColorSchemeImages);
 }
 
 /** @typedef {ReturnType<typeof createAsciiDoc>} AsciiDoc */

@@ -346,3 +346,75 @@ test("another workspace's key reads as a key the workspace lacks", async () => {
         ["#/?page=diagrams&view=Payments"],
     );
 });
+
+/* ------------------------------------- GitHub formatting around embeds */
+
+/** The class attribute of every card or note in `html`. */
+const embedClasses = (html) =>
+    [
+        ...html.matchAll(
+            new RegExp(
+                `<(?:a|span) class="((?:${CLASSES.diagramCard}|${CLASSES.diagramNote})(?: [^"]*)?)"`,
+                "g",
+            ),
+        ),
+    ].map(([, classes]) => classes);
+
+test("an embed with a color-scheme fragment shows its card in that scheme only", async () => {
+    const html = await rendered(
+        [
+            "![](embed:SystemContext#gh-light-mode-only)",
+            "![](https://structurizr.com/share/42/images/Containers.png#gh-dark-mode-only)",
+            "![](embed:Gone#gh-dark-mode-only)",
+        ].join("\n\n"),
+    );
+
+    assert.deepEqual(embedClasses(html), [
+        `${CLASSES.diagramCard} ${CLASSES.schemeLight}`,
+        `${CLASSES.diagramCard} ${CLASSES.schemeDark}`,
+        `${CLASSES.diagramNote} ${CLASSES.schemeDark}`,
+    ]);
+    assert.match(html, /<code>Gone<\/code>/);
+    assert.doesNotMatch(html, /gh-(dark|light)-mode-only/);
+});
+
+test("an AsciiDoc embed with a color-scheme fragment shows its card in that scheme only", async () => {
+    const html = await rendered(
+        "image::embed:SystemContext#gh-dark-mode-only[]\n",
+        "01-views.adoc",
+    );
+
+    assert.deepEqual(embedClasses(html), [
+        `${CLASSES.diagramCard} ${CLASSES.schemeDark}`,
+    ]);
+});
+
+test("an image beside an embed still follows the color scheme", async () => {
+    const shown = workspace(
+        "01-views.md",
+        "![](embed:SystemContext)\n\n![Dark](images/dark.svg#gh-dark-mode-only)\n",
+    );
+    shown.documentation.images = [
+        { name: "images/dark.svg", type: "image/svg+xml", content: "REFSSw==" },
+    ];
+    await renderDocumentation(shown);
+    const html = shown.documentation.sections[0].content;
+
+    assert.deepEqual(cardAddresses(html), [
+        "#/?page=diagrams&view=SystemContext",
+    ]);
+    assert.match(
+        html,
+        new RegExp(
+            `<img src="data:image/svg\\+xml;base64,REFSSw==" alt="Dark" class="${CLASSES.schemeDark}">`,
+        ),
+    );
+});
+
+test("a bare published PNG of the workspace becomes an ordinary link, not a card", async () => {
+    const url = "https://structurizr.com/share/42/images/SystemContext.png";
+    const html = await rendered(`See ${url} for the picture.\n`);
+
+    assert.deepEqual(cardAddresses(html), []);
+    assert.match(html, new RegExp(`<a href="${url.replace(/\./g, "\\.")}">`));
+});

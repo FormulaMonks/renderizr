@@ -167,6 +167,7 @@ The build turns each image of a section or a decision that embeds a view into a 
 - **A published PNG** embeds a view only when `<id>` is the workspace's `id`. A published PNG of another workspace stays an ordinary image, which needs the network to show.
 - **Keys** come from the workspace that holds the section, so an element's documentation embeds the workspace's views, and another workspace's key in a set reads as a key the workspace lacks.
 - **A key the workspace lacks** shows a note in the card's place: "This workspace has no view with the key `<key>`."
+- **A color-scheme fragment**, `#gh-dark-mode-only` or `#gh-light-mode-only` at the end of an embed, shows its card or note in that color scheme only, the way it shows an image.
 
 ## The Mermaid parser
 

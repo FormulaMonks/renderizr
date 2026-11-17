@@ -45,6 +45,11 @@ export function createImageResolver(images, fallback = []) {
 
     return (src) => {
         if (!src || src.startsWith("/") || HAS_SCHEME.test(src)) return;
-        return sources.get(decode(src).replace(/^(\.\/)+/, ""));
+        // A fragment (`#gh-dark-mode-only`) stays on the embedded copy.
+        const hash = src.indexOf("#");
+        const path = hash < 0 ? src : src.slice(0, hash);
+        const source = sources.get(decode(path).replace(/^(\.\/)+/, ""));
+        if (source === undefined) return;
+        return hash < 0 ? source : `${source}${src.slice(hash)}`;
     };
 }

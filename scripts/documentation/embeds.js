@@ -1,4 +1,5 @@
 import { viewTitle } from "../../src/model/view-titles.js";
+import { CLASSES } from "./classes.js";
 import {
     diagramCard,
     diagramNote,
@@ -23,6 +24,10 @@ import {
  * Keys come from the workspace that holds the section, so another
  * workspace's key in a set reads as a key the workspace lacks, which shows a
  * note in the card's place.
+ *
+ * An embed that ends in `#gh-dark-mode-only` or `#gh-light-mode-only`
+ * follows the color scheme the way such an image does: its card or note
+ * takes that scheme's class, and the fragment stays out of the key.
  */
 
 /**
@@ -60,6 +65,11 @@ const TYPE_NAMES = Object.freeze({
 });
 
 const EMBED = "embed:";
+
+const SCHEME_FRAGMENT = /#gh-(dark|light)-mode-only$/;
+
+/** The class of each color scheme, as `color-scheme.js` gives an image. */
+const SCHEME_CLASS = { light: CLASSES.schemeLight, dark: CLASSES.schemeDark };
 
 const PUBLISHED_PNG =
     /^https?:\/\/[^?#]*\/(?:workspace|share)\/(\d+)(?:\/[0-9a-f-]+)?\/images\/([^/?#]+)\.png(?:[?#].*)?$/i;
@@ -146,9 +156,18 @@ export function createEmbedResolver(workspace) {
     const keys = new Set(views.keys());
 
     return (src) => {
-        const embed = embedOf(src, { keys, id: workspace.id });
+        const scheme = SCHEME_FRAGMENT.exec(src);
+        const embed = embedOf(scheme ? src.slice(0, scheme.index) : src, {
+            keys,
+            id: workspace.id,
+        });
         if (!embed) return;
+        const html = embedHtml(embed);
+        return scheme ? inScheme(html, SCHEME_CLASS[scheme[1]]) : html;
+    };
 
+    /** The card `embed` shows, or the note when the workspace lacks its view. */
+    function embedHtml(embed) {
         const view = views.get(embed.key);
         if (!view) {
             return diagramNote(
@@ -163,8 +182,12 @@ export function createEmbedResolver(workspace) {
             title: headerTitle(viewTitle(view, lookups)) || view.key,
             address: viewAddress(view.key, { perspective: embed.perspective }),
         });
-    };
+    }
 }
+
+/** A card's or note's `html` with `className` on its outer element. */
+const inScheme = (html, className) =>
+    html.replace(/^(<\w+ class="[^"]*)"/, `$1 ${className}"`);
 
 /**
  * A view's title as the diagrams page's header shows it: a title that
