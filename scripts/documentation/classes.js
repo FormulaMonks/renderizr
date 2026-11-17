@@ -19,6 +19,12 @@ export const CLASSES = Object.freeze({
     alertCaution: "rz-alert-caution",
     /** A link to a document the workspace does not contain. */
     unresolvedLink: "rz-unresolved-link",
+    /** The list of a section's or a decision's footnotes, at its foot. */
+    footnotes: "rz-footnotes",
+    /** The `<sup>` around a reference to a footnote. */
+    footnoteRef: "rz-footnote-ref",
+    /** A link from a footnote back to one of its references. */
+    footnoteBackref: "rz-footnote-backref",
     /** A diagram card (glossary), the link that opens its diagram. */
     diagramCard: "rz-diagram-card",
     diagramCardIcon: "rz-diagram-card-icon",

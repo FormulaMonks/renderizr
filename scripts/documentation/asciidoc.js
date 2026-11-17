@@ -5,6 +5,7 @@ import {
     SyntaxHighlighterBase,
 } from "@asciidoctor/core";
 import { AsciiDocConverter } from "./asciidoc-converter.js";
+import { asciidocFootnotes } from "./footnotes.js";
 import { embeddedViewsInAsciiDoc } from "./embeds.js";
 import { highlight } from "./highlight.js";
 import { sanitizeHtml } from "./sanitize.js";
@@ -168,7 +169,7 @@ export function createAsciiDoc() {
         },
     };
 
-    return asciidoc.use(embeddedViewsInAsciiDoc);
+    return asciidoc.use(asciidocFootnotes).use(embeddedViewsInAsciiDoc);
 }
 
 /** @typedef {ReturnType<typeof createAsciiDoc>} AsciiDoc */
