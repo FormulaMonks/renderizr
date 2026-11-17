@@ -110,6 +110,7 @@ Everything in this section is present, minified, inside every `index.html` Rende
 | [@dagrejs/graphlib](https://github.com/dagrejs/graphlib)                                           | 4.0.5                                                                                                           | MIT          | Copyright (c) 2012-2014 Chris Pettitt                                          |
 | [Bootstrap Icons](https://github.com/twbs/icons) (`bootstrap-icons`)                               | 1.13.2, 57 icons                                                                                                | MIT          | Copyright (c) 2019-2024 The Bootstrap Authors                                  |
 | [history](https://github.com/remix-run/history)                                                    | 5.3.0                                                                                                           | MIT          | Copyright (c) React Training 2016-2020; Copyright (c) Remix Software 2020-2021 |
+| [Temml](https://github.com/ronkok/Temml) (`Temml-Local.css` and `Temml.woff2`)                     | 0.14.0                                                                                                          | MIT          | Copyright (c) 2020 Ron Kok                                                     |
 
 ### Details worth having
 
@@ -122,6 +123,8 @@ Everything in this section is present, minified, inside every `index.html` Rende
 **Bootstrap Icons**: the SVGs the page imports from the `bootstrap-icons` package by Vite's `?raw` imports, so the SVG markup is embedded directly in the JavaScript, and the five alert icons the build writes into the documentation it renders (`scripts/documentation/alerts.js`), so they ride in the workspace payload of a workspace whose documentation holds an alert. Every file carries the `class="bi bi-<name>"` marker.
 
 **history**: `history/hash` only. Its optional `@babel/runtime` dependency is not pulled into the bundle.
+
+**Temml**: its stylesheet, `temml/dist/Temml-Local.css`, and the font it loads, `Temml.woff2`, ride in the documentation runtime (`src/components/math-stylesheet.ts`), so a render with no documentation or decisions leaves them out. The stylesheet keeps Temml's header comment, which says `Temml.woff2` is a clone of KaTeX's Script font with its code points moved; it ships as part of the `temml` package, under Temml's MIT license. Temml itself writes the MathML in the build and is listed under build-time below.
 
 ---
 
@@ -161,10 +164,14 @@ These run on the machine performing the build. None of their code appears in the
 | [uc.micro](https://github.com/markdown-it/uc.micro)                                                  | 2.1.0   | MIT               | Copyright Mathias Bynens, https://mathiasbynens.be/                                                                                                 |
 | [js-xss](https://github.com/leizongmin/js-xss) (`xss`)                                               | 1.0.17  | MIT               | Copyright (c) 2012-2018 Zongmin Lei(雷宗民) <leizongmin@gmail.com>                                                                                  |
 | [cssfilter](https://github.com/leizongmin/js-css-filter)                                             | 0.0.10  | MIT               | Copyright (c) 2015 老雷                                                                                                                             |
+| [Temml](https://github.com/ronkok/Temml) (`temml`)                                                   | 0.14.0  | MIT               | Copyright (c) 2020 Ron Kok                                                                                                                          |
+| [asciimath2tex](https://github.com/christianp/asciimath2tex)                                         | 1.5.0   | Apache-2.0        | Christian Lawson-Perfect (the `author` of its `package.json`)                                                                                       |
 
 **Mermaid, js-yaml and khroma** reach this repository and the published package inside one generated file, `scripts/mermaid/parser.js`, which the build runs to read the Mermaid source an image view carries. It holds Mermaid's flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, with js-yaml for the frontmatter and khroma for the themes. The file opens with Mermaid's MIT notice in full and ends with js-yaml's license line. None of it reaches a rendered page: the page draws from the plain model the build hands it. `mermaid` itself is never a dependency; `pnpm mermaid:parser` installs it and the bundling tools into a temporary folder to write the file.
 
 **highlight.js, markdown-it and asciidoctor.js** render every documentation section and decision to HTML in the build (`scripts/documentation/`, [ADR 31](architecture/decisions/0031-render-documentation-in-the-build.md)), so none of them reaches the page: the page receives the HTML they write. asciidoctor.js renders the AsciiDoc ones and has no runtime dependencies of its own; its optional highlight.js peer is the highlight.js above. `entities`, `linkify-it`, `mdurl`, `punycode.js` and `uc.micro` are markdown-it's runtime dependencies. **js-xss** sanitizes the raw HTML an author writes in a section or decision, in the same build step, and `cssfilter` is its runtime dependency. js-xss also installs `commander` for its command-line tool, which Renderizr never runs. highlight.js runs as `highlight.js/lib/core` plus eleven language grammars (bash, css, java, javascript, json, markdown, python, sql, typescript, xml, yaml). No highlight.js stylesheet ships: the syntax colors in `src/components/markdown-renderer.module.css` are written for this project and only reuse highlight.js's public `hljs-*` class names, which is interface rather than copied theme code.
+
+**Temml and asciimath2tex** render the math in documentation sections and decisions in the same build step: Temml writes each expression as MathML, which the page shows as it is, and asciimath2tex turns AsciiMath into the LaTeX Temml reads. Neither has runtime dependencies. Temml's stylesheet and font ship in the rendered output, as [Temml](#details-worth-having) above says.
 
 Vite bundles PostCSS and its plugins inside its own distribution; their licenses are reproduced in `node_modules/vite/LICENSE.md`, which Vite ships for exactly this purpose. Rolldown and esbuild are packages of their own, each with its own license file. TypeScript ships `node_modules/typescript/ThirdPartyNoticeText.txt` covering its own dependencies. Biome is dual-licensed and may be taken under either MIT or Apache-2.0; nothing here depends on the choice, since Biome only lints.
 
@@ -188,7 +195,7 @@ Vite bundles PostCSS and its plugins inside its own distribution; their licenses
 
 ### MIT License
 
-Applies to Preact, use-sync-external-store, @xyflow/react, @xyflow/system, zustand, classcat, dagre, graphlib, Bootstrap Icons, history, markdown-it, markdown-it-shift-headings, asciidoctor.js, linkify-it, mdurl, punycode.js, uc.micro, js-xss, cssfilter, and the build-time components marked MIT above. The text is identical in each case; substitute the copyright line from the tables.
+Applies to Preact, use-sync-external-store, @xyflow/react, @xyflow/system, zustand, classcat, dagre, graphlib, Bootstrap Icons, history, markdown-it, markdown-it-shift-headings, asciidoctor.js, Temml, linkify-it, mdurl, punycode.js, uc.micro, js-xss, cssfilter, and the build-time components marked MIT above. The text is identical in each case; substitute the copyright line from the tables.
 
 ```
 Copyright (c) <year> <copyright holders>
@@ -356,7 +363,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 ```
 
-### Apache License 2.0: Structurizr, TypeScript
+### Apache License 2.0: Structurizr, TypeScript, asciimath2tex
 
 The full text is 11,357 bytes and is reproduced verbatim in this repository at [`licenses/Apache-2.0.txt`](licenses/Apache-2.0.txt), which is included in the published package. It is byte-identical to the `LICENSE` of [structurizr/structurizr](https://github.com/structurizr/structurizr) and is also available at <https://www.apache.org/licenses/LICENSE-2.0>.
 

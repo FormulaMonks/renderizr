@@ -180,6 +180,22 @@ internet-banking-system/
 pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
 ```
 
+#### Math
+
+The build writes math as MathML with [Temml](https://temml.org), and the browser draws it with its own math font, so it follows both color schemes and `--font` leaves it alone. A long display expression scrolls inside its own block.
+
+| Math             | Markdown                                                                      | AsciiDoc                                                                      |
+| ---------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Inline LaTeX     | `$\sqrt{2}$` or ``$`\sqrt{2}`$``, GitHub's; `` `$\sqrt{2}$` ``, Structurizr's | `latexmath:[\sqrt{2}]`, or `stem:[\sqrt{2}]` under `:stem: latexmath`         |
+| Inline AsciiMath | None                                                                          | `asciimath:[sqrt(2)]`, or `stem:[sqrt(2)]` when the document sets no `:stem:` |
+| A block          | `$$\sqrt{2}$$` as its own paragraph, or a ` ```math ` or ` ```katex ` fence   | `[stem]`, `[latexmath]` or `[asciimath]` over a `++++` block                  |
+
+An inline `$…$` follows Pandoc's rule: no space just inside either dollar and no digit right after the closing one, so "$5 a month, or $50 a year" and "$5-$10" stay text. Write `\$` for a dollar that is never math. A dollar in code stays code. A formula that fails to parse stays as written, and the build warns once for it. `test/__fixtures__/github-formatting.json` shows every form:
+
+```bash
+pnpm dev -- test/__fixtures__/github-formatting.json
+```
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
