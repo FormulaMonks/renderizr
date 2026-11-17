@@ -5,10 +5,8 @@
  * closes them; this opens the ones around a link's target, and prints every
  * one open.
  */
+import { CLASSES } from "../model/documentation-classes";
 import "./collapsed-sections.module.css";
-
-/** The class the build gives every collapsed section's `<details>`. */
-const COLLAPSED = "rz-collapsed";
 
 /**
  * Open every collapsed section around `target`, so a link or an address
@@ -30,7 +28,7 @@ let openedForPrint: Element[] = [];
 /** Print every collapsed section open. */
 const openForPrint = () => {
     openedForPrint = Array.from(
-        document.querySelectorAll(`details.${COLLAPSED}`),
+        document.querySelectorAll(`details.${CLASSES.collapsed}`),
     ).filter((details) => !details.hasAttribute("open"));
     for (const details of openedForPrint) details.setAttribute("open", "");
 };

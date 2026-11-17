@@ -22,7 +22,10 @@
  *   emoji, bare URLs, single-tilde strikethrough, key caps, images and video
  *   in raw HTML, and images that follow the color scheme. `html-tags.js`
  *   rewrites the tags of the rendered HTML for the last two.
- * - `classes.js`: the class names the rendered HTML carries.
+ * - `src/model/documentation-classes.js`: the class names the rendered
+ *   HTML carries, which the page reads from the same module.
+ * - `html-entities.js` and `addresses.js`: escaping HTML and reading the
+ *   addresses an author writes, for every module above.
  * - `embeds.js`: embedded views, shown as the diagram cards
  *   `diagram-card.js` writes.
  * - `mermaid-blocks.js`: Mermaid blocks, which become Mermaid diagrams on
@@ -44,7 +47,7 @@ import { mathWarnings } from "./math.js";
 import { createMermaidBlocks } from "./mermaid-blocks.js";
 
 export { createAsciiDoc, isAsciiDoc, renderAsciiDoc } from "./asciidoc.js";
-export { CLASSES } from "./classes.js";
+export { CLASSES } from "../../src/model/documentation-classes.js";
 export { diagramCard, diagramNote, viewAddress } from "./diagram-card.js";
 export { createMarkdown, renderMarkdown } from "./markdown.js";
 

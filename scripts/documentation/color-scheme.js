@@ -1,4 +1,4 @@
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { attributesOf, rewriteTags, writeTag } from "./html-tags.js";
 
 /**

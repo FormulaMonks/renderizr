@@ -1,6 +1,6 @@
 import { viewTitle } from "../../src/model/view-titles.js";
 import { decodeAddress } from "./addresses.js";
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { diagramCard, diagramNote, viewAddress } from "./diagram-card.js";
 import { escapeHtml } from "./html-entities.js";
 import { unwrapLoneToken } from "./paragraphs.js";

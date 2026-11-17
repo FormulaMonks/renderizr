@@ -11,7 +11,7 @@ import markdownIt from "markdown-it";
 import anchor from "markdown-it-anchor";
 import shiftHeadings from "markdown-it-shift-headings";
 import alerts from "./alerts.js";
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { collapsedSections } from "./collapsed-sections.js";
 import { colorSchemeImages } from "./color-scheme.js";
 import { emoji } from "./emoji.js";

@@ -1,4 +1,4 @@
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 
 /**
  * GitHub's task lists: a list item that starts with `[ ]`, `[x]` or `[X]`

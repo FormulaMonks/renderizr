@@ -12,7 +12,7 @@ import {
     createAsciiDoc,
     renderAsciiDoc,
 } from "../scripts/documentation/asciidoc.js";
-import { CLASSES } from "../scripts/documentation/classes.js";
+import { CLASSES } from "../src/model/documentation-classes.js";
 import { createImageResolver } from "../scripts/documentation/images.js";
 import {
     createMarkdown,

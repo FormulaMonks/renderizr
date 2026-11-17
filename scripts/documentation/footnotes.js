@@ -1,5 +1,5 @@
 import footnote from "markdown-it-footnote";
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { escapeHtml } from "./html-entities.js";
 
 /**

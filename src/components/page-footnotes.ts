@@ -1,14 +1,14 @@
 /**
- * The class names the build writes on footnotes, from `CLASSES` in
- * `scripts/documentation/classes.js` (ADR 31).
+ * Footnotes per page (ADR 31): the build lists every footnote of a section
+ * at its foot, and each page of a split section shows the ones its own
+ * references use. The class names come from the module the build writes
+ * them with.
  */
-const FOOTNOTES = "rz-footnotes";
-const FOOTNOTE_REF = "rz-footnote-ref";
-const FOOTNOTE_BACKREF = "rz-footnote-backref";
+import { CLASSES } from "../model/documentation-classes";
 
 /** Whether `element` is the list of footnotes the build puts at a foot. */
 export const isFootnotes = (element: Element) =>
-    element.classList.contains(FOOTNOTES);
+    element.classList.contains(CLASSES.footnotes);
 
 /** The id a reference or a back link points at, as the build wrote it. */
 const target = (link: Element) => (link.getAttribute("href") ?? "").slice(1);
@@ -44,7 +44,7 @@ export default class PageFootnotes {
         if (!(this.#section && this.#list)) return;
 
         const references = nodes.flatMap((node) =>
-            Array.from(node.querySelectorAll(`.${FOOTNOTE_REF} a`)),
+            Array.from(node.querySelectorAll(`.${CLASSES.footnoteRef} a`)),
         );
         const used = new Set(references.map(target));
         const onPage = new Set(references.map((reference) => reference.id));
@@ -55,7 +55,7 @@ export default class PageFootnotes {
                 continue;
             }
             for (const link of Array.from(
-                item.querySelectorAll(`.${FOOTNOTE_BACKREF}`),
+                item.querySelectorAll(`.${CLASSES.footnoteBackref}`),
             )) {
                 if (onPage.has(target(link))) link.removeAttribute("hidden");
                 else link.setAttribute("hidden", "");

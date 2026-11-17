@@ -1,10 +1,17 @@
 /**
  * The class names the build writes into rendered documentation. They stay
- * the same from build to build, so `src/components/markdown-renderer.module.css`
- * targets each through `:global()` and the documentation runtime stays the
- * same byte for byte for every workspace (ADR 31). The `rz-` prefix keeps
- * them clear of an author's own classes.
+ * the same from build to build, so the module CSS
+ * (`src/components/markdown-renderer.module.css`,
+ * `collapsed-sections.module.css`) targets each through `:global()` and the
+ * documentation runtime stays the same byte for byte for every workspace
+ * (ADR 31). The `rz-` prefix keeps them clear of an author's own classes.
+ *
+ * Plain JavaScript, so the build (`scripts/documentation/`) and the page's
+ * components that read the rendered HTML run this one copy;
+ * `documentation-classes.d.ts` types it for the page.
  */
+
+/** The class name of each kind of markup the build writes, by its role. */
 export const CLASSES = Object.freeze({
     /** The scroll container around every table. */
     tableWrap: "rz-table",

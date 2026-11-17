@@ -1,4 +1,4 @@
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 
 /**
  * Collapsed sections: GitHub's `<details>` and `<summary>` in Markdown, and

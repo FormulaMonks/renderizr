@@ -1,6 +1,6 @@
 import AsciiMathParser from "asciimath2tex";
 import temml from "temml";
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { escapeHtml, unescapeHtml } from "./html-entities.js";
 import { unwrapLoneToken } from "./paragraphs.js";
 

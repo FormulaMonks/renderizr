@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { searchOf } from "../../src/model/documentation-scopes.js";
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { escapeHtml } from "./html-entities.js";
 
 /**

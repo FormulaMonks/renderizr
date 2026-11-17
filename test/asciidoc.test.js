@@ -16,7 +16,7 @@ import {
     isAsciiDoc,
     renderAsciiDoc,
 } from "../scripts/documentation/asciidoc.js";
-import { CLASSES } from "../scripts/documentation/classes.js";
+import { CLASSES } from "../src/model/documentation-classes.js";
 
 const asciidoc = createAsciiDoc();
 

@@ -8,7 +8,7 @@ import { slugOf } from "../../src/model/slug.js";
 import { decodeMermaid } from "../mermaid/decode.js";
 import { mermaidKeyword, parseErrorReason } from "../mermaid/index.js";
 import { read } from "../mermaid/parser.js";
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { diagramCard, viewAddress } from "./diagram-card.js";
 import { standInForImages } from "./embeds.js";
 import { escapeHtml, unescapeHtml } from "./html-entities.js";

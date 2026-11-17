@@ -1,4 +1,4 @@
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 
 /**
  * AsciiDoc's keyboard and menu macros as key caps. asciidoctor.js already

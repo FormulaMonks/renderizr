@@ -1,6 +1,6 @@
 import { Html5Converter, Section } from "@asciidoctor/core";
 import { ALERT_ICONS } from "./alerts.js";
-import { CLASSES } from "./classes.js";
+import { CLASSES } from "../../src/model/documentation-classes.js";
 import { escapeHtml, unescapeHtml } from "./html-entities.js";
 import { sanitizeHtml } from "./sanitize.js";
 
