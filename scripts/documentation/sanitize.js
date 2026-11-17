@@ -193,6 +193,32 @@ function safeAttrValue(_tag, name, value) {
     return xss.escapeAttrValue(decoded);
 }
 
+/**
+ * The tags that go with what they hold, as GitHub drops them; any other tag
+ * outside the allowlist goes and leaves its text. A browser reads their body
+ * as raw text up to the first closing tag, and so does the sanitizer.
+ */
+export const DROPPED_WITH_BODY = new Set([
+    "script",
+    "style",
+    "iframe",
+    "noscript",
+    "noembed",
+    "noframes",
+    "xmp",
+]);
+
+/**
+ * The marks the filter leaves where a tag of `DROPPED_WITH_BODY` opens and
+ * closes, for `dropBodies` to cut between. Both start with a NUL, which
+ * `sanitizeHtml` replaces in its input, so no author text carries one.
+ * js-xss's own `stripIgnoreTagBody` writes the text "[removed]" where an
+ * opening tag has no closing one, which is how a lone `<script>` ended up
+ * reading "[removed]" on the page.
+ */
+const BODY_OPENS = "\u0000[";
+const BODY_CLOSES = "\u0000]";
+
 const filter = new xss.FilterXSS({
     whiteList: Object.fromEntries(
         KEPT_TAGS.map((tag) => [
@@ -200,18 +226,10 @@ const filter = new xss.FilterXSS({
             [...GLOBAL_ATTRIBUTES, ...(TAG_ATTRIBUTES[tag] ?? [])],
         ]),
     ),
-    stripIgnoreTag: true,
-    // These go with what they hold, as GitHub drops them; any other tag
-    // outside the allowlist goes and leaves its text.
-    stripIgnoreTagBody: [
-        "script",
-        "style",
-        "iframe",
-        "noscript",
-        "noembed",
-        "noframes",
-        "xmp",
-    ],
+    onIgnoreTag: (tag, _html, { isClosing }) => {
+        if (!DROPPED_WITH_BODY.has(tag)) return "";
+        return isClosing ? BODY_CLOSES : BODY_OPENS;
+    },
     css: false,
     onTagAttr: (tag, name, value, isWhiteAttr) => {
         if (!isWhiteAttr) return undefined;
@@ -225,6 +243,33 @@ const filter = new xss.FilterXSS({
 });
 
 /**
+ * `html` with everything from each `BODY_OPENS` to the next `BODY_CLOSES`
+ * gone, and a stray `BODY_CLOSES` gone too. An opening mark with no closing
+ * one drops the rest of `html`, as a browser reads a `<script>` that never
+ * closes.
+ *
+ * @param {string} html
+ */
+function dropBodies(html) {
+    let kept = "";
+    let from = 0;
+    for (;;) {
+        const opens = html.indexOf(BODY_OPENS, from);
+        const closes = html.indexOf(BODY_CLOSES, from);
+        if (opens === -1 && closes === -1) return kept + html.slice(from);
+        if (opens === -1 || (closes !== -1 && closes < opens)) {
+            kept += html.slice(from, closes);
+            from = closes + BODY_CLOSES.length;
+            continue;
+        }
+        kept += html.slice(from, opens);
+        const end = html.indexOf(BODY_CLOSES, opens);
+        if (end === -1) return kept;
+        from = end + BODY_CLOSES.length;
+    }
+}
+
+/**
  * `html` with every tag, attribute and address outside the allowlist gone.
  * Text stays, and so does each tag on its own: an opening tag with no closing
  * one is not closed.
@@ -232,7 +277,8 @@ const filter = new xss.FilterXSS({
  * @param {string} html
  * @returns {string}
  */
-export const sanitizeHtml = (html) => filter.process(html);
+export const sanitizeHtml = (html) =>
+    dropBodies(filter.process(html.replaceAll("\u0000", "\ufffd")));
 
 /**
  * Sanitize the raw HTML markdown-it reads from the source, and only that:
@@ -246,6 +292,34 @@ export const sanitizeHtml = (html) => filter.process(html);
 export function sanitizeRawHtml(md) {
     wrap(md.block.ruler, "html_block");
     wrap(md.inline.ruler, "html_inline");
+}
+
+/** The name of the tag `html` starts with, lowercased, if it starts with one. */
+const tagName = (html) =>
+    /^<\/?([a-z][a-z0-9-]*)/i.exec(html)?.[1].toLowerCase();
+
+/**
+ * Move the inline `state` past the closing tag of the `name` element it sits
+ * inside. markdown-it hands an inline `<script>`, its body and `</script>`
+ * over as three tokens, so the sanitizer dropped both tags and left the body
+ * on the page as text. The closing tag is found with markdown-it's own tag
+ * rule, `parse`, the way a browser reads the body as raw text up to the first
+ * closing tag. A tag that never closes leaves `state` where it is, so a lone
+ * `<script>` drops the tag alone and keeps the prose after it.
+ *
+ * @param {import("markdown-it/lib/rules_inline/state_inline.mjs").default} state
+ * @param {(state: any, silent: boolean) => boolean} parse
+ * @param {string} name
+ */
+function skipBody(state, parse, name) {
+    const from = state.pos;
+    for (let at = from; at < state.posMax; at++) {
+        if (state.src[at] !== "<") continue;
+        state.pos = at;
+        const tag = parse(state, true) ? state.src.slice(at, state.pos) : "";
+        if (tag.startsWith("</") && tagName(tag) === name) return;
+    }
+    state.pos = from;
 }
 
 /**
@@ -264,7 +338,14 @@ function wrap(ruler, name) {
         name,
         (state, ...rest) => {
             const from = state.tokens.length;
+            const start = state.pos;
             const matched = parse(state, ...rest);
+            if (matched && name === "html_inline") {
+                const tag = state.src.slice(start, state.pos);
+                const opened = tag.startsWith("</") ? "" : tagName(tag);
+                if (opened && DROPPED_WITH_BODY.has(opened))
+                    skipBody(state, parse, opened);
+            }
             for (const token of state.tokens.slice(from)) {
                 if (token.type !== name) continue;
                 // A block that held nothing but a script leaves nothing,

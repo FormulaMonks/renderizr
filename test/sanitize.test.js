@@ -10,6 +10,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import fc from "fast-check";
 import {
     renderDecision,
     renderSection,
@@ -158,6 +159,74 @@ test("a script goes, body and all", () => {
     assert.equal(
         sanitizeHtml('<p>a<script src="x.js"></script>b</p>'),
         "<p>ab</p>",
+    );
+});
+
+test("an inline script, style or iframe goes with its body and leaves no trace", () => {
+    for (const [markdown, html] of [
+        ["before <script>alert(1)</script> after", "<p>before  after</p>\n"],
+        [
+            "before <SCRIPT type=module>alert(1)</SCRIPT > after",
+            "<p>before  after</p>\n",
+        ],
+        [
+            "before <style>p { color: red }</style> after",
+            "<p>before  after</p>\n",
+        ],
+        [
+            "before <script>**bold** [^1]</script> after",
+            "<p>before  after</p>\n",
+        ],
+        ["before <iframe src=x></iframe> after", "<p>before  after</p>\n"],
+        ["before <script> after", "<p>before  after</p>\n"],
+        ["before <style> after", "<p>before  after</p>\n"],
+        ["before <iframe src=x> after", "<p>before  after</p>\n"],
+        ["before </script> after", "<p>before  after</p>\n"],
+    ])
+        assert.equal(render(markdown), html, markdown);
+});
+
+test("a lone script, style or iframe block leaves no trace", () => {
+    for (const markdown of [
+        "<iframe src=x>\n\nAfter.",
+        "<iframe src=x>\nFallback.\n\nAfter.",
+    ])
+        assert.equal(render(markdown), "<p>After.</p>\n", markdown);
+    // CommonMark runs a script or style block with no closing tag to the end
+    // of the section, and GitHub drops all of it.
+    for (const markdown of ["<script>\n\nAfter.", "<style>\n\nAfter."])
+        assert.equal(render(markdown), "", markdown);
+    for (const html of ["<script>", "<style>", "<iframe src=x>", "</script>"])
+        assert.equal(sanitizeHtml(html), "", html);
+    assert.equal(
+        sanitizeHtml("a<script>b<script>c</script>d</script>e"),
+        "ade",
+        "a script ends at its first closing tag, as in a browser",
+    );
+});
+
+test("the sanitizer never writes a placeholder of its own", () => {
+    fc.assert(
+        fc.property(
+            fc.array(
+                fc.constantFrom(
+                    "<script>",
+                    "</script>",
+                    "<style>",
+                    "</style>",
+                    "<iframe src=x>",
+                    "</iframe>",
+                    "<b>",
+                    "text",
+                    " ",
+                ),
+            ),
+            (pieces) => {
+                const html = sanitizeHtml(pieces.join(""));
+                assert.ok(!html.includes("removed"), html);
+                assert.ok(!html.includes("\u0000"), html);
+            },
+        ),
     );
 });
 
