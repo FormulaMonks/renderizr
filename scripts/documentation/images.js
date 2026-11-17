@@ -1,4 +1,10 @@
 /**
+ * The image resolver the build renders documentation with (ADR 31): a
+ * relative image path an author writes becomes the copy the workspace
+ * embeds, since the page has no folder beside it to load the file from.
+ */
+
+/**
  * The embedded source for an image path, or `undefined` to leave it.
  *
  * @typedef {(src: string) => string | undefined} ImageResolver

@@ -1,3 +1,12 @@
+/**
+ * The markdown-it every Markdown section and decision renders through in the
+ * build (ADR 31), so Markdown reads the way GitHub renders it: GitHub's
+ * heading ids, the author's raw HTML sanitized, alerts, math, footnotes and
+ * the rest of GitHub's formatting, with links and images resolved against
+ * the documentation scope of each render. A feature extends it with
+ * `md.use()`.
+ */
+
 import markdownIt from "markdown-it";
 import anchor from "markdown-it-anchor";
 import shiftHeadings from "markdown-it-shift-headings";

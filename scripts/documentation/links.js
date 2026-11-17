@@ -1,3 +1,10 @@
+/**
+ * The link resolver the build renders documentation with (ADR 31): a
+ * relative link between the author's own files becomes the address of the
+ * page of this site that shows the same document, and a heading gets the id
+ * GitHub would give it, so links written for GitHub land here too.
+ */
+
 import {
     scopedId,
     searchOf,

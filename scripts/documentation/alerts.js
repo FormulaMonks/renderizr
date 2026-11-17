@@ -1,12 +1,3 @@
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-
-/** The text of the Bootstrap icon `name`. */
-const icon = (name) =>
-    readFileSync(require.resolve(`bootstrap-icons/icons/${name}.svg`), "utf8");
-
 /**
  * GitHub-flavored alert blockquotes for markdown-it.
  *
@@ -20,6 +11,15 @@ const icon = (name) =>
  * alert classes plus a title row (icon + label); everything else keeps the
  * regular blockquote rendering.
  */
+
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+/** The text of the Bootstrap icon `name`. */
+const icon = (name) =>
+    readFileSync(require.resolve(`bootstrap-icons/icons/${name}.svg`), "utf8");
 
 /**
  * @typedef {"note" | "tip" | "important" | "warning" | "caution"} AlertType
