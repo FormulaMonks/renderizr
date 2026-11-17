@@ -19,4 +19,13 @@ export const CLASSES = Object.freeze({
     alertCaution: "rz-alert-caution",
     /** A link to a document the workspace does not contain. */
     unresolvedLink: "rz-unresolved-link",
+    /** A list holding a task, its task items and their checkboxes. */
+    taskList: "rz-task-list",
+    taskListItem: "rz-task-list-item",
+    taskListCheckbox: "rz-task-list-checkbox",
+    /** AsciiDoc's `menu:File[Save]`, a key cap per step. */
+    menu: "rz-menu",
+    /** An image that shows in the light or the dark color scheme only. */
+    schemeLight: "rz-scheme-light",
+    schemeDark: "rz-scheme-dark",
 });

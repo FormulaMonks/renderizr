@@ -191,8 +191,8 @@ export class AsciiDocConverter extends Html5Converter {
 
     /** A list as Markdown's tight lists write it. */
     async convert_ulist(node) {
-        // A checklist keeps asciidoctor.js's own markup until task lists
-        // render.
+        // A checklist renders through `task-lists.js`, and without it
+        // keeps asciidoctor.js's own markup.
         if (node.hasOption("checklist")) return super.convert_ulist(node);
         return list(node, "ul", "");
     }

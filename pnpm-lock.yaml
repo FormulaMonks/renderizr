@@ -35,6 +35,9 @@ importers:
       markdown-it-anchor:
         specifier: ^10.0.0
         version: 10.1.0(markdown-it@15.0.3)
+      markdown-it-emoji:
+        specifier: ^3.1.0
+        version: 3.1.0
       markdown-it-shift-headings:
         specifier: ^1.0.2
         version: 1.0.2
@@ -1009,6 +1012,9 @@ packages:
       '@types/markdown-it':
         optional: true
 
+  markdown-it-emoji@3.1.0:
+    resolution: {integrity: sha512-NhmMEH2ywduD4Nty1E8uB5NqfLhAT1VR0dyvoJyStKOqCzbZmVdn/+8wj7zpDsb/fLBikpCPsWwxqKlvMmbz4g==}
+
   markdown-it-shift-headings@1.0.2:
     resolution: {integrity: sha512-drz+jnO+okFGJmOY7KGlEwbGJcPLkNR2aab8SyIN4df4Zb1hy7/+wLf08EN1ozNuD9q79jbjJ21MD9wdNZUWJw==}
 
@@ -1917,6 +1923,8 @@ snapshots:
   markdown-it-anchor@10.1.0(markdown-it@15.0.3):
     dependencies:
       markdown-it: 15.0.3
+
+  markdown-it-emoji@3.1.0: {}
 
   markdown-it-shift-headings@1.0.2: {}
 

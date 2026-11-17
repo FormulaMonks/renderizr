@@ -3,9 +3,15 @@ import anchor from "markdown-it-anchor";
 import shiftHeadings from "markdown-it-shift-headings";
 import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
+import { colorSchemeImages } from "./color-scheme.js";
+import { emoji } from "./emoji.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
+import { linkify } from "./linkify.js";
+import { htmlMedia } from "./media.js";
 import { sanitizeRawHtml } from "./sanitize.js";
+import { singleTildeStrikethrough } from "./strikethrough.js";
+import { taskLists } from "./task-lists.js";
 
 /**
  * What one render resolves against, as markdown-it's `env`: the documentation
@@ -158,7 +164,13 @@ export function createMarkdown() {
             important: CLASSES.alertImportant,
             warning: CLASSES.alertWarning,
             caution: CLASSES.alertCaution,
-        });
+        })
+        .use(linkify)
+        .use(emoji)
+        .use(singleTildeStrikethrough)
+        .use(taskLists)
+        .use(htmlMedia)
+        .use(colorSchemeImages);
 
     // Every table gets its own scroll container, so a seven-column table
     // scrolls inside the prose measure instead of dragging the whole page

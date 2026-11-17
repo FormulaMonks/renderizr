@@ -15,6 +15,11 @@
  *   which a plugin extends with `asciidoc.use()`, and
  *   `asciidoc-converter.js`, its HTML5 converter, which writes the markup
  *   the Markdown path writes.
+ * - `task-lists.js`, `emoji.js`, `linkify.js`, `strikethrough.js`,
+ *   `keys.js`, `media.js` and `color-scheme.js`: GitHub's task lists,
+ *   emoji, bare URLs, single-tilde strikethrough, key caps, images and video
+ *   in raw HTML, and images that follow the color scheme. `html-tags.js`
+ *   rewrites the tags of the rendered HTML for the last two.
  * - `classes.js`: the class names the rendered HTML carries.
  */
 
