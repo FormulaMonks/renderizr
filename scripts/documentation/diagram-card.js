@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { searchOf } from "../../src/model/documentation-scopes.js";
 import { CLASSES } from "./classes.js";
+import { escapeHtml } from "./html-entities.js";
 
 /**
  * The diagram card (glossary): what a section or decision shows in place of
@@ -26,13 +27,6 @@ const DIAGRAM_ICON = readFileSync(
     .trim()
     .replace(/^<svg /, '<svg aria-hidden="true" focusable="false" ')
     .replace(/\n\s*/g, " ");
-
-const escapeHtml = (value) =>
-    String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
 
 /**
  * The address that opens view `key` on the diagrams page, under the
@@ -75,5 +69,3 @@ export function diagramCard({ type, title, address }) {
  */
 export const diagramNote = (html) =>
     `<span class="${CLASSES.diagramNote}" role="note">${html}</span>`;
-
-export { escapeHtml };

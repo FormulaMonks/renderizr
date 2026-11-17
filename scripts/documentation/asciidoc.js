@@ -18,6 +18,7 @@ import { asciiDocColorSchemeImages } from "./color-scheme.js";
 import { asciidocFootnotes } from "./footnotes.js";
 import { embeddedViewsInAsciiDoc } from "./embeds.js";
 import { highlight } from "./highlight.js";
+import { escapeHtml } from "./html-entities.js";
 import { asciidocMath } from "./math.js";
 import { asciiDocKeys } from "./keys.js";
 import { asciiDocMedia } from "./media.js";
@@ -49,9 +50,6 @@ class HighlightJs extends SyntaxHighlighterBase {
         return highlight(source, language) || escapeHtml(source);
     }
 }
-
-const escapeHtml = (value) =>
-    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /**
  * An inline passthrough (`pass:[…]`, `+++…+++`) is the author's raw HTML

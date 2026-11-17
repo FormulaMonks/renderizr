@@ -1,6 +1,7 @@
 import { Html5Converter, Section } from "@asciidoctor/core";
 import { ALERT_ICONS } from "./alerts.js";
 import { CLASSES } from "./classes.js";
+import { escapeHtml, unescapeHtml } from "./html-entities.js";
 import { sanitizeHtml } from "./sanitize.js";
 
 /**
@@ -190,7 +191,7 @@ export class AsciiDocConverter extends Html5Converter {
         const language =
             node.style === "source" ? node.getAttribute("language") : null;
         const classAttribute = language
-            ? ` class="language-${escapeAttribute(language)}"`
+            ? ` class="language-${escapeHtml(language)}"`
             : "";
         return `${title(node)}<pre${idAttribute(node)}${roleAttribute(node)}><code${classAttribute}>${await node.content()}</code></pre>`;
     }
@@ -267,15 +268,14 @@ export class AsciiDocConverter extends Html5Converter {
             (node.type === "xref" && node.attributes.path);
         if (!resolve || !toFile) return super.convert_inline_anchor(node);
 
-        const href = unescapeAttribute(String(node.target ?? ""));
+        const href = unescapeHtml(String(node.target ?? ""));
         const resolved = resolve(href);
         if (resolved === null) {
-            const text =
-                node.text || node.attributes.path || escapeAttribute(href);
-            return `<span class="${CLASSES.unresolvedLink}" title="Not part of this workspace: ${escapeAttribute(href)}">${text}</span>`;
+            const text = node.text || node.attributes.path || escapeHtml(href);
+            return `<span class="${CLASSES.unresolvedLink}" title="Not part of this workspace: ${escapeHtml(href)}">${text}</span>`;
         }
         if (typeof resolved === "string") {
-            node.target = escapeAttribute(resolved);
+            node.target = escapeHtml(resolved);
         }
         return super.convert_inline_anchor(node);
     }
@@ -362,13 +362,3 @@ async function tableCell(section, cell) {
     ].join("");
     return `<${tag}${attributes}>${content}</${tag}>`;
 }
-
-const escapeAttribute = (value) =>
-    value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-
-const unescapeAttribute = (value) =>
-    value
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&amp;/g, "&");

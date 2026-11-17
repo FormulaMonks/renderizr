@@ -1,6 +1,7 @@
 import AsciiMathParser from "asciimath2tex";
 import temml from "temml";
 import { CLASSES } from "./classes.js";
+import { escapeHtml, unescapeHtml } from "./html-entities.js";
 import { unwrapLoneToken } from "./paragraphs.js";
 
 /**
@@ -318,18 +319,6 @@ export function markdownMath(md) {
 }
 
 /* -------------------------------------------------------------- AsciiDoc */
-
-/** The text asciidoctor.js escaped, as the author wrote it. */
-const unescapeHtml = (value) =>
-    value
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, "&");
-
-const escapeHtml = (value) =>
-    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /**
  * An AsciiDoc expression of `type` (`latexmath` or `asciimath`) as MathML,

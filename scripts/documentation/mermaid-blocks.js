@@ -9,8 +9,9 @@ import { decodeMermaid } from "../mermaid/decode.js";
 import { mermaidKeyword, parseErrorReason } from "../mermaid/index.js";
 import { read } from "../mermaid/parser.js";
 import { CLASSES } from "./classes.js";
-import { diagramCard, escapeHtml, viewAddress } from "./diagram-card.js";
+import { diagramCard, viewAddress } from "./diagram-card.js";
 import { standInForImages } from "./embeds.js";
+import { escapeHtml, unescapeHtml } from "./html-entities.js";
 
 /**
  * Mermaid blocks (spec #342, _Mermaid blocks_; ADR 31): a Mermaid block in a
@@ -327,8 +328,6 @@ export function mermaidBlocks(md) {
     });
 }
 
-const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
-
 /** `html` with every tag removed, repeated until none is left. */
 function withoutTags(html) {
     let text = String(html ?? "");
@@ -343,18 +342,7 @@ function withoutTags(html) {
  * The text of `html`, an AsciiDoc title asciidoctor.js converted. The result
  * is plain text: whoever writes it into HTML escapes it.
  */
-const plainText = (html) =>
-    withoutTags(html)
-        .replace(
-            /&(?:#(\d+)|#x([0-9a-f]+)|(\w+));/gi,
-            (entity, dec, hex, name) =>
-                dec || hex
-                    ? String.fromCodePoint(
-                          Number.parseInt(dec ?? hex, dec ? 10 : 16),
-                      )
-                    : (ENTITIES[name.toLowerCase()] ?? entity),
-        )
-        .trim();
+const plainText = (html) => unescapeHtml(withoutTags(html)).trim();
 
 /** The section an AsciiDoc node sits in, as the heading above it. */
 function sectionOf(node) {

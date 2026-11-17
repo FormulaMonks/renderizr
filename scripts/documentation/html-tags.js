@@ -6,6 +6,8 @@
  * escapes its `>`. A tag nothing changes stays as written, byte for byte.
  */
 
+import { escapeHtml, unescapeHtml } from "./html-entities.js";
+
 const ATTRIBUTE =
     /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 
@@ -16,17 +18,6 @@ const ATTRIBUTE =
  *
  * @typedef {{ name: string, value: string | null, raw?: string }} Attribute
  */
-
-const decodeValue = (value) =>
-    value
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&");
-
-const encodeValue = (value) =>
-    value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /**
  * The attributes of a start tag, from the text between its name and its
@@ -40,7 +31,7 @@ function parse(text) {
         const value = match[2] ?? match[3] ?? match[4];
         return {
             name: match[1].toLowerCase(),
-            value: value === undefined ? null : decodeValue(value),
+            value: value === undefined ? null : unescapeHtml(value),
             raw: match[0],
         };
     });
@@ -48,7 +39,7 @@ function parse(text) {
 
 /** @param {Attribute} attribute */
 const write = ({ name, value, raw }) =>
-    raw ?? (value === null ? name : `${name}="${encodeValue(value)}"`);
+    raw ?? (value === null ? name : `${name}="${escapeHtml(value)}"`);
 
 /**
  * The attributes of one tag, which a rewrite reads and changes.

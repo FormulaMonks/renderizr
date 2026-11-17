@@ -1,5 +1,6 @@
 import footnote from "markdown-it-footnote";
 import { CLASSES } from "./classes.js";
+import { escapeHtml } from "./html-entities.js";
 
 /**
  * Footnotes, from Markdown's `[^label]` and `[^label]: …` and AsciiDoc's
@@ -16,13 +17,6 @@ import { CLASSES } from "./classes.js";
  * footnotes of one page of a split section with the numbers the whole
  * section gave them.
  */
-
-const escapeAttribute = (value) =>
-    String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
 
 /** The id of the `occurrence`th reference to footnote `label`, from 1. */
 const referenceId = (label, occurrence) =>
@@ -45,7 +39,7 @@ const itemOpen = (label, number) => `<li id="fn-${label}" value="${number}">`;
 
 /** A Markdown footnote token's label, escaped, or its number. */
 const markdownLabel = (token) =>
-    escapeAttribute(token.meta.label ?? token.meta.id + 1);
+    escapeHtml(token.meta.label ?? token.meta.id + 1);
 
 /**
  * markdown-it-footnote, writing the markup above. The plugin already numbers
@@ -139,7 +133,7 @@ export function asciidocFootnotes(asciidoc) {
                         node.type === "xref"
                             ? node.target
                             : (node.id ?? number);
-                    return reference(escapeAttribute(label), number, 1);
+                    return reference(escapeHtml(label), number, 1);
                 }
 
                 async convertFootnotes(node) {
@@ -152,9 +146,7 @@ export function asciidocFootnotes(asciidoc) {
                     return [
                         LIST_OPEN,
                         ...node.footnotes.map((note) => {
-                            const label = escapeAttribute(
-                                note.id ?? note.index,
-                            );
+                            const label = escapeHtml(note.id ?? note.index);
                             return `${itemOpen(label, note.index)}<p>${note.text} ${backLinksMarker(label, note.index)}</p></li>\n`;
                         }),
                         LIST_CLOSE,

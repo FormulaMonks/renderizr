@@ -1,3 +1,4 @@
+import { escapeHtml } from "./html-entities.js";
 import { rewriteTags } from "./html-tags.js";
 
 /**
@@ -71,9 +72,6 @@ export function htmlMedia(md) {
         );
     };
 }
-
-const escapeHtml = (value) =>
-    value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /** Where a YouTube or Vimeo video lives, by asciidoctor.js's poster name. */
 const VIDEO_SITES = {
