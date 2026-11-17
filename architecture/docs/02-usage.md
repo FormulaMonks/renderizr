@@ -180,6 +180,27 @@ internet-banking-system/
 pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
 ```
 
+#### Formatting
+
+Write sections and decisions the way you write on GitHub. Renderizr renders these features, in Markdown and in AsciiDoc where AsciiDoc has a counterpart, and draws each one in both color schemes:
+
+| Feature                             | Markdown                                                                             | AsciiDoc                                  | Renders as                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Strikethrough                       | `~~two~~`, `~one~`, `<del>`, `<s>`                                                   | `[.line-through]#…#`                      | A line through the text                                                                                                                                            |
+| Bare URLs, `www.` addresses, emails | `https://example.com`, `www.example.com`, `name@example.com`                         | `https://example.com`, `name@example.com` | Links, which resolve like any other link. Code stays as written                                                                                                    |
+| Task lists                          | `- [ ]`, `- [x]`                                                                     | `* [ ]`, `* [x]`, `* [*]`                 | Read-only checkboxes with no bullet                                                                                                                                |
+| Emoji                               | `:+1:` and every Unicode shortcode                                                   | No counterpart                            | The Unicode emoji. GitHub's image emoji (`:shipit:`, `:octocat:`) stay as text                                                                                     |
+| Keys                                | `<kbd>Ctrl</kbd>`                                                                    | `kbd:[Ctrl+Shift+P]`, `menu:File[Save]`   | A key cap                                                                                                                                                          |
+| Images in raw HTML                  | `<img>`, `<picture>`, `srcset`, paths with a fragment, `data:image/svg+xml`          | `image::`, `image:`                       | Images. A relative path resolves the way a Markdown image does                                                                                                     |
+| Images that follow the color scheme | `#gh-dark-mode-only`, `#gh-light-mode-only`, `<picture>` with `prefers-color-scheme` | No counterpart                            | The image of the site's color scheme, which follows the theme toggle as well as the system                                                                         |
+| Video                               | `<video>` in raw HTML                                                                | `video::`                                 | A video player, which needs the network for a remote file. A bare video URL becomes an ordinary link, and a YouTube or Vimeo `video::` becomes a link to the video |
+
+`test/__fixtures__/github-formatting.json` shows each one:
+
+```bash
+pnpm dev -- test/__fixtures__/github-formatting.json
+```
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
