@@ -1,6 +1,7 @@
 import AsciiMathParser from "asciimath2tex";
 import temml from "temml";
 import { CLASSES } from "./classes.js";
+import { unwrapLoneToken } from "./paragraphs.js";
 
 /**
  * Math in documentation (ADR 31): Temml writes each expression as MathML in
@@ -270,25 +271,12 @@ function mathTokens(state) {
             token.meta = { html, display: false };
         }
 
-        const open = state.tokens[index - 1];
-        const close = state.tokens[index + 1];
-        const content = block.children.filter(
-            (token) =>
-                !(token.type === "softbreak" || token.type === "hardbreak") &&
-                !(token.type === "text" && !token.content.trim()),
+        const display = unwrapLoneToken(
+            state,
+            index,
+            (token) => token.type === "math_inline" && token.meta.display,
         );
-        if (
-            open?.type === "paragraph_open" &&
-            close?.type === "paragraph_close" &&
-            content.length === 1 &&
-            content[0].type === "math_inline" &&
-            content[0].meta.display
-        ) {
-            open.hidden = true;
-            close.hidden = true;
-            block.children = content;
-            content[0].block = true;
-        }
+        if (display) display.block = true;
     });
 }
 

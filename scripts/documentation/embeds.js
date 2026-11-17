@@ -6,6 +6,7 @@ import {
     escapeHtml,
     viewAddress,
 } from "./diagram-card.js";
+import { unwrapLoneToken } from "./paragraphs.js";
 
 /**
  * Embedded views (spec #342): the views a section or decision embeds, in
@@ -235,29 +236,12 @@ export function standInForImages(state, resolve) {
             if (html === undefined) return;
             const card = new state.Token("html_inline", "", 0);
             card.content = html;
-            card.meta = { embed: true };
+            card.meta = { diagramCard: true };
             children[at] = card;
             cards++;
         });
-        if (!cards) return;
-
-        const rest = children.filter(
-            (token) =>
-                token.type !== "softbreak" &&
-                !(token.type === "text" && !token.content.trim()),
-        );
-        const open = state.tokens[index - 1];
-        const close = state.tokens[index + 1];
-        if (
-            rest.length === 1 &&
-            rest[0].meta?.embed &&
-            open?.type === "paragraph_open" &&
-            close?.type === "paragraph_close"
-        ) {
-            block.children = rest;
-            open.hidden = true;
-            close.hidden = true;
-        }
+        if (cards)
+            unwrapLoneToken(state, index, (token) => token.meta?.diagramCard);
     });
 }
 

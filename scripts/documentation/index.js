@@ -27,6 +27,8 @@
  *   `diagram-card.js` writes.
  * - `mermaid-blocks.js`: Mermaid blocks, which become Mermaid diagrams on
  *   the diagrams page and diagram cards in the section.
+ * - `paragraphs.js`: a display expression or a diagram card on a line of its
+ *   own stands with no paragraph around it.
  */
 
 import {
