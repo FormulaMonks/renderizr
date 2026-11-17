@@ -88,7 +88,7 @@ Each workspace keeps its own name and branding. When the reader enters a workspa
 
 Set the logo, the font and the primary color once in the workspace, and every run of `renderizr` and `renderizr edit` uses them without flags:
 
-```
+```structurizr
 workspace {
     properties {
         "renderizr.logo" "logo.svg"
@@ -135,7 +135,7 @@ Renderizr renders the documentation sections and decisions of every documentatio
 
 Write `!docs` and `!adrs` inside an element's block, with a folder path relative to `workspace.dsl`, the same way you write them at the top of the workspace. A container or a component can carry decisions without sections:
 
-```
+```structurizr
 workspace "Big Bank plc" {
     !docs docs
     !adrs adrs
@@ -232,7 +232,7 @@ The [agent skill](#use-renderizr-from-an-ai-agent) publishes the folder for you,
 
 A perspective lets a reader look at a diagram with one question in mind, such as security or ownership. Attach one to an element or a relationship in the DSL, with a name, a description and an optional value, as Structurizr defines it:
 
-```
+```structurizr
 api = container "API" {
     perspectives {
         "Security" "Handles customer sessions" "High"
@@ -246,7 +246,7 @@ The view keeps every element and relationship that carries the perspective at fu
 
 Write `Perspective:<name>` styles to color what carries a perspective, and `Perspective:<name>[value==X]` to color by value; the last matching value style replaces the last plain one. Elements take `background`, `color` and `stroke`, and relationships take `color`. Without such styles, the fade alone shows the perspective.
 
-```
+```structurizr
 styles {
     element "Perspective:Security" {
         background #b91c1c
@@ -292,7 +292,7 @@ An element icon given as an `http(s)` URL stays blank in an export. A build embe
 
 Renderizr draws a Mermaid flowchart, ERD or sequence diagram that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
 
-```
+```structurizr
 views {
     properties {
         "mermaid.url" "https://mermaid.ink"
