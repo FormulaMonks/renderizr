@@ -1,3 +1,11 @@
+/**
+ * The asciidoctor.js every AsciiDoc section and decision renders through in
+ * the build (ADR 31), so AsciiDoc renders the way Structurizr renders it and
+ * comes out in the markup the Markdown path writes. A feature extends it the
+ * way markdown-it takes `md.use()`, and the author's raw HTML in a
+ * passthrough goes through the sanitizer Markdown's raw HTML goes through.
+ */
+
 import {
     AbstractNode,
     Extensions,
@@ -54,21 +62,31 @@ const escapeHtml = (value) =>
  * `pass:q[*bold*]`'s `<strong>`) stays whole. A passthrough that escapes its
  * text (`+…+`, `pass:c[…]`) holds no HTML to sanitize. A document rendered
  * by anything else in the process is left alone.
+ *
+ * asciidoctor.js offers no hook there, so this patches its node class, once
+ * per process, the first time the build makes an asciidoctor.js: importing
+ * the module changes nothing (CODING_STANDARDS.md, Node code in `scripts/`).
  */
-const sanitized = new WeakSet();
-const restorePassthroughs = AbstractNode.prototype.restorePassthroughs;
-AbstractNode.prototype.restorePassthroughs = function (text) {
-    if (this.document?.converter instanceof AsciiDocConverter) {
-        for (const pass of this.passthroughs ?? []) {
-            if (sanitized.has(pass)) continue;
-            sanitized.add(pass);
-            if (!pass.subs?.includes("specialcharacters")) {
-                pass.text = sanitizeHtml(pass.text);
+let passthroughsSanitized = false;
+function sanitizePassthroughs() {
+    if (passthroughsSanitized) return;
+    passthroughsSanitized = true;
+
+    const sanitized = new WeakSet();
+    const restorePassthroughs = AbstractNode.prototype.restorePassthroughs;
+    AbstractNode.prototype.restorePassthroughs = function (text) {
+        if (this.document?.converter instanceof AsciiDocConverter) {
+            for (const pass of this.passthroughs ?? []) {
+                if (sanitized.has(pass)) continue;
+                sanitized.add(pass);
+                if (!pass.subs?.includes("specialcharacters")) {
+                    pass.text = sanitizeHtml(pass.text);
+                }
             }
         }
-    }
-    return restorePassthroughs.call(this, text);
-};
+        return restorePassthroughs.call(this, text);
+    };
+}
 
 /**
  * The document attributes every render sets. Ids follow GitHub's AsciiDoc
@@ -118,6 +136,7 @@ const ATTRIBUTES = Object.freeze({
  * subclass, and `extensions()` adds an asciidoctor.js extension group.
  */
 export function createAsciiDoc() {
+    sanitizePassthroughs();
     /** @type {ConverterClass} */
     let Converter = AsciiDocConverter;
     /** @type {ExtensionGroup[]} */

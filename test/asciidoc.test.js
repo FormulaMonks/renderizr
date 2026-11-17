@@ -8,7 +8,9 @@
  */
 
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import {
     createAsciiDoc,
     isAsciiDoc,
@@ -336,6 +338,39 @@ test("an inline passthrough's raw HTML is sanitized, the text around it kept", a
         ),
         "<p>Press <kbd>K</kbd> or <a>this</a> now.</p>\n",
     );
+});
+
+test("importing the module patches nothing, and making an asciidoctor.js patches the passthroughs once", () => {
+    // A process of its own, since this one already made an asciidoctor.js.
+    const script = `
+        import { AbstractNode } from "@asciidoctor/core";
+        const original = AbstractNode.prototype.restorePassthroughs;
+        const { createAsciiDoc } = await import(${JSON.stringify(
+            new URL("../scripts/documentation/asciidoc.js", import.meta.url)
+                .href,
+        )});
+        const imported = AbstractNode.prototype.restorePassthroughs;
+        createAsciiDoc();
+        const created = AbstractNode.prototype.restorePassthroughs;
+        createAsciiDoc();
+        const again = AbstractNode.prototype.restorePassthroughs;
+        process.stdout.write(JSON.stringify({
+            imported: imported === original,
+            created: created !== original,
+            again: again === created,
+        }));
+    `;
+    const output = execFileSync(
+        process.execPath,
+        ["--input-type=module", "-e", script],
+        { cwd: fileURLToPath(new URL("..", import.meta.url)) },
+    );
+
+    assert.deepEqual(JSON.parse(String(output)), {
+        imported: true,
+        created: true,
+        again: true,
+    });
 });
 
 test("asciidoctor.js's own markup around a passthrough stays as it renders", async () => {
