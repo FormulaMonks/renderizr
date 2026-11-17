@@ -5,6 +5,7 @@ import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
+import { markdownMath } from "./math.js";
 import { sanitizeRawHtml } from "./sanitize.js";
 
 /**
@@ -45,7 +46,9 @@ function headingIds(state) {
 
         const text = (state.tokens[index + 1]?.children ?? [])
             .filter((child) =>
-                ["text", "text_special", "code_inline"].includes(child.type),
+                ["text", "text_special", "code_inline", "math_inline"].includes(
+                    child.type,
+                ),
             )
             .map((child) => child.content)
             .join("");
@@ -158,7 +161,8 @@ export function createMarkdown() {
             important: CLASSES.alertImportant,
             warning: CLASSES.alertWarning,
             caution: CLASSES.alertCaution,
-        });
+        })
+        .use(markdownMath);
 
     // Every table gets its own scroll container, so a seven-column table
     // scrolls inside the prose measure instead of dragging the whole page

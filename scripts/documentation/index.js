@@ -11,6 +11,7 @@
  * - `highlight.js`: the highlight.js that colors fenced code.
  * - `sanitize.js`: the sanitizer of the author's raw HTML.
  * - `alerts.js`: GitHub's alerts.
+ * - `math.js`: math, which Temml writes as MathML, in Markdown and AsciiDoc.
  * - `asciidoc.js`: the asciidoctor.js every AsciiDoc render goes through,
  *   which a plugin extends with `asciidoc.use()`, and
  *   `asciidoc-converter.js`, its HTML5 converter, which writes the markup

@@ -6,6 +6,7 @@ import {
 } from "@asciidoctor/core";
 import { AsciiDocConverter } from "./asciidoc-converter.js";
 import { highlight } from "./highlight.js";
+import { asciidocMath } from "./math.js";
 import { sanitizeHtml } from "./sanitize.js";
 
 /**
@@ -167,6 +168,7 @@ export function createAsciiDoc() {
         },
     };
 
+    asciidoc.use(asciidocMath);
     return asciidoc;
 }
 

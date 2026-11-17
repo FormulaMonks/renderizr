@@ -19,4 +19,6 @@ export const CLASSES = Object.freeze({
     alertCaution: "rz-alert-caution",
     /** A link to a document the workspace does not contain. */
     unresolvedLink: "rz-unresolved-link",
+    /** A display math expression, which scrolls inside its own block. */
+    mathDisplay: "rz-math-display",
 });
