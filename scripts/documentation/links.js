@@ -10,6 +10,7 @@ import {
     searchOf,
     sectionId,
 } from "../../src/model/documentation-scopes.js";
+import { decodeAddress, HAS_SCHEME } from "./addresses.js";
 
 /**
  * What a link in the documentation turns into.
@@ -27,16 +28,6 @@ import {
 const DOCUMENT_FILE = /\.(md|markdown|adoc|asciidoc)$/i;
 const DECISION_FILE = /^(\d+)[-_. ]/;
 const DECISIONS_DIRECTORY = /^(decisions?|adrs?)$/i;
-// `https:`, `mailto:`, `data:`… — anything with a scheme is somewhere else.
-const HAS_SCHEME = /^[a-z][a-z\d+.-]*:/i;
-
-const decode = (value) => {
-    try {
-        return decodeURIComponent(value);
-    } catch {
-        return value;
-    }
-};
 
 /**
  * Turn a `markdown-it` heading into the id GitHub would give it.
@@ -129,12 +120,13 @@ export function createLinkResolver({ docs, decisions }) {
 
         const hashAt = href.indexOf("#");
         const path = (hashAt >= 0 ? href.slice(0, hashAt) : href).split("?")[0];
-        const fragment = hashAt >= 0 ? decode(href.slice(hashAt + 1)) : "";
+        const fragment =
+            hashAt >= 0 ? decodeAddress(href.slice(hashAt + 1)) : "";
 
         // An image or a CSV next to the markdown is not ours to reroute.
         if (!DOCUMENT_FILE.test(path)) return;
 
-        const segments = decode(path).split("/").filter(Boolean);
+        const segments = decodeAddress(path).split("/").filter(Boolean);
         const name = (segments.pop() ?? "").toLowerCase();
 
         const section =

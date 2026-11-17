@@ -1,4 +1,5 @@
 import { viewTitle } from "../../src/model/view-titles.js";
+import { decodeAddress } from "./addresses.js";
 import { CLASSES } from "./classes.js";
 import { diagramCard, diagramNote, viewAddress } from "./diagram-card.js";
 import { escapeHtml } from "./html-entities.js";
@@ -71,14 +72,6 @@ const SCHEME_CLASS = { light: CLASSES.schemeLight, dark: CLASSES.schemeDark };
 const PUBLISHED_PNG =
     /^https?:\/\/[^?#]*\/(?:workspace|share)\/(\d+)(?:\/[0-9a-f-]+)?\/images\/([^/?#]+)\.png(?:[?#].*)?$/i;
 
-const decode = (value) => {
-    try {
-        return decodeURIComponent(value);
-    } catch {
-        return value;
-    }
-};
-
 /**
  * The view and perspective `src` embeds from a workspace whose view keys
  * are `keys` and whose id is `id`, or `null` when it embeds none.
@@ -89,7 +82,7 @@ const decode = (value) => {
  */
 export function embedOf(src, { keys, id }) {
     if (src.startsWith(EMBED)) {
-        const raw = decode(src.slice(EMBED.length));
+        const raw = decodeAddress(src.slice(EMBED.length));
         const braces = raw.match(/^(.*?)\{(.*)\}$/);
         if (keys.has(raw) || !braces) return { key: raw, perspective: null };
         const parameters = new Map(
@@ -105,7 +98,7 @@ export function embedOf(src, { keys, id }) {
 
     const png = src.match(PUBLISHED_PNG);
     if (png && id !== null && id !== undefined && String(id) === png[1]) {
-        return { key: decode(png[2]), perspective: null };
+        return { key: decodeAddress(png[2]), perspective: null };
     }
     return null;
 }

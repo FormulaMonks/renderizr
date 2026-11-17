@@ -4,22 +4,13 @@
  * embeds, since the page has no folder beside it to load the file from.
  */
 
+import { decodeAddress, HAS_SCHEME } from "./addresses.js";
+
 /**
  * The embedded source for an image path, or `undefined` to leave it.
  *
  * @typedef {(src: string) => string | undefined} ImageResolver
  */
-
-// `https:`, `data:`… — anything with a scheme is somewhere else.
-const HAS_SCHEME = /^[a-z][a-z\d+.-]*:/i;
-
-const decode = (value) => {
-    try {
-        return decodeURIComponent(value);
-    } catch {
-        return value;
-    }
-};
 
 /**
  * Resolve the relative image paths authors write in their documentation and
@@ -54,7 +45,7 @@ export function createImageResolver(images, fallback = []) {
         // A fragment (`#gh-dark-mode-only`) stays on the embedded copy.
         const hash = src.indexOf("#");
         const path = hash < 0 ? src : src.slice(0, hash);
-        const source = sources.get(decode(path).replace(/^(\.\/)+/, ""));
+        const source = sources.get(decodeAddress(path).replace(/^(\.\/)+/, ""));
         if (source === undefined) return;
         return hash < 0 ? source : `${source}${src.slice(hash)}`;
     };
