@@ -19,4 +19,13 @@ export const CLASSES = Object.freeze({
     alertCaution: "rz-alert-caution",
     /** A link to a document the workspace does not contain. */
     unresolvedLink: "rz-unresolved-link",
+    /** A diagram card (glossary), the link that opens its diagram. */
+    diagramCard: "rz-diagram-card",
+    diagramCardIcon: "rz-diagram-card-icon",
+    diagramCardText: "rz-diagram-card-text",
+    diagramCardType: "rz-diagram-card-type",
+    diagramCardTitle: "rz-diagram-card-title",
+    diagramCardOpen: "rz-diagram-card-open",
+    /** The note in a diagram card's place when there is no diagram to open. */
+    diagramNote: "rz-diagram-note",
 });

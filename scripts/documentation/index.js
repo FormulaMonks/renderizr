@@ -16,6 +16,8 @@
  *   `asciidoc-converter.js`, its HTML5 converter, which writes the markup
  *   the Markdown path writes.
  * - `classes.js`: the class names the rendered HTML carries.
+ * - `embeds.js`: embedded views, shown as the diagram cards
+ *   `diagram-card.js` writes.
  */
 
 import {
@@ -23,12 +25,14 @@ import {
     placeElements,
 } from "../../src/model/documentation-scopes.js";
 import { createAsciiDoc, isAsciiDoc, renderAsciiDoc } from "./asciidoc.js";
+import { createEmbedResolver } from "./embeds.js";
 import { createImageResolver } from "./images.js";
 import { createLinkResolver } from "./links.js";
 import { createMarkdown, renderMarkdown } from "./markdown.js";
 
 export { createAsciiDoc, isAsciiDoc, renderAsciiDoc } from "./asciidoc.js";
 export { CLASSES } from "./classes.js";
+export { diagramCard, diagramNote, viewAddress } from "./diagram-card.js";
 export { createMarkdown, renderMarkdown } from "./markdown.js";
 
 /** The page each kind of document shows on, as the page's routes name it. */
@@ -163,6 +167,7 @@ const sharedAsciiDoc = () => {
  * @property {import("./asciidoc.js").AsciiDoc} [asciidoc]
  * @property {import("./links.js").LinkResolver | null} [resolveLink]
  * @property {import("./images.js").ImageResolver | null} [resolveImage]
+ * @property {import("./embeds.js").EmbedResolver | null} [resolveEmbed]
  */
 
 /**
@@ -182,9 +187,10 @@ async function render(
         asciidoc = sharedAsciiDoc(),
         resolveLink = null,
         resolveImage = null,
+        resolveEmbed = null,
     },
 ) {
-    const env = { resolveLink, resolveImage };
+    const env = { resolveLink, resolveImage, resolveEmbed };
     return isAsciiDoc(document)
         ? renderAsciiDoc(asciidoc, source, env)
         : renderMarkdown(md, source, env);
@@ -258,6 +264,8 @@ export async function renderDocumentation(
             : null,
     });
     const workspaceImages = createImageResolver(images);
+    // Every documentation scope embeds the views of the workspace itself.
+    const resolveEmbed = createEmbedResolver(workspace);
 
     /** @type {Promise<void>[]} */
     const renders = [];
@@ -276,6 +284,7 @@ export async function renderDocumentation(
                     asciidoc,
                     resolveLink: resolveLink("docs", scope.path),
                     resolveImage,
+                    resolveEmbed,
                 }).then((html) => {
                     section.content = html;
                     section.title = title;
@@ -290,6 +299,7 @@ export async function renderDocumentation(
                     asciidoc,
                     resolveLink: resolveLink("decisions", scope.path),
                     resolveImage,
+                    resolveEmbed,
                 }).then((html) => {
                     decision.content = html;
                     decision.title = title;
