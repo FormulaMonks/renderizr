@@ -152,6 +152,40 @@ A link that names a document a documentation scope lacks still leads somewhere:
 - A name path or slug path that names no documentation scope, or an element that carries no sections (or no decisions), opens the documentation page (or the decisions page) where it lands on its own.
 - When no documentation scope carries sections (or decisions), the link leads nowhere, and a page on Structurizr's hosts opens there in a new tab.
 
+## Embedded views
+
+The build turns each image of a section or a decision that embeds a view into a diagram card: a link to the view's address, `#/?page=diagrams&view=<key>`, that names the view's type ("System context view", "Container view", …) and its title. The title is the view's own, else the name Structurizr gives it (`System Context View: Internet Banking System`), as the diagrams page's header shows it. The card is plain HTML, so it works in every documentation scope and every build, the single file included.
+
+| Source                                                                                                        | Opens                                               |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `embed:<key>`                                                                                                 | `#/?page=diagrams&view=<key>`                       |
+| `embed:<key>{perspective=<name>}`                                                                             | `#/?page=diagrams&view=<key>&perspective=<name>`    |
+| `embed:<key>{type=graph}`, `embed:<key>{type=tree}`                                                           | `#/?page=diagrams&view=<key>`, as the page draws it |
+| `…/workspace/<id>/images/<key>.png`, `…/share/<id>/images/<key>.png`, `…/share/<id>/<token>/images/<key>.png` | `#/?page=diagrams&view=<key>`                       |
+
+- **Parameters** in braces are read only when no view has the whole string as its key, as Structurizr reads them, so a view keyed `Odd{type=graph}` stays that view. Several parameters go in one pair of braces, separated by commas: `{type=graph,perspective=Security}`.
+- **A published PNG** embeds a view only when `<id>` is the workspace's `id`. A published PNG of another workspace stays an ordinary image, which needs the network to show.
+- **Keys** come from the workspace that holds the section, so an element's documentation embeds the workspace's views, and another workspace's key in a set reads as a key the workspace lacks.
+- **A key the workspace lacks** shows a note in the card's place: "This workspace has no view with the key `<key>`."
+- **A color-scheme fragment**, `#gh-dark-mode-only` or `#gh-light-mode-only` at the end of an embed, shows its card or note in that color scheme only, the way it shows an image.
+
+## Mermaid blocks
+
+Before the build reads Mermaid diagrams, it adds an image view for each flowchart, ERD or sequence diagram block in a section or a decision, and the section shows a diagram card in the block's place. The card names the diagram's type ("Flowchart", "Entity relationship diagram" or "Sequence diagram") and its title, and links to the view's address, `#/?page=diagrams&view=<key>`.
+
+| Block in                            | Key                             | Example                                  |
+| ----------------------------------- | ------------------------------- | ---------------------------------------- |
+| A section of the workspace          | `<section>/<title>`             | `05-flows/checkout-flow`                 |
+| A decision of the workspace         | `decision-<number>/<title>`     | `decision-2/context`                     |
+| A section or decision of an element | `<slug path>/<section>/<title>` | `internet-banking-system/05-flows/login` |
+
+- **`<section>`** is the section's id without its extension, and `<title>` the slug of the diagram's title, so `Checkout flow (2)` gives `checkout-flow-2`. A key another view already holds takes `-2`, then `-3`. Reordering blocks keeps each key, and retitling one changes it.
+- **The title** is the source's own `title` (frontmatter, or a sequence diagram's `title`), else the heading above the block, else the section's or decision's title. A title that repeats within one section or decision takes " (2)", " (3)".
+- **The view** is an image view whose `content` encodes the source under `mermaid.url`, `https://mermaid.ink` when the workspace names none, with the element of its documentation scope as its element. It keeps Mermaid's own view type, and the drawer sorts it among the image views the way Structurizr sorts them, created after the workspace's own views.
+- **The way back**: the diagram's subtitle reads "From the documentation:" and links to the section and the heading above the block, `#/?page=docs&section=<section>&subsection=<heading>`, or to the decision, `#/?page=adrs&adr=<number>`.
+- **A type Renderizr doesn't draw** shows a note in the card's place, "Renderizr doesn't draw Mermaid `<type>` diagrams. It draws flowcharts, entity relationship diagrams and sequence diagrams.", above the source. A source longer than four lines shows its first lines fading out, and a click opens it whole.
+- **A block that fails to parse** shows the same note with the parse error, "Renderizr can't draw this Mermaid flowchart: a parse error at line 2: the source ends too early.", and the build warns once: `Mermaid block under "<section> › <heading>": <reason>.`
+
 ## The Mermaid parser
 
 The build reads Mermaid source with `scripts/mermaid/parser.js`: Mermaid's own flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, cut loose from the rest of Mermaid and bundled into one ES module with Mermaid's MIT notice at the top. Only the build runs it; the page never carries it, and `mermaid` never enters Renderizr's dependencies.

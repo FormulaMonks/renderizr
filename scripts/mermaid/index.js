@@ -61,6 +61,18 @@ function opening(source) {
 }
 
 /**
+ * The keyword naming a source's type (`flowchart`, `pie`, `classDiagram`…),
+ * past its frontmatter, directives and comments, without parsing it.
+ *
+ * @param {string} source
+ * @returns {string}
+ */
+export const mermaidKeyword = (source) =>
+    opening(source.replace(/\r\n?/g, "\n"))
+        .trim()
+        .split(/[\s;:]/)[0];
+
+/**
  * The Mermaid source an image view's content fields agree on:
  * `{ source }`, `{ error }` when they carry Mermaid source but can't be
  * drawn from, or `undefined` when they carry none.

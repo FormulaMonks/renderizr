@@ -180,6 +180,54 @@ internet-banking-system/
 pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
 ```
 
+#### Collapsed sections
+
+A collapsed section is a block of documentation the reader opens and closes by its summary. Write it in Markdown with GitHub's `<details>` and `<summary>`, and add `open` to start it open. Leave a blank line after the summary so the Markdown inside renders; without one, the text that follows stays as written, as on GitHub:
+
+```markdown
+<details open>
+<summary>Tips for collapsed sections</summary>
+
+### You can add a heading
+
+You can add text, an image or a code block.
+
+</details>
+```
+
+In AsciiDoc, write a `[%collapsible]` example block, and `[%collapsible%open]` to start it open. Its `.Title` becomes the summary, and a block with no title reads "Details":
+
+```asciidoc
+.Tips for collapsible blocks
+[%collapsible]
+====
+You can add text within a collapsible block.
+====
+```
+
+Both syntaxes look the same: a triangle that turns, and the body indented under the summary. A heading as the summary, `<summary><h3>…</h3></summary>`, keeps its size and folds what sits under it. A heading inside a collapsed section opens no page and stays out of the documentation menu and the pager, and a link or a `?subsection=` address to it opens every collapsed section around it. Printing a page prints every collapsed section open.
+
+#### Formatting
+
+Write sections and decisions the way you write on GitHub. Renderizr renders these features, in Markdown and in AsciiDoc where AsciiDoc has a counterpart, and draws each one in both color schemes:
+
+| Feature                             | Markdown                                                                             | AsciiDoc                                  | Renders as                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Strikethrough                       | `~~two~~`, `~one~`, `<del>`, `<s>`                                                   | `[.line-through]#…#`                      | A line through the text                                                                                                                                            |
+| Bare URLs, `www.` addresses, emails | `https://example.com`, `www.example.com`, `name@example.com`                         | `https://example.com`, `name@example.com` | Links, which resolve like any other link. Code stays as written                                                                                                    |
+| Task lists                          | `- [ ]`, `- [x]`                                                                     | `* [ ]`, `* [x]`, `* [*]`                 | Read-only checkboxes with no bullet                                                                                                                                |
+| Emoji                               | `:+1:` and every Unicode shortcode                                                   | No counterpart                            | The Unicode emoji. GitHub's image emoji (`:shipit:`, `:octocat:`) stay as text                                                                                     |
+| Keys                                | `<kbd>Ctrl</kbd>`                                                                    | `kbd:[Ctrl+Shift+P]`, `menu:File[Save]`   | A key cap                                                                                                                                                          |
+| Images in raw HTML                  | `<img>`, `<picture>`, `srcset`, paths with a fragment, `data:image/svg+xml`          | `image::`, `image:`                       | Images. A relative path resolves the way a Markdown image does                                                                                                     |
+| Images that follow the color scheme | `#gh-dark-mode-only`, `#gh-light-mode-only`, `<picture>` with `prefers-color-scheme` | No counterpart                            | The image of the site's color scheme, which follows the theme toggle as well as the system                                                                         |
+| Video                               | `<video>` in raw HTML                                                                | `video::`                                 | A video player, which needs the network for a remote file. A bare video URL becomes an ordinary link, and a YouTube or Vimeo `video::` becomes a link to the video |
+
+`test/__fixtures__/github-formatting.json` shows each one:
+
+```bash
+pnpm dev -- test/__fixtures__/github-formatting.json
+```
+
 #### Math
 
 The build writes math as MathML with [Temml](https://temml.org), and the browser draws it with its own math font, so it follows both color schemes and `--font` leaves it alone. A long display expression scrolls inside its own block.
@@ -205,6 +253,51 @@ Sections and decisions render footnotes in both formats:
 | `[^label]` where the reference goes, and `[^label]: …` anywhere in the document | `footnote:[…]`, or `footnote:name[…]` and then `footnote:name[]` to reference it again |
 
 The footnotes of a section number from 1 in the order their references first appear, and take GitHub's ids, `fn-<label>` and `fnref-<label>`. An AsciiDoc footnote with no name takes its number as its label. Each page of a section that splits into pages lists, at its foot, the footnotes its own references use, with the numbers the whole section gave them, so a footnote referenced on two pages shows on both. A decision lists all its footnotes at its foot. A reference scrolls to its footnote, and a footnote's back link scrolls to the reference.
+
+#### Embedded views
+
+A section or a decision embeds a view of its workspace the way Structurizr reads it, and shows it as a **diagram card**: the view's type, its title as the diagrams page titles it and "Open in diagrams", which opens the view on the diagrams page. The documentation page draws no diagram.
+
+| Form                                                          | Markdown                                                           | AsciiDoc                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| A view                                                        | `![](embed:SystemContext)`                                         | `image::embed:SystemContext[]`                                         |
+| A view under a perspective                                    | `![](embed:SystemContext{perspective=Security})`                   | `image::embed:SystemContext{perspective=Security}[]`                   |
+| A view as a graph or a tree, which opens as the page draws it | `![](embed:SystemContext{type=graph})`, `{type=tree}`              | `image::embed:SystemContext{type=graph}[]`                             |
+| A published PNG of the same workspace                         | `![](https://structurizr.com/share/1234/images/SystemContext.png)` | `image::https://structurizr.com/share/1234/images/SystemContext.png[]` |
+
+A key the workspace lacks shows a note that names it in the card's place. [Embedded views](04-reference.md#embedded-views) has the details.
+
+#### Mermaid blocks
+
+A Mermaid block in a section or a decision becomes a [Mermaid diagram](#mermaid-diagrams) on the diagrams page, and the section shows a diagram card in its place: the diagram's type, its title and "Open in diagrams". Write the block the way GitHub or Structurizr reads it:
+
+| Form                                         | Markdown                                                     | AsciiDoc                                                                |
+| -------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| A Mermaid block                              | A ` ```mermaid ` fence                                       | A `[mermaid]` block between `....` lines, or a `[source,mermaid]` block |
+| The link Structurizr's Mermaid plugin writes | `![](https://mermaid.ink/svg/<encoded>)`, `/img/` or `/png/` | `image::https://mermaid.ink/svg/<encoded>[]`                            |
+
+````markdown
+## Order flow
+
+```mermaid
+flowchart LR
+  Cart --> Checkout --> Payment
+```
+````
+
+```asciidoc
+== Order flow
+
+[mermaid]
+....
+flowchart LR
+  Cart --> Checkout --> Payment
+....
+```
+
+A flowchart, an ERD or a sequence diagram draws, with the workspace's styles, both color schemes and export, like any Mermaid diagram. The diagram takes the source's own `title`, else the heading above the block, else the section's or decision's title, and a title that repeats within one section or decision takes " (2)", " (3)". It belongs to the element whose documentation holds it, and its subtitle on the diagrams page links back to the section, or decision, and the heading the block came from. The model gains no element.
+
+Another Mermaid type, such as `pie` or `classDiagram`, shows a note that names it and the types Renderizr draws, with the first lines of its source fading out; a click opens the whole source. A block that fails to parse shows the same note with the parse error, and the build warns once for it. Neither adds a diagram. `pnpm dev` and edit mode reload a changed block on both pages. [Mermaid blocks](04-reference.md#mermaid-blocks) gives each card's address.
 
 ## Single file
 

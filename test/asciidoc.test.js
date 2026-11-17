@@ -210,10 +210,10 @@ test("a literal block is preformatted text", async () => {
 
 /* ------------------------------------------------- collapsible and example */
 
-test("a collapsible block renders the way asciidoctor.js writes it, not as code", async () => {
+test("a collapsible block renders as a collapsed section, not as code", async () => {
     assert.equal(
         await render(".More\n[%collapsible]\n====\nHidden.\n====\n"),
-        '<details>\n<summary class="title">More</summary>\n<div class="content">\n<p>Hidden.</p>\n</div>\n</details>\n',
+        `<details class="${CLASSES.collapsed}">\n<summary class="${CLASSES.collapsedSummary}">More</summary>\n<div class="content">\n<p>Hidden.</p>\n</div>\n</details>\n`,
     );
 });
 

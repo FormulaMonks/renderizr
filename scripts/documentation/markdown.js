@@ -3,11 +3,20 @@ import anchor from "markdown-it-anchor";
 import shiftHeadings from "markdown-it-shift-headings";
 import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
+import { collapsedSections } from "./collapsed-sections.js";
+import { colorSchemeImages } from "./color-scheme.js";
+import { emoji } from "./emoji.js";
 import { markdownFootnotes } from "./footnotes.js";
+import { embeddedViews } from "./embeds.js";
+import { mermaidBlocks } from "./mermaid-blocks.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
 import { markdownMath } from "./math.js";
+import { linkify } from "./linkify.js";
+import { htmlMedia } from "./media.js";
 import { sanitizeRawHtml } from "./sanitize.js";
+import { singleTildeStrikethrough } from "./strikethrough.js";
+import { taskLists } from "./task-lists.js";
 
 /**
  * What one render resolves against, as markdown-it's `env`: the documentation
@@ -17,6 +26,8 @@ import { sanitizeRawHtml } from "./sanitize.js";
  * @typedef {object} RenderEnv
  * @property {import("./links.js").LinkResolver | null} [resolveLink]
  * @property {import("./images.js").ImageResolver | null} [resolveImage]
+ * @property {import("./embeds.js").EmbedResolver | null} [resolveEmbed]
+ * @property {import("./mermaid-blocks.js").MermaidBlockHooks | null} [mermaid]
  */
 
 /**
@@ -164,7 +175,13 @@ export function createMarkdown() {
             caution: CLASSES.alertCaution,
         })
         .use(markdownMath)
-        .use(markdownFootnotes);
+        .use(markdownFootnotes)
+        .use(linkify)
+        .use(emoji)
+        .use(singleTildeStrikethrough)
+        .use(taskLists)
+        .use(htmlMedia)
+        .use(colorSchemeImages);
 
     // Every table gets its own scroll container, so a seven-column table
     // scrolls inside the prose measure instead of dragging the whole page
@@ -173,6 +190,13 @@ export function createMarkdown() {
         `<div class="${CLASSES.tableWrap}">${self.renderToken(tokens, idx, options)}`;
     md.renderer.rules.table_close = () => "</table></div>";
 
+    md.use(collapsedSections);
+    // Embeds read image tokens alone, after linkify has run, so a bare
+    // published PNG stays an ordinary link. They run before `doc_images`,
+    // and the media and color-scheme plugins rewrite the rendered HTML
+    // after both.
+    md.use(embeddedViews);
+    md.use(mermaidBlocks);
     md.core.ruler.push("doc_links", resolveLinks);
     md.core.ruler.push("doc_images", resolveImages);
 

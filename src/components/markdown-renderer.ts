@@ -1,4 +1,5 @@
 import Component from "./_component";
+import { openAround } from "./collapsed-sections";
 import styles from "./markdown-renderer.module.css";
 import { addMathStylesheet } from "./math-stylesheet";
 
@@ -41,6 +42,7 @@ export default class MarkdownRenderer extends Component {
         if (!heading) return;
 
         event.preventDefault();
+        openAround(heading);
         heading.scrollIntoView({ block: "start" });
     };
 

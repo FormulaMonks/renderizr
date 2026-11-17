@@ -82,7 +82,7 @@ test("a collapsed section keeps the Markdown inside it", () => {
     );
     assert.equal(
         html,
-        "<details>\n<summary>More</summary>\n<p>Some <strong>bold</strong> text.</p>\n</details>\n",
+        '<details class="rz-collapsed">\n<summary class="rz-collapsed-summary">More</summary>\n<p>Some <strong>bold</strong> text.</p>\n</details>\n',
     );
 });
 
@@ -98,7 +98,7 @@ test("inline raw HTML keeps kbd, sub, sup, del, ins and s", () => {
 test("a picture keeps its sources and image, media queries, srcset and all", () => {
     const html =
         "<picture>\n" +
-        '<source media="(prefers-color-scheme: dark)" srcset="dark.png">\n' +
+        '<source media="(min-width: 600px)" srcset="dark.png">\n' +
         '<img src="light.png" alt="Logo" width="120" height="40">\n' +
         "</picture>\n";
     assert.equal(render(html), html);
