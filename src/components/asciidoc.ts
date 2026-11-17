@@ -21,6 +21,11 @@ export function asciidocToMarkdown(source: string): string {
     let inTable = false;
     let tableRow: string[] = [];
     let tableHeaderWritten = false;
+    // PROTOTYPE (#339): `[%collapsible]` example blocks, written as the
+    // `<details>` asciidoctor.js writes, and the `.Title` line before a block.
+    let pendingTitle: string | null = null;
+    let pendingCollapsible: "open" | "closed" | null = null;
+    const collapsibles: string[] = [];
 
     const flushTableRow = () => {
         if (!tableRow.length) return;
@@ -37,6 +42,49 @@ export function asciidocToMarkdown(source: string): string {
 
         // Delimited blocks: ---- listing, .... literal, ==== example, **** sidebar
         const delimiter = line.match(/^(-{4,}|\.{4,}|={4,}|\*{4,}|_{4,})\s*$/);
+
+        if (!inDelimited) {
+            const title = line.match(/^\.([^\s.].*)$/);
+            if (title) {
+                if (pendingTitle !== null) out.push(`.${pendingTitle}`);
+                pendingTitle = title[1].trim();
+                continue;
+            }
+
+            const collapsible = line.match(/^\[%collapsible(%open)?\]\s*$/);
+            if (collapsible) {
+                pendingCollapsible = collapsible[1] ? "open" : "closed";
+                continue;
+            }
+
+            if (delimiter && delimiter[1] === collapsibles.at(-1)) {
+                collapsibles.pop();
+                out.push("", "</div>", "</details>", "");
+                continue;
+            }
+
+            if (delimiter && pendingCollapsible && delimiter[1][0] === "=") {
+                const open = pendingCollapsible === "open" ? " open" : "";
+                out.push(
+                    "",
+                    `<details${open}>`,
+                    `<summary class="title">${pendingTitle ?? "Details"}</summary>`,
+                    '<div class="content">',
+                    "",
+                );
+                collapsibles.push(delimiter[1]);
+                pendingCollapsible = null;
+                pendingTitle = null;
+                continue;
+            }
+
+            // A title no collapsible block took reads as it did before.
+            if (pendingTitle !== null && !/^\[[^\]]*\]\s*$/.test(line)) {
+                out.push(`.${pendingTitle}`);
+                pendingTitle = null;
+            }
+        }
+
         if (delimiter) {
             const kind = delimiter[1][0];
             if (inDelimited === kind) {

@@ -42,6 +42,8 @@ declare const __RENDERIZR_ENGINE_REPORT__: boolean;
  * mode code reaches built output.
  */
 declare const __RENDERIZR_EDIT_MODE__: boolean;
+/** PROTOTYPE (#339): `margin` or `inline`. */
+declare const __RENDERIZR_TOGGLE__: string;
 
 /** The workspace the page renders: compiled in by a build, served from disk by edit mode. */
 declare module "virtual:renderizr/workspace" {

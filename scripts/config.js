@@ -187,6 +187,10 @@ export function createConfig({
             __RENDERIZR_ENGINE_REPORT__: JSON.stringify(engineReport),
             // `false` compiles edit mode's page code out of the bundle.
             __RENDERIZR_EDIT_MODE__: JSON.stringify(Boolean(editMode)),
+            // PROTOTYPE (#339): where a collapsed section's triangle sits.
+            __RENDERIZR_TOGGLE__: JSON.stringify(
+                process.env.RENDERIZR_TOGGLE ?? "margin",
+            ),
         },
         ...(mode === "serve" ? { server: { open: false } } : {}),
     };

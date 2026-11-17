@@ -407,6 +407,174 @@ separator has to be matched with the id here too. */
     --md-alert-accent: var(--color-alert-caution);
 }
 
+/* --------------------------------------------- collapsed sections --- */
+/*
+ * PROTOTYPE (#339): `<details>` and AsciiDoc's `[%collapsible]` block, read
+ * like Notion's toggles: a triangle that turns, no box, a body indented under
+ * the summary and a faint wash on hover. `collapsed-sections.ts` adds the
+ * classes. `data-toggle` on the rendered root picks where the triangle sits:
+ *
+ * - `margin`: it hangs in the margin, so the summary lines up with the prose
+ *   around it. Only where there is a margin to hang in: at the top level and
+ *   inside another collapsed section. In a list, a table cell or an alert,
+ *   and on a phone, it falls back to `inline`.
+ * - `inline`: Notion's own, the triangle at the left edge and the summary
+ *   after it.
+ */
+.toggle {
+    --toggle-gutter: 1.5rem;
+    --toggle-pad-y: 0.15rem;
+    --toggle-hover: color-mix(in srgb, var(--color-foreground) 6%, transparent);
+
+    margin: 0.75rem 0;
+}
+
+:global(.markdown-renderer) > .toggle {
+    max-width: var(--md-measure);
+}
+
+.toggleSummary {
+    position: relative;
+    display: block;
+    padding: var(--toggle-pad-y) 0.4rem var(--toggle-pad-y) var(--toggle-gutter);
+    border-radius: 0.3rem;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 500;
+    transition: background-color 120ms ease;
+}
+
+.toggleSummary::-webkit-details-marker {
+    display: none;
+}
+
+.toggleSummary::before {
+    content: "";
+    position: absolute;
+    left: calc((var(--toggle-gutter) - 0.45em) / 2);
+    top: calc(var(--toggle-pad-y) + 0.5lh);
+    width: 0;
+    height: 0;
+    border-left: 0.45em solid currentColor;
+    border-block: 0.3em solid transparent;
+    color: var(--color-muted);
+    transform: translateY(-50%);
+    transition:
+        transform 120ms ease,
+        color 120ms ease;
+}
+
+.toggle[open] > .toggleSummary::before {
+    transform: translateY(-50%) rotate(90deg);
+}
+
+.toggleSummary:hover {
+    background: var(--toggle-hover);
+}
+
+.toggleSummary:hover::before {
+    color: var(--color-foreground);
+}
+
+.toggleSummary:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+/* The body sits under the summary's text. */
+.toggle > :not(summary) {
+    margin-left: var(--toggle-gutter);
+}
+
+.toggle[open] > .toggleSummary {
+    margin-bottom: 0.35rem;
+}
+
+.toggle > :last-child,
+.toggle > :global(.content) > :last-child,
+.toggle > :global(.content) > :last-child > :last-child {
+    margin-bottom: 0;
+}
+
+/* A heading as the summary folds what sits under it. */
+.toggleHeading > .toggleSummary > :is(h1, h2, h3, h4, h5, h6) {
+    display: inline;
+    margin: 0;
+    border: 0;
+    padding: 0;
+}
+
+.toggleHeading > .toggleSummary::before {
+    top: 50%;
+}
+
+.toggleHeading {
+    margin-top: 1.6rem;
+}
+
+/* Hang the triangle in the margin where there is one. */
+:global(.markdown-renderer[data-toggle="margin"])
+    .toggle:not(:is(li, td, th, .alert) .toggle)
+    > .toggleSummary {
+    margin-left: calc(-1 * var(--toggle-gutter));
+}
+
+@media (max-width: 40rem) {
+    :global(.markdown-renderer[data-toggle="margin"])
+        .toggle:not(:is(li, td, th, .alert) .toggle)
+        > .toggleSummary {
+        margin-left: 0;
+    }
+}
+
+/* Inside a table cell the summary carries no weight of its own. */
+:is(td, th) .toggle {
+    margin: 0;
+}
+
+/* Where the browser can, the body slides open instead of jumping. */
+@supports selector(::details-content) {
+    .toggle {
+        interpolate-size: allow-keywords;
+    }
+
+    .toggle::details-content {
+        block-size: 0;
+        overflow: clip;
+        transition:
+            block-size 160ms ease,
+            content-visibility 160ms allow-discrete;
+    }
+
+    .toggle[open]::details-content {
+        block-size: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toggle::details-content,
+    .toggleSummary,
+    .toggleSummary::before {
+        transition: none;
+    }
+}
+
+/* `collapsed-sections.ts` opens every section before printing. */
+@media print {
+    .toggleSummary::before {
+        display: none;
+    }
+
+    .toggleSummary {
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    .toggle::details-content {
+        block-size: auto;
+    }
+}
+
 /* ------------------------------------------------- syntax highlighting --- */
 /*
  * `hljs.highlight()` is called directly, so the output carries only the token

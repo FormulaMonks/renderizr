@@ -1,6 +1,7 @@
 import { asciidocToMarkdown, isAsciiDoc } from "../components/asciidoc";
 import type { ImageResolver } from "../components/doc-images";
 import type { LinkResolver } from "../components/doc-links";
+import { openAround } from "../components/collapsed-sections";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
@@ -86,6 +87,18 @@ const ancestorPaths = (path: string) => {
 const isHeading = (element: Element) => HEADING_TAG.test(element.tagName);
 
 const headingLevel = (element: Element) => Number(element.tagName.slice(1));
+
+/**
+ * Every heading a page block holds: the block itself, and (PROTOTYPE #339)
+ * the headings inside its collapsed sections, which links and addresses reach
+ * but the menu and the pager leave out.
+ */
+const headingsIn = (block: HTMLElement): HTMLElement[] => [
+    ...(isHeading(block) ? [block] : []),
+    ...block.querySelectorAll<HTMLElement>(
+        "details :is(h1, h2, h3, h4, h5, h6)[id]",
+    ),
+];
 
 const textOf = (element: Element | null) => (element?.textContent ?? "").trim();
 
@@ -382,8 +395,8 @@ export default class Docs extends Page {
             groups.forEach((group, groupIndex) => {
                 const index = this.#flatPages.length;
 
-                for (const node of group.nodes) {
-                    if (node.id && isHeading(node)) {
+                for (const node of group.nodes.flatMap(headingsIn)) {
+                    if (node.id) {
                         this.#headingIndex.set(
                             `${section.id}:${node.id}`,
                             index,
@@ -530,10 +543,8 @@ export default class Docs extends Page {
 
         this.#headingPages.clear();
         this.#groups.forEach((group, groupIndex) => {
-            for (const node of group.nodes) {
-                if (node.id && isHeading(node)) {
-                    this.#headingPages.set(node.id, base + groupIndex);
-                }
+            for (const node of group.nodes.flatMap(headingsIn)) {
+                if (node.id) this.#headingPages.set(node.id, base + groupIndex);
             }
         });
     }
@@ -673,9 +684,9 @@ export default class Docs extends Page {
     #scrollToHeading(id: string | null) {
         if (!id) return;
 
-        document
-            .getElementById(id)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const target = document.getElementById(id);
+        openAround(target);
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     #goToPage(index: number, push = true) {

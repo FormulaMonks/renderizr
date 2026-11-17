@@ -1,6 +1,6 @@
 import Component from "./_component";
 import markdownIt from "markdown-it";
-// @ts-ignore
+// @ts-expect-error
 import shiftHeadings from "markdown-it-shift-headings";
 import anchor from "markdown-it-anchor";
 // `highlight.js/lib/common` registers 34 languages for roughly 150KB. These are
@@ -24,6 +24,7 @@ import type { StateCore } from "markdown-it";
 import type { ImageResolver } from "./doc-images";
 import { githubSlug, type LinkResolver } from "./doc-links";
 import alerts from "./markdown-alerts";
+import { decorateCollapsedSections, openAround } from "./collapsed-sections";
 import styles from "./markdown-renderer.module.css";
 
 for (const [name, language] of Object.entries({
@@ -250,6 +251,7 @@ export default class MarkdownRenderer extends Component {
         if (!heading) return;
 
         event.preventDefault();
+        openAround(heading);
         heading.scrollIntoView({ block: "start" });
     };
 
@@ -259,12 +261,14 @@ export default class MarkdownRenderer extends Component {
 
         this.element.classList.add(styles.markdownRenderer);
         this.element.innerHTML = `
-        <div class="markdown-renderer">
+        <div class="markdown-renderer" data-toggle="${__RENDERIZR_TOGGLE__}">
             ${this.#md
                 .render(this.#markdownContent)
                 .replace(EMPTY_ELEMENT_PATTERN, "")}
         </div>
         `;
+
+        decorateCollapsedSections(this.element);
 
         this.element.removeEventListener("click", this.#handleAnchorClick);
         this.element.addEventListener("click", this.#handleAnchorClick);
