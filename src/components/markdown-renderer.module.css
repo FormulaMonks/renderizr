@@ -563,3 +563,109 @@ separator has to be matched with the id here too. */
     text-underline-offset: 0.2em;
     cursor: help;
 }
+
+/* -------------------------------------------------------- diagram cards --- */
+/*
+ * A diagram card (glossary) stands where a section embeds a view: the
+ * diagram's type, its title and "Open in diagrams", with a diagram icon and
+ * no picture. The build (`scripts/documentation/diagram-card.js`) writes
+ * the whole card as one link, made of phrasing content only, so it is laid
+ * out as a block here. At phone width "Open in diagrams" wraps under the
+ * title rather than pushing the page sideways.
+ */
+:global(.rz-diagram-card) {
+    /* The blue of the icon and "Open in diagrams", lighter on a dark page
+    so it keeps its contrast against the card. */
+    --md-card-accent: var(--color-primary);
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.9rem;
+    box-sizing: border-box;
+    max-width: var(--md-measure);
+    margin: 1.35rem 0;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface-alt);
+    color: var(--color-foreground);
+    font-weight: 400;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+:global(.rz-diagram-card):hover {
+    border-color: var(--color-muted);
+    background: var(--color-surface-hover);
+    color: var(--color-foreground);
+}
+
+:global(.rz-diagram-card-icon) {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--md-card-accent) 14%, transparent);
+    color: var(--md-card-accent);
+}
+
+:global(.rz-diagram-card-icon) svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: currentColor;
+}
+
+:global(.rz-diagram-card-text) {
+    display: flex;
+    flex: 1 1 12rem;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+:global(.rz-diagram-card-type) {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+:global(.rz-diagram-card-title) {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+:global(.rz-diagram-card-open) {
+    flex: none;
+    margin-left: auto;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--md-card-accent);
+}
+
+:global(.rz-diagram-card-open)::after {
+    content: " →";
+}
+
+:global(.rz-diagram-card):hover :global(.rz-diagram-card-open) {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+:root[data-theme="dark"] :global(.rz-diagram-card) {
+    --md-card-accent: var(--color-tertiary);
+}
+
+/* The note in a card's place when the workspace has no such view. */
+:global(.rz-diagram-note) {
+    display: block;
+    box-sizing: border-box;
+    max-width: var(--md-measure);
+    margin: 1.35rem 0;
+    padding: 0.8rem 1rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 0.5rem;
+    color: var(--color-muted);
+    overflow-wrap: anywhere;
+}
