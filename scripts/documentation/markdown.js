@@ -28,6 +28,8 @@ import { taskLists } from "./task-lists.js";
  * @property {import("./images.js").ImageResolver | null} [resolveImage]
  * @property {import("./embeds.js").EmbedResolver | null} [resolveEmbed]
  * @property {import("./mermaid-blocks.js").MermaidBlockHooks | null} [mermaid]
+ * @property {import("./math.js").MathWarnings | null} [warnMath] Where a
+ *   formula that fails to parse is reported.
  */
 
 /**

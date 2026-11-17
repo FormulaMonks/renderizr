@@ -38,6 +38,7 @@ import { createEmbedResolver } from "./embeds.js";
 import { createImageResolver } from "./images.js";
 import { createLinkResolver } from "./links.js";
 import { createMarkdown, renderMarkdown } from "./markdown.js";
+import { mathWarnings } from "./math.js";
 import { createMermaidBlocks } from "./mermaid-blocks.js";
 
 export { createAsciiDoc, isAsciiDoc, renderAsciiDoc } from "./asciidoc.js";
@@ -179,6 +180,7 @@ const sharedAsciiDoc = () => {
  * @property {import("./images.js").ImageResolver | null} [resolveImage]
  * @property {import("./embeds.js").EmbedResolver | null} [resolveEmbed]
  * @property {import("./mermaid-blocks.js").MermaidBlockHooks | null} [mermaid]
+ * @property {import("./math.js").MathWarnings | null} [warnMath]
  */
 
 /**
@@ -200,9 +202,10 @@ async function render(
         resolveImage = null,
         resolveEmbed = null,
         mermaid = null,
+        warnMath = null,
     },
 ) {
-    const env = { resolveLink, resolveImage, resolveEmbed, mermaid };
+    const env = { resolveLink, resolveImage, resolveEmbed, mermaid, warnMath };
     return isAsciiDoc(document)
         ? renderAsciiDoc(asciidoc, source, env)
         : renderMarkdown(md, source, env);
@@ -247,7 +250,8 @@ export async function renderDecision(decision, context = {}) {
  * other. Documents render side by side, since asciidoctor.js converts
  * asynchronously. Each Mermaid block of a type Renderizr draws adds an image
  * view to `workspace`, for `readMermaidDiagrams` to read; one that fails to
- * parse goes to `warn`. Changes `workspace` and resolves to it.
+ * parse goes to `warn`, and so does each formula that fails to parse, once.
+ * Changes `workspace` and resolves to it.
  *
  * @template {object} W
  * @param {W} workspace
@@ -289,6 +293,7 @@ export async function renderDocumentation(
         pages: { docs: DOCS_PAGE, decisions: DECISIONS_PAGE },
         warn,
     });
+    const warnMath = mathWarnings(warn);
 
     /** @type {Promise<void>[]} */
     const renders = [];
@@ -312,6 +317,7 @@ export async function renderDocumentation(
                     resolveImage,
                     resolveEmbed,
                     mermaid: mermaid.hooks,
+                    warnMath,
                 }).then((html) => {
                     section.content = html;
                     section.title = title;
@@ -329,6 +335,7 @@ export async function renderDocumentation(
                     resolveImage,
                     resolveEmbed,
                     mermaid: mermaid.hooks,
+                    warnMath,
                 }).then((html) => {
                     decision.content = html;
                     decision.title = title;

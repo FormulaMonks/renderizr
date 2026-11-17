@@ -14,40 +14,39 @@ import {
     renderAsciiDoc,
 } from "../scripts/documentation/asciidoc.js";
 import { CLASSES } from "../scripts/documentation/classes.js";
+import { renderDocumentation } from "../scripts/documentation/index.js";
 import {
     createMarkdown,
     renderMarkdown,
 } from "../scripts/documentation/markdown.js";
+import { mathWarnings } from "../scripts/documentation/math.js";
 
 const md = createMarkdown();
 const asciidoc = createAsciiDoc();
 
-/** `markdown` as the build renders it. */
-const markdown = (source) => renderMarkdown(md, source);
+/** `markdown` as the build renders it, against `env`. */
+const markdown = (source, env) => renderMarkdown(md, source, env);
 
-/** `source` as the build renders it from AsciiDoc. */
-const adoc = (source) => renderAsciiDoc(asciidoc, source);
+/** `source` as the build renders it from AsciiDoc, against `env`. */
+const adoc = (source, env) => renderAsciiDoc(asciidoc, source, env);
 
 /** The `<math>` elements of `html`. */
 const maths = (html) => html.match(/<math\b[\s\S]*?<\/math>/g) ?? [];
 
 /**
- * What the build writes to standard error while `run` runs, with standard
- * error itself left quiet.
+ * What `run` returns and the warnings the build gives while it renders,
+ * through the `warnMath` of the `env` it hands `run`.
+ *
+ * @template T
+ * @param {(env: { warnMath: ReturnType<typeof mathWarnings> }) => T} run
+ * @returns {Promise<{ result: Awaited<T>, warnings: string[] }>}
  */
-async function stderrOf(run) {
-    const written = [];
-    const write = process.stderr.write;
-    process.stderr.write = (chunk) => {
-        written.push(String(chunk));
-        return true;
-    };
-    try {
-        await run();
-    } finally {
-        process.stderr.write = write;
-    }
-    return written.join("");
+async function warningsOf(run) {
+    /** @type {string[]} */
+    const warnings = [];
+    const env = { warnMath: mathWarnings((message) => warnings.push(message)) };
+    const result = await run(env);
+    return { result, warnings };
 }
 
 /* ---------------------------------------------------------- GitHub's syntax */
@@ -226,44 +225,96 @@ test("a heading keeps its slug with math in it", () => {
 /* ----------------------------------------------- a formula that fails to parse */
 
 test("inline math that fails to parse reads as prose, and the build warns", async () => {
-    let html = "";
-    const warnings = await stderrOf(() => {
-        html = markdown("The expression $\\frac{1}{$ stays.");
-    });
+    const { result: html, warnings } = await warningsOf((env) =>
+        markdown("The expression $\\frac{1}{$ stays.", env),
+    );
 
     assert.equal(maths(html).length, 0);
     assert.equal(html, "<p>The expression $\\frac{1}{$ stays.</p>\n");
-    assert.match(warnings, /^warning: .*\\frac\{1\}\{/);
+    assert.equal(warnings.length, 1, warnings.join("\n"));
+    assert.match(
+        warnings[0],
+        /^math that does not parse stays as written: \$\\frac\{1\}\{\$ \(/,
+    );
 });
 
 test("a math fence that fails to parse stays a code block", async () => {
-    let html = "";
-    const warnings = await stderrOf(() => {
-        html = markdown("```math\n\\left( y\n```\n");
-    });
+    const { result: html, warnings } = await warningsOf((env) =>
+        markdown("```math\n\\left( y\n```\n", env),
+    );
 
     assert.equal(maths(html).length, 0);
     assert.equal(
         html,
         '<pre><code class="language-math">\\left( y\n</code></pre>\n',
     );
-    assert.match(warnings, /\\left\( y/);
+    assert.match(warnings.join("\n"), /\\left\( y/);
 });
 
 test("the build warns once per expression that fails to parse", async () => {
-    const warnings = await stderrOf(() => {
-        markdown("Twice: $\\frac{2}{$ and");
-        markdown("$\\frac{2}{$ again.");
+    const { warnings } = await warningsOf((env) => {
+        markdown("Twice: $\\frac{2}{$ and", env);
+        markdown("$\\frac{2}{$ again.", env);
     });
 
-    assert.equal(warnings.split("\n").filter(Boolean).length, 1);
+    assert.equal(warnings.length, 1, warnings.join("\n"));
 });
 
-test("Structurizr's `$…$` that fails to parse stays code", async () => {
-    let html = "";
-    await stderrOf(() => {
-        html = markdown("See `$\\frac{3}{$`.");
+test("each render of the documentation warns again, so pnpm dev still warns after a reload", async () => {
+    /** @type {string[]} */
+    const warnings = [];
+    const workspace = () => ({
+        documentation: {
+            sections: [
+                {
+                    title: "Math",
+                    order: 1,
+                    format: "Markdown",
+                    content: "Broken: $\\frac{5}{$ here.",
+                },
+            ],
+        },
     });
+    for (let render = 0; render < 2; render++)
+        await renderDocumentation(workspace(), {
+            warn: (message) => warnings.push(message),
+        });
+
+    assert.equal(warnings.length, 2, warnings.join("\n"));
+    assert.match(warnings[0], /^math that does not parse stays as written: /);
+});
+
+test("rendering math writes nothing to standard error itself", async () => {
+    const written = [];
+    const write = process.stderr.write;
+    process.stderr.write = (chunk) => {
+        written.push(String(chunk));
+        return true;
+    };
+    try {
+        markdown("Unwarned: $\\frac{6}{$ here.");
+        await adoc("Unwarned latexmath:[\\frac{6}{] here.");
+    } finally {
+        process.stderr.write = write;
+    }
+    assert.deepEqual(written, []);
+});
+
+test("GitHub's escaped backticks beside a dollar stay text, and the build does not warn", async () => {
+    const { result: html, warnings } = await warningsOf((env) =>
+        markdown(
+            "This sentence uses $\\` and \\`$ delimiters to show math inline: $`\\sqrt{3x-1}+(1+x)^2`$",
+            env,
+        ),
+    );
+
+    assert.equal(maths(html).length, 1, html);
+    assert.match(html, /^<p>This sentence uses \$` and `\$ delimiters/);
+    assert.deepEqual(warnings, []);
+});
+
+test("Structurizr's `$…$` that fails to parse stays code", () => {
+    const html = markdown("See `$\\frac{3}{$`.");
 
     assert.match(html, /<code>\$\\frac\{3\}\{\$<\/code>/);
 });
@@ -327,17 +378,20 @@ test("AsciiDoc's [latexmath] block renders a display block", async () => {
 });
 
 test("AsciiDoc math that fails to parse stays as written, and the build warns", async () => {
-    let inline = "";
-    let block = "";
-    const warnings = await stderrOf(async () => {
-        inline = await adoc("Inline latexmath:[\\frac{4}{] here.");
-        block = await adoc("[latexmath]\n++++\n\\left( z < 1\n++++\n");
-    });
+    const {
+        result: [inline, block],
+        warnings,
+    } = await warningsOf((env) =>
+        Promise.all([
+            adoc("Inline latexmath:[\\frac{4}{] here.", env),
+            adoc("[latexmath]\n++++\n\\left( z < 1\n++++\n", env),
+        ]),
+    );
 
     assert.equal(maths(inline).length, 0);
     assert.match(inline, /<p>Inline \\frac\{4\}\{ here\.<\/p>/);
     assert.equal(maths(block).length, 0);
     assert.match(block, /<pre><code>\\left\( z &lt; 1<\/code><\/pre>/);
-    assert.match(warnings, /\\frac\{4\}\{/);
-    assert.match(warnings, /\\left\( z < 1/);
+    assert.match(warnings.join("\n"), /\\frac\{4\}\{/);
+    assert.match(warnings.join("\n"), /\\left\( z < 1/);
 });

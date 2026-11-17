@@ -15,57 +15,78 @@ import { CLASSES } from "./classes.js";
  *   `asciimath:[…]` and the `[stem]`, `[latexmath]` and `[asciimath]`
  *   blocks. AsciiMath goes through asciimath2tex to LaTeX first.
  *
- * An expression that fails to parse stays as written, and the build warns
- * once for it.
+ * An expression that fails to parse stays as written, and the render warns
+ * once for it through the `warnMath` of its `env` (`mathWarnings`).
  */
 
-/** The expressions the build already warned about. */
-const warned = new Set();
+/**
+ * Reports that the expression `source` stays as written, since `error`
+ * stopped it.
+ *
+ * @typedef {(source: string, error: unknown) => void} MathWarnings
+ */
 
-/** Warn once that `source` stays as written, since `error` stopped it. */
-function warnOnce(source, error) {
-    if (warned.has(source)) return;
-    warned.add(source);
-    const reason = String(error?.message ?? error)
-        .split("\n")[0]
-        .trim();
-    process.stderr.write(
-        `warning: math that does not parse stays as written: ${source} (${reason})\n`,
-    );
+/**
+ * What a render reports a formula that fails to parse through: each
+ * expression once, to `warn`, the way `renderDocumentation` reports a Mermaid
+ * block. Make one per render of the documentation, so `pnpm dev` warns again
+ * after a reload; a set shared by the whole process went quiet after the
+ * first.
+ *
+ * @param {(message: string) => void} warn
+ * @returns {MathWarnings}
+ */
+export function mathWarnings(warn) {
+    const warned = new Set();
+    return (source, error) => {
+        if (warned.has(source)) return;
+        warned.add(source);
+        const reason = String(/** @type {any} */ (error)?.message ?? error)
+            .split("\n")[0]
+            .trim();
+        warn(
+            `math that does not parse stays as written: ${source} (${reason})`,
+        );
+    };
 }
 
 /**
  * `tex` as MathML, or `null` when it fails to parse. `source` is the
- * expression as the author wrote it, for the warning.
+ * expression as the author wrote it, for `warn`.
  *
  * @param {string} tex
- * @param {{ display?: boolean, source?: string }} [options]
+ * @param {{ display?: boolean, source?: string, warn?: MathWarnings | null }} [options]
  * @returns {string | null}
  */
-export function renderMath(tex, { display = false, source = tex } = {}) {
+export function renderMath(
+    tex,
+    { display = false, source = tex, warn = null } = {},
+) {
     try {
         return temml.renderToString(tex, {
             displayMode: display,
             throwOnError: true,
         });
     } catch (error) {
-        warnOnce(source, error);
+        warn?.(source, error);
         return null;
     }
 }
 
-const asciiMath = new AsciiMathParser();
+/** The AsciiMath parser, made on first use. */
+let asciiMath = null;
 
 /** AsciiMath `source` as MathML, through LaTeX, or `null`. */
-function renderAsciiMath(source, display) {
+function renderAsciiMath(source, display, warn) {
+    asciiMath ??= new AsciiMathParser();
     let tex;
     try {
         tex = asciiMath.parse(source);
     } catch (error) {
-        warnOnce(source, error);
+        warn?.(source, error);
         return null;
     }
-    return renderMath(tex, { display, source });
+    return renderMath(tex, { display, source, warn });
 }
 
 /** A display expression in the block that scrolls it on a narrow screen. */
@@ -139,16 +160,28 @@ function displayMath(src, pos, max) {
 }
 
 /**
+ * Whether `src` holds an escaped backtick, `` \` ``, at `at`. GitHub writes a
+ * dollar beside a backtick as text by escaping the backtick ("uses $\` and
+ * \`$ delimiters"), so `` $` `` and `` `$ `` read as text and not as the
+ * delimiters of `` $`…`$ ``. TeX has no use for `` \` `` in math, so no
+ * expression loses by it.
+ */
+const escapedBacktick = (src, at) =>
+    src.charCodeAt(at) === BACKSLASH && src.charCodeAt(at + 1) === BACKTICK;
+
+/**
  * `$…$`, opening at `pos`, by Pandoc's rule, which GitHub's matches: no
  * space just inside either dollar and no digit right after the closing one,
  * so "$5 a month, or $50 a year" and "$5-$10" stay text. A `\$` is the
  * expression's own dollar, and a code span between the dollars keeps them
- * apart.
+ * apart. An escaped backtick just inside either dollar keeps the dollars
+ * text too, as `escapedBacktick` says.
  *
  * @returns {{ tex: string, end: number } | null}
  */
 function dollarMath(src, pos, max) {
     if (pos + 1 >= max || isSpace(src.charCodeAt(pos + 1))) return null;
+    if (escapedBacktick(src, pos + 1)) return null;
     for (let at = pos + 1; at < max; at++) {
         const code = src.charCodeAt(at);
         if (code === BACKSLASH) {
@@ -161,7 +194,8 @@ function dollarMath(src, pos, max) {
         } else if (
             code === DOLLAR &&
             !isSpace(src.charCodeAt(at - 1)) &&
-            !isDigit(src.charCodeAt(at + 1))
+            !isDigit(src.charCodeAt(at + 1)) &&
+            !escapedBacktick(src, at - 2)
         ) {
             return { tex: src.slice(pos + 1, at), end: at + 1 };
         }
@@ -194,6 +228,7 @@ function mathInline(state, silent) {
     const html = renderMath(found.tex, {
         display,
         source: src.slice(pos, found.end),
+        warn: state.env?.warnMath,
     });
     if (html === null) return false;
 
@@ -226,6 +261,7 @@ function mathTokens(state) {
             if (!tex?.trim()) continue;
             const html = renderMath(tex, {
                 source: `${token.markup}${token.content}${token.markup}`,
+                warn: state.env?.warnMath,
             });
             if (html === null) continue;
             token.type = "math_inline";
@@ -283,7 +319,8 @@ export function markdownMath(md) {
         const language = token.info.trim().split(/\s+/)[0].toLowerCase();
         if (MATH_FENCES.has(language)) {
             const tex = token.content.trim();
-            const html = tex && renderMath(tex, { display: true });
+            const html =
+                tex && renderMath(tex, { display: true, warn: env?.warnMath });
             if (html) return `${displayBlock(html)}\n`;
         }
         return fence
@@ -308,15 +345,16 @@ const escapeHtml = (value) =>
 
 /**
  * An AsciiDoc expression of `type` (`latexmath` or `asciimath`) as MathML,
- * or `null`. LaTeX delimiters an author wrapped a block in are dropped.
+ * or `null`, reported to `warn`. LaTeX delimiters an author wrapped a block
+ * in are dropped.
  */
-function renderStem(source, type, display) {
-    if (type === "asciimath") return renderAsciiMath(source, display);
+function renderStem(source, type, display, warn) {
+    if (type === "asciimath") return renderAsciiMath(source, display, warn);
     const tex = source
         .trim()
         .replace(/^\\\[([\s\S]*)\\\]$/, "$1")
         .replace(/^\\\(([\s\S]*)\\\)$/, "$1");
-    return renderMath(tex, { display, source });
+    return renderMath(tex, { display, source, warn });
 }
 
 /**
@@ -334,7 +372,14 @@ export function asciidocMath(asciidoc) {
                     if (node.type !== "latexmath" && node.type !== "asciimath")
                         return super.convert_inline_quoted(node);
                     const source = unescapeHtml(String(node.text ?? ""));
-                    return renderStem(source, node.type, false) ?? node.text;
+                    return (
+                        renderStem(
+                            source,
+                            node.type,
+                            false,
+                            this.env.warnMath,
+                        ) ?? node.text
+                    );
                 }
 
                 async convert_stem(node) {
@@ -343,7 +388,12 @@ export function asciidocMath(asciidoc) {
                     const title = node.hasTitle()
                         ? `<div class="title">${node.title}</div>\n`
                         : "";
-                    const html = renderStem(source, node.style, true);
+                    const html = renderStem(
+                        source,
+                        node.style,
+                        true,
+                        this.env.warnMath,
+                    );
                     return html === null
                         ? `${title}<pre${id}><code>${escapeHtml(source)}</code></pre>`
                         : `${title}${displayBlock(html, "div", id)}`;
