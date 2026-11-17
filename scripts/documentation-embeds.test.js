@@ -416,5 +416,5 @@ test("a bare published PNG of the workspace becomes an ordinary link, not a card
     const html = await rendered(`See ${url} for the picture.\n`);
 
     assert.deepEqual(cardAddresses(html), []);
-    assert.match(html, new RegExp(`<a href="${url.replace(/\./g, "\\.")}">`));
+    assert.ok(html.includes(`<a href="${url}">`), html);
 });

@@ -255,11 +255,11 @@ test("AsciiDoc's video:: renders a player, its poster resolved", async () => {
     );
 
     assert.match(html, /<div class="title">A demo<\/div>/);
-    assert.match(
-        html,
-        new RegExp(
-            `<video src="demo.mp4" width="640" poster="${DARK.replace(/[+]/g, "\\+")}" controls>`,
+    assert.ok(
+        html.includes(
+            `<video src="demo.mp4" width="640" poster="${DARK}" controls>`,
         ),
+        html,
     );
 });
 
