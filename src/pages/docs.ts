@@ -1,3 +1,4 @@
+import { openAround } from "../components/collapsed-sections";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
@@ -84,6 +85,19 @@ const ancestorPaths = (path: string) => {
 const isHeading = (element: Element) => HEADING_TAG.test(element.tagName);
 
 const headingLevel = (element: Element) => Number(element.tagName.slice(1));
+
+/**
+ * Every heading a block of a page holds: the block itself when it is one,
+ * and the headings inside its collapsed sections. A link or an address
+ * reaches all of them; only the block itself opens a page or joins the
+ * menu.
+ */
+const headingsIn = (block: HTMLElement): HTMLElement[] => [
+    ...(isHeading(block) ? [block] : []),
+    ...Array.from(
+        block.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6"),
+    ).filter((heading) => heading.closest("details")),
+];
 
 const textOf = (element: Element | null) => (element?.textContent ?? "").trim();
 
@@ -192,11 +206,13 @@ function retag(element: HTMLElement, level: number): HTMLElement {
  *
  * The mapping is order-preserving. The shallowest level on the page becomes
  * `h1`, the next distinct one `h2`, and so on, so relative nesting — which is
- * what the sidebar tree is built from — comes out unchanged.
+ * what the sidebar tree is built from — comes out unchanged. The headings
+ * inside the page's collapsed sections take part, so they keep their place
+ * in the outline.
  */
 function normalizeHeadingLevels(groups: PageGroup[]): void {
     for (const group of groups) {
-        const headings = group.nodes.filter(isHeading);
+        const headings = group.nodes.flatMap(headingsIn);
         if (!headings.length) continue;
 
         const levels = [...new Set(headings.map(headingLevel))].sort(
@@ -352,8 +368,8 @@ export default class Docs extends Page {
             groups.forEach((group, groupIndex) => {
                 const index = this.#flatPages.length;
 
-                for (const node of group.nodes) {
-                    if (node.id && isHeading(node)) {
+                for (const node of group.nodes.flatMap(headingsIn)) {
+                    if (node.id) {
                         this.#headingIndex.set(
                             `${section.id}:${node.id}`,
                             index,
@@ -495,10 +511,8 @@ export default class Docs extends Page {
 
         this.#headingPages.clear();
         this.#groups.forEach((group, groupIndex) => {
-            for (const node of group.nodes) {
-                if (node.id && isHeading(node)) {
-                    this.#headingPages.set(node.id, base + groupIndex);
-                }
+            for (const node of group.nodes.flatMap(headingsIn)) {
+                if (node.id) this.#headingPages.set(node.id, base + groupIndex);
             }
         });
     }
@@ -638,9 +652,9 @@ export default class Docs extends Page {
     #scrollToHeading(id: string | null) {
         if (!id) return;
 
-        document
-            .getElementById(id)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const heading = document.getElementById(id);
+        openAround(heading);
+        heading?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     #goToPage(index: number, push = true) {
