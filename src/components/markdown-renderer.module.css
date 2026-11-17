@@ -670,8 +670,12 @@ separator has to be matched with the id here too. */
     color: var(--color-muted);
     font-size: 0.875rem;
 
+    /* One gutter wide enough for the numbers, in place of the body's list
+       margin plus the browser's own padding, so the numbers line up under
+       the rule. */
     & > ol {
-        margin: 0 0 0 1.5rem;
+        margin: 0;
+        padding-left: 1.5rem;
     }
 
     & li {
