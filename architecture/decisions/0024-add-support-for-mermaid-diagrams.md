@@ -4,7 +4,9 @@ Date: 2026-10-16
 
 ## Status
 
-Accepted
+Amended
+
+Amended by [31. Render documentation in the build](0031-render-documentation-in-the-build.md).
 
 Amends [13. Scope the label toggles to element text](0013-scope-the-label-toggles-to-element-text.md): the descriptions toggle also hides an entity's attribute comments.
 

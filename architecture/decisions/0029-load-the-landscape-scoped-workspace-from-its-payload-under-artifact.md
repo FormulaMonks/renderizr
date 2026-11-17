@@ -6,6 +6,8 @@ Date: 2026-11-06
 
 Accepted
 
+Referenced by [31. Render documentation in the build](0031-render-documentation-in-the-build.md).
+
 Amends [26. Render the enterprise pattern's workspaces in one site](0026-render-the-enterprise-patterns-workspaces-in-one-site.md): where the landscape scoped workspace lives under `--artifact`.
 
 References [28. Run every page on Preact through preact/compat](0028-run-every-page-on-preact-through-preact-compat.md): it shrank the runtime that this decision lets artifacts share.
