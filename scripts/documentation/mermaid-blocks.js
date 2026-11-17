@@ -329,10 +329,22 @@ export function mermaidBlocks(md) {
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 
-/** The text of `html`, an AsciiDoc title asciidoctor.js converted. */
+/** `html` with every tag removed, repeated until none is left. */
+function withoutTags(html) {
+    let text = String(html ?? "");
+    for (let previous; previous !== text; ) {
+        previous = text;
+        text = text.replace(/<[^>]*>/g, "");
+    }
+    return text;
+}
+
+/**
+ * The text of `html`, an AsciiDoc title asciidoctor.js converted. The result
+ * is plain text: whoever writes it into HTML escapes it.
+ */
 const plainText = (html) =>
-    String(html ?? "")
-        .replace(/<[^>]*>/g, "")
+    withoutTags(html)
         .replace(
             /&(?:#(\d+)|#x([0-9a-f]+)|(\w+));/gi,
             (entity, dec, hex, name) =>

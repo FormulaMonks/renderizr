@@ -3,6 +3,12 @@ import { test } from "node:test";
 import { CLASSES, renderDocumentation } from "./documentation/index.js";
 import { readMermaidDiagrams } from "./mermaid/index.js";
 
+/** `source` with `line` inserted after its first line. */
+function withLineAfterFirst(source, line) {
+    const [first, ...rest] = source.split("\n");
+    return [first, line, ...rest].join("\n");
+}
+
 /**
  * Mermaid blocks (spec #342, _Mermaid blocks_; ADR 31): a Mermaid block in a
  * section or decision becomes an image view the build adds, which the
@@ -253,7 +259,7 @@ test("the title is the source's own, else the heading above, else the section's"
             "",
             fence(`---\ntitle: Checkout flow\n---\n${FLOWCHART}`),
             "",
-            fence(`${SEQUENCE.replace("\n", "\n  title Greeting\n")}`),
+            fence(withLineAfterFirst(SEQUENCE, "  title Greeting")),
             "",
             fence(FLOWCHART),
         ].join("\n"),
