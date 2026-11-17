@@ -292,18 +292,18 @@ test("markup a plugin adds stays whole, whatever tags and attributes it carries"
 
 /* ------------------------------------------------- sections and decisions */
 
-test("an AsciiDoc section is sanitized like a Markdown one", () => {
-    const html = renderSection({
+test("an AsciiDoc section's passthrough is sanitized like a Markdown one", async () => {
+    const html = await renderSection({
         filename: "01-context.adoc",
         content:
-            '== Context\n\n<div style="color: red" onclick="x()">Note</div>\n\n<script>alert(1)</script>\n',
+            '== Context\n\n++++\n<div style="color: red" onclick="x()">Note</div>\n\n<script>alert(1)</script>\n++++\n',
     });
     assert.ok(html.includes("<div>Note</div>"), html);
     assert.ok(!/script|onclick|style=/.test(html), html);
 });
 
-test("a decision is sanitized like a section", () => {
-    const html = renderDecision({
+test("a decision is sanitized like a section", async () => {
+    const html = await renderDecision({
         content:
             '# 1. Use HTML\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\n<span style="color: red" onmouseover="x()">Why</span> <a href="javascript:alert(1)">this</a>.\n',
     });
