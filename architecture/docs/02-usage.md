@@ -180,6 +180,16 @@ internet-banking-system/
 pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
 ```
 
+#### Footnotes
+
+Sections and decisions render footnotes in both formats:
+
+| Markdown                                                                        | AsciiDoc                                                                               |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `[^label]` where the reference goes, and `[^label]: …` anywhere in the document | `footnote:[…]`, or `footnote:name[…]` and then `footnote:name[]` to reference it again |
+
+The footnotes of a section number from 1 in the order their references first appear, and take GitHub's ids, `fn-<label>` and `fnref-<label>`. An AsciiDoc footnote with no name takes its number as its label. Each page of a section that splits into pages lists, at its foot, the footnotes its own references use, with the numbers the whole section gave them, so a footnote referenced on two pages shows on both. A decision lists all its footnotes at its foot. A reference scrolls to its footnote, and a footnote's back link scrolls to the reference.
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
