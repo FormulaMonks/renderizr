@@ -174,6 +174,20 @@
                 "format": "Markdown",
                 "links": [],
                 "content": "# 2. Draw documentation diagrams on the diagrams page\n\nDate: 2026-11-13\n\n## Status\n\nProposed\n\n## Context\n\nThe reader asks for a diagram; the page answers.\n\n```mermaid\nsequenceDiagram\n  Reader->>Docs: opens the section\n  Docs->>Diagrams: follows the link\n  Diagrams-->>Reader: draws the diagram\n```\n\n## Decision\n\nLink from the section to the diagram."
+            },
+            {
+                "id": "3",
+                "date": "2026-11-17T00:00:00Z",
+                "status": "Accepted",
+                "title": "Render AsciiDoc with asciidoctor.js",
+                "format": "AsciiDoc",
+                "links": [
+                    {
+                        "id": "1",
+                        "description": "Amends"
+                    }
+                ],
+                "content": "= 3. Render AsciiDoc with asciidoctor.js\n\nDate: 2026-11-17\n\n== Status\n\nAccepted\n\nAmends 1.\n\n== Context\n\nSome decisions are written in AsciiDoc, and xref:0001-write-the-documentation-in-github-flavored-markdown.md[the first decision] is not.\n\nNOTE: The decisions page renders AsciiDoc the way the documentation page does.\n\n[cols=\"1,2\"]\n|===\n|Format |Renderer\n\n|Markdown\n|markdown-it\n\n|AsciiDoc\n|asciidoctor.js\n|===\n\n== Decision\n\nRender it with asciidoctor.js -- [.line-through]#a pass of our own# is gone. H~2~O, mc^2^.\n\n[source,javascript]\n----\nconst html = await asciidoc.render(source);\n----\n\n== Consequences\n\n.What a reader sees\n[%collapsible]\n====\nThe same alerts, tables and code as in Markdown.\n===="
             }
         ],
         "images": [
