@@ -5,6 +5,7 @@ import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
+import { sanitizeRawHtml } from "./sanitize.js";
 
 /**
  * What one render resolves against, as markdown-it's `env`: the documentation
@@ -115,7 +116,7 @@ function resolveLinks(state) {
 /**
  * The markdown-it every section and decision renders through: GitHub's
  * heading ids, headings shifted one level so the page title stays the `h1`,
- * GitHub's alerts, highlighted fences, tables in their own scroll container,
+ * the author's raw HTML sanitized, GitHub's alerts, highlighted fences, tables in their own scroll container,
  * and links and images resolved through the render's `env`. A later plugin
  * extends it with `md.use()`.
  *
@@ -127,6 +128,7 @@ export function createMarkdown() {
         typographer: true,
         highlight,
     })
+        .use(sanitizeRawHtml)
         .use(shiftHeadings)
         .use((md) =>
             md.core.ruler.before("replacements", "heading_ids", headingIds),
