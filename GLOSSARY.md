@@ -25,7 +25,7 @@ One diagram definition in the workspace: a selection of elements and relationshi
 _Avoid_: diagram (that is the drawn result), page
 
 **Mermaid diagram**:
-A flowchart, entity relationship diagram or sequence diagram that Renderizr draws from the Mermaid source an image view carries, styled by the source's own config and, where the source is silent, by the workspace. An image view of any other Mermaid type stays a picture.
+A flowchart, entity relationship diagram or sequence diagram that Renderizr draws from the Mermaid source an image view carries, styled by the source's own config and, where the source is silent, by the workspace. An image view of any other Mermaid type stays a picture. A Mermaid block in documentation becomes an image view the build adds, so it draws on the diagrams page like any other.
 _Avoid_: Mermaid chart, Mermaid view, Mermaid image
 
 **Entity**:
@@ -191,6 +191,14 @@ _Avoid_: smart guide, snap line
 **Documentation scope**:
 The workspace, a software system, a container or a component, with the documentation sections and decisions it carries. The documentation page holds the sections of every documentation scope in one tree that follows the model, and the decisions page holds the decisions of every documentation scope in one list. An element offers its own documentation scope, and an instance offers the one of the element it instantiates.
 _Avoid_: scope (that is a workspace scope), element documentation, docs scope
+
+**Diagram card**:
+The card a documentation section or decision shows in place of a Mermaid block or an embedded view: the diagram's type, its title and a link that opens it on the diagrams page. The documentation page draws no diagram.
+_Avoid_: preview, thumbnail, embed
+
+**Collapsed section**:
+A block of documentation the reader opens and closes by its summary, written as GitHub's `<details>` or AsciiDoc's `[%collapsible]` block. A heading inside it opens no page and stays out of the documentation menu, and a link to that heading opens every collapsed section around it.
+_Avoid_: toggle, accordion, details block
 
 **Decision graph**:
 The drawing beside the decisions menu that shows how decisions link to one another: a dot per decision, colored by its status, and a lane for each decision that later decisions link to.

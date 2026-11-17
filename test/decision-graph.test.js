@@ -684,13 +684,14 @@ test("our own decisions get back the three links the importer drops", () => {
     }
 });
 
-test("our own decisions make eight amend edges and 34 references", () => {
+test("our own decisions make nine amend edges and 35 references", () => {
     const edges = edgesOf(layoutDecisionGraph(OURS));
 
-    assert.equal(edges.length, 42);
+    assert.equal(edges.length, 44);
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
         [
+            "31 amend 24",
             "30 amend 26",
             "29 amend 26",
             "26 amend 16",
@@ -715,20 +716,21 @@ test("our own decisions need 12 columns", () => {
 
     assert.equal(layout.columns, 12);
     assert.deepEqual(lanesOf(layout), [
-        // 29 amends 26, which amends 16. 30 amends 26 too, so it joins
-        // the lane from a lane of its own, and tops it as its newest link.
-        lane(2, ["29", "26", "16"], ["30", "24", "22", "17"]),
+        // 31 amends 24, which amends 13, so the three share a lane.
+        lane(2, ["31", "24", "13"], []),
         lane(2, ["11"], ["12"]),
-        lane(3, ["30"], []),
-        lane(3, ["28"], ["29"]),
-        lane(3, ["22"], ["26"]),
-        lane(3, ["20", "12"], []),
-        lane(4, ["3"], ["28", "24", "21", "18", "15", "6"]),
-        lane(5, ["25", "23"], []),
-        lane(5, ["15"], ["22", "16"]),
-        lane(6, ["2"], ["24", "13", "12", "11", "9", "7", "5", "3"]),
-        lane(7, ["14", "4"], ["24", "23", "17", "10", "9"]),
-        lane(8, ["24", "13"], []),
+        // 29 amends 26, which amends 16. 30 amends 26 too, so it joins
+        // the lane from a lane of its own; 31 references 29 and tops it.
+        lane(3, ["29", "26", "16"], ["31", "30", "24", "22", "17"]),
+        lane(4, ["30"], []),
+        lane(4, ["28"], ["29"]),
+        lane(4, ["22"], ["26"]),
+        lane(4, ["20", "12"], []),
+        lane(5, ["3"], ["28", "24", "21", "18", "15", "6"]),
+        lane(6, ["25", "23"], []),
+        lane(6, ["15"], ["22", "16"]),
+        lane(7, ["2"], ["24", "13", "12", "11", "9", "7", "5", "3"]),
+        lane(8, ["14", "4"], ["24", "23", "17", "10", "9"]),
         lane(9, ["21"], ["24"]),
         lane(9, ["7"], ["19", "17", "8"]),
         lane(10, ["9"], ["17", "10"]),
