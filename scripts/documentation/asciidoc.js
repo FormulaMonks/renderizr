@@ -6,6 +6,7 @@ import {
 } from "@asciidoctor/core";
 import { AsciiDocConverter } from "./asciidoc-converter.js";
 import { asciiDocColorSchemeImages } from "./color-scheme.js";
+import { asciidocFootnotes } from "./footnotes.js";
 import { highlight } from "./highlight.js";
 import { asciiDocKeys } from "./keys.js";
 import { asciiDocMedia } from "./media.js";
@@ -173,6 +174,7 @@ export function createAsciiDoc() {
     };
 
     return asciidoc
+        .use(asciidocFootnotes)
         .use(asciiDocTaskLists)
         .use(asciiDocKeys)
         .use(asciiDocMedia)

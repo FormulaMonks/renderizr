@@ -5,6 +5,7 @@ import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
 import { colorSchemeImages } from "./color-scheme.js";
 import { emoji } from "./emoji.js";
+import { markdownFootnotes } from "./footnotes.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
 import { linkify } from "./linkify.js";
@@ -165,6 +166,7 @@ export function createMarkdown() {
             warning: CLASSES.alertWarning,
             caution: CLASSES.alertCaution,
         })
+        .use(markdownFootnotes)
         .use(linkify)
         .use(emoji)
         .use(singleTildeStrikethrough)

@@ -28,4 +28,10 @@ export const CLASSES = Object.freeze({
     /** An image that shows in the light or the dark color scheme only. */
     schemeLight: "rz-scheme-light",
     schemeDark: "rz-scheme-dark",
+    /** The list of a section's or a decision's footnotes, at its foot. */
+    footnotes: "rz-footnotes",
+    /** The `<sup>` around a reference to a footnote. */
+    footnoteRef: "rz-footnote-ref",
+    /** A link from a footnote back to one of its references. */
+    footnoteBackref: "rz-footnote-backref",
 });
