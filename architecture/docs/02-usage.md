@@ -230,6 +230,38 @@ A section or a decision embeds a view of its workspace the way Structurizr reads
 
 A key the workspace lacks shows a note that names it in the card's place. [Embedded views](04-reference.md#embedded-views) has the details.
 
+#### Mermaid blocks
+
+A Mermaid block in a section or a decision becomes a [Mermaid diagram](#mermaid-diagrams) on the diagrams page, and the section shows a diagram card in its place: the diagram's type, its title and "Open in diagrams". Write the block the way GitHub or Structurizr reads it:
+
+| Form                                         | Markdown                                                     | AsciiDoc                                                                |
+| -------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| A Mermaid block                              | A ` ```mermaid ` fence                                       | A `[mermaid]` block between `....` lines, or a `[source,mermaid]` block |
+| The link Structurizr's Mermaid plugin writes | `![](https://mermaid.ink/svg/<encoded>)`, `/img/` or `/png/` | `image::https://mermaid.ink/svg/<encoded>[]`                            |
+
+````markdown
+## Order flow
+
+```mermaid
+flowchart LR
+  Cart --> Checkout --> Payment
+```
+````
+
+```asciidoc
+== Order flow
+
+[mermaid]
+....
+flowchart LR
+  Cart --> Checkout --> Payment
+....
+```
+
+A flowchart, an ERD or a sequence diagram draws, with the workspace's styles, both color schemes and export, like any Mermaid diagram. The diagram takes the source's own `title`, else the heading above the block, else the section's or decision's title, and a title that repeats within one section or decision takes " (2)", " (3)". It belongs to the element whose documentation holds it, and its subtitle on the diagrams page links back to the section, or decision, and the heading the block came from. The model gains no element.
+
+Another Mermaid type, such as `pie` or `classDiagram`, shows a note that names it and the types Renderizr draws, with the first lines of its source fading out; a click opens the whole source. A block that fails to parse shows the same note with the parse error, and the build warns once for it. Neither adds a diagram. `pnpm dev` and edit mode reload a changed block on both pages. [Mermaid blocks](04-reference.md#mermaid-blocks) gives each card's address.
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:

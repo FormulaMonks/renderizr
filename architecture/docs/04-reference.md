@@ -168,6 +168,23 @@ The build turns each image of a section or a decision that embeds a view into a 
 - **Keys** come from the workspace that holds the section, so an element's documentation embeds the workspace's views, and another workspace's key in a set reads as a key the workspace lacks.
 - **A key the workspace lacks** shows a note in the card's place: "This workspace has no view with the key `<key>`."
 
+## Mermaid blocks
+
+Before the build reads Mermaid diagrams, it adds an image view for each flowchart, ERD or sequence diagram block in a section or a decision, and the section shows a diagram card in the block's place. The card names the diagram's type ("Flowchart", "Entity relationship diagram" or "Sequence diagram") and its title, and links to the view's address, `#/?page=diagrams&view=<key>`.
+
+| Block in                            | Key                             | Example                                  |
+| ----------------------------------- | ------------------------------- | ---------------------------------------- |
+| A section of the workspace          | `<section>/<title>`             | `05-flows/checkout-flow`                 |
+| A decision of the workspace         | `decision-<number>/<title>`     | `decision-2/context`                     |
+| A section or decision of an element | `<slug path>/<section>/<title>` | `internet-banking-system/05-flows/login` |
+
+- **`<section>`** is the section's id without its extension, and `<title>` the slug of the diagram's title, so `Checkout flow (2)` gives `checkout-flow-2`. A key another view already holds takes `-2`, then `-3`. Reordering blocks keeps each key, and retitling one changes it.
+- **The title** is the source's own `title` (frontmatter, or a sequence diagram's `title`), else the heading above the block, else the section's or decision's title. A title that repeats within one section or decision takes " (2)", " (3)".
+- **The view** is an image view whose `content` encodes the source under `mermaid.url`, `https://mermaid.ink` when the workspace names none, with the element of its documentation scope as its element. It keeps Mermaid's own view type, and the drawer sorts it among the image views the way Structurizr sorts them, created after the workspace's own views.
+- **The way back**: the diagram's subtitle reads "From the documentation:" and links to the section and the heading above the block, `#/?page=docs&section=<section>&subsection=<heading>`, or to the decision, `#/?page=adrs&adr=<number>`.
+- **A type Renderizr doesn't draw** shows a note in the card's place, "Renderizr doesn't draw Mermaid `<type>` diagrams. It draws flowcharts, entity relationship diagrams and sequence diagrams.", above the source. A source longer than four lines shows its first lines fading out, and a click opens it whole.
+- **A block that fails to parse** shows the same note with the parse error, "Renderizr can't draw this Mermaid flowchart: a parse error at line 2: the source ends too early.", and the build warns once: `Mermaid block under "<section> › <heading>": <reason>.`
+
 ## The Mermaid parser
 
 The build reads Mermaid source with `scripts/mermaid/parser.js`: Mermaid's own flowchart, ERD and sequence grammars and db classes, its frontmatter and directive reader and its theme code, cut loose from the rest of Mermaid and bundled into one ES module with Mermaid's MIT notice at the top. Only the build runs it; the page never carries it, and `mermaid` never enters Renderizr's dependencies.
