@@ -9,6 +9,7 @@
  *   documentation scope's resolvers.
  * - `links.js` and `images.js`: the link and image resolvers.
  * - `highlight.js`: the highlight.js that colors fenced code.
+ * - `sanitize.js`: the sanitizer of the author's raw HTML.
  * - `alerts.js`: GitHub's alerts.
  * - `asciidoc.js`: the asciidoctor.js every AsciiDoc render goes through,
  *   which a plugin extends with `asciidoc.use()`, and

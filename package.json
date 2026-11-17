@@ -103,6 +103,7 @@
         "markdown-it-anchor": "^10.0.0",
         "markdown-it-shift-headings": "^1.0.2",
         "preact": "^11.1.1",
-        "vite": "^8.3.6"
+        "vite": "^8.3.6",
+        "xss": "^1.0.17"
     }
 }
