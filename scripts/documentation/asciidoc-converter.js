@@ -1,6 +1,7 @@
 import { Html5Converter, Section } from "@asciidoctor/core";
 import { ALERT_ICONS } from "./alerts.js";
 import { CLASSES } from "./classes.js";
+import { sanitizeHtml } from "./sanitize.js";
 
 /**
  * asciidoctor.js's HTML5 converter, writing the markup the Markdown path
@@ -81,6 +82,14 @@ export class AsciiDocConverter extends Html5Converter {
         return [heading(node.level + 1, node.id, title), await node.content()]
             .filter(Boolean)
             .join("\n");
+    }
+
+    /**
+     * A passthrough block (`++++`, `[pass]`) is the author's raw HTML, so it
+     * goes through the sanitizer Markdown's raw HTML goes through.
+     */
+    async convert_pass(node) {
+        return sanitizeHtml(await node.content());
     }
 
     async convert_preamble(node) {

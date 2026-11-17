@@ -311,3 +311,40 @@ test("an image the resolver knows gets the embedded source, block or inline", as
     assert.ok(html.includes('alt="Edit mode"'), html);
     assert.ok(html.includes('<img src="logo.png" alt="Logo">'), html);
 });
+
+/* ---------------------------------------------------------------- raw HTML */
+
+test("a passthrough block's raw HTML is sanitized the way Markdown's is", async () => {
+    assert.equal(
+        await render(
+            '++++\n<kbd style="color:red" onclick="x()">K</kbd><script>alert(1)</script>\n++++\n',
+        ),
+        "<kbd>K</kbd>\n",
+    );
+    assert.equal(
+        await render(
+            '[pass]\n<details><summary>More</summary>Hidden.</details><iframe src="x"></iframe>\n',
+        ),
+        "<details><summary>More</summary>Hidden.</details>\n",
+    );
+});
+
+test("an inline passthrough's raw HTML is sanitized, the text around it kept", async () => {
+    assert.equal(
+        await render(
+            'Press pass:[<kbd onclick="x()">K</kbd>] or +++<a href="javascript:x()">this</a>+++ now.\n',
+        ),
+        "<p>Press <kbd>K</kbd> or <a>this</a> now.</p>\n",
+    );
+});
+
+test("asciidoctor.js's own markup around a passthrough stays as it renders", async () => {
+    const html = await render(
+        "NOTE: See pass:q[*bold* <script>x</script>] and https://example.com[a link].\n",
+    );
+
+    assert.ok(html.includes('<svg aria-hidden="true"'), html);
+    assert.ok(html.includes("<strong>bold</strong>"), html);
+    assert.ok(!html.includes("<script>"), html);
+    assert.ok(html.includes('<a href="https://example.com">a link</a>'), html);
+});

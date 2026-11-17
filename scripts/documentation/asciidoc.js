@@ -1,6 +1,12 @@
-import { Extensions, load, SyntaxHighlighterBase } from "@asciidoctor/core";
+import {
+    AbstractNode,
+    Extensions,
+    load,
+    SyntaxHighlighterBase,
+} from "@asciidoctor/core";
 import { AsciiDocConverter } from "./asciidoc-converter.js";
 import { highlight } from "./highlight.js";
+import { sanitizeHtml } from "./sanitize.js";
 
 /**
  * Whether `document`, a section or a decision, is AsciiDoc: its `format`
@@ -29,6 +35,31 @@ class HighlightJs extends SyntaxHighlighterBase {
 
 const escapeHtml = (value) =>
     value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * An inline passthrough (`pass:[…]`, `+++…+++`) is the author's raw HTML
+ * too, but asciidoctor.js puts it back into the text during substitution,
+ * where no converter method sees it. So the passthroughs of a document the
+ * build renders are sanitized just before asciidoctor.js puts them back,
+ * and before their own substitutions run, so the markup those write (a
+ * `pass:q[*bold*]`'s `<strong>`) stays whole. A passthrough that escapes its
+ * text (`+…+`, `pass:c[…]`) holds no HTML to sanitize. A document rendered
+ * by anything else in the process is left alone.
+ */
+const sanitized = new WeakSet();
+const restorePassthroughs = AbstractNode.prototype.restorePassthroughs;
+AbstractNode.prototype.restorePassthroughs = function (text) {
+    if (this.document?.converter instanceof AsciiDocConverter) {
+        for (const pass of this.passthroughs ?? []) {
+            if (sanitized.has(pass)) continue;
+            sanitized.add(pass);
+            if (!pass.subs?.includes("specialcharacters")) {
+                pass.text = sanitizeHtml(pass.text);
+            }
+        }
+    }
+    return restorePassthroughs.call(this, text);
+};
 
 /**
  * The document attributes every render sets. Ids follow GitHub's AsciiDoc
