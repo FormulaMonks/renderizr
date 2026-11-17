@@ -164,6 +164,23 @@ function writeLabelState(state: Labels): void {
     writeSetting(DIAGRAM_LABELS_STORAGE_KEY, JSON.stringify(state));
 }
 
+const escapeHtml = (value: string): string =>
+    value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+/**
+ * The subtitle of a Mermaid diagram the build made from a Mermaid block in
+ * documentation: a link back to the section, or decision, and the heading
+ * the block came from (spec #342, _Mermaid blocks_).
+ */
+function originLine(origin: ModelView["origin"]): string {
+    if (!origin?.address) return "";
+    return `<p>From the documentation: <a href="${escapeHtml(origin.address)}">${escapeHtml(origin.title)}</a></p>`;
+}
+
 export default class CurrentView extends Component {
     #engine: ToolbarEngine;
     #model: WorkspaceModel;
@@ -623,6 +640,7 @@ export default class CurrentView extends Component {
             <div class="${styles.description}">
                 <h2>${name || kind}${kind && name ? `<span class="${styles.kind}">${kind}</span>` : ""}</h2>
                 ${description ? `<p>${description}</p>` : ""}
+                ${originLine(view.origin)}
                 ${
                     author
                         ? `<small>Author: ${author.replace(/(.*)<(.+@.+)>/, `<a href="mailto:$2">$1</a>`)}</small>`
