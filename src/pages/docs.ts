@@ -1,5 +1,6 @@
 import { openAround } from "../components/collapsed-sections";
 import MarkdownRenderer from "../components/markdown-renderer";
+import PageFootnotes, { isFootnotes } from "../components/page-footnotes";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
 import {
@@ -117,7 +118,10 @@ const escapeHtml = (value: string) =>
  * the first of them is the section's intro.
  */
 function splitIntoPages(root: HTMLElement | null): PageGroup[] {
-    const blocks = Array.from(root?.children ?? []) as HTMLElement[];
+    // The footnotes list belongs to whichever page is on screen.
+    const blocks = (Array.from(root?.children ?? []) as HTMLElement[]).filter(
+        (block) => !isFootnotes(block),
+    );
     if (!blocks.length) return [];
 
     const headings = blocks.filter(isHeading);
@@ -297,6 +301,7 @@ export default class Docs extends Page {
     #renderedSectionId: string | null = null;
     /** Heading id of the rendered section -> the page that holds it. */
     #headingPages = new Map<string, number>();
+    #footnotes: PageFootnotes | null = null;
     #currentIndex = -1;
     #pendingHeadingId: string | null = null;
 
@@ -497,9 +502,10 @@ export default class Docs extends Page {
         if (section.html?.trim()) this.#viewer.setContent(section.html);
         else content.innerHTML = "";
 
-        this.#groups = splitIntoPages(
-            content.querySelector<HTMLElement>(".markdown-renderer") ?? content,
-        );
+        const root =
+            content.querySelector<HTMLElement>(".markdown-renderer") ?? content;
+        this.#groups = splitIntoPages(root);
+        this.#footnotes = new PageFootnotes(root);
         // After the split, so the boundaries are still decided by the levels
         // the author wrote.
         normalizeHeadingLevels(this.#groups);
@@ -688,6 +694,7 @@ export default class Docs extends Page {
         );
 
         this.#paintGroup(group);
+        this.#footnotes?.show(group?.nodes ?? []);
 
         const breadcrumb = document.getElementById("docs-breadcrumb");
         if (breadcrumb) {
@@ -776,6 +783,7 @@ export default class Docs extends Page {
         `;
 
         this.#groups = [];
+        this.#footnotes = null;
         this.#headingPages.clear();
         this.#renderedSectionId = null;
         this.#currentIndex = -1;
@@ -834,6 +842,7 @@ export default class Docs extends Page {
         this.#menu = null;
         this.#viewer = null;
         this.#groups = [];
+        this.#footnotes = null;
         this.#headingPages.clear();
         this.#renderedSectionId = null;
         this.#currentIndex = -1;
