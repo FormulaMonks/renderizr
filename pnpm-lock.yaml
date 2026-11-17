@@ -38,6 +38,9 @@ importers:
       markdown-it-anchor:
         specifier: ^10.0.0
         version: 10.1.0(markdown-it@15.0.3)
+      markdown-it-footnote:
+        specifier: ^4.0.0
+        version: 4.0.0
       markdown-it-shift-headings:
         specifier: ^1.0.2
         version: 1.0.2
@@ -1018,6 +1021,9 @@ packages:
       '@types/markdown-it':
         optional: true
 
+  markdown-it-footnote@4.0.0:
+    resolution: {integrity: sha512-WYJ7urf+khJYl3DqofQpYfEYkZKbmXmwxQV8c8mO/hGIhgZ1wOe7R4HLFNwqx7TjILbnC98fuyeSsin19JdFcQ==}
+
   markdown-it-shift-headings@1.0.2:
     resolution: {integrity: sha512-drz+jnO+okFGJmOY7KGlEwbGJcPLkNR2aab8SyIN4df4Zb1hy7/+wLf08EN1ozNuD9q79jbjJ21MD9wdNZUWJw==}
 
@@ -1932,6 +1938,8 @@ snapshots:
   markdown-it-anchor@10.1.0(markdown-it@15.0.3):
     dependencies:
       markdown-it: 15.0.3
+
+  markdown-it-footnote@4.0.0: {}
 
   markdown-it-shift-headings@1.0.2: {}
 

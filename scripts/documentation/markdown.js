@@ -3,6 +3,7 @@ import anchor from "markdown-it-anchor";
 import shiftHeadings from "markdown-it-shift-headings";
 import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
+import { markdownFootnotes } from "./footnotes.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
 import { markdownMath } from "./math.js";
@@ -162,7 +163,8 @@ export function createMarkdown() {
             warning: CLASSES.alertWarning,
             caution: CLASSES.alertCaution,
         })
-        .use(markdownMath);
+        .use(markdownMath)
+        .use(markdownFootnotes);
 
     // Every table gets its own scroll container, so a seven-column table
     // scrolls inside the prose measure instead of dragging the whole page

@@ -21,4 +21,10 @@ export const CLASSES = Object.freeze({
     unresolvedLink: "rz-unresolved-link",
     /** A display math expression, which scrolls inside its own block. */
     mathDisplay: "rz-math-display",
+    /** The list of a section's or a decision's footnotes, at its foot. */
+    footnotes: "rz-footnotes",
+    /** The `<sup>` around a reference to a footnote. */
+    footnoteRef: "rz-footnote-ref",
+    /** A link from a footnote back to one of its references. */
+    footnoteBackref: "rz-footnote-backref",
 });

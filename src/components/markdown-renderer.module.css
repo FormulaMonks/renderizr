@@ -579,3 +579,61 @@ separator has to be matched with the id here too. */
     overscroll-behavior-x: contain;
     scrollbar-width: thin;
 }
+
+/* ----------------------------------------------------------- footnotes --- */
+/*
+ * A reference is a small raised number, and the footnotes sit in a muted
+ * list under a rule at the foot of the section, the decision or, on a split
+ * section, the page (ADR 31). The list keeps the prose measure, and each
+ * item its number from the whole section. A reference and a footnote are
+ * both anchor targets, so both clear the sticky header.
+ */
+:global(.rz-footnote-ref) {
+    font-size: 0.75em;
+    line-height: 0;
+
+    & > a {
+        padding: 0 0.1em;
+        text-decoration: none;
+        scroll-margin-top: calc(var(--header-height, 5rem) + 1rem);
+    }
+
+    & > a:hover,
+    & > a:focus-visible {
+        text-decoration: underline;
+    }
+}
+
+:global(.rz-footnotes) {
+    max-width: var(--md-measure);
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: 0.875rem;
+
+    & > ol {
+        margin: 0 0 0 1.5rem;
+    }
+
+    & li {
+        scroll-margin-top: calc(var(--header-height, 5rem) + 1rem);
+    }
+
+    & li > p {
+        margin-bottom: 0.25rem;
+    }
+
+    & li::marker {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+:global(.rz-footnote-backref) {
+    margin-left: 0.15em;
+    text-decoration: none;
+
+    & sup {
+        font-size: 0.7em;
+    }
+}
