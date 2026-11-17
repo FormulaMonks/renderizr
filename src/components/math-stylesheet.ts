@@ -1,16 +1,24 @@
-// Temml's stylesheet for the MathML the build writes (ADR 31), its font
-// inlined as a data URI where the build inlines assets. `?inline` keeps it
-// out of `renderizr.css`, so it rides in the documentation runtime and a
-// render with no documentation leaves it out.
+/**
+ * Temml's stylesheet for the MathML the build writes (ADR 31), its font
+ * inlined as a data URI where the build inlines assets. `?inline` keeps it
+ * out of `renderizr.css`, so it rides in the documentation runtime and a
+ * render with no documentation leaves it out. The page adopts it as a
+ * constructed stylesheet, the way branding adopts a font's faces, since the
+ * page writes no `<style>` element at runtime.
+ */
 import css from "temml/dist/Temml-Local.css?inline";
 
-const ID = "rz-math-stylesheet";
+/** Temml's stylesheet, made the first time a document shows. */
+let sheet: CSSStyleSheet | null = null;
 
-/** Add Temml's stylesheet to the page, once. */
+/** Adopt Temml's stylesheet in the page, once. */
 export function addMathStylesheet(): void {
-    if (document.getElementById(ID)) return;
-    const style = document.createElement("style");
-    style.id = ID;
-    style.textContent = css;
-    document.head.appendChild(style);
+    if (typeof CSSStyleSheet !== "function" || !document.adoptedStyleSheets)
+        return;
+    if (!sheet) {
+        sheet = new CSSStyleSheet();
+        sheet.replaceSync(css);
+    }
+    if (document.adoptedStyleSheets.includes(sheet)) return;
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
 }

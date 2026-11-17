@@ -74,17 +74,50 @@ test("empty content leaves whatever was there alone", () => {
     assert.equal(element.innerHTML, before);
 });
 
-test("showing a document adds Temml's stylesheet and font to the page once", () => {
+test("showing a document adopts Temml's stylesheet and font once, and writes no style element", () => {
     dom.reset();
-    new MarkdownRenderer(dom.mount("one")).setContent(ONE);
-    new MarkdownRenderer(dom.mount("two")).setContent(ONE);
+    const constructed = globalThis.CSSStyleSheet;
+    // The test DOM has no CSSOM: a sheet that keeps the CSS it was given.
+    globalThis.CSSStyleSheet = class {
+        css = "";
+        replaceSync(css) {
+            this.css = css;
+        }
+    };
+    dom.document.adoptedStyleSheets = [];
+    try {
+        new MarkdownRenderer(dom.mount("one")).setContent(ONE);
+        new MarkdownRenderer(dom.mount("two")).setContent(ONE);
 
-    const styles = dom.document.head.childNodes.filter(
-        (node) => node.tagName === "STYLE",
-    );
-    assert.equal(styles.length, 1);
-    assert.match(styles[0].textContent, /font-family: 'Temml'/);
-    assert.match(styles[0].textContent, /Temml\.woff2/);
+        const sheets = dom.document.adoptedStyleSheets;
+        assert.equal(sheets.length, 1, "Temml's sheet was adopted twice");
+        assert.match(sheets[0].css, /font-family: 'Temml'/);
+        assert.match(sheets[0].css, /Temml\.woff2/);
+        assert.equal(dom.document.querySelectorAll("style").length, 0);
+    } finally {
+        globalThis.CSSStyleSheet = constructed;
+        delete dom.document.adoptedStyleSheets;
+    }
+});
+
+test("Temml's stylesheet joins the sheets the page already adopted", () => {
+    dom.reset();
+    const constructed = globalThis.CSSStyleSheet;
+    globalThis.CSSStyleSheet = class {
+        replaceSync() {}
+    };
+    const font = { font: "Inter" };
+    dom.document.adoptedStyleSheets = [font];
+    try {
+        new MarkdownRenderer(dom.mount("one")).setContent(ONE);
+
+        const sheets = dom.document.adoptedStyleSheets;
+        assert.equal(sheets.length, 2);
+        assert.equal(sheets[0], font, "the branding font's sheet went");
+    } finally {
+        globalThis.CSSStyleSheet = constructed;
+        delete dom.document.adoptedStyleSheets;
+    }
 });
 
 test("a renderer with no element is inert rather than fatal", () => {
