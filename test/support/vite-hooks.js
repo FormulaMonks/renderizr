@@ -7,7 +7,7 @@
  *
  *   1. It is TypeScript. The transform is done here with Vite's Oxc
  *      transform, the same transformer the real build uses.
- *   2. Imports are extensionless (`./markdown-alerts`), which TypeScript
+ *   2. Imports are extensionless (`./markdown-renderer`), which TypeScript
  *      resolves and Node does not.
  *   3. Two import forms only exist inside Vite: CSS modules
  *      (`./x.module.css` -> an object of class names) and `?raw`

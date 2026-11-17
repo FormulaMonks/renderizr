@@ -1,21 +1,19 @@
 /**
- * `src/components/asciidoc.ts` — the AsciiDoc-to-Markdown pass that
- * `src/pages/docs.ts` runs over any documentation section whose filename ends
- * in `.adoc` before handing it to the markdown renderer.
+ * `scripts/documentation/asciidoc.js` — the AsciiDoc-to-Markdown pass that
+ * the build runs over any documentation section whose filename ends in
+ * `.adoc` before handing it to markdown-it.
  *
  * It is a pure `string -> string` function, so these are exact-output tests.
  * It is deliberately not a conformant AsciiDoc processor: what it does not
  * recognize has to pass through unharmed, and there are tests for that too.
- *
- * The file lives in `scripts/` because `pnpm test` globs `scripts/*.test.js`.
  */
 
 import assert from "node:assert/strict";
-import { importSrc, srcTest as test } from "./support/ts.js";
-
-const { asciidocToMarkdown, isAsciiDoc } = await importSrc(
-    "components/asciidoc",
-);
+import { test } from "node:test";
+import {
+    asciidocToMarkdown,
+    isAsciiDoc,
+} from "../scripts/documentation/asciidoc.js";
 
 /* --------------------------------------------------------------- detection */
 

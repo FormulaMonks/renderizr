@@ -62,7 +62,7 @@
     &
         > :global(.markdown-renderer)
         > :is(p, ul, ol, dl, blockquote, hr, h1, h2, h3, h4, h5, h6),
-    & > :global(.markdown-renderer) > .alert {
+    & > :global(.markdown-renderer) > :global(.rz-alert) {
         max-width: var(--md-measure);
     }
 
@@ -227,7 +227,7 @@ separator has to be matched with the id here too. */
  * (::before / ::after) anchored across the whole scroll range while still
  * letting a prose-heavy table wrap at the available width.
  */
-.tableWrap {
+:global(.rz-table) {
     display: grid;
     grid-template-columns: minmax(min-content, 1fr);
     /* Free to use the full 72ch measure, never to overflow it. */
@@ -239,7 +239,7 @@ separator has to be matched with the id here too. */
     scrollbar-width: thin;
 }
 
-.tableWrap > table {
+:global(.rz-table) > table {
     grid-area: 1 / 1;
     /* Shrink to the content — a table of `ID | Qty | OK` has no business
     sprawling across the whole measure — but never past the available width.
@@ -255,8 +255,8 @@ separator has to be matched with the id here too. */
     line-height: 1.5;
 }
 
-.tableWrap th,
-.tableWrap td {
+:global(.rz-table) th,
+:global(.rz-table) td {
     padding: 0.5rem 0.8rem;
     border: 1px solid var(--color-border);
     vertical-align: top;
@@ -274,18 +274,18 @@ separator has to be matched with the id here too. */
     overflow-wrap: anywhere;
 }
 
-.tableWrap th {
+:global(.rz-table) th {
     background: var(--color-surface-alt);
     font-weight: 600;
     color: var(--color-muted);
 }
 
-.tableWrap tbody tr:nth-child(2n) td {
+:global(.rz-table) tbody tr:nth-child(2n) td {
     background: color-mix(in srgb, var(--color-surface-alt) 45%, transparent);
 }
 
-.tableWrap td > :last-child,
-.tableWrap th > :last-child {
+:global(.rz-table) td > :last-child,
+:global(.rz-table) th > :last-child {
     margin-bottom: 0;
 }
 
@@ -294,8 +294,8 @@ separator has to be matched with the id here too. */
  * scroll to. Browsers without scroll-driven animations fall back to the
  * (always visible) thin scrollbar.
  */
-.tableWrap::before,
-.tableWrap::after {
+:global(.rz-table)::before,
+:global(.rz-table)::after {
     content: "";
     grid-area: 1 / 1;
     position: sticky;
@@ -305,13 +305,13 @@ separator has to be matched with the id here too. */
     opacity: 0;
 }
 
-.tableWrap::before {
+:global(.rz-table)::before {
     left: 0;
     justify-self: start;
     background: linear-gradient(to right, var(--md-table-fade), transparent);
 }
 
-.tableWrap::after {
+:global(.rz-table)::after {
     right: 0;
     justify-self: end;
     background: linear-gradient(to left, var(--md-table-fade), transparent);
@@ -338,12 +338,12 @@ separator has to be matched with the id here too. */
 }
 
 @supports (animation-timeline: scroll(x)) {
-    .tableWrap::before {
+    :global(.rz-table)::before {
         animation: mdTableFadeStart linear both;
         animation-timeline: scroll(nearest x);
     }
 
-    .tableWrap::after {
+    :global(.rz-table)::after {
         animation: mdTableFadeEnd linear both;
         animation-timeline: scroll(nearest x);
     }
@@ -351,11 +351,11 @@ separator has to be matched with the id here too. */
 
 /* -------------------------------------------------------------- alerts --- */
 /*
- * `> [!NOTE]` and friends. `markdown-alerts.ts` swaps the blockquote tag for a
- * <div>, so a blockquote without a marker keeps the plain quote treatment
+ * `> [!NOTE]` and friends. The build (`scripts/documentation/alerts.js`)
+ * swaps the blockquote tag for a <div>, so a blockquote without a marker keeps the plain quote treatment
  * above without any :not() gymnastics here.
  */
-.alert {
+:global(.rz-alert) {
     --md-alert-accent: var(--color-muted);
 
     margin: 1.35rem 0;
@@ -366,11 +366,11 @@ separator has to be matched with the id here too. */
     color: var(--color-foreground);
 }
 
-.alert > :last-child {
+:global(.rz-alert) > :last-child {
     margin-bottom: 0;
 }
 
-.alertTitle {
+:global(.rz-alert-title) {
     display: flex;
     align-items: center;
     gap: 0.45rem;
@@ -380,30 +380,30 @@ separator has to be matched with the id here too. */
     color: var(--md-alert-accent);
 }
 
-.alertTitle svg {
+:global(.rz-alert-title) svg {
     flex: 0 0 auto;
     width: 1em;
     height: 1em;
     fill: currentColor;
 }
 
-.alertNote {
+:global(.rz-alert-note) {
     --md-alert-accent: var(--color-alert-note);
 }
 
-.alertTip {
+:global(.rz-alert-tip) {
     --md-alert-accent: var(--color-alert-tip);
 }
 
-.alertImportant {
+:global(.rz-alert-important) {
     --md-alert-accent: var(--color-alert-important);
 }
 
-.alertWarning {
+:global(.rz-alert-warning) {
     --md-alert-accent: var(--color-alert-warning);
 }
 
-.alertCaution {
+:global(.rz-alert-caution) {
     --md-alert-accent: var(--color-alert-caution);
 }
 
@@ -540,8 +540,8 @@ separator has to be matched with the id here too. */
 
 /* --------------------------------------------------------- small screens --- */
 @media (max-width: 767px) {
-    .tableWrap th,
-    .tableWrap td {
+    :global(.rz-table) th,
+    :global(.rz-table) td {
         padding: 0.45rem 0.6rem;
         /* Scrolling the wrapper beats unreadable one-character columns. */
         min-width: 7rem;
@@ -557,7 +557,7 @@ separator has to be matched with the id here too. */
  * — keeps its text but has nowhere to go. The dotted underline and the title
  * say so, rather than leaving a link that navigates out of the site.
  */
-.unresolvedLink {
+:global(.rz-unresolved-link) {
     text-decoration: underline dotted;
     text-decoration-color: var(--color-muted);
     text-underline-offset: 0.2em;

@@ -1,6 +1,6 @@
 /**
- * `src/components/doc-images.ts`: how an image a documentation file shows
- * becomes the copy Structurizr embedded in the workspace.
+ * `scripts/documentation/images.js`: how an image a documentation file shows
+ * becomes the copy Structurizr embedded in the workspace, in the build.
  *
  * Structurizr's `!docs` and `!adrs` importers read every image a file
  * references into `documentation.images`, named by its path relative to the
@@ -9,9 +9,8 @@
  */
 
 import assert from "node:assert/strict";
-import { importSrc, srcTest as test } from "./support/ts.js";
-
-const { createImageResolver } = await importSrc("components/doc-images");
+import { test } from "node:test";
+import { createImageResolver } from "../scripts/documentation/images.js";
 
 const resolve = createImageResolver([
     { name: "edit-mode.png", type: "image/png", content: "iVBORw0KGgo=" },

@@ -15,11 +15,11 @@ import { siblingSlugs, slugOf } from "./slug.js";
  * docs page, its links and the activation targets, so none of them can
  * disagree about it.
  *
- * @param {{ id?: string, filename: string }} section
+ * @param {{ id?: string, filename?: string }} section
  * @returns {string}
  */
 export const sectionId = (section) =>
-    section.id ?? section.filename.replace(/\.md$/, "");
+    section.id ?? (section.filename ?? "").replace(/\.md$/, "");
 
 /**
  * The id a document of the documentation scope at slug path `path` is

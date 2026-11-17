@@ -1,6 +1,7 @@
 /**
  * A small AsciiDoc-to-Markdown pass for documentation sections written as
- * `.adoc`. Feeding those straight to the Markdown parser turns the whole file
+ * `.adoc`, which the build step runs before markdown-it until asciidoctor.js
+ * takes its place. Feeding those straight to the Markdown parser turns the whole file
  * into one bold wall of `:toc: macro` and `|===`, which is worse than useless.
  *
  * This covers the constructs that actually appear in architecture
@@ -12,14 +13,18 @@
 
 const ADMONITIONS = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
 
-export function asciidocToMarkdown(source: string): string {
-    const out: string[] = [];
+/**
+ * @param {string} source
+ * @returns {string}
+ */
+export function asciidocToMarkdown(source) {
+    const out = [];
     const lines = source.replace(/\r\n/g, "\n").split("\n");
 
-    let inDelimited: string | null = null;
+    let inDelimited = null;
     let pendingLanguage = "";
     let inTable = false;
-    let tableRow: string[] = [];
+    let tableRow = [];
     let tableHeaderWritten = false;
 
     const flushTableRow = () => {
@@ -130,11 +135,11 @@ export function asciidocToMarkdown(source: string): string {
                 // but AsciiDoc nests by repeating the marker.
                 .replace(
                     /^(\*{2,})\s+/,
-                    (_, stars: string) => `${"  ".repeat(stars.length - 1)}* `,
+                    (_, stars) => `${"  ".repeat(stars.length - 1)}* `,
                 )
                 .replace(
                     /^(\.{2,})\s+/,
-                    (_, dots: string) => `${"  ".repeat(dots.length - 1)}1. `,
+                    (_, dots) => `${"  ".repeat(dots.length - 1)}1. `,
                 )
                 .replace(/^\.\s+/, "1. ")
                 // Inline monospace and bold use the same glyphs as Markdown,
@@ -149,4 +154,5 @@ export function asciidocToMarkdown(source: string): string {
     return out.join("\n");
 }
 
+/** Whether `filename` names an AsciiDoc file. */
 export const isAsciiDoc = (filename = "") => /\.adoc$/i.test(filename);

@@ -1,5 +1,5 @@
 /**
- * `src/components/markdown-alerts.ts` — the markdown-it plugin that turns
+ * `scripts/documentation/alerts.js` — the markdown-it plugin that turns
  * GitHub-flavored `> [!NOTE]` blockquotes into alert panels.
  *
  * Exercised against a bare `markdown-it` with single-letter class names, so
@@ -7,20 +7,16 @@
  * hunt. SVG icons are collapsed to `[svg]` except in the test that is about
  * the icons.
  *
- * The file lives in `scripts/` because `pnpm test` globs `scripts/*.test.js`.
  */
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import markdownIt from "markdown-it";
-import { importSrc, srcTest as test } from "./support/ts.js";
+import { test } from "node:test";
+import markdownItAlerts from "../scripts/documentation/alerts.js";
 
 const require = createRequire(import.meta.url);
-
-const { default: markdownItAlerts } = await importSrc(
-    "components/markdown-alerts",
-);
 
 const CLASS_NAMES = {
     alert: "A",

@@ -1,12 +1,13 @@
-import type { DocumentationImage } from "../types/structurizr-documentation";
-
-/** The embedded source for an image path, or `undefined` to leave it. */
-export type ImageResolver = (src: string) => string | undefined;
+/**
+ * The embedded source for an image path, or `undefined` to leave it.
+ *
+ * @typedef {(src: string) => string | undefined} ImageResolver
+ */
 
 // `https:`, `data:`… — anything with a scheme is somewhere else.
 const HAS_SCHEME = /^[a-z][a-z\d+.-]*:/i;
 
-const decode = (value: string) => {
+const decode = (value) => {
     try {
         return decodeURIComponent(value);
     } catch {
@@ -27,11 +28,12 @@ const decode = (value: string) => {
  * An element's documentation scope passes its own images, then the workspace's as
  * `fallback`: an image its own documentation lacks comes from the
  * workspace's.
+ *
+ * @param {{ name: string, type: string, content: string }[] | undefined} images
+ * @param {{ name: string, type: string, content: string }[]} [fallback]
+ * @returns {ImageResolver}
  */
-export function createImageResolver(
-    images: DocumentationImage[] | undefined,
-    fallback: DocumentationImage[] = [],
-): ImageResolver {
+export function createImageResolver(images, fallback = []) {
     const sources = new Map(
         [...fallback, ...(images ?? [])].map(({ name, type, content }) => [
             name,

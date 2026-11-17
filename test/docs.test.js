@@ -10,13 +10,14 @@
  * assert.
  *
  * The model is built from the *rendered* headings rather than the markdown, so
- * the tests feed real markdown through the real renderer and read the real
- * elements back.
+ * the tests feed real markdown through the build step that renders it
+ * (`support/documentation.js`) and read the real elements back.
  */
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach } from "node:test";
+import { rendered } from "./support/documentation.js";
 import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
@@ -75,9 +76,14 @@ beforeEach(() => {
     history.replace({ search: "?page=docs", hash: "" });
 });
 
-/** The documentation scopes of a workspace whose own sections are these. */
+/**
+ * The documentation scopes of a workspace whose own sections are these, as
+ * the build renders them.
+ */
 const workspaceOf = (sections) =>
-    documentationScopes({ name: "Guidebook", documentation: { sections } });
+    documentationScopes(
+        rendered({ name: "Guidebook", documentation: { sections } }),
+    );
 
 const renderPage = (sections = [GUIDE, OPERATIONS]) => {
     const page = new Docs(host, "docs", workspaceOf(sections));
@@ -497,7 +503,7 @@ test("a heading with an ampersand is a page the menu can open", () => {
     assert.equal(params().get("subsection"), "customs--documentation-terms");
 });
 
-test("links between sections are routed through the resolver it was given", () => {
+test("links between sections arrive resolved from the build", () => {
     const page = new Docs(
         host,
         "docs",
@@ -508,10 +514,6 @@ test("links between sections are routed through the resolver it was given", () =
             },
             OPERATIONS,
         ]),
-        () => (href) =>
-            href === "02-operations.md"
-                ? "#/?page=docs&section=02-operations"
-                : undefined,
     );
     page.render();
     menuItem("Configure").click();
@@ -581,12 +583,11 @@ const bigBank = (own = [GUIDE]) => ({
     },
 });
 
-const renderScopes = (workspace = bigBank(), ...resolvers) => {
+const renderScopes = (workspace = bigBank()) => {
     const page = new Docs(
         host,
         "docs",
-        documentationScopes(workspace),
-        ...resolvers,
+        documentationScopes(rendered(workspace)),
     );
     page.render();
     return page;
@@ -764,29 +765,17 @@ test("an unknown section in a known scope opens that scope's first page", () => 
     assert.deepEqual(visible(), ["H1:Context", "P:Why it exists."]);
 });
 
-test("each scope's sections render through the link and image resolvers of their own scope", () => {
-    const asked = [];
+test("each scope's sections arrive with their links and images resolved in their own scope", () => {
     const workspace = bigBank();
     workspace.model.softwareSystems[0].documentation.sections[0] = section(
         "01-context.md",
         1,
         "# Context\n\nSee [deployment](02-deployment.md).\n\n![Map](map.png)\n",
     );
-    renderScopes(
-        workspace,
-        (scope) => (href) => {
-            asked.push(`link ${scope}`);
-            return href === "02-deployment.md"
-                ? `#/?page=docs&section=${scope}/02-deployment`
-                : undefined;
-        },
-        (scope) => (src) => {
-            asked.push(`image ${scope}`);
-            return src === "map.png"
-                ? `data:image/png;base64,${scope}`
-                : undefined;
-        },
-    );
+    workspace.model.softwareSystems[0].documentation.images = [
+        { name: "map.png", type: "image/png", content: "SUJT" },
+    ];
+    renderScopes(workspace);
 
     menuItem("Internet Banking System").click();
 
@@ -798,9 +787,8 @@ test("each scope's sections render through the link and image resolvers of their
     );
     assert.equal(
         document.querySelector(".markdown-renderer img")?.getAttribute("src"),
-        "data:image/png;base64,internet-banking-system",
+        "data:image/png;base64,SUJT",
     );
-    assert.ok(asked.includes("link internet-banking-system"), `${asked}`);
 });
 
 /* ------------------------------------------------ the committed workspace */

@@ -158,9 +158,10 @@ test("index.html is titled after the workspace and links the built assets", asyn
  * nothing about whether the application renders it, and they would still pass
  * against an SPA that threw on boot — so they are named for what they check.
  *
- * What the pages actually do with that data is covered by the unit tests in
- * `markdown-renderer.test.js`, `markdown-alerts.test.js` and
- * `asciidoc.test.js`, which import `src/` directly.
+ * What the build renders of the documentation is covered by the unit tests
+ * in `documentation.test.js`, `test/markdown.test.js`,
+ * `test/markdown-alerts.test.js` and `test/asciidoc.test.js`, and what the
+ * pages do with it by `test/docs.test.js` and `test/adrs.test.js`.
  */
 
 /**
@@ -241,10 +242,37 @@ test("the ADR and documentation pages are shipped in a chunk of their own", asyn
     assert.ok(chunk, `no documentation chunk in ${assets.join(", ")}`);
     const code = await readFile(join(out, "assets", chunk), "utf-8");
     const entry = await entryChunk(out);
-    // The decision graph's dot marks, and highlight.js's class prefix.
-    for (const marker of ['data-mark="dot"', "hljs-"]) {
-        assert.ok(code.includes(marker), `${chunk} lacks ${marker}`);
+    // The decision graph's dot marks, and the documentation pager.
+    for (const marker of DOCS_MARKERS) {
+        assert.ok(unbroken(code).includes(marker), `${chunk} lacks ${marker}`);
         assert.ok(!entry.includes(marker), `the entry chunk holds ${marker}`);
+    }
+});
+
+test("no chunk of a build carries markdown-it or highlight.js, which run in the build (ADR 31)", async () => {
+    const { out } = await multiFile();
+    const dir = join(out, "assets");
+    for (const file of (await readdir(dir)).filter((name) =>
+        name.endsWith(".js"),
+    )) {
+        const code = unbroken(await readFile(join(dir, file), "utf-8"));
+        for (const marker of RENDERER_MARKERS)
+            assert.ok(!code.includes(marker), `${file} holds ${marker}`);
+    }
+});
+
+test("the single file holds each section and decision as the HTML the build rendered", async () => {
+    const { out } = await singleFile();
+    const html = await readFile(join(out, "index.html"), "utf-8");
+
+    for (const rendered of [
+        '<h2 id="overview" tabindex="-1">Overview</h2>',
+        '<h3 id="context" tabindex="-1">Context</h3>',
+    ]) {
+        assert.ok(
+            html.includes(rendered),
+            `the single file lacks ${JSON.stringify(rendered)}`,
+        );
     }
 });
 
@@ -411,21 +439,16 @@ test("the single file still carries the whole application", async () => {
     );
 });
 
-test("the single file keeps the blank lines in the documentation and decisions it embeds", async () => {
+test("the single file keeps the line breaks in the documentation it embeds", async () => {
     const { out } = await singleFile();
     const html = await readFile(join(out, "index.html"), "utf-8");
 
-    // A blank line is Markdown: without it, paragraphs merge and a
-    // `<details>` block swallows the rest of its section.
-    for (const markdown of [
-        "# Overview\n\nThe fixture workspace exists",
-        "Date: 2024-01-15\n\n## Status\n\nAccepted\n\n## Context\n\n",
-    ]) {
-        assert.ok(
-            html.includes(markdown),
-            `the single file lost the blank lines in ${JSON.stringify(markdown)}`,
-        );
-    }
+    // The build renders the Markdown, so what has to survive now is the
+    // HTML's own line breaks: a `<pre>` shows every one.
+    assert.ok(
+        html.includes("rendered\nwithout reaching the network."),
+        "the single file lost the line breaks in the overview",
+    );
 });
 
 test("the logo is inlined into the single file as a data URI", async () => {
@@ -650,7 +673,6 @@ test("--artifact's manifest names the Renderizr version and lists itself last, w
             "index.html": "shell",
             "renderizr.js": "runtime",
             "renderizr-vendor.js": "runtime",
-            "renderizr-rolldown-runtime.js": "runtime",
             "renderizr.css": "runtime",
             "workspace.json": "workspace",
             "manifest.json": "shell",
@@ -1060,10 +1082,17 @@ const fixtureArtifact = once(() =>
 const DOCS_RUNTIME = "renderizr-docs.js";
 
 /**
- * Text only the documentation stack holds: markdown-it's link validator,
- * highlight.js's class prefix and the decision graph's dot marks.
+ * Text only the documentation stack holds: the decision graph's dot marks
+ * and the documentation pager.
  */
-const DOCS_MARKERS = ["markdown-it", "hljs-", 'data-mark="dot"'];
+const DOCS_MARKERS = ['data-mark="dot"', "docs-pager"];
+
+/**
+ * Text only markdown-it and highlight.js hold: markdown-it's name and its
+ * setext heading rule, and highlight.js's language registry. Both render
+ * documentation in the build, so no file of the page carries them.
+ */
+const RENDERER_MARKERS = ["markdown-it", "lheading", "registerLanguage"];
 
 test("--artifact writes no renderizr-docs.js for a workspace with no documentation or decisions, and the manifest lists none", async () => {
     const { out } = await bigBankArtifact();
@@ -1133,15 +1162,25 @@ test("--artifact puts the documentation stack in renderizr-docs.js, under the do
             .map((file) => file.path),
         [DOCS_RUNTIME],
     );
-    const docs = await readFile(join(out, DOCS_RUNTIME), "utf-8");
+    const docs = unbroken(await readFile(join(out, DOCS_RUNTIME), "utf-8"));
     for (const marker of DOCS_MARKERS) {
         assert.ok(docs.includes(marker), `${DOCS_RUNTIME} lacks ${marker}`);
         for (const name of ["renderizr.js", "renderizr-vendor.js"])
             assert.ok(
-                !(await readFile(join(out, name), "utf-8")).includes(marker),
+                !unbroken(await readFile(join(out, name), "utf-8")).includes(
+                    marker,
+                ),
                 `${name} holds ${marker}`,
             );
     }
+});
+
+test("--artifact's documentation runtime carries no markdown-it and no highlight.js", async () => {
+    const { out } = await architectureArtifact();
+    const docs = unbroken(await readFile(join(out, DOCS_RUNTIME), "utf-8"));
+
+    for (const marker of RENDERER_MARKERS)
+        assert.ok(!docs.includes(marker), `${DOCS_RUNTIME} holds ${marker}`);
 });
 
 test("two --artifact renders of different workspaces with documentation write a byte-identical renderizr-docs.js", async () => {
@@ -1550,8 +1589,7 @@ test("a default --single-file build stays within its measured size plus 10%", as
 
 /**
  * The runtime `--artifact` writes, in bytes: `renderizr.js`,
- * `renderizr-vendor.js`, `renderizr-rolldown-runtime.js` and `renderizr.css`
- * together, measured once the page
+ * `renderizr-vendor.js` and `renderizr.css` together, measured once the page
  * ran on Preact (ADR 28) and the documentation stack moved to
  * `renderizr-docs.js`. It is the same for every workspace at a version, so
  * any fixture measures it.
@@ -1559,21 +1597,17 @@ test("a default --single-file build stays within its measured size plus 10%", as
 const RUNTIME_BYTES = 536_716;
 
 /**
- * `renderizr-docs.js`, in bytes: markdown-it, highlight.js, the
- * documentation and decision pages and the decision graph.
+ * `renderizr-docs.js`, in bytes: the documentation and decision pages and
+ * the decision graph, measured once markdown-it and highlight.js moved into
+ * the build (ADR 31).
  */
-const DOCS_RUNTIME_BYTES = 219_953;
+const DOCS_RUNTIME_BYTES = 34_338;
 
 /** Each part of the `--artifact` runtime, with its measured size. */
 const ARTIFACT_BUDGETS = [
     {
         name: "the runtime",
-        files: [
-            "renderizr.js",
-            "renderizr-vendor.js",
-            "renderizr-rolldown-runtime.js",
-            "renderizr.css",
-        ],
+        files: ["renderizr.js", "renderizr-vendor.js", "renderizr.css"],
         bytes: RUNTIME_BYTES,
     },
     {

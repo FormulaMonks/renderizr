@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach } from "node:test";
 import { DOMElement, DOMEvent } from "./support/dom.js";
+import { rendered as renderedWorkspace } from "./support/documentation.js";
 import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
@@ -43,7 +44,10 @@ beforeEach(() => {
     history.replace({ search: "?page=adrs", hash: "" });
 });
 
-/** The workspace's own documentation scope, carrying `decisions`. */
+/**
+ * The workspace's own documentation scope, carrying `decisions` as the build
+ * renders them.
+ */
 const workspaceScope = (decisions) => ({
     type: "Workspace",
     name: "Workspace",
@@ -53,7 +57,8 @@ const workspaceScope = (decisions) => ({
     parent: null,
     depth: 0,
     sections: [],
-    decisions,
+    decisions: renderedWorkspace({ documentation: { decisions } }).documentation
+        .decisions,
     images: [],
 });
 
@@ -1944,22 +1949,16 @@ test("a heading anchor that starts with a number does not open that decision", (
     );
 });
 
-test("a relative link to another decision is routed through the resolver", () => {
-    const page = new Decisions(
-        host,
-        "adrs",
-        [
-            workspaceScope([
-                decision("1"),
-                decision("2", {
-                    content:
-                        "# 2. Second\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nSee [the first](0001-first.md).\n",
-                }),
-            ]),
-        ],
-        () => (href) =>
-            href === "0001-first.md" ? "#/?page=adrs&adr=1" : undefined,
-    );
+test("a relative link to another decision arrives resolved from the build", () => {
+    const page = new Decisions(host, "adrs", [
+        workspaceScope([
+            decision("1"),
+            decision("2", {
+                content:
+                    "# 2. Second\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nSee [the first](0001-first.md).\n",
+            }),
+        ]),
+    ]);
     rendered = page;
     page.render();
     dom.runTimers();
@@ -2008,12 +2007,12 @@ const SCOPED_WORKSPACE = JSON.parse(
     ),
 );
 
-const SCOPES = documentationScopes(SCOPED_WORKSPACE);
+const SCOPES = documentationScopes(renderedWorkspace(SCOPED_WORKSPACE));
 
 /** Render every documentation scope's decisions, as `main.ts` does. */
-const renderScopes = (resolveLink = null) => {
+const renderScopes = () => {
     rendered?.clear();
-    const page = new Decisions(host, "adrs", SCOPES, resolveLink);
+    const page = new Decisions(host, "adrs", SCOPES);
     rendered = page;
     page.render();
     dom.runTimers();
@@ -2219,15 +2218,28 @@ test("a link between decisions written as #2 opens the decision of the same scop
     assert.equal(search().get("adr"), "payments/2");
 });
 
-test("a decision's relative links resolve in its own scope", () => {
-    const asked = [];
+test("a decision's relative links arrive resolved in its own scope", () => {
+    const workspace = structuredClone(SCOPED_WORKSPACE);
+    const system = workspace.model.softwareSystems.find(
+        (element) => element.name === "Internet Banking System",
+    );
+    const third = system.documentation.decisions.find(({ id }) => id === "3");
+    third.content += "\nSee [two](0002-use-a-single-page-application.md).\n";
+    rendered?.clear();
+    rendered = new Decisions(
+        host,
+        "adrs",
+        documentationScopes(renderedWorkspace(workspace)),
+    );
     history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
-    renderScopes((scope) => {
-        asked.push(scope.path);
-        return () => undefined;
-    });
+    rendered.render();
+    dom.runTimers();
 
-    assert.ok(asked.includes("internet-banking-system"));
+    assert.ok(
+        content().querySelector(
+            'a[href="#/?page=adrs&adr=internet-banking-system/2"]',
+        ),
+    );
 });
 
 test("the filter sits above the index and above the menu, listing every scope with decisions", () => {

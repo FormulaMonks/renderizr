@@ -16,7 +16,7 @@ import type {
 /** The id a documentation section is addressed by in the URL. */
 export declare const sectionId: (section: {
     id?: string;
-    filename: string;
+    filename?: string;
 }) => string;
 
 /** The id a document of the documentation scope at slug path `path` takes. */

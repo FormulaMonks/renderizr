@@ -1,9 +1,11 @@
-import type { MarkdownIt } from "markdown-it";
-import noteIcon from "bootstrap-icons/icons/info-circle-fill.svg?raw";
-import tipIcon from "bootstrap-icons/icons/lightbulb-fill.svg?raw";
-import importantIcon from "bootstrap-icons/icons/megaphone-fill.svg?raw";
-import warningIcon from "bootstrap-icons/icons/exclamation-triangle-fill.svg?raw";
-import cautionIcon from "bootstrap-icons/icons/exclamation-octagon-fill.svg?raw";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+/** The text of the Bootstrap icon `name`. */
+const icon = (name) =>
+    readFileSync(require.resolve(`bootstrap-icons/icons/${name}.svg`), "utf8");
 
 /**
  * GitHub-flavored alert blockquotes for markdown-it.
@@ -19,37 +21,35 @@ import cautionIcon from "bootstrap-icons/icons/exclamation-octagon-fill.svg?raw"
  * regular blockquote rendering.
  */
 
-export type AlertType = "note" | "tip" | "important" | "warning" | "caution";
-
-export interface AlertClassNames {
-    /** Applied to every alert container. */
-    alert: string;
-    /** Applied to the injected icon + label row. */
-    title: string;
-    /** Per-type modifier classes, they carry the accent color. */
-    note: string;
-    tip: string;
-    important: string;
-    warning: string;
-    caution: string;
-}
+/**
+ * @typedef {"note" | "tip" | "important" | "warning" | "caution"} AlertType
+ *
+ * @typedef {object} AlertClassNames
+ * @property {string} alert Applied to every alert container.
+ * @property {string} title Applied to the injected icon + label row.
+ * @property {string} note Per-type modifier classes carry the accent color.
+ * @property {string} tip
+ * @property {string} important
+ * @property {string} warning
+ * @property {string} caution
+ */
 
 /** `[!NOTE]` (and friends) on a line of its own. */
 const ALERT_MARKER =
     /^\[!(note|tip|important|warning|caution)\][^\S\n]*(?:\n|$)/i;
 
-const prepareIcon = (svg: string): string =>
+const prepareIcon = (svg) =>
     svg.trim().replace(/^<svg /i, '<svg aria-hidden="true" focusable="false" ');
 
-const ALERT_ICONS: Record<AlertType, string> = {
-    note: prepareIcon(noteIcon),
-    tip: prepareIcon(tipIcon),
-    important: prepareIcon(importantIcon),
-    warning: prepareIcon(warningIcon),
-    caution: prepareIcon(cautionIcon),
+const ALERT_ICONS = {
+    note: prepareIcon(icon("info-circle-fill")),
+    tip: prepareIcon(icon("lightbulb-fill")),
+    important: prepareIcon(icon("megaphone-fill")),
+    warning: prepareIcon(icon("exclamation-triangle-fill")),
+    caution: prepareIcon(icon("exclamation-octagon-fill")),
 };
 
-const ALERT_LABELS: Record<AlertType, string> = {
+const ALERT_LABELS = {
     note: "Note",
     tip: "Tip",
     important: "Important",
@@ -57,12 +57,8 @@ const ALERT_LABELS: Record<AlertType, string> = {
     caution: "Caution",
 };
 
-type CoreRule = Parameters<MarkdownIt["core"]["ruler"]["before"]>[2];
-type CoreState = Parameters<CoreRule>[0];
-type Token = CoreState["tokens"][number];
-
 /** Index of the `blockquote_close` matching the open token at `start`. */
-function findBlockquoteClose(tokens: Token[], start: number): number {
+function findBlockquoteClose(tokens, start) {
     let depth = 0;
 
     for (let index = start; index < tokens.length; index++) {
@@ -79,11 +75,12 @@ function findBlockquoteClose(tokens: Token[], start: number): number {
     return -1;
 }
 
-export default function markdownItAlerts(
-    md: MarkdownIt,
-    classNames: AlertClassNames,
-): void {
-    const rule: CoreRule = (state) => {
+/**
+ * @param {import("markdown-it").default} md
+ * @param {AlertClassNames} classNames
+ */
+export default function markdownItAlerts(md, classNames) {
+    const rule = (state) => {
         const tokens = state.tokens;
 
         for (let index = 0; index < tokens.length; index++) {
@@ -101,7 +98,7 @@ export default function markdownItAlerts(
             const marker = ALERT_MARKER.exec(inline.content);
             if (!marker) continue;
 
-            const type = marker[1].toLowerCase() as AlertType;
+            const type = marker[1].toLowerCase();
             const close = findBlockquoteClose(tokens, index);
 
             // Render the whole thing as a <div> so plain blockquotes keep the

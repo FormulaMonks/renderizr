@@ -1,232 +1,22 @@
 import Component from "./_component";
-import markdownIt from "markdown-it";
-// @ts-ignore
-import shiftHeadings from "markdown-it-shift-headings";
-import anchor from "markdown-it-anchor";
-// `highlight.js/lib/common` registers 34 languages for roughly 150KB. These are
-// the ones that actually turn up in architecture documentation.
-import hljs from "highlight.js/lib/core";
-import bash from "highlight.js/lib/languages/bash";
-import css from "highlight.js/lib/languages/css";
-import java from "highlight.js/lib/languages/java";
-import javascript from "highlight.js/lib/languages/javascript";
-import json from "highlight.js/lib/languages/json";
-import markdown from "highlight.js/lib/languages/markdown";
-import python from "highlight.js/lib/languages/python";
-import sql from "highlight.js/lib/languages/sql";
-import typescript from "highlight.js/lib/languages/typescript";
-import xml from "highlight.js/lib/languages/xml";
-import yaml from "highlight.js/lib/languages/yaml";
-// No highlight.js stylesheet is imported on purpose: every shipped theme is
-// hardcoded to one color scheme. The `hljs-*` token colors live in the module
-// CSS instead, where they follow `data-theme`.
-import type { StateCore } from "markdown-it";
-import type { ImageResolver } from "./doc-images";
-import { githubSlug, type LinkResolver } from "./doc-links";
-import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";
 
-for (const [name, language] of Object.entries({
-    bash,
-    css,
-    java,
-    javascript,
-    json,
-    markdown,
-    python,
-    sql,
-    typescript,
-    xml,
-    yaml,
-})) {
-    hljs.registerLanguage(name, language);
-}
-
 /**
- * Empty element pairs left behind by the source markdown (`<p></p>`,
- * `<em></em>`, …) are stripped from the rendered output. The tag list is
- * deliberately explicit and the closing tag is a backreference: structural
- * markup (empty table cells, the table and alert wrappers, inline SVG icons)
- * has to survive even when it looks "empty".
+ * Shows a documentation section or a decision the build rendered (ADR 31).
+ * The build turns the Markdown into HTML, resolving its links and images, in
+ * `scripts/documentation/`; this only puts that HTML on the page, inside the
+ * `.markdown-renderer` wrapper the module CSS styles.
  */
-const EMPTY_ELEMENT_PATTERN =
-    /<(p|h[1-6]|em|strong|b|i|s|small|span|a|ul|ol|li|blockquote)(?:\s[^>]*)?>[\s\u200B-\u200D\uFEFF]*<\/\1\s*>/gi;
-
-/**
- * Give every heading its GitHub id, from the text as it was written.
- *
- * It has to run before `replacements` and `smartquotes`: by the time
- * `markdown-it-anchor` sees the heading, the typographer has turned `--` into
- * `–` and `"` into `”`, and GitHub slugs the text before any of that. The ids
- * are made unique here too, the way GitHub does it (`same`, `same-1`, …) —
- * the anchor plugin treats an id that is already set as the author's own and
- * refuses a duplicate rather than numbering it.
- */
-function headingIds(state: StateCore): void {
-    const seen = new Set<string>();
-
-    state.tokens.forEach((token, index) => {
-        if (token.type !== "heading_open") return;
-
-        const text = (state.tokens[index + 1]?.children ?? [])
-            .filter((child) =>
-                ["text", "text_special", "code_inline"].includes(child.type),
-            )
-            .map((child) => child.content)
-            .join("");
-
-        const slug = githubSlug(text);
-        let id = slug;
-        for (let n = 1; seen.has(id); n++) id = `${slug}-${n}`;
-        seen.add(id);
-
-        token.attrSet("id", id);
-    });
-}
-
 export default class MarkdownRenderer extends Component {
-    #markdownContent = "";
-    #resolveLink: LinkResolver | null = null;
-    #resolveImage: ImageResolver | null = null;
-    #md = markdownIt({
-        html: true,
-        typographer: true,
-        highlight: (str: string, lang?: string) => {
-            if (lang && hljs.getLanguage(lang)) {
-                try {
-                    return hljs.highlight(str, { language: lang }).value;
-                } catch (__) {}
-            }
-
-            return ""; // use external default escaping
-        },
-    })
-        .use(shiftHeadings)
-        .use((md) =>
-            md.core.ruler.before("replacements", "heading_ids", headingIds),
-        )
-        .use(anchor)
-        /*
-         * Setext headings are off.
-         *
-         * These documents use `---` as a separator, and in markdown a `---`
-         * that has lost the blank line above it turns the whole preceding
-         * paragraph into an <h2>. That used to be a cosmetic surprise; now
-         * that the navigation is derived from heading structure it is a
-         * structural one — the paragraph becomes the shallowest heading in
-         * the document, so it takes over as a page, demotes the real title
-         * and pushes the real sub-heads down a level.
-         *
-         * Every heading here is written ATX (`##`), which is also what
-         * markdownlint enforces on this content, so nothing is lost. With the
-         * rule off, `---` is always the thematic break the author meant.
-         */
-        .disable("lheading")
-        .use(alerts, {
-            alert: styles.alert,
-            title: styles.alertTitle,
-            note: styles.alertNote,
-            tip: styles.alertTip,
-            important: styles.alertImportant,
-            warning: styles.alertWarning,
-            caution: styles.alertCaution,
-        });
+    #html = "";
 
     constructor(element: HTMLElement | null = null) {
         super(element);
-
-        // Every table gets its own scroll container, so a seven-column table
-        // scrolls inside the prose measure instead of dragging the whole page
-        // sideways with it.
-        this.#md.renderer.rules.table_open = (
-            tokens,
-            idx,
-            options,
-            _env,
-            self,
-        ) =>
-            `<div class="${styles.tableWrap}">${self.renderToken(tokens, idx, options)}`;
-        this.#md.renderer.rules.table_close = () => "</table></div>";
-
-        this.#md.core.ruler.push("doc_links", this.#rewriteLinks);
-        this.#md.core.ruler.push("doc_images", this.#rewriteImages);
     }
 
-    /**
-     * Point relative links at the page of this site that holds the same
-     * content. See `createLinkResolver`.
-     */
-    setLinkResolver(resolve: LinkResolver | null): void {
-        this.#resolveLink = resolve;
-    }
-
-    /**
-     * Point relative image paths at the copy the workspace embeds. See
-     * `createImageResolver`.
-     */
-    setImageResolver(resolve: ImageResolver | null): void {
-        this.#resolveImage = resolve;
-    }
-
-    #rewriteImages = (state: StateCore): void => {
-        const resolve = this.#resolveImage;
-        if (!resolve) return;
-
-        for (const block of state.tokens) {
-            for (const token of block.children ?? []) {
-                if (token.type !== "image") continue;
-                const src = resolve(String(token.attrGet("src") ?? ""));
-                if (src !== undefined) token.attrSet("src", src);
-            }
-        }
-    };
-
-    /**
-     * A link to a document the workspace does not contain stays readable but
-     * stops being a link: there is nothing to follow it to, and following it
-     * anyway left the site.
-     */
-    #rewriteLinks = (state: StateCore): void => {
-        const resolve = this.#resolveLink;
-        if (!resolve) return;
-
-        for (const block of state.tokens) {
-            const children = block.children ?? [];
-
-            children.forEach((token, index) => {
-                if (token.type !== "link_open") return;
-
-                const href = String(token.attrGet("href") ?? "");
-                const resolved = resolve(href);
-
-                if (typeof resolved === "string") {
-                    token.attrSet("href", resolved);
-                    return;
-                }
-
-                if (resolved !== null) return;
-
-                const close = children.findIndex(
-                    (other, at) => at > index && other.type === "link_close",
-                );
-
-                token.tag = "span";
-                token.attrs = [
-                    ["class", styles.unresolvedLink],
-                    ["title", `Not part of this workspace: ${href}`],
-                ];
-                if (close >= 0) children[close].tag = "span";
-            });
-        }
-    };
-
-    #formatContentFn = (content: string): string => content;
-    setContentFormatter = (fn: (content: string) => string): void => {
-        this.#formatContentFn = fn;
-    };
-
-    setContent(content: string): void {
-        this.#markdownContent = this.#formatContentFn(content);
+    /** Show `html`, a document the build rendered. */
+    setContent(html: string): void {
+        this.#html = html;
         this.render();
     }
 
@@ -255,14 +45,12 @@ export default class MarkdownRenderer extends Component {
 
     render(): void {
         if (!this.element) return;
-        if (!this.#markdownContent) return;
+        if (!this.#html) return;
 
         this.element.classList.add(styles.markdownRenderer);
         this.element.innerHTML = `
         <div class="markdown-renderer">
-            ${this.#md
-                .render(this.#markdownContent)
-                .replace(EMPTY_ELEMENT_PATTERN, "")}
+            ${this.#html}
         </div>
         `;
 

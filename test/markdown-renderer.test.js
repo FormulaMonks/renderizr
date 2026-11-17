@@ -1,248 +1,33 @@
 /**
- * `src/components/markdown-renderer.ts` — the component every documentation
- * section and every ADR body goes through.
- *
- * These are input -> HTML tests: feed markdown in, assert the markup out. The
- * source is TypeScript with Vite-only imports (a CSS module, five `?raw`
- * SVGs), so it is imported through the hooks in `support/vite-hooks.js`,
- * which stub the CSS module with a proxy that returns the property name —
- * `styles.alert` is the string `"alert"`. That keeps the expected markup
- * readable and independent of the hash Vite would generate.
- *
- * The file lives in `scripts/` because `pnpm test` globs `scripts/*.test.js`.
+ * `src/components/markdown-renderer.ts` — the component that shows a
+ * section or a decision body the build rendered (ADR 31). It takes HTML, so
+ * these feed it HTML; what the build makes of Markdown is in
+ * `markdown.test.js`.
  */
 
 import assert from "node:assert/strict";
-import { importSrc, srcTest as test, stubElement } from "./support/ts.js";
+import { dom, importSrc, srcTest as test, stubElement } from "./support/ts.js";
 
 const { default: MarkdownRenderer } = await importSrc(
     "components/markdown-renderer",
 );
 
-/** Render `markdown` into a stub element and return the markup it produced. */
-function render(markdown) {
+const ONE = '<h2 id="one" tabindex="-1">One</h2>\n';
+
+test("the HTML the build rendered shows inside the wrapper the module CSS styles", () => {
     const element = stubElement();
-    const renderer = new MarkdownRenderer(element);
-    renderer.setContent(markdown);
-    return element.html;
-}
+    new MarkdownRenderer(element).setContent(ONE);
 
-/* ------------------------------------------------------------- heading tree */
-
-test("every heading is shifted down one level, so the page title stays the h1", () => {
-    assert.equal(render("# Title"), '<h2 id="title" tabindex="-1">Title</h2>');
-    assert.equal(
-        render("## Section"),
-        '<h3 id="section" tabindex="-1">Section</h3>',
-    );
-});
-
-test("the shift saturates at h6 rather than emitting an h7", () => {
-    assert.equal(render("###### Six"), '<h6 id="six" tabindex="-1">Six</h6>');
-});
-
-test("headings get anchor ids, and a repeated heading gets a distinct one", () => {
-    assert.equal(
-        render("## Same\n\n## Same\n"),
-        '<h3 id="same" tabindex="-1">Same</h3>\n' +
-            '<h3 id="same-1" tabindex="-1">Same</h3>',
-    );
-});
-
-test("heading ids follow GitHub, so the documents' own links land", () => {
-    // `markdown-it-anchor`'s default gave this `customs-%26-documentation-terms`,
-    // and every `[…](#customs--documentation-terms)` in the source went nowhere.
-    assert.equal(
-        render("## Customs & documentation terms"),
-        '<h3 id="customs--documentation-terms" tabindex="-1">Customs &amp; documentation terms</h3>',
-    );
-});
-
-test("the id is taken from the text as written, before the typographer", () => {
-    // Rendered, `--` is an en dash and the quotes are curly; GitHub slugs the
-    // source, where they are two hyphens and straight quotes.
-    assert.match(render('## A -- "B"'), /id="a----b"/);
-});
-
-test("repeats of a GitHub-style id are numbered the way GitHub numbers them", () => {
-    const html = render("## A & B\n\n## A & B\n\n## A & B\n");
-
-    assert.deepEqual(
-        [...html.matchAll(/id="([^"]+)"/g)].map((match) => match[1]),
-        ["a--b", "a--b-1", "a--b-2"],
-    );
-});
-
-test("a `---` under a paragraph is a rule, not a setext heading", () => {
-    // With `lheading` enabled this paragraph would become an <h2> and, because
-    // the navigation is derived from heading structure, would take over the
-    // page. `.disable("lheading")` is the fix; this is its regression test.
-    assert.equal(
-        render("Just a paragraph\n---\nnext\n"),
-        "<p>Just a paragraph</p>\n<hr>\n<p>next</p>",
-    );
-});
-
-/* -------------------------------------------------------------------- tables */
-
-test("every table is wrapped in its own scroll container", () => {
-    const html = render("| a | b |\n|---|---|\n| 1 | 2 |\n");
-
-    assert.ok(
-        html.startsWith('<div class="tableWrap"><table>'),
-        `table was not wrapped: ${html}`,
-    );
-    assert.ok(
-        html.endsWith("</table></div>"),
-        `wrapper was not closed: ${html}`,
-    );
-    assert.equal((html.match(/<div class="tableWrap">/g) ?? []).length, 1);
-});
-
-test("two tables get two wrappers", () => {
-    const html = render("| a |\n|---|\n| 1 |\n\ntext\n\n| b |\n|---|\n| 2 |\n");
-
-    assert.equal((html.match(/<div class="tableWrap">/g) ?? []).length, 2);
-    assert.equal((html.match(/<\/table><\/div>/g) ?? []).length, 2);
-});
-
-/* --------------------------------------------------- empty element stripping */
-
-test("empty inline and block elements the source left behind are stripped", () => {
-    const html = render("<p></p>\n\ntext <em></em> here\n");
-
-    assert.ok(!html.includes("<p></p>"), html);
-    assert.ok(!html.includes("<em></em>"), html);
-    assert.ok(html.includes("<p>text  here</p>"), html);
-});
-
-test("structural emptiness survives: empty table cells are not stripped", () => {
-    const html = render("| a |  |\n|---|---|\n|  | 2 |\n");
-
-    assert.ok(
-        html.includes("<th></th>"),
-        `empty header cell was eaten: ${html}`,
-    );
-    assert.ok(html.includes("<td></td>"), `empty body cell was eaten: ${html}`);
-});
-
-test("zero-width characters count as empty", () => {
-    assert.equal(render("<p>​</p>\n"), "");
-});
-
-/* ---------------------------------------------------------------- code blocks */
-
-test("a fenced block in a registered language is highlighted", () => {
-    const html = render('```json\n{"a":1}\n```\n');
-
-    assert.ok(html.startsWith('<pre><code class="language-json">'), html);
-    // Read back off the element, so the quotes are the ones a browser would
-    // report from `innerHTML` rather than the ones markdown-it wrote.
-    assert.ok(html.includes('<span class="hljs-attr">"a"</span>'), html);
-    assert.ok(html.includes('<span class="hljs-number">1</span>'), html);
-});
-
-test("an unregistered language falls back to escaped plain text", () => {
-    const html = render("```nosuchlang\nplain <b>text</b>\n```\n");
-
-    assert.equal(
-        html,
-        '<pre><code class="language-nosuchlang">plain &lt;b&gt;text&lt;/b&gt;\n</code></pre>',
-    );
-});
-
-test("the languages that turn up in architecture docs are all registered", () => {
-    const samples = {
-        bash: 'echo "hello"',
-        css: "a { color: red; }",
-        java: "class A {}",
-        javascript: "const x = 1;",
-        json: '{"a":1}',
-        markdown: "# heading",
-        python: "def f():\n    pass",
-        sql: "SELECT 1",
-        typescript: "const x: number = 1;",
-        xml: '<a href="b" />',
-        yaml: "a: 1",
-    };
-
-    for (const [language, sample] of Object.entries(samples)) {
-        const html = render(`\`\`\`${language}\n${sample}\n\`\`\`\n`);
-        assert.ok(
-            html.includes(`class="language-${language}"`),
-            `${language} did not survive as a class`,
-        );
-        assert.ok(
-            html.includes("hljs-"),
-            `${language} produced no highlighting tokens: ${html}`,
-        );
-    }
-});
-
-/* --------------------------------------------------------------- passthrough */
-
-test("raw HTML in the source is passed through, not escaped", () => {
-    assert.ok(
-        render('<div class="custom">raw</div>\n').includes(
-            '<div class="custom">raw</div>',
-        ),
-    );
-});
-
-test("the typographer is on", () => {
-    assert.equal(
-        render('Hello (c) world -- yes... "quoted"\n'),
-        "<p>Hello © world – yes… “quoted”</p>",
-    );
-});
-
-test("links are left exactly as written", () => {
-    assert.equal(
-        render("[in](./other.md) and [out](https://example.com)\n"),
-        '<p><a href="./other.md">in</a> and ' +
-            '<a href="https://example.com">out</a></p>',
-    );
-});
-
-/* ------------------------------------------------------------------ alerts */
-
-test("a GitHub alert becomes an alert div carrying both class names", () => {
-    const html = render("> [!WARNING]\n> Mind the gap.\n");
-
-    assert.ok(html.startsWith('<div class="alert alertWarning">'), html);
-    assert.ok(html.includes('<div class="alertTitle">'), html);
-    assert.ok(html.includes("<span>Warning</span>"), html);
-    assert.ok(html.includes("<p>Mind the gap.</p>"), html);
-    assert.ok(!html.includes("<blockquote>"), html);
-});
-
-test("a plain blockquote is still a blockquote", () => {
-    assert.equal(
-        render("> Just a quote.\n"),
-        "<blockquote>\n<p>Just a quote.</p>\n</blockquote>",
-    );
-});
-
-/* ------------------------------------------------------------ the component */
-
-test("the content formatter runs before the markdown is parsed", () => {
-    const element = stubElement();
-    const renderer = new MarkdownRenderer(element);
-
-    renderer.setContentFormatter((content) =>
-        content.replace(/hi/g, "# Hello"),
-    );
-    renderer.setContent("hi");
-
-    assert.equal(element.html, '<h2 id="hello" tabindex="-1">Hello</h2>');
+    assert.equal(element.html, ONE.trim());
+    assert.ok(element.querySelector(".markdown-renderer > h2#one"));
 });
 
 test("rendering tags the host element and attaches exactly one click listener", () => {
     const element = stubElement();
     const renderer = new MarkdownRenderer(element);
 
-    renderer.setContent("# One");
-    renderer.setContent("# Two");
+    renderer.setContent(ONE);
+    renderer.setContent('<h2 id="two" tabindex="-1">Two</h2>');
 
     assert.ok(element.classList.contains("markdownRenderer"));
     assert.equal(
@@ -252,71 +37,18 @@ test("rendering tags the host element and attaches exactly one click listener", 
     );
 });
 
-/* --------------------------------------------------------------- links */
-
-/** Render with a resolver that knows one sibling file. */
-function renderWithLinks(markdown) {
-    const element = stubElement();
-    const renderer = new MarkdownRenderer(element);
-    renderer.setLinkResolver((href) => {
-        if (href === "02-other.md") return "#/?page=docs&section=02-other";
-        if (href.endsWith(".md")) return null;
-        return undefined;
-    });
-    renderer.setContent(markdown);
-    return element.html;
-}
-
-test("a resolved link gets the route as its href", () => {
-    assert.equal(
-        renderWithLinks("[Other](02-other.md)"),
-        '<p><a href="#/?page=docs&amp;section=02-other">Other</a></p>',
+test("a heading link scrolls to its heading rather than navigating", () => {
+    dom.reset();
+    const element = dom.mount("content");
+    new MarkdownRenderer(element).setContent(
+        `<p><a href="#one">up</a></p>${ONE}`,
     );
-});
 
-test("a link to a file the workspace lacks keeps its text but stops being a link", () => {
-    assert.equal(
-        renderWithLinks("See [the model](reference/data-model.md) here."),
-        '<p>See <span class="unresolvedLink" title="Not part of this workspace: reference/data-model.md">the model</span> here.</p>',
-    );
-});
+    element.querySelector('a[href="#one"]').click();
 
-test("links the resolver has no opinion about are left as written", () => {
-    assert.equal(
-        renderWithLinks("[CBP](https://www.cbp.gov/) [up](#top)"),
-        '<p><a href="https://www.cbp.gov/">CBP</a> <a href="#top">up</a></p>',
-    );
-});
-
-test("without a resolver every link is left as written", () => {
-    assert.equal(
-        render("[the model](reference/data-model.md)"),
-        '<p><a href="reference/data-model.md">the model</a></p>',
-    );
-});
-
-/* -------------------------------------------------------------- images */
-
-test("an image the resolver knows gets the embedded source", () => {
-    const element = stubElement();
-    const renderer = new MarkdownRenderer(element);
-    renderer.setImageResolver((src) =>
-        src === "edit-mode.png"
-            ? "data:image/png;base64,iVBORw0KGgo="
-            : undefined,
-    );
-    renderer.setContent("![Edit mode](edit-mode.png) ![Logo](logo.png)");
-
-    assert.equal(
-        element.html,
-        '<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="Edit mode"> <img src="logo.png" alt="Logo"></p>',
-    );
-});
-
-test("without an image resolver every image is left as written", () => {
-    assert.equal(
-        render("![Edit mode](edit-mode.png)"),
-        '<p><img src="edit-mode.png" alt="Edit mode"></p>',
+    assert.deepEqual(
+        dom.document.scrolledIntoView.map((entry) => entry.id),
+        ["one"],
     );
 });
 
@@ -324,7 +56,7 @@ test("clear() empties the element and detaches the listener", () => {
     const element = stubElement();
     const renderer = new MarkdownRenderer(element);
 
-    renderer.setContent("# One");
+    renderer.setContent(ONE);
     renderer.clear();
 
     assert.equal(element.innerHTML, "");
@@ -335,7 +67,7 @@ test("empty content leaves whatever was there alone", () => {
     const element = stubElement();
     const renderer = new MarkdownRenderer(element);
 
-    renderer.setContent("# One");
+    renderer.setContent(ONE);
     const before = element.innerHTML;
     renderer.setContent("");
 
@@ -345,7 +77,7 @@ test("empty content leaves whatever was there alone", () => {
 test("a renderer with no element is inert rather than fatal", () => {
     const renderer = new MarkdownRenderer(null);
 
-    assert.doesNotThrow(() => renderer.setContent("# Title"));
+    assert.doesNotThrow(() => renderer.setContent(ONE));
     assert.doesNotThrow(() => renderer.render());
     assert.doesNotThrow(() => renderer.clear());
 });
