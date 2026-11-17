@@ -43,7 +43,7 @@ const escapeHtml = (value) =>
  * @returns {string}
  */
 export const viewAddress = (key, { perspective = null } = {}) =>
-    `#/?${searchOf({ view: key, ...(perspective ? { perspective } : {}) })}`;
+    `#/?${searchOf({ page: "diagrams", view: key, ...(perspective ? { perspective } : {}) })}`;
 
 /**
  * A diagram card for the diagram of type `type`, titled `title`, which

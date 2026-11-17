@@ -76,7 +76,7 @@ test("a diagram card shows the type, the title and Open in diagrams, with an ico
     const html = diagramCard({
         type: "Container view",
         title: "Inside <the> bank",
-        address: "#/?view=Containers&perspective=A&B",
+        address: "#/?page=diagrams&view=Containers&perspective=A&B",
     });
 
     assert.match(html, new RegExp(`class="${CLASSES.diagramCard}"`));
@@ -84,13 +84,20 @@ test("a diagram card shows the type, the title and Open in diagrams, with an ico
     assert.match(html, /Inside &lt;the&gt; bank/);
     assert.match(html, />Open in diagrams</);
     assert.match(html, /^<a [^>]*>[\s\S]*<\/a>$/);
-    assert.match(html, /href="#\/\?view=Containers&amp;perspective=A&amp;B"/);
+    assert.match(
+        html,
+        /href="#\/\?page=diagrams&amp;view=Containers&amp;perspective=A&amp;B"/,
+    );
     assert.match(html, /<svg aria-hidden="true"/);
     assert.doesNotMatch(html, /<img/);
 });
 
 test("a diagram card is phrasing content, so it sits in a paragraph or a list item", () => {
-    const html = diagramCard({ type: "T", title: "A", address: "#/?view=a" });
+    const html = diagramCard({
+        type: "T",
+        title: "A",
+        address: "#/?page=diagrams&view=a",
+    });
     assert.doesNotMatch(html, /<(div|p|section|figure)\b/);
 });
 
@@ -102,10 +109,13 @@ test("a diagram note says what it is given in a card's place", () => {
 });
 
 test("a view's address opens it on the diagrams page, under a perspective when one is named", () => {
-    assert.equal(viewAddress("SystemContext"), "#/?view=SystemContext");
+    assert.equal(
+        viewAddress("SystemContext"),
+        "#/?page=diagrams&view=SystemContext",
+    );
     assert.equal(
         viewAddress("A view", { perspective: "Security & Risk" }),
-        "#/?view=A+view&perspective=Security+%26+Risk",
+        "#/?page=diagrams&view=A+view&perspective=Security+%26+Risk",
     );
 });
 
@@ -114,7 +124,9 @@ test("a view's address opens it on the diagrams page, under a perspective when o
 test("![](embed:<key>) shows a card for the view, titled as the diagrams page titles it", async () => {
     const html = await rendered("# Views\n\n![](embed:SystemContext)\n");
 
-    assert.deepEqual(cardAddresses(html), ["#/?view=SystemContext"]);
+    assert.deepEqual(cardAddresses(html), [
+        "#/?page=diagrams&view=SystemContext",
+    ]);
     assert.match(html, /System context view/);
     assert.match(html, /System Context View: Internet Banking/);
     assert.doesNotMatch(html, /<img/);
@@ -135,7 +147,9 @@ test("image::embed:<key>[] shows the same card in AsciiDoc", async () => {
         "01-views.adoc",
     );
 
-    assert.deepEqual(cardAddresses(html), ["#/?view=SystemContext"]);
+    assert.deepEqual(cardAddresses(html), [
+        "#/?page=diagrams&view=SystemContext",
+    ]);
     assert.match(html, /System Context View: Internet Banking/);
     assert.doesNotMatch(html, /<img/);
 });
@@ -155,8 +169,8 @@ test("{type=graph} and {type=tree} open the view as the diagrams page draws it, 
     );
 
     assert.deepEqual(cardAddresses(html), [
-        "#/?view=SystemContext",
-        "#/?view=SystemContext",
+        "#/?page=diagrams&view=SystemContext",
+        "#/?page=diagrams&view=SystemContext",
     ]);
     assert.doesNotMatch(html, /graph|tree/);
 });
@@ -167,7 +181,7 @@ test("{perspective=<name>} opens the view under that perspective", async () => {
     );
 
     assert.deepEqual(cardAddresses(html), [
-        "#/?view=SystemContext&perspective=Security",
+        "#/?page=diagrams&view=SystemContext&perspective=Security",
     ]);
 });
 
@@ -178,14 +192,16 @@ test("AsciiDoc reads the parameters too", async () => {
     );
 
     assert.deepEqual(cardAddresses(html), [
-        "#/?view=SystemContext&perspective=Security",
+        "#/?page=diagrams&view=SystemContext&perspective=Security",
     ]);
 });
 
 test("the braces stay part of the key when a view has the whole string as its key", async () => {
     const html = await rendered("![](embed:Odd{type=graph})\n");
 
-    assert.deepEqual(cardAddresses(html), ["#/?view=Odd%7Btype%3Dgraph%7D"]);
+    assert.deepEqual(cardAddresses(html), [
+        "#/?page=diagrams&view=Odd%7Btype%3Dgraph%7D",
+    ]);
 });
 
 /* ----------------------------------------------------- published PNGs */
@@ -200,9 +216,9 @@ test("a published PNG of the workspace shows the card of its view", async () => 
     );
 
     assert.deepEqual(cardAddresses(html), [
-        "#/?view=SystemContext",
-        "#/?view=Containers",
-        "#/?view=SystemContext",
+        "#/?page=diagrams&view=SystemContext",
+        "#/?page=diagrams&view=Containers",
+        "#/?page=diagrams&view=SystemContext",
     ]);
     assert.doesNotMatch(html, /<img/);
 });
@@ -213,7 +229,9 @@ test("a published PNG of the workspace shows the card in AsciiDoc too", async ()
         "01-views.adoc",
     );
 
-    assert.deepEqual(cardAddresses(html), ["#/?view=SystemContext"]);
+    assert.deepEqual(cardAddresses(html), [
+        "#/?page=diagrams&view=SystemContext",
+    ]);
 });
 
 test("a published PNG of workspace 0 is the workspace's when its id is 0", async () => {
@@ -223,7 +241,9 @@ test("a published PNG of workspace 0 is the workspace's when its id is 0", async
         { id: 0 },
     );
 
-    assert.deepEqual(cardAddresses(html), ["#/?view=SystemContext"]);
+    assert.deepEqual(cardAddresses(html), [
+        "#/?page=diagrams&view=SystemContext",
+    ]);
 });
 
 test("a published PNG of another workspace stays an ordinary image", async () => {
@@ -299,10 +319,10 @@ test("a section and a decision of an element's documentation scope show cards fr
     await renderDocumentation(shown);
 
     assert.deepEqual(cardAddresses(system.sections[0].content), [
-        "#/?view=Containers",
+        "#/?page=diagrams&view=Containers",
     ]);
     assert.deepEqual(cardAddresses(system.decisions[0].content), [
-        "#/?view=SystemContext&perspective=Risk",
+        "#/?page=diagrams&view=SystemContext&perspective=Risk",
     ]);
 });
 
@@ -323,6 +343,6 @@ test("another workspace's key reads as a key the workspace lacks", async () => {
     );
     assert.deepEqual(
         cardAddresses(payments.documentation.sections[0].content),
-        ["#/?view=Payments"],
+        ["#/?page=diagrams&view=Payments"],
     );
 });
