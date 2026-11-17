@@ -10,7 +10,10 @@
  * - `links.js` and `images.js`: the link and image resolvers.
  * - `highlight.js`: the highlight.js that colors fenced code.
  * - `alerts.js`: GitHub's alerts.
- * - `asciidoc.js`: the hand-written AsciiDoc pass.
+ * - `asciidoc.js`: the asciidoctor.js every AsciiDoc render goes through,
+ *   which a plugin extends with `asciidoc.use()`, and
+ *   `asciidoc-converter.js`, its HTML5 converter, which writes the markup
+ *   the Markdown path writes.
  * - `classes.js`: the class names the rendered HTML carries.
  */
 
@@ -18,11 +21,12 @@ import {
     documentationScopes,
     placeElements,
 } from "../../src/model/documentation-scopes.js";
-import { asciidocToMarkdown, isAsciiDoc } from "./asciidoc.js";
+import { createAsciiDoc, isAsciiDoc, renderAsciiDoc } from "./asciidoc.js";
 import { createImageResolver } from "./images.js";
 import { createLinkResolver } from "./links.js";
 import { createMarkdown, renderMarkdown } from "./markdown.js";
 
+export { createAsciiDoc, isAsciiDoc, renderAsciiDoc } from "./asciidoc.js";
 export { CLASSES } from "./classes.js";
 export { createMarkdown, renderMarkdown } from "./markdown.js";
 
@@ -61,7 +65,7 @@ export function sectionTitle(section) {
     const content = section.content ?? "";
     return (
         section.title ||
-        (isAsciiDoc(section.filename)
+        (isAsciiDoc(section)
             ? content.match(/^=\s+(.+)$/m)?.[1]
             : content.match(/^#\s+(.+)$/m)?.[1]
         )?.trim() ||
@@ -75,37 +79,57 @@ export function sectionTitle(section) {
 
 /**
  * What a decision is called: its own title, else its first heading without
- * the number the page already shows (`# 3. Use Kafka` gives "Use Kafka").
+ * the number the page already shows (`# 3. Use Kafka` gives "Use Kafka",
+ * and so does AsciiDoc's `= 3. Use Kafka`).
  *
- * @param {{ title?: string, content?: string }} decision
+ * @param {{ title?: string, format?: string, content?: string }} decision
  * @returns {string}
  */
 export function decisionTitle(decision) {
     if (decision.title) return decision.title;
-    const heading = (decision.content ?? "").match(/^#{1,6}\s+(.+)$/m)?.[1];
+    const heading = (decision.content ?? "").match(
+        isAsciiDoc(decision) ? /^={1,6}\s+(.+)$/m : /^#{1,6}\s+(.+)$/m,
+    )?.[1];
     return heading?.replace(/^\d+[.:]?\s+/, "").trim() ?? "";
 }
 
+/** The notes of a `Status` block, without the bare status word. */
+const statusNotes = (block) =>
+    block
+        .replace(/[​-‍﻿]/g, "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !BARE_STATUS.test(line));
+
 /**
- * A decision's Markdown as the decisions page shows it: the title and the
+ * A decision's source as the decisions page shows it: the title and the
  * date leave, since the page shows both above the body, and the `## Status`
- * block keeps only the notes beside the status word, which the status pill
- * shows. "Amends 15." and "Amended by 39." each keep a line of their own.
+ * block (`== Status` in AsciiDoc) keeps only the notes beside the status
+ * word, which the status pill shows. "Amends 15." and "Amended by 39." each
+ * keep a line of their own.
  *
  * @param {string} content
+ * @param {{ asciidoc?: boolean }} [options] Whether `content` is AsciiDoc.
  * @returns {string}
  */
-export function formatDecision(content) {
+export function formatDecision(content, { asciidoc = false } = {}) {
+    if (asciidoc) {
+        return content
+            .replace(/^=[ \t].*$/m, "")
+            .replace(/Date:.*/, "")
+            .replace(/^== Status([\s\S]*?)^== Context/gim, (__, hit) => {
+                const notes = statusNotes(hit);
+                // A quote block, each note ending in a hard break ` +`.
+                return notes.length
+                    ? `____\n${notes.join(" +\n")}\n____\n\n== Context`
+                    : "== Context";
+            });
+    }
     return content
         .replace(/#(.*)/, "")
         .replace(/Date:.*/, "")
         .replace(/## Status([\s\S]*?)## Context/gim, (__, hit) => {
-            const notes = hit
-                .replace(/[​-‍﻿]/g, "")
-                .split("\n")
-                .map((line) => line.trim())
-                .filter((line) => line && !BARE_STATUS.test(line));
-
+            const notes = statusNotes(hit);
             // Markdown folds consecutive quoted lines into one paragraph,
             // so each needs a hard break — a trailing backslash — to stay
             // where it was put.
@@ -122,54 +146,76 @@ const sharedMarkdown = () => {
     return shared;
 };
 
+/** The asciidoctor.js the build renders with, made on first use. */
+let sharedAscii = null;
+const sharedAsciiDoc = () => {
+    sharedAscii ??= createAsciiDoc();
+    return sharedAscii;
+};
+
 /**
- * What one document renders against: the markdown-it, and the link and
- * image resolvers of its documentation scope.
+ * What one document renders against: the markdown-it, the asciidoctor.js,
+ * and the link and image resolvers of its documentation scope.
  *
  * @typedef {object} RenderContext
  * @property {import("markdown-it").default} [md]
+ * @property {import("./asciidoc.js").AsciiDoc} [asciidoc]
  * @property {import("./links.js").LinkResolver | null} [resolveLink]
  * @property {import("./images.js").ImageResolver | null} [resolveImage]
  */
 
 /**
- * A section's HTML: AsciiDoc through the hand-written pass first, then
- * markdown-it. A section with no content renders to nothing.
+ * `source` as HTML: through asciidoctor.js when `document` is AsciiDoc, else
+ * through markdown-it.
  *
- * @param {{ filename?: string, content?: string }} section
- * @param {RenderContext} [context]
- * @returns {string}
+ * @param {{ format?: string, filename?: string }} document
+ * @param {string} source
+ * @param {RenderContext} context
+ * @returns {Promise<string>}
  */
-export function renderSection(
-    section,
-    { md = sharedMarkdown(), resolveLink = null, resolveImage = null } = {},
+async function render(
+    document,
+    source,
+    {
+        md = sharedMarkdown(),
+        asciidoc = sharedAsciiDoc(),
+        resolveLink = null,
+        resolveImage = null,
+    },
 ) {
-    const content = section.content ?? "";
-    if (!content.trim()) return "";
-    const source = isAsciiDoc(section.filename)
-        ? asciidocToMarkdown(content)
-        : content;
-    return renderMarkdown(md, source, { resolveLink, resolveImage });
+    const env = { resolveLink, resolveImage };
+    return isAsciiDoc(document)
+        ? renderAsciiDoc(asciidoc, source, env)
+        : renderMarkdown(md, source, env);
 }
 
 /**
- * A decision's HTML: its Markdown formatted for the decisions page, then
- * markdown-it.
+ * A section's HTML, from Markdown or AsciiDoc. A section with no content
+ * renders to nothing.
  *
- * @param {{ content?: string }} decision
+ * @param {{ format?: string, filename?: string, content?: string }} section
  * @param {RenderContext} [context]
- * @returns {string}
+ * @returns {Promise<string>}
  */
-export function renderDecision(
-    decision,
-    { md = sharedMarkdown(), resolveLink = null, resolveImage = null } = {},
-) {
+export async function renderSection(section, context = {}) {
+    const content = section.content ?? "";
+    if (!content.trim()) return "";
+    return render(section, content, context);
+}
+
+/**
+ * A decision's HTML: its source formatted for the decisions page, then
+ * rendered from Markdown or AsciiDoc.
+ *
+ * @param {{ format?: string, filename?: string, content?: string }} decision
+ * @param {RenderContext} [context]
+ * @returns {Promise<string>}
+ */
+export async function renderDecision(decision, context = {}) {
     const content = decision.content ?? "";
     if (!content.trim()) return "";
-    return renderMarkdown(md, formatDecision(content), {
-        resolveLink,
-        resolveImage,
-    });
+    const asciidoc = isAsciiDoc(decision);
+    return render(decision, formatDecision(content, { asciidoc }), context);
 }
 
 /**
@@ -179,14 +225,21 @@ export function renderDecision(
  * alone, in the document's own scope first; images against the scope's
  * embedded copies, then the workspace's. The embedded copies then leave the
  * payload: the HTML carries each image it shows, and the page reads no
- * other. Changes `workspace` and returns it.
+ * other. Documents render side by side, since asciidoctor.js converts
+ * asynchronously. Changes `workspace` and resolves to it.
  *
  * @template {object} W
  * @param {W} workspace
- * @param {{ md?: import("markdown-it").default }} [options]
- * @returns {W}
+ * @param {{
+ *   md?: import("markdown-it").default,
+ *   asciidoc?: import("./asciidoc.js").AsciiDoc,
+ * }} [options]
+ * @returns {Promise<W>}
  */
-export function renderDocumentation(workspace, { md = sharedMarkdown() } = {}) {
+export async function renderDocumentation(
+    workspace,
+    { md = sharedMarkdown(), asciidoc = sharedAsciiDoc() } = {},
+) {
     const scopes = documentationScopes(workspace);
     if (!scopes.length) return workspace;
 
@@ -205,6 +258,8 @@ export function renderDocumentation(workspace, { md = sharedMarkdown() } = {}) {
     });
     const workspaceImages = createImageResolver(images);
 
+    /** @type {Promise<void>[]} */
+    const renders = [];
     for (const scope of scopes) {
         // An element's documents show its own images first, then the
         // workspace's.
@@ -214,23 +269,34 @@ export function renderDocumentation(workspace, { md = sharedMarkdown() } = {}) {
 
         for (const section of scope.sections) {
             const title = sectionTitle(section);
-            section.content = renderSection(section, {
-                md,
-                resolveLink: resolveLink("docs", scope.path),
-                resolveImage,
-            });
-            section.title = title;
+            renders.push(
+                renderSection(section, {
+                    md,
+                    asciidoc,
+                    resolveLink: resolveLink("docs", scope.path),
+                    resolveImage,
+                }).then((html) => {
+                    section.content = html;
+                    section.title = title;
+                }),
+            );
         }
         for (const decision of scope.decisions) {
             const title = decisionTitle(decision);
-            decision.content = renderDecision(decision, {
-                md,
-                resolveLink: resolveLink("decisions", scope.path),
-                resolveImage,
-            });
-            decision.title = title;
+            renders.push(
+                renderDecision(decision, {
+                    md,
+                    asciidoc,
+                    resolveLink: resolveLink("decisions", scope.path),
+                    resolveImage,
+                }).then((html) => {
+                    decision.content = html;
+                    decision.title = title;
+                }),
+            );
         }
     }
+    await Promise.all(renders);
 
     for (const documentation of [
         workspace.documentation,

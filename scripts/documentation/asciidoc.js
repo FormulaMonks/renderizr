@@ -1,158 +1,158 @@
+import { Extensions, load, SyntaxHighlighterBase } from "@asciidoctor/core";
+import { AsciiDocConverter } from "./asciidoc-converter.js";
+import { highlight } from "./highlight.js";
+
 /**
- * A small AsciiDoc-to-Markdown pass for documentation sections written as
- * `.adoc`, which the build step runs before markdown-it until asciidoctor.js
- * takes its place. Feeding those straight to the Markdown parser turns the whole file
- * into one bold wall of `:toc: macro` and `|===`, which is worse than useless.
+ * Whether `document`, a section or a decision, is AsciiDoc: its `format`
+ * says so, or its file name ends in `.adoc`.
  *
- * This covers the constructs that actually appear in architecture
- * documentation — headings, lists, code and literal blocks, admonitions,
- * tables, images, quotes. It is not a conformant AsciiDoc processor, and
- * anything it does not recognize passes through as plain text rather than
- * being mangled.
+ * @param {{ format?: string, filename?: string }} [document]
+ * @returns {boolean}
  */
-
-const ADMONITIONS = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
+export const isAsciiDoc = ({ format, filename = "" } = {}) =>
+    format === "AsciiDoc" || /\.adoc$/i.test(filename);
 
 /**
- * @param {string} source
- * @returns {string}
+ * Highlights a source block with the highlight.js Markdown fences go
+ * through, in the build. A language highlight.js lacks, or none, stays
+ * plain.
  */
-export function asciidocToMarkdown(source) {
-    const out = [];
-    const lines = source.replace(/\r\n/g, "\n").split("\n");
-
-    let inDelimited = null;
-    let pendingLanguage = "";
-    let inTable = false;
-    let tableRow = [];
-    let tableHeaderWritten = false;
-
-    const flushTableRow = () => {
-        if (!tableRow.length) return;
-        out.push(`| ${tableRow.join(" | ")} |`);
-        if (!tableHeaderWritten) {
-            out.push(`|${tableRow.map(() => " --- ").join("|")}|`);
-            tableHeaderWritten = true;
-        }
-        tableRow = [];
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        // Delimited blocks: ---- listing, .... literal, ==== example, **** sidebar
-        const delimiter = line.match(/^(-{4,}|\.{4,}|={4,}|\*{4,}|_{4,})\s*$/);
-        if (delimiter) {
-            const kind = delimiter[1][0];
-            if (inDelimited === kind) {
-                inDelimited = null;
-                out.push("```");
-            } else if (!inDelimited) {
-                inDelimited = kind;
-                out.push(`\`\`\`${pendingLanguage}`);
-                pendingLanguage = "";
-            } else {
-                out.push(line);
-            }
-            continue;
-        }
-
-        if (inDelimited) {
-            out.push(line);
-            continue;
-        }
-
-        // Table boundaries and rows
-        if (/^\|===/.test(line)) {
-            flushTableRow();
-            inTable = !inTable;
-            if (!inTable) tableHeaderWritten = false;
-            out.push("");
-            continue;
-        }
-
-        if (inTable) {
-            if (!line.trim()) {
-                flushTableRow();
-                continue;
-            }
-            tableRow.push(
-                ...line
-                    .split("|")
-                    .slice(1)
-                    .map((cell) => cell.trim()),
-            );
-            continue;
-        }
-
-        // Document attributes and the table-of-contents macro carry no content
-        if (/^:[\w!-]+:/.test(line) || /^toc::\[\]/.test(line)) continue;
-
-        // Block attribute lines: [source,json], [NOTE], [quote, who, where]
-        const attribute = line.match(/^\[([^\]]*)\]\s*$/);
-        if (attribute) {
-            const [first, ...rest] = attribute[1]
-                .split(",")
-                .map((part) => part.trim());
-
-            if (/^source$/i.test(first)) {
-                pendingLanguage = rest[0] ?? "";
-            } else if (ADMONITIONS.includes(first.toUpperCase())) {
-                out.push(`> **${first.toUpperCase()}**`, ">");
-            } else if (/^quote$/i.test(first)) {
-                out.push(`> *${rest.filter(Boolean).join(", ")}*`, ">");
-            } else if (first && !/^\w+$/.test(first)) {
-                pendingLanguage = "";
-            }
-            continue;
-        }
-
-        // Inline admonition: NOTE: something
-        const inline = line.match(/^(\w+):\s+(.*)$/);
-        if (inline && ADMONITIONS.includes(inline[1])) {
-            out.push(`> **${inline[1]}** ${inline[2]}`);
-            continue;
-        }
-
-        // Headings — AsciiDoc's document title `=` is Markdown's `#`
-        const heading = line.match(/^(={1,6})\s+(.*)$/);
-        if (heading) {
-            out.push(`${"#".repeat(heading[1].length)} ${heading[2]}`);
-            continue;
-        }
-
-        // Block image / embedded diagram
-        const image = line.match(/^image::([^[]+)\[([^\]]*)\]/);
-        if (image) {
-            const alt = image[2].split(",")[0].replace(/^["']|["']$/g, "");
-            out.push(`![${alt}](${image[1].trim()})`);
-            continue;
-        }
-
-        out.push(
-            line
-                // Unordered and ordered list markers are already Markdown-ish,
-                // but AsciiDoc nests by repeating the marker.
-                .replace(
-                    /^(\*{2,})\s+/,
-                    (_, stars) => `${"  ".repeat(stars.length - 1)}* `,
-                )
-                .replace(
-                    /^(\.{2,})\s+/,
-                    (_, dots) => `${"  ".repeat(dots.length - 1)}1. `,
-                )
-                .replace(/^\.\s+/, "1. ")
-                // Inline monospace and bold use the same glyphs as Markdown,
-                // except for the doubled forms.
-                .replace(/`\+([^+]+)\+`/g, "`$1`")
-                .replace(/\{([\w-]+)\}/g, "$1"),
-        );
+class HighlightJs extends SyntaxHighlighterBase {
+    handlesHighlighting() {
+        return true;
     }
 
-    flushTableRow();
-
-    return out.join("\n");
+    highlight(_node, source, language) {
+        return highlight(source, language) || escapeHtml(source);
+    }
 }
 
-/** Whether `filename` names an AsciiDoc file. */
-export const isAsciiDoc = (filename = "") => /\.adoc$/i.test(filename);
+const escapeHtml = (value) =>
+    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * The document attributes every render sets. Ids follow GitHub's AsciiDoc
+ * ids (no prefix, `-` between words), so links written for GitHub land, and
+ * an `xref:` to another file keeps its `.adoc`, for the link resolver to
+ * find the section it names. Each ends in `@`, so a document can set its
+ * own.
+ */
+const ATTRIBUTES = Object.freeze({
+    idprefix: "@",
+    showtitle: "@",
+    idseparator: "-@",
+    relfilesuffix: ".adoc@",
+    "source-highlighter": "renderizr",
+});
+
+/**
+ * @typedef {typeof AsciiDocConverter} ConverterClass
+ * @typedef {(Base: ConverterClass) => ConverterClass} ConverterMixin A
+ *   subclass of `Base` overriding the `convert_<name>` methods of what it
+ *   renders, calling `super` for the rest.
+ * @typedef {(this: import("@asciidoctor/core").Registry) => void} ExtensionGroup
+ *   Registers asciidoctor.js extensions (`this.block(…)`,
+ *   `this.inlineMacro(…)`, `this.treeProcessor(…)`) for every render.
+ */
+
+/**
+ * The asciidoctor.js every AsciiDoc section and decision renders through,
+ * which a feature extends the way markdown-it takes `md.use()`:
+ *
+ * ```js
+ * asciidoc.use((asciidoc) => {
+ *     asciidoc.converter(
+ *         (Base) =>
+ *             class extends Base {
+ *                 async convert_inline_kbd(node) { … }
+ *             },
+ *     );
+ *     asciidoc.extensions(function () {
+ *         this.block("mermaid", …);
+ *     });
+ * });
+ * ```
+ *
+ * `converter()` wraps the HTML5 converter (`asciidoc-converter.js`) in a
+ * subclass, and `extensions()` adds an asciidoctor.js extension group.
+ */
+export function createAsciiDoc() {
+    /** @type {ConverterClass} */
+    let Converter = AsciiDocConverter;
+    /** @type {ExtensionGroup[]} */
+    const groups = [];
+
+    const asciidoc = {
+        /**
+         * Run `plugin` against this asciidoctor.js.
+         *
+         * @template {unknown[]} O
+         * @param {(asciidoc: AsciiDoc, ...options: O) => void} plugin
+         * @param {O} options
+         */
+        use(plugin, ...options) {
+            plugin(asciidoc, ...options);
+            return asciidoc;
+        },
+        /** @param {ConverterMixin} mixin */
+        converter(mixin) {
+            Converter = mixin(Converter);
+            return asciidoc;
+        },
+        /** @param {ExtensionGroup} group */
+        extensions(group) {
+            groups.push(group);
+            return asciidoc;
+        },
+        /**
+         * `source` as HTML, its links and images resolved through `env`.
+         *
+         * @param {string} source
+         * @param {import("./markdown.js").RenderEnv} [env]
+         * @returns {Promise<string>}
+         */
+        async render(source, env = {}) {
+            // A registry and a converter of its own for every render, since
+            // renders run side by side and each resolves against its own
+            // documentation scope.
+            const document = await load(source, {
+                safe: "secure",
+                standalone: false,
+                attributes: { ...ATTRIBUTES },
+                converter: new Converter("html5", {}, env),
+                syntax_highlighters: { renderizr: HighlightJs },
+                ...(groups.length
+                    ? {
+                          extension_registry: Extensions.create(
+                              "renderizr",
+                              function () {
+                                  for (const group of groups) group.call(this);
+                              },
+                          ),
+                      }
+                    : {}),
+            });
+            return document.convert();
+        },
+    };
+
+    return asciidoc;
+}
+
+/** @typedef {ReturnType<typeof createAsciiDoc>} AsciiDoc */
+
+/**
+ * `source` rendered by `asciidoc` into the HTML the page shows, resolving
+ * its links and images through `env`, the way `renderMarkdown` renders
+ * Markdown.
+ *
+ * @param {AsciiDoc} asciidoc
+ * @param {string} source
+ * @param {import("./markdown.js").RenderEnv} [env]
+ * @returns {Promise<string>}
+ */
+export const renderAsciiDoc = async (asciidoc, source, env = {}) => {
+    const html = await asciidoc.render(source, env);
+    const trimmed = html.trim();
+    return trimmed ? `${trimmed}\n` : "";
+};

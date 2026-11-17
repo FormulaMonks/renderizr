@@ -636,7 +636,7 @@ export async function prepareWorkspace(workspace) {
     validateWorkspace(workspace);
     // Every section and decision of every documentation scope, rendered to
     // HTML once for every mode (ADR 31). The page reads the HTML.
-    renderDocumentation(workspace);
+    await renderDocumentation(workspace);
     // Before inlining, which leaves a Mermaid diagram's content alone rather
     // than fetch its picture from the Mermaid server. A diagram that can't be
     // drawn warns and the build finishes (spec: When a diagram can't be

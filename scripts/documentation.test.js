@@ -80,11 +80,11 @@ const workspace = ({ documentation, system, container } = {}) => ({
 
 /* ------------------------------------------------------- scopes and payload */
 
-test("a section of the workspace's documentation carries its HTML in place of its Markdown", () => {
+test("a section of the workspace's documentation carries its HTML in place of its Markdown", async () => {
     const docs = {
         sections: [section("01-context.md", "# Context\n\nHello.\n")],
     };
-    renderDocumentation(workspace({ documentation: docs }));
+    await renderDocumentation(workspace({ documentation: docs }));
 
     assert.equal(
         docs.sections[0].content,
@@ -93,19 +93,19 @@ test("a section of the workspace's documentation carries its HTML in place of it
     assert.equal(docs.sections[0].title, "Context");
 });
 
-test("a section of a software system and of a container render in their own scope", () => {
+test("a section of a software system and of a container render in their own scope", async () => {
     const system = { sections: [section("01-system.md", "# System\n")] };
     const container = { sections: [section("01-api.md", "# API\n")] };
-    renderDocumentation(workspace({ system, container }));
+    await renderDocumentation(workspace({ system, container }));
 
     assert.match(system.sections[0].content, /<h2 id="system"/);
     assert.match(container.sections[0].content, /<h2 id="api"/);
 });
 
-test("a decision of the workspace and of an element carry their HTML, with the status block formatted", () => {
+test("a decision of the workspace and of an element carry their HTML, with the status block formatted", async () => {
     const own = { decisions: [decision("1")] };
     const system = { decisions: [decision("1", "Its own.")] };
-    renderDocumentation(workspace({ documentation: own, system }));
+    await renderDocumentation(workspace({ documentation: own, system }));
 
     for (const [scope, body] of [
         [own, "Because."],
@@ -119,30 +119,30 @@ test("a decision of the workspace and of an element carry their HTML, with the s
     }
 });
 
-test("the decision graph keeps reading Structurizr's links", () => {
+test("the decision graph keeps reading Structurizr's links", async () => {
     const links = [{ id: "2", description: "Supersedes" }];
     const docs = { decisions: [decision("1", "x", { links }), decision("2")] };
-    renderDocumentation(workspace({ documentation: docs }));
+    await renderDocumentation(workspace({ documentation: docs }));
 
     assert.deepEqual(docs.decisions[0].links, links);
 });
 
-test("a workspace with no documentation is left as it is", () => {
+test("a workspace with no documentation is left as it is", async () => {
     const json = workspace();
     const before = structuredClone(json);
 
-    assert.equal(renderDocumentation(json), json);
+    assert.equal(await renderDocumentation(json), json);
     assert.deepEqual(json, before);
 });
 
-test("a section with no content renders to nothing", () => {
-    assert.equal(renderSection(section("01-empty.md", "  \n")), "");
-    assert.equal(renderDecision({ content: "" }), "");
+test("a section with no content renders to nothing", async () => {
+    assert.equal(await renderSection(section("01-empty.md", "  \n")), "");
+    assert.equal(await renderDecision({ content: "" }), "");
 });
 
-test("a section with no file name or content renders to nothing rather than failing the build", () => {
+test("a section with no file name or content renders to nothing rather than failing the build", async () => {
     const docs = { sections: [{ title: "Intro" }] };
-    renderDocumentation(workspace({ documentation: docs }));
+    await renderDocumentation(workspace({ documentation: docs }));
 
     assert.deepEqual(docs.sections, [{ title: "Intro", content: "" }]);
 });
@@ -161,14 +161,14 @@ test("prepareWorkspace renders the documentation, so every build mode, pnpm dev 
 
 /* ------------------------------------------------------------------- links */
 
-test("a link between sections resolves to the section's page and heading", () => {
+test("a link between sections resolves to the section's page and heading", async () => {
     const docs = {
         sections: [
             section("01-context.md", "See [ops](02-ops.md#on-call).\n"),
             section("02-ops.md", "# Ops\n"),
         ],
     };
-    renderDocumentation(workspace({ documentation: docs }));
+    await renderDocumentation(workspace({ documentation: docs }));
 
     assert.match(
         docs.sections[0].content,
@@ -176,7 +176,7 @@ test("a link between sections resolves to the section's page and heading", () =>
     );
 });
 
-test("a link inside an element's documentation reaches its own sections first, then the workspace's", () => {
+test("a link inside an element's documentation reaches its own sections first, then the workspace's", async () => {
     const docs = {
         sections: [
             section("01-context.md", "# Workspace context\n"),
@@ -191,7 +191,7 @@ test("a link inside an element's documentation reaches its own sections first, t
             ),
         ],
     };
-    renderDocumentation(workspace({ documentation: docs, system }));
+    await renderDocumentation(workspace({ documentation: docs, system }));
 
     const html = system.sections[0].content;
     assert.match(
@@ -201,11 +201,11 @@ test("a link inside an element's documentation reaches its own sections first, t
     assert.match(html, /href="#\/\?page=docs&amp;section=02-glossary"/);
 });
 
-test("a link to a decision resolves in the decision's own scope", () => {
+test("a link to a decision resolves in the decision's own scope", async () => {
     const container = {
         decisions: [decision("1", "See [two](0002-two.md)."), decision("2")],
     };
-    renderDocumentation(workspace({ container }));
+    await renderDocumentation(workspace({ container }));
 
     assert.match(
         container.decisions[0].content,
@@ -213,9 +213,9 @@ test("a link to a decision resolves in the decision's own scope", () => {
     );
 });
 
-test("a link to a document the workspace lacks stops being a link", () => {
+test("a link to a document the workspace lacks stops being a link", async () => {
     const docs = { sections: [section("01-a.md", "[gone](09-gone.md)\n")] };
-    renderDocumentation(workspace({ documentation: docs }));
+    await renderDocumentation(workspace({ documentation: docs }));
 
     assert.equal(
         docs.sections[0].content,
@@ -223,16 +223,16 @@ test("a link to a document the workspace lacks stops being a link", () => {
     );
 });
 
-test("a link to a decision stays unresolved when the workspace shows no decisions", () => {
+test("a link to a decision stays unresolved when the workspace shows no decisions", async () => {
     const docs = {
         sections: [section("01-a.md", "[adr](decisions/0001-a.md)\n")],
     };
-    renderDocumentation(workspace({ documentation: docs }));
+    await renderDocumentation(workspace({ documentation: docs }));
 
     assert.match(docs.sections[0].content, /rz-unresolved-link/);
 });
 
-test("each workspace of a set resolves against itself", () => {
+test("each workspace of a set resolves against itself", async () => {
     const orders = workspace({
         documentation: {
             sections: [section("01-orders.md", "[api](02-api.md)\n")],
@@ -246,8 +246,8 @@ test("each workspace of a set resolves against itself", () => {
             ],
         },
     });
-    renderDocumentation(orders);
-    renderDocumentation(payments);
+    await renderDocumentation(orders);
+    await renderDocumentation(payments);
 
     assert.match(
         orders.documentation.sections[0].content,
@@ -282,7 +282,7 @@ test("a set's software system scoped workspace renders its documentation against
 
 /* ------------------------------------------------------------------ images */
 
-test("an image resolves to the copy its scope embeds, then to the workspace's", () => {
+test("an image resolves to the copy its scope embeds, then to the workspace's", async () => {
     const docs = {
         sections: [section("01-a.md", "# A\n")],
         images: [image("shared.png", "U0hBUkVE"), image("own.png", "V1M=")],
@@ -293,14 +293,14 @@ test("an image resolves to the copy its scope embeds, then to the workspace's", 
         ],
         images: [image("own.png", "T1dO")],
     };
-    renderDocumentation(workspace({ documentation: docs, system }));
+    await renderDocumentation(workspace({ documentation: docs, system }));
 
     const html = system.sections[0].content;
     assert.match(html, /src="data:image\/png;base64,T1dO"/);
     assert.match(html, /src="data:image\/png;base64,U0hBUkVE"/);
 });
 
-test("the embedded images leave the payload once the HTML carries them", () => {
+test("the embedded images leave the payload once the HTML carries them", async () => {
     const docs = {
         sections: [section("01-a.md", "![a](a.png)\n")],
         images: [image("a.png")],
@@ -309,21 +309,21 @@ test("the embedded images leave the payload once the HTML carries them", () => {
         sections: [section("01-b.md", "![a](a.png)\n")],
         images: [image("b.png")],
     };
-    renderDocumentation(workspace({ documentation: docs, system }));
+    await renderDocumentation(workspace({ documentation: docs, system }));
 
     assert.equal("images" in docs, false);
     assert.equal("images" in system, false);
     assert.match(system.sections[0].content, /src="data:image\/png/);
 });
 
-test("an image in a decision resolves too, and a remote one stays as written", () => {
+test("an image in a decision resolves too, and a remote one stays as written", async () => {
     const docs = {
         decisions: [
             decision("1", "![a](a.png) ![b](https://example.com/b.png)"),
         ],
         images: [image("a.png", "QQ==")],
     };
-    renderDocumentation(workspace({ documentation: docs }));
+    await renderDocumentation(workspace({ documentation: docs }));
 
     const html = docs.decisions[0].content;
     assert.match(html, /src="data:image\/png;base64,QQ=="/);
@@ -383,12 +383,12 @@ test("the formatter drops the title, the date and a bare status word", () => {
     );
 });
 
-test("the formatter keeps each supersession note on a line of its own", () => {
+test("the formatter keeps each supersession note on a line of its own", async () => {
     const content =
         "# 4. Four\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\nAmends 2.\nAmended by 9.\n\n## Context\n\nWhy.\n";
 
     assert.equal(
-        renderDecision({ content }),
+        await renderDecision({ content }),
         "<blockquote>\n<p>Amends 2.<br>\nAmended by 9.</p>\n</blockquote>\n" +
             '<h3 id="context" tabindex="-1">Context</h3>\n<p>Why.</p>\n',
     );
@@ -412,9 +412,9 @@ test("the status words the formatter drops are the ones the page knows", async (
 
 /* ---------------------------------------------------------------- AsciiDoc */
 
-test("an AsciiDoc section goes through the AsciiDoc pass before markdown-it", () => {
+test("an AsciiDoc section goes through asciidoctor.js, its headings shifted like Markdown's", async () => {
     assert.equal(
-        renderSection(
+        await renderSection(
             section("runbook.adoc", "= Runbook\n\n== Restart\n\nNow.\n"),
         ),
         '<h2 id="runbook" tabindex="-1">Runbook</h2>\n' +
@@ -422,11 +422,151 @@ test("an AsciiDoc section goes through the AsciiDoc pass before markdown-it", ()
     );
 });
 
+test("the AsciiDoc format selects asciidoctor.js whatever the file name", async () => {
+    assert.equal(
+        await renderSection(
+            section("runbook.txt", "NOTE: Careful.\n", { format: "AsciiDoc" }),
+        ).then((html) => html.includes('class="rz-alert rz-alert-note"')),
+        true,
+    );
+});
+
+/**
+ * One body of every AsciiDoc counterpart of what Markdown renders, and the
+ * markup each has to come out as, whether a section or a decision holds it.
+ */
+const ASCIIDOC_BODY = [
+    '[cols="1,2"]',
+    "|===",
+    "|Name |Role",
+    "",
+    "|api",
+    "|serves",
+    "|===",
+    "",
+    "[.line-through]#mistaken# H~2~O mc^2^ -- it's (C)",
+    "",
+    "WARNING: Mind the gap.",
+    "",
+    "[source,json]",
+    "----",
+    '{"a": 1}',
+    "----",
+].join("\n");
+
+const assertAsciiDocBody = (html) => {
+    assert.match(html, /<div class="rz-table"><table>\n<colgroup>/);
+    assert.match(html, /<th>Name<\/th>/);
+    assert.match(html, /<td>api<\/td>/);
+    assert.match(html, /<s>mistaken<\/s>/);
+    assert.match(html, /H<sub>2<\/sub>O mc<sup>2<\/sup>/);
+    assert.match(html, /&#8201;&#8212;&#8201;it&#8217;s &#169;/);
+    assert.match(
+        html,
+        /<div class="rz-alert rz-alert-warning">\n<div class="rz-alert-title"><svg [\s\S]*<span>Warning<\/span><\/div>\n<p>Mind the gap.<\/p>\n<\/div>/,
+    );
+    assert.match(
+        html,
+        /<pre><code class="language-json">[\s\S]*<span class="hljs-attr">&quot;a&quot;<\/span>/,
+    );
+};
+
+test("an AsciiDoc section renders tables, strikethrough, sub and sup, alerts, typography and source blocks", async () => {
+    const docs = {
+        sections: [
+            section("01-deploy.adoc", `= Deploy\n\n${ASCIIDOC_BODY}\n`, {
+                format: "AsciiDoc",
+            }),
+        ],
+    };
+    await renderDocumentation(workspace({ documentation: docs }));
+
+    assert.equal(docs.sections[0].title, "Deploy");
+    assert.match(docs.sections[0].content, /^<h2 id="deploy" tabindex="-1">/);
+    assertAsciiDocBody(docs.sections[0].content);
+});
+
+/** Decision `id` in AsciiDoc, its `== Status` holding `status`. */
+const asciidocDecision = (id, body, status = "Accepted") => ({
+    id,
+    date: "2024-01-01T00:00:00Z",
+    status: "Accepted",
+    format: "AsciiDoc",
+    links: [],
+    content: `= ${id}. Render AsciiDoc\n\nDate: 2024-01-01\n\n== Status\n\n${status}\n\n== Context\n\n${body}\n`,
+});
+
+test("an AsciiDoc decision renders the same constructs, its status block formatted", async () => {
+    const docs = { decisions: [asciidocDecision("4", ASCIIDOC_BODY)] };
+    await renderDocumentation(workspace({ documentation: docs }));
+
+    const [rendered] = docs.decisions;
+    assert.equal(rendered.title, "Render AsciiDoc");
+    assert.match(rendered.content, /^<h3 id="context" tabindex="-1">Context/);
+    assert.ok(!rendered.content.includes("Date:"), rendered.content);
+    assert.ok(!rendered.content.includes("Accepted"), rendered.content);
+    assertAsciiDocBody(rendered.content);
+});
+
+test("an AsciiDoc decision keeps each supersession note on a line of its own", async () => {
+    assert.equal(
+        await renderDecision(
+            asciidocDecision(
+                "4",
+                "Why.",
+                "Accepted\n\nAmends 2.\nAmended by 9.",
+            ),
+        ),
+        "<blockquote>\n<p>Amends 2.<br>\nAmended by 9.</p>\n</blockquote>\n" +
+            '<h3 id="context" tabindex="-1">Context</h3>\n<p>Why.</p>\n',
+    );
+});
+
+test("an AsciiDoc decision with no title takes its = heading, without the number", () => {
+    assert.equal(
+        decisionTitle({
+            format: "AsciiDoc",
+            content: "= 3. Use Kafka\n\nDate: 2024-01-01\n",
+        }),
+        "Use Kafka",
+    );
+});
+
+test("links and images in AsciiDoc resolve in the document's own scope", async () => {
+    const system = {
+        sections: [
+            section(
+                "01-system.adoc",
+                "xref:02-ops.adoc#on-call[Ops], xref:0001-one.adoc[the decision] and xref:09-gone.adoc[gone]\n\nimage::own.png[Own]\n",
+            ),
+            section("02-ops.adoc", "= Ops\n"),
+        ],
+        decisions: [asciidocDecision("1", "See link:01-system.adoc[it].")],
+        images: [image("own.png", "T1dO")],
+    };
+    await renderDocumentation(workspace({ system }));
+
+    const html = system.sections[0].content;
+    assert.match(
+        html,
+        /href="#\/\?page=docs&amp;section=internet-banking\/02-ops.adoc&amp;subsection=on-call"/,
+    );
+    assert.match(
+        html,
+        /rz-unresolved-link" title="Not part of this workspace: 09-gone.adoc">gone/,
+    );
+    assert.match(html, /src="data:image\/png;base64,T1dO"/);
+    assert.match(
+        system.decisions[0].content,
+        /href="#\/\?page=docs&amp;section=internet-banking\/01-system.adoc"/,
+    );
+});
+
 /* ------------------------------------------------------------ heading ids */
 
-test("headings take GitHub's ids, shifted one level", () => {
+test("headings take GitHub's ids, shifted one level", async () => {
     assert.equal(
-        renderSection(section("01-a.md", "# A & B\n\n## A & B\n")),
+        await renderSection(section("01-a.md", "# A & B\n\n## A & B\n")),
         '<h2 id="a--b" tabindex="-1">A &amp; B</h2>\n' +
             '<h3 id="a--b-1" tabindex="-1">A &amp; B</h3>\n',
     );
@@ -434,8 +574,8 @@ test("headings take GitHub's ids, shifted one level", () => {
 
 /* -------------------------------------------------------------- class names */
 
-test("the rendered HTML carries the same class names from build to build", () => {
-    const html = renderSection(
+test("the rendered HTML carries the same class names from build to build", async () => {
+    const html = await renderSection(
         section("01-a.md", "| a |\n|---|\n| 1 |\n\n> [!NOTE]\n> Hi.\n"),
     );
 

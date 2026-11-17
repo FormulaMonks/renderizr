@@ -41,7 +41,7 @@ const ALERT_MARKER =
 const prepareIcon = (svg) =>
     svg.trim().replace(/^<svg /i, '<svg aria-hidden="true" focusable="false" ');
 
-const ALERT_ICONS = {
+export const ALERT_ICONS = {
     note: prepareIcon(icon("info-circle-fill")),
     tip: prepareIcon(icon("lightbulb-fill")),
     important: prepareIcon(icon("megaphone-fill")),
@@ -49,7 +49,7 @@ const ALERT_ICONS = {
     caution: prepareIcon(icon("exclamation-octagon-fill")),
 };
 
-const ALERT_LABELS = {
+export const ALERT_LABELS = {
     note: "Note",
     tip: "Tip",
     important: "Important",

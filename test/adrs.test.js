@@ -48,7 +48,7 @@ beforeEach(() => {
  * The workspace's own documentation scope, carrying `decisions` as the build
  * renders them.
  */
-const workspaceScope = (decisions) => ({
+const workspaceScope = async (decisions) => ({
     type: "Workspace",
     name: "Workspace",
     elementId: null,
@@ -57,15 +57,15 @@ const workspaceScope = (decisions) => ({
     parent: null,
     depth: 0,
     sections: [],
-    decisions: renderedWorkspace({ documentation: { decisions } }).documentation
-        .decisions,
+    decisions: (await renderedWorkspace({ documentation: { decisions } }))
+        .documentation.decisions,
     images: [],
 });
 
 /** Render the page and run the deferred first paint. */
-const renderPage = (decisions = FIXTURE_DECISIONS) => {
+const renderPage = async (decisions = FIXTURE_DECISIONS) => {
     rendered?.clear();
-    const page = new Decisions(host, "adrs", [workspaceScope(decisions)]);
+    const page = new Decisions(host, "adrs", [await workspaceScope(decisions)]);
     rendered = page;
     page.render();
     dom.runTimers();
@@ -109,8 +109,8 @@ const content = () => document.getElementById("decision-content");
 
 /* ------------------------------------------------------------------ index -- */
 
-test("with no decision open, the page shows the index and hides the menu", () => {
-    renderPage();
+test("with no decision open, the page shows the index and hides the menu", async () => {
+    await renderPage();
 
     assert.equal(index().hidden, false, "the index shows");
     assert.equal(menuSection().hidden, true, "the menu hides");
@@ -123,8 +123,8 @@ test("with no decision open, the page shows the index and hides the menu", () =>
     );
 });
 
-test("the index lists every decision with its four-digit number, status and full title", () => {
-    renderPage();
+test("the index lists every decision with its four-digit number, status and full title", async () => {
+    await renderPage();
 
     assert.equal(index().querySelector("h2").textContent, "Decisions");
     assert.deepEqual(indexEntries(), [
@@ -133,8 +133,8 @@ test("the index lists every decision with its four-digit number, status and full
     ]);
 });
 
-test("the index counts how many decisions are still in force", () => {
-    renderPage();
+test("the index counts how many decisions are still in force", async () => {
+    await renderPage();
 
     // One Accepted, one Proposed: only the first governs anything.
     assert.equal(
@@ -143,8 +143,8 @@ test("the index counts how many decisions are still in force", () => {
     );
 });
 
-test("amended decisions count as in force; rejected and superseded do not", () => {
-    renderPage([
+test("amended decisions count as in force; rejected and superseded do not", async () => {
+    await renderPage([
         decision("1", { status: "Accepted" }),
         decision("2", { status: "Amended" }),
         decision("3", { status: "Superseded" }),
@@ -158,8 +158,8 @@ test("amended decisions count as in force; rejected and superseded do not", () =
     );
 });
 
-test("the index groups decisions by year, newest year first", () => {
-    renderPage([
+test("the index groups decisions by year, newest year first", async () => {
+    await renderPage([
         decision("1", { date: "2022-06-01T12:00:00Z" }),
         decision("2", { date: "2024-03-01T12:00:00Z" }),
         decision("3", { date: "2023-01-01T12:00:00Z" }),
@@ -173,8 +173,8 @@ test("the index groups decisions by year, newest year first", () => {
     );
 });
 
-test("a decision with no date is grouped as Undated", () => {
-    renderPage([decision("1", { date: "" })]);
+test("a decision with no date is grouped as Undated", async () => {
+    await renderPage([decision("1", { date: "" })]);
 
     assert.deepEqual(
         index()
@@ -185,8 +185,8 @@ test("a decision with no date is grouped as Undated", () => {
     assert.equal(indexRows()[0].title, "", "with no date for a tooltip");
 });
 
-test("a row's date is its tooltip", () => {
-    renderPage();
+test("a row's date is its tooltip", async () => {
+    await renderPage();
 
     const expected = new Date("2024-01-15").toLocaleDateString(undefined, {
         dateStyle: "long",
@@ -194,8 +194,8 @@ test("a row's date is its tooltip", () => {
     assert.equal(index().querySelector('a[data-item-id="1"]').title, expected);
 });
 
-test("each status in the index gets the class its color comes from", () => {
-    renderPage([
+test("each status in the index gets the class its color comes from", async () => {
+    await renderPage([
         decision("1", { status: "Accepted" }),
         decision("2", { status: "Proposed" }),
         decision("3", { status: "Amended" }),
@@ -220,8 +220,8 @@ test("each status in the index gets the class its color comes from", () => {
     ]);
 });
 
-test("clicking a row opens the decision with the menu and records it in the URL", () => {
-    renderPage();
+test("clicking a row opens the decision with the menu and records it in the URL", async () => {
+    await renderPage();
 
     index().querySelector('a[data-item-id="1"]').click();
 
@@ -235,8 +235,8 @@ test("clicking a row opens the decision with the menu and records it in the URL"
     );
 });
 
-test("Back and Forward move between the decisions the reader opened", () => {
-    renderPage();
+test("Back and Forward move between the decisions the reader opened", async () => {
+    await renderPage();
     const heading = () => title().querySelector("h2")?.textContent ?? "";
 
     index().querySelector('a[data-item-id="2"]').click();
@@ -258,8 +258,8 @@ test("Back and Forward move between the decisions the reader opened", () => {
     assert.match(heading(), /^0001 /, "forward to 1 again");
 });
 
-test("Back from the first decision opened returns to the index", () => {
-    renderPage();
+test("Back from the first decision opened returns to the index", async () => {
+    await renderPage();
 
     index().querySelector('a[data-item-id="2"]').click();
     window.history.back();
@@ -272,17 +272,17 @@ test("Back from the first decision opened returns to the index", () => {
     );
 });
 
-test("clear() stops following history", () => {
-    const page = renderPage();
+test("clear() stops following history", async () => {
+    const page = await renderPage();
     index().querySelector('a[data-item-id="2"]').click();
     page.clear();
 
     assert.doesNotThrow(() => window.history.back());
 });
 
-test("a decision opened from the URL shows the menu, not the index", () => {
+test("a decision opened from the URL shows the menu, not the index", async () => {
     history.replace({ search: "?page=adrs&adr=1" });
-    renderPage();
+    await renderPage();
 
     assert.equal(index().hidden, true);
     assert.equal(menuSection().hidden, false);
@@ -290,8 +290,8 @@ test("a decision opened from the URL shows the menu, not the index", () => {
 
 /* ------------------------------------------------------------------ order -- */
 
-test("the menu lists decisions newest first", () => {
-    renderPage();
+test("the menu lists decisions newest first", async () => {
+    await renderPage();
 
     assert.deepEqual(menuLinks(), [
         "0002 Inline every asset for single-file output",
@@ -299,8 +299,8 @@ test("the menu lists decisions newest first", () => {
     ]);
 });
 
-test("decisions recorded on the same day are ordered by number", () => {
-    renderPage([
+test("decisions recorded on the same day are ordered by number", async () => {
+    await renderPage([
         decision("7", { date: "2024-05-05T12:00:00Z" }),
         decision("9", { date: "2024-05-05T12:00:00Z" }),
         decision("8", { date: "2024-05-05T12:00:00Z" }),
@@ -315,7 +315,7 @@ test("decisions recorded on the same day are ordered by number", () => {
 
 /* -------------------------------------------------------------- numbers -- */
 
-test("decision numbers read as four digits wherever they appear", () => {
+test("decision numbers read as four digits wherever they appear", async () => {
     const cases = [
         { id: "7", number: "0007" },
         { id: "42", number: "0042" },
@@ -330,7 +330,7 @@ test("decision numbers read as four digits wherever they appear", () => {
         dom.reset();
         host = dom.mount("page-content");
         history.replace({ search: `?page=adrs&adr=${id}`, hash: "" });
-        renderPage([decision(id)]);
+        await renderPage([decision(id)]);
 
         const menuNumber = document.querySelector(
             `#adrs-menu a[data-item-id="${id}"] span.number`,
@@ -347,9 +347,9 @@ test("decision numbers read as four digits wherever they appear", () => {
     }
 });
 
-test("the narrow-screen select shows four-digit numbers", () => {
+test("the narrow-screen select shows four-digit numbers", async () => {
     dom.setViewportWidth(600);
-    renderPage();
+    await renderPage();
 
     assert.deepEqual(
         document
@@ -362,9 +362,9 @@ test("the narrow-screen select shows four-digit numbers", () => {
     );
 });
 
-test("switching between the list and the select redraws the menu and keeps the open decision", () => {
+test("switching between the list and the select redraws the menu and keeps the open decision", async () => {
     history.replace({ search: "?page=adrs&adr=1" });
-    renderPage();
+    await renderPage();
 
     dom.setViewportWidth(600);
 
@@ -449,14 +449,14 @@ const highlightedDots = () =>
 const open = (id) =>
     document.querySelector(`#adrs-menu a[data-item-id="${id}"]`).click();
 
-test("the decision graph starts collapsed beside the menu", () => {
-    renderPage(LINKED);
+test("the decision graph starts collapsed beside the menu", async () => {
+    await renderPage(LINKED);
 
     assert.equal(graph()?.getAttribute("data-state"), "collapsed");
 });
 
-test("the collapsed decision graph draws a dot per decision, colored by its status, in menu order", () => {
-    renderPage(LINKED);
+test("the collapsed decision graph draws a dot per decision, colored by its status, in menu order", async () => {
+    await renderPage(LINKED);
 
     assert.deepEqual(dots(), [
         { decision: "4", status: "draft" },
@@ -466,8 +466,8 @@ test("the collapsed decision graph draws a dot per decision, colored by its stat
     ]);
 });
 
-test("dots take the same status as the pill, older spellings included", () => {
-    renderPage([
+test("dots take the same status as the pill, older spellings included", async () => {
+    await renderPage([
         decision("1", { status: "Rejected" }),
         decision("2", { status: "Deprecated" }),
         decision("3", { status: "Proposed" }),
@@ -480,15 +480,15 @@ test("dots take the same status as the pill, older spellings included", () => {
     );
 });
 
-test("no elbow shows until a decision opens", () => {
-    renderPage(LINKED);
+test("no elbow shows until a decision opens", async () => {
+    await renderPage(LINKED);
 
     assert.deepEqual(elbows(), []);
     assert.deepEqual(highlightedDots(), [], "nothing is highlighted either");
 });
 
-test("opening a decision draws an elbow to each decision it links to, by kind and older status", () => {
-    renderPage(LINKED);
+test("opening a decision draws an elbow to each decision it links to, by kind and older status", async () => {
+    await renderPage(LINKED);
 
     open("4");
 
@@ -501,8 +501,8 @@ test("opening a decision draws an elbow to each decision it links to, by kind an
     ]);
 });
 
-test("the open decision's dot and the dots it links to are highlighted", () => {
-    renderPage(LINKED);
+test("the open decision's dot and the dots it links to are highlighted", async () => {
+    await renderPage(LINKED);
 
     open("3");
 
@@ -523,8 +523,11 @@ const dimmedDots = () =>
         .map((dot) => dot.getAttribute("data-decision"))
         .sort();
 
-test("the collapsed gutter dims every dot outside the open decision's links", () => {
-    renderPage([...LINKED, decision("5", { date: "2024-05-01T12:00:00Z" })]);
+test("the collapsed gutter dims every dot outside the open decision's links", async () => {
+    await renderPage([
+        ...LINKED,
+        decision("5", { date: "2024-05-01T12:00:00Z" }),
+    ]);
 
     assert.deepEqual(dimmedDots(), [], "nothing dims while nothing is open");
 
@@ -536,8 +539,8 @@ test("the collapsed gutter dims every dot outside the open decision's links", ()
     assert.deepEqual(dimmedDots(), ["1", "2", "3", "4", "5"]);
 });
 
-test("opening another decision redraws the elbows for it", () => {
-    renderPage(LINKED);
+test("opening another decision redraws the elbows for it", async () => {
+    await renderPage(LINKED);
 
     open("4");
     open("1");
@@ -548,17 +551,17 @@ test("opening another decision redraws the elbows for it", () => {
     ]);
 });
 
-test("a decision opened from the URL draws its elbows on first paint", () => {
+test("a decision opened from the URL draws its elbows on first paint", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(LINKED);
+    await renderPage(LINKED);
 
     assert.deepEqual(elbows(), [
         { kind: "amend", from: "4", to: "2", status: "amended" },
     ]);
 });
 
-test("All decisions clears the elbows", () => {
-    renderPage(LINKED);
+test("All decisions clears the elbows", async () => {
+    await renderPage(LINKED);
 
     open("4");
     document.getElementById("adrs-summary").click();
@@ -567,9 +570,9 @@ test("All decisions clears the elbows", () => {
     assert.deepEqual(highlightedDots(), []);
 });
 
-test("the narrow-screen select carries no decision graph, and it comes back with the list", () => {
+test("the narrow-screen select carries no decision graph, and it comes back with the list", async () => {
     history.replace({ search: "?page=adrs&adr=4" });
-    renderPage(LINKED);
+    await renderPage(LINKED);
 
     dom.setViewportWidth(600);
     assert.deepEqual(dots(), [], "no dots beside a select");
@@ -598,8 +601,8 @@ const marks = (mark) =>
         }))
         .sort((a, b) => `${a.from}${a.to}`.localeCompare(`${b.from}${b.to}`));
 
-test("the controls bar sits above the menu, outside its scroll area, with All decisions and the expand toggle", () => {
-    renderPage(LINKED);
+test("the controls bar sits above the menu, outside its scroll area, with All decisions and the expand toggle", async () => {
+    await renderPage(LINKED);
 
     const bar = controls();
     assert.ok(bar, "the page has a controls bar");
@@ -625,8 +628,8 @@ test("the controls bar sits above the menu, outside its scroll area, with All de
     );
 });
 
-test("the expand toggle expands the decision graph, and pressing it again collapses it", () => {
-    renderPage(LINKED);
+test("the expand toggle expands the decision graph, and pressing it again collapses it", async () => {
+    await renderPage(LINKED);
 
     assert.equal(expandToggle().getAttribute("aria-expanded"), "false");
 
@@ -639,8 +642,8 @@ test("the expand toggle expands the decision graph, and pressing it again collap
     assert.equal(expandToggle().getAttribute("aria-expanded"), "false");
 });
 
-test("the expanded decision graph draws each lane's stretches by kind and the older decision's status", () => {
-    renderPage(LINKED);
+test("the expanded decision graph draws each lane's stretches by kind and the older decision's status", async () => {
+    await renderPage(LINKED);
 
     expand();
 
@@ -665,8 +668,8 @@ test("the expanded decision graph draws each lane's stretches by kind and the ol
     ]);
 });
 
-test("a reference, or a supersede or amend that doesn't continue a lane, joins the lane of the decision it links to", () => {
-    renderPage(LINKED);
+test("a reference, or a supersede or amend that doesn't continue a lane, joins the lane of the decision it links to", async () => {
+    await renderPage(LINKED);
 
     expand();
 
@@ -690,8 +693,11 @@ test("a reference, or a supersede or amend that doesn't continue a lane, joins t
     ]);
 });
 
-test("every dot in the expanded decision graph sits on its lane, or alone", () => {
-    renderPage([...LINKED, decision("5", { date: "2024-05-01T12:00:00Z" })]);
+test("every dot in the expanded decision graph sits on its lane, or alone", async () => {
+    await renderPage([
+        ...LINKED,
+        decision("5", { date: "2024-05-01T12:00:00Z" }),
+    ]);
 
     expand();
 
@@ -712,9 +718,9 @@ test("every dot in the expanded decision graph sits on its lane, or alone", () =
     );
 });
 
-test("expanded, the open decision's references run on the reference column, and collapsing brings the elbows back", () => {
+test("expanded, the open decision's references run on the reference column, and collapsing brings the elbows back", async () => {
     history.replace({ search: "?page=adrs&adr=4" });
-    renderPage(LINKED);
+    await renderPage(LINKED);
 
     expand();
     assert.deepEqual(
@@ -779,8 +785,8 @@ const dimmed = () =>
 
 const LONE = decision("5", { date: "2024-05-01T12:00:00Z" });
 
-test("opening a decision lights its links on the reference column and the dots at their ends, and dims every lane", () => {
-    renderPage([...LINKED, LONE]);
+test("opening a decision lights its links on the reference column and the dots at their ends, and dims every lane", async () => {
+    await renderPage([...LINKED, LONE]);
     expand();
 
     open("3");
@@ -807,8 +813,8 @@ test("opening a decision lights its links on the reference column and the dots a
     );
 });
 
-test("opening a decision that a second decision amends lights the join down to it", () => {
-    renderPage([...LINKED, LONE]);
+test("opening a decision that a second decision amends lights the join down to it", async () => {
+    await renderPage([...LINKED, LONE]);
     expand();
 
     open("2");
@@ -830,8 +836,8 @@ test("opening a decision that a second decision amends lights the join down to i
     );
 });
 
-test("opening a decision lights the link that continues its lane along it, and its other links as joins", () => {
-    renderPage([...LINKED, LONE]);
+test("opening a decision lights the link that continues its lane along it, and its other links as joins", async () => {
+    await renderPage([...LINKED, LONE]);
     expand();
 
     open("4");
@@ -876,8 +882,8 @@ const BRANCHED = [
     }),
 );
 
-test("a lane that branches draws only real links: the second decision to amend one joins its lane", () => {
-    renderPage(BRANCHED);
+test("a lane that branches draws only real links: the second decision to amend one joins its lane", async () => {
+    await renderPage(BRANCHED);
     expand();
 
     assert.deepEqual(
@@ -897,8 +903,8 @@ test("a lane that branches draws only real links: the second decision to amend o
     );
 });
 
-test("opening a decision on a branching lane lights its stretches and the joins into it", () => {
-    renderPage(BRANCHED);
+test("opening a decision on a branching lane lights its stretches and the joins into it", async () => {
+    await renderPage(BRANCHED);
     expand();
 
     open("13");
@@ -920,7 +926,7 @@ test("opening a decision on a branching lane lights its stretches and the joins 
     ]);
 });
 
-test("opening a decision in the middle of an amend trunk lights only the stretches to its direct links", () => {
+test("opening a decision in the middle of an amend trunk lights only the stretches to its direct links", async () => {
     // From 2 on, each decision amends the one before, all on one lane.
     const trunk = Array.from({ length: 6 }, (__, index) =>
         decision(String(index + 1), {
@@ -931,7 +937,7 @@ test("opening a decision in the middle of an amend trunk lights only the stretch
                     : [{ id: String(index), description: "Amends" }],
         }),
     );
-    renderPage(trunk);
+    await renderPage(trunk);
     expand();
 
     open("3");
@@ -954,8 +960,8 @@ test("opening a decision in the middle of an amend trunk lights only the stretch
     );
 });
 
-test("opening a decision with no links dims the whole graph, its own dot too, and the ring still marks it", () => {
-    renderPage([...LINKED, LONE]);
+test("opening a decision with no links dims the whole graph, its own dot too, and the ring still marks it", async () => {
+    await renderPage([...LINKED, LONE]);
     expand();
 
     open("5");
@@ -981,8 +987,8 @@ test("opening a decision with no links dims the whole graph, its own dot too, an
     );
 });
 
-test("nothing lights or dims until a decision opens", () => {
-    renderPage([...LINKED, LONE]);
+test("nothing lights or dims until a decision opens", async () => {
+    await renderPage([...LINKED, LONE]);
     expand();
 
     assert.deepEqual(lit(), []);
@@ -1019,8 +1025,8 @@ const geometry = () => ({
         ),
 });
 
-test("past the menu's cap, references open no lanes and only supersede and amend lanes remain", () => {
-    renderPage(GRAPH_DECISIONS);
+test("past the menu's cap, references open no lanes and only supersede and amend lanes remain", async () => {
+    await renderPage(GRAPH_DECISIONS);
     expand();
 
     assert.equal(graph().getAttribute("data-fallback"), "lineage");
@@ -1035,8 +1041,8 @@ test("past the menu's cap, references open no lanes and only supersede and amend
     assert.deepEqual(marks("edge"), [], "the reference column stays empty");
 });
 
-test("past the menu's cap, the reference column carries the open decision's references in full", () => {
-    renderPage(GRAPH_DECISIONS);
+test("past the menu's cap, the reference column carries the open decision's references in full", async () => {
+    await renderPage(GRAPH_DECISIONS);
     expand();
 
     open("8");
@@ -1065,8 +1071,8 @@ test("past the menu's cap, the reference column carries the open decision's refe
     assert.equal(marks("edge").length, 36, "every reference 46 makes");
 });
 
-test("opening a decision never moves a column", () => {
-    renderPage(GRAPH_DECISIONS);
+test("opening a decision never moves a column", async () => {
+    await renderPage(GRAPH_DECISIONS);
     expand();
     const closed = geometry();
 
@@ -1075,8 +1081,8 @@ test("opening a decision never moves a column", () => {
     assert.deepEqual(geometry(), closed);
 });
 
-test("under the cap too, opening a decision never moves a column", () => {
-    renderPage([...LINKED, LONE]);
+test("under the cap too, opening a decision never moves a column", async () => {
+    await renderPage([...LINKED, LONE]);
     expand();
     assert.equal(graph().getAttribute("data-fallback"), "none");
     const closed = geometry();
@@ -1091,19 +1097,19 @@ test("under the cap too, opening a decision never moves a column", () => {
     );
 });
 
-test("the expand toggle's state survives a reload", () => {
-    const page = renderPage(LINKED);
+test("the expand toggle's state survives a reload", async () => {
+    const page = await renderPage(LINKED);
     expand();
     page.clear();
 
-    renderPage(LINKED);
+    await renderPage(LINKED);
 
     assert.equal(graph().getAttribute("data-state"), "expanded");
     assert.equal(expandToggle().getAttribute("aria-expanded"), "true");
     assert.ok(marks("stretch").length > 0, "the lanes draw on first paint");
 });
 
-test("the decision graph renders collapsed when storage is unavailable, and the toggle still works", () => {
+test("the decision graph renders collapsed when storage is unavailable, and the toggle still works", async () => {
     const realStorage = window.localStorage;
     const refuse = () => {
         throw new Error("SecurityError: storage is unavailable");
@@ -1118,7 +1124,7 @@ test("the decision graph renders collapsed when storage is unavailable, and the 
     globalThis.localStorage = broken;
 
     try {
-        renderPage(LINKED);
+        await renderPage(LINKED);
         assert.equal(graph().getAttribute("data-state"), "collapsed");
 
         expand();
@@ -1129,10 +1135,10 @@ test("the decision graph renders collapsed when storage is unavailable, and the 
     }
 });
 
-test("a stored state the page does not know renders collapsed", () => {
+test("a stored state the page does not know renders collapsed", async () => {
     window.localStorage.setItem("renderizr:decision-graph", "sideways");
 
-    renderPage(LINKED);
+    await renderPage(LINKED);
 
     assert.equal(graph().getAttribute("data-state"), "collapsed");
 });
@@ -1174,9 +1180,9 @@ const menuIds = () =>
         .map((link) => link.getAttribute("data-item-id"));
 const dotIds = () => dots().map((dot) => dot.decision);
 
-test("Related only sits at the right of the controls bar, unpressed", () => {
+test("Related only sits at the right of the controls bar, unpressed", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     // Compared by id: a failing comparison of two elements would print the
     // whole document.
@@ -1188,9 +1194,9 @@ test("Related only sits at the right of the controls bar, unpressed", () => {
     assert.equal(relatedOnly().getAttribute("aria-pressed"), "false");
 });
 
-test("Related only keeps the open decision and the decisions it links to or that link to it, and shows as pressed", () => {
+test("Related only keeps the open decision and the decisions it links to or that link to it, and shows as pressed", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     relatedOnly().click();
 
@@ -1210,9 +1216,9 @@ test("Related only keeps the open decision and the decisions it links to or that
     );
 });
 
-test("pressing Related only scrolls the menu back to its top", () => {
+test("pressing Related only scrolls the menu back to its top", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
     const scroll = document.getElementById("adrs-scroll");
 
     scroll.scrollTop = 400;
@@ -1224,9 +1230,9 @@ test("pressing Related only scrolls the menu back to its top", () => {
     assert.equal(scroll.scrollTop, 0, "and so does the whole list");
 });
 
-test("opening a decision marks the menu entries it links to, collapsed or expanded", () => {
+test("opening a decision marks the menu entries it links to, collapsed or expanded", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
     const linkedEntries = () =>
         document
             .querySelectorAll("#adrs-menu a[data-linked]")
@@ -1240,9 +1246,9 @@ test("opening a decision marks the menu entries it links to, collapsed or expand
     assert.deepEqual(linkedEntries(), ["4"]);
 });
 
-test("the filtered decision graph is laid out from the related decisions alone", () => {
+test("the filtered decision graph is laid out from the related decisions alone", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     relatedOnly().click();
     expand();
@@ -1257,9 +1263,9 @@ test("the filtered decision graph is laid out from the related decisions alone",
     );
 });
 
-test("opening another decision while filtered narrows the menu to its relatives, in decision order", () => {
+test("opening another decision while filtered narrows the menu to its relatives, in decision order", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     relatedOnly().click();
     open("4");
@@ -1269,9 +1275,9 @@ test("opening another decision while filtered narrows the menu to its relatives,
     assert.equal(relatedOnly().getAttribute("aria-pressed"), "true");
 });
 
-test("the open decision's body still links to decisions the filter hides", () => {
+test("the open decision's body still links to decisions the filter hides", async () => {
     history.replace({ search: "?page=adrs&adr=4" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     relatedOnly().click();
     open("2");
@@ -1287,9 +1293,9 @@ test("the open decision's body still links to decisions the filter hides", () =>
     assert.deepEqual(menuIds(), ["7", "2", "5"]);
 });
 
-test("the filtered, expanded graph still lights the open decision's edges and dims the rest", () => {
+test("the filtered, expanded graph still lights the open decision's edges and dims the rest", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     relatedOnly().click();
     expand();
@@ -1326,9 +1332,9 @@ test("the filtered, expanded graph still lights the open decision's edges and di
     );
 });
 
-test("pressing Related only again shows every decision", () => {
+test("pressing Related only again shows every decision", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     relatedOnly().click();
     relatedOnly().click();
@@ -1338,9 +1344,9 @@ test("pressing Related only again shows every decision", () => {
     assert.equal(dots().length, 7);
 });
 
-test("All decisions turns Related only off and shows every decision", () => {
+test("All decisions turns Related only off and shows every decision", async () => {
     history.replace({ search: "?page=adrs&adr=2" });
-    renderPage(FAMILY);
+    await renderPage(FAMILY);
 
     relatedOnly().click();
     document.getElementById("adrs-summary").click();
@@ -1353,8 +1359,8 @@ test("All decisions turns Related only off and shows every decision", () => {
     assert.equal(menuIds().length, 7, "opening a decision keeps every one");
 });
 
-test("Related only hides while no decision is open", () => {
-    renderPage(FAMILY);
+test("Related only hides while no decision is open", async () => {
+    await renderPage(FAMILY);
 
     assert.equal(relatedOnly().hidden, true);
     open("2");
@@ -1383,8 +1389,8 @@ const indexRow = (id) => index().querySelector(`a[data-item-id="${id}"]`);
 const point = (element, type) =>
     element.dispatchEvent(new DOMEvent(type, { bubbles: true }));
 
-test("the index draws the decision graph expanded, beside its rows", () => {
-    renderPage([...LINKED, LONE]);
+test("the index draws the decision graph expanded, beside its rows", async () => {
+    await renderPage([...LINKED, LONE]);
 
     assert.equal(indexGraph().getAttribute("data-state"), "expanded");
     assert.deepEqual(
@@ -1401,16 +1407,16 @@ test("the index draws the decision graph expanded, beside its rows", () => {
     );
 });
 
-test("the index stays expanded whatever the menu's decision graph was left as", () => {
+test("the index stays expanded whatever the menu's decision graph was left as", async () => {
     window.localStorage.setItem("renderizr:decision-graph", "collapsed");
 
-    renderPage(LINKED);
+    await renderPage(LINKED);
 
     assert.equal(indexGraph().getAttribute("data-state"), "expanded");
 });
 
-test("the index has no expand toggle and no Related only", () => {
-    renderPage(LINKED);
+test("the index has no expand toggle and no Related only", async () => {
+    await renderPage(LINKED);
 
     // Compared by what they do: a failing comparison of two elements would
     // print the whole document.
@@ -1423,8 +1429,8 @@ test("the index has no expand toggle and no Related only", () => {
     );
 });
 
-test("pointing at a row lights its edges and dims the rest, and nothing dims once it leaves", () => {
-    renderPage([...LINKED, LONE]);
+test("pointing at a row lights its edges and dims the rest, and nothing dims once it leaves", async () => {
+    await renderPage([...LINKED, LONE]);
 
     assert.deepEqual(indexMarks("dimmed"), [], "nothing dims at first");
 
@@ -1453,8 +1459,8 @@ test("pointing at a row lights its edges and dims the rest, and nothing dims onc
     assert.deepEqual(indexMarks("dimmed"), []);
 });
 
-test("pointing at a row marks the rows it links to, and leaving clears them", () => {
-    renderPage([...LINKED, LONE]);
+test("pointing at a row marks the rows it links to, and leaving clears them", async () => {
+    await renderPage([...LINKED, LONE]);
     const linkedRows = () =>
         index()
             .querySelectorAll("a[data-linked]")
@@ -1467,8 +1473,8 @@ test("pointing at a row marks the rows it links to, and leaving clears them", ()
     assert.deepEqual(linkedRows(), []);
 });
 
-test("focusing a row lights its edges, and moving focus away puts them out", () => {
-    renderPage([...LINKED, LONE]);
+test("focusing a row lights its edges, and moving focus away puts them out", async () => {
+    await renderPage([...LINKED, LONE]);
 
     point(indexRow("5"), "focusin");
     assert.deepEqual(indexMarks("highlighted"), [], "5 stands alone");
@@ -1478,8 +1484,8 @@ test("focusing a row lights its edges, and moving focus away puts them out", () 
     assert.deepEqual(indexMarks("dimmed"), []);
 });
 
-test("pointing at a row of the index leaves the menu's decision graph alone", () => {
-    renderPage([...LINKED, LONE]);
+test("pointing at a row of the index leaves the menu's decision graph alone", async () => {
+    await renderPage([...LINKED, LONE]);
 
     point(indexRow("3"), "mouseover");
 
@@ -1489,8 +1495,8 @@ test("pointing at a row of the index leaves the menu's decision graph alone", ()
     );
 });
 
-test("All decisions returns to the index with nothing lit", () => {
-    renderPage([...LINKED, LONE]);
+test("All decisions returns to the index with nothing lit", async () => {
+    await renderPage([...LINKED, LONE]);
 
     point(indexRow("3"), "mouseover");
     indexRow("3").click();
@@ -1501,9 +1507,9 @@ test("All decisions returns to the index with nothing lit", () => {
     assert.deepEqual(indexMarks("dimmed"), []);
 });
 
-test("on a narrow screen, the index keeps its decision graph", () => {
+test("on a narrow screen, the index keeps its decision graph", async () => {
     dom.setViewportWidth(600);
-    renderPage(LINKED);
+    await renderPage(LINKED);
 
     assert.equal(
         document.querySelectorAll('#adrs-index [data-mark="dot"]').length,
@@ -1527,9 +1533,9 @@ test("the index's decision graph takes up to half the index's width", () => {
 
 /* ---------------------------------------------- each decision graph's cap -- */
 
-test("under Related only, the menu's decision graph keeps the menu's cap", () => {
+test("under Related only, the menu's decision graph keeps the menu's cap", async () => {
     history.replace({ search: "?page=adrs&adr=46" });
-    renderPage(GRAPH_DECISIONS);
+    await renderPage(GRAPH_DECISIONS);
     expand();
 
     relatedOnly().click();
@@ -1540,15 +1546,15 @@ test("under Related only, the menu's decision graph keeps the menu's cap", () =>
     assert.ok(marks("edge").length > 0, "46's references run on their column");
 });
 
-test("the index lays out its decision graph under its own cap", () => {
+test("the index lays out its decision graph under its own cap", async () => {
     // Half of 1,280px holds 40 of the index's columns: room for all 37.
-    renderPage(GRAPH_DECISIONS);
+    await renderPage(GRAPH_DECISIONS);
     assert.equal(indexGraph().getAttribute("data-fallback"), "none");
 });
 
-test("a decision opened from the URL lays out the index at the index's own width once it shows", () => {
+test("a decision opened from the URL lays out the index at the index's own width once it shows", async () => {
     history.replace({ search: "?page=adrs&adr=46" });
-    renderPage(GRAPH_DECISIONS);
+    await renderPage(GRAPH_DECISIONS);
     // Hidden behind the open decision, the index measures nothing, so its
     // graph laid out at the window's 1,280px, room for all 37 columns.
     assert.equal(indexGraph().getAttribute("data-fallback"), "none");
@@ -1560,9 +1566,9 @@ test("a decision opened from the URL lays out the index at the index's own width
     assert.equal(indexGraph().getAttribute("data-fallback"), "lineage");
 });
 
-test("on a narrow index, the decision graph falls back", () => {
+test("on a narrow index, the decision graph falls back", async () => {
     dom.setViewportWidth(600);
-    renderPage(GRAPH_DECISIONS);
+    await renderPage(GRAPH_DECISIONS);
 
     // 600px holds 18 of the index's columns, fewer than the 37 it needs.
     assert.equal(indexGraph().getAttribute("data-fallback"), "lineage");
@@ -1612,8 +1618,8 @@ const layOutLanes = () => {
     return view;
 };
 
-test("past even the lineage fallback, the lanes scroll behind the pinned columns", () => {
-    renderPage(SCROLL_DECISIONS);
+test("past even the lineage fallback, the lanes scroll behind the pinned columns", async () => {
+    await renderPage(SCROLL_DECISIONS);
     expand();
 
     assert.equal(graph().getAttribute("data-fallback"), "scroll");
@@ -1642,7 +1648,7 @@ test("past even the lineage fallback, the lanes scroll behind the pinned columns
     assert.equal(strip.querySelectorAll("[data-mark]").length, 0);
 });
 
-test("the lanes scroll only past the lineage fallback, and only expanded", () => {
+test("the lanes scroll only past the lineage fallback, and only expanded", async () => {
     for (const [decisions, expanded] of [
         [LINKED, true],
         [GRAPH_DECISIONS, true],
@@ -1652,7 +1658,7 @@ test("the lanes scroll only past the lineage fallback, and only expanded", () =>
         dom.reset();
         host = dom.mount("page-content");
         history.replace({ search: "?page=adrs&adr=2", hash: "" });
-        renderPage(decisions);
+        await renderPage(decisions);
         if (expanded) expand();
 
         assert.equal(lanesView(), null);
@@ -1660,9 +1666,9 @@ test("the lanes scroll only past the lineage fallback, and only expanded", () =>
     }
 });
 
-test("the ‹ › buttons show in the controls bar only while the lanes scroll", () => {
+test("the ‹ › buttons show in the controls bar only while the lanes scroll", async () => {
     history.replace({ search: "?page=adrs&adr=82" });
-    renderPage(SCROLL_DECISIONS);
+    await renderPage(SCROLL_DECISIONS);
     const buttons = () => document.getElementById("adrs-lanes");
 
     assert.ok(buttons().hidden, "collapsed, nothing scrolls");
@@ -1691,8 +1697,8 @@ test("the ‹ › buttons show in the controls bar only while the lanes scroll",
     assert.ok(buttons().hidden, "collapsed again");
 });
 
-test("the ‹ › buttons sit between the expand toggle and Related only", () => {
-    renderPage(SCROLL_DECISIONS);
+test("the ‹ › buttons sit between the expand toggle and Related only", async () => {
+    await renderPage(SCROLL_DECISIONS);
 
     assert.deepEqual(
         controls().children.map((child) => child.getAttribute("id")),
@@ -1700,9 +1706,9 @@ test("the ‹ › buttons sit between the expand toggle and Related only", () =>
     );
 });
 
-test("‹ and › scroll the lanes by four columns", () => {
+test("‹ and › scroll the lanes by four columns", async () => {
     history.replace({ search: "?page=adrs&adr=82" });
-    renderPage(SCROLL_DECISIONS);
+    await renderPage(SCROLL_DECISIONS);
     expand();
     const [left, right] = laneButtons();
 
@@ -1721,9 +1727,9 @@ test("‹ and › scroll the lanes by four columns", () => {
     );
 });
 
-test("the lanes start scrolled to the titles' edge", () => {
+test("the lanes start scrolled to the titles' edge", async () => {
     history.replace({ search: "?page=adrs&adr=80" });
-    renderPage(SCROLL_DECISIONS);
+    await renderPage(SCROLL_DECISIONS);
     expand();
 
     const view = layOutLanes();
@@ -1731,9 +1737,9 @@ test("the lanes start scrolled to the titles' edge", () => {
     assert.equal(view.scrollLeft, view.scrollWidth - view.clientWidth);
 });
 
-test("opening a decision scrolls as little as possible to show the lanes its edges reach", () => {
+test("opening a decision scrolls as little as possible to show the lanes its edges reach", async () => {
     history.replace({ search: "?page=adrs&adr=41" });
-    renderPage(SCROLL_DECISIONS);
+    await renderPage(SCROLL_DECISIONS);
     expand();
     const view = layOutLanes();
 
@@ -1752,9 +1758,9 @@ test("opening a decision scrolls as little as possible to show the lanes its edg
     assert.equal(view.scrollLeft, 40);
 });
 
-test("the index shows ‹ › in a bar of its own while its lanes scroll", () => {
+test("the index shows ‹ › in a bar of its own while its lanes scroll", async () => {
     // 1,280px holds 40 of the index's columns, fewer than the 42 it needs.
-    renderPage(SCROLL_DECISIONS);
+    await renderPage(SCROLL_DECISIONS);
 
     assert.equal(indexGraph().getAttribute("data-fallback"), "scroll");
     assert.ok(lanesView("#adrs-index"), "the index's lanes scroll");
@@ -1779,8 +1785,8 @@ test("the index shows ‹ › in a bar of its own while its lanes scroll", () =>
     );
 });
 
-test("the index hides its ‹ › bar while its lanes fit", () => {
-    renderPage(GRAPH_DECISIONS);
+test("the index hides its ‹ › bar while its lanes fit", async () => {
+    await renderPage(GRAPH_DECISIONS);
 
     assert.ok(document.getElementById("adrs-index-controls").hidden);
     assert.equal(lanesView("#adrs-index"), null);
@@ -1788,8 +1794,8 @@ test("the index hides its ‹ › bar while its lanes fit", () => {
 
 /* -------------------------------------------------------------- selection -- */
 
-test("choosing a decision shows its title, date and status", () => {
-    renderPage();
+test("choosing a decision shows its title, date and status", async () => {
+    await renderPage();
 
     document.querySelector('#adrs-menu a[data-item-id="1"]').click();
 
@@ -1804,8 +1810,8 @@ test("choosing a decision shows its title, date and status", () => {
     );
 });
 
-test("choosing a decision renders its body as markdown", () => {
-    renderPage();
+test("choosing a decision renders its body as markdown", async () => {
+    await renderPage();
 
     document.querySelector('#adrs-menu a[data-item-id="1"]').click();
 
@@ -1817,9 +1823,9 @@ test("choosing a decision renders its body as markdown", () => {
     assert.match(content().textContent, /draws views client side/);
 });
 
-test("the body drops the title, the date line and a bare status", () => {
+test("the body drops the title, the date line and a bare status", async () => {
     // All three already appear above the body; repeating them is noise.
-    renderPage();
+    await renderPage();
 
     document.querySelector('#adrs-menu a[data-item-id="1"]').click();
 
@@ -1835,8 +1841,8 @@ test("the body drops the title, the date line and a bare status", () => {
     );
 });
 
-test("a supersession note survives, because nothing else records it", () => {
-    renderPage([
+test("a supersession note survives, because nothing else records it", async () => {
+    await renderPage([
         decision("15", {
             content:
                 "# 15. Old\n\nDate: 2024-01-01\n\n## Status\n\nAmended\n\nAmends 12.\n\nAmended by 39.\n\n## Context\n\nBecause.\n",
@@ -1857,18 +1863,18 @@ test("a supersession note survives, because nothing else records it", () => {
     );
 });
 
-test("choosing a decision records it in the URL", () => {
-    renderPage();
+test("choosing a decision records it in the URL", async () => {
+    await renderPage();
 
     document.querySelector('#adrs-menu a[data-item-id="2"]').click();
 
     assert.equal(new URLSearchParams(history.location.search).get("adr"), "2");
 });
 
-test("the decision named in the URL is the one that opens", () => {
+test("the decision named in the URL is the one that opens", async () => {
     history.replace({ search: "?page=adrs&adr=1" });
 
-    renderPage();
+    await renderPage();
 
     assert.equal(
         title().querySelector("h2").textContent,
@@ -1876,21 +1882,21 @@ test("the decision named in the URL is the one that opens", () => {
     );
 });
 
-test("opening on a deep link does not add a history entry to go back through", () => {
+test("opening on a deep link does not add a history entry to go back through", async () => {
     history.replace({ search: "?page=adrs&adr=1" });
     const depth = window.history.length;
 
-    renderPage();
+    await renderPage();
 
     assert.equal(window.history.length, depth);
 });
 
 /* ---------------------------------------------------- cross-references -- */
 
-test("a link to another decision inside the body opens that decision", () => {
+test("a link to another decision inside the body opens that decision", async () => {
     // The only place the supersedes relationship is visible; a link that goes
     // nowhere is the bug this guards.
-    renderPage([
+    await renderPage([
         decision("1"),
         decision("2", {
             content:
@@ -1905,8 +1911,8 @@ test("a link to another decision inside the body opens that decision", () => {
     assert.equal(new URLSearchParams(history.location.search).get("adr"), "1");
 });
 
-test("a link to something that is not a decision is left alone", () => {
-    renderPage([
+test("a link to something that is not a decision is left alone", async () => {
+    await renderPage([
         decision("1", {
             content:
                 "# 1. First\n\nDate: 2024-01-01\n\n## Status\n\nAccepted\n\n## Context\n\nSee [the heading](#context).\n",
@@ -1928,10 +1934,10 @@ test("a link to something that is not a decision is left alone", () => {
     );
 });
 
-test("a heading anchor that starts with a number does not open that decision", () => {
+test("a heading anchor that starts with a number does not open that decision", async () => {
     // `## 1. Option A` is `#1-option-a`. Only the first run of digits used to
     // be read, so following it opened decision 1 instead of scrolling.
-    renderPage([
+    await renderPage([
         decision("1"),
         decision("2", {
             content:
@@ -1949,9 +1955,9 @@ test("a heading anchor that starts with a number does not open that decision", (
     );
 });
 
-test("a relative link to another decision arrives resolved from the build", () => {
+test("a relative link to another decision arrives resolved from the build", async () => {
     const page = new Decisions(host, "adrs", [
-        workspaceScope([
+        await workspaceScope([
             decision("1"),
             decision("2", {
                 content:
@@ -1970,8 +1976,8 @@ test("a relative link to another decision arrives resolved from the build", () =
 
 /* --------------------------------------------------------- back to index -- */
 
-test("All decisions returns to the index and drops the decision from the URL", () => {
-    renderPage();
+test("All decisions returns to the index and drops the decision from the URL", async () => {
+    await renderPage();
 
     document.querySelector('#adrs-menu a[data-item-id="2"]').click();
     document.getElementById("adrs-summary").click();
@@ -1987,8 +1993,8 @@ test("All decisions returns to the index and drops the decision from the URL", (
 
 /* ------------------------------------------------------------------ clear -- */
 
-test("clear() empties the page and detaches its listeners", () => {
-    const page = renderPage();
+test("clear() empties the page and detaches its listeners", async () => {
+    const page = await renderPage();
 
     page.clear();
 
@@ -2007,7 +2013,7 @@ const SCOPED_WORKSPACE = JSON.parse(
     ),
 );
 
-const SCOPES = documentationScopes(renderedWorkspace(SCOPED_WORKSPACE));
+const SCOPES = documentationScopes(await renderedWorkspace(SCOPED_WORKSPACE));
 
 /** Render every documentation scope's decisions, as `main.ts` does. */
 const renderScopes = () => {
@@ -2191,17 +2197,17 @@ test("a decision's links stay inside its own scope", () => {
     );
 });
 
-test("a link between decisions written as #2 opens the decision of the same scope", () => {
+test("a link between decisions written as #2 opens the decision of the same scope", async () => {
     const scopes = [
-        workspaceScope([decision("2")]),
+        await workspaceScope([decision("2")]),
         {
-            ...workspaceScope([
+            ...(await workspaceScope([
                 decision("2"),
                 decision("3", {
                     content:
                         "# 3. Third\n\n## Status\n\nAccepted\n\n## Context\n\nSee [two](#2).\n",
                 }),
-            ]),
+            ])),
             type: "Software System",
             name: "Payments",
             path: "payments",
@@ -2218,7 +2224,7 @@ test("a link between decisions written as #2 opens the decision of the same scop
     assert.equal(search().get("adr"), "payments/2");
 });
 
-test("a decision's relative links arrive resolved in its own scope", () => {
+test("a decision's relative links arrive resolved in its own scope", async () => {
     const workspace = structuredClone(SCOPED_WORKSPACE);
     const system = workspace.model.softwareSystems.find(
         (element) => element.name === "Internet Banking System",
@@ -2229,7 +2235,7 @@ test("a decision's relative links arrive resolved in its own scope", () => {
     rendered = new Decisions(
         host,
         "adrs",
-        documentationScopes(renderedWorkspace(workspace)),
+        documentationScopes(await renderedWorkspace(workspace)),
     );
     history.replace({ search: "?page=adrs&adr=internet-banking-system/3" });
     rendered.render();
@@ -2264,8 +2270,8 @@ test("the filter sits above the index and above the menu, listing every scope wi
     }
 });
 
-test("a workspace whose decisions are all its own shows no filter and no pills", () => {
-    renderPage();
+test("a workspace whose decisions are all its own shows no filter and no pills", async () => {
+    await renderPage();
 
     assert.equal(filterOf("adrs-index"), null);
     assert.equal(filterOf("adrs-menu"), null);
