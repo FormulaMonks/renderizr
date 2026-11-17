@@ -11,6 +11,12 @@
                 "name": "Author",
                 "description": "Writes the documentation on GitHub.",
                 "location": "Unspecified",
+                "perspectives": [
+                    {
+                        "name": "Security",
+                        "description": "Signs in to GitHub with two-factor authentication."
+                    }
+                ],
                 "relationships": [
                     {
                         "id": "3",
