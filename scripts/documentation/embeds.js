@@ -187,43 +187,54 @@ export function embeddedViews(md) {
     md.core.ruler.push("doc_embeds", (state) => {
         /** @type {EmbedResolver | undefined} */
         const resolve = state.env?.resolveEmbed;
-        if (!resolve) return;
+        if (resolve) standInForImages(state, (src) => resolve(src));
+    });
+}
 
-        state.tokens.forEach((block, index) => {
-            const children = block.children;
-            if (block.type !== "inline" || !children) return;
+/**
+ * Puts the HTML `resolve` gives for an image's source in the image's place,
+ * leaving an image it gives nothing for alone. A paragraph holding nothing
+ * but one such stand-in stands as the stand-in, with no paragraph around
+ * it. `resolve` also gets the index of the inline token holding the image.
+ *
+ * @param {any} state markdown-it's core state.
+ * @param {(src: string, index: number) => string | undefined} resolve
+ */
+export function standInForImages(state, resolve) {
+    state.tokens.forEach((block, index) => {
+        const children = block.children;
+        if (block.type !== "inline" || !children) return;
 
-            let cards = 0;
-            children.forEach((token, at) => {
-                if (token.type !== "image") return;
-                const html = resolve(String(token.attrGet("src") ?? ""));
-                if (html === undefined) return;
-                const card = new state.Token("html_inline", "", 0);
-                card.content = html;
-                card.meta = { embed: true };
-                children[at] = card;
-                cards++;
-            });
-            if (!cards) return;
-
-            const rest = children.filter(
-                (token) =>
-                    token.type !== "softbreak" &&
-                    !(token.type === "text" && !token.content.trim()),
-            );
-            const open = state.tokens[index - 1];
-            const close = state.tokens[index + 1];
-            if (
-                rest.length === 1 &&
-                rest[0].meta?.embed &&
-                open?.type === "paragraph_open" &&
-                close?.type === "paragraph_close"
-            ) {
-                block.children = rest;
-                open.hidden = true;
-                close.hidden = true;
-            }
+        let cards = 0;
+        children.forEach((token, at) => {
+            if (token.type !== "image") return;
+            const html = resolve(String(token.attrGet("src") ?? ""), index);
+            if (html === undefined) return;
+            const card = new state.Token("html_inline", "", 0);
+            card.content = html;
+            card.meta = { embed: true };
+            children[at] = card;
+            cards++;
         });
+        if (!cards) return;
+
+        const rest = children.filter(
+            (token) =>
+                token.type !== "softbreak" &&
+                !(token.type === "text" && !token.content.trim()),
+        );
+        const open = state.tokens[index - 1];
+        const close = state.tokens[index + 1];
+        if (
+            rest.length === 1 &&
+            rest[0].meta?.embed &&
+            open?.type === "paragraph_open" &&
+            close?.type === "paragraph_close"
+        ) {
+            block.children = rest;
+            open.hidden = true;
+            close.hidden = true;
+        }
     });
 }
 
