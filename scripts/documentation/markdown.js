@@ -5,6 +5,7 @@ import alerts from "./alerts.js";
 import { CLASSES } from "./classes.js";
 import { collapsedSections } from "./collapsed-sections.js";
 import { markdownFootnotes } from "./footnotes.js";
+import { embeddedViews } from "./embeds.js";
 import { highlight } from "./highlight.js";
 import { githubSlug } from "./links.js";
 import { sanitizeRawHtml } from "./sanitize.js";
@@ -17,6 +18,7 @@ import { sanitizeRawHtml } from "./sanitize.js";
  * @typedef {object} RenderEnv
  * @property {import("./links.js").LinkResolver | null} [resolveLink]
  * @property {import("./images.js").ImageResolver | null} [resolveImage]
+ * @property {import("./embeds.js").EmbedResolver | null} [resolveEmbed]
  */
 
 /**
@@ -171,6 +173,7 @@ export function createMarkdown() {
     md.renderer.rules.table_close = () => "</table></div>";
 
     md.use(collapsedSections);
+    md.use(embeddedViews);
     md.core.ruler.push("doc_links", resolveLinks);
     md.core.ruler.push("doc_images", resolveImages);
 

@@ -217,6 +217,19 @@ Sections and decisions render footnotes in both formats:
 
 The footnotes of a section number from 1 in the order their references first appear, and take GitHub's ids, `fn-<label>` and `fnref-<label>`. An AsciiDoc footnote with no name takes its number as its label. Each page of a section that splits into pages lists, at its foot, the footnotes its own references use, with the numbers the whole section gave them, so a footnote referenced on two pages shows on both. A decision lists all its footnotes at its foot. A reference scrolls to its footnote, and a footnote's back link scrolls to the reference.
 
+#### Embedded views
+
+A section or a decision embeds a view of its workspace the way Structurizr reads it, and shows it as a **diagram card**: the view's type, its title as the diagrams page titles it and "Open in diagrams", which opens the view on the diagrams page. The documentation page draws no diagram.
+
+| Form                                                          | Markdown                                                           | AsciiDoc                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| A view                                                        | `![](embed:SystemContext)`                                         | `image::embed:SystemContext[]`                                         |
+| A view under a perspective                                    | `![](embed:SystemContext{perspective=Security})`                   | `image::embed:SystemContext{perspective=Security}[]`                   |
+| A view as a graph or a tree, which opens as the page draws it | `![](embed:SystemContext{type=graph})`, `{type=tree}`              | `image::embed:SystemContext{type=graph}[]`                             |
+| A published PNG of the same workspace                         | `![](https://structurizr.com/share/1234/images/SystemContext.png)` | `image::https://structurizr.com/share/1234/images/SystemContext.png[]` |
+
+A key the workspace lacks shows a note that names it in the card's place. [Embedded views](04-reference.md#embedded-views) has the details.
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
