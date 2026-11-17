@@ -182,7 +182,6 @@ export default function structurizr(hljs: HLJSApi): Language {
 
     return {
         name: "Structurizr DSL",
-        aliases: ["structurizr-dsl", "c4", "dsl"],
         case_insensitive: true,
         keywords: {
             $pattern: /!?[A-Za-z_][\w.-]*/,
