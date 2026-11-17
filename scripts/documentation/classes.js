@@ -38,4 +38,9 @@ export const CLASSES = Object.freeze({
     diagramCardOpen: "rz-diagram-card-open",
     /** The note in a diagram card's place when there is no diagram to open. */
     diagramNote: "rz-diagram-note",
+    /**
+     * The `<details>` in a Mermaid block's note that shows the first lines
+     * of its source, fading out, and the whole source once opened.
+     */
+    diagramNoteSource: "rz-diagram-note-source",
 });

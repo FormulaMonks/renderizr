@@ -9,6 +9,7 @@ import { asciidocCollapsedSections } from "./collapsed-sections.js";
 import { asciidocFootnotes } from "./footnotes.js";
 import { embeddedViewsInAsciiDoc } from "./embeds.js";
 import { highlight } from "./highlight.js";
+import { mermaidBlocksInAsciiDoc } from "./mermaid-blocks.js";
 import { sanitizeHtml } from "./sanitize.js";
 
 /**
@@ -173,7 +174,8 @@ export function createAsciiDoc() {
     return asciidoc
         .use(asciidocFootnotes)
         .use(asciidocCollapsedSections)
-        .use(embeddedViewsInAsciiDoc);
+        .use(embeddedViewsInAsciiDoc)
+        .use(mermaidBlocksInAsciiDoc);
 }
 
 /** @typedef {ReturnType<typeof createAsciiDoc>} AsciiDoc */

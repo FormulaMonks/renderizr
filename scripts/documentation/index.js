@@ -19,6 +19,8 @@
  * - `classes.js`: the class names the rendered HTML carries.
  * - `embeds.js`: embedded views, shown as the diagram cards
  *   `diagram-card.js` writes.
+ * - `mermaid-blocks.js`: Mermaid blocks, which become Mermaid diagrams on
+ *   the diagrams page and diagram cards in the section.
  */
 
 import {
@@ -30,6 +32,7 @@ import { createEmbedResolver } from "./embeds.js";
 import { createImageResolver } from "./images.js";
 import { createLinkResolver } from "./links.js";
 import { createMarkdown, renderMarkdown } from "./markdown.js";
+import { createMermaidBlocks } from "./mermaid-blocks.js";
 
 export { createAsciiDoc, isAsciiDoc, renderAsciiDoc } from "./asciidoc.js";
 export { CLASSES } from "./classes.js";
@@ -169,6 +172,7 @@ const sharedAsciiDoc = () => {
  * @property {import("./links.js").LinkResolver | null} [resolveLink]
  * @property {import("./images.js").ImageResolver | null} [resolveImage]
  * @property {import("./embeds.js").EmbedResolver | null} [resolveEmbed]
+ * @property {import("./mermaid-blocks.js").MermaidBlockHooks | null} [mermaid]
  */
 
 /**
@@ -189,9 +193,10 @@ async function render(
         resolveLink = null,
         resolveImage = null,
         resolveEmbed = null,
+        mermaid = null,
     },
 ) {
-    const env = { resolveLink, resolveImage, resolveEmbed };
+    const env = { resolveLink, resolveImage, resolveEmbed, mermaid };
     return isAsciiDoc(document)
         ? renderAsciiDoc(asciidoc, source, env)
         : renderMarkdown(md, source, env);
@@ -234,19 +239,26 @@ export async function renderDecision(decision, context = {}) {
  * embedded copies, then the workspace's. The embedded copies then leave the
  * payload: the HTML carries each image it shows, and the page reads no
  * other. Documents render side by side, since asciidoctor.js converts
- * asynchronously. Changes `workspace` and resolves to it.
+ * asynchronously. Each Mermaid block of a type Renderizr draws adds an image
+ * view to `workspace`, for `readMermaidDiagrams` to read; one that fails to
+ * parse goes to `warn`. Changes `workspace` and resolves to it.
  *
  * @template {object} W
  * @param {W} workspace
  * @param {{
  *   md?: import("markdown-it").default,
  *   asciidoc?: import("./asciidoc.js").AsciiDoc,
+ *   warn?: (message: string) => void,
  * }} [options]
  * @returns {Promise<W>}
  */
 export async function renderDocumentation(
     workspace,
-    { md = sharedMarkdown(), asciidoc = sharedAsciiDoc() } = {},
+    {
+        md = sharedMarkdown(),
+        asciidoc = sharedAsciiDoc(),
+        warn = (message) => process.stderr.write(`warning: ${message}\n`),
+    } = {},
 ) {
     const scopes = documentationScopes(workspace);
     if (!scopes.length) return workspace;
@@ -267,9 +279,15 @@ export async function renderDocumentation(
     const workspaceImages = createImageResolver(images);
     // Every documentation scope embeds the views of the workspace itself.
     const resolveEmbed = createEmbedResolver(workspace);
+    const mermaid = createMermaidBlocks(workspace, {
+        pages: { docs: DOCS_PAGE, decisions: DECISIONS_PAGE },
+        warn,
+    });
 
     /** @type {Promise<void>[]} */
     const renders = [];
+    /** @type {import("./mermaid-blocks.js").PlacedDocument[]} */
+    const placed = [];
     for (const scope of scopes) {
         // An element's documents show its own images first, then the
         // workspace's.
@@ -279,6 +297,7 @@ export async function renderDocumentation(
 
         for (const section of scope.sections) {
             const title = sectionTitle(section);
+            placed.push({ document: section, kind: "section", scope, title });
             renders.push(
                 renderSection(section, {
                     md,
@@ -286,6 +305,7 @@ export async function renderDocumentation(
                     resolveLink: resolveLink("docs", scope.path),
                     resolveImage,
                     resolveEmbed,
+                    mermaid: mermaid.hooks,
                 }).then((html) => {
                     section.content = html;
                     section.title = title;
@@ -294,6 +314,7 @@ export async function renderDocumentation(
         }
         for (const decision of scope.decisions) {
             const title = decisionTitle(decision);
+            placed.push({ document: decision, kind: "decision", scope, title });
             renders.push(
                 renderDecision(decision, {
                     md,
@@ -301,6 +322,7 @@ export async function renderDocumentation(
                     resolveLink: resolveLink("decisions", scope.path),
                     resolveImage,
                     resolveEmbed,
+                    mermaid: mermaid.hooks,
                 }).then((html) => {
                     decision.content = html;
                     decision.title = title;
@@ -309,6 +331,9 @@ export async function renderDocumentation(
         }
     }
     await Promise.all(renders);
+    // In document order, once every document has rendered, so a block's key
+    // and its place among the views never depend on which finished first.
+    mermaid.place(placed);
 
     for (const documentation of [
         workspace.documentation,
