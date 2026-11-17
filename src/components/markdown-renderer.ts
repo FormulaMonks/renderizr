@@ -1,5 +1,6 @@
 import Component from "./_component";
 import styles from "./markdown-renderer.module.css";
+import { addMathStylesheet } from "./math-stylesheet";
 
 /**
  * Shows a documentation section or a decision the build rendered (ADR 31).
@@ -47,6 +48,7 @@ export default class MarkdownRenderer extends Component {
         if (!this.element) return;
         if (!this.#html) return;
 
+        addMathStylesheet();
         this.element.classList.add(styles.markdownRenderer);
         this.element.innerHTML = `
         <div class="markdown-renderer">

@@ -563,3 +563,19 @@ separator has to be matched with the id here too. */
     text-underline-offset: 0.2em;
     cursor: help;
 }
+
+/*
+ * A display math expression the build wrote as MathML scrolls inside its own
+ * block, so a long one never drags the page sideways on a narrow screen. The
+ * browser draws it with its own math font, in the text color.
+ */
+:global(.rz-math-display) {
+    display: block;
+    max-width: 100%;
+    margin: 1rem 0;
+    padding: 0.25rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}

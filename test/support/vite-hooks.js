@@ -9,14 +9,16 @@
  *      transform, the same transformer the real build uses.
  *   2. Imports are extensionless (`./markdown-renderer`), which TypeScript
  *      resolves and Node does not.
- *   3. Two import forms only exist inside Vite: CSS modules
- *      (`./x.module.css` -> an object of class names) and `?raw`
- *      (`./icon.svg?raw` -> the file's text).
+ *   3. Three import forms only exist inside Vite: CSS modules
+ *      (`./x.module.css` -> an object of class names), `?raw`
+ *      (`./icon.svg?raw` -> the file's text) and `?inline`
+ *      (`./x.css?inline` -> the stylesheet's text).
  *
  * CSS modules are stubbed with a proxy that returns the property name, so a
  * test can assert `class="alert alertNote"` and stay readable no matter what
  * hash Vite would have generated. `?raw` reads the real file, so the icons the
- * alert tests assert on are the icons that ship.
+ * alert tests assert on are the icons that ship. `?inline` reads the real
+ * stylesheet the same way, its `url()`s as written.
  *
  * Registered by `./ts.js`; never imported directly by a test.
  */
@@ -66,7 +68,7 @@ export async function resolve(specifier, context, next) {
         };
     }
 
-    if (specifier.includes("?raw")) {
+    if (/\?(raw|inline)\b/.test(specifier)) {
         const [path] = specifier.split("?");
         // A bare specifier (`bootstrap-icons/icons/x.svg`) is a package file.
         const url = isPath(path)

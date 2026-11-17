@@ -74,6 +74,19 @@ test("empty content leaves whatever was there alone", () => {
     assert.equal(element.innerHTML, before);
 });
 
+test("showing a document adds Temml's stylesheet and font to the page once", () => {
+    dom.reset();
+    new MarkdownRenderer(dom.mount("one")).setContent(ONE);
+    new MarkdownRenderer(dom.mount("two")).setContent(ONE);
+
+    const styles = dom.document.head.childNodes.filter(
+        (node) => node.tagName === "STYLE",
+    );
+    assert.equal(styles.length, 1);
+    assert.match(styles[0].textContent, /font-family: 'Temml'/);
+    assert.match(styles[0].textContent, /Temml\.woff2/);
+});
+
 test("a renderer with no element is inert rather than fatal", () => {
     const renderer = new MarkdownRenderer(null);
 

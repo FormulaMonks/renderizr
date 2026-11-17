@@ -1183,6 +1183,20 @@ test("--artifact's documentation runtime carries no markdown-it and no highlight
         assert.ok(!docs.includes(marker), `${DOCS_RUNTIME} holds ${marker}`);
 });
 
+test("--artifact's documentation runtime carries Temml's stylesheet and font, and the runtime does not", async () => {
+    const { out } = await architectureArtifact();
+    const temml = ["font-family: 'Temml'", "data:font/woff2;base64,"];
+
+    const docs = await readFile(join(out, DOCS_RUNTIME), "utf-8");
+    for (const marker of temml)
+        assert.ok(docs.includes(marker), `${DOCS_RUNTIME} lacks ${marker}`);
+    for (const name of ["renderizr.js", "renderizr-vendor.js", "renderizr.css"])
+        assert.ok(
+            !(await readFile(join(out, name), "utf-8")).includes(temml[0]),
+            `${name} holds Temml's stylesheet`,
+        );
+});
+
 test("two --artifact renders of different workspaces with documentation write a byte-identical renderizr-docs.js", async () => {
     const [architecture, fixtureWorkspace] = await Promise.all([
         architectureArtifact(),
@@ -1599,9 +1613,9 @@ const RUNTIME_BYTES = 536_716;
 /**
  * `renderizr-docs.js`, in bytes: the documentation and decision pages and
  * the decision graph, measured once markdown-it and highlight.js moved into
- * the build (ADR 31).
+ * the build (ADR 31) and Temml's stylesheet and font joined the pages.
  */
-const DOCS_RUNTIME_BYTES = 34_338;
+const DOCS_RUNTIME_BYTES = 56_135;
 
 /** Each part of the `--artifact` runtime, with its measured size. */
 const ARTIFACT_BUDGETS = [
