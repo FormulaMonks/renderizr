@@ -177,6 +177,16 @@ test("an iframe, an object and an embed go", () => {
     );
 });
 
+test("an iframe goes with its fallback text, as GitHub drops it", () => {
+    assert.equal(
+        render(
+            '<iframe src="https://example.com">Fallback text.</iframe>\n\nAfter.',
+        ),
+        "<p>After.</p>\n",
+    );
+    assert.equal(sanitizeHtml("a<noscript>Enable scripts.</noscript>b"), "ab");
+});
+
 test("event handler attributes go", () => {
     assert.equal(
         sanitizeHtml(

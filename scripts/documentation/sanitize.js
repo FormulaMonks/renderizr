@@ -201,7 +201,17 @@ const filter = new xss.FilterXSS({
         ]),
     ),
     stripIgnoreTag: true,
-    stripIgnoreTagBody: ["script", "style"],
+    // These go with what they hold, as GitHub drops them; any other tag
+    // outside the allowlist goes and leaves its text.
+    stripIgnoreTagBody: [
+        "script",
+        "style",
+        "iframe",
+        "noscript",
+        "noembed",
+        "noframes",
+        "xmp",
+    ],
     css: false,
     onTagAttr: (tag, name, value, isWhiteAttr) => {
         if (!isWhiteAttr) return undefined;
