@@ -563,3 +563,77 @@ separator has to be matched with the id here too. */
     text-underline-offset: 0.2em;
     cursor: help;
 }
+
+/*
+ * PROTOTYPE (#335): the views documentation embeds.
+ */
+.markdownRenderer :global(.doc-embed-card),
+.markdownRenderer :global(.doc-embed-caption) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.15rem 1rem;
+    align-items: center;
+}
+
+.markdownRenderer :global(.doc-embed-card) {
+    margin: 1rem 0;
+    padding: 0.85rem 1rem;
+    border: 1px solid
+        var(--md-border, color-mix(in srgb, currentColor 18%, transparent));
+    border-radius: 8px;
+}
+
+.markdownRenderer :global(.doc-embed-kind) {
+    grid-column: 1;
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.7;
+}
+
+.markdownRenderer :global(.doc-embed-title) {
+    grid-column: 1;
+    font-weight: 600;
+}
+
+.markdownRenderer :global(.doc-embed-open) {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    white-space: nowrap;
+}
+
+.markdownRenderer :global(.doc-embed-frame) {
+    margin: 1rem 0;
+    border: 1px solid
+        var(--md-border, color-mix(in srgb, currentColor 18%, transparent));
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.markdownRenderer :global(.doc-embed-canvas) {
+    position: relative;
+    height: min(28rem, 70vh);
+}
+
+.markdownRenderer :global(.doc-embed-picture-ready) {
+    height: auto;
+}
+
+.markdownRenderer :global(.doc-embed-picture-ready img) {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.markdownRenderer :global(.doc-embed-caption) {
+    padding: 0.6rem 1rem;
+    border-top: 1px solid
+        var(--md-border, color-mix(in srgb, currentColor 18%, transparent));
+}
+
+.markdownRenderer :global(.doc-embed-missing) {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--md-hljs-deletion);
+    background: color-mix(in srgb, var(--md-hljs-deletion) 8%, transparent);
+}

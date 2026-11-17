@@ -1,6 +1,6 @@
 import Component from "./_component";
 import markdownIt from "markdown-it";
-// @ts-ignore
+// @ts-expect-error
 import shiftHeadings from "markdown-it-shift-headings";
 import anchor from "markdown-it-anchor";
 // `highlight.js/lib/common` registers 34 languages for roughly 150KB. These are
@@ -23,6 +23,7 @@ import yaml from "highlight.js/lib/languages/yaml";
 import type { StateCore } from "markdown-it";
 import type { ImageResolver } from "./doc-images";
 import { githubSlug, type LinkResolver } from "./doc-links";
+import { embedOf, embedPlaceholder, showEmbeds } from "./doc-embeds";
 import alerts from "./markdown-alerts";
 import styles from "./markdown-renderer.module.css";
 
@@ -148,6 +149,9 @@ export default class MarkdownRenderer extends Component {
             `<div class="${styles.tableWrap}">${self.renderToken(tokens, idx, options)}`;
         this.#md.renderer.rules.table_close = () => "</table></div>";
 
+        // PROTOTYPE (#335): an image that embeds a view becomes a placeholder
+        // `showEmbeds` fills once the section is in the page.
+        this.#md.core.ruler.push("doc_embeds", this.#embedViews);
         this.#md.core.ruler.push("doc_links", this.#rewriteLinks);
         this.#md.core.ruler.push("doc_images", this.#rewriteImages);
     }
@@ -167,6 +171,22 @@ export default class MarkdownRenderer extends Component {
     setImageResolver(resolve: ImageResolver | null): void {
         this.#resolveImage = resolve;
     }
+
+    #embedViews = (state: StateCore): void => {
+        for (const block of state.tokens) {
+            for (const token of block.children ?? []) {
+                if (token.type !== "image") continue;
+                const embed = embedOf(String(token.attrGet("src") ?? ""));
+                if (!embed) continue;
+                token.type = "html_inline";
+                token.tag = "";
+                token.content = embedPlaceholder(embed);
+                token.children = null;
+            }
+        }
+    };
+
+    #teardownEmbeds: () => void = () => {};
 
     #rewriteImages = (state: StateCore): void => {
         const resolve = this.#resolveImage;
@@ -268,9 +288,14 @@ export default class MarkdownRenderer extends Component {
 
         this.element.removeEventListener("click", this.#handleAnchorClick);
         this.element.addEventListener("click", this.#handleAnchorClick);
+
+        this.#teardownEmbeds();
+        this.#teardownEmbeds = showEmbeds(this.element);
     }
 
     clear(): void {
+        this.#teardownEmbeds();
+        this.#teardownEmbeds = () => {};
         if (!this.element) return;
         this.element.removeEventListener("click", this.#handleAnchorClick);
         this.element.innerHTML = "";

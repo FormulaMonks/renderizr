@@ -560,6 +560,12 @@
                             "format": "AsciiDoc",
                             "filename": "03-development-environment.adoc",
                             "order": 3
+                        },
+                        {
+                            "content": "# Embed forms\n\nEvery way Structurizr reads a view a section embeds.\n\n## Parameters\n\nThe system context as a graph:\n\n![](embed:SystemContext{type=graph})\n\nThe containers under a perspective:\n\n![](embed:Containers{perspective=Security})\n\n## Published pictures\n\nA published PNG of this workspace:\n\n![](https://structurizr.com/share/36141/images/Components.png)\n\nThe same through a private share link:\n\n![The sign in flow](https://structurizr.example.com/workspace/36141/images/SignIn.png)\n\nA published PNG of another workspace stays an image:\n\n![Another workspace](https://structurizr.com/share/99999/images/SystemContext.png)\n\n## A view the workspace lacks\n\n![](embed:NoSuchView)\n",
+                            "format": "Markdown",
+                            "filename": "05-embed-forms.md",
+                            "order": 5
                         }
                     ],
                     "decisions": [
