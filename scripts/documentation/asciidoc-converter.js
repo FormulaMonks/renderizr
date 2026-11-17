@@ -92,6 +92,18 @@ export class AsciiDocConverter extends Html5Converter {
         return sanitizeHtml(await node.content());
     }
 
+    /**
+     * A discrete heading (`[discrete]`), the one heading a block such as a
+     * collapsible block holds, shifted like a section's heading.
+     */
+    async convert_floating_title(node) {
+        const classes = ["discrete", node.role].filter(Boolean).join(" ");
+        return heading(node.level + 1, node.id, node.title).replace(
+            ' tabindex="-1"',
+            ` class="${classes}" tabindex="-1"`,
+        );
+    }
+
     async convert_preamble(node) {
         return node.content();
     }

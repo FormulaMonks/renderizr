@@ -180,6 +180,33 @@ internet-banking-system/
 pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
 ```
 
+#### Collapsed sections
+
+A collapsed section is a block of documentation the reader opens and closes by its summary. Write it in Markdown with GitHub's `<details>` and `<summary>`, and add `open` to start it open. Leave a blank line after the summary so the Markdown inside renders; without one, the text that follows stays as written, as on GitHub:
+
+```markdown
+<details open>
+<summary>Tips for collapsed sections</summary>
+
+### You can add a heading
+
+You can add text, an image or a code block.
+
+</details>
+```
+
+In AsciiDoc, write a `[%collapsible]` example block, and `[%collapsible%open]` to start it open. Its `.Title` becomes the summary, and a block with no title reads "Details":
+
+```asciidoc
+.Tips for collapsible blocks
+[%collapsible]
+====
+You can add text within a collapsible block.
+====
+```
+
+Both syntaxes look the same: a triangle that turns, and the body indented under the summary. A heading as the summary, `<summary><h3>…</h3></summary>`, keeps its size and folds what sits under it. A heading inside a collapsed section opens no page and stays out of the documentation menu and the pager, and a link or a `?subsection=` address to it opens every collapsed section around it. Printing a page prints every collapsed section open.
+
 #### Footnotes
 
 Sections and decisions render footnotes in both formats:

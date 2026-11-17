@@ -484,6 +484,131 @@ test("a URL naming a heading on the page being read only scrolls", async () => {
     );
 });
 
+/* ------------------------------------------------------ collapsed sections */
+
+/**
+ * Headings inside collapsed sections, two deep on the first page, and a link
+ * to the deepest from the second.
+ */
+const FOLDED = {
+    filename: "08-folded.md",
+    order: 1,
+    title: "Folded",
+    content: [
+        "# Folded",
+        "",
+        "Intro.",
+        "",
+        "## First",
+        "",
+        "<details>",
+        "<summary>More</summary>",
+        "",
+        "## Hidden page heading",
+        "",
+        "<details>",
+        "<summary>Inner</summary>",
+        "",
+        "### Deep inside",
+        "",
+        "Text.",
+        "",
+        "</details>",
+        "",
+        "</details>",
+        "",
+        "### Visible",
+        "",
+        "Shown.",
+        "",
+        "## Second",
+        "",
+        "[Back](#deep-inside)",
+        "",
+    ].join("\n"),
+};
+
+const openSummaries = () =>
+    document
+        .querySelectorAll("details")
+        .filter((details) => details.hasAttribute("open"))
+        .map((details) => details.querySelector("summary").textContent);
+
+test("a heading inside a collapsed section opens no page and stays out of the menu and the pager", async () => {
+    await renderPage([FOLDED]);
+    menuItem("First").click();
+
+    assert.deepEqual(menuEntries(), [
+        "0:Folded",
+        "1:First",
+        "2:Visible",
+        "1:Second",
+    ]);
+
+    const pager = document
+        .querySelectorAll("#docs-pager [data-page-index]")
+        .map((button) => button.textContent.replace(/\s+/g, " ").trim());
+    assert.deepEqual(pager, ["Previous Folded", "Next Second"]);
+});
+
+test("headings inside a collapsed section follow the page's renumbered headings", async () => {
+    await renderPage([FOLDED]);
+    menuItem("First").click();
+
+    assert.equal(document.getElementById("first").tagName, "H1");
+    assert.equal(
+        document.getElementById("hidden-page-heading").tagName,
+        "H1",
+        "a heading as deep as the page's own is as deep after renumbering",
+    );
+    assert.equal(document.getElementById("deep-inside").tagName, "H2");
+    assert.equal(document.getElementById("visible").tagName, "H2");
+});
+
+test("a link to a heading inside collapsed sections on another page opens them and scrolls there", async () => {
+    await renderPage([FOLDED]);
+    menuItem("Second").click();
+    document.scrolledIntoView.length = 0;
+
+    document.querySelector('.markdown-renderer a[href="#deep-inside"]').click();
+
+    assert.equal(visible()[0], "H1:First");
+    assert.deepEqual(openSummaries(), ["More", "Inner"]);
+    assert.equal(document.scrolledIntoView.at(-1).id, "deep-inside");
+});
+
+test("an address naming a heading inside collapsed sections opens them and scrolls there", async () => {
+    await renderPage([FOLDED]);
+    document.scrolledIntoView.length = 0;
+
+    history.push({
+        search: "?page=docs&section=08-folded&subsection=deep-inside",
+    });
+
+    assert.equal(visible()[0], "H1:First");
+    assert.deepEqual(openSummaries(), ["More", "Inner"]);
+    assert.equal(document.scrolledIntoView.at(-1).id, "deep-inside");
+    assert.equal(params().get("subsection"), "first", "the URL names the page");
+});
+
+test("a link to a heading inside a collapsed section on the page being read opens it", async () => {
+    await renderPage([
+        {
+            ...FOLDED,
+            content: FOLDED.content.replace(
+                "### Visible",
+                "[Down](#deep-inside)\n\n### Visible",
+            ),
+        },
+    ]);
+    menuItem("First").click();
+
+    document.querySelector('.markdown-renderer a[href="#deep-inside"]').click();
+
+    assert.deepEqual(openSummaries(), ["More", "Inner"]);
+    assert.equal(document.scrolledIntoView.at(-1).id, "deep-inside");
+});
+
 test("a heading with an ampersand is a page the menu can open", async () => {
     // Its id used to be percent-encoded, and was encoded again on its way into
     // the URL, so the page could never be found from its own menu entry.
