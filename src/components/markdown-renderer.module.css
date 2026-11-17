@@ -440,7 +440,6 @@ separator has to be matched with the id here too. */
     border-radius: 0.3rem;
     cursor: pointer;
     list-style: none;
-    font-weight: 500;
     transition: background-color 120ms ease;
 }
 
