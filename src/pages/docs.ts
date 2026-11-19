@@ -1,7 +1,6 @@
-import { asciidocToMarkdown, isAsciiDoc } from "../components/asciidoc";
-import type { ImageResolver } from "../components/doc-images";
-import type { LinkResolver } from "../components/doc-links";
+import { openAround } from "../components/collapsed-sections";
 import MarkdownRenderer from "../components/markdown-renderer";
+import PageFootnotes, { isFootnotes } from "../components/page-footnotes";
 import Menu from "../components/menu";
 import ScrollSpy from "../components/scroll-spy";
 import {
@@ -21,13 +20,14 @@ const HEADING_TAG = /^H[1-6]$/;
 const SECTION_PARAM = "section";
 const SUBSECTION_PARAM = "subsection";
 
-/** A documentation section, already reduced to plain Markdown. */
+/** A documentation section, as the build rendered it. */
 type DocSection = {
     /** The id the section is addressed by, its scope's slug path in front. */
     id: string;
     scope: DocumentationScope;
     title: string;
-    body: string;
+    /** The HTML the build rendered (ADR 31). */
+    html: string;
 };
 
 /** A slice of a rendered section: one "page" of documentation. */
@@ -87,6 +87,19 @@ const isHeading = (element: Element) => HEADING_TAG.test(element.tagName);
 
 const headingLevel = (element: Element) => Number(element.tagName.slice(1));
 
+/**
+ * Every heading a block of a page holds: the block itself when it is one,
+ * and the headings inside its collapsed sections. A link or an address
+ * reaches all of them; only the block itself opens a page or joins the
+ * menu.
+ */
+const headingsIn = (block: HTMLElement): HTMLElement[] => [
+    ...(isHeading(block) ? [block] : []),
+    ...Array.from(
+        block.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6"),
+    ).filter((heading) => heading.closest("details")),
+];
+
 const textOf = (element: Element | null) => (element?.textContent ?? "").trim();
 
 const escapeHtml = (value: string) =>
@@ -99,13 +112,16 @@ const escapeHtml = (value: string) =>
 /**
  * Split a rendered section into pages.
  *
- * `markdown-it-shift-headings` turns the leading `#` of a section into an
- * `h2`, so that heading is the section title and never a page boundary. Every
+ * The build shifts every heading one level, so the leading `#` of a section
+ * is an `h2`, and that heading is the section title and never a page boundary. Every
  * heading at the shallowest remaining level opens a new page; anything before
  * the first of them is the section's intro.
  */
 function splitIntoPages(root: HTMLElement | null): PageGroup[] {
-    const blocks = Array.from(root?.children ?? []) as HTMLElement[];
+    // The footnotes list belongs to whichever page is on screen.
+    const blocks = (Array.from(root?.children ?? []) as HTMLElement[]).filter(
+        (block) => !isFootnotes(block),
+    );
     if (!blocks.length) return [];
 
     const headings = blocks.filter(isHeading);
@@ -194,11 +210,13 @@ function retag(element: HTMLElement, level: number): HTMLElement {
  *
  * The mapping is order-preserving. The shallowest level on the page becomes
  * `h1`, the next distinct one `h2`, and so on, so relative nesting — which is
- * what the sidebar tree is built from — comes out unchanged.
+ * what the sidebar tree is built from — comes out unchanged. The headings
+ * inside the page's collapsed sections take part, so they keep their place
+ * in the outline.
  */
 function normalizeHeadingLevels(groups: PageGroup[]): void {
     for (const group of groups) {
-        const headings = group.nodes.filter(isHeading);
+        const headings = group.nodes.flatMap(headingsIn);
         if (!headings.length) continue;
 
         const levels = [...new Set(headings.map(headingLevel))].sort(
@@ -278,13 +296,12 @@ export default class Docs extends Page {
      * sections keeps the flat list of its own sections.
      */
     #scoped = false;
-    #resolveLink: ((scope: string) => LinkResolver) | null;
-    #resolveImage: ((scope: string) => ImageResolver) | null;
 
     #groups: PageGroup[] = [];
     #renderedSectionId: string | null = null;
     /** Heading id of the rendered section -> the page that holds it. */
     #headingPages = new Map<string, number>();
+    #footnotes: PageFootnotes | null = null;
     #currentIndex = -1;
     #pendingHeadingId: string | null = null;
 
@@ -296,15 +313,10 @@ export default class Docs extends Page {
     constructor(
         container: HTMLElement | null = null,
         name = "Docs",
+        /** The documentation scopes, their sections rendered by the build. */
         scopes: DocumentationScope[] = [],
-        /** The link resolver for the scope at each slug path. */
-        resolveLink: ((scope: string) => LinkResolver) | null = null,
-        /** The image resolver for the scope at each slug path. */
-        resolveImage: ((scope: string) => ImageResolver) | null = null,
     ) {
         super(container, name);
-        this.#resolveLink = resolveLink;
-        this.#resolveImage = resolveImage;
 
         this.#scopes = scopes.filter((scope) => scope.sections.length);
         this.#scoped = this.#scopes.some((scope) => scope.type !== "Workspace");
@@ -316,41 +328,20 @@ export default class Docs extends Page {
     #sectionsOf(scope: DocumentationScope): DocSection[] {
         return scope.sections
             .toSorted((a, b) => (a.order < b.order ? -1 : 1))
-            .map((section) => {
-                const adoc = isAsciiDoc(section.filename);
-
-                return {
-                    id: scopedId(scope.path, sectionId(section)),
-                    scope,
-                    // The document's own first heading beats a filename every
-                    // time; "0001-record-architecture-decisions.md" only
-                    // becomes a title as a last resort.
-                    title:
-                        section.title ||
-                        (adoc
-                            ? section.content.match(/^=\s+(.+)$/m)?.[1]
-                            : section.content.match(/^#\s+(.+)$/m)?.[1]
-                        )?.trim() ||
-                        section.filename
-                            .replace(/\.[a-z]+$/i, "")
-                            .replace(/^\d+[-_. ]*/, "")
-                            .replace(/[-_]/g, " ")
-                            .replace(/\b\w/g, (match) => match.toUpperCase()),
-                    // AsciiDoc is converted once, up front: everything
-                    // downstream — rendering, page splitting, the table of
-                    // contents — then deals in Markdown only.
-                    body: adoc
-                        ? asciidocToMarkdown(section.content)
-                        : section.content,
-                };
-            });
+            .map((section) => ({
+                id: scopedId(scope.path, sectionId(section)),
+                scope,
+                // The build gave every section its title: its own, its first
+                // heading or its file name.
+                title: section.title,
+                html: section.content,
+            }));
     }
 
     /**
-     * Render every section once, off-document, and derive the table of
-     * contents from the real heading elements and their `markdown-it-anchor`
-     * ids. A regex over the raw markdown cannot tell a heading from a `#` in a
-     * fenced code block, and has no idea what id the anchor plugin minted.
+     * Put every section on a detached element once, and derive the table of
+     * contents from the real heading elements and the ids the build gave
+     * them.
      */
     #buildModel() {
         if (this.#modelBuilt) return;
@@ -360,7 +351,7 @@ export default class Docs extends Page {
         const parser = new MarkdownRenderer(host);
 
         for (const section of this.#sections) {
-            if (section.body?.trim()) parser.setContent(section.body);
+            if (section.html?.trim()) parser.setContent(section.html);
             else host.innerHTML = "";
 
             const groups = splitIntoPages(
@@ -382,8 +373,8 @@ export default class Docs extends Page {
             groups.forEach((group, groupIndex) => {
                 const index = this.#flatPages.length;
 
-                for (const node of group.nodes) {
-                    if (node.id && isHeading(node)) {
+                for (const node of group.nodes.flatMap(headingsIn)) {
+                    if (node.id) {
                         this.#headingIndex.set(
                             `${section.id}:${node.id}`,
                             index,
@@ -506,19 +497,15 @@ export default class Docs extends Page {
 
         if (!(content && section && this.#viewer)) return;
 
-        // Links and images resolve in the section's own scope first.
-        const { path } = section.scope;
-        this.#viewer.setLinkResolver(this.#resolveLink?.(path) ?? null);
-        this.#viewer.setImageResolver(this.#resolveImage?.(path) ?? null);
-
         // `MarkdownRenderer.render()` bails on empty content, which would
         // leave the previous section on screen.
-        if (section.body?.trim()) this.#viewer.setContent(section.body);
+        if (section.html?.trim()) this.#viewer.setContent(section.html);
         else content.innerHTML = "";
 
-        this.#groups = splitIntoPages(
-            content.querySelector<HTMLElement>(".markdown-renderer") ?? content,
-        );
+        const root =
+            content.querySelector<HTMLElement>(".markdown-renderer") ?? content;
+        this.#groups = splitIntoPages(root);
+        this.#footnotes = new PageFootnotes(root);
         // After the split, so the boundaries are still decided by the levels
         // the author wrote.
         normalizeHeadingLevels(this.#groups);
@@ -530,10 +517,8 @@ export default class Docs extends Page {
 
         this.#headingPages.clear();
         this.#groups.forEach((group, groupIndex) => {
-            for (const node of group.nodes) {
-                if (node.id && isHeading(node)) {
-                    this.#headingPages.set(node.id, base + groupIndex);
-                }
+            for (const node of group.nodes.flatMap(headingsIn)) {
+                if (node.id) this.#headingPages.set(node.id, base + groupIndex);
             }
         });
     }
@@ -673,9 +658,9 @@ export default class Docs extends Page {
     #scrollToHeading(id: string | null) {
         if (!id) return;
 
-        document
-            .getElementById(id)
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const heading = document.getElementById(id);
+        openAround(heading);
+        heading?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     #goToPage(index: number, push = true) {
@@ -709,6 +694,7 @@ export default class Docs extends Page {
         );
 
         this.#paintGroup(group);
+        this.#footnotes?.show(group?.nodes ?? []);
 
         const breadcrumb = document.getElementById("docs-breadcrumb");
         if (breadcrumb) {
@@ -797,6 +783,7 @@ export default class Docs extends Page {
         `;
 
         this.#groups = [];
+        this.#footnotes = null;
         this.#headingPages.clear();
         this.#renderedSectionId = null;
         this.#currentIndex = -1;
@@ -855,6 +842,7 @@ export default class Docs extends Page {
         this.#menu = null;
         this.#viewer = null;
         this.#groups = [];
+        this.#footnotes = null;
         this.#headingPages.clear();
         this.#renderedSectionId = null;
         this.#currentIndex = -1;

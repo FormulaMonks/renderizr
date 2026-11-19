@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { renderDocumentation } from "./documentation/index.js";
 import { readMermaidDiagrams } from "./mermaid/index.js";
 
 /** Google only serves woff2 to browsers it recognizes. */
@@ -627,11 +628,15 @@ export async function loadWorkspace(source, { cwd = process.cwd() } = {}) {
 }
 
 /**
- * `workspace` ready for the site: checked, its Mermaid diagrams read, and
- * its themes, icons and images folded in. Changes `workspace` and returns it.
+ * `workspace` ready for the site: checked, its documentation rendered, its
+ * Mermaid diagrams read, and its themes, icons and images folded in. Changes
+ * `workspace` and returns it.
  */
 export async function prepareWorkspace(workspace) {
     validateWorkspace(workspace);
+    // Every section and decision of every documentation scope, rendered to
+    // HTML once for every mode (ADR 31). The page reads the HTML.
+    await renderDocumentation(workspace);
     // Before inlining, which leaves a Mermaid diagram's content alone rather
     // than fetch its picture from the Mermaid server. A diagram that can't be
     // drawn warns and the build finishes (spec: When a diagram can't be

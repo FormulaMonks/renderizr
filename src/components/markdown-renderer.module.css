@@ -62,7 +62,7 @@
     &
         > :global(.markdown-renderer)
         > :is(p, ul, ol, dl, blockquote, hr, h1, h2, h3, h4, h5, h6),
-    & > :global(.markdown-renderer) > .alert {
+    & > :global(.markdown-renderer) > :global(.rz-alert) {
         max-width: var(--md-measure);
     }
 
@@ -227,7 +227,7 @@ separator has to be matched with the id here too. */
  * (::before / ::after) anchored across the whole scroll range while still
  * letting a prose-heavy table wrap at the available width.
  */
-.tableWrap {
+:global(.rz-table) {
     display: grid;
     grid-template-columns: minmax(min-content, 1fr);
     /* Free to use the full 72ch measure, never to overflow it. */
@@ -239,7 +239,7 @@ separator has to be matched with the id here too. */
     scrollbar-width: thin;
 }
 
-.tableWrap > table {
+:global(.rz-table) > table {
     grid-area: 1 / 1;
     /* Shrink to the content — a table of `ID | Qty | OK` has no business
     sprawling across the whole measure — but never past the available width.
@@ -255,8 +255,8 @@ separator has to be matched with the id here too. */
     line-height: 1.5;
 }
 
-.tableWrap th,
-.tableWrap td {
+:global(.rz-table) th,
+:global(.rz-table) td {
     padding: 0.5rem 0.8rem;
     border: 1px solid var(--color-border);
     vertical-align: top;
@@ -274,18 +274,18 @@ separator has to be matched with the id here too. */
     overflow-wrap: anywhere;
 }
 
-.tableWrap th {
+:global(.rz-table) th {
     background: var(--color-surface-alt);
     font-weight: 600;
     color: var(--color-muted);
 }
 
-.tableWrap tbody tr:nth-child(2n) td {
+:global(.rz-table) tbody tr:nth-child(2n) td {
     background: color-mix(in srgb, var(--color-surface-alt) 45%, transparent);
 }
 
-.tableWrap td > :last-child,
-.tableWrap th > :last-child {
+:global(.rz-table) td > :last-child,
+:global(.rz-table) th > :last-child {
     margin-bottom: 0;
 }
 
@@ -294,8 +294,8 @@ separator has to be matched with the id here too. */
  * scroll to. Browsers without scroll-driven animations fall back to the
  * (always visible) thin scrollbar.
  */
-.tableWrap::before,
-.tableWrap::after {
+:global(.rz-table)::before,
+:global(.rz-table)::after {
     content: "";
     grid-area: 1 / 1;
     position: sticky;
@@ -305,13 +305,13 @@ separator has to be matched with the id here too. */
     opacity: 0;
 }
 
-.tableWrap::before {
+:global(.rz-table)::before {
     left: 0;
     justify-self: start;
     background: linear-gradient(to right, var(--md-table-fade), transparent);
 }
 
-.tableWrap::after {
+:global(.rz-table)::after {
     right: 0;
     justify-self: end;
     background: linear-gradient(to left, var(--md-table-fade), transparent);
@@ -338,12 +338,12 @@ separator has to be matched with the id here too. */
 }
 
 @supports (animation-timeline: scroll(x)) {
-    .tableWrap::before {
+    :global(.rz-table)::before {
         animation: mdTableFadeStart linear both;
         animation-timeline: scroll(nearest x);
     }
 
-    .tableWrap::after {
+    :global(.rz-table)::after {
         animation: mdTableFadeEnd linear both;
         animation-timeline: scroll(nearest x);
     }
@@ -351,11 +351,11 @@ separator has to be matched with the id here too. */
 
 /* -------------------------------------------------------------- alerts --- */
 /*
- * `> [!NOTE]` and friends. `markdown-alerts.ts` swaps the blockquote tag for a
- * <div>, so a blockquote without a marker keeps the plain quote treatment
+ * `> [!NOTE]` and friends. The build (`scripts/documentation/alerts.js`)
+ * swaps the blockquote tag for a <div>, so a blockquote without a marker keeps the plain quote treatment
  * above without any :not() gymnastics here.
  */
-.alert {
+:global(.rz-alert) {
     --md-alert-accent: var(--color-muted);
 
     margin: 1.35rem 0;
@@ -366,11 +366,11 @@ separator has to be matched with the id here too. */
     color: var(--color-foreground);
 }
 
-.alert > :last-child {
+:global(.rz-alert) > :last-child {
     margin-bottom: 0;
 }
 
-.alertTitle {
+:global(.rz-alert-title) {
     display: flex;
     align-items: center;
     gap: 0.45rem;
@@ -380,31 +380,89 @@ separator has to be matched with the id here too. */
     color: var(--md-alert-accent);
 }
 
-.alertTitle svg {
+:global(.rz-alert-title) svg {
     flex: 0 0 auto;
     width: 1em;
     height: 1em;
     fill: currentColor;
 }
 
-.alertNote {
+:global(.rz-alert-note) {
     --md-alert-accent: var(--color-alert-note);
 }
 
-.alertTip {
+:global(.rz-alert-tip) {
     --md-alert-accent: var(--color-alert-tip);
 }
 
-.alertImportant {
+:global(.rz-alert-important) {
     --md-alert-accent: var(--color-alert-important);
 }
 
-.alertWarning {
+:global(.rz-alert-warning) {
     --md-alert-accent: var(--color-alert-warning);
 }
 
-.alertCaution {
+:global(.rz-alert-caution) {
     --md-alert-accent: var(--color-alert-caution);
+}
+
+/* ---------------------------------------------------------- task lists --- */
+/*
+ * `- [ ]` and AsciiDoc's `* [ ]`. A task item drops its bullet and the
+ * checkbox hangs where the bullet was, so the text lines up with the items
+ * around it. An ordinary item in the same list keeps its bullet. The
+ * checkbox is read-only; `color-scheme` on the root draws it in both schemes.
+ */
+.markdownRenderer :global(.rz-task-list-item) {
+    list-style: none;
+}
+
+:global(.rz-task-list-checkbox) {
+    margin: 0 0.35em 0.2em -1.35em;
+    vertical-align: middle;
+    accent-color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------ key caps --- */
+/*
+ * `<kbd>`, AsciiDoc's `kbd:[…]` and each step of its `menu:File[Save]`.
+ */
+.markdownRenderer kbd {
+    display: inline-block;
+    padding: 0.1em 0.4em;
+    font-family: var(--md-mono);
+    font-size: 0.8em;
+    line-height: 1.35;
+    color: var(--color-foreground);
+    background: var(--color-code-background);
+    border: 1px solid var(--color-border);
+    border-radius: 0.3rem;
+    box-shadow: inset 0 -1px 0 var(--color-border);
+    vertical-align: 0.1em;
+    white-space: nowrap;
+}
+
+:global(.rz-menu) {
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------- media and color scheme --- */
+/*
+ * A video fits the measure the way an image does. An image marked for one
+ * color scheme (`#gh-dark-mode-only`, a `<picture>` with
+ * `prefers-color-scheme`) shows only in the site's own scheme, which the
+ * theme toggle sets as well as the system.
+ */
+.markdownRenderer video {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+:root:not([data-theme="dark"]) .markdownRenderer :global(.rz-scheme-dark),
+:root[data-theme="dark"] .markdownRenderer :global(.rz-scheme-light) {
+    display: none;
 }
 
 /* ------------------------------------------------- syntax highlighting --- */
@@ -540,8 +598,8 @@ separator has to be matched with the id here too. */
 
 /* --------------------------------------------------------- small screens --- */
 @media (max-width: 767px) {
-    .tableWrap th,
-    .tableWrap td {
+    :global(.rz-table) th,
+    :global(.rz-table) td {
         padding: 0.45rem 0.6rem;
         /* Scrolling the wrapper beats unreadable one-character columns. */
         min-width: 7rem;
@@ -557,9 +615,270 @@ separator has to be matched with the id here too. */
  * — keeps its text but has nowhere to go. The dotted underline and the title
  * say so, rather than leaving a link that navigates out of the site.
  */
-.unresolvedLink {
+:global(.rz-unresolved-link) {
     text-decoration: underline dotted;
     text-decoration-color: var(--color-muted);
     text-underline-offset: 0.2em;
     cursor: help;
+}
+
+/*
+ * A display math expression the build wrote as MathML scrolls inside its own
+ * block, so a long one never drags the page sideways on a narrow screen. The
+ * browser draws it with its own math font, in the text color.
+ */
+:global(.rz-math-display) {
+    display: block;
+    max-width: 100%;
+    margin: 1rem 0;
+    padding: 0.25rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+/* ----------------------------------------------------------- footnotes --- */
+/*
+ * A reference is a small raised number, and the footnotes sit in a muted
+ * list under a rule at the foot of the section, the decision or, on a split
+ * section, the page (ADR 31). The list keeps the prose measure, and each
+ * item its number from the whole section. A reference and a footnote are
+ * both anchor targets, so both clear the sticky header.
+ */
+:global(.rz-footnote-ref) {
+    font-size: 0.75em;
+    line-height: 0;
+
+    & > a {
+        padding: 0 0.1em;
+        text-decoration: none;
+        scroll-margin-top: calc(var(--header-height, 5rem) + 1rem);
+    }
+
+    & > a:hover,
+    & > a:focus-visible {
+        text-decoration: underline;
+    }
+}
+
+:global(.rz-footnotes) {
+    max-width: var(--md-measure);
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: 0.875rem;
+
+    /* One gutter wide enough for the numbers, in place of the body's list
+       margin plus the browser's own padding, so the numbers line up under
+       the rule. */
+    & > ol {
+        margin: 0;
+        padding-left: 1.5rem;
+    }
+
+    & li {
+        scroll-margin-top: calc(var(--header-height, 5rem) + 1rem);
+    }
+
+    & li > p {
+        margin-bottom: 0.25rem;
+    }
+
+    & li::marker {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+:global(.rz-footnote-backref) {
+    margin-left: 0.15em;
+    text-decoration: none;
+
+    & sup {
+        font-size: 0.7em;
+    }
+}
+
+/* -------------------------------------------------------- diagram cards --- */
+/*
+ * A diagram card (glossary) stands where a section embeds a view: the
+ * diagram's type, its title and "Open in diagrams", with a diagram icon and
+ * no picture. The build (`scripts/documentation/diagram-card.js`) writes
+ * the whole card as one link, made of phrasing content only, so it is laid
+ * out as a block here. At phone width "Open in diagrams" wraps under the
+ * title rather than pushing the page sideways.
+ */
+:global(.rz-diagram-card) {
+    /* The blue of the icon and "Open in diagrams", lighter on a dark page
+    so it keeps its contrast against the card. */
+    --md-card-accent: var(--color-primary);
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.9rem;
+    box-sizing: border-box;
+    max-width: var(--md-measure);
+    margin: 1.35rem 0;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    background: var(--color-surface-alt);
+    color: var(--color-foreground);
+    font-weight: 400;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+:global(.rz-diagram-card):hover {
+    border-color: var(--color-muted);
+    background: var(--color-surface-hover);
+    color: var(--color-foreground);
+}
+
+:global(.rz-diagram-card-icon) {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--md-card-accent) 14%, transparent);
+    color: var(--md-card-accent);
+}
+
+:global(.rz-diagram-card-icon) svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: currentColor;
+}
+
+:global(.rz-diagram-card-text) {
+    display: flex;
+    flex: 1 1 12rem;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+
+:global(.rz-diagram-card-type) {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+}
+
+:global(.rz-diagram-card-title) {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+:global(.rz-diagram-card-open) {
+    flex: none;
+    margin-left: auto;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--md-card-accent);
+}
+
+:global(.rz-diagram-card-open)::after {
+    content: " →";
+}
+
+:global(.rz-diagram-card):hover :global(.rz-diagram-card-open) {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+:root[data-theme="dark"] :global(.rz-diagram-card) {
+    --md-card-accent: var(--color-tertiary);
+}
+
+/* The note in a card's place when the workspace has no such view. */
+:global(.rz-diagram-note) {
+    display: block;
+    box-sizing: border-box;
+    max-width: var(--md-measure);
+    margin: 1.35rem 0;
+    padding: 0.8rem 1rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 0.5rem;
+    color: var(--color-muted);
+    overflow-wrap: anywhere;
+}
+
+/*
+ * A Mermaid block Renderizr does not draw, or one that fails to parse,
+ * shows its note with the block's source under it. A long source shows its
+ * first lines, fading out, inside a `<details>` whose summary is the source
+ * itself, so a click anywhere on it opens the whole source.
+ */
+.markdownRenderer :global(.rz-diagram-note) > p {
+    margin: 0 0 0.75rem;
+}
+
+:global(.rz-diagram-note) > pre {
+    margin: 0;
+}
+
+:global(.rz-diagram-note-source) {
+    margin: 0;
+}
+
+:global(.rz-diagram-note-source) > summary {
+    display: block;
+    list-style: none;
+    cursor: pointer;
+}
+
+:global(.rz-diagram-note-source) > summary::-webkit-details-marker {
+    display: none;
+}
+
+.markdownRenderer :global(.rz-diagram-note-source) > summary > code {
+    display: block;
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--color-code-block-border);
+    border-radius: 6px;
+    background: var(--color-code-block-background);
+    color: var(--md-hljs-base);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-wrap: normal;
+    scrollbar-width: thin;
+}
+
+/* Closed: four lines, fading out. */
+.markdownRenderer
+    :global(.rz-diagram-note-source):not([open])
+    > summary
+    > code {
+    max-height: calc(4 * 1.5em + 1rem);
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, #000 45%, transparent);
+}
+
+:global(.rz-diagram-note-source) > summary:focus-visible {
+    outline: none;
+}
+
+.markdownRenderer
+    :global(.rz-diagram-note-source)
+    > summary:focus-visible
+    > code {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+@media print {
+    .markdownRenderer
+        :global(.rz-diagram-note-source):not([open])
+        > summary
+        > code {
+        max-height: none;
+        mask-image: none;
+    }
 }

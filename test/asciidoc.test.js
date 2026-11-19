@@ -1,279 +1,385 @@
 /**
- * `src/components/asciidoc.ts` — the AsciiDoc-to-Markdown pass that
- * `src/pages/docs.ts` runs over any documentation section whose filename ends
- * in `.adoc` before handing it to the markdown renderer.
+ * `scripts/documentation/asciidoc.js` — the asciidoctor.js every AsciiDoc
+ * section and decision goes through, in the build (ADR 31).
  *
- * It is a pure `string -> string` function, so these are exact-output tests.
- * It is deliberately not a conformant AsciiDoc processor: what it does not
- * recognize has to pass through unharmed, and there are tests for that too.
- *
- * The file lives in `scripts/` because `pnpm test` globs `scripts/*.test.js`.
+ * These are input -> HTML tests: feed AsciiDoc in, assert the markup out.
+ * Each AsciiDoc construct with a Markdown counterpart has to come out as the
+ * markup the Markdown path writes, so the page styles both alike.
  */
 
 import assert from "node:assert/strict";
-import { importSrc, srcTest as test } from "./support/ts.js";
+import { execFileSync } from "node:child_process";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import {
+    createAsciiDoc,
+    isAsciiDoc,
+    renderAsciiDoc,
+} from "../scripts/documentation/asciidoc.js";
+import { CLASSES } from "../src/model/documentation-classes.js";
 
-const { asciidocToMarkdown, isAsciiDoc } = await importSrc(
-    "components/asciidoc",
-);
+const asciidoc = createAsciiDoc();
+
+/** `source` rendered with `env`, as the build renders it. */
+const render = (source, env) => renderAsciiDoc(asciidoc, source, env);
 
 /* --------------------------------------------------------------- detection */
 
-test("only a .adoc extension selects the AsciiDoc path", () => {
-    assert.equal(isAsciiDoc("architecture.adoc"), true);
-    assert.equal(isAsciiDoc("ARCHITECTURE.ADOC"), true);
-    assert.equal(isAsciiDoc("nested/dir/notes.AdOc"), true);
+test("a .adoc file name or the AsciiDoc format selects the AsciiDoc path", async () => {
+    assert.equal(isAsciiDoc({ filename: "architecture.adoc" }), true);
+    assert.equal(isAsciiDoc({ filename: "nested/NOTES.AdOc" }), true);
+    assert.equal(isAsciiDoc({ format: "AsciiDoc" }), true);
+    assert.equal(
+        isAsciiDoc({ filename: "notes.txt", format: "AsciiDoc" }),
+        true,
+    );
 
-    assert.equal(isAsciiDoc("architecture.md"), false);
-    assert.equal(isAsciiDoc("adoc"), false);
-    assert.equal(isAsciiDoc("a.adoc.md"), false);
-    assert.equal(isAsciiDoc(""), false);
-    assert.equal(isAsciiDoc(), false);
+    assert.equal(isAsciiDoc({ filename: "architecture.md" }), false);
+    assert.equal(isAsciiDoc({ filename: "a.adoc.md" }), false);
+    assert.equal(isAsciiDoc({ format: "Markdown" }), false);
+    assert.equal(isAsciiDoc({}), false);
 });
 
 /* ---------------------------------------------------------------- headings */
 
-test("`=` levels map one for one onto `#` levels", () => {
+test("the document title and every section level shift like Markdown's headings", async () => {
     assert.equal(
-        asciidocToMarkdown("= Doc\n== Sec\n====== Six\n"),
-        "# Doc\n## Sec\n###### Six\n",
-    );
-});
-
-test("seven `=` is not a heading and is left alone", () => {
-    assert.equal(asciidocToMarkdown("======= Seven\n"), "======= Seven\n");
-});
-
-/* -------------------------------------------------------- attributes, macros */
-
-test("document attributes and the toc macro carry no content and are dropped", () => {
-    assert.equal(
-        asciidocToMarkdown(
-            ":toc: macro\ntoc::[]\n:author: Ada\n:!sectnums:\nbody\n",
+        await render(
+            "= Runbook\n\nIntro.\n\n== Restart\n\nNow.\n\n=== Again\n",
         ),
-        "body\n",
+        '<h2 id="runbook" tabindex="-1">Runbook</h2>\n' +
+            "<p>Intro.</p>\n" +
+            '<h3 id="restart" tabindex="-1">Restart</h3>\n' +
+            "<p>Now.</p>\n" +
+            '<h4 id="again" tabindex="-1">Again</h4>\n',
     );
 });
 
-/* ------------------------------------------------------------ code, literal */
+test("headings sit side by side, with no wrapper around a section, so the page can split it", async () => {
+    const html = await render("== One\n\nA.\n\n== Two\n\nB.\n");
 
-test("a source block becomes a fence tagged with its language", () => {
+    assert.ok(!html.includes("<div"), html);
+});
+
+test("a heading's id follows GitHub's AsciiDoc ids, and an internal reference lands on it", async () => {
     assert.equal(
-        asciidocToMarkdown('[source,json]\n----\n{"a":1}\n----\n'),
-        '```json\n{"a":1}\n```\n',
+        await render("== Deploy the API\n\nSee <<deploy-the-api>>.\n"),
+        '<h3 id="deploy-the-api" tabindex="-1">Deploy the API</h3>\n' +
+            '<p>See <a href="#deploy-the-api">Deploy the API</a>.</p>\n',
     );
 });
 
-test("a listing block with no language becomes a bare fence", () => {
-    assert.equal(asciidocToMarkdown("----\ncode\n----\n"), "```\ncode\n```\n");
-});
-
-test("literal and sidebar delimiters also become fences", () => {
+test("the table of contents macro writes nothing: the documentation menu is the page's own", async () => {
     assert.equal(
-        asciidocToMarkdown("....\nliteral\n....\n"),
-        "```\nliteral\n```\n",
-    );
-    assert.equal(asciidocToMarkdown("****\nside\n****\n"), "```\nside\n```\n");
-});
-
-test("a delimiter of a different kind inside a block is content, not a close", () => {
-    assert.equal(
-        asciidocToMarkdown("----\nsome ==== inside\n----\n"),
-        "```\nsome ==== inside\n```\n",
-    );
-});
-
-test("the language attribute applies to the next block only", () => {
-    assert.equal(
-        asciidocToMarkdown(
-            "[source,sql]\n----\nSELECT 1\n----\n----\nplain\n----\n",
+        (await render("= Doc\n:toc: macro\n\ntoc::[]\n\n== One\n")).replace(
+            /\n+/g,
+            "\n",
         ),
-        "```sql\nSELECT 1\n```\n```\nplain\n```\n",
-    );
-});
-
-/* ------------------------------------------------------------- admonitions */
-
-test("an inline admonition becomes a bold-led blockquote", () => {
-    assert.equal(
-        asciidocToMarkdown("NOTE: be careful\n"),
-        "> **NOTE** be careful\n",
-    );
-});
-
-test("a word that is not an admonition keeps its colon", () => {
-    assert.equal(asciidocToMarkdown("WARN: not one\n"), "WARN: not one\n");
-    assert.equal(asciidocToMarkdown("Note: not one\n"), "Note: not one\n");
-});
-
-test("every admonition label is recognized", () => {
-    for (const label of ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"]) {
-        assert.equal(
-            asciidocToMarkdown(`${label}: text\n`),
-            `> **${label}** text\n`,
-        );
-        assert.equal(
-            asciidocToMarkdown(`[${label}]\ntext\n`),
-            `> **${label}**\n>\ntext\n`,
-        );
-    }
-});
-
-test("a quote block attribute becomes an attribution line", () => {
-    assert.equal(
-        asciidocToMarkdown("[quote, Ann, Book]\nsaid it\n"),
-        "> *Ann, Book*\n>\nsaid it\n",
+        '<h2 id="doc" tabindex="-1">Doc</h2>\n' +
+            '<h3 id="one" tabindex="-1">One</h3>\n',
     );
 });
 
 /* ------------------------------------------------------------------ tables */
 
-test("a table becomes a Markdown table with a generated header rule", () => {
+test("a table sits in the scroll container Markdown tables sit in", async () => {
     assert.equal(
-        asciidocToMarkdown(
-            "|===\n|Name |Description\n\n|a\n|b\n\n|c\n|d\n|===\n",
+        await render("|===\n|Name |Role\n\n|api\n|serves\n|===\n"),
+        `<div class="${CLASSES.tableWrap}"><table>\n` +
+            "<thead>\n<tr>\n<th>Name</th>\n<th>Role</th>\n</tr>\n</thead>\n" +
+            "<tbody>\n<tr>\n<td>api</td>\n<td>serves</td>\n</tr>\n</tbody>\n" +
+            "</table></div>\n",
+    );
+});
+
+test("a table's [cols] keep their widths and their alignment", async () => {
+    const html = await render(
+        '[cols="1,2,^1,>1"]\n|===\n|A |B |C |D\n\n|a\n|b\n|c\n|d\n|===\n',
+    );
+
+    assert.ok(
+        html.includes(
+            '<colgroup>\n<col width="20%">\n<col width="40%">\n<col width="20%">\n<col width="20%">\n</colgroup>',
         ),
-        "\n| Name | Description |\n| --- | --- |\n| a | b |\n| c | d |\n\n",
+        html,
     );
+    assert.ok(html.includes("<td>a</td>"), html);
+    assert.ok(html.includes('<td style="text-align:center">c</td>'), html);
+    assert.ok(html.includes('<td style="text-align:right">d</td>'), html);
 });
 
-test("the header rule is emitted once per table, not once per document", () => {
-    const out = asciidocToMarkdown(
-        "|===\n|A\n\n|1\n|===\n\ntext\n\n|===\n|B\n\n|2\n|===\n",
-    );
+/* ------------------------------------------------- strikethrough, sub, sup */
 
-    assert.equal((out.match(/\| --- \|/g) ?? []).length, 2);
-    assert.ok(out.includes("| A |"), out);
-    assert.ok(out.includes("| B |"), out);
-    assert.ok(out.includes("\ntext\n"), out);
-});
-
-test("a blank line is what ends a row, so a table written without one is a single row", () => {
-    // AsciiDoc's own convention separates rows by blank lines. A table written
-    // with one line per row and no separators has no row boundary to find, and
-    // the converter says so by producing one wide row rather than guessing.
+test("a line-through role strikes the text the way Markdown's tildes do", async () => {
     assert.equal(
-        asciidocToMarkdown("|===\n| H1 | H2\n| r1 | r2\n|===\n"),
-        "\n| H1 | H2 | r1 | r2 |\n| --- | --- | --- | --- |\n\n",
+        await render("[.line-through]#mistaken text#\n"),
+        "<p><s>mistaken text</s></p>\n",
     );
 });
 
-test("an unterminated table still flushes its last row", () => {
+test("subscript and superscript render as sub and sup", async () => {
     assert.equal(
-        asciidocToMarkdown("|===\n|A |B\n"),
-        "\n| A | B |\n| --- | --- |",
+        await render("H~2~O and E = mc^2^\n"),
+        "<p>H<sub>2</sub>O and E = mc<sup>2</sup></p>\n",
+    );
+});
+
+/* ------------------------------------------------------------------ alerts */
+
+test("a NOTE: paragraph becomes the alert box Markdown alerts draw", async () => {
+    const html = await render("NOTE: Mind the gap.\n");
+
+    assert.ok(
+        html.startsWith(
+            `<div class="${CLASSES.alert} ${CLASSES.alertNote}">\n<div class="${CLASSES.alertTitle}"><svg aria-hidden="true"`,
+        ),
+        html,
+    );
+    assert.ok(html.includes("<span>Note</span></div>\n"), html);
+    assert.ok(html.endsWith("<p>Mind the gap.</p>\n</div>\n"), html);
+});
+
+test("every admonition type, as a paragraph or a block, maps onto its alert", async () => {
+    for (const [label, type] of [
+        ["NOTE", CLASSES.alertNote],
+        ["TIP", CLASSES.alertTip],
+        ["IMPORTANT", CLASSES.alertImportant],
+        ["WARNING", CLASSES.alertWarning],
+        ["CAUTION", CLASSES.alertCaution],
+    ]) {
+        const paragraph = await render(`${label}: Text.\n`);
+        const block = await render(
+            `[${label}]\n====\nFirst.\n\nSecond.\n====\n`,
+        );
+
+        assert.ok(paragraph.includes(`class="${CLASSES.alert} ${type}"`));
+        assert.ok(block.includes(`class="${CLASSES.alert} ${type}"`));
+        assert.ok(block.includes("<p>First.</p>\n<p>Second.</p>\n</div>"));
+    }
+});
+
+test("an alert block's title leads its body", async () => {
+    const html = await render("[CAUTION]\n.Read this\n====\nRisky.\n====\n");
+
+    assert.ok(
+        html.includes(
+            "</div>\n<p><strong>Read this</strong></p>\n<p>Risky.</p>",
+        ),
+        html,
+    );
+});
+
+/* -------------------------------------------------------------- typography */
+
+test("asciidoctor.js's own typographic replacements apply", async () => {
+    assert.equal(
+        await render("It's done -- (C) 2026... see -> there\n"),
+        "<p>It&#8217;s done&#8201;&#8212;&#8201;&#169; 2026&#8230;&#8203; see &#8594; there</p>\n",
+    );
+});
+
+/* ----------------------------------------------------------- source blocks */
+
+test("a source block goes through the highlight.js Markdown fences use", async () => {
+    const html = await render('[source,json]\n----\n{"a": 1}\n----\n');
+
+    assert.ok(html.startsWith('<pre><code class="language-json">'), html);
+    assert.ok(
+        html.includes('<span class="hljs-attr">&quot;a&quot;</span>'),
+        html,
+    );
+    assert.ok(html.includes('<span class="hljs-number">1</span>'), html);
+    assert.ok(html.endsWith("</code></pre>\n"), html);
+});
+
+test("a source block in a language highlight.js lacks, or in none, stays plain and escaped", async () => {
+    assert.equal(
+        await render("[source,nosuchlang]\n----\n<b>x</b>\n----\n"),
+        '<pre><code class="language-nosuchlang">&lt;b&gt;x&lt;/b&gt;</code></pre>\n',
+    );
+    assert.equal(
+        await render("----\n<b>x</b>\n----\n"),
+        "<pre><code>&lt;b&gt;x&lt;/b&gt;</code></pre>\n",
+    );
+});
+
+test("a literal block is preformatted text", async () => {
+    assert.equal(
+        await render("....\nas <typed>\n....\n"),
+        "<pre><code>as &lt;typed&gt;</code></pre>\n",
+    );
+});
+
+/* ------------------------------------------------- collapsible and example */
+
+test("a collapsible block renders as a collapsed section, not as code", async () => {
+    assert.equal(
+        await render(".More\n[%collapsible]\n====\nHidden.\n====\n"),
+        `<details class="${CLASSES.collapsed}">\n<summary class="${CLASSES.collapsedSummary}">More</summary>\n<div class="content">\n<p>Hidden.</p>\n</div>\n</details>\n`,
+    );
+});
+
+test("an example block renders the way asciidoctor.js writes it, not as code", async () => {
+    assert.equal(
+        await render("====\nShown.\n====\n"),
+        '<div class="exampleblock">\n<div class="content">\n<p>Shown.</p>\n</div>\n</div>\n',
+    );
+});
+
+/* -------------------------------------------------------------- lists, quote */
+
+test("a list item holding only text reads like a tight Markdown list", async () => {
+    assert.equal(
+        await render("* one\n** two\n"),
+        "<ul>\n<li>one\n<ul>\n<li>two</li>\n</ul>\n</li>\n</ul>\n",
+    );
+    assert.equal(
+        await render("[start=3]\n. third\n"),
+        '<ol start="3">\n<li>third</li>\n</ol>\n',
+    );
+});
+
+test("a quote block is a blockquote", async () => {
+    assert.equal(
+        await render("____\nSaid it. +\nTwice.\n____\n"),
+        "<blockquote>\n<p>Said it.<br>\nTwice.</p>\n</blockquote>\n",
+    );
+});
+
+/* ------------------------------------------------------------------- links */
+
+/** A resolver that knows one sibling file. */
+const resolveLink = (href) => {
+    if (/^02-other\.(adoc|md)(#.*)?$/.test(href))
+        return `#/?page=docs&section=02-other${href.includes("#") ? "&subsection=on-call" : ""}`;
+    if (/\.(adoc|md)(#.*)?$/.test(href)) return null;
+    return undefined;
+};
+
+test("a link, an xref and a cross reference to another file resolve the way Markdown links do", async () => {
+    for (const source of [
+        "link:02-other.adoc[Other]",
+        "link:02-other.md[Other]",
+        "xref:02-other.adoc[Other]",
+        "<<02-other.adoc#,Other>>",
+    ]) {
+        assert.equal(
+            await render(`${source}\n`, { resolveLink }),
+            '<p><a href="#/?page=docs&amp;section=02-other">Other</a></p>\n',
+            source,
+        );
+    }
+    assert.equal(
+        await render("xref:02-other.adoc#on-call[On call]\n", { resolveLink }),
+        '<p><a href="#/?page=docs&amp;section=02-other&amp;subsection=on-call">On call</a></p>\n',
+    );
+});
+
+test("a link to a file the workspace lacks keeps its text but stops being a link", async () => {
+    assert.equal(
+        await render("See xref:reference/model.adoc[the model] here.\n", {
+            resolveLink,
+        }),
+        `<p>See <span class="${CLASSES.unresolvedLink}" title="Not part of this workspace: reference/model.adoc">the model</span> here.</p>\n`,
+    );
+});
+
+test("links the resolver has no opinion about are left as written", async () => {
+    assert.equal(
+        await render("https://example.com[Example] and <<top>>\n", {
+            resolveLink,
+        }),
+        '<p><a href="https://example.com">Example</a> and <a href="#top">[top]</a></p>\n',
     );
 });
 
 /* ------------------------------------------------------------------ images */
 
-test("a block image becomes a Markdown image, alt text first attribute only", () => {
+test("an image the resolver knows gets the embedded source, block or inline", async () => {
+    const resolveImage = (src) =>
+        src === "edit-mode.png"
+            ? "data:image/png;base64,iVBORw0KGgo="
+            : undefined;
+    const html = await render(
+        "image::edit-mode.png[Edit mode]\n\nSee image:edit-mode.png[icon] and image:logo.png[Logo].\n",
+        { resolveImage },
+    );
+
     assert.equal(
-        asciidocToMarkdown("image::embed:SystemContext[System Context, 600]\n"),
-        "![System Context](embed:SystemContext)\n",
+        html.match(/src="data:image\/png;base64,iVBORw0KGgo="/g)?.length,
+        2,
+        html,
+    );
+    assert.ok(html.includes('alt="Edit mode"'), html);
+    assert.ok(html.includes('<img src="logo.png" alt="Logo">'), html);
+});
+
+/* ---------------------------------------------------------------- raw HTML */
+
+test("a passthrough block's raw HTML is sanitized the way Markdown's is", async () => {
+    assert.equal(
+        await render(
+            '++++\n<kbd style="color:red" onclick="x()">K</kbd><script>alert(1)</script>\n++++\n',
+        ),
+        "<kbd>K</kbd>\n",
+    );
+    assert.equal(
+        await render(
+            '[pass]\n<details><summary>More</summary>Hidden.</details><iframe src="x"></iframe>\n',
+        ),
+        "<details><summary>More</summary>Hidden.</details>\n",
     );
 });
 
-test("quotes around the alt text are stripped", () => {
+test("an inline passthrough's raw HTML is sanitized, the text around it kept", async () => {
     assert.equal(
-        asciidocToMarkdown('image::diagram.png["A diagram", 400]\n'),
-        "![A diagram](diagram.png)\n",
+        await render(
+            'Press pass:[<kbd onclick="x()">K</kbd>] or +++<a href="javascript:x()">this</a>+++ now.\n',
+        ),
+        "<p>Press <kbd>K</kbd> or <a>this</a> now.</p>\n",
     );
 });
 
-test("an image with no attributes gets an empty alt", () => {
-    assert.equal(
-        asciidocToMarkdown("image::diagram.png[]\n"),
-        "![](diagram.png)\n",
+test("importing the module patches nothing, and making an asciidoctor.js patches the passthroughs once", () => {
+    // A process of its own, since this one already made an asciidoctor.js.
+    const script = `
+        import { AbstractNode } from "@asciidoctor/core";
+        const original = AbstractNode.prototype.restorePassthroughs;
+        const { createAsciiDoc } = await import(${JSON.stringify(
+            new URL("../scripts/documentation/asciidoc.js", import.meta.url)
+                .href,
+        )});
+        const imported = AbstractNode.prototype.restorePassthroughs;
+        createAsciiDoc();
+        const created = AbstractNode.prototype.restorePassthroughs;
+        createAsciiDoc();
+        const again = AbstractNode.prototype.restorePassthroughs;
+        process.stdout.write(JSON.stringify({
+            imported: imported === original,
+            created: created !== original,
+            again: again === created,
+        }));
+    `;
+    const output = execFileSync(
+        process.execPath,
+        ["--input-type=module", "-e", script],
+        { cwd: fileURLToPath(new URL("..", import.meta.url)) },
     );
+
+    assert.deepEqual(JSON.parse(String(output)), {
+        imported: true,
+        created: true,
+        again: true,
+    });
 });
 
-/* ------------------------------------------------------------------- lists */
-
-test("repeated list markers become indentation", () => {
-    assert.equal(
-        asciidocToMarkdown("* one\n** two\n*** three\n"),
-        "* one\n  * two\n    * three\n",
+test("asciidoctor.js's own markup around a passthrough stays as it renders", async () => {
+    const html = await render(
+        "NOTE: See pass:q[*bold* <script>x</script>] and https://example.com[a link].\n",
     );
-    assert.equal(
-        asciidocToMarkdown(". first\n.. second\n... third\n"),
-        "1. first\n  1. second\n    1. third\n",
-    );
-});
 
-/* ------------------------------------------------------------------ inline */
-
-test("the doubled monospace form and attribute references are unwrapped", () => {
-    assert.equal(
-        asciidocToMarkdown("Use `+literal+` and {some-attr} here\n"),
-        "Use `literal` and some-attr here\n",
-    );
-});
-
-/* ------------------------------------------------------------ pass-through */
-
-test("anything unrecognized survives verbatim", () => {
-    const source = "some ((weird)) asciidoc\nwith <<a cross reference>>\n";
-    assert.equal(asciidocToMarkdown(source), source);
-});
-
-test("CRLF input is normalized to LF", () => {
-    assert.equal(asciidocToMarkdown("= A\r\n\r\nb\r\n"), "# A\n\nb\n");
-});
-
-test("empty input converts to empty output", () => {
-    assert.equal(asciidocToMarkdown(""), "");
-});
-
-/* ------------------------------------------------------------- a whole file */
-
-test("a realistic section converts end to end", () => {
-    const source = [
-        "= Deployment",
-        ":toc: macro",
-        "toc::[]",
-        "",
-        "== Overview",
-        "",
-        "NOTE: The pipeline runs on every push.",
-        "",
-        "[source,bash]",
-        "----",
-        "pnpm build",
-        "----",
-        "",
-        "|===",
-        "|Stage |Runs on",
-        "",
-        "|build",
-        "|ubuntu-latest",
-        "|===",
-        "",
-        "image::embed:Deployment[Deployment view]",
-        "",
-    ].join("\n");
-
-    assert.equal(
-        asciidocToMarkdown(source),
-        [
-            "# Deployment",
-            "",
-            "## Overview",
-            "",
-            "> **NOTE** The pipeline runs on every push.",
-            "",
-            "```bash",
-            "pnpm build",
-            "```",
-            "",
-            "",
-            "| Stage | Runs on |",
-            "| --- | --- |",
-            "| build | ubuntu-latest |",
-            "",
-            "",
-            "![Deployment view](embed:Deployment)",
-            "",
-        ].join("\n"),
-    );
+    assert.ok(html.includes('<svg aria-hidden="true"'), html);
+    assert.ok(html.includes("<strong>bold</strong>"), html);
+    assert.ok(!html.includes("<script>"), html);
+    assert.ok(html.includes('<a href="https://example.com">a link</a>'), html);
 });

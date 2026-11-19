@@ -29,6 +29,11 @@ import {
     sectionId,
 } from "./documentation";
 import { NO_SET, type SetLinks } from "./targets";
+import {
+    defaultViewName,
+    type TitleLookups,
+    viewTitle,
+} from "./view-titles.js";
 import type {
     ElementType,
     ModelElement,
@@ -554,19 +559,11 @@ export class WorkspaceModel {
 
     /**
      * A view's own title, else a Mermaid diagram's frontmatter title, else
-     * its name, else one made from its type.
+     * its name, else one made from its type (`view-titles.js`, which the
+     * build's diagram cards share).
      */
     getTitleForView(view: ModelView): string {
-        if (view.title?.trim()) return view.title;
-        const diagram = view.type === "Mermaid" ? view.mermaid : undefined;
-        if (diagram && "title" in diagram && diagram.title?.trim())
-            return diagram.title;
-        if (view.type === "Filtered") {
-            const base = this.findViewByKey(view.baseViewKey);
-            return base ? this.getTitleForView(base) : "";
-        }
-        if (view.name?.trim()) return view.name;
-        return this.getDefaultViewName(view);
+        return viewTitle(view, this.#titleLookups);
     }
 
     /**
@@ -583,54 +580,15 @@ export class WorkspaceModel {
     }
 
     getDefaultViewName(given: ModelView): string {
-        const view =
-            given.type === "Filtered"
-                ? this.findViewByKey(given.baseViewKey)
-                : given;
-        if (!view) return "";
-        // A name may break its label with `\n`; a title keeps to one line.
-        const oneLine = (text: string | undefined) =>
-            (text ?? "").replace(/\\n/g, " ");
-        const name = (id: string | undefined) =>
-            oneLine(this.findElementById(id)?.name);
+        return defaultViewName(given, this.#titleLookups);
+    }
 
-        switch (view.type) {
-            case "Custom":
-                return `Custom View: ${view.title?.trim() ? view.title : "Untitled"}`;
-            case "SystemLandscape": {
-                const enterprise = this.model.enterprise;
-                return `System Landscape View${enterprise ? `: ${enterprise.name}` : ""}`;
-            }
-            case "SystemContext":
-                return `System Context View: ${name(view.softwareSystemId)}`;
-            case "Container":
-                return `Container View: ${name(view.softwareSystemId)}`;
-            case "Component": {
-                const container = this.findElementById(view.containerId);
-                return `Component View: ${name(container?.parentId)} - ${oneLine(container?.name)}`;
-            }
-            case "Dynamic": {
-                const element =
-                    this.findElementById(view.elementId) ??
-                    this.findElementById(view.softwareSystemId);
-                if (!element) return "Dynamic View";
-                if (element.type === "SoftwareSystem") {
-                    return `Dynamic View: ${oneLine(element.name)}`;
-                }
-                if (element.type === "Container") {
-                    return `Dynamic View: ${name(element.parentId)} - ${oneLine(element.name)}`;
-                }
-                return "";
-            }
-            case "Deployment":
-                return view.softwareSystemId
-                    ? `Deployment View: ${name(view.softwareSystemId)} - ${view.environment}`
-                    : `Deployment View: ${view.environment}`;
-            case "Image":
-            case "Mermaid":
-                return `Image View: ${view.key}`;
-            default:
-                return "";
-        }
+    /** What `view-titles.js` looks elements and views up with. */
+    get #titleLookups(): TitleLookups {
+        return {
+            element: (id) => this.findElementById(id),
+            view: (key) => this.findViewByKey(key),
+            enterprise: this.model.enterprise,
+        };
     }
 }

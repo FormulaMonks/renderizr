@@ -1,6 +1,6 @@
 /**
- * `src/components/doc-links.ts` — how a link written between files on GitHub
- * becomes a link between pages of the rendered site.
+ * `scripts/documentation/links.js` — how a link written between files on
+ * GitHub becomes a link between pages of the rendered site, in the build.
  *
  * The documents are authored to be read on GitHub, so the two things they
  * get from GitHub for free — heading ids, and relative paths to sibling files
@@ -8,12 +8,15 @@
  */
 
 import assert from "node:assert/strict";
-import { importSrc, srcTest as test } from "./support/ts.js";
-
-const { sectionId } = await importSrc("model/documentation");
-const { createLinkResolver, githubSlug } = await importSrc(
-    "components/doc-links",
-);
+import { test } from "node:test";
+import {
+    createLinkResolver,
+    githubSlug,
+} from "../scripts/documentation/links.js";
+import {
+    documentationScopes,
+    sectionId,
+} from "../src/model/documentation-scopes.js";
 
 const SECTIONS = [
     { filename: "01-context.md", order: 1, content: "" },
@@ -133,8 +136,6 @@ test("without a docs page, a section link has nowhere to go", () => {
 });
 
 /* ------------------------------------------------- documentation scopes */
-
-const { documentationScopes } = await importSrc("model/documentation");
 
 const SCOPED = documentationScopes({
     name: "Big Bank plc",

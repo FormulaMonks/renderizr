@@ -2,13 +2,10 @@ import history from "history/hash";
 import DecisionGraph, {
     type DecisionGraphState,
 } from "../components/decision-graph";
-import type { ImageResolver } from "../components/doc-images";
-import type { LinkResolver } from "../components/doc-links";
 import MarkdownRenderer from "../components/markdown-renderer";
 import Menu from "../components/menu";
 import { layoutDecisionGraph, relatedDecisions } from "../model/decision-graph";
 import {
-    DECISION_STATUS,
     decisionAddress,
     decisionNumber,
     decisionStatus,
@@ -66,23 +63,8 @@ export const indexColumnCap = (width: number) =>
 /** Decisions that still govern anything — amended ones still mostly do. */
 const IN_FORCE = new Set(["accepted", "amended"]);
 
-/**
- * A line that says nothing but the status. The pill above the body already says
- * it, so it is dropped from the note — for every spelling, which is why the
- * list comes from the table above rather than a second one that can drift from
- * it. ("Amended" was missing from that second list, and turned up in front of
- * the amendment note as "Amended Amends 15. …".)
- */
-const BARE_STATUS = new RegExp(
-    `^(${Object.keys(DECISION_STATUS).join("|")})\\.?$`,
-    "i",
-);
-
 const numberSpan = (decision: ScopedDecision) =>
     `<span class="${styles.number}">${decisionNumber(decision.number)}</span>`;
-
-/** Each documentation scope's own resolver for a decision's links or images. */
-export type ScopedResolver<Resolver> = (scope: DocumentationScope) => Resolver;
 
 const longDate = (value?: string) =>
     value
@@ -146,8 +128,6 @@ export default class Decisions extends Page {
     #menu: Menu<ScopedDecision> | null = null;
     #graph: DecisionGraph | null = null;
     #indexGraph: DecisionGraph | null = null;
-    #resolveLink: ScopedResolver<LinkResolver> | null;
-    #resolveImage: ScopedResolver<ImageResolver> | null;
     /** Whether the menu keeps only the decisions related to the open one. */
     #relatedOnly = false;
     /** The cap the index's decision graph last laid out under. */
@@ -161,19 +141,15 @@ export default class Decisions extends Page {
 
     /**
      * `scopes` are the workspace's documentation scopes; the page lists the
-     * decisions of every one. A decision's links and images resolve through
-     * its own scope's resolvers.
+     * decisions of every one. The build rendered each decision, its links and
+     * images resolved in its own scope (ADR 31).
      */
     constructor(
         container: HTMLElement | null = null,
         name = "Decisions",
         scopes: DocumentationScope[] = [],
-        resolveLink: ScopedResolver<LinkResolver> | null = null,
-        resolveImage: ScopedResolver<ImageResolver> | null = null,
     ) {
         super(container, name);
-        this.#resolveLink = resolveLink;
-        this.#resolveImage = resolveImage;
         this.#scopes = scopes.filter((scope) => scope.decisions.length);
         this.#all = scopedDecisions(this.#scopes);
         this.#decisions = this.#all;
@@ -300,33 +276,6 @@ export default class Decisions extends Page {
             ) ?? [],
         );
         filters.find((select) => !select.closest("section")?.hidden)?.focus();
-    }
-
-    #formatContent(content: string): string {
-        return (
-            content
-                .replace(/#(.*)/, "")
-                .replace(/Date:.*/, "")
-                // The status already appears as a pill above the body; keep only
-                // any supersession note that came with it.
-                .replace(/## Status([\s\S]*?)## Context/gim, (__, hit) => {
-                    const notes = hit
-                        .replace(/[\u200B-\u200D\uFEFF]/g, "")
-                        .split("\n")
-                        .map((line: string) => line.trim())
-                        .filter(
-                            (line: string) => line && !BARE_STATUS.test(line),
-                        );
-
-                    // "Amends 15." and "Amended by 39." are separate facts and
-                    // each gets its own line. Markdown folds consecutive quoted
-                    // lines into one paragraph, so each needs a hard break — a
-                    // trailing backslash — to stay where it was put.
-                    return notes.length
-                        ? `${notes.map((line: string) => `> ${line}`).join("\\\n")}\n\n## Context`
-                        : "## Context";
-                })
-        );
     }
 
     #renderTitle() {
@@ -601,14 +550,7 @@ export default class Decisions extends Page {
         );
         menu.onSelectionChange((item) => {
             this.#currentDecision = item;
-            // Its links and images resolve in its own scope first.
-            decisionViewer.setLinkResolver(
-                this.#resolveLink?.(item.scope) ?? null,
-            );
-            decisionViewer.setImageResolver(
-                this.#resolveImage?.(item.scope) ?? null,
-            );
-            decisionViewer.setContentFormatter(this.#formatContent);
+            // The build rendered it, the `## Status` block formatted.
             decisionViewer.setContent(item.content);
             this.#renderTitle();
             // Related only follows the open decision.

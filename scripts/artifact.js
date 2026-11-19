@@ -93,7 +93,8 @@ const CHUNK_FILES = {
  * code to `renderizr.js`. What only the documentation and decision pages
  * import is left to Rolldown, which puts it in the chunk of the entry's one
  * dynamic import, `renderizr-docs.js`. Rolldown writes its own helpers to
- * `renderizr-rolldown-runtime.js` whenever it splits the code into groups.
+ * `renderizr-rolldown-runtime.js` when chunks share them; none do since
+ * markdown-it and highlight.js left the page for the build (ADR 31).
  *
  * The own-code group holds the entry module, so Rolldown leaves the entry
  * chunk empty and Vite drops it. The group takes the entry's file name;

@@ -10,13 +10,14 @@
  * assert.
  *
  * The model is built from the *rendered* headings rather than the markdown, so
- * the tests feed real markdown through the real renderer and read the real
- * elements back.
+ * the tests feed real markdown through the build step that renders it
+ * (`support/documentation.js`) and read the real elements back.
  */
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach } from "node:test";
+import { rendered } from "./support/documentation.js";
 import history from "./support/history.js";
 import { dom, importSrc, srcTest as test } from "./support/ts.js";
 
@@ -75,12 +76,17 @@ beforeEach(() => {
     history.replace({ search: "?page=docs", hash: "" });
 });
 
-/** The documentation scopes of a workspace whose own sections are these. */
-const workspaceOf = (sections) =>
-    documentationScopes({ name: "Guidebook", documentation: { sections } });
+/**
+ * The documentation scopes of a workspace whose own sections are these, as
+ * the build renders them.
+ */
+const workspaceOf = async (sections) =>
+    documentationScopes(
+        await rendered({ name: "Guidebook", documentation: { sections } }),
+    );
 
-const renderPage = (sections = [GUIDE, OPERATIONS]) => {
-    const page = new Docs(host, "docs", workspaceOf(sections));
+const renderPage = async (sections = [GUIDE, OPERATIONS]) => {
+    const page = new Docs(host, "docs", await workspaceOf(sections));
     page.render();
     return page;
 };
@@ -106,8 +112,8 @@ const params = () => new URLSearchParams(history.location.search);
 
 /* ------------------------------------------------------------ section list */
 
-test("sections are ordered by their order field, not by arrival", () => {
-    renderPage([
+test("sections are ordered by their order field, not by arrival", async () => {
+    await renderPage([
         { ...OPERATIONS, order: 2 },
         { ...GUIDE, order: 1 },
     ]);
@@ -120,8 +126,8 @@ test("sections are ordered by their order field, not by arrival", () => {
     );
 });
 
-test("a section with no title of its own takes it from its first heading", () => {
-    renderPage([
+test("a section with no title of its own takes it from its first heading", async () => {
+    await renderPage([
         {
             filename: "03-untitled.md",
             order: 1,
@@ -132,18 +138,18 @@ test("a section with no title of its own takes it from its first heading", () =>
     assert.equal(menuItem("Written In The Document")?.dataset.depth, "0");
 });
 
-test("a section with neither falls back to a tidied-up filename", () => {
+test("a section with neither falls back to a tidied-up filename", async () => {
     // "0001-record-architecture-decisions.md" only becomes a title as a last
     // resort, and when it does it should not look like a filename.
-    renderPage([
+    await renderPage([
         { filename: "0004-record_the-facts.md", order: 1, content: "Body.\n" },
     ]);
 
     assert.equal(menuItem("Record The Facts")?.dataset.depth, "0");
 });
 
-test("an AsciiDoc section is converted and titled from its = heading", () => {
-    renderPage([
+test("an AsciiDoc section is rendered and titled from its = heading", async () => {
+    await renderPage([
         {
             filename: "04-adoc.adoc",
             order: 1,
@@ -160,8 +166,8 @@ test("an AsciiDoc section is converted and titled from its = heading", () => {
 
 /* ------------------------------------------------------------- page splits */
 
-test("a section becomes an intro plus one page per top-level heading", () => {
-    renderPage();
+test("a section becomes an intro plus one page per top-level heading", async () => {
+    await renderPage();
 
     assert.deepEqual(menuEntries(), [
         "0:Guide",
@@ -171,14 +177,14 @@ test("a section becomes an intro plus one page per top-level heading", () => {
     ]);
 });
 
-test("the section opens on its intro, with the other pages hidden", () => {
-    renderPage();
+test("the section opens on its intro, with the other pages hidden", async () => {
+    await renderPage();
 
     assert.deepEqual(visible(), ["H1:Guide", "P:Everything starts here."]);
 });
 
-test("choosing a page shows that page and nothing else", () => {
-    renderPage();
+test("choosing a page shows that page and nothing else", async () => {
+    await renderPage();
 
     menuItem("Install").click();
 
@@ -190,10 +196,10 @@ test("choosing a page shows that page and nothing else", () => {
     ]);
 });
 
-test("each page's headings are renumbered to start at h1", () => {
+test("each page's headings are renumbered to start at h1", async () => {
     // Within the section these are an h3 and an h4 — a page titled by an h3
     // sitting under no h1 or h2 is a broken outline for a screen reader.
-    renderPage();
+    await renderPage();
 
     menuItem("Install").click();
 
@@ -206,8 +212,8 @@ test("each page's headings are renumbered to start at h1", () => {
     assert.equal(second.tagName, "H2");
 });
 
-test("relative nesting survives the renumbering, so the tree is unchanged", () => {
-    renderPage();
+test("relative nesting survives the renumbering, so the tree is unchanged", async () => {
+    await renderPage();
 
     menuItem("Install").click();
 
@@ -220,8 +226,8 @@ test("relative nesting survives the renumbering, so the tree is unchanged", () =
     ]);
 });
 
-test("an intro holding nothing but the section title is not a page of its own", () => {
-    renderPage([
+test("an intro holding nothing but the section title is not a page of its own", async () => {
+    await renderPage([
         {
             filename: "05-titleonly.md",
             order: 1,
@@ -234,8 +240,8 @@ test("an intro holding nothing but the section title is not a page of its own", 
     assert.deepEqual(menuEntries(), ["0:Title Only", "1:First", "1:Second"]);
 });
 
-test("a document that opens straight into a sub-heading has no title page", () => {
-    renderPage([
+test("a document that opens straight into a sub-heading has no title page", async () => {
+    await renderPage([
         {
             filename: "06-nohead.md",
             order: 1,
@@ -249,8 +255,8 @@ test("a document that opens straight into a sub-heading has no title page", () =
 
 /* -------------------------------------------------------- on this page tree */
 
-test("the page on screen contributes its own headings to the tree", () => {
-    renderPage();
+test("the page on screen contributes its own headings to the tree", async () => {
+    await renderPage();
     menuItem("Install").click();
 
     const requirements = menuItem("Requirements");
@@ -258,8 +264,8 @@ test("the page on screen contributes its own headings to the tree", () => {
     assert.equal(requirements.dataset.itemId, "heading:requirements");
 });
 
-test("only the page on screen carries anchors", () => {
-    renderPage();
+test("only the page on screen carries anchors", async () => {
+    await renderPage();
 
     menuItem("Install").click();
     assert.ok(menuItem("Requirements"), "the open page lists its headings");
@@ -272,8 +278,8 @@ test("only the page on screen carries anchors", () => {
     );
 });
 
-test("clicking an anchor scrolls rather than navigating", () => {
-    renderPage();
+test("clicking an anchor scrolls rather than navigating", async () => {
+    await renderPage();
     menuItem("Install").click();
 
     const before = params().get("subsection");
@@ -288,8 +294,8 @@ test("clicking an anchor scrolls rather than navigating", () => {
 
 /* -------------------------------------------------------------------- pager */
 
-test("the pager offers the next page, and no previous one at the start", () => {
-    renderPage();
+test("the pager offers the next page, and no previous one at the start", async () => {
+    await renderPage();
 
     const buttons = document
         .querySelectorAll("#docs-pager button")
@@ -298,8 +304,8 @@ test("the pager offers the next page, and no previous one at the start", () => {
     assert.deepEqual(buttons, ["Next Install"]);
 });
 
-test("the pager crosses into the next section, naming it", () => {
-    renderPage();
+test("the pager crosses into the next section, naming it", async () => {
+    await renderPage();
     menuItem("Configure").click();
 
     const next = document.querySelectorAll("#docs-pager button").at(-1);
@@ -307,8 +313,8 @@ test("the pager crosses into the next section, naming it", () => {
     assert.match(next.textContent.replace(/\s+/g, " "), /Next Operations/);
 });
 
-test("the pager moves the reader", () => {
-    renderPage();
+test("the pager moves the reader", async () => {
+    await renderPage();
 
     document.querySelector("#docs-pager button").click();
 
@@ -316,10 +322,10 @@ test("the pager moves the reader", () => {
     assert.equal(params().get("subsection"), "install");
 });
 
-test("a click on the label inside a pager button still turns the page", () => {
+test("a click on the label inside a pager button still turns the page", async () => {
     // The buttons wrap several spans; the click lands on whichever one was
     // under the pointer.
-    renderPage();
+    await renderPage();
 
     document.querySelector("#docs-pager button span").click();
 
@@ -328,8 +334,8 @@ test("a click on the label inside a pager button still turns the page", () => {
 
 /* --------------------------------------------------------------------- URL */
 
-test("the section and page are written into the URL", () => {
-    renderPage();
+test("the section and page are written into the URL", async () => {
+    await renderPage();
 
     assert.equal(params().get("section"), "01-guide");
     assert.equal(params().has("subsection"), false, "an intro is the section");
@@ -339,34 +345,34 @@ test("the section and page are written into the URL", () => {
     assert.equal(params().get("subsection"), "install");
 });
 
-test("the URL decides which page opens", () => {
+test("the URL decides which page opens", async () => {
     history.replace({
         search: "?page=docs&section=01-guide&subsection=configure",
     });
 
-    renderPage();
+    await renderPage();
 
     assert.deepEqual(visible(), ["H1:Configure", "P:Edit the file."]);
 });
 
-test("a URL naming only a section opens that section's first page", () => {
+test("a URL naming only a section opens that section's first page", async () => {
     history.replace({ search: "?page=docs&section=02-operations" });
 
-    renderPage();
+    await renderPage();
 
     assert.deepEqual(visible(), ["H1:Operations", "P:Keep it running."]);
 });
 
-test("an unknown section falls back to the first page rather than a blank one", () => {
+test("an unknown section falls back to the first page rather than a blank one", async () => {
     history.replace({ search: "?page=docs&section=nope&subsection=nope" });
 
-    renderPage();
+    await renderPage();
 
     assert.deepEqual(visible(), ["H1:Guide", "P:Everything starts here."]);
 });
 
-test("Back returns to the page before, on the docs page", () => {
-    renderPage();
+test("Back returns to the page before, on the docs page", async () => {
+    await renderPage();
 
     menuItem("Install").click();
     menuItem("Configure").click();
@@ -378,8 +384,8 @@ test("Back returns to the page before, on the docs page", () => {
 
 /* -------------------------------------------------------------- breadcrumb */
 
-test("the breadcrumb names the section on a page, and nothing on an intro", () => {
-    renderPage();
+test("the breadcrumb names the section on a page, and nothing on an intro", async () => {
+    await renderPage();
 
     assert.equal(document.getElementById("docs-breadcrumb").textContent, "");
 
@@ -393,10 +399,10 @@ test("the breadcrumb names the section on a page, and nothing on an intro", () =
 
 /* ------------------------------------------------------- in-document links */
 
-test("a link to a heading on another page turns the page and scrolls to it", () => {
+test("a link to a heading on another page turns the page and scrolls to it", async () => {
     // A document's own table of contents. Before this, the anchor scrolled to
     // a heading that was hidden, so nothing happened at all.
-    renderPage([
+    await renderPage([
         {
             filename: "07-toc.md",
             order: 1,
@@ -419,8 +425,8 @@ test("a link to a heading on another page turns the page and scrolls to it", () 
     );
 });
 
-test("a link to a heading on the page being read is left to scroll", () => {
-    renderPage();
+test("a link to a heading on the page being read is left to scroll", async () => {
+    await renderPage();
     menuItem("Install").click();
     document.scrolledIntoView.length = 0;
 
@@ -432,10 +438,10 @@ test("a link to a heading on the page being read is left to scroll", () => {
     assert.deepEqual(visible()[0], "H1:Install", "the page has not changed");
 });
 
-test("a URL naming a heading opens the page that holds it and scrolls there", () => {
+test("a URL naming a heading opens the page that holds it and scrolls there", async () => {
     // What a link from another section — `01-guide.md#requirements` — turns
     // into: the heading is on the Install page, not a page of its own.
-    renderPage();
+    await renderPage();
     document.scrolledIntoView.length = 0;
 
     history.push({
@@ -458,8 +464,8 @@ test("a URL naming a heading opens the page that holds it and scrolls there", ()
     );
 });
 
-test("a URL naming a heading on the page being read only scrolls", () => {
-    renderPage();
+test("a URL naming a heading on the page being read only scrolls", async () => {
+    await renderPage();
     menuItem("Install").click();
     document.scrolledIntoView.length = 0;
 
@@ -478,10 +484,135 @@ test("a URL naming a heading on the page being read only scrolls", () => {
     );
 });
 
-test("a heading with an ampersand is a page the menu can open", () => {
+/* ------------------------------------------------------ collapsed sections */
+
+/**
+ * Headings inside collapsed sections, two deep on the first page, and a link
+ * to the deepest from the second.
+ */
+const FOLDED = {
+    filename: "08-folded.md",
+    order: 1,
+    title: "Folded",
+    content: [
+        "# Folded",
+        "",
+        "Intro.",
+        "",
+        "## First",
+        "",
+        "<details>",
+        "<summary>More</summary>",
+        "",
+        "## Hidden page heading",
+        "",
+        "<details>",
+        "<summary>Inner</summary>",
+        "",
+        "### Deep inside",
+        "",
+        "Text.",
+        "",
+        "</details>",
+        "",
+        "</details>",
+        "",
+        "### Visible",
+        "",
+        "Shown.",
+        "",
+        "## Second",
+        "",
+        "[Back](#deep-inside)",
+        "",
+    ].join("\n"),
+};
+
+const openSummaries = () =>
+    document
+        .querySelectorAll("details")
+        .filter((details) => details.hasAttribute("open"))
+        .map((details) => details.querySelector("summary").textContent);
+
+test("a heading inside a collapsed section opens no page and stays out of the menu and the pager", async () => {
+    await renderPage([FOLDED]);
+    menuItem("First").click();
+
+    assert.deepEqual(menuEntries(), [
+        "0:Folded",
+        "1:First",
+        "2:Visible",
+        "1:Second",
+    ]);
+
+    const pager = document
+        .querySelectorAll("#docs-pager [data-page-index]")
+        .map((button) => button.textContent.replace(/\s+/g, " ").trim());
+    assert.deepEqual(pager, ["Previous Folded", "Next Second"]);
+});
+
+test("headings inside a collapsed section follow the page's renumbered headings", async () => {
+    await renderPage([FOLDED]);
+    menuItem("First").click();
+
+    assert.equal(document.getElementById("first").tagName, "H1");
+    assert.equal(
+        document.getElementById("hidden-page-heading").tagName,
+        "H1",
+        "a heading as deep as the page's own is as deep after renumbering",
+    );
+    assert.equal(document.getElementById("deep-inside").tagName, "H2");
+    assert.equal(document.getElementById("visible").tagName, "H2");
+});
+
+test("a link to a heading inside collapsed sections on another page opens them and scrolls there", async () => {
+    await renderPage([FOLDED]);
+    menuItem("Second").click();
+    document.scrolledIntoView.length = 0;
+
+    document.querySelector('.markdown-renderer a[href="#deep-inside"]').click();
+
+    assert.equal(visible()[0], "H1:First");
+    assert.deepEqual(openSummaries(), ["More", "Inner"]);
+    assert.equal(document.scrolledIntoView.at(-1).id, "deep-inside");
+});
+
+test("an address naming a heading inside collapsed sections opens them and scrolls there", async () => {
+    await renderPage([FOLDED]);
+    document.scrolledIntoView.length = 0;
+
+    history.push({
+        search: "?page=docs&section=08-folded&subsection=deep-inside",
+    });
+
+    assert.equal(visible()[0], "H1:First");
+    assert.deepEqual(openSummaries(), ["More", "Inner"]);
+    assert.equal(document.scrolledIntoView.at(-1).id, "deep-inside");
+    assert.equal(params().get("subsection"), "first", "the URL names the page");
+});
+
+test("a link to a heading inside a collapsed section on the page being read opens it", async () => {
+    await renderPage([
+        {
+            ...FOLDED,
+            content: FOLDED.content.replace(
+                "### Visible",
+                "[Down](#deep-inside)\n\n### Visible",
+            ),
+        },
+    ]);
+    menuItem("First").click();
+
+    document.querySelector('.markdown-renderer a[href="#deep-inside"]').click();
+
+    assert.deepEqual(openSummaries(), ["More", "Inner"]);
+    assert.equal(document.scrolledIntoView.at(-1).id, "deep-inside");
+});
+
+test("a heading with an ampersand is a page the menu can open", async () => {
     // Its id used to be percent-encoded, and was encoded again on its way into
     // the URL, so the page could never be found from its own menu entry.
-    renderPage([
+    await renderPage([
         {
             filename: "06-glossary.md",
             order: 1,
@@ -497,21 +628,17 @@ test("a heading with an ampersand is a page the menu can open", () => {
     assert.equal(params().get("subsection"), "customs--documentation-terms");
 });
 
-test("links between sections are routed through the resolver it was given", () => {
+test("links between sections arrive resolved from the build", async () => {
     const page = new Docs(
         host,
         "docs",
-        workspaceOf([
+        await workspaceOf([
             {
                 ...GUIDE,
                 content: `${GUIDE.content}\nSee [ops](02-operations.md).\n`,
             },
             OPERATIONS,
         ]),
-        () => (href) =>
-            href === "02-operations.md"
-                ? "#/?page=docs&section=02-operations"
-                : undefined,
     );
     page.render();
     menuItem("Configure").click();
@@ -581,12 +708,11 @@ const bigBank = (own = [GUIDE]) => ({
     },
 });
 
-const renderScopes = (workspace = bigBank(), ...resolvers) => {
+const renderScopes = async (workspace = bigBank()) => {
     const page = new Docs(
         host,
         "docs",
-        documentationScopes(workspace),
-        ...resolvers,
+        documentationScopes(await rendered(workspace)),
     );
     page.render();
     return page;
@@ -599,8 +725,8 @@ const pagerText = () =>
         .querySelectorAll("#docs-pager button")
         .map((button) => button.textContent.replace(/\s+/g, " ").trim());
 
-test("the scope tree opens only the scope on screen, its children nested under their element", () => {
-    renderScopes();
+test("the scope tree opens only the scope on screen, its children nested under their element", async () => {
+    await renderScopes();
 
     assert.deepEqual(menuEntries(), [
         "0:Big Bank plc",
@@ -613,8 +739,8 @@ test("the scope tree opens only the scope on screen, its children nested under t
     ]);
 });
 
-test("a closed scope opens on its first page, and then it alone shows its sections", () => {
-    renderScopes();
+test("a closed scope opens on its first page, and then it alone shows its sections", async () => {
+    await renderScopes();
 
     menuItem("Internet Banking System").click();
 
@@ -630,11 +756,11 @@ test("a closed scope opens on its first page, and then it alone shows its sectio
     ]);
 });
 
-test("a container's scope opens under its software system, which stays closed", () => {
+test("a container's scope opens under its software system, which stays closed", async () => {
     history.replace({
         search: "?page=docs&section=internet-banking-system/api-application/02-operations&subsection=alerts",
     });
-    renderScopes();
+    await renderScopes();
 
     assert.deepEqual(menuEntries(), [
         "0:Big Bank plc",
@@ -649,11 +775,11 @@ test("a container's scope opens under its software system, which stays closed", 
     ]);
 });
 
-test("titles stay the author's, even when the first section repeats the element's name", () => {
+test("titles stay the author's, even when the first section repeats the element's name", async () => {
     history.replace({
         search: "?page=docs&section=internet-banking-system/api-application",
     });
-    renderScopes();
+    await renderScopes();
 
     const titles = menuEntries().filter((entry) =>
         entry.endsWith(":API Application"),
@@ -662,8 +788,8 @@ test("titles stay the author's, even when the first section repeats the element'
     assert.deepEqual(visible(), ["H1:API Application", "P:Serves JSON."]);
 });
 
-test("the pager runs through every scope in menu order, naming the scope it crosses into", () => {
-    renderScopes();
+test("the pager runs through every scope in menu order, naming the scope it crosses into", async () => {
+    await renderScopes();
 
     menuItem("Configure").click();
     assert.deepEqual(pagerText(), [
@@ -684,19 +810,19 @@ test("the pager runs through every scope in menu order, naming the scope it cros
     ]);
 });
 
-test("the pager ends at the last scope's last page", () => {
+test("the pager ends at the last scope's last page", async () => {
     history.replace({
         search: "?page=docs&section=mainframe-banking-system/01-notes",
     });
-    renderScopes();
+    await renderScopes();
 
     assert.deepEqual(pagerText(), [
         "Previous API Application › Operations Alerts",
     ]);
 });
 
-test("the breadcrumb names an element's scope by type and name, and the workspace's adds nothing", () => {
-    renderScopes();
+test("the breadcrumb names an element's scope by type and name, and the workspace's adds nothing", async () => {
+    await renderScopes();
     assert.equal(breadcrumb(), "");
     menuItem("Install").click();
     assert.equal(breadcrumb(), "Guide");
@@ -710,26 +836,26 @@ test("the breadcrumb names an element's scope by type and name, and the workspac
     assert.equal(breadcrumb(), "Container: API Application › Operations");
 });
 
-test("landing with no section opens the workspace's first section", () => {
-    renderScopes();
+test("landing with no section opens the workspace's first section", async () => {
+    await renderScopes();
 
     assert.deepEqual(visible(), ["H1:Guide", "P:Everything starts here."]);
     assert.equal(params().get("section"), "01-guide");
 });
 
-test("landing without workspace sections opens the first scope with sections", () => {
+test("landing without workspace sections opens the first scope with sections", async () => {
     const workspace = bigBank([]);
     // Decisions alone give the workspace no page of the docs.
     workspace.documentation.decisions = [{ id: "1", title: "Record" }];
-    renderScopes(workspace);
+    await renderScopes(workspace);
 
     assert.deepEqual(visible(), ["H1:Context", "P:Why it exists."]);
     assert.equal(params().get("section"), "internet-banking-system/01-context");
     assert.equal(menuEntries()[0], "0:Internet Banking System");
 });
 
-test("a workspace whose only documentation scope is its own keeps its flat menu and its addresses", () => {
-    renderScopes({
+test("a workspace whose only documentation scope is its own keeps its flat menu and its addresses", async () => {
+    await renderScopes({
         name: "Big Bank plc",
         documentation: { sections: [GUIDE, OPERATIONS] },
         model: { softwareSystems: [{ id: "1", name: "Internet Banking" }] },
@@ -745,48 +871,36 @@ test("a workspace whose only documentation scope is its own keeps its flat menu 
     assert.equal(params().get("section"), "02-operations");
 });
 
-test("a heading inside an element's section rides in subsection", () => {
+test("a heading inside an element's section rides in subsection", async () => {
     history.replace({
         search: "?page=docs&section=internet-banking-system/api-application/02-operations&subsection=paging",
     });
-    renderScopes();
+    await renderScopes();
 
     assert.equal(visible()[0], "H1:Alerts");
     assert.equal(params().get("subsection"), "alerts");
 });
 
-test("an unknown section in a known scope opens that scope's first page", () => {
+test("an unknown section in a known scope opens that scope's first page", async () => {
     history.replace({
         search: "?page=docs&section=internet-banking-system/99-nope",
     });
-    renderScopes();
+    await renderScopes();
 
     assert.deepEqual(visible(), ["H1:Context", "P:Why it exists."]);
 });
 
-test("each scope's sections render through the link and image resolvers of their own scope", () => {
-    const asked = [];
+test("each scope's sections arrive with their links and images resolved in their own scope", async () => {
     const workspace = bigBank();
     workspace.model.softwareSystems[0].documentation.sections[0] = section(
         "01-context.md",
         1,
         "# Context\n\nSee [deployment](02-deployment.md).\n\n![Map](map.png)\n",
     );
-    renderScopes(
-        workspace,
-        (scope) => (href) => {
-            asked.push(`link ${scope}`);
-            return href === "02-deployment.md"
-                ? `#/?page=docs&section=${scope}/02-deployment`
-                : undefined;
-        },
-        (scope) => (src) => {
-            asked.push(`image ${scope}`);
-            return src === "map.png"
-                ? `data:image/png;base64,${scope}`
-                : undefined;
-        },
-    );
+    workspace.model.softwareSystems[0].documentation.images = [
+        { name: "map.png", type: "image/png", content: "SUJT" },
+    ];
+    await renderScopes(workspace);
 
     menuItem("Internet Banking System").click();
 
@@ -798,17 +912,16 @@ test("each scope's sections render through the link and image resolvers of their
     );
     assert.equal(
         document.querySelector(".markdown-renderer img")?.getAttribute("src"),
-        "data:image/png;base64,internet-banking-system",
+        "data:image/png;base64,SUJT",
     );
-    assert.ok(asked.includes("link internet-banking-system"), `${asked}`);
 });
 
 /* ------------------------------------------------ the committed workspace */
 
-test("the fixture workspace builds one menu entry per section", () => {
+test("the fixture workspace builds one menu entry per section", async () => {
     // Both of its sections are a single heading and a short body, so neither
     // splits: the tree is flat and every entry is a section.
-    renderPage(WORKSPACE.documentation.sections);
+    await renderPage(WORKSPACE.documentation.sections);
 
     assert.deepEqual(menuEntries(), ["0:Overview", "0:Deployment"]);
     assert.match(
@@ -819,8 +932,8 @@ test("the fixture workspace builds one menu entry per section", () => {
 
 /* ------------------------------------------------------------------- clear */
 
-test("clear() empties the page and stops listening to history", () => {
-    const page = renderPage();
+test("clear() empties the page and stops listening to history", async () => {
+    const page = await renderPage();
 
     page.clear();
 

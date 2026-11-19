@@ -88,7 +88,7 @@ Each workspace keeps its own name and branding. When the reader enters a workspa
 
 Set the logo, the font and the primary color once in the workspace, and every run of `renderizr` and `renderizr edit` uses them without flags:
 
-```
+```structurizr
 workspace {
     properties {
         "renderizr.logo" "logo.svg"
@@ -135,7 +135,7 @@ Renderizr renders the documentation sections and decisions of every documentatio
 
 Write `!docs` and `!adrs` inside an element's block, with a folder path relative to `workspace.dsl`, the same way you write them at the top of the workspace. A container or a component can carry decisions without sections:
 
-```
+```structurizr
 workspace "Big Bank plc" {
     !docs docs
     !adrs adrs
@@ -180,6 +180,125 @@ internet-banking-system/
 pnpm render test/__fixtures__/element-documentation-dsl/workspace.dsl --single-file
 ```
 
+#### Collapsed sections
+
+A collapsed section is a block of documentation the reader opens and closes by its summary. Write it in Markdown with GitHub's `<details>` and `<summary>`, and add `open` to start it open. Leave a blank line after the summary so the Markdown inside renders; without one, the text that follows stays as written, as on GitHub:
+
+```markdown
+<details open>
+<summary>Tips for collapsed sections</summary>
+
+### You can add a heading
+
+You can add text, an image or a code block.
+
+</details>
+```
+
+In AsciiDoc, write a `[%collapsible]` example block, and `[%collapsible%open]` to start it open. Its `.Title` becomes the summary, and a block with no title reads "Details":
+
+```asciidoc
+.Tips for collapsible blocks
+[%collapsible]
+====
+You can add text within a collapsible block.
+====
+```
+
+Both syntaxes look the same: a triangle that turns, and the body indented under the summary. A heading as the summary, `<summary><h3>…</h3></summary>`, keeps its size and folds what sits under it. A heading inside a collapsed section opens no page and stays out of the documentation menu and the pager, and a link or a `?subsection=` address to it opens every collapsed section around it. Printing a page prints every collapsed section open.
+
+#### Formatting
+
+Write sections and decisions the way you write on GitHub. Renderizr renders these features, in Markdown and in AsciiDoc where AsciiDoc has a counterpart, and draws each one in both color schemes:
+
+| Feature                             | Markdown                                                                             | AsciiDoc                                  | Renders as                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Strikethrough                       | `~~two~~`, `~one~`, `<del>`, `<s>`                                                   | `[.line-through]#…#`                      | A line through the text                                                                                                                                            |
+| Bare URLs, `www.` addresses, emails | `https://example.com`, `www.example.com`, `name@example.com`                         | `https://example.com`, `name@example.com` | Links, which resolve like any other link. Code stays as written                                                                                                    |
+| Task lists                          | `- [ ]`, `- [x]`                                                                     | `* [ ]`, `* [x]`, `* [*]`                 | Read-only checkboxes with no bullet                                                                                                                                |
+| Emoji                               | `:+1:` and every Unicode shortcode                                                   | No counterpart                            | The Unicode emoji. GitHub's image emoji (`:shipit:`, `:octocat:`) stay as text                                                                                     |
+| Keys                                | `<kbd>Ctrl</kbd>`                                                                    | `kbd:[Ctrl+Shift+P]`, `menu:File[Save]`   | A key cap                                                                                                                                                          |
+| Images in raw HTML                  | `<img>`, `<picture>`, `srcset`, paths with a fragment, `data:image/svg+xml`          | `image::`, `image:`                       | Images. A relative path resolves the way a Markdown image does                                                                                                     |
+| Images that follow the color scheme | `#gh-dark-mode-only`, `#gh-light-mode-only`, `<picture>` with `prefers-color-scheme` | No counterpart                            | The image of the site's color scheme, which follows the theme toggle as well as the system                                                                         |
+| Video                               | `<video>` in raw HTML                                                                | `video::`                                 | A video player, which needs the network for a remote file. A bare video URL becomes an ordinary link, and a YouTube or Vimeo `video::` becomes a link to the video |
+
+`test/__fixtures__/github-formatting.json` shows each one:
+
+```bash
+pnpm dev -- test/__fixtures__/github-formatting.json
+```
+
+#### Math
+
+The build writes math as MathML with [Temml](https://temml.org), and the browser draws it with its own math font, so it follows both color schemes and `--font` leaves it alone. A long display expression scrolls inside its own block.
+
+| Math             | Markdown                                                                      | AsciiDoc                                                                      |
+| ---------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Inline LaTeX     | `$\sqrt{2}$` or ``$`\sqrt{2}`$``, GitHub's; `` `$\sqrt{2}$` ``, Structurizr's | `latexmath:[\sqrt{2}]`, or `stem:[\sqrt{2}]` under `:stem: latexmath`         |
+| Inline AsciiMath | None                                                                          | `asciimath:[sqrt(2)]`, or `stem:[sqrt(2)]` when the document sets no `:stem:` |
+| A block          | `$$\sqrt{2}$$` as its own paragraph, or a ` ```math ` or ` ```katex ` fence   | `[stem]`, `[latexmath]` or `[asciimath]` over a `++++` block                  |
+
+An inline `$…$` follows Pandoc's rule: no space just inside either dollar and no digit right after the closing one, so "$5 a month, or $50 a year" and "$5-$10" stay text. Write `\$` for a dollar that is never math. A dollar in code stays code. A formula that fails to parse stays as written, and the build warns once for it. `test/__fixtures__/github-formatting.json` shows every form:
+
+```bash
+pnpm dev -- test/__fixtures__/github-formatting.json
+```
+
+#### Footnotes
+
+Sections and decisions render footnotes in both formats:
+
+| Markdown                                                                        | AsciiDoc                                                                               |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `[^label]` where the reference goes, and `[^label]: …` anywhere in the document | `footnote:[…]`, or `footnote:name[…]` and then `footnote:name[]` to reference it again |
+
+The footnotes of a section number from 1 in the order their references first appear, and take GitHub's ids, `fn-<label>` and `fnref-<label>`. An AsciiDoc footnote with no name takes its number as its label. Each page of a section that splits into pages lists, at its foot, the footnotes its own references use, with the numbers the whole section gave them, so a footnote referenced on two pages shows on both. A decision lists all its footnotes at its foot. A reference scrolls to its footnote, and a footnote's back link scrolls to the reference.
+
+#### Embedded views
+
+A section or a decision embeds a view of its workspace the way Structurizr reads it, and shows it as a **diagram card**: the view's type, its title as the diagrams page titles it and "Open in diagrams", which opens the view on the diagrams page. The documentation page draws no diagram.
+
+| Form                                                          | Markdown                                                           | AsciiDoc                                                               |
+| ------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| A view                                                        | `![](embed:SystemContext)`                                         | `image::embed:SystemContext[]`                                         |
+| A view under a perspective                                    | `![](embed:SystemContext{perspective=Security})`                   | `image::embed:SystemContext{perspective=Security}[]`                   |
+| A view as a graph or a tree, which opens as the page draws it | `![](embed:SystemContext{type=graph})`, `{type=tree}`              | `image::embed:SystemContext{type=graph}[]`                             |
+| A published PNG of the same workspace                         | `![](https://structurizr.com/share/1234/images/SystemContext.png)` | `image::https://structurizr.com/share/1234/images/SystemContext.png[]` |
+
+A key the workspace lacks shows a note that names it in the card's place. [Embedded views](04-reference.md#embedded-views) has the details.
+
+#### Mermaid blocks
+
+A Mermaid block in a section or a decision becomes a [Mermaid diagram](#mermaid-diagrams) on the diagrams page, and the section shows a diagram card in its place: the diagram's type, its title and "Open in diagrams". Write the block the way GitHub or Structurizr reads it:
+
+| Form                                         | Markdown                                                     | AsciiDoc                                                                |
+| -------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| A Mermaid block                              | A ` ```mermaid ` fence                                       | A `[mermaid]` block between `....` lines, or a `[source,mermaid]` block |
+| The link Structurizr's Mermaid plugin writes | `![](https://mermaid.ink/svg/<encoded>)`, `/img/` or `/png/` | `image::https://mermaid.ink/svg/<encoded>[]`                            |
+
+````markdown
+## Order flow
+
+```mermaid
+flowchart LR
+  Cart --> Checkout --> Payment
+```
+````
+
+```asciidoc
+== Order flow
+
+[mermaid]
+....
+flowchart LR
+  Cart --> Checkout --> Payment
+....
+```
+
+A flowchart, an ERD or a sequence diagram draws, with the workspace's styles, both color schemes and export, like any Mermaid diagram. The diagram takes the source's own `title`, else the heading above the block, else the section's or decision's title, and a title that repeats within one section or decision takes " (2)", " (3)". It belongs to the element whose documentation holds it, and its subtitle on the diagrams page links back to the section, or decision, and the heading the block came from. The model gains no element.
+
+Another Mermaid type, such as `pie` or `classDiagram`, shows a note that names it and the types Renderizr draws, with the first lines of its source fading out; a click opens the whole source. A block that fails to parse shows the same note with the parse error, and the build warns once for it. Neither adds a diagram. `pnpm dev` and edit mode reload a changed block on both pages. [Mermaid blocks](04-reference.md#mermaid-blocks) gives each card's address.
+
 ## Single file
 
 `--single-file` inlines every stylesheet, script, font, icon and the workspace itself, or every workspace of a set, into one document that makes no network requests at all:
@@ -202,15 +321,15 @@ The build fetches themes, element icons and a logo referenced by URL, and folds 
 npx github:FormulaMonks/renderizr ./workspace.json --artifact
 ```
 
-| File                                                                                    | What it holds                                                                                                                                                                                                             |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html`                                                                            | The shell: the page that loads the rest, with the workspace's name as its title. It has no `<html>`, `<head>` or `<body>`, since the artifact host supplies the document                                                  |
-| `renderizr.js`, `renderizr-vendor.js`, `renderizr-rolldown-runtime.js`, `renderizr.css` | The runtime, the same byte for byte for every workspace at a Renderizr version                                                                                                                                            |
-| `renderizr-docs.js`                                                                     | The documentation runtime: the documentation and decisions pages. The build leaves it out when no documentation scope of any workspace has documentation or decisions                                                     |
-| `workspace.json`                                                                        | The workspace payload of the landscape scoped workspace, or of a lone workspace, with its branding                                                                                                                        |
-| `<slug>.json`                                                                           | The workspace payload of each other workspace of a [set](#render-a-set). A software system whose slug is `workspace` or `manifest` gets `<slug>--payload.json`, so it keeps clear of `workspace.json` and `manifest.json` |
-| `branding.css`                                                                          | The embedded font faces, when the build embeds a font                                                                                                                                                                     |
-| `manifest.json`                                                                         | The manifest: every file with its layer, size and hash, the Renderizr version that built the runtime, and the build date                                                                                                  |
+| File                                                   | What it holds                                                                                                                                                                                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`                                           | The shell: the page that loads the rest, with the workspace's name as its title. It has no `<html>`, `<head>` or `<body>`, since the artifact host supplies the document                                                  |
+| `renderizr.js`, `renderizr-vendor.js`, `renderizr.css` | The runtime, the same byte for byte for every workspace at a Renderizr version                                                                                                                                            |
+| `renderizr-docs.js`                                    | The documentation runtime: the documentation and decisions pages. The build leaves it out when no documentation scope of any workspace has documentation or decisions                                                     |
+| `workspace.json`                                       | The workspace payload of the landscape scoped workspace, or of a lone workspace, with its branding                                                                                                                        |
+| `<slug>.json`                                          | The workspace payload of each other workspace of a [set](#render-a-set). A software system whose slug is `workspace` or `manifest` gets `<slug>--payload.json`, so it keeps clear of `workspace.json` and `manifest.json` |
+| `branding.css`                                         | The embedded font faces, when the build embeds a font                                                                                                                                                                     |
+| `manifest.json`                                        | The manifest: every file with its layer, size and hash, the Renderizr version that built the runtime, and the build date                                                                                                  |
 
 Publish the whole folder, the manifest included: the page reads the build date from it. The page loads only files of its own folder, by relative paths, and never reaches for the network, so it opens under the artifact viewer's content security policy as the single file does. A browser refuses module scripts over `file://`, so serve the folder to open it locally.
 
@@ -222,7 +341,7 @@ The [agent skill](#use-renderizr-from-an-ai-agent) publishes the folder for you,
 
 A perspective lets a reader look at a diagram with one question in mind, such as security or ownership. Attach one to an element or a relationship in the DSL, with a name, a description and an optional value, as Structurizr defines it:
 
-```
+```structurizr
 api = container "API" {
     perspectives {
         "Security" "Handles customer sessions" "High"
@@ -236,7 +355,7 @@ The view keeps every element and relationship that carries the perspective at fu
 
 Write `Perspective:<name>` styles to color what carries a perspective, and `Perspective:<name>[value==X]` to color by value; the last matching value style replaces the last plain one. Elements take `background`, `color` and `stroke`, and relationships take `color`. Without such styles, the fade alone shows the perspective.
 
-```
+```structurizr
 styles {
     element "Perspective:Security" {
         background #b91c1c
@@ -282,7 +401,7 @@ An element icon given as an `http(s)` URL stays blank in an export. A build embe
 
 Renderizr draws a Mermaid flowchart, ERD or sequence diagram that an image view carries as a **Mermaid diagram**, in the workspace's font and color scheme, with the zoom, fit, color scheme and export buttons every view has. Write it the way Structurizr reads it, with the `mermaid` keyword, and change nothing else in the DSL:
 
-```
+```structurizr
 views {
     properties {
         "mermaid.url" "https://mermaid.ink"

@@ -142,6 +142,12 @@ export type ModelView = {
      * then draws as a Mermaid diagram (ADR 24); `scripts/mermaid/` writes it.
      */
     mermaid?: MermaidDiagram;
+    /**
+     * Set by the build on the image view it adds for a Mermaid block in
+     * documentation (ADR 31): the section, or decision, and the heading the
+     * block came from, and their address.
+     */
+    origin?: { title: string; address: string };
     enterpriseBoundaryVisible?: boolean;
     /** A static view's steps, one entry each, in any order (spec 11). */
     animations?: AnimationEntry[];

@@ -8,12 +8,18 @@ importers:
 
   .:
     dependencies:
+      '@asciidoctor/core':
+        specifier: ^4.2.1
+        version: 4.2.1(highlight.js@11.12.0)
       '@dagrejs/dagre':
         specifier: 3.1.3
         version: 3.1.3
       '@xyflow/react':
         specifier: ^12.12.0
         version: 12.12.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      asciimath2tex:
+        specifier: ^1.5.0
+        version: 1.5.0
       bootstrap-icons:
         specifier: ^1.13.2
         version: 1.13.2
@@ -32,15 +38,27 @@ importers:
       markdown-it-anchor:
         specifier: ^10.0.0
         version: 10.1.0(markdown-it@15.0.3)
+      markdown-it-emoji:
+        specifier: ^3.1.0
+        version: 3.1.0
+      markdown-it-footnote:
+        specifier: ^4.0.0
+        version: 4.0.0
       markdown-it-shift-headings:
         specifier: ^1.0.2
         version: 1.0.2
       preact:
         specifier: ^11.1.1
         version: 11.1.1
+      temml:
+        specifier: ^0.14.0
+        version: 0.14.0
       vite:
         specifier: ^8.3.6
         version: 8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+      xss:
+        specifier: ^1.0.17
+        version: 1.0.17
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.0.0
@@ -77,6 +95,15 @@ importers:
         version: 7.0.2
 
 packages:
+
+  '@asciidoctor/core@4.2.1':
+    resolution: {integrity: sha512-c/LvM4nnkeLhHryAQOI41AL7UlOowmydMhNaVoH4zecKo2HkyalaNodeVqueR2RVU0/MOg4HPikYtFMHdVXa4A==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      highlight.js: ^11.0.0
+    peerDependenciesMeta:
+      highlight.js:
+        optional: true
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -702,6 +729,9 @@ packages:
     resolution: {integrity: sha512-VipTB0gXgGIFO2Rg9yEVN5wLt2AurJcZqDbgmYSwPwsykhLrQhs240/bfceev4w68lI8JshoOJIk9uW7tFzROw==}
     engines: {node: '>=22'}
 
+  asciimath2tex@1.5.0:
+    resolution: {integrity: sha512-vp0GOt71u59HDJhaH5ws18iyszRizJ+BRPT87HKlpv4DNy7zRmXDaU4ia0UPQMX1nGZ7xf4jLoeOeQOu3Lxuvw==}
+
   bootstrap-icons@1.13.2:
     resolution: {integrity: sha512-fAU1Ly3dH7hwRg+CB8EZ0Vl0fF80zgXHeUVJyfUOKzoURr+TbwISbCW5tKUoQLERaWYG2emTCybcPbD96hdD1A==}
 
@@ -715,6 +745,9 @@ packages:
   cliui@9.0.1:
     resolution: {integrity: sha512-k7ndgKhwoQveBL+/1tqGJYNz097I7WOvwbmmU2AR5+magtbjPWQTS1C5vzGkBC8Ym8UWRzfKUzUUqFLypY4Q+w==}
     engines: {node: '>=20'}
+
+  commander@2.20.3:
+    resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
 
   conventional-changelog-angular@9.4.0:
     resolution: {integrity: sha512-HdxRxuS8bBXVIuo4V82gvSwAXT0vYQUizrjs/izmPg5JdDstr8v8I5hduGL3iQbG+o310dUDxC4+LetuS5hu9w==}
@@ -737,6 +770,9 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  cssfilter@0.0.10:
+    resolution: {integrity: sha512-FAaLDaplstoRsDR8XGYH51znUN0UY7nMc6Z9/fvE8EXGwvJE9hu7W2vHwx1+bd6gCYnln9nLbzxFTrcO9YQDZw==}
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
@@ -988,6 +1024,12 @@ packages:
       '@types/markdown-it':
         optional: true
 
+  markdown-it-emoji@3.1.0:
+    resolution: {integrity: sha512-NhmMEH2ywduD4Nty1E8uB5NqfLhAT1VR0dyvoJyStKOqCzbZmVdn/+8wj7zpDsb/fLBikpCPsWwxqKlvMmbz4g==}
+
+  markdown-it-footnote@4.0.0:
+    resolution: {integrity: sha512-WYJ7urf+khJYl3DqofQpYfEYkZKbmXmwxQV8c8mO/hGIhgZ1wOe7R4HLFNwqx7TjILbnC98fuyeSsin19JdFcQ==}
+
   markdown-it-shift-headings@1.0.2:
     resolution: {integrity: sha512-drz+jnO+okFGJmOY7KGlEwbGJcPLkNR2aab8SyIN4df4Zb1hy7/+wLf08EN1ozNuD9q79jbjJ21MD9wdNZUWJw==}
 
@@ -1091,6 +1133,10 @@ packages:
     resolution: {integrity: sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w==}
     engines: {node: '>=12'}
 
+  temml@0.14.0:
+    resolution: {integrity: sha512-tz1LW/5IZpThK8c7ZpdTSH/n56eAj+ThirLieErtKxYC3EKCIiB4sKdRUehAgH+fQmvIKqMfP3gqTLBdLpy9zw==}
+    engines: {node: '>=18.13.0'}
+
   tinyexec@1.3.1:
     resolution: {integrity: sha512-GCvB3aoys96IuDFBMcTB46JOR6mdMtAToqwiW8JlWhsoh1mhHi/xn9ss/Dg7N555GiJyEt2qzoG/NHCwM6h1EA==}
     engines: {node: '>=18'}
@@ -1166,6 +1212,11 @@ packages:
     resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
     engines: {node: '>=18'}
 
+  xss@1.0.17:
+    resolution: {integrity: sha512-+SEr5IDSgTBnhT6bnnf0mVRHT91+HU517zkahLNhkWLz8retCgeR1YDT4OknLiExA5+chn2Wy7z3KyjvnD8A2w==}
+    engines: {node: '>= 0.10.0'}
+    hasBin: true
+
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
@@ -1199,6 +1250,10 @@ packages:
         optional: true
 
 snapshots:
+
+  '@asciidoctor/core@4.2.1(highlight.js@11.12.0)':
+    optionalDependencies:
+      highlight.js: 11.12.0
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -1644,6 +1699,8 @@ snapshots:
 
   argue-cli@3.2.0: {}
 
+  asciimath2tex@1.5.0: {}
+
   bootstrap-icons@1.13.2: {}
 
   callsites@3.1.0: {}
@@ -1655,6 +1712,8 @@ snapshots:
       string-width: 7.2.0
       strip-ansi: 7.2.0
       wrap-ansi: 9.0.2
+
+  commander@2.20.3: {}
 
   conventional-changelog-angular@9.4.0:
     dependencies:
@@ -1677,6 +1736,8 @@ snapshots:
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 7.0.2
+
+  cssfilter@0.0.10: {}
 
   csstype@3.2.3: {}
 
@@ -1884,6 +1945,10 @@ snapshots:
     dependencies:
       markdown-it: 15.0.3
 
+  markdown-it-emoji@3.1.0: {}
+
+  markdown-it-footnote@4.0.0: {}
+
   markdown-it-shift-headings@1.0.2: {}
 
   markdown-it@15.0.3:
@@ -1983,6 +2048,8 @@ snapshots:
     dependencies:
       ansi-regex: 6.5.0
 
+  temml@0.14.0: {}
+
   tinyexec@1.3.1: {}
 
   tinyglobby@0.2.17:
@@ -2042,6 +2109,11 @@ snapshots:
       ansi-styles: 6.2.3
       string-width: 7.2.0
       strip-ansi: 7.2.0
+
+  xss@1.0.17:
+    dependencies:
+      commander: 2.20.3
+      cssfilter: 0.0.10
 
   y18n@5.0.8: {}
 

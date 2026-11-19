@@ -140,6 +140,39 @@ test("the toolbar titles the current view from the model", () => {
     toolbar.clear();
 });
 
+test("a documentation diagram's subtitle links back to the section and heading it came from", () => {
+    const shown = new WorkspaceModel({
+        name: "Shop",
+        model: {},
+        views: {
+            imageViews: [
+                {
+                    key: "01-flows/order-flow",
+                    title: "Order flow",
+                    content: "https://mermaid.ink/svg/abc",
+                    origin: {
+                        title: "Flows › Order <flow>",
+                        address:
+                            "#/?page=docs&section=01-flows&subsection=order-flow",
+                    },
+                },
+            ],
+        },
+    });
+    const element = document.createElement("section");
+    const toolbar = new CurrentView(element, stubEngine(), shown);
+
+    toolbar.render(shown.findViewByKey("01-flows/order-flow"));
+    const link = element.querySelector("p a");
+    assert.equal(
+        link.getAttribute("href"),
+        "#/?page=docs&section=01-flows&subsection=order-flow",
+    );
+    assert.equal(link.textContent, "Flows › Order <flow>");
+    assert.match(link.closest("p").textContent, /^From the documentation: /);
+    toolbar.clear();
+});
+
 test("a filtered view is shown once, though the switcher reports its base as current", () => {
     const element = document.createElement("nav");
     const calls = [];
