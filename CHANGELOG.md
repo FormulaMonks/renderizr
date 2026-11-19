@@ -21,6 +21,24 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [3.2.0](https://github.com/FormulaMonks/renderizr/compare/v3.1.0...v3.2.0) (2026-11-19)
+
+
+### Added
+
+* render GitHub advanced formatting in the documentation ([#355](https://github.com/FormulaMonks/renderizr/issues/355)) ([e345219](https://github.com/FormulaMonks/renderizr/commit/e3452193e31d47b9980876c57b6afd9543506073))
+
+
+### Fixed
+
+* **deps:** update dependency @dagrejs/dagre to v3.1.3 ([#341](https://github.com/FormulaMonks/renderizr/issues/341)) ([7f90888](https://github.com/FormulaMonks/renderizr/commit/7f9088809c8270027e9fae274420ea83674da18f))
+* keep blank lines in the documentation a single file embeds ([#337](https://github.com/FormulaMonks/renderizr/issues/337)) ([476d77b](https://github.com/FormulaMonks/renderizr/commit/476d77b9fe72de7e941d7e5c6fc51264872cde4e)), closes [#336](https://github.com/FormulaMonks/renderizr/issues/336)
+
+
+### Documentation
+
+* add collapsed section, diagram card and the render documentation in the build ADR ([#343](https://github.com/FormulaMonks/renderizr/issues/343)) ([ab775d4](https://github.com/FormulaMonks/renderizr/commit/ab775d484705692ec93944ec1dadac8c5f5129dd))
+
 ## [3.1.0](https://github.com/FormulaMonks/renderizr/compare/v3.0.0...v3.1.0) (2026-11-12)
 
 
