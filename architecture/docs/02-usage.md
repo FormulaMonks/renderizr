@@ -3,9 +3,10 @@
 ```bash
 npx github:FormulaMonks/renderizr <workspace>... [options]
 npx github:FormulaMonks/renderizr edit [path] [options]
+npx github:FormulaMonks/renderizr export <workspace>... [options]
 ```
 
-The first form renders a workspace, or a [set](#render-a-set) of them. The second starts [edit mode](#edit-mode). `renderizr --help` and `renderizr edit --help` print the same reference as text.
+The first form renders a workspace, or a [set](#render-a-set) of them. The second starts [edit mode](#edit-mode). The third writes an [export of every view](#export-from-the-cli). `renderizr --help`, `renderizr edit --help` and `renderizr export --help` print the same reference as text.
 
 ## Options
 
@@ -389,13 +390,71 @@ Every export carries the author, date and credit lines. Each one prints "Unknown
 
 The SVG keeps every label as real text and embeds the page's font, so it stays sharp at any size and fetches nothing. The PNG is twice the size of the SVG, and lowers its scale for a large canvas so it holds at most 16,777,216 pixels, which every browser can draw.
 
-The file takes the workspace's name and the view's key in kebab-case, then the step and the scheme when they apply: `big-bank-plc-system-context.png` for the full view in light, `big-bank-plc-sign-in-step-2-dark.svg` for step 2 of a dynamic view in dark. While an export runs, its button shows busy; when one fails, the toolbar says "Couldn't export this view".
+The file takes the workspace's name and the view's key in kebab-case, then the perspective, the step and the scheme when they apply: `big-bank-plc-system-context.png` for the full view in light, `big-bank-plc-sign-in-step-2-dark.svg` for step 2 of a dynamic view in dark, `big-bank-plc-containers-security.svg` for the containers view under the Security perspective. While an export runs, its button shows busy; when one fails, the toolbar says "Couldn't export this view".
 
 In edit mode, an export shows the layout as you left it, saved or not, without the selection, guides or canvas fill.
 
 Inside a Claude artifact, the page saves an export through the artifact viewer's `downloads` capability, which asks the reader to confirm each file. A save the reader declines ends quietly. An artifact published without `downloads` can't save a file, so its toolbar shows no export buttons: declare `downloads` when you publish the [artifact](#claude-artifact).
 
 An element icon given as an `http(s)` URL stays blank in an export. A build embeds every icon in the page, so this only happens on the dev server, which leaves such icons as URLs.
+
+## Export from the CLI
+
+`renderizr export` writes an export of every view of a workspace, an SVG and a PNG beside it, into a folder, with no browser. Reach for it to commit the images next to the workspace, to publish them from CI, or to feed a docs pipeline that never opens a browser. The toolbar's [export](#export) saves one view at a time; the CLI writes them all in one run.
+
+```bash
+npx github:FormulaMonks/renderizr export ./workspace.json
+```
+
+The run prints `Wrote structurizr-output/<file>` for each file it writes, and a line for each view it skips. [`renderizr export`](04-reference.md#renderizr-export) in the reference lists every option, the file names, the messages and the exit status.
+
+Each export draws the view the way the toolbar's export does: its canvas, its title block below and the same serializer, so the SVG matches the toolbar's for the same view, scheme and font. Where the toolbar's export follows the reader, the CLI's takes one fixed choice, with no flag:
+
+- **Labels**: every export shows descriptions and technologies, and draws ERD entities expanded, although the page collapses them by default.
+- **Animation**: each view exports whole, with no step files.
+- **Date**: the title block gives the workspace's `lastModifiedDate`, else the date of the run, in the machine's locale.
+
+The PNG is twice the size of the SVG and drawn from it, with the same cap on pixels as the toolbar's. Two runs over the same workspace write the same bytes.
+
+### Formats, views, schemes and perspectives
+
+- **`--format`** takes `svg`, `png` or both, comma-separated. Both when you leave it out.
+- **`--view`** takes view keys, comma-separated and spelled as the workspace spells them, such as `--view Containers,Request`, and exports only those views. A key no workspace has stops the run before it writes anything.
+- **`--dark-scheme`** adds an export of every view in the dark scheme, as a `-dark` file. Without it, the run writes the light scheme only.
+- **`--perspective`** takes perspective names, comma-separated and matched exactly. For each, it adds an export of every view that carries it, drawn as the page draws the perspective, with `Perspective: <name>` in the title block. The run always writes the plain export, and a view that carries none of the perspective gets no extra file.
+
+```bash
+npx github:FormulaMonks/renderizr export ./workspace.json --dark-scheme --perspective Security --out ./images
+```
+
+The run skips an image view that shows a picture, and a view it cannot draw, with one line each. A [Mermaid diagram](#mermaid-diagrams) exports like any other view.
+
+The export takes the same workspaces as the build: files, URLs, folders and [sets](#render-a-set), with a `workspace.dsl` going through Structurizr's tools. Each file starts with its own workspace's name, so the views of a set share one folder.
+
+### Fonts
+
+The export measures the text in the `--font` family, else the workspace's `renderizr.font`. The SVG embeds that family's faces, as the toolbar's does, and the PNG draws in them.
+
+With neither, Arimo measures the text and draws the PNG, and the SVG names `Helvetica, Arial, sans-serif` and embeds no font, exactly as the toolbar's export does. Arimo shares Arial's widths, and Arial shares Helvetica's, so the layout matches the page's fallback fonts on every machine.
+
+```bash
+npx github:FormulaMonks/renderizr export ./workspace.json --font Inter --out ./images
+```
+
+`--font-weights`, `--font-subsets` and `--font-italic` apply as in the build, to Arimo too. `--primary-color` and the workspace's `renderizr.primaryColor` fill the nodes of a Mermaid diagram whose source sets no theme. The export accepts the logo flags and ignores them, so one set of flags serves the build and the export.
+
+The export fetches the font from Google Fonts on its first run and keeps it in the project's `node_modules`, as the reference's [font cache](04-reference.md#the-font-cache) says. Offline with nothing cached, the run fails and names the font it needs.
+
+When a label holds characters the font lacks, the export draws them in a system font and warns, naming the view and the characters. The warning suggests the `--font-subsets` that hold them, such as `--font-subsets latin,cyrillic`, or another family with `--font`.
+
+### Next to the site
+
+The build empties its output folder, and the export never does: it writes or overwrites only its own files, flat in the folder. When both share a folder, run the build first:
+
+```bash
+npx github:FormulaMonks/renderizr ./workspace.json
+npx github:FormulaMonks/renderizr export ./workspace.json
+```
 
 ## Mermaid diagrams
 

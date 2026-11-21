@@ -1,6 +1,6 @@
 # Reference
 
-The details you look up while working on Renderizr: running it from a clone, every pnpm script, Structurizr's tools for edit mode, where the code lives and where a new test goes. [Contributing](03-contributing.md) covers the workflow around them.
+The details you look up while working on Renderizr: running it from a clone, every pnpm script, `renderizr export` and its options, Structurizr's tools for edit mode, where the code lives and where a new test goes. [Contributing](03-contributing.md) covers the workflow around them.
 
 ## Local development
 
@@ -32,31 +32,101 @@ pnpm render architecture/workspace.json --single-file
 
 Run every script from the repository root.
 
-| Command                             | What it does                                                                                                                                                                                                    |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                          | Serves a workspace with Vite and hot reload, as [Local development](#local-development) shows                                                                                                                   |
-| `pnpm render <workspace> [options]` | Type-checks, then runs the production build. It takes the CLI's [options](02-usage.md#options)                                                                                                                  |
-| `pnpm preview`                      | Builds `architecture/workspace.json` and serves the output with `vite preview`                                                                                                                                  |
-| `pnpm test`                         | `node --test` over `scripts/*.test.js` and `scripts/mermaid/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own                                           |
-| `pnpm test:coverage`                | The test suite with V8 coverage                                                                                                                                                                                 |
-| `pnpm test:structurizr`             | Runs edit mode's DSL pipeline against the Structurizr tools that `STRUCTURIZR_CLI` names, and skips itself when it is not set                                                                                   |
-| `pnpm typecheck`                    | Type-checks `src/`                                                                                                                                                                                              |
-| `pnpm lint`                         | Runs `biome ci .`: lint and format, never fixing, failing on any finding. CI and the pre-commit hook run the same check                                                                                         |
-| `pnpm format`                       | Lint and format, fixing what Biome can fix in place                                                                                                                                                             |
-| `pnpm lint:renovate`                | Validates `renovate.json`                                                                                                                                                                                       |
-| `pnpm architecture:merge`           | Writes `architecture/workspace.json` again from `architecture/workspace.dsl` with Structurizr's tools, the way a DSL session of edit mode writes it. CI fails when the committed workspace differs from its DSL |
-| `pnpm fixtures:acceptance`          | Merges the acceptance fixture's DSL into its `workspace.json` with Structurizr's tools                                                                                                                          |
-| `pnpm fixtures:large`               | Writes the large landscape fixture again from its generator                                                                                                                                                     |
-| `pnpm mermaid:parser`               | Writes `scripts/mermaid/parser.js` again from Mermaid's source at the release `MERMAID_VERSION` pins, as [The Mermaid parser](#the-mermaid-parser) describes                                                    |
-| `pnpm hooks`                        | Installs the git hooks, once per clone                                                                                                                                                                          |
-| `pnpm release:pr`                   | Opens or updates the release pull request with your own `gh` login, for maintainers                                                                                                                             |
-| `pnpm release:tag`                  | Tags a merged release and creates its GitHub Release, for maintainers                                                                                                                                           |
+| Command                                    | What it does                                                                                                                                                                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                 | Serves a workspace with Vite and hot reload, as [Local development](#local-development) shows                                                                                                                   |
+| `pnpm render <workspace> [options]`        | Type-checks, then runs the production build. It takes the CLI's [options](02-usage.md#options)                                                                                                                  |
+| `pnpm render export <workspace> [options]` | Type-checks, then runs [`renderizr export`](#renderizr-export)                                                                                                                                                  |
+| `pnpm preview`                             | Builds `architecture/workspace.json` and serves the output with `vite preview`                                                                                                                                  |
+| `pnpm test`                                | `node --test` over `scripts/*.test.js` and `scripts/mermaid/*.test.js` (the build pipeline) and `test/*.test.js` (the app), then `test/acceptance.test.js` on its own                                           |
+| `pnpm test:coverage`                       | The test suite with V8 coverage                                                                                                                                                                                 |
+| `pnpm test:parity`                         | Compares `renderizr export` with the toolbar's export in headless Chrome, view by view, in Arimo and Inter, light and dark. It needs Chrome, and the network on a cold font cache                               |
+| `pnpm test:structurizr`                    | Runs edit mode's DSL pipeline against the Structurizr tools that `STRUCTURIZR_CLI` names, and skips itself when it is not set                                                                                   |
+| `pnpm typecheck`                           | Type-checks `src/`                                                                                                                                                                                              |
+| `pnpm lint`                                | Runs `biome ci .`: lint and format, never fixing, failing on any finding. CI and the pre-commit hook run the same check                                                                                         |
+| `pnpm format`                              | Lint and format, fixing what Biome can fix in place                                                                                                                                                             |
+| `pnpm lint:renovate`                       | Validates `renovate.json`                                                                                                                                                                                       |
+| `pnpm architecture:merge`                  | Writes `architecture/workspace.json` again from `architecture/workspace.dsl` with Structurizr's tools, the way a DSL session of edit mode writes it. CI fails when the committed workspace differs from its DSL |
+| `pnpm fixtures:acceptance`                 | Merges the acceptance fixture's DSL into its `workspace.json` with Structurizr's tools                                                                                                                          |
+| `pnpm fixtures:large`                      | Writes the large landscape fixture again from its generator                                                                                                                                                     |
+| `pnpm mermaid:parser`                      | Writes `scripts/mermaid/parser.js` again from Mermaid's source at the release `MERMAID_VERSION` pins, as [The Mermaid parser](#the-mermaid-parser) describes                                                    |
+| `pnpm hooks`                               | Installs the git hooks, once per clone                                                                                                                                                                          |
+| `pnpm release:pr`                          | Opens or updates the release pull request with your own `gh` login, for maintainers                                                                                                                             |
+| `pnpm release:tag`                         | Tags a merged release and creates its GitHub Release, for maintainers                                                                                                                                           |
 
 The script that renders a workspace is `render`, never `build`. npm prepares a git dependency with a full `npm install --include dev` whenever its `package.json` has a `build`, `prepare`, `prepack`, `install`, `preinstall` or `postinstall` script, and that slows every cold `npx` by seconds. `scripts/install.test.js` fails when one of those names comes back.
 
 `pnpm architecture:merge` and `pnpm fixtures:acceptance` find Structurizr's tools the way [edit mode](#structurizrs-tools-for-a-dsl-session) does: `STRUCTURIZR_CLI` as a whole command, or `structurizr-cli` on the `PATH`.
 
 Biome is the only linter and the only formatter. It indents with 4 spaces, skips `architecture/` and the workspaces copied from Structurizr, and respects `.gitignore`; `biome.json` holds the rest.
+
+## renderizr export
+
+```bash
+npx github:FormulaMonks/renderizr export <workspace|url|folder>... [options]
+```
+
+The subcommand writes an export of every view of the workspaces it takes, in Node, with no browser; [Export from the CLI](02-usage.md#export-from-the-cli) says when to reach for it. It takes the build's workspaces, a [set](02-usage.md#render-a-set) included, and `renderizr export --help` prints its options as text. In a clone, `pnpm render export` runs it with no `--`, against a versioned fixture:
+
+```bash
+pnpm render export test/__fixtures__/perspectives.json --dark-scheme --perspective Security
+```
+
+| Option                    | Effect                                                                                                                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-o, --out <dir>`         | Output folder, relative to the current directory. Default `structurizr-output`, as the build. The export creates it when missing and never empties it                                           |
+| `--format <list>`         | Comma-separated formats, `svg` and `png`. Default `svg,png`                                                                                                                                     |
+| `--view <keys>`           | Comma-separated view keys, spelled as the workspace spells them: export only those views. A key no workspace of the run has is a usage error, and the run writes nothing                        |
+| `--dark-scheme`           | Also write each view in the dark scheme, as a `-dark` file. Light only when left out                                                                                                            |
+| `--perspective <list>`    | Comma-separated perspective names, matched exactly. For each, also write every view that carries it, with `Perspective: <name>` in the title block. A view that carries none gets no extra file |
+| `--font <family>`         | A Google Fonts family to measure the text in, embed in the SVG and draw the PNG in. Without it or `renderizr.font`, Arimo measures and draws, and the SVG embeds no font                        |
+| `--font-weights <list>`   | Comma-separated weights. Default `400,700`                                                                                                                                                      |
+| `--font-subsets <list>`   | Comma-separated subsets. Default `latin`                                                                                                                                                        |
+| `--font-italic`           | Also fetch and embed the italic faces                                                                                                                                                           |
+| `--primary-color <color>` | A CSS color that fills the nodes of a Mermaid diagram whose source sets no theme                                                                                                                |
+| `--logo <path\|url>`      | Accepted and ignored, as are `--logo-alt <text>` and `--logo-href <url>`, so the build's flags serve the export                                                                                 |
+| `-h, --help`              | Print the reference as text and exit                                                                                                                                                            |
+
+`--font` and `--primary-color` take their values from the workspace's `renderizr.font` and `renderizr.primaryColor` when you leave them out, then from the landscape scoped workspace's in a set, as in [Branding from the workspace](02-usage.md#branding-from-the-workspace).
+
+### File names
+
+Each file is `<workspace>-<view key>[-<perspective>][-dark].<format>`, flat at the root of `--out`. The run writes or overwrites only these files and leaves everything else in the folder alone.
+
+- **The workspace's name and the view key** go to kebab-case, with a camelCase key split at its capitals: the view `AutoFrame` of the workspace `Export Workspace` gives `export-workspace-auto-frame.svg`.
+- **The perspective** is the perspective's name as a slug, the way element names become slugs: `Data Flow & Ownership` gives `-data-flow-ownership`. A name that leaves nothing as a slug adds no segment.
+- **The scheme** adds `-dark` for the dark scheme and nothing for the light one, so `perspectives-context-security-dark.png` is the context view under the Security perspective in the dark scheme.
+
+In a set, each file starts with its own workspace's name. The build empties `--out` and the export never does, so when both share the folder, run the build first and the export after it.
+
+### The font cache
+
+The export fetches its font from Google Fonts, Arimo included, through the same loader as the build. It keeps Google's CSS, the woff2 files and the static TTF faces it makes from them under `node_modules/.cache/renderizr/fonts/` in the nearest project: the first folder, walking up from the current directory, that holds a `package.json` with a `node_modules` folder beside it. Each entry is one folder per family, weights, subsets and italic, such as `inter_400-700_latin`. The site build shares the cache.
+
+Entries never expire. To refresh them, delete the folder, and the next run fetches the font again:
+
+```bash
+rm -rf node_modules/.cache/renderizr
+```
+
+With no project `node_modules` above the current directory, as with `npx` outside a project or a global install, nothing caches: every run fetches the font, and says nothing about it. With no network and nothing cached, the run fails and names the font it needs.
+
+### Messages and exit status
+
+The run prints `Wrote <out>/<file>` on stdout for each file it writes. Everything else goes to stderr, naming the view by its key. In a set, a view reads `<key> (<workspace name>)`, since two workspaces can share a key.
+
+| Message                                                                                    | When                                                                                                                                       |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Skipped <key>: an image view has no export`                                               | An image view shows a picture. A Mermaid diagram exports                                                                                   |
+| `Skipped <key>: <reason>`                                                                  | The run cannot draw the view, for the reason it names                                                                                      |
+| `Failed <key>: <reason>`                                                                   | Drawing or writing one of the view's files failed. The run goes on with the other views                                                    |
+| `No workspace has the view(s) <keys>.`                                                     | A `--view` key matches no view of the run's workspaces. The usage follows, and the run writes nothing                                      |
+| `warning: view <key> of <workspace>: <family> has no glyph for <characters>, …`            | A label holds characters the font's faces lack. The PNG draws them in a system font, and the warning suggests `--font-subsets` or `--font` |
+| `warning: view <key> of <workspace>: the export cannot load <families>, …`                 | A Mermaid source names a system family, such as `Georgia`. Its text measures and draws in the run's font                                   |
+| `warning: could not inline <url> …`                                                        | An element icon failed to download. The SVG keeps its URL, and the PNG leaves it blank                                                     |
+| `renderizr export fetches the font <family> from Google Fonts, and could not reach it (…)` | The network is down and the cache holds no copy of the font. The run stops                                                                 |
+
+The warnings print once per view, after its files, and leave the exit status alone. The exit status is 0 when every view that has an export wrote its files, and 1 when any view failed, on a usage error, or when the font cannot be fetched.
 
 ## Structurizr's tools for a DSL session
 
@@ -202,7 +272,12 @@ Renovate raises the pin as a dependency update and never merges it on its own: r
 | `scripts/build.js`                                             | The CLI entry point: checks the Node version, then loads `scripts/main.js`                                                             |
 | `scripts/node-version.js`                                      | The Node floor and the check against it, with no imports so it loads on any Node                                                       |
 | `scripts/main.js`                                              | Parses arguments, loads assets and runs Vite, or starts edit mode                                                                      |
-| `scripts/cli.js`                                               | Option definitions and `--help`, for the build and for `renderizr edit`                                                                |
+| `scripts/cli.js`                                               | Option definitions and `--help`, for the build, `renderizr edit` and `renderizr export`                                                |
+| `scripts/export.js`                                            | `renderizr export`: the runs over every view, the file names, the messages and the exit status                                         |
+| `scripts/export-engine.js`                                     | Bundles the page's export code in `src/engine/react-flow/export-view.ts` once per run, so Node draws the view as the toolbar does      |
+| `scripts/export-text.js`, `scripts/export-raster.js`           | Measuring text with fontkit, and drawing the PNG with resvg                                                                            |
+| `scripts/export-warnings.js`                                   | The export's warnings for missing glyphs, unloadable families and a cold cache offline                                                 |
+| `scripts/fonts.js`, `scripts/font-cache.js`                    | Turning a fetched woff2 into the static TTF faces resvg reads, and the font cache                                                      |
 | `scripts/assets.js`                                            | Fetching and embedding the workspace, themes, element icons, logo and font                                                             |
 | `scripts/branding.js`                                          | Choosing the branding from the flags and the workspace's `renderizr.*` properties, shared by the build, edit mode and the dev server   |
 | `scripts/edit.js`, `scripts/edit-plugin.js`                    | Edit mode: the session a path opens, the local server and its save endpoint                                                            |
