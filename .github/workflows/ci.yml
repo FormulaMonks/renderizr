@@ -8,7 +8,9 @@
 #   e2e     renders the Big Bank plc example end to end, on every developable
 #           Node, and guards the product's core promise: `--single-file` output
 #           that makes no network requests. It also runs the React Flow
-#           engine's acceptance harness over every view of the acceptance set
+#           engine's acceptance harness over every view of the acceptance set,
+#           and the export parity test: `renderizr export` against the
+#           toolbar's export, for every view kind
 #   consumer  the >=22.13 floor, on Node 22.13 exactly, via npm and production
 #             dependencies only — what `npx github:FormulaMonks/renderizr`
 #             actually does
@@ -326,6 +328,13 @@ jobs:
       # through its geometry report, including the 2 s time to data-ready.
       - name: Acceptance harness (React Flow engine)
         run: node --test test/acceptance.test.js
+
+      # ADR 32: the SVG `renderizr export` writes in Node against the
+      # toolbar's export of the same view in headless Chrome, for every view
+      # kind, in both schemes, in Arimo and Inter. Both sides fetch the fonts
+      # from Google Fonts, so this step needs the network.
+      - name: Export parity (renderizr export against the toolbar)
+        run: pnpm test:parity
 
       - name: Upload the rendered example
         if: matrix.node == '26'

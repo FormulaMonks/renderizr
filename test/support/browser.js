@@ -281,9 +281,10 @@ export async function screenshot(
  * dependency either.
  *
  * Resolves with `open(url)`, which opens a tab and hands back a `page` to
- * drive, and `close()`, which ends Chrome.
+ * drive, and `close()`, which ends Chrome. `extraFlags` go to Chrome after
+ * the usual ones, such as `--lang` to pin the page's locale.
  */
-export async function openBrowser(chrome) {
+export async function openBrowser(chrome, { extraFlags = [] } = {}) {
     const profile = mkdtempSync(join(tmpdir(), "renderizr-chrome-"));
     const flags = FLAGS.filter(
         // Virtual time would run the page's timers ahead of the pointer.
@@ -293,6 +294,7 @@ export async function openBrowser(chrome) {
         chrome,
         [
             ...flags,
+            ...extraFlags,
             "--remote-debugging-pipe",
             `--user-data-dir=${profile}`,
             "about:blank",

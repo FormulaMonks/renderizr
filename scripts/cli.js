@@ -26,6 +26,8 @@ Renderizr: render a Structurizr workspace as a static site.
   renderizr <workspace.json|url> [options]
   renderizr <workspace|url|folder>... [options]
   renderizr edit [path] [options]   Edit the layout of the views in a browser
+  renderizr export <workspace> [options]
+                                    Write an SVG of every view, with no browser
 
 Workspaces
   Each workspace is a workspace.json or workspace.dsl file, a URL, or a folder,
@@ -375,6 +377,128 @@ export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
         session,
         port,
         open: values.open,
+        ...branding(values),
+    };
+}
+
+/* ------------------------------------------------------------------ export */
+
+/**
+ * The formats `renderizr export` writes, in the order it writes them. The
+ * PNG ticket adds `png`.
+ */
+export const EXPORT_FORMATS = ["svg"];
+
+/** The font flags, which change what `renderizr export` measures and embeds. */
+const FONT_OPTIONS = Object.fromEntries(
+    Object.entries(OPTIONS).filter(([name]) => name.startsWith("font")),
+);
+
+export const EXPORT_OPTIONS = {
+    ...FONT_OPTIONS,
+    out: OPTIONS.out,
+    format: { type: "string", default: EXPORT_FORMATS.join(",") },
+    help: { type: "boolean", short: "h", default: false },
+};
+
+const EXPORT_USAGE = `
+renderizr export: write an SVG of every view of a workspace, with no browser.
+
+  renderizr export <workspace|url|folder> [options]
+
+The export draws each view the way the toolbar's export does: its canvas,
+everything shown (descriptions, technologies and ERD entities expanded), no
+animation step, and the title block below. It skips image views and views it
+cannot draw, with one line each. Each file is <workspace>-<view key>.<format>.
+
+The export writes or overwrites only its own files, flat in the output
+directory, and never empties it. The build empties its output directory, so
+run the build first when both share one.
+
+The text is measured in the --font family, or the workspace's renderizr.font.
+With neither, Arimo measures it, as Helvetica and Arial share its widths, and
+the SVG names Helvetica, Arial, sans-serif and embeds no font, as the toolbar
+does. Either font comes from Google Fonts, cached under node_modules/.cache.
+
+Options
+  -o, --out <dir>          Output directory (default: structurizr-output)
+      --format <list>      Comma-separated formats: ${EXPORT_FORMATS.join(", ")} (default: ${EXPORT_FORMATS.join(",")})
+
+  --font <family>          Google Fonts family to measure in and embed, e.g. "Inter"
+  --font-weights <list>    Comma-separated weights (default: 400,700)
+  --font-subsets <list>    Comma-separated subsets (default: latin)
+  --font-italic            Also embed the italic faces
+
+  -h, --help               Show this message
+
+The run writes every view that works, reports each failure with its view key
+on stderr, and exits with status 1 when any view failed.
+
+Examples
+  renderizr export ./workspace.json
+  renderizr export ./workspace.json --font Inter --out ./images
+
+In a clone of this repository the same thing is: pnpm render export <workspace> [options]
+`;
+
+export function exportUsage(stream = process.stdout) {
+    stream.write(`${EXPORT_USAGE.trimStart()}\n`);
+}
+
+/** Print `message` and the export usage to stderr, and exit 1. */
+function exportUsageError(message) {
+    process.stderr.write(`${message}\n\n`);
+    exportUsage(process.stderr);
+    process.exit(1);
+}
+
+/**
+ * Parse the arguments of `renderizr export` (everything after `export`).
+ * Exits the process on `--help` and on a usage error.
+ */
+export function parseExportArgs(args) {
+    let parsed;
+    try {
+        parsed = parseArgs({
+            args,
+            options: EXPORT_OPTIONS,
+            allowPositionals: true,
+            strict: true,
+        });
+    } catch (error) {
+        exportUsageError(error.message);
+    }
+
+    const { values, positionals } = parsed;
+
+    if (values.help) {
+        exportUsage();
+        process.exit(0);
+    }
+
+    const formats = list(values.format);
+    const unknown = formats.filter(
+        (format) => !EXPORT_FORMATS.includes(format),
+    );
+    if (unknown.length || !formats.length) {
+        exportUsageError(
+            `--format takes ${EXPORT_FORMATS.join(", ")}; got "${values.format}".`,
+        );
+    }
+
+    if (positionals.length === 0)
+        exportUsageError("Missing the workspace to export.");
+    if (positionals.length > 1) {
+        exportUsageError(
+            `Expected one workspace, got ${positionals.length}: ${positionals.join(", ")}`,
+        );
+    }
+
+    return {
+        workspaces: positionals,
+        out: values.out,
+        // In the order the run writes them, each once.
+        formats: EXPORT_FORMATS.filter((format) => formats.includes(format)),
         ...branding(values),
     };
 }
