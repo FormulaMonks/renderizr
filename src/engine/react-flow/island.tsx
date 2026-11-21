@@ -130,6 +130,7 @@ import {
     NAME_SCALE,
     SIDE_PADDING,
     textWidth,
+    textSize,
 } from "../geometry/label";
 import { EDGE_LABEL_PADDING, TECHNOLOGY_GAP } from "../geometry/edge-label";
 import { borderDashes, paintPart } from "../geometry/paint";
@@ -486,7 +487,7 @@ function FixedParts({
                 style={{
                     flexShrink: 0,
                     fontWeight,
-                    fontSize: fontSize * NAME_SCALE,
+                    fontSize: textSize(fontSize * NAME_SCALE),
                     whiteSpace: "pre-line",
                 }}
             >
@@ -499,7 +500,7 @@ function FixedParts({
                     style={{
                         flexShrink: 0,
                         marginTop: NAME_GAP,
-                        fontSize: fontSize * METADATA_SCALE,
+                        fontSize: textSize(fontSize * METADATA_SCALE),
                     }}
                 >
                     {metadata}
@@ -1352,8 +1353,9 @@ function RouteEdge({ id, data }: EdgeProps<LineEdge>) {
                             {labelLines.technology.length > 0 && (
                                 <div
                                     style={{
-                                        fontSize:
+                                        fontSize: textSize(
                                             data.fontSize * METADATA_SCALE,
+                                        ),
                                         marginTop: labelLines.description.length
                                             ? TECHNOLOGY_GAP
                                             : 0,

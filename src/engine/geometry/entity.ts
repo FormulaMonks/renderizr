@@ -15,7 +15,7 @@ import type { MermaidAttribute } from "../../model/index";
 import type { MeasureText } from "./boundary";
 import type { Size } from "./bounds";
 import { hslToRgb, type Rgb, toHex } from "./color";
-import { LINE_HEIGHT, NAME_SCALE } from "./label";
+import { LINE_HEIGHT, NAME_SCALE, textSize } from "./label";
 
 /** The space either side of a cell's text. */
 export const CELL_PADDING = 12;
@@ -127,8 +127,8 @@ export function collapsedContent(
     >,
 ): Size {
     const { name, attributes, fontSize, bold, family, measure } = input;
-    const nameSize = fontSize * NAME_SCALE;
-    const rowSize = fontSize * ROW_SCALE;
+    const nameSize = textSize(fontSize * NAME_SCALE);
+    const rowSize = textSize(fontSize * ROW_SCALE);
     const keys = attributes.filter(isKey);
     const widest = Math.max(
         measure(name, nameSize, bold, family),
@@ -161,8 +161,8 @@ export function layOutEntity(
     input: EntityInput,
 ): Size & { entity: EntityLayout } {
     const { name, attributes, fontSize, bold, family, measure, color } = input;
-    const nameSize = fontSize * NAME_SCALE;
-    const rowSize = fontSize * ROW_SCALE;
+    const nameSize = textSize(fontSize * NAME_SCALE);
+    const rowSize = textSize(fontSize * ROW_SCALE);
     const toggles = attributes.length > 0;
     const noColumns = { type: 0, name: 0, keys: 0, comment: 0 };
     const nameText = (y: number, width: number): EntityText => ({

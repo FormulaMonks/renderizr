@@ -12,7 +12,7 @@
 import { type MeasureText, wrapLines } from "./boundary";
 import type { Bounds, Size } from "./bounds";
 import { INDICATOR_GAP, INDICATOR_SIZE, indicatorRowWidth } from "./indicators";
-import { LINE_HEIGHT, METADATA_SCALE } from "./label";
+import { LINE_HEIGHT, METADATA_SCALE, textSize } from "./label";
 import { pointAlong } from "./routing/path";
 import type { Point } from "./shapes/types";
 
@@ -113,7 +113,7 @@ export function layoutEdgeLabel(
     const row = indicatorRowWidth(indicators);
     const width =
         row > 0 ? Math.max(0, labelWidth - row - INDICATOR_GAP) : labelWidth;
-    const metadataSize = fontSize * METADATA_SCALE;
+    const metadataSize = textSize(fontSize * METADATA_SCALE);
     const description = text.description
         ? wrapLines(text.description, width, fontSize, false, measure)
         : [];
@@ -189,7 +189,10 @@ export function layoutLabelRoom(
             upstreamHeight(label?.description.length ?? 0, fontSize) +
             (technology
                 ? TECHNOLOGY_GAP +
-                  upstreamHeight(technology, fontSize * METADATA_SCALE)
+                  upstreamHeight(
+                      technology,
+                      textSize(fontSize * METADATA_SCALE),
+                  )
                 : 0),
     };
 }
