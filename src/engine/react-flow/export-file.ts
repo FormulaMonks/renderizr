@@ -6,7 +6,7 @@
  */
 
 import { splitAuthor } from "../../model";
-import type { ExportFormat } from "../contract";
+import type { ExportFormat, FontMetrics } from "../contract";
 import type { ExportedSvg, TextSetting, TitleBlockText } from "./export-svg";
 import { canvasMeasure, diagramFontFamily } from "./fonts";
 
@@ -60,12 +60,21 @@ function fontFaces(family: string | null): string {
  * How the diagram's text is set in `font`, after a Mermaid diagram's
  * `source` family when it names one, measured in the page. Only the
  * `--font` faces embed: a source's family is the reader's to have.
+ * `metrics`, the font's `hhea` ascent and descent the build hands over,
+ * set the text in place of the canvas's, which round to whole pixels; a
+ * source's family keeps the canvas's, since the text is not in the font.
  */
-export function textSetting(font: string | null, source?: string): TextSetting {
+export function textSetting(
+    font: string | null,
+    source?: string,
+    metrics?: FontMetrics | null,
+): TextSetting {
     const family = diagramFontFamily(font, source);
     const context = document.createElement("canvas").getContext("2d");
     let { ascent, descent } = FALLBACK_METRICS;
-    if (context) {
+    if (metrics && !source) {
+        ({ ascent, descent } = metrics);
+    } else if (context) {
         context.font = `100px ${family}`;
         const metrics = context.measureText("Hg");
         if (metrics.fontBoundingBoxAscent) {

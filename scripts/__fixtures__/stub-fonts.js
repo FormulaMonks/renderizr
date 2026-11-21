@@ -3,11 +3,14 @@
  * `no-network.js` when a build embeds a font: Google Fonts answers with one
  * latin face for any family, and the face's file is bootstrap-icons' woff2,
  * which a browser loads as a real font. Every other request still fails, so
- * the build proves it reaches the network for nothing else.
+ * the build proves it reaches the network for nothing else. The build
+ * keeps no font cache, so the stub face never lands in the project's.
  */
 
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+
+process.env.RENDERIZR_CACHE_DIR = "";
 
 const FACE_URL = "https://fonts.gstatic.com/s/stub/face.woff2";
 

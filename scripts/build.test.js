@@ -830,7 +830,8 @@ test("--artifact puts the workspace's branding in workspace.json and its font fa
     assert.equal(branding.primaryColor, "#e4572e");
     assert.deepEqual(
         branding.font,
-        { family: "Inter", css: null },
+        // The stub face's hhea: an ascent of a whole em and no descent.
+        { family: "Inter", css: null, metrics: { ascent: 1, descent: 0 } },
         "the payload holds the faces that branding.css holds",
     );
     assert.match(css, /@font-face\s*\{[^}]*font-family:\s*'Inter'/);

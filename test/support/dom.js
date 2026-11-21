@@ -1258,6 +1258,7 @@ export function installDOM() {
         // free identifiers here and have to exist before `src/` is imported.
         __RENDERIZR_LOGO__: null,
         __RENDERIZR_FONT__: null,
+        __RENDERIZR_FONT_METRICS__: null,
         structurizr: { workspace: { name: "" } },
     });
 

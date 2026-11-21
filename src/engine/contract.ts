@@ -14,6 +14,9 @@ import type {
 import type { AlignEdge, DistributeAxis } from "./geometry/arrange";
 import type { RoutingMode } from "./geometry/routing/path";
 
+/** A font's ascent and descent, as multiples of the font size. */
+export type FontMetrics = { ascent: number; descent: number };
+
 export type { AlignEdge, DistributeAxis, EditedLayout, LayoutChange };
 
 /**
@@ -78,6 +81,11 @@ export type EngineOptions = {
      * entered workspace's branding (ADR 26). None leaves the fallback stack.
      */
     font?: string | null;
+    /**
+     * That font's `hhea` ascent and descent, which exports set their text
+     * on; none keeps the canvas's.
+     */
+    fontMetrics?: FontMetrics | null;
     /**
      * When the site was built, as an ISO timestamp: the export's title
      * block gives it when the workspace holds no `lastModifiedDate`.

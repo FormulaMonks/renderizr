@@ -199,9 +199,9 @@ const loadChosenLogo = (chosen) =>
  * The chosen font, loaded once per run however many workspaces of a set
  * take it: `fonts` holds each font loading, by what `loadFont` takes.
  */
-const loadChosenFont = (chosen, fonts) => {
+const loadChosenFont = (chosen, fonts, cwd) => {
     const key = JSON.stringify(chosen.font);
-    if (!fonts.has(key)) fonts.set(key, loadFont(chosen.font));
+    if (!fonts.has(key)) fonts.set(key, loadFont(chosen.font, { cwd }));
     return namingWhenSet(fonts.get(key), "font", chosen);
 };
 
@@ -226,7 +226,7 @@ export async function loadBranding({
     const chosen = chooseBranding({ flags, workspace, source, landscape, cwd });
     const [logo, font] = await Promise.all([
         loadChosenLogo(chosen),
-        loadChosenFont(chosen, fonts),
+        loadChosenFont(chosen, fonts, cwd),
     ]);
     return {
         logo,

@@ -26,6 +26,9 @@ importers:
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
+      harfbuzzjs:
+        specifier: 1.6.4
+        version: 1.6.4
       highlight.js:
         specifier: ^11.12.0
         version: 11.12.0
@@ -56,6 +59,9 @@ importers:
       vite:
         specifier: ^8.3.6
         version: 8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+      wawoff2:
+        specifier: 2.0.1
+        version: 2.0.1
       xss:
         specifier: ^1.0.17
         version: 1.0.17
@@ -886,6 +892,9 @@ packages:
     resolution: {integrity: sha512-1pgFdhK3J2LeM+dVf2Pd424yHx2ou338lC0ErNP2hPx4j8eW1Sp0XqSjNxtk6Tc4Kr5wlWtSvz8cn2yb7/SG/w==}
     engines: {node: '>=20'}
 
+  harfbuzzjs@1.6.4:
+    resolution: {integrity: sha512-T/PyfhVt1gGR2Tkf5KJUj1DQFkVBXHw552lS1iLEEDhV1Lukb3eq1pk2ov85kgbT2YUiZtJBTak9w+M7YgzUEQ==}
+
   highlight.js@11.12.0:
     resolution: {integrity: sha512-nbfWpyRMcMrPMmDwJB+dhX/eiaPKtc2RB+0QZskqJ3WjRA/FDS0e9hZrx8EC/lbEv8gXy98FcDbNa/dspAaJMg==}
     engines: {node: '>=12.0.0'}
@@ -1207,6 +1216,10 @@ packages:
         optional: true
       yaml:
         optional: true
+
+  wawoff2@2.0.1:
+    resolution: {integrity: sha512-r0CEmvpH63r4T15ebFqeOjGqU4+EgTx4I510NtK35EMciSdcTxCw3Byy3JnBonz7iyIFZ0AbVo0bbFpEVuhCYA==}
+    hasBin: true
 
   wrap-ansi@9.0.2:
     resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
@@ -1847,6 +1860,8 @@ snapshots:
     dependencies:
       ini: 6.0.0
 
+  harfbuzzjs@1.6.4: {}
+
   highlight.js@11.12.0: {}
 
   history@5.3.0:
@@ -2103,6 +2118,10 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.7.0
       yaml: 2.9.1
+
+  wawoff2@2.0.1:
+    dependencies:
+      argparse: 2.0.1
 
   wrap-ansi@9.0.2:
     dependencies:

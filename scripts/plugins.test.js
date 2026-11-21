@@ -237,7 +237,18 @@ test("html files in the bundle are never inlined into themselves", () => {
 
 /* ------------------------------------------------------------- set module */
 
-const INTER = { family: "Inter", css: "@font-face{font-family:'Inter'}" };
+const INTER = {
+    family: "Inter",
+    css: "@font-face{font-family:'Inter'}",
+    metrics: { ascent: 0.96875, descent: 0.2412109375 },
+    faces: [{ file: "/cache/inter-400.ttf" }],
+};
+const LORA = {
+    family: "Lora",
+    css: "@font-face{font-family:'Lora'}",
+    metrics: { ascent: 1.006, descent: 0.274 },
+    faces: [{ file: "/cache/lora-400.ttf" }],
+};
 
 /** A set as `loadSet` gives it, and its branding as `loadSetBranding` does. */
 const SET = {
@@ -269,7 +280,7 @@ const SET_BRANDING = {
         { logo: null, font: INTER, primaryColor: "#111" },
         {
             logo: { src: "data:image/png;base64,AA", alt: "Payments" },
-            font: { family: "Lora", css: "@font-face{font-family:'Lora'}" },
+            font: LORA,
             primaryColor: "#222",
         },
     ],
@@ -314,10 +325,15 @@ test("each workspace's payload holds its workspace, branding and crossings, with
     assert.deepEqual(orders.workspace, { name: "Orders" });
     assert.deepEqual(orders.branding, {
         logo: null,
-        font: { family: "Inter", css: null },
+        font: { family: "Inter", css: null, metrics: INTER.metrics },
         primaryColor: "#111",
     });
-    assert.deepEqual(payments.branding.font, SET_BRANDING.workspaces[1].font);
+    // Its hhea metrics go with the font; the CLI's static faces stay behind.
+    assert.deepEqual(payments.branding.font, {
+        family: "Lora",
+        css: LORA.css,
+        metrics: LORA.metrics,
+    });
     assert.equal(payments.branding.logo.alt, "Payments");
     assert.deepEqual(payments.crossings, SET.workspaces[1].crossings);
 });

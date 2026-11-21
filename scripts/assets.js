@@ -1,6 +1,15 @@
+import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { basename, join, resolve } from "node:path";
 import { renderDocumentation } from "./documentation/index.js";
+import { cacheRoot, fontEntry, readCached, writeCached } from "./font-cache.js";
+import {
+    decompressWoff2,
+    hheaMetrics,
+    isVariable,
+    pinWeight,
+} from "./fonts.js";
 import { readMermaidDiagrams } from "./mermaid/index.js";
 
 /** Google only serves woff2 to browsers it recognizes. */
@@ -297,7 +306,11 @@ export async function loadLogo(logo) {
 /* -------------------------------------------------------------------- font */
 
 const FACE_RE = /\/\*\s*([\w-]+)\s*\*\/\s*(@font-face\s*\{[^}]*\})/g;
+const FACE_URL_RE = /url\((https:\/\/[^)]+)\)/g;
 const familyParam = (family) => family.trim().replace(/\s+/g, "+");
+
+/** The file name Google's CSS keeps in the cache. */
+const CSS_FILE = "fonts.css";
 
 function fontCandidates({ family, weights, italic }) {
     const numeric = weights
@@ -320,33 +333,168 @@ function fontCandidates({ family, weights, italic }) {
         : [`${name}:wght@${min}..${max}`, `${name}:wght@${list}`, name];
 }
 
-export async function loadFont(font) {
-    if (!font) return null;
-
-    let css = null;
-
+/** Google's CSS for `font`, from the first candidate it answers, or `null`. */
+async function fetchFontCss(font) {
     for (const candidate of fontCandidates(font)) {
         const response = await fetch(
             `https://fonts.googleapis.com/css2?family=${candidate}&display=block`,
             { headers: { "User-Agent": BROWSER_UA } },
         );
+        if (response.ok) return response.text();
+    }
+    return null;
+}
 
-        if (response.ok) {
-            css = await response.text();
-            break;
+/** The woff2 at `url`. Throws when Google answers with an error. */
+async function fetchFontFile(url) {
+    const response = await fetch(url, {
+        headers: { "User-Agent": BROWSER_UA },
+    });
+    if (!response.ok) {
+        throw new Error(
+            `${url} responded ${response.status} ${response.statusText}`,
+        );
+    }
+    return Buffer.from(await response.arrayBuffer());
+}
+
+/**
+ * `read()`'s bytes, kept at `path` in the cache: read from there when a run
+ * already wrote them, and written there when it did not. With no cache
+ * (`path` null), every call reads afresh.
+ */
+async function cached(path, read) {
+    const kept = path && (await readCached(path));
+    if (kept) return kept;
+    const bytes = await read();
+    if (path) await writeCached(path, bytes);
+    return bytes;
+}
+
+/**
+ * A folder for the static faces of a run with no cache, removed when the
+ * process exits.
+ */
+let scratchFaces = null;
+
+function scratchFacesDir() {
+    if (!scratchFaces) {
+        scratchFaces = mkdtempSync(join(tmpdir(), "renderizr-fonts-"));
+        const dir = scratchFaces;
+        process.once("exit", () =>
+            rmSync(dir, { recursive: true, force: true }),
+        );
+    }
+    return scratchFaces;
+}
+
+/** What an `@font-face` rule declares: its style and its weight range. */
+function faceDeclaration(face) {
+    const style = /font-style:\s*([\w-]+)/.exec(face)?.[1] ?? "normal";
+    const [, low = "400", high] =
+        /font-weight:\s*(\d+)(?:\s+(\d+))?/.exec(face) ?? [];
+    return { style, min: Number(low), max: Number(high ?? low) };
+}
+
+/**
+ * The weights to pin a variable face declared over `min` to `max` at: the
+ * ones `font` asks for inside the range, else the lightest it covers.
+ */
+function weightsToPin(font, { min, max }) {
+    const asked = [
+        ...new Set(
+            font.weights
+                .map(Number)
+                .filter((weight) => weight >= min && weight <= max),
+        ),
+    ].sort((a, b) => a - b);
+    return asked.length ? asked : [min];
+}
+
+/**
+ * The static TTFs of the woff2 `faces` of `font`, by subset, style and
+ * weight, written in `dir` next to the woff2: a variable face pinned at
+ * each weight it needs, a static one decompressed as it is, since resvg
+ * reads TTF and OTF only. A face a run already wrote is kept.
+ */
+async function staticFaces(font, faces, woff2Of, dir) {
+    const written = new Map();
+    for (const { subset, face, url } of faces) {
+        const declared = faceDeclaration(face);
+        const name = basename(new URL(url).pathname, ".woff2");
+        let ttf;
+        const decompressed = async () => {
+            ttf ??= await decompressWoff2(woff2Of(url));
+            return ttf;
+        };
+        const variable = async () => isVariable(await decompressed());
+        const weights =
+            declared.min === declared.max
+                ? [declared.min]
+                : weightsToPin(font, declared);
+        for (const weight of weights) {
+            const file = join(dir, `${name}-${weight}.ttf`);
+            if (!written.has(file)) {
+                await cached(file, async () =>
+                    (await variable())
+                        ? pinWeight(await decompressed(), weight)
+                        : decompressed(),
+                );
+            }
+            written.set(file, {
+                file,
+                subset,
+                style: declared.style,
+                weight,
+            });
         }
     }
+    return [...written.values()];
+}
 
-    if (!css) {
-        throw new Error(
-            `Google Fonts has no family called "${font.family}". Check the name at fonts.google.com.`,
-        );
-    }
+/**
+ * The face whose `hhea` the text sits on: the upright one nearest weight
+ * 400.
+ */
+const metricsFace = (faces) =>
+    [...faces].sort(
+        (a, b) =>
+            (a.style === "normal" ? 0 : 1) - (b.style === "normal" ? 0 : 1) ||
+            Math.abs(a.weight - 400) - Math.abs(b.weight - 400),
+    )[0];
 
-    if (!css.includes("format('woff2')")) {
-        throw new Error(
-            "Google Fonts returned a format other than woff2, which would triple the embedded size.",
-        );
+/**
+ * `font` from Google Fonts: its faces embedded in `css` as `data:` URLs,
+ * the static TTFs resvg draws with as `faces` (each a `file` with its
+ * `subset`, `style` and `weight`), and the `hhea` ascent and descent the
+ * text sits on as `metrics`. Google's CSS, the woff2 and the TTFs are
+ * cached in the nearest project above `cwd` (see `cacheRoot`); with no
+ * project, every run fetches, and the TTFs live in a folder removed when
+ * the process exits.
+ */
+export async function loadFont(font, { cwd = process.cwd() } = {}) {
+    if (!font) return null;
+
+    const root = cacheRoot(cwd);
+    const entry = root && fontEntry(root, font);
+    const inEntry = (file) => entry && join(entry, file);
+
+    let css = (await readCached(inEntry(CSS_FILE)))?.toString("utf8") ?? null;
+    const fresh = !css;
+    if (fresh) {
+        css = await fetchFontCss(font);
+
+        if (!css) {
+            throw new Error(
+                `Google Fonts has no family called "${font.family}". Check the name at fonts.google.com.`,
+            );
+        }
+
+        if (!css.includes("format('woff2')")) {
+            throw new Error(
+                "Google Fonts returned a format other than woff2, which would triple the embedded size.",
+            );
+        }
     }
 
     // css2 ignores &subset=; the subset name only appears in a comment per face.
@@ -355,7 +503,9 @@ export async function loadFont(font) {
 
     for (const [, subset, face] of css.matchAll(FACE_RE)) {
         if (!wanted.has(subset)) continue;
-        faces.push(face);
+        for (const [, url] of face.matchAll(FACE_URL_RE)) {
+            faces.push({ subset, face, url });
+        }
     }
 
     if (!faces.length) {
@@ -364,43 +514,51 @@ export async function loadFont(font) {
         );
     }
 
-    const urls = new Map();
-    for (const face of faces) {
-        for (const [, url] of face.matchAll(/url\((https:\/\/[^)]+)\)/g)) {
-            urls.set(url, null);
-        }
-    }
+    const woff2 = new Map(faces.map(({ url }) => [url, null]));
 
     await Promise.all(
-        [...urls.keys()].map(async (url) => {
-            const response = await fetch(url, {
-                headers: { "User-Agent": BROWSER_UA },
-            });
-            const buffer = Buffer.from(await response.arrayBuffer());
-            urls.set(
+        [...woff2.keys()].map(async (url) => {
+            const file = basename(new URL(url).pathname);
+            woff2.set(
                 url,
-                `data:font/woff2;base64,${buffer.toString("base64")}`,
+                await cached(inEntry(file), () => fetchFontFile(url)),
             );
         }),
     );
 
-    const embedded = faces
+    // Only once every face is in: a CSS kept alone would name faces a later
+    // run has to fetch anyway.
+    if (entry && fresh) await writeCached(join(entry, CSS_FILE), css);
+
+    const embedded = [...new Set(faces.map(({ face }) => face))]
         .map((face) =>
-            face.replace(
-                /url\((https:\/\/[^)]+)\)/g,
-                (match, url) => `url(${urls.get(url) ?? match})`,
-            ),
+            face.replace(FACE_URL_RE, (match, url) => {
+                const bytes = woff2.get(url);
+                return bytes
+                    ? `url(data:font/woff2;base64,${bytes.toString("base64")})`
+                    : match;
+            }),
         )
         .join("");
 
-    const bytes = embedded.length;
+    const ttfs = await staticFaces(
+        font,
+        faces,
+        (url) => woff2.get(url),
+        entry ?? scratchFacesDir(),
+    );
+    const metrics = hheaMetrics(await readFile(metricsFace(ttfs).file));
+
+    const count = new Set(faces.map(({ face }) => face)).size;
     process.stdout.write(
-        `Embedded ${font.family} (${faces.length} face${faces.length === 1 ? "" : "s"}, ${Math.round(bytes / 1024)}KB)\n`,
+        `Embedded ${font.family} (${count} face${count === 1 ? "" : "s"}, ${Math.round(embedded.length / 1024)}KB)\n`,
     );
 
     return {
         family: font.family,
         css: `${embedded}:root{--renderizr-font:'${font.family.replace(/'/g, "")}',Helvetica,Arial,sans-serif}`,
+        metrics,
+        faces: ttfs,
     };
 }
 
