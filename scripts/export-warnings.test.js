@@ -167,3 +167,10 @@ test("other font errors pass as they are", () => {
 test("drawnText strips tags left behind by stripping a broken tag", () => {
     assert.equal(drawnText("<svg><text>a<sc<b>ript>b</text></svg>"), "ab");
 });
+
+test("drawnText keeps a numeric reference past the last code point as written", () => {
+    assert.equal(
+        drawnText("<svg><text>a &#99999999; &#x110000; b</text></svg>"),
+        "a &#99999999; &#x110000; b",
+    );
+});
