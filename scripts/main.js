@@ -1,12 +1,18 @@
 /**
- * The CLI behind the bin: the build, or edit mode. `./build.js` imports it only
- * once the running Node meets the floor, so nothing here loads on an older one.
+ * The CLI behind the bin: the build, edit mode or the export. `./build.js`
+ * imports it only once the running Node meets the floor, so nothing here
+ * loads on an older one.
  */
 
 import { resolve } from "node:path";
 import { build } from "vite";
 import { loadSetBranding, writeBrandingNotices } from "./branding.js";
-import { parseCliArgs, parseEditArgs, withoutSeparator } from "./cli.js";
+import {
+    parseCliArgs,
+    parseEditArgs,
+    parseExportArgs,
+    withoutSeparator,
+} from "./cli.js";
 import { createConfig } from "./config.js";
 import { sessionNotices, startEditServer } from "./edit.js";
 import { brandingOf, pageSet, UNNAMED_WORKSPACE } from "./plugins.js";
@@ -101,7 +107,25 @@ async function startEditMode(args) {
     process.stdout.write(lines.join("\n"));
 }
 
-// `edit` is the one subcommand; any other first argument is a workspace.
+/**
+ * `renderizr export <workspace>`: an export of every view, in Node (ADR 32).
+ * Its module loads only here, so the build and edit mode never load it, nor
+ * fontkit behind it.
+ */
+async function exportViews(args) {
+    const options = parseExportArgs(args);
+    const { runExport } = await import("./export.js");
+    try {
+        process.exitCode = await runExport(options);
+    } catch (error) {
+        process.stderr.write(`${error.message}\n`);
+        process.exitCode = 1;
+    }
+}
+
+// `edit` and `export` are the subcommands; any other first argument is a
+// workspace.
 const [command, ...rest] = withoutSeparator(process.argv.slice(2));
 if (command === "edit") await startEditMode(rest);
+else if (command === "export") await exportViews(rest);
 else await buildSite();

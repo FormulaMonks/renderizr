@@ -470,9 +470,13 @@ const metricsFace = (faces) =>
  * text sits on as `metrics`. Google's CSS, the woff2 and the TTFs are
  * cached in the nearest project above `cwd` (see `cacheRoot`); with no
  * project, every run fetches, and the TTFs live in a folder removed when
- * the process exits.
+ * the process exits. `announce: false` leaves out the line that says
+ * what the run embeds, for a font that only measures.
  */
-export async function loadFont(font, { cwd = process.cwd() } = {}) {
+export async function loadFont(
+    font,
+    { cwd = process.cwd(), announce = true } = {},
+) {
     if (!font) return null;
 
     const root = cacheRoot(cwd);
@@ -550,9 +554,10 @@ export async function loadFont(font, { cwd = process.cwd() } = {}) {
     const metrics = hheaMetrics(await readFile(metricsFace(ttfs).file));
 
     const count = new Set(faces.map(({ face }) => face)).size;
-    process.stdout.write(
-        `Embedded ${font.family} (${count} face${count === 1 ? "" : "s"}, ${Math.round(embedded.length / 1024)}KB)\n`,
-    );
+    if (announce)
+        process.stdout.write(
+            `Embedded ${font.family} (${count} face${count === 1 ? "" : "s"}, ${Math.round(embedded.length / 1024)}KB)\n`,
+        );
 
     return {
         family: font.family,
