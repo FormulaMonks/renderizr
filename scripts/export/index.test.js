@@ -546,7 +546,10 @@ test("Arimo measures the text, and the SVG names the fallback stack and embeds n
     });
 });
 
-test("the stand-in sets the text exactly as --font Arimo does", async () => {
+test("the stand-in measures the text as --font Arimo does, on the canvas's rounded ascent and descent", async () => {
+    // Only where a line of text sits differs: the stand-in rounds the
+    // ascent and descent as Chrome on Linux measures the fallback stack.
+    const unset = (svg) => svg.replace(/(<text [^>]*?) y="[^"]*"/g, "$1");
     await withTempDir(async (dir) => {
         await exportOffline(EXPORT_FIXTURE, join(dir, "stand-in"));
         await exportOffline(EXPORT_FIXTURE, join(dir, "arimo"), {
@@ -555,14 +558,17 @@ test("the stand-in sets the text exactly as --font Arimo does", async () => {
         const name = "export-workspace-containers.svg";
         const standIn = await readFile(join(dir, "stand-in", name), "utf8");
         const arimo = await readFile(join(dir, "arimo", name), "utf8");
+        assert.notEqual(arimo.replace(/<style>[\s\S]*?<\/style>/, ""), standIn);
         assert.equal(
-            arimo
-                .replace(/<style>[\s\S]*?<\/style>/, "")
-                .replace(
-                    'font-family="&quot;Arimo&quot;, Helvetica, Arial, sans-serif"',
-                    'font-family="Helvetica, Arial, sans-serif"',
-                ),
-            standIn,
+            unset(
+                arimo
+                    .replace(/<style>[\s\S]*?<\/style>/, "")
+                    .replace(
+                        'font-family="&quot;Arimo&quot;, Helvetica, Arial, sans-serif"',
+                        'font-family="Helvetica, Arial, sans-serif"',
+                    ),
+            ),
+            unset(standIn),
         );
     });
 });

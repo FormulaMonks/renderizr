@@ -26,7 +26,8 @@
  * Chrome fails the run, so CI never passes by skipping.
  *
  * With no font, the page draws in the fallback stack Chrome finds on the
- * machine and the CLI measures in Arimo; that case compares the SVG alone.
+ * machine and the CLI measures in Arimo; that case compares the SVG alone,
+ * and skips on macOS.
  * Two runs of the CLI over the same workspace write the same bytes, in
  * Inter and with no font.
  */
@@ -645,8 +646,20 @@ test("the CLI's SVG and PNG match the toolbar's for every view kind, scheme, per
     );
 });
 
+/**
+ * Skips the no-font case on macOS. CI's Linux is the baseline: there
+ * Chrome sets the fallback stack in Liberation Sans, which shares Arimo's
+ * metrics, and reads its ascent and descent rounded to whole pixels at
+ * 100 px (91 and 21), as the CLI's stand-in does. Chrome on macOS sets it
+ * in Helvetica, at 92 and 23, so its text sits about 0.17 px higher.
+ */
+const NO_FONT_SKIP =
+    NO_CHROME ||
+    (process.platform === "darwin" &&
+        "the fallback stack is Helvetica on macOS; CI's Linux is the baseline");
+
 test("with no font, the CLI's SVG in Arimo matches the toolbar's in the fallback stack", {
-    skip: NO_CHROME,
+    skip: NO_FONT_SKIP,
 }, async () => {
     requireChrome();
     const cases = FIXTURES.map((fixture) => ({ fixture, font: null }));
