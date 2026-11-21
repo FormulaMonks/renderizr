@@ -684,10 +684,10 @@ test("our own decisions get back the three links the importer drops", () => {
     }
 });
 
-test("our own decisions make nine amend edges and 35 references", () => {
+test("our own decisions make nine amend edges and 37 references", () => {
     const edges = edgesOf(layoutDecisionGraph(OURS));
 
-    assert.equal(edges.length, 44);
+    assert.equal(edges.length, 46);
     assert.deepEqual(
         edges.filter((edge) => !edge.includes("reference")),
         [
@@ -716,29 +716,29 @@ test("our own decisions need 12 columns", () => {
 
     assert.equal(layout.columns, 12);
     assert.deepEqual(lanesOf(layout), [
+        lane(2, ["21"], ["32", "24"]),
+        lane(2, ["20", "12"], []),
+        lane(3, ["22"], ["32", "26"]),
+        lane(3, ["7"], ["19", "17", "8"]),
         // 31 amends 24, which amends 13, so the three share a lane.
-        lane(2, ["31", "24", "13"], []),
-        lane(2, ["11"], ["12"]),
+        lane(4, ["31", "24", "13"], []),
+        lane(4, ["11"], ["12"]),
         // 29 amends 26, which amends 16. 30 amends 26 too, so it joins
         // the lane from a lane of its own; 31 references 29 and tops it.
-        lane(3, ["29", "26", "16"], ["31", "30", "24", "22", "17"]),
-        lane(4, ["30"], []),
-        lane(4, ["28"], ["29"]),
-        lane(4, ["22"], ["26"]),
-        lane(4, ["20", "12"], []),
-        lane(5, ["3"], ["28", "24", "21", "18", "15", "6"]),
+        lane(5, ["29", "26", "16"], ["31", "30", "24", "22", "17"]),
+        lane(6, ["30"], []),
+        lane(6, ["28"], ["29"]),
         lane(6, ["25", "23"], []),
         lane(6, ["15"], ["22", "16"]),
-        lane(7, ["2"], ["24", "13", "12", "11", "9", "7", "5", "3"]),
-        lane(8, ["14", "4"], ["24", "23", "17", "10", "9"]),
-        lane(9, ["21"], ["24"]),
-        lane(9, ["7"], ["19", "17", "8"]),
+        lane(7, ["3"], ["28", "24", "21", "18", "15", "6"]),
+        lane(8, ["2"], ["24", "13", "12", "11", "9", "7", "5", "3"]),
+        lane(9, ["14", "4"], ["24", "23", "17", "10", "9"]),
         lane(10, ["9"], ["17", "10"]),
         lane(11, ["10"], ["17"]),
     ]);
     assert.deepEqual(
         loneOf(layout),
-        ["27", "19", "18", "17", "8", "6", "5", "1"],
+        ["32", "27", "19", "18", "17", "8", "6", "5", "1"],
         "every other decision is a lone dot",
     );
 });
