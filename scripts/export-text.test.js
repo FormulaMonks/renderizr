@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fixture, withTempDir } from "./__fixtures__/helpers.js";
-import { fontkitMeasure, glyphCoverage } from "./export-text.js";
+import { fontkitMeasure, glyphCoverage, openFace } from "./export-text.js";
 import { decompressWoff2 } from "./fonts.js";
 
 /** The woff2 at `path` as a static TTF in `dir`, as `loadFont` gives a face. */
@@ -64,5 +64,14 @@ test("a label no face holds whole measures each character in a face that has it"
             both(`AH${ICON}`, 16, false),
             arimo("AH", 16, false) + iconsOnly(ICON, 16, false),
         );
+    });
+});
+
+test("measuring and the coverage open each face once", async () => {
+    await withTempDir(async (dir) => {
+        const latin = await face(dir, ARIMO, "latin");
+        await fontkitMeasure([latin]);
+        await glyphCoverage([latin]);
+        assert.equal(await openFace(latin), await openFace(latin));
     });
 });

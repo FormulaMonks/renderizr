@@ -9,9 +9,22 @@
  * import nothing from here, never pay for it.
  */
 
-/** The weight CSS draws `bold` text at. */
-const BOLD = 700;
-const REGULAR = 400;
+import { BOLD, REGULAR } from "./fonts.js";
+
+/** The fontkit font of each face `openFace` opened, by the face. */
+const OPENED = new WeakMap();
+
+/**
+ * `face`'s TTF (a face `loadFont` gives) as a fontkit font, opened once
+ * however many times measuring and the glyph coverage ask for it.
+ */
+export async function openFace(face) {
+    if (!OPENED.has(face)) {
+        const fontkit = await import("fontkit");
+        OPENED.set(face, fontkit.openSync(face.file));
+    }
+    return OPENED.get(face);
+}
 
 /** `text`'s advance width in `font`, in ems, kerning and ligatures applied. */
 const ems = (font, text) => font.layout(text).advanceWidth / font.unitsPerEm;
@@ -55,12 +68,13 @@ function advance(faces, text, weight) {
  * the run's font.
  */
 export async function fontkitMeasure(faces) {
-    const fontkit = await import("fontkit");
     const upright = faces.filter((face) => face.style !== "italic");
-    const opened = (upright.length ? upright : faces).map((face) => ({
-        ...face,
-        font: fontkit.openSync(face.file),
-    }));
+    const opened = await Promise.all(
+        (upright.length ? upright : faces).map(async (face) => ({
+            ...face,
+            font: await openFace(face),
+        })),
+    );
     if (!opened.length) throw new Error("The font has no faces to measure");
     return (text, fontSize, bold) =>
         advance(opened, text, bold ? BOLD : REGULAR) * fontSize;
@@ -73,8 +87,7 @@ export async function fontkitMeasure(faces) {
  * characters, such as the line breaks between labels, draw nothing.
  */
 export async function glyphCoverage(faces) {
-    const fontkit = await import("fontkit");
-    const fonts = faces.map((face) => fontkit.openSync(face.file));
+    const fonts = await Promise.all(faces.map(openFace));
     return (text) => [
         ...new Set(
             [...text].filter(

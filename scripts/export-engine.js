@@ -7,11 +7,10 @@
  * out, as a build does.
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { scratchDir } from "./scratch-dir.js";
 
 const ENTRY = fileURLToPath(
     new URL("../src/engine/react-flow/export-view.ts", import.meta.url),
@@ -47,9 +46,7 @@ async function bundle() {
         logLevel: "silent",
         define: DEFINES,
     });
-    const dir = mkdtempSync(join(tmpdir(), "renderizr-export-"));
-    process.once("exit", () => rmSync(dir, { recursive: true, force: true }));
-    const file = join(dir, "export-view.mjs");
+    const file = join(scratchDir("renderizr-export-"), "export-view.mjs");
     await writeFile(file, result.outputFiles[0].contents);
     return import(pathToFileURL(file).href);
 }

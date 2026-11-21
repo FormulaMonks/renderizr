@@ -1,6 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { renderDocumentation } from "./documentation/index.js";
 import {
@@ -15,8 +13,10 @@ import {
     hheaMetrics,
     isVariable,
     pinWeight,
+    REGULAR,
 } from "./fonts.js";
 import { readMermaidDiagrams } from "./mermaid/index.js";
+import { scratchDir } from "./scratch-dir.js";
 
 /** Google only serves woff2 to browsers it recognizes. */
 const BROWSER_UA =
@@ -312,6 +312,7 @@ export async function loadLogo(logo) {
 /* -------------------------------------------------------------------- font */
 
 const FACE_RE = /\/\*\s*([\w-]+)\s*\*\/\s*(@font-face\s*\{[^}]*\})/g;
+/** The woff2 URL in each `src: url(...)` of an `@font-face` rule. */
 const FACE_URL_RE = /url\((https:\/\/[^)]+)\)/g;
 const familyParam = (family) => family.trim().replace(/\s+/g, "+");
 
@@ -383,16 +384,7 @@ async function cached(path, read) {
  */
 let scratchFaces = null;
 
-function scratchFacesDir() {
-    if (!scratchFaces) {
-        scratchFaces = mkdtempSync(join(tmpdir(), "renderizr-fonts-"));
-        const dir = scratchFaces;
-        process.once("exit", () =>
-            rmSync(dir, { recursive: true, force: true }),
-        );
-    }
-    return scratchFaces;
-}
+const scratchFacesDir = () => (scratchFaces ??= scratchDir("renderizr-fonts-"));
 
 /** What an `@font-face` rule declares: its style and its weight range. */
 function faceDeclaration(face) {
@@ -461,14 +453,14 @@ async function staticFaces(font, faces, woff2Of, dir) {
 }
 
 /**
- * The face whose `hhea` the text sits on: the upright one nearest weight
- * 400.
+ * The face whose `hhea` the text sits on: the upright one nearest the
+ * regular weight.
  */
 const metricsFace = (faces) =>
     [...faces].sort(
         (a, b) =>
             (a.style === "normal" ? 0 : 1) - (b.style === "normal" ? 0 : 1) ||
-            Math.abs(a.weight - 400) - Math.abs(b.weight - 400),
+            Math.abs(a.weight - REGULAR) - Math.abs(b.weight - REGULAR),
     )[0];
 
 /**
@@ -547,7 +539,9 @@ export async function loadFont(
     // run has to fetch anyway.
     if (entry && fresh) await writeCached(join(entry, CSS_FILE), css);
 
-    const embedded = [...new Set(faces.map(({ face }) => face))]
+    // Each `@font-face` rule once, however many URLs it names.
+    const rules = [...new Set(faces.map(({ face }) => face))];
+    const embedded = rules
         .map((face) =>
             face.replace(FACE_URL_RE, (match, url) => {
                 const bytes = woff2.get(url);
@@ -567,7 +561,7 @@ export async function loadFont(
     const { file: metricsFile } = metricsFace(ttfs);
     const metrics = hheaMetrics(await readFile(metricsFile), metricsFile);
 
-    const count = new Set(faces.map(({ face }) => face)).size;
+    const count = rules.length;
     if (announce)
         process.stdout.write(
             `Embedded ${font.family} (${count} face${count === 1 ? "" : "s"}, ${Math.round(embedded.length / 1024)}KB)\n`,

@@ -6,6 +6,15 @@
  * build without a font never loads them.
  */
 
+/**
+ * The weight CSS draws `normal` text at: the face the text's ascent and
+ * descent come from, and the one a regular line measures in.
+ */
+export const REGULAR = 400;
+
+/** The weight CSS draws `bold` text at. */
+export const BOLD = 700;
+
 /** A four-letter table or axis tag as the number harfbuzz takes. */
 const tag = (text) =>
     ((text.charCodeAt(0) << 24) |
