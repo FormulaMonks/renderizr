@@ -23,6 +23,15 @@ export const NAME_SCALE = 1.4;
 /** The metadata's font size, as a multiple of the element's `fontSize`. */
 export const METADATA_SCALE = 0.7;
 
+/**
+ * `size` on the quarter pixel, the size every derived label size draws and
+ * measures at. Chrome on Linux sets text at a size it floors to a 64th of a
+ * pixel, so 16.8 px measures as 16.78 there and as 16.8 on macOS and in the
+ * CLI's fontkit; a quarter pixel sets the same on all three, so a page's
+ * export and `renderizr export` lay a view out alike everywhere.
+ */
+export const textSize = (size: number): number => Math.round(size * 4) / 4;
+
 /** Space between the name and the metadata below it. */
 export const NAME_GAP = 8;
 

@@ -75,6 +75,19 @@ const SCHEMES = ["light", "dark"];
 /** How far apart a number outside the text may be, in px. */
 const TOLERANCE = 0.1;
 
+/**
+ * Views whose toolbar export differs between Chrome on macOS and on Linux,
+ * by `fixture font key`, skipped on macOS only. CI's Linux is the baseline.
+ * Chrome measures a variable font through CoreText on macOS and HarfBuzz on
+ * Linux, about 0.01 px apart ("Send reminder" in Inter bold at 23.75 px is
+ * 169.9973 on macOS and 170.0051 on Linux). The Mermaid node size rounds
+ * its measured width up, so the two toolbar exports end up 1 px apart, and
+ * no single measure in Node can match both.
+ */
+const MACOS_DIFFERENCES = new Set(
+    process.platform === "darwin" ? ["mermaid-flowchart Inter signup"] : [],
+);
+
 /** The page's locale, pinned to Node's so both date the title block alike. */
 const LOCALE = Intl.DateTimeFormat().resolvedOptions().locale;
 
@@ -539,6 +552,12 @@ test("the CLI's SVG and PNG match the toolbar's for every view kind, scheme, per
                             // The export skips image views, and views that
                             // carry none of the perspective.
                             if (!existsSync(file)) continue;
+                            if (
+                                MACOS_DIFFERENCES.has(
+                                    `${fixture} ${font} ${key}`,
+                                )
+                            )
+                                continue;
                             const node = await readFile(file, "utf8");
                             const site = join(dir, "site");
                             const toolbar = () =>

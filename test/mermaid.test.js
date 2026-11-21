@@ -551,7 +551,7 @@ test("a node's default font draws its name at Mermaid's 24 px", () => {
     const group = graphOf(
         modelOf("flowchart TD\n  subgraph S\n    A --> B\n  end\n"),
     ).boundaries[0];
-    assert.equal(group.name.fontSize, 17 * 1.4, "and a subgraph's name too");
+    assert.equal(group.name.fontSize, 23.75, "and a subgraph's name too");
 });
 
 test("arrow syntax sets the line: solid, dotted, about twice as thick, and what fills at the end", () => {

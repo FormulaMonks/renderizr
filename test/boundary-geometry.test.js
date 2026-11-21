@@ -19,9 +19,8 @@ const {
     placeInstanceCount,
     wrapLines,
 } = await importSrc("engine/geometry/boundary");
-const { LINE_HEIGHT, METADATA_SCALE, NAME_GAP, NAME_SCALE } = await importSrc(
-    "engine/geometry/label",
-);
+const { LINE_HEIGHT, METADATA_SCALE, NAME_GAP, NAME_SCALE, textSize } =
+    await importSrc("engine/geometry/label");
 
 /** Every character is half its font size wide, bold ones 0.6. */
 const measure = (text, fontSize, bold) =>
@@ -44,8 +43,8 @@ const label = (overrides = {}) => ({
     ...overrides,
 });
 
-const NAME_LINE = 24 * NAME_SCALE * LINE_HEIGHT;
-const METADATA_LINE = 24 * METADATA_SCALE * LINE_HEIGHT;
+const NAME_LINE = textSize(24 * NAME_SCALE) * LINE_HEIGHT;
+const METADATA_LINE = textSize(24 * METADATA_SCALE) * LINE_HEIGHT;
 
 const derive = (boundaries, elements) =>
     new Map(
@@ -122,7 +121,8 @@ test("the metadata wraps to the boundary's width and the band grows downward", (
     assert.equal(long.y, short.y, "the band grows downward only");
     for (const line of long.metadata.lines) {
         assert.ok(
-            measure(line, 24 * METADATA_SCALE, false) <= long.metadata.width,
+            measure(line, textSize(24 * METADATA_SCALE), false) <=
+                long.metadata.width,
         );
     }
 });
@@ -139,8 +139,8 @@ test("the name is bold at 1.4× and the metadata 0.7× under it, from the band's
         { a: box(0, 0, 600, 100) },
     ).get("s");
 
-    assert.equal(shop.name.fontSize, 24 * NAME_SCALE);
-    assert.equal(shop.metadata.fontSize, 24 * METADATA_SCALE);
+    assert.equal(shop.name.fontSize, textSize(24 * NAME_SCALE));
+    assert.equal(shop.metadata.fontSize, textSize(24 * METADATA_SCALE));
     assert.equal(shop.name.x, BAND_MARGIN);
     near(shop.name.y, shop.band.y, "the name starts the band");
     near(shop.metadata.y, shop.band.y + NAME_LINE + NAME_GAP, "metadata");
@@ -198,7 +198,7 @@ test("a deployment node's instance count is written as is, bottom-right, at twic
         [{ id: "n", children: ["a"], label: label({ instances: "x4" }) }],
         { a: box(0, 0, 600, 100) },
     ).get("n");
-    const size = 24 * NAME_SCALE * 2;
+    const size = textSize(24 * NAME_SCALE) * 2;
     assert.equal(node.instances.fontSize, size);
     assert.deepEqual(node.instances.lines, ["x4"]);
     assert.equal(
@@ -231,7 +231,7 @@ test("a boundary is widened to minimumWidth: its whole name beside its icon", ()
         { a: box(0, 0, 100, 100) },
     ).get("s");
 
-    const width = measure(name, 24 * NAME_SCALE, true);
+    const width = measure(name, textSize(24 * NAME_SCALE), true);
     assert.equal(
         shop.width,
         BAND_MARGIN * 2 + shop.iconBox.width + BAND_GAP + width,
@@ -255,7 +255,8 @@ test("a deployment node's minimumWidth also fits its metadata, as upstream sizes
 
     assert.equal(
         derived(true).width,
-        BAND_MARGIN * 2 + measure(metadata, 24 * METADATA_SCALE, false),
+        BAND_MARGIN * 2 +
+            measure(metadata, textSize(24 * METADATA_SCALE), false),
     );
     assert.equal(derived(false).width, 200, "other metadata wraps instead");
 });
@@ -263,7 +264,7 @@ test("a deployment node's minimumWidth also fits its metadata, as upstream sizes
 test("a deployment node drawn as an element keeps its count bottom-right inside its box", () => {
     const content = box(0, 0, 450, 300);
     const count = placeInstanceCount(content, 24, "x4", measure);
-    const size = 24 * NAME_SCALE * 2;
+    const size = textSize(24 * NAME_SCALE) * 2;
 
     assert.equal(count.fontSize, size);
     assert.deepEqual(count.lines, ["x4"]);

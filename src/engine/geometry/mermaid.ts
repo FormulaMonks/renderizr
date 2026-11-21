@@ -14,6 +14,7 @@ import {
     LINE_HEIGHT,
     NAME_SCALE,
     SIDE_PADDING,
+    textSize,
 } from "./label";
 import { shapeGeometry } from "./shapes/index";
 
@@ -45,7 +46,7 @@ export function mermaidLabelSize(
     measure: MeasureText,
     font: MermaidFont = NAME_FONT,
 ): Size {
-    const size = fontSize * NAME_SCALE;
+    const size = textSize(fontSize * NAME_SCALE);
     const lines = label.split("\n");
     return {
         width: Math.max(

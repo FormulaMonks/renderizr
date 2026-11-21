@@ -43,6 +43,7 @@ import {
     METADATA_SCALE,
     NAME_GAP,
     NAME_SCALE,
+    textSize,
 } from "./label";
 import type { Shape } from "./shapes/types";
 
@@ -192,8 +193,8 @@ export function wrapLines(
 
 /** The label's sizes and what it reserves beside the text. */
 function bandParts(label: BoundaryLabel, measure: MeasureText) {
-    const nameSize = label.fontSize * NAME_SCALE;
-    const metadataSize = label.fontSize * METADATA_SCALE;
+    const nameSize = textSize(label.fontSize * NAME_SCALE);
+    const metadataSize = textSize(label.fontSize * METADATA_SCALE);
     // Upstream sizes the icon to the name's first line and the metadata.
     const iconSize =
         nameSize * LINE_HEIGHT +
@@ -406,7 +407,7 @@ export function placeInstanceCount(
     text: string,
     measure: MeasureText,
 ): TextBlock {
-    const size = fontSize * NAME_SCALE * INSTANCE_SCALE;
+    const size = textSize(fontSize * NAME_SCALE) * INSTANCE_SCALE;
     const width = measure(text, size, true);
     const height = size * LINE_HEIGHT;
     return {

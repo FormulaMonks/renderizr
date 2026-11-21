@@ -42,6 +42,7 @@ import {
     NAME_SCALE,
     SIDE_PADDING,
     textWidth,
+    textSize,
 } from "../geometry/label";
 import { lineDashes } from "../geometry/line";
 import { nameIsBold } from "../geometry/mermaid";
@@ -277,8 +278,8 @@ function elementLabel(element: ElementBox, text: TextSetting): string {
     };
     const layout = ICON_LAYOUTS[iconPosition];
     const indicators = targets.length > 0;
-    const nameSize = fontSize * NAME_SCALE;
-    const metadataSize = fontSize * METADATA_SCALE;
+    const nameSize = textSize(fontSize * NAME_SCALE);
+    const metadataSize = textSize(fontSize * METADATA_SCALE);
     // The island's metadata block collapses white space, as CSS does.
     const metadataText = element.metadata.replace(/\s+/g, " ");
 
@@ -733,7 +734,7 @@ function edgeLabel(edge: EdgeLine, background: string, text: TextSetting) {
                 {
                     ...column,
                     lines: lines.technology,
-                    fontSize: edge.fontSize * METADATA_SCALE,
+                    fontSize: textSize(edge.fontSize * METADATA_SCALE),
                     y: top,
                 },
                 text,
@@ -786,7 +787,7 @@ export function titleBlock(
 ): { height: number; svg: string } {
     const { measure } = text;
     const fontSize = TITLE_BLOCK_FONT_SIZE;
-    const titleSize = fontSize * NAME_SCALE;
+    const titleSize = textSize(fontSize * NAME_SCALE);
     const x = frame.x + TITLE_BLOCK_PADDING;
     const width = Math.max(0, frame.width - 2 * TITLE_BLOCK_PADDING);
     const bottom = frame.y + frame.height;

@@ -264,12 +264,9 @@ test("a software system with its containers in the view is a boundary derived ar
     assert.equal(boundary.height, 400 + boundary.band.height);
     assert.deepEqual(boundary.name.lines, ["Fixture System"]);
     assert.deepEqual(boundary.metadata.lines, ["[Software System]"]);
-    assert.deepEqual(graph.bounds, {
-        x: 250,
-        y: 250,
-        width: 550,
-        height: boundary.height,
-    });
+    const { height, ...corner } = graph.bounds;
+    assert.deepEqual(corner, { x: 250, y: 250, width: 550 });
+    assert.ok(Math.abs(height - boundary.height) < 1e-9, "the bounds' height");
 });
 
 test("a boundary is filled with the canvas and keeps the element's stroke, in either scheme", () => {
