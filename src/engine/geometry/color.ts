@@ -254,8 +254,8 @@ function colorFunction(
                 alpha,
             };
         case "hwb": {
-            const white = scaled(w(y), 1);
-            const black = scaled(w(z), 1);
+            const white = scaled(asPercent(y), 1);
+            const black = scaled(asPercent(z), 1);
             if (white + black >= 1) {
                 const gray = Math.round((white / (white + black)) * 255);
                 return { rgb: [gray, gray, gray], alpha };
@@ -306,5 +306,5 @@ function colorFunction(
 }
 
 /** An `hwb()` whiteness or blackness, which is a percent or a bare 0 to 100. */
-const w = (c: Component): Component =>
+const asPercent = (c: Component): Component =>
     c.unit === "%" ? c : { value: c.value, unit: "%" };

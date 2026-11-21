@@ -22,12 +22,25 @@
  * Not part of `pnpm test`: CI runs it with `pnpm test:parity` in the e2e
  * job. `test/export-parity.test.js` is another test: the toolbar export
  * against the island, inside the page. Skips with a reason when Chrome is
- * missing.
+ * missing, unless the `CI` environment variable is set: then a missing
+ * Chrome fails the run, so CI never passes by skipping.
+ *
+ * With no font, the page draws in the fallback stack Chrome finds on the
+ * machine and the CLI measures in Arimo; that case compares the SVG alone.
+ * Two runs of the CLI over the same workspace write the same bytes, in
+ * Inter and with no font.
  */
 
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+    mkdir,
+    mkdtemp,
+    readdir,
+    readFile,
+    rm,
+    writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
@@ -36,8 +49,8 @@ import { PNG } from "pngjs";
 import { loadFont } from "../scripts/assets.js";
 import { NO_BRANDING_FLAGS } from "../scripts/branding.js";
 import { REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
-import { exportFont, runExport } from "../scripts/export.js";
-import { rasterize } from "../scripts/export-raster.js";
+import { exportFont, runExport } from "../scripts/export/index.js";
+import { rasterize } from "../scripts/export/raster.js";
 import { exportFileName } from "../src/components/export-name.js";
 import {
     BROWSERS,
@@ -48,10 +61,33 @@ import {
 } from "./support/acceptance.js";
 import { findChrome, openBrowser } from "./support/browser.js";
 
+/**
+ * Why a test that needs Chrome skips, or false when it runs: with no
+ * Chrome on the machine it skips, unless `env` sets `CI`, where it runs and
+ * fails on the missing Chrome.
+ */
+const chromeSkip = (chrome, env) =>
+    chrome || env.CI
+        ? false
+        : "no Chrome or Chromium on this machine; set CHROME_PATH to run the browser tests";
+
 const CHROME = findChrome();
-const NO_CHROME = CHROME
-    ? false
-    : "no Chrome or Chromium on this machine; set CHROME_PATH to run the browser tests";
+const NO_CHROME = chromeSkip(CHROME, process.env);
+
+/** Fail a test that needs Chrome when there is none (CI set). */
+function requireChrome() {
+    if (!CHROME)
+        throw new Error(
+            "CI is set and no Chrome or Chromium is on this machine; install one or set CHROME_PATH",
+        );
+}
+
+test("a missing Chrome skips the browser tests, except under CI, where it fails them", () => {
+    assert.equal(chromeSkip("/usr/bin/chromium", {}), false);
+    assert.equal(chromeSkip("/usr/bin/chromium", { CI: "true" }), false);
+    assert.match(chromeSkip(null, {}), /no Chrome/);
+    assert.equal(chromeSkip(null, { CI: "true" }), false);
+});
 
 /** One fixture per view kind the export draws. */
 const FIXTURES = [
@@ -417,9 +453,12 @@ async function toolbarSvg(browser, site, key, scheme, perspective) {
     return { svg, png: PNG.sync.read(Buffer.from(png, "base64")) };
 }
 
-/** Build `fixture` with `font` for Chrome, and export it in Node. */
+/**
+ * Build `fixture` with `font` for Chrome, and export it in Node. With no
+ * `font` (null), the site sets none and Arimo stands in for the CLI.
+ */
 async function bothSides(fixture, font, now) {
-    const dir = join(SCRATCH, fixture, font);
+    const dir = join(SCRATCH, fixture, font ?? "no-font");
     await mkdir(dir, { recursive: true });
     const workspace = prepareWorkspace({
         source: join(REPO_ROOT, `test/__fixtures__/${fixture}.json`),
@@ -428,7 +467,13 @@ async function bothSides(fixture, font, now) {
     await writeFile(source, JSON.stringify(workspace));
 
     const built = await runCli(
-        [source, "--out", join(dir, "site"), "--single-file", "--font", font],
+        [
+            source,
+            "--out",
+            join(dir, "site"),
+            "--single-file",
+            ...(font ? ["--font", font] : []),
+        ],
         { env: { RENDERIZR_ENGINE_REPORT: "1" } },
     );
     if (built.code !== 0)
@@ -442,7 +487,7 @@ async function bothSides(fixture, font, now) {
             formats: ["svg", "png"],
             schemes: SCHEMES,
             perspectives: PERSPECTIVES[fixture] ?? [],
-            branding: { ...NO_BRANDING_FLAGS, font },
+            branding: { ...NO_BRANDING_FLAGS, font: font ?? null },
         },
         { cwd: REPO_ROOT, stdout: sink(), stderr, now },
     );
@@ -507,99 +552,161 @@ async function pngDifferences({ chrome, svg, png, raster, colorPage }) {
     return differences;
 }
 
-test("the CLI's SVG and PNG match the toolbar's for every view kind, scheme, perspective and font", {
-    skip: NO_CHROME,
-}, async () => {
-    const now = new Date();
-    const cases = FIXTURES.flatMap((fixture) =>
-        FONTS.map((font) => ({ fixture, font })),
-    );
+/**
+ * Compare every view of each of `cases` (`{ fixture, font }`, font null for
+ * none) the CLI exported against the toolbar's, and resolve with each
+ * case's number of views compared and failures. `png` adds the PNG checks.
+ */
+async function compareCases(cases, now, { png }) {
     // Every build first: a view whose page shares the machine with a
     // build can miss the wait for its canvas.
     const sides = await mapLimit(cases, BROWSERS, ({ fixture, font }) =>
         bothSides(fixture, font, now),
     );
-    const rasters = Object.fromEntries(
+    const fonts = [...new Set(cases.map(({ font }) => font))];
+    const rasters = new Map(
         await Promise.all(
-            FONTS.map(async (font) => [font, await rasterFont(font)]),
+            fonts.map(async (font) => [font, await rasterFont(font)]),
         ),
     );
-    const results = await mapLimit(
-        cases,
-        BROWSERS,
-        async ({ fixture, font }, at) => {
-            const { dir, workspace } = sides[at];
-            const browser = await openBrowser(CHROME, {
-                extraFlags: [`--lang=${LOCALE}`],
-            });
-            const colorPage = await browser.open("about:blank");
-            const failures = [];
-            let compared = 0;
-            try {
-                const perspectives = [null, ...(PERSPECTIVES[fixture] ?? [])];
-                for (const key of viewKeys(workspace)) {
-                    for (const perspective of perspectives) {
-                        for (const scheme of SCHEMES) {
-                            const name = exportFileName({
-                                workspace: workspace.name,
-                                view: key,
-                                perspective,
-                                step: null,
-                                scheme,
-                                format: "svg",
-                            });
-                            const file = join(dir, "node", name);
-                            // The export skips image views, and views that
-                            // carry none of the perspective.
-                            if (!existsSync(file)) continue;
-                            if (
-                                MACOS_DIFFERENCES.has(
-                                    `${fixture} ${font} ${key}`,
-                                )
-                            )
-                                continue;
-                            const node = await readFile(file, "utf8");
-                            const site = join(dir, "site");
-                            const toolbar = () =>
-                                toolbarSvg(
-                                    browser,
-                                    site,
-                                    key,
-                                    scheme,
-                                    perspective,
-                                );
-                            // A page that misses its wait gets one more try
-                            // in a fresh tab.
-                            const chrome = await toolbar().catch(toolbar);
-                            compared++;
-                            const where = `${fixture} ${font} ${key} ${perspective ?? "-"} ${scheme}`;
-                            const difference = svgDifference(chrome.svg, node);
-                            if (difference)
-                                failures.push(`${where}: ${difference}`);
-                            const png = PNG.sync.read(
+    return mapLimit(cases, BROWSERS, async ({ fixture, font }, at) => {
+        const { dir, workspace } = sides[at];
+        const browser = await openBrowser(CHROME, {
+            extraFlags: [`--lang=${LOCALE}`],
+        });
+        const colorPage = await browser.open("about:blank");
+        const failures = [];
+        let compared = 0;
+        try {
+            const perspectives = [null, ...(PERSPECTIVES[fixture] ?? [])];
+            for (const key of viewKeys(workspace)) {
+                for (const perspective of perspectives) {
+                    for (const scheme of SCHEMES) {
+                        const name = exportFileName({
+                            workspace: workspace.name,
+                            view: key,
+                            perspective,
+                            step: null,
+                            scheme,
+                            format: "svg",
+                        });
+                        const file = join(dir, "node", name);
+                        // The export skips image views, and views that
+                        // carry none of the perspective.
+                        if (!existsSync(file)) continue;
+                        if (MACOS_DIFFERENCES.has(`${fixture} ${font} ${key}`))
+                            continue;
+                        const node = await readFile(file, "utf8");
+                        const site = join(dir, "site");
+                        const toolbar = () =>
+                            toolbarSvg(browser, site, key, scheme, perspective);
+                        // A page that misses its wait gets one more try in
+                        // a fresh tab.
+                        const chrome = await toolbar().catch(toolbar);
+                        compared++;
+                        const where = `${fixture} ${font ?? "no font"} ${key} ${perspective ?? "-"} ${scheme}`;
+                        const difference = svgDifference(chrome.svg, node);
+                        if (difference)
+                            failures.push(`${where}: ${difference}`);
+                        if (!png) continue;
+                        for (const reason of await pngDifferences({
+                            chrome: chrome.png,
+                            svg: node,
+                            png: PNG.sync.read(
                                 await readFile(file.replace(/\.svg$/, ".png")),
-                            );
-                            for (const reason of await pngDifferences({
-                                chrome: chrome.png,
-                                svg: node,
-                                png,
-                                raster: rasters[font],
-                                colorPage,
-                            }))
-                                failures.push(`${where}: ${reason}`);
-                        }
+                            ),
+                            raster: rasters.get(font),
+                            colorPage,
+                        }))
+                            failures.push(`${where}: ${reason}`);
                     }
                 }
-            } finally {
-                await browser.close();
             }
-            return { fixture, font, compared, failures };
-        },
+        } finally {
+            await browser.close();
+        }
+        return { fixture, font, compared, failures };
+    });
+}
+
+test("the CLI's SVG and PNG match the toolbar's for every view kind, scheme, perspective and font", {
+    skip: NO_CHROME,
+}, async () => {
+    requireChrome();
+    const cases = FIXTURES.flatMap((fixture) =>
+        FONTS.map((font) => ({ fixture, font })),
     );
+    const results = await compareCases(cases, new Date(), { png: true });
     for (const { fixture, font, compared } of results)
         assert.ok(compared > 0, `${fixture} in ${font} compared no view`);
     assert.deepEqual(
         results.flatMap(({ failures }) => failures),
         [],
     );
+});
+
+test("with no font, the CLI's SVG in Arimo matches the toolbar's in the fallback stack", {
+    skip: NO_CHROME,
+}, async () => {
+    requireChrome();
+    const cases = FIXTURES.map((fixture) => ({ fixture, font: null }));
+    const results = await compareCases(cases, new Date(), { png: false });
+    for (const { fixture, compared } of results)
+        assert.ok(compared > 0, `${fixture} with no font compared no view`);
+    assert.deepEqual(
+        results.flatMap(({ failures }) => failures),
+        [],
+    );
+});
+
+/* --------------------------------------------------------- determinism */
+
+/** Every file in `dir`, by name, with its bytes. */
+const filesIn = async (dir) =>
+    Object.fromEntries(
+        await Promise.all(
+            (await readdir(dir))
+                .sort()
+                .map(async (name) => [name, await readFile(join(dir, name))]),
+        ),
+    );
+
+test("two runs over the same workspace write the same bytes, in Inter and with no font", async () => {
+    const now = new Date();
+    const source = join(REPO_ROOT, "test/__fixtures__/export.json");
+    for (const font of ["Inter", null]) {
+        const runs = [];
+        for (const run of ["first", "second"]) {
+            const out = join(SCRATCH, "determinism", font ?? "no-font", run);
+            const stderr = sink();
+            const code = await runExport(
+                {
+                    workspaces: [source],
+                    out,
+                    formats: ["svg", "png"],
+                    schemes: SCHEMES,
+                    perspectives: [],
+                    branding: { ...NO_BRANDING_FLAGS, font },
+                },
+                { cwd: REPO_ROOT, stdout: sink(), stderr, now },
+            );
+            assert.equal(code, 0, `the ${run} run failed:\n${stderr.text}`);
+            runs.push(await filesIn(out));
+        }
+        const [first, second] = runs;
+        assert.ok(
+            Object.keys(first).length > 0,
+            `${font ?? "no font"} wrote no file`,
+        );
+        assert.deepEqual(
+            Object.keys(second),
+            Object.keys(first),
+            `${font ?? "no font"}: the runs wrote different files`,
+        );
+        for (const [name, bytes] of Object.entries(first))
+            assert.ok(
+                bytes.equals(second[name]),
+                `${font ?? "no font"}: ${name} differs between runs`,
+            );
+    }
 });

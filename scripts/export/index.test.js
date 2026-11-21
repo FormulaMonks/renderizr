@@ -7,15 +7,10 @@ import {
     EXPORT_OPTIONS,
     exportUsage,
     parseExportArgs,
-} from "./cli.js";
-import { loadWorkspace } from "./assets.js";
-import {
-    exportFont,
-    exportJobs,
-    runExport,
-    STAND_IN_FAMILY,
-} from "./export.js";
-import { loadExportEngine } from "./export-engine.js";
+} from "../cli.js";
+import { loadWorkspace } from "../assets.js";
+import { exportFont, exportJobs, runExport, STAND_IN_FAMILY } from "./index.js";
+import { loadExportEngine } from "./engine.js";
 import {
     evalInChild,
     fixture,
@@ -23,8 +18,8 @@ import {
     runCli,
     withFetch,
     withTempDir,
-} from "./__fixtures__/helpers.js";
-import { NO_BRANDING_FLAGS } from "./branding.js";
+} from "../__fixtures__/helpers.js";
+import { NO_BRANDING_FLAGS } from "../branding.js";
 
 // No test here reads or writes the project's font cache.
 process.env.RENDERIZR_CACHE_DIR = "";
@@ -260,12 +255,12 @@ test("Arimo stands in, with the run's font options, when neither the run nor the
             subsets: ["latin-ext"],
             italic: false,
         },
-        embed: false,
+        standIn: true,
         primaryColor: null,
     });
 });
 
-test("a font the run or the workspace sets is embedded", () => {
+test("a font the run or the workspace sets is embedded, with no stand-in", () => {
     const fromFlag = exportFont({
         flags: { ...NO_BRANDING_FLAGS, font: "Inter" },
         workspace: { properties: { "renderizr.font": "Lato" } },
@@ -273,7 +268,7 @@ test("a font the run or the workspace sets is embedded", () => {
         cwd: REPO_ROOT,
     });
     assert.equal(fromFlag.font.family, "Inter");
-    assert.equal(fromFlag.embed, true);
+    assert.equal(fromFlag.standIn, false);
     const fromWorkspace = exportFont({
         flags: NO_BRANDING_FLAGS,
         workspace: { properties: { "renderizr.font": "Lato" } },
@@ -281,7 +276,7 @@ test("a font the run or the workspace sets is embedded", () => {
         cwd: REPO_ROOT,
     });
     assert.equal(fromWorkspace.font.family, "Lato");
-    assert.equal(fromWorkspace.embed, true);
+    assert.equal(fromWorkspace.standIn, false);
 });
 
 test("the primary color comes from the flag, the workspace, then the set's landscape scoped workspace", () => {
@@ -694,7 +689,7 @@ test("the CLI exits 1 when a view fails", async () => {
             ["export", EXPORT_FIXTURE, "--out", out, "--font", "Arimo"],
             {
                 env: {
-                    NODE_OPTIONS: `--import ${new URL("./__fixtures__/stub-fonts.js", import.meta.url).href}`,
+                    NODE_OPTIONS: `--import ${new URL("../__fixtures__/stub-fonts.js", import.meta.url).href}`,
                 },
             },
         );

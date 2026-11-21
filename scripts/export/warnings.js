@@ -8,17 +8,11 @@
  * font fetch fails the run.
  */
 
-/** `text` with the entities `escapeXml` writes, and numeric ones, decoded. */
-const decodeXml = (text) =>
-    text.replace(/&(amp|lt|gt|quot|apos|#x[\da-f]+|#\d+);/gi, (_, name) => {
-        const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
-        if (named[name.toLowerCase()]) return named[name.toLowerCase()];
-        return String.fromCodePoint(
-            name[1].toLowerCase() === "x"
-                ? Number.parseInt(name.slice(2), 16)
-                : Number(name.slice(1)),
-        );
-    });
+// The entities `escapeXml` writes are HTML's own, so the build's decoder
+// reads them, and keeps a reference past the last code point as written.
+import { unescapeHtml } from "../documentation/html-entities.js";
+
+/* -------------------------------------------------------------- drawn text */
 
 /**
  * The text `svg` draws: each `<text>` element's content, decoded, one per
@@ -26,7 +20,7 @@ const decodeXml = (text) =>
  */
 export const drawnText = (svg) =>
     [...svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g)]
-        .map(([, content]) => decodeXml(withoutTags(content)))
+        .map(([, content]) => unescapeHtml(withoutTags(content)))
         .join("\n");
 
 /**
@@ -41,6 +35,8 @@ function withoutTags(markup) {
         text = stripped;
     }
 }
+
+/* ---------------------------------------------------------------- families */
 
 /** The family names a CSS `font-family` list holds, unquoted, in order. */
 const familyNames = (list) =>
@@ -64,10 +60,12 @@ export function unloadableFamilies(svg, { family, standIn }) {
         ...(standIn ? STAND_IN_FOR : []),
     ]);
     const named = [...svg.matchAll(/\sfont-family="([^"]*)"/g)]
-        .map(([, list]) => familyNames(decodeXml(list))[0])
+        .map(([, list]) => familyNames(unescapeHtml(list))[0])
         .filter((name) => name && !loadable.has(name.toLowerCase()));
     return [...new Set(named)];
 }
+
+/* ----------------------------------------------------------------- subsets */
 
 /**
  * The `[low, high]` code point pairs of a CSS `unicode-range`; `U+4??`
@@ -110,6 +108,8 @@ export function subsetsCovering(characters, ranges, subsets) {
         uncovered,
     };
 }
+
+/* ---------------------------------------------------------------- messages */
 
 /** A character as a reader can see it: marks, controls and spaces by code point. */
 const shown = (character) =>
@@ -161,6 +161,8 @@ export function glyphWarning({
  */
 export const familyWarning = ({ view, workspace, family, families }) =>
     `${viewOf({ view, workspace })} the export cannot load ${prose(families)}, so the text measures and draws in ${family}.`;
+
+/* ----------------------------------------------------------------- offline */
 
 /**
  * The error that fails the run when fetching `font` could not reach Google

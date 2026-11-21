@@ -6,6 +6,15 @@
  * build without a font never loads them.
  */
 
+/**
+ * The weight CSS draws `normal` text at: the face the text's ascent and
+ * descent come from, and the one a regular line measures in.
+ */
+export const REGULAR = 400;
+
+/** The weight CSS draws `bold` text at. */
+export const BOLD = 700;
+
 /** A four-letter table or axis tag as the number harfbuzz takes. */
 const tag = (text) =>
     ((text.charCodeAt(0) << 24) |
@@ -14,35 +23,41 @@ const tag = (text) =>
         text.charCodeAt(3)) >>>
     0;
 
+/** What an error calls a face the caller gave no name for. */
+const UNNAMED = "the face";
+
 /**
  * The tables of the TTF or OTF in `bytes`, by tag, as views on its bytes.
- * Throws on bytes that hold no font.
+ * Throws on bytes that hold no font, naming the face `name`.
  */
-function tables(bytes) {
+function tables(bytes, name = UNNAMED) {
     const data = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
     const version = data.getUint32(0);
     if (version !== 0x00010000 && version !== tag("OTTO")) {
-        throw new Error("the face is not a TrueType or OpenType font");
+        throw new Error(`${name} is not a TrueType or OpenType font`);
     }
     const found = new Map();
     const count = data.getUint16(4);
     for (let at = 12; at < 12 + count * 16; at += 16) {
-        const name = String.fromCharCode(
+        const table = String.fromCharCode(
             ...bytes.subarray(at, at + 4).values(),
         );
         const offset = data.getUint32(at + 8);
         const length = data.getUint32(at + 12);
         found.set(
-            name,
+            table,
             new DataView(bytes.buffer, bytes.byteOffset + offset, length),
         );
     }
     return found;
 }
 
-/** Whether the face in `ttf` varies its weight along a `wght` axis. */
-export function isVariable(ttf) {
-    const fvar = tables(ttf).get("fvar");
+/**
+ * Whether the face in `ttf` varies its weight along a `wght` axis. `name`
+ * says which face in an error.
+ */
+export function isVariable(ttf, name = UNNAMED) {
+    const fvar = tables(ttf, name).get("fvar");
     if (!fvar) return false;
     const axesAt = fvar.getUint16(4);
     const count = fvar.getUint16(8);
@@ -55,13 +70,14 @@ export function isVariable(ttf) {
 
 /**
  * The face's ascent and descent from its `hhea` table, as multiples of the
- * font size, unrounded: what the page and the CLI set text on.
+ * font size, unrounded: what the page and the CLI set text on. `name` says
+ * which face in an error.
  */
-export function hheaMetrics(ttf) {
-    const faceTables = tables(ttf);
+export function hheaMetrics(ttf, name = UNNAMED) {
+    const faceTables = tables(ttf, name);
     const head = faceTables.get("head");
     const hhea = faceTables.get("hhea");
-    if (!head || !hhea) throw new Error("the face has no head or hhea table");
+    if (!head || !hhea) throw new Error(`${name} has no head or hhea table`);
     const unitsPerEm = head.getUint16(18);
     return {
         ascent: hhea.getInt16(4) / unitsPerEm,
@@ -115,9 +131,10 @@ const WRITABLE = 2;
 
 /**
  * The variable face in `ttf` pinned at `weight` on its `wght` axis: a static
- * TTF with every glyph and table kept. Throws when harfbuzz cannot pin it.
+ * TTF with every glyph and table kept. Throws when harfbuzz cannot pin it,
+ * naming the face `name` and the weight.
  */
-export async function pinWeight(ttf, weight) {
+export async function pinWeight(ttf, weight, name = UNNAMED) {
     const hb = await subsetter();
     const at = hb.malloc(ttf.length);
     new Uint8Array(hb.memory.buffer).set(ttf, at);
@@ -134,10 +151,15 @@ export async function pinWeight(ttf, weight) {
                 weight,
             )
         ) {
-            throw new Error(`could not pin the face at weight ${weight}`);
+            throw new Error(
+                `harfbuzz could not pin the wght axis of ${name} at weight ${weight}`,
+            );
         }
         const pinned = hb.hb_subset_or_fail(face, input);
-        if (!pinned) throw new Error(`could not instance weight ${weight}`);
+        if (!pinned)
+            throw new Error(
+                `harfbuzz could not instance ${name} at weight ${weight}`,
+            );
         const out = hb.hb_face_reference_blob(pinned);
         const data = hb.hb_blob_get_data(out, 0);
         const length = hb.hb_blob_get_length(out);

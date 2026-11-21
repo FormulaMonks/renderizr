@@ -3,9 +3,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { PNG } from "pngjs";
-import { fixture, withTempDir } from "./__fixtures__/helpers.js";
-import { pinnedFamilies, rasterize } from "./export-raster.js";
-import { decompressWoff2 } from "./fonts.js";
+import { fixture, withTempDir } from "../__fixtures__/helpers.js";
+import { pinnedFamilies, rasterize } from "./raster.js";
+import { decompressWoff2 } from "../fonts.js";
 
 /** Arimo cut down to "AHg ", as a static TTF in `dir`. */
 async function arimo(dir) {
