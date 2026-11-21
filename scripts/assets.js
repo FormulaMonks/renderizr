@@ -421,9 +421,7 @@ function weightsToPin(font, { min, max }) {
  * The static TTFs of the woff2 `faces` of `font`, by subset, style and
  * weight, written in `dir` next to the woff2: a variable face pinned at
  * each weight it needs, a static one decompressed as it is, since resvg
- * reads TTF and OTF only. A face a run already wrote is kept. Each keeps
- * the `woff2` it comes from, the bytes the page draws with, which the CLI
- * measures in.
+ * reads TTF and OTF only. A face a run already wrote is kept.
  */
 async function staticFaces(font, faces, woff2Of, dir) {
     const written = new Map();
@@ -454,7 +452,6 @@ async function staticFaces(font, faces, woff2Of, dir) {
                 subset,
                 style: declared.style,
                 weight,
-                woff2: woff2Of(url),
             });
         }
     }
@@ -475,8 +472,8 @@ const metricsFace = (faces) =>
 /**
  * `font` from Google Fonts: its faces embedded in `css` as `data:` URLs,
  * the static TTFs resvg draws with as `faces` (each a `file` with its
- * `subset`, `style` and `weight`, and the `woff2` it comes from), and the
- * `hhea` ascent and descent the text sits on as `metrics`. Google's CSS, the woff2 and the TTFs are
+ * `subset`, `style` and `weight`), and the `hhea` ascent and descent the
+ * text sits on as `metrics`. Google's CSS, the woff2 and the TTFs are
  * cached in the nearest project above `cwd` (see `cacheRoot`); with no
  * project, every run fetches, and the TTFs live in a folder removed when
  * the process exits. `announce: false` leaves out the line that says
