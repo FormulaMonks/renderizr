@@ -19,6 +19,22 @@ test("a woff2 decompresses to a TrueType font", async () => {
     assert.equal(ttf.readUInt32BE(0), 0x00010000);
 });
 
+test("woff2s decompressed at once each give their own TrueType font", async () => {
+    // wawoff2 shares one wasm module: calls that overlap must wait their
+    // turn, or one hands back another's bytes.
+    const alone = [
+        await decompressWoff2(VARIABLE),
+        await decompressWoff2(STATIC),
+    ];
+    const together = await Promise.all(
+        Array.from({ length: 8 }, (_, i) =>
+            decompressWoff2(i % 2 ? STATIC : VARIABLE),
+        ),
+    );
+    for (const [i, ttf] of together.entries())
+        assert.deepEqual(ttf, alone[i % 2], `decompression ${i}`);
+});
+
 test("a face with a wght axis is variable and a static one is not", async () => {
     assert.equal(isVariable(await decompressWoff2(VARIABLE)), true);
     assert.equal(isVariable(await decompressWoff2(STATIC)), false);

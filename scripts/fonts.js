@@ -73,12 +73,23 @@ export function hheaMetrics(ttf) {
 /** wawoff2's decompressor, loaded once, without its compressor. */
 let decompress;
 
-/** The TTF the woff2 in `woff2` compresses. */
-export async function decompressWoff2(woff2) {
+/** The decompression running last, which the next one waits for. */
+let queue = Promise.resolve();
+
+/**
+ * The TTF the woff2 in `woff2` compresses. One decompression runs at a
+ * time: wawoff2 shares one wasm module, and two calls at once can hand
+ * back each other's bytes.
+ */
+export function decompressWoff2(woff2) {
     decompress ??= import("wawoff2/decompress.js").then(
         (module) => module.default,
     );
-    return Buffer.from(await (await decompress)(woff2));
+    const run = queue.then(async () =>
+        Buffer.from(await (await decompress)(woff2)),
+    );
+    queue = run.catch(() => {});
+    return run;
 }
 
 /** harfbuzzjs's subsetter, instantiated once. */
