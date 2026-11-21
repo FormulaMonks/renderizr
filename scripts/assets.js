@@ -472,8 +472,10 @@ const metricsFace = (faces) =>
 /**
  * `font` from Google Fonts: its faces embedded in `css` as `data:` URLs,
  * the static TTFs resvg draws with as `faces` (each a `file` with its
- * `subset`, `style` and `weight`), and the `hhea` ascent and descent the
- * text sits on as `metrics`. Google's CSS, the woff2 and the TTFs are
+ * `subset`, `style` and `weight`), the `hhea` ascent and descent the text
+ * sits on as `metrics`, and the `unicode-range` of every subset Google
+ * serves the family in, fetched or not, as `ranges` (null for a subset
+ * that declares none). Google's CSS, the woff2 and the TTFs are
  * cached in the nearest project above `cwd` (see `cacheRoot`); with no
  * project, every run fetches, and the TTFs live in a folder removed when
  * the process exits. `announce: false` leaves out the line that says
@@ -510,8 +512,11 @@ export async function loadFont(
     // css2 ignores &subset=; the subset name only appears in a comment per face.
     const wanted = new Set(font.subsets);
     const faces = [];
+    const ranges = {};
 
     for (const [, subset, face] of css.matchAll(FACE_RE)) {
+        ranges[subset] ??=
+            /unicode-range:\s*([^;}]+)/.exec(face)?.[1].trim() ?? null;
         if (!wanted.has(subset)) continue;
         for (const [, url] of face.matchAll(FACE_URL_RE)) {
             faces.push({ subset, face, url });
@@ -570,6 +575,7 @@ export async function loadFont(
         css: `${embedded}:root{--renderizr-font:'${font.family.replace(/'/g, "")}',Helvetica,Arial,sans-serif}`,
         metrics,
         faces: ttfs,
+        ranges,
     };
 }
 

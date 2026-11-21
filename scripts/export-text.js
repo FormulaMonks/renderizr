@@ -13,22 +13,37 @@
 const BOLD = 700;
 const REGULAR = 400;
 
+/** `text`'s advance width in `font`, in ems, kerning and ligatures applied. */
+const ems = (font, text) => font.layout(text).advanceWidth / font.unitsPerEm;
+
 /**
- * The face of `faces` (opened fontkit fonts, each with its `weight` and
- * `subset`) nearest `weight` that has a glyph for every character of
- * `text`, else the nearest one: a run with several subsets measures each
- * label in the subset that holds it.
+ * The advance width of `text`, in ems, in the faces of `faces` (opened
+ * fontkit fonts, each with its `weight` and `subset`) nearest `weight`: in
+ * the first that has a glyph for every character of `text`, so a run with
+ * several subsets measures each label in the subset that holds it. When no
+ * face holds it whole, each run of characters measures in the first face
+ * that has them, and a character no face has measures as the first face's
+ * missing glyph.
  */
-function faceFor(faces, text, weight) {
+function advance(faces, text, weight) {
     const distance = (face) => Math.abs(face.weight - weight);
     const nearest = Math.min(...faces.map(distance));
     const candidates = faces.filter((face) => distance(face) === nearest);
-    const points = [...text].map((character) => character.codePointAt(0));
-    return (
-        candidates.find(({ font }) =>
-            points.every((point) => font.hasGlyphForCodePoint(point)),
-        ) ?? candidates[0]
+    const has = ({ font }, character) =>
+        font.hasGlyphForCodePoint(character.codePointAt(0));
+    const characters = [...text];
+    const whole = candidates.find((face) =>
+        characters.every((character) => has(face, character)),
     );
+    if (whole) return ems(whole.font, text);
+    const runs = [];
+    for (const character of characters) {
+        const { font } =
+            candidates.find((face) => has(face, character)) ?? candidates[0];
+        if (runs.at(-1)?.font === font) runs.at(-1).text += character;
+        else runs.push({ font, text: character });
+    }
+    return runs.reduce((sum, run) => sum + ems(run.font, run.text), 0);
 }
 
 /**
@@ -47,10 +62,30 @@ export async function fontkitMeasure(faces) {
         font: fontkit.openSync(face.file),
     }));
     if (!opened.length) throw new Error("The font has no faces to measure");
-    return (text, fontSize, bold) => {
-        const { font } = faceFor(opened, text, bold ? BOLD : REGULAR);
-        return (font.layout(text).advanceWidth / font.unitsPerEm) * fontSize;
-    };
+    return (text, fontSize, bold) =>
+        advance(opened, text, bold ? BOLD : REGULAR) * fontSize;
+}
+
+/**
+ * Which characters of a text no face of `faces` (as `loadFont` gives them)
+ * has a glyph for, each once, in order: fontkit measures them with the
+ * missing glyph, and resvg draws them from a system font. Control
+ * characters, such as the line breaks between labels, draw nothing.
+ */
+export async function glyphCoverage(faces) {
+    const fontkit = await import("fontkit");
+    const fonts = faces.map((face) => fontkit.openSync(face.file));
+    return (text) => [
+        ...new Set(
+            [...text].filter(
+                (character) =>
+                    !/\p{Cc}/u.test(character) &&
+                    !fonts.some((font) =>
+                        font.hasGlyphForCodePoint(character.codePointAt(0)),
+                    ),
+            ),
+        ),
+    ];
 }
 
 /**

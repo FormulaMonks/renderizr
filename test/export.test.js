@@ -190,6 +190,37 @@ describe("export-svg", () => {
             assert.equal(rgbColors(color), expected, color);
     });
 
+    test("rgbColors writes every color resvg cannot read as hex or legacy rgba()", () => {
+        const cases = [
+            // resvg reads rgb() only with commas and a numeric alpha.
+            ["rgb(228 87 46)", "#e4572e"],
+            ["rgb(228 87 46 / 50%)", "rgba(228, 87, 46, 0.5)"],
+            ["rgba(228, 87, 46, 50%)", "rgba(228, 87, 46, 0.5)"],
+            ["rgb(100% 0% 0%)", "#ff0000"],
+            ["rgba(228, 87, 46, 0.5)", "rgba(228, 87, 46, 0.5)"],
+            ["hwb(0 0% 0%)", "#ff0000"],
+            ["hwb(120 20% 30%)", "#33b333"],
+            ["hwb(0 60% 60%)", "#808080"],
+            ["lab(100 0 0)", "#ffffff"],
+            ["lab(50% 0 0)", "#777777"],
+            ["lab(0 0 0 / 0.5)", "rgba(0, 0, 0, 0.5)"],
+            ["lch(54.29 106.84 40.86)", "#ff0000"],
+            ["oklab(1 0 0)", "#ffffff"],
+            ["oklch(0.628 0.2577 29.23)", "#ff0000"],
+            ["OKLCH(62.8% 0.2577 29.23deg)", "#ff0000"],
+            ["color(srgb 1 0 0)", "#ff0000"],
+            ["color(srgb 0.5 0.5 0.5 / 0.5)", "rgba(128, 128, 128, 0.5)"],
+            ["rebeccapurple", "#663399"],
+            [
+                "fill:RebeccaPurple;stroke:oklch(1 0 0)",
+                "fill:#663399;stroke:#ffffff",
+            ],
+            ["notrebeccapurple", "notrebeccapurple"],
+        ];
+        for (const [color, expected] of cases)
+            assert.equal(rgbColors(color), expected, color);
+    });
+
     test("the SVG writes no hsl() for any view kind in either scheme", async () => {
         const { readMermaidDiagrams } = await import(
             "../scripts/mermaid/index.js"

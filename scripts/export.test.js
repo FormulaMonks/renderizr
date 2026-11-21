@@ -34,6 +34,7 @@ const VIEW_TYPES = join(REPO_ROOT, "test/__fixtures__/view-types.json");
 const PERSPECTIVES = join(REPO_ROOT, "test/__fixtures__/perspectives.json");
 const FLOWCHART = join(REPO_ROOT, "test/__fixtures__/mermaid-flowchart.json");
 const ENTERPRISE = join(REPO_ROOT, "test/__fixtures__/enterprise");
+const MERMAID_STYLES = join(REPO_ROOT, "test/__fixtures__/mermaid-styles.json");
 
 /* ------------------------------------------------------------ arguments */
 
@@ -62,11 +63,11 @@ const rejects = async (args, expected) => {
     );
 };
 
-test("a bare workspace exports SVG into structurizr-output with no font", () => {
+test("a bare workspace exports SVG and PNG into structurizr-output with no font", () => {
     assert.deepEqual(parseExportArgs(["workspace.json"]), {
         workspaces: ["workspace.json"],
         out: "structurizr-output",
-        formats: ["svg"],
+        formats: ["svg", "png"],
         views: null,
         schemes: ["light"],
         perspectives: [],
@@ -164,19 +165,21 @@ test("--out and -o set the folder, and the font flags pass as the build's", () =
     assert.equal(branding.fontItalic, true);
 });
 
-test("--format svg is accepted, and each format counts once", () => {
-    assert.deepEqual(
-        parseExportArgs(["w.json", "--format", "svg, svg"]).formats,
-        ["svg"],
-    );
+test("--format takes a list of formats, each counted once, in the order the run writes them", () => {
+    const formats = (value) =>
+        parseExportArgs(["w.json", "--format", value]).formats;
+    assert.deepEqual(formats("svg, svg"), ["svg"]);
+    assert.deepEqual(formats("png"), ["png"]);
+    assert.deepEqual(formats("png,svg"), ["svg", "png"]);
 });
 
 test("an unknown format is a usage error", async () => {
     await rejects(
         ["w.json", "--format", "gif"],
-        /--format takes svg; got "gif"/,
+        /--format takes svg, png; got "gif"/,
     );
-    await rejects(["w.json", "--format", ","], /--format takes svg/);
+    await rejects(["w.json", "--format", "svg,jpeg"], /got "svg,jpeg"/);
+    await rejects(["w.json", "--format", ","], /--format takes svg, png/);
 });
 
 test("no workspace is a usage error", async () => {
@@ -221,7 +224,7 @@ test("renderizr export --help reaches the export usage, and renderizr --help lis
 
 /* ---------------------------------------------------------------- loading */
 
-test("the build and edit mode load neither fontkit nor the export", async () => {
+test("the build and edit mode load neither fontkit, resvg nor the export", async () => {
     for (const args of [["--help"], ["edit", "--help"]]) {
         const { stdout } = await evalInChild(`
             import { registerHooks } from "node:module";
@@ -229,7 +232,7 @@ test("the build and edit mode load neither fontkit nor the export", async () => 
             registerHooks({
                 resolve(specifier, context, next) {
                     const resolved = next(specifier, context);
-                    if (/fontkit|scripts\\/export/.test(resolved.url)) seen.push(resolved.url);
+                    if (/fontkit|resvg|scripts\\/export/.test(resolved.url)) seen.push(resolved.url);
                     return resolved;
                 },
             });
@@ -380,8 +383,17 @@ const sink = () => {
     return stream;
 };
 
-/** `runExport` over `workspace` into `out`, offline, with `flags`. */
-async function exportOffline(workspace, out, flags = {}, extra = {}) {
+/**
+ * `runExport` over `workspace` into `out`, offline, with `flags`, answering
+ * fetches from `routes(families)` (Google Fonts by default).
+ */
+async function exportOffline(
+    workspace,
+    out,
+    flags = {},
+    extra = {},
+    routes = googleFonts,
+) {
     const families = [];
     const stdout = sink();
     const stderr = sink();
@@ -390,7 +402,7 @@ async function exportOffline(workspace, out, flags = {}, extra = {}) {
     const original = process.stdout.write;
     process.stdout.write = announced.write;
     try {
-        const code = await withFetch(googleFonts(families), () =>
+        const code = await withFetch(routes(families), () =>
             runExport(
                 {
                     workspaces: [workspace],
@@ -425,6 +437,99 @@ test("every view's SVG is written as <workspace>-<view key>.svg, and other files
             "notes.txt",
         ]);
         assert.equal(await readFile(join(out, "notes.txt"), "utf8"), "mine");
+    });
+});
+
+/** A PNG's width and height, from its header. */
+const pngHeader = (png) => {
+    assert.equal(
+        png.subarray(1, 4).toString("latin1"),
+        "PNG",
+        "the file is no PNG",
+    );
+    return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+};
+
+/** An SVG's own `width` and `height`. */
+const svgSize = (svg) => {
+    const [, width, height] =
+        /^<svg [^>]*?width="([\d.]+)" height="([\d.]+)"/.exec(svg);
+    return { width: Number(width), height: Number(height) };
+};
+
+test("each view's PNG is written beside its SVG, at the toolbar's PNG size", async () => {
+    const engine = await loadExportEngine();
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            { formats: ["svg", "png"] },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        const names = [
+            "export-workspace-auto-frame",
+            "export-workspace-containers",
+            "export-workspace-request",
+        ];
+        assert.deepEqual(
+            (await readdir(out)).sort(),
+            names.flatMap((name) => [`${name}.png`, `${name}.svg`]),
+        );
+        for (const name of names) {
+            const svg = await readFile(join(out, `${name}.svg`), "utf8");
+            const { width, height } = svgSize(svg);
+            assert.deepEqual(
+                pngHeader(await readFile(join(out, `${name}.png`))),
+                engine.pngSize(width, height),
+                name,
+            );
+            assert.match(
+                run.stdout,
+                new RegExp(`^Wrote .*${name}\\.png$`, "m"),
+            );
+        }
+    });
+});
+
+test("--format png writes only the PNGs", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            { formats: ["png"] },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        assert.deepEqual((await readdir(out)).sort(), [
+            "export-workspace-auto-frame.png",
+            "export-workspace-containers.png",
+            "export-workspace-request.png",
+        ]);
+    });
+});
+
+test("two runs write the same bytes, SVG and PNG", async () => {
+    await withTempDir(async (dir) => {
+        for (const run of ["first", "second"]) {
+            await exportOffline(
+                EXPORT_FIXTURE,
+                join(dir, run),
+                { font: "Arimo" },
+                { formats: ["svg", "png"] },
+            );
+        }
+        const names = (await readdir(join(dir, "first"))).sort();
+        assert.equal(names.length, 6);
+        assert.deepEqual((await readdir(join(dir, "second"))).sort(), names);
+        for (const name of names) {
+            assert.ok(
+                (await readFile(join(dir, "first", name))).equals(
+                    await readFile(join(dir, "second", name)),
+                ),
+                `${name} differs between the runs`,
+            );
+        }
     });
 });
 
@@ -668,8 +773,14 @@ test("--dark-scheme and --perspective write the plain, -dark, perspective and pe
             "perspectives-mailing-dark.svg",
             "perspectives-mailing.svg",
         ]);
-        // A view without the perspective is no failure and prints nothing.
-        assert.equal(run.stderr, "");
+        // A view without the perspective is no failure and prints nothing
+        // (the cut-down Arimo only warns about the glyphs it lacks).
+        assert.deepEqual(
+            run.stderr
+                .split("\n")
+                .filter((line) => line && !line.startsWith("warning: ")),
+            [],
+        );
     });
 });
 
@@ -780,5 +891,166 @@ test("the logo flags change nothing in the export", async () => {
                 `${name} changed with the logo flags`,
             );
         }
+    });
+});
+
+/* --------------------------------------------------------------- warnings */
+
+/** The lines of `text` that are warnings. */
+const warnings = (text) =>
+    text.split("\n").filter((line) => line.startsWith("warning: "));
+
+test("a view whose text the font lacks glyphs for warns once, writes its SVG and PNG, and exits 0", async () => {
+    await withTempDir(async (out) => {
+        // The cut-down Arimo has "AHg " and nothing else.
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            {
+                views: ["Containers"],
+                formats: ["svg", "png"],
+                schemes: ["light", "dark"],
+            },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        const lines = warnings(run.stderr);
+        assert.equal(lines.length, 1, run.stderr);
+        assert.match(
+            lines[0],
+            /^warning: view Containers of Export Workspace: Arimo has no glyph for (\S+ )+\S+, which draw in a system font\. Choose a family that has them with --font <family>\.$/,
+        );
+        assert.ok(!/glyph for [^,]*[AHg]/.test(lines[0]), lines[0]);
+        assert.deepEqual((await readdir(out)).sort(), [
+            "export-workspace-containers-dark.png",
+            "export-workspace-containers-dark.svg",
+            "export-workspace-containers.png",
+            "export-workspace-containers.svg",
+        ]);
+    });
+});
+
+test("the missing-glyph warning suggests the subset of the family that holds the characters", async () => {
+    await withTempDir(async (out) => {
+        // Google serves the family in a second subset whose range holds
+        // Latin letters too.
+        const withExtended = (families) => {
+            const routes = googleFonts(families);
+            const answer = routes.default;
+            return {
+                ...routes,
+                default: (url) => {
+                    const value = answer(url);
+                    if (value instanceof Error) return value;
+                    // The stub serves one face: close it with a range.
+                    const end = value.body.indexOf("}");
+                    return {
+                        body: `${value.body.slice(0, end)}  unicode-range: U+0000-0040;\n${value.body.slice(end)}/* latin-ext */\n@font-face {\n  font-family: 'Arimo';\n  font-style: normal;\n  font-weight: 400 700;\n  src: url(https://fonts.gstatic.com/s/stub/ext.woff2) format('woff2');\n  unicode-range: U+0000-024F;\n}\n`,
+                    };
+                },
+            };
+        };
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            { views: ["Containers"] },
+            withExtended,
+        );
+        assert.equal(run.code, 0, run.stderr);
+        assert.match(
+            warnings(run.stderr)[0],
+            / Add --font-subsets latin,latin-ext to fetch them\.$/,
+        );
+    });
+});
+
+test("a family a Mermaid source names falls back to the run's font and warns once per view", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            MERMAID_STYLES,
+            out,
+            {},
+            { views: ["fonts", "silent"], schemes: ["light", "dark"] },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        const fonts = warnings(run.stderr).filter((line) =>
+            line.includes("cannot load"),
+        );
+        assert.equal(fonts.length, 1, run.stderr);
+        assert.match(
+            fonts[0],
+            /^warning: view fonts of Mermaid styles: the export cannot load .+, so the text measures and draws in Arimo\.$/,
+        );
+    });
+});
+
+test("a run offline with a cold cache fails with a message naming the font and Google Fonts", async () => {
+    const offline = () => ({
+        default: () =>
+            new TypeError("fetch failed", {
+                cause: Object.assign(new Error("getaddrinfo ENOTFOUND"), {
+                    code: "ENOTFOUND",
+                }),
+            }),
+    });
+    await withTempDir(async (out) => {
+        await assert.rejects(
+            exportOffline(EXPORT_FIXTURE, out, {}, {}, offline),
+            /^Error: renderizr export measures the text in Arimo when no font is set, and fetches it from Google Fonts, and could not reach it \(ENOTFOUND\)\./,
+        );
+        await assert.rejects(
+            exportOffline(EXPORT_FIXTURE, out, { font: "Inter" }, {}, offline),
+            /^Error: renderizr export fetches the font Inter from Google Fonts, and could not reach it/,
+        );
+        assert.deepEqual(await readdir(out), []);
+    });
+});
+
+test("an icon whose download failed keeps its URL, warns once and fails no view", async () => {
+    await withTempDir(async (dir) => {
+        const ICON = "https://icons.example/system.png";
+        const workspace = JSON.parse(await readFile(EXPORT_FIXTURE, "utf8"));
+        for (const style of workspace.views.configuration.styles.elements) {
+            if (style.icon) style.icon = ICON;
+        }
+        const source = join(dir, "export.json");
+        await writeFile(source, JSON.stringify(workspace));
+        const out = join(dir, "out");
+        // The build's warning goes to the process's own stderr.
+        const warned = sink();
+        const original = process.stderr.write;
+        process.stderr.write = warned.write;
+        let run;
+        try {
+            run = await exportOffline(
+                source,
+                out,
+                {},
+                { views: ["Containers"], formats: ["svg", "png"] },
+                (families) => ({
+                    ...googleFonts(families),
+                    [ICON]: { ok: false },
+                }),
+            );
+        } finally {
+            process.stderr.write = original;
+        }
+        assert.equal(run.code, 0, run.stderr);
+        assert.equal(
+            warned.text.match(/could not inline/g)?.length,
+            1,
+            warned.text,
+        );
+        assert.ok(warned.text.includes(`could not inline ${ICON}`));
+        const svg = await readFile(
+            join(out, "export-workspace-containers.svg"),
+            "utf8",
+        );
+        assert.ok(svg.includes(`href="${ICON}"`), "the icon lost its URL");
+        assert.deepEqual((await readdir(out)).sort(), [
+            "export-workspace-containers.png",
+            "export-workspace-containers.svg",
+        ]);
     });
 });

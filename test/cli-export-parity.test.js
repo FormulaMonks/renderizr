@@ -8,6 +8,11 @@
  * outside the text, which may differ by 0.1 px: fontkit's widths land a
  * few hundredths of a pixel from Chrome's `measureText`.
  *
+ * The PNG resvg draws in Node against the toolbar's PNG of the same view:
+ * the same size exactly, under 1% of the pixels apart, bold text drawn
+ * bold inside the bold lines' boxes, and every color in the SVG one resvg
+ * reads as Chrome does (resvg draws a color it cannot read black).
+ *
  * Each fixture is built once per font as a single file with the engine
  * report on, whose `renderizrExportView` hook hands out the toolbar's
  * export. Both sides fetch the font from Google Fonts through the shared
@@ -26,9 +31,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
+import { Resvg } from "@resvg/resvg-js";
+import { PNG } from "pngjs";
+import { loadFont } from "../scripts/assets.js";
 import { NO_BRANDING_FLAGS } from "../scripts/branding.js";
 import { REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
-import { runExport } from "../scripts/export.js";
+import { exportFont, runExport } from "../scripts/export.js";
+import { rasterize } from "../scripts/export-raster.js";
 import { exportFileName } from "../src/components/export-name.js";
 import {
     BROWSERS,
@@ -141,11 +150,225 @@ test("the comparison allows 0.1 px outside the text and nothing else", () => {
     assert.match(svgDifference(svg(10, "1.0"), svg(10, "1.05")), /text line/);
 });
 
+/* ----------------------------------------------------------------- PNG */
+
+/** The most pixels two PNGs of one view may have apart. */
+const PIXELS_APART = 0.01;
+
+/**
+ * The share of pixels, inside `mask` when given, whose colors differ by
+ * more than a little, each composited over white so translucent edges
+ * compare as drawn. Null when the sizes differ.
+ */
+function pixelsApart(a, b, mask) {
+    if (a.width !== b.width || a.height !== b.height) return null;
+    let apart = 0;
+    let total = 0;
+    for (let i = 0; i < a.data.length; i += 4) {
+        if (mask && !mask[i / 4]) continue;
+        total++;
+        let difference = 0;
+        for (let c = 0; c < 3; c++) {
+            const over = (png) =>
+                (png.data[i + c] * png.data[i + 3]) / 255 +
+                255 -
+                png.data[i + 3];
+            difference += Math.abs(over(a) - over(b));
+        }
+        if (difference > 48) apart++;
+    }
+    return total ? apart / total : 0;
+}
+
+/** Each `<text>` drawn bold in `svg`, with where it stands. */
+const boldLines = (svg) =>
+    [...withoutStyle(svg).matchAll(/<text([^>]*)>([^<]*)<\/text>/g)]
+        .filter(([, attributes]) => /font-weight="bold"/.test(attributes))
+        .map(([, attributes, content]) => {
+            const read = (name) =>
+                new RegExp(` ${name}="([^"]*)"`).exec(attributes)?.[1];
+            return {
+                x: Number(read("x")),
+                y: Number(read("y")),
+                size: Number(read("font-size")),
+                anchor: read("text-anchor") ?? "start",
+                content,
+            };
+        });
+
+/**
+ * The PNG pixels the bold lines of `svg` cover, drawn at `size`, or null
+ * when it has none. Each line's box is a little wider than any face draws
+ * it, as the test measures no text.
+ */
+function boldMask(svg, size) {
+    const lines = boldLines(svg);
+    if (!lines.length) return null;
+    const [vx, vy, vw, vh] = /viewBox="([^"]+)"/
+        .exec(svg)[1]
+        .split(" ")
+        .map(Number);
+    const sx = size.width / vw;
+    const sy = size.height / vh;
+    const mask = new Uint8Array(size.width * size.height);
+    for (const line of lines) {
+        const width = line.content.length * line.size * 0.65;
+        const left =
+            line.anchor === "middle"
+                ? line.x - width / 2
+                : line.anchor === "end"
+                  ? line.x - width
+                  : line.x;
+        const x0 = Math.max(0, Math.floor((left - vx) * sx));
+        const x1 = Math.min(size.width, Math.ceil((left + width - vx) * sx));
+        const y0 = Math.max(0, Math.floor((line.y - line.size - vy) * sy));
+        const y1 = Math.min(
+            size.height,
+            Math.ceil((line.y + line.size * 0.3 - vy) * sy),
+        );
+        for (let y = y0; y < y1; y++)
+            mask.fill(1, y * size.width + x0, y * size.width + x1);
+    }
+    return mask;
+}
+
+/** `svg` with every bold line drawn at the regular weight. */
+const unbold = (svg) =>
+    svg.replace(/ font-weight="bold"/g, ' font-weight="400"');
+
+/** The attributes and style properties that hold a color. */
+const COLOR_ATTRIBUTE =
+    /(?:^|[\s;"])(fill|stroke|stop-color|flood-color|lighting-color|color)(?:="([^"]*)"|:\s*([^;"]+))/g;
+
+/** What a color attribute may hold that is no color to read. */
+const NOT_A_COLOR = /^(?:none|currentcolor|inherit|url\(.*\))$/i;
+
+/**
+ * Every distinct color `svg` draws with, the SVGs inside its `data:` URLs
+ * included, which resvg reads with the same parser.
+ */
+function colorsOf(svg) {
+    const colors = new Set();
+    const scan = (text) => {
+        for (const [, , attribute, property] of text.matchAll(
+            COLOR_ATTRIBUTE,
+        )) {
+            const value = (attribute ?? property).trim();
+            if (value && !NOT_A_COLOR.test(value)) colors.add(value);
+        }
+        for (const [, data] of text.matchAll(
+            /href="data:image\/svg\+xml,([^"]*)"/g,
+        ))
+            scan(decodeURIComponent(data));
+        for (const [, data] of text.matchAll(
+            /href="data:image\/svg\+xml;base64,([^"]*)"/g,
+        ))
+            scan(Buffer.from(data, "base64").toString("utf8"));
+    };
+    scan(withoutStyle(svg).replace(/&quot;/g, '"'));
+    return [...colors].sort();
+}
+
+/** Each of `colors` as resvg draws it, `[r, g, b]` over white. */
+function resvgColors(colors) {
+    const rects = colors
+        .map(
+            (color, x) =>
+                `<rect x="${x}" width="1" height="1" fill="${color.replace(/"/g, "&quot;")}"/>`,
+        )
+        .join("");
+    const { pixels } = new Resvg(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${colors.length}" height="1">${rects}</svg>`,
+    ).render();
+    // resvg's pixels are premultiplied.
+    return colors.map((_, x) => {
+        const [r, g, b, a] = pixels.subarray(x * 4, x * 4 + 4);
+        return [r, g, b].map((c) => c + 255 - a);
+    });
+}
+
+/** Each of `colors` as Chrome reads it, `[r, g, b]` over white, null for one it cannot. */
+const chromeColors = (page, colors) =>
+    page.evaluate(`(() => {
+        const context = document.createElement("canvas").getContext("2d");
+        return ${JSON.stringify(colors)}.map((color) => {
+            context.clearRect(0, 0, 1, 1);
+            context.fillStyle = "#010203";
+            context.fillStyle = color;
+            if (context.fillStyle === "#010203" && !/^#010203$/i.test(color)) return null;
+            context.fillRect(0, 0, 1, 1);
+            const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+            return [r, g, b].map((c) => Math.round((c * a) / 255 + 255 - a));
+        });
+    })()`);
+
+/** The colors of `colors` resvg draws other than Chrome, each with both readings. */
+async function unreadColors(page, colors) {
+    if (!colors.length) return [];
+    const chrome = await chromeColors(page, colors);
+    const resvg = resvgColors(colors);
+    return colors
+        .map((color, i) => ({ color, chrome: chrome[i], resvg: resvg[i] }))
+        .filter(
+            ({ chrome, resvg }) =>
+                chrome && resvg.some((c, at) => Math.abs(c - chrome[at]) > 3),
+        )
+        .map(
+            ({ color, chrome, resvg }) =>
+                `${color} reads rgb(${resvg}) in resvg, rgb(${chrome}) in Chrome`,
+        );
+}
+
+test("the PNG comparison counts the pixels apart, inside a mask when given", () => {
+    const png = (pixels) => ({
+        width: pixels.length,
+        height: 1,
+        data: Buffer.from(pixels.flat()),
+    });
+    const white = [255, 255, 255, 255];
+    const black = [0, 0, 0, 255];
+    const clear = [0, 0, 0, 0];
+    assert.equal(pixelsApart(png([white, black]), png([white, black])), 0);
+    assert.equal(pixelsApart(png([white, black]), png([white, white])), 0.5);
+    assert.equal(pixelsApart(png([white, clear]), png([white, white])), 0);
+    assert.equal(
+        pixelsApart(png([white, black]), png([white, white]), [1, 0]),
+        0,
+    );
+    assert.equal(pixelsApart(png([white]), png([white, white])), null);
+});
+
+test("the color check finds every color in the SVG and reads it as resvg does", () => {
+    const glyph = encodeURIComponent('<svg><path fill="#00ff00"/></svg>');
+    assert.deepEqual(
+        colorsOf(
+            `<svg><style>.a{fill:hsl(1.5, 50%, 50%)}</style><rect fill="#ff0000" stroke="none"/><path style="stroke: rgb(0 0 255)" fill="url(#g)"/><image href="data:image/svg+xml,${glyph}"/></svg>`,
+        ),
+        ["#00ff00", "#ff0000", "rgb(0 0 255)"],
+    );
+    assert.deepEqual(resvgColors(["#ff0000", "rgba(0, 0, 0, 0.5)"]), [
+        [255, 0, 0],
+        [128, 128, 128],
+    ]);
+    // A color resvg cannot read draws black.
+    assert.deepEqual(resvgColors(["oklch(1 0 0)"]), [[0, 0, 0]]);
+});
+
+test("the bold mask covers each bold line and nothing when there is none", () => {
+    const svg = `<svg viewBox="0 0 100 50"><text x="50" y="30" font-size="10" text-anchor="middle" font-weight="bold">AB</text></svg>`;
+    const mask = boldMask(svg, { width: 200, height: 100 });
+    // Twice the size: the line's box spans 87 to 113 across, 40 to 66 down.
+    assert.equal(mask[50 * 200 + 100], 1);
+    assert.equal(mask[50 * 200 + 10], 0);
+    assert.equal(mask[90 * 200 + 100], 0);
+    assert.equal(boldMask(unbold(svg), { width: 200, height: 100 }), null);
+});
+
 /* --------------------------------------------------------------- sides */
 
 /**
- * The toolbar's SVG of view `key` in `scheme` under `perspective` (none
- * when null), from the single file in `site`.
+ * The toolbar's SVG and PNG of view `key` in `scheme` under `perspective`
+ * (none when null), from the single file in `site`, the PNG decoded.
  */
 async function toolbarSvg(browser, site, key, scheme, perspective) {
     const page = await browser.open(
@@ -168,10 +391,17 @@ async function toolbarSvg(browser, site, key, scheme, perspective) {
         `document.documentElement.dataset.theme === "${scheme}" && document.querySelector('[data-ready="true"][data-view-key=${JSON.stringify(key)}]') && typeof window.renderizrExportView === "function"`,
     );
     await page.settle();
-    return page.evaluate(`(async () => {
+    const { svg, png } = await page.evaluate(`(async () => {
         await document.fonts.ready;
-        return (await window.renderizrExportView("svg")).text();
+        const svg = await (await window.renderizrExportView("svg")).text();
+        const png = await window.renderizrExportView("png");
+        const bytes = new Uint8Array(await png.arrayBuffer());
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 0x8000)
+            binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        return { svg, png: btoa(binary) };
     })()`);
+    return { svg, png: PNG.sync.read(Buffer.from(png, "base64")) };
 }
 
 /** Build `fixture` with `font` for Chrome, and export it in Node. */
@@ -196,7 +426,7 @@ async function bothSides(fixture, font, now) {
         {
             workspaces: [source],
             out: join(dir, "node"),
-            formats: ["svg"],
+            formats: ["svg", "png"],
             schemes: SCHEMES,
             perspectives: PERSPECTIVES[fixture] ?? [],
             branding: { ...NO_BRANDING_FLAGS, font },
@@ -208,7 +438,63 @@ async function bothSides(fixture, font, now) {
     return { dir, workspace };
 }
 
-test("the CLI's SVG matches the toolbar's for every view kind, scheme, perspective and font", {
+/** The family and TTF files the run draws `font`'s PNGs with. */
+async function rasterFont(font) {
+    const chosen = exportFont({
+        flags: { ...NO_BRANDING_FLAGS, font },
+        workspace: {},
+        source: null,
+        cwd: REPO_ROOT,
+    });
+    const loaded = await loadFont(chosen.font, {
+        cwd: REPO_ROOT,
+        announce: false,
+    });
+    return {
+        family: loaded.family,
+        files: loaded.faces.map((face) => face.file),
+    };
+}
+
+/**
+ * Why the PNG Node drew from `svg` is not the toolbar's `chrome`, each
+ * reason one line: a size apart, too many pixels apart, bold text drawn
+ * regular, or a color resvg reads other than Chrome.
+ */
+async function pngDifferences({ chrome, svg, png, raster, colorPage }) {
+    const differences = [];
+    if (png.width !== chrome.width || png.height !== chrome.height) {
+        differences.push(
+            `PNG ${png.width}x${png.height} in Node, ${chrome.width}x${chrome.height} in Chrome`,
+        );
+        return differences;
+    }
+    const apart = pixelsApart(chrome, png);
+    if (apart > PIXELS_APART)
+        differences.push(
+            `${(apart * 100).toFixed(2)}% of the PNG's pixels apart`,
+        );
+    const mask = boldMask(svg, png);
+    if (mask) {
+        const bold = pixelsApart(chrome, png, mask);
+        const regular = pixelsApart(
+            chrome,
+            PNG.sync.read(await rasterize(unbold(svg), png, raster)),
+            mask,
+        );
+        // Drawn bold, the bold lines sit well nearer Chrome's than drawn
+        // regular, about half as far apart: a variable face drawn at its
+        // default weight would sit as far apart either way.
+        if (!(bold < (regular * 2) / 3))
+            differences.push(
+                `bold text drawn regular: ${(bold * 100).toFixed(1)}% apart bold, ${(regular * 100).toFixed(1)}% regular`,
+            );
+    }
+    differences.push(...(await unreadColors(colorPage, colorsOf(svg))));
+    return differences;
+}
+
+test("the CLI's SVG and PNG match the toolbar's for every view kind, scheme, perspective and font", {
     skip: NO_CHROME,
 }, async () => {
     const now = new Date();
@@ -220,6 +506,11 @@ test("the CLI's SVG matches the toolbar's for every view kind, scheme, perspecti
     const sides = await mapLimit(cases, BROWSERS, ({ fixture, font }) =>
         bothSides(fixture, font, now),
     );
+    const rasters = Object.fromEntries(
+        await Promise.all(
+            FONTS.map(async (font) => [font, await rasterFont(font)]),
+        ),
+    );
     const results = await mapLimit(
         cases,
         BROWSERS,
@@ -228,6 +519,7 @@ test("the CLI's SVG matches the toolbar's for every view kind, scheme, perspecti
             const browser = await openBrowser(CHROME, {
                 extraFlags: [`--lang=${LOCALE}`],
             });
+            const colorPage = await browser.open("about:blank");
             const failures = [];
             let compared = 0;
             try {
@@ -261,11 +553,21 @@ test("the CLI's SVG matches the toolbar's for every view kind, scheme, perspecti
                             // in a fresh tab.
                             const chrome = await toolbar().catch(toolbar);
                             compared++;
-                            const difference = svgDifference(chrome, node);
+                            const where = `${fixture} ${font} ${key} ${perspective ?? "-"} ${scheme}`;
+                            const difference = svgDifference(chrome.svg, node);
                             if (difference)
-                                failures.push(
-                                    `${fixture} ${font} ${key} ${perspective ?? "-"} ${scheme}: ${difference}`,
-                                );
+                                failures.push(`${where}: ${difference}`);
+                            const png = PNG.sync.read(
+                                await readFile(file.replace(/\.svg$/, ".png")),
+                            );
+                            for (const reason of await pngDifferences({
+                                chrome: chrome.png,
+                                svg: node,
+                                png,
+                                raster: rasters[font],
+                                colorPage,
+                            }))
+                                failures.push(`${where}: ${reason}`);
                         }
                     }
                 }
