@@ -16,6 +16,7 @@ const { buildGraph } = await importSrc("engine/react-flow/graph");
 const { stepStateOf } = await importSrc("engine/react-flow/animation");
 const { estimateText } = await importSrc("engine/geometry/boundary");
 const { exportFrame } = await importSrc("engine/geometry/canvas");
+const { rgbColors } = await importSrc("engine/geometry/color");
 const { exportSvg, TITLE_BLOCK_DESCRIPTION_LINES, TITLE_BLOCK_FONT_SIZE } =
     await importSrc("engine/react-flow/export-svg");
 const { MAX_PIXELS, declaresFamily, modifiedDate, pngSize, titleBlockText } =
@@ -155,6 +156,111 @@ describe("export-svg", () => {
                 assert.equal(fill, graph.color, "its text is the scheme's");
             }
         }
+    });
+
+    /* ------------------------------------------------------------- colors */
+
+    test("rgbColors writes every hsl() as hex, or rgba() when it is translucent", () => {
+        const cases = [
+            ["hsl(0, 100%, 50%)", "#ff0000"],
+            ["hsl(212.9411764706, 100%, 95%)", "#e6f1ff"],
+            ["hsl(-120, 100%, 50%)", "#0000ff"],
+            ["hsl(480deg, 100%, 50%)", "#00ff00"],
+            ["hsl(120deg 100% 25%)", "#008000"],
+            ["hsl(0.5turn, 100%, 50%)", "#00ffff"],
+            ["HSL(0, 0%, 34.4117647059%)", "#585858"],
+            ["hsla(0, 100%, 50%, 0.5)", "rgba(255, 0, 0, 0.5)"],
+            ["hsl(0 100% 50% / 25%)", "rgba(255, 0, 0, 0.25)"],
+            ["hsla(0, 100%, 50%, 1)", "#ff0000"],
+            ["#123456", "#123456"],
+            ["rgb(1, 2, 3)", "rgb(1, 2, 3)"],
+            ["none", "none"],
+            [
+                "fill:hsl(0, 100%, 50%);stroke:hsl(240, 100%, 50%)",
+                "fill:#ff0000;stroke:#0000ff",
+            ],
+        ];
+        for (const [color, expected] of cases)
+            assert.equal(rgbColors(color), expected, color);
+    });
+
+    test("the SVG writes no hsl() for any view kind in either scheme", async () => {
+        const { readMermaidDiagrams } = await import(
+            "../scripts/mermaid/index.js"
+        );
+        const fixtures = [
+            "export",
+            "view-types",
+            "perspectives",
+            "animation",
+            "mermaid-flowchart",
+            "mermaid-erd",
+            "mermaid-sequence",
+            "mermaid-styles",
+        ];
+        let hadHsl = 0;
+        for (const fixture of fixtures) {
+            const json = JSON.parse(
+                readFileSync(
+                    new URL(`./__fixtures__/${fixture}.json`, import.meta.url),
+                    "utf-8",
+                ),
+            );
+            readMermaidDiagrams(json);
+            hadHsl += JSON.stringify(json).match(/hsla?\(/gi)?.length ?? 0;
+            const model = new WorkspaceModel(json);
+            for (const view of model.getViews()) {
+                for (const scheme of ["light", "dark"]) {
+                    const graph = buildGraph(
+                        model,
+                        view.key,
+                        scheme,
+                        LABELS,
+                        estimateText,
+                    );
+                    const { svg } = exportSvg({
+                        graph,
+                        frame: exportFrame(undefined, graph.bounds),
+                        titleBlock: TITLE_BLOCK,
+                        text: TEXT,
+                    });
+                    // A glyph's color sits inside a percent-encoded URL.
+                    assert.doesNotMatch(
+                        svg,
+                        /hsla?(?:\(|%28)/i,
+                        `${fixture} ${view.key} ${scheme}`,
+                    );
+                }
+            }
+        }
+        assert.ok(hadHsl > 0, "some fixture should carry an hsl() color");
+    });
+
+    test("an indicator glyph in an hsl() color draws in hex", () => {
+        const graph = buildGraph(
+            new WorkspaceModel(WORKSPACE),
+            "AutoFrame",
+            "light",
+            LABELS,
+            estimateText,
+        );
+        for (const element of graph.elements)
+            element.color = "hsl(0, 100%, 50%)";
+        const { svg } = exportSvg({
+            graph,
+            frame: exportFrame(undefined, graph.bounds),
+            titleBlock: TITLE_BLOCK,
+            text: TEXT,
+        });
+        const glyphs = [
+            ...svg.matchAll(/<image href="data:image\/svg\+xml,([^"]+)"/g),
+        ].map(([, glyph]) => decodeURIComponent(glyph));
+        assert.ok(glyphs.length > 0, "the system draws its glyphs");
+        for (const glyph of glyphs) {
+            assert.doesNotMatch(glyph, /hsl\(/);
+            assert.match(glyph, /#ff0000/);
+        }
+        assert.doesNotMatch(svg, /hsl\(/);
     });
 
     /* ---------------------------------------------------------- animation */

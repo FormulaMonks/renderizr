@@ -19,6 +19,7 @@ import type { TargetKind } from "../../model";
 import type { Bounds } from "../geometry/bounds";
 import type { MeasureText, TextBlock } from "../geometry/boundary";
 import { wrapLines } from "../geometry/boundary";
+import { rgbColors } from "../geometry/color";
 import { EDGE_LABEL_PADDING, TECHNOLOGY_GAP } from "../geometry/edge-label";
 import {
     glyphDataUrl,
@@ -99,15 +100,22 @@ export type ExportedSvg = { svg: string; width: number; height: number };
  */
 const svgNumber = (value: number) => String(Math.round(value * 100) / 100);
 
+/** An attribute's text: a number as `svgNumber`, a color never as `hsl()`. */
+const attrValue = (key: string, value: string | number) =>
+    typeof value === "number"
+        ? svgNumber(value)
+        : // An `href` is an icon's `data:` URL, which stays as its author wrote it.
+          key === "href"
+          ? value
+          : rgbColors(value);
+
 /** SVG attributes from a record, dropping the undefined ones. */
 const attrs = (record: Record<string, string | number | undefined>) =>
     Object.entries(record)
         .flatMap(([key, value]) =>
             value === undefined
                 ? []
-                : [
-                      `${key}="${escapeXml(typeof value === "number" ? svgNumber(value) : value)}"`,
-                  ],
+                : [`${key}="${escapeXml(attrValue(key, value))}"`],
         )
         .join(" ");
 
@@ -231,7 +239,7 @@ function indicatorRow(
 ): string {
     return indicatorKinds(targets)
         .map((kind, index) =>
-            image(glyphDataUrl(kind, color), {
+            image(glyphDataUrl(kind, rgbColors(color)), {
                 x: x + index * (INDICATOR_SIZE + INDICATOR_GAP),
                 y,
                 width: INDICATOR_SIZE,

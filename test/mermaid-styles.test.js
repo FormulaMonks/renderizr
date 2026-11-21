@@ -22,6 +22,7 @@ const { buildGraph } = await importSrc("engine/react-flow/graph");
 const { estimateText } = await importSrc("engine/geometry/boundary");
 const { exportSvg } = await importSrc("engine/react-flow/export-svg");
 const { exportFrame } = await importSrc("engine/geometry/canvas");
+const { rgbColors } = await importSrc("engine/geometry/color");
 const { diagramFontFamily } = await importSrc("engine/react-flow/fonts");
 
 const LABELS = { descriptions: true, technologies: true };
@@ -436,7 +437,8 @@ test("the styled fixture draws its style, classDef and linkStyle colors over the
     assert.match(svg, /#c0392b/);
     const labelled = graph.edges.find((e) => e.labelBackground);
     assert.ok(labelled, "a palette backs its edge labels");
-    assert.ok(svg.includes(`fill="${labelled.labelBackground}"`));
+    // The palette's math writes hsl(), which the export writes as hex.
+    assert.ok(svg.includes(`fill="${rgbColors(labelled.labelBackground)}"`));
 });
 
 test("a node's own font exports with it", () => {

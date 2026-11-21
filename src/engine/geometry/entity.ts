@@ -14,6 +14,7 @@
 import type { MermaidAttribute } from "../../model/index";
 import type { MeasureText } from "./boundary";
 import type { Size } from "./bounds";
+import { hslToRgb, type Rgb, toHex } from "./color";
 import { LINE_HEIGHT, NAME_SCALE } from "./label";
 
 /** The space either side of a cell's text. */
@@ -317,8 +318,6 @@ export function layOutEntity(
 
 /* ---------------- colors */
 
-type Rgb = [number, number, number];
-
 /** A color's channels from hex, `rgb()` or `hsl()`; `undefined` for any other. */
 export function parseColor(color: string): Rgb | undefined {
     const value = color.trim().toLowerCase();
@@ -335,39 +334,16 @@ export function parseColor(color: string): Rgb | undefined {
     if (rgb) return [rgb[1], rgb[2], rgb[3]].map(Number) as Rgb;
     const hsl =
         /^hsla?\(\s*([\d.]+)(?:deg)?[\s,]+([\d.]+)%[\s,]+([\d.]+)%/.exec(value);
-    if (hsl) {
-        const h = Number(hsl[1]) / 360;
-        const s = Number(hsl[2]) / 100;
-        const l = Number(hsl[3]) / 100;
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        const channel = (t: number) => {
-            const k = (t + 1) % 1;
-            const v =
-                k < 1 / 6
-                    ? p + (q - p) * 6 * k
-                    : k < 1 / 2
-                      ? q
-                      : k < 2 / 3
-                        ? p + (q - p) * (2 / 3 - k) * 6
-                        : p;
-            return Math.round(v * 255);
-        };
-        return [channel(h + 1 / 3), channel(h), channel(h - 1 / 3)];
-    }
+    if (hsl)
+        return hslToRgb(
+            Number(hsl[1]),
+            Number(hsl[2]) / 100,
+            Number(hsl[3]) / 100,
+        );
     if (value === "white") return [255, 255, 255];
     if (value === "black") return [0, 0, 0];
     return undefined;
 }
-
-const toHex = (rgb: Rgb) =>
-    `#${rgb
-        .map((c) =>
-            Math.round(Math.min(255, Math.max(0, c)))
-                .toString(16)
-                .padStart(2, "0"),
-        )
-        .join("")}`;
 
 /** `share` of `color` mixed into `base`, as `color-mix(in srgb, …)` does. */
 const mix = (color: Rgb, share: number, base: Rgb): string =>
