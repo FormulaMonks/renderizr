@@ -163,3 +163,7 @@ test("other font errors pass as they are", () => {
         null,
     );
 });
+
+test("drawnText strips tags left behind by stripping a broken tag", () => {
+    assert.equal(drawnText("<svg><text>a<sc<b>ript>b</text></svg>"), "ab");
+});

@@ -26,8 +26,21 @@ const decodeXml = (text) =>
  */
 export const drawnText = (svg) =>
     [...svg.matchAll(/<text\b[^>]*>([\s\S]*?)<\/text>/g)]
-        .map(([, content]) => decodeXml(content.replace(/<[^>]*>/g, "")))
+        .map(([, content]) => decodeXml(withoutTags(content)))
         .join("\n");
+
+/**
+ * `markup` with every tag removed, stripping again until none is left, so
+ * tags nested inside a broken tag (`<sc<b>ript>`) go too.
+ */
+function withoutTags(markup) {
+    let text = markup;
+    for (;;) {
+        const stripped = text.replace(/<[^<>]*>/g, "");
+        if (stripped === text) return text;
+        text = stripped;
+    }
+}
 
 /** The family names a CSS `font-family` list holds, unquoted, in order. */
 const familyNames = (list) =>

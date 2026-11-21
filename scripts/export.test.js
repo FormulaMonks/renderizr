@@ -942,8 +942,10 @@ test("the missing-glyph warning suggests the subset of the family that holds the
                 default: (url) => {
                     const value = answer(url);
                     if (value instanceof Error) return value;
+                    // The stub serves one face: close it with a range.
+                    const end = value.body.indexOf("}");
                     return {
-                        body: `${value.body.replace("}", "  unicode-range: U+0000-0040;\n}")}/* latin-ext */\n@font-face {\n  font-family: 'Arimo';\n  font-style: normal;\n  font-weight: 400 700;\n  src: url(https://fonts.gstatic.com/s/stub/ext.woff2) format('woff2');\n  unicode-range: U+0000-024F;\n}\n`,
+                        body: `${value.body.slice(0, end)}  unicode-range: U+0000-0040;\n${value.body.slice(end)}/* latin-ext */\n@font-face {\n  font-family: 'Arimo';\n  font-style: normal;\n  font-weight: 400 700;\n  src: url(https://fonts.gstatic.com/s/stub/ext.woff2) format('woff2');\n  unicode-range: U+0000-024F;\n}\n`,
                     };
                 },
             };
