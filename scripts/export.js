@@ -26,7 +26,15 @@ import { chooseBranding } from "./branding.js";
 import { version } from "./config.js";
 import { loadExportEngine } from "./export-engine.js";
 import { rasterize } from "./export-raster.js";
-import { exportText } from "./export-text.js";
+import { exportText, glyphCoverage } from "./export-text.js";
+import {
+    drawnText,
+    familyWarning,
+    glyphWarning,
+    offlineError,
+    prose,
+    unloadableFamilies,
+} from "./export-warnings.js";
 import { exportUsage } from "./cli.js";
 import { setMemberOf } from "./plugins.js";
 import { loadSet, writeSetMessages } from "./workspace-set.js";
@@ -75,17 +83,25 @@ export function exportFont({
  * Each format the export writes, as the file's contents from the
  * serializer's export (`{ svg, width, height }`). The second argument
  * carries the run's loaded font, whose static `faces` a raster draws with,
- * and the third the bundled engine.
+ * the third the bundled engine, and the fourth whether the text holds
+ * characters those faces lack (`missingGlyphs`).
  *
  * The PNG is the toolbar's size, twice the export's under its pixel cap
- * (`pngSize`), drawn by resvg from the same SVG in the same faces.
+ * (`pngSize`), drawn by resvg from the same SVG in the same faces, and the
+ * missing glyphs from the system fonts.
  */
 export const WRITERS = {
     svg: ({ svg }) => svg,
-    png: ({ svg, width, height }, loaded, engine) =>
+    png: (
+        { svg, width, height },
+        loaded,
+        engine,
+        { missingGlyphs = false } = {},
+    ) =>
         rasterize(svg, engine.pngSize(width, height), {
             family: loaded.family,
             files: loaded.faces.map((face) => face.file),
+            systemFonts: missingGlyphs,
         }),
 };
 
@@ -110,12 +126,6 @@ export const exportJobs = (
                 })),
             ),
         );
-
-/** `items` joined as prose: `A`, `A and B`, `A, B and C`. */
-const prose = (items) =>
-    items.length < 2
-        ? items.join("")
-        : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 
 /**
  * Each workspace of `set` as the run exports it: the landscape scoped
@@ -149,7 +159,10 @@ function setMembers(set) {
  * when set. Resolve with the exit status: 1 when any view failed or a key
  * in `options.views` names no view of any workspace (then nothing is
  * written), else 0. Each view that cannot be exported prints one line, a
- * failure on `stderr` with its view key. A file the run writes replaces the
+ * failure on `stderr` with its view key. A view whose text holds characters
+ * the font lacks, or names a family the run cannot load, warns once on
+ * `stderr` and still writes its files. A font the run cannot fetch (offline
+ * with a cold cache) rejects with a message that names it. A file the run writes replaces the
  * one of the same name; nothing else in the folder changes. `now` is the
  * date the title block falls back to.
  */
@@ -209,59 +222,93 @@ export async function runExport(
                     async (loaded) => ({
                         loaded,
                         text: await exportText(loaded, { embed }),
+                        lacks: await glyphCoverage(loaded.faces),
                     }),
+                    (error) => {
+                        throw (
+                            offlineError(font, error, { standIn: !embed }) ??
+                            error
+                        );
+                    },
                 ),
             );
         }
-        const { loaded, text } = await fonts.get(fontKey);
+        const { loaded, text, lacks } = await fonts.get(fontKey);
         engine.setMermaidPrimaryColor(primaryColor);
 
-        // Each view without an export says so once, whatever its jobs.
-        const skipped = new Set();
-        for (const job of exportJobs(engine.exportableViews(model), options)) {
-            const label = inSet ? `${job.key} (${workspace.name})` : job.key;
-            try {
-                const result = engine.exportView(model, workspace, job.key, {
-                    scheme: job.scheme,
-                    perspective: job.perspective,
-                    text,
-                    built: now.toISOString(),
-                    version,
-                });
-                if (result.kind !== "svg") {
-                    if (!skipped.has(job.key)) {
-                        skipped.add(job.key);
+        const jobs = Map.groupBy(
+            exportJobs(engine.exportableViews(model), options),
+            (job) => job.key,
+        );
+        for (const [key, viewJobs] of jobs) {
+            const label = inSet ? `${key} (${workspace.name})` : key;
+            // Each warning names the view once, whatever its jobs.
+            const missing = new Set();
+            const families = new Set();
+            for (const job of viewJobs) {
+                try {
+                    const result = engine.exportView(model, workspace, key, {
+                        scheme: job.scheme,
+                        perspective: job.perspective,
+                        text,
+                        built: now.toISOString(),
+                        version,
+                    });
+                    // A view without an export says so once.
+                    if (result.kind !== "svg") {
                         stderr.write(
                             `Skipped ${label}: ${result.kind === "image" ? "an image view has no export" : result.message}\n`,
                         );
+                        break;
                     }
-                    continue;
+                    // The view carries none of the perspective: the plain
+                    // export already shows it.
+                    if (job.perspective !== null && result.perspective === null)
+                        continue;
+                    const { svg } = result.exported;
+                    const lacking = lacks(drawnText(svg));
+                    for (const character of lacking) missing.add(character);
+                    for (const name of unloadableFamilies(svg, {
+                        family: loaded.family,
+                        standIn: !embed,
+                    }))
+                        families.add(name);
+                    for (const format of options.formats) {
+                        const name = exportFileName({
+                            workspace: workspace.name ?? "",
+                            view: key,
+                            perspective: result.perspective,
+                            step: null,
+                            scheme: job.scheme,
+                            format,
+                        });
+                        const contents = await WRITERS[format](
+                            result.exported,
+                            loaded,
+                            engine,
+                            { missingGlyphs: lacking.length > 0 },
+                        );
+                        await writeFile(join(outDir, name), contents);
+                        stdout.write(`Wrote ${join(options.out, name)}\n`);
+                    }
+                } catch (error) {
+                    failed++;
+                    stderr.write(`Failed ${label}: ${error.message}\n`);
                 }
-                // The view carries none of the perspective: the plain
-                // export already shows it.
-                if (job.perspective !== null && result.perspective === null)
-                    continue;
-                for (const format of options.formats) {
-                    const name = exportFileName({
-                        workspace: workspace.name ?? "",
-                        view: job.key,
-                        perspective: result.perspective,
-                        step: null,
-                        scheme: job.scheme,
-                        format,
-                    });
-                    const contents = await WRITERS[format](
-                        result.exported,
-                        loaded,
-                        engine,
-                    );
-                    await writeFile(join(outDir, name), contents);
-                    stdout.write(`Wrote ${join(options.out, name)}\n`);
-                }
-            } catch (error) {
-                failed++;
-                stderr.write(`Failed ${label}: ${error.message}\n`);
             }
+            const view = {
+                view: key,
+                workspace: workspace.name,
+                family: loaded.family,
+            };
+            if (families.size)
+                stderr.write(
+                    `${familyWarning({ ...view, families: [...families] })}\n`,
+                );
+            if (missing.size)
+                stderr.write(
+                    `${glyphWarning({ ...view, missing: [...missing], ranges: loaded.ranges ?? {}, subsets: font.subsets })}\n`,
+                );
         }
     }
     return failed ? 1 : 0;

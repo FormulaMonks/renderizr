@@ -224,8 +224,10 @@ function clamp(
 
 /**
  * An image fitted into `box`, as the island's `object-fit: contain` fits it.
- * An `http(s)` icon, which only the dev server draws, stays blank: an SVG
- * loaded as an image fetches nothing (ADR 21).
+ * The build, edit mode and `renderizr export` inline every `http(s)` icon
+ * as a `data:` URL. An icon whose download failed keeps its URL and stays
+ * blank: an SVG loaded as an image fetches nothing (ADR 21), and neither
+ * does the CLI's raster.
  */
 const image = (href: string, box: Bounds) =>
     `<image ${attrs({ href, x: box.x, y: box.y, width: box.width, height: box.height, preserveAspectRatio: "xMidYMid meet" })}/>`;

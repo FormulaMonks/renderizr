@@ -30,16 +30,39 @@ export const sizedSvg = (svg, { width, height }) =>
     );
 
 /**
+ * `svg` with every `font-family` it names set to `family` alone. With the
+ * system fonts loaded, resvg would draw the fallback stack in an installed
+ * Helvetica or Arial, and a family a Mermaid source names in an installed
+ * Georgia; pinned, the text draws in the faces fontkit measured, and only
+ * the glyphs they lack fall back to a system font. The `@font-face` rules
+ * inside `<style>` stay as they are.
+ */
+export const pinnedFamilies = (svg, family) =>
+    svg.replace(
+        /(\sfont-family=)"[^"]*"/g,
+        `$1"&quot;${family.replace(/["&<]/g, "")}&quot;"`,
+    );
+
+/**
  * The PNG of `svg` at `size`, drawn in `family` from the TTF `files`. Only
  * those faces draw: a family the SVG names that is not among them, such as
- * the fallback stack when Arimo stands in, draws in `family`.
+ * the fallback stack when Arimo stands in, draws in `family`. With
+ * `systemFonts`, for a view whose text holds characters the faces lack,
+ * resvg also loads the system fonts and draws those characters from them,
+ * the rest still in `family` (`pinnedFamilies`). Loading them takes a
+ * fifth of a second, so views the faces cover whole skip it.
  */
-export async function rasterize(svg, size, { family, files }) {
+export async function rasterize(
+    svg,
+    size,
+    { family, files, systemFonts = false },
+) {
     const Resvg = await loadResvg();
-    const resvg = new Resvg(sizedSvg(svg, size), {
+    const drawn = systemFonts ? pinnedFamilies(svg, family) : svg;
+    const resvg = new Resvg(sizedSvg(drawn, size), {
         font: {
             fontFiles: files,
-            loadSystemFonts: false,
+            loadSystemFonts: systemFonts,
             defaultFontFamily: family,
             sansSerifFamily: family,
         },

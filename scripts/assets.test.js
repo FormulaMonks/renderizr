@@ -319,7 +319,14 @@ test("a data: URI logo is sniffed, checked and re-encoded like a file", async ()
 const FONT_CSS = (family, faces) =>
     faces
         .map(
-            ({ subset, weight, style = "normal", url, format = "woff2" }) => `
+            ({
+                subset,
+                weight,
+                style = "normal",
+                url,
+                format = "woff2",
+                range = "U+0000-00FF",
+            }) => `
 /* ${subset} */
 @font-face {
   font-family: '${family}';
@@ -327,7 +334,7 @@ const FONT_CSS = (family, faces) =>
   font-weight: ${weight};
   font-display: block;
   src: url(${url}) format('${format}');
-  unicode-range: U+0000-00FF;
+  unicode-range: ${range};
 }`,
         )
         .join("\n");
@@ -576,6 +583,42 @@ test("only the requested subsets are embedded", async () => {
                 2,
                 "an unrequested subset was embedded",
             );
+        },
+    );
+});
+
+test("a font carries the unicode-range of every subset Google serves, fetched or not", async () => {
+    const css = FONT_CSS("Inter", [
+        {
+            subset: "cyrillic",
+            weight: 400,
+            url: "https://fonts.gstatic.com/cyr.woff2",
+            range: "U+0301, U+0400-045F",
+        },
+        {
+            subset: "latin",
+            weight: 400,
+            url: "https://fonts.gstatic.com/lat.woff2",
+        },
+    ]);
+    await withFetch(
+        {
+            [GOOGLE("Inter:wght@400..400")]: { body: css },
+            "https://fonts.gstatic.com/lat.woff2": { body: WOFF2 },
+        },
+        async () => {
+            const { value: font } = await captured(process.stdout, () =>
+                loadFont({
+                    family: "Inter",
+                    weights: ["400"],
+                    subsets: ["latin"],
+                    italic: false,
+                }),
+            );
+            assert.deepEqual(font.ranges, {
+                cyrillic: "U+0301, U+0400-045F",
+                latin: "U+0000-00FF",
+            });
         },
     );
 });
