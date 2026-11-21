@@ -26,7 +26,7 @@ Renderizr: render a Structurizr workspace as a static site.
   renderizr <workspace.json|url> [options]
   renderizr <workspace|url|folder>... [options]
   renderizr edit [path] [options]   Edit the layout of the views in a browser
-  renderizr export <workspace> [options]
+  renderizr export <workspace|url|folder>... [options]
                                     Write an SVG of every view, with no browser
 
 Workspaces
@@ -214,6 +214,9 @@ function branding(values) {
     };
 }
 
+/** `list(value)`, each entry once, in the order it first appears. */
+const unique = (value) => [...new Set(list(value))];
+
 /* -------------------------------------------------------------------- edit */
 
 /** The branding flags, which `renderizr edit` takes as the build does. */
@@ -389,13 +392,16 @@ export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
  */
 export const EXPORT_FORMATS = ["svg"];
 
-/** The font flags, which change what `renderizr export` measures and embeds. */
-const FONT_OPTIONS = Object.fromEntries(
-    Object.entries(OPTIONS).filter(([name]) => name.startsWith("font")),
-);
-
+/**
+ * `renderizr export` takes the build's branding flags, so one flag set
+ * serves both commands: the font flags and `--primary-color` change the
+ * drawing, and the logo flags change nothing.
+ */
 export const EXPORT_OPTIONS = {
-    ...FONT_OPTIONS,
+    ...BRANDING_OPTIONS,
+    view: { type: "string" },
+    "dark-scheme": { type: "boolean", default: false },
+    perspective: { type: "string" },
     out: OPTIONS.out,
     format: { type: "string", default: EXPORT_FORMATS.join(",") },
     help: { type: "boolean", short: "h", default: false },
@@ -404,12 +410,17 @@ export const EXPORT_OPTIONS = {
 const EXPORT_USAGE = `
 renderizr export: write an SVG of every view of a workspace, with no browser.
 
-  renderizr export <workspace|url|folder> [options]
+  renderizr export <workspace|url|folder>... [options]
 
 The export draws each view the way the toolbar's export does: its canvas,
 everything shown (descriptions, technologies and ERD entities expanded), no
 animation step, and the title block below. It skips image views and views it
-cannot draw, with one line each. Each file is <workspace>-<view key>.<format>.
+cannot draw, with one line each. Each file is
+<workspace>-<view key>[-<perspective>][-dark].<format>, the perspective's name
+slugified.
+
+The export takes the same workspaces as the build, a set included, and writes
+every view of each, its file starting with its own workspace's name.
 
 The export writes or overwrites only its own files, flat in the output
 directory, and never empties it. The build empties its output directory, so
@@ -423,11 +434,22 @@ does. Either font comes from Google Fonts, cached under node_modules/.cache.
 Options
   -o, --out <dir>          Output directory (default: structurizr-output)
       --format <list>      Comma-separated formats: ${EXPORT_FORMATS.join(", ")} (default: ${EXPORT_FORMATS.join(",")})
+      --view <keys>        Comma-separated view keys: export only those views.
+                           A key no workspace has is an error
+      --dark-scheme        Also write each view in the dark scheme, as a -dark file
+      --perspective <list> Comma-separated perspective names: also write, for
+                           each, every view that carries it under it, with the
+                           title block naming it. A view that carries none of
+                           the perspective gets no extra file
 
   --font <family>          Google Fonts family to measure in and embed, e.g. "Inter"
   --font-weights <list>    Comma-separated weights (default: 400,700)
   --font-subsets <list>    Comma-separated subsets (default: latin)
   --font-italic            Also embed the italic faces
+  --primary-color <color>  CSS color that fills Mermaid nodes with no style
+  --logo <path|url>        Accepted and ignored, as are --logo-alt and
+  --logo-alt <text>        --logo-href, so the build's flags serve the export
+  --logo-href <url>
 
   -h, --help               Show this message
 
@@ -437,6 +459,7 @@ on stderr, and exits with status 1 when any view failed.
 Examples
   renderizr export ./workspace.json
   renderizr export ./workspace.json --font Inter --out ./images
+  renderizr export ./workspace.json --dark-scheme --perspective Security
 
 In a clone of this repository the same thing is: pnpm render export <workspace> [options]
 `;
@@ -486,19 +509,33 @@ export function parseExportArgs(args) {
         );
     }
 
-    if (positionals.length === 0)
-        exportUsageError("Missing the workspace to export.");
-    if (positionals.length > 1) {
+    const views = values.view === undefined ? null : unique(values.view);
+    if (views?.length === 0)
+        exportUsageError(`--view takes view keys; got "${values.view}".`);
+    const perspectives =
+        values.perspective === undefined ? [] : unique(values.perspective);
+    if (values.perspective !== undefined && perspectives.length === 0) {
         exportUsageError(
-            `Expected one workspace, got ${positionals.length}: ${positionals.join(", ")}`,
+            `--perspective takes perspective names; got "${values.perspective}".`,
         );
     }
 
+    const wrongColor = colorError(values["primary-color"]);
+    if (wrongColor) exportUsageError(wrongColor);
+
+    if (positionals.length === 0)
+        exportUsageError("Missing the workspace to export.");
+
     return {
+        // The set loader (`scripts/workspace-set.js`) reads them (ADR 26).
         workspaces: positionals,
         out: values.out,
         // In the order the run writes them, each once.
         formats: EXPORT_FORMATS.filter((format) => formats.includes(format)),
+        // Every view when null; `runExport` checks each key exists.
+        views,
+        schemes: values["dark-scheme"] ? ["light", "dark"] : ["light"],
+        perspectives,
         ...branding(values),
     };
 }
