@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { test } from "node:test";
 import {
     DOWNLOAD_TIMEOUT_MS,
@@ -12,9 +13,17 @@ import {
     toDataUri,
 } from "./assets.js";
 import {
+    cacheFileName,
+    cacheRoot,
+    fontKey,
+    writeCached,
+} from "./font-cache.js";
+import { decompressWoff2, isVariable } from "./fonts.js";
+import {
     GIF_1X1,
     JPEG_32X64,
     WEBP_HEADER,
+    evalInChild,
     fixture,
     withFetch,
     withTempDir,
@@ -23,6 +32,10 @@ import {
 import { mermaidView, mermaidWorkspace } from "./__fixtures__/mermaid.js";
 
 const PNG = await readFile(fixture("logo.png"));
+
+// No test here reads or writes the project's font cache; the cache tests
+// name their own.
+process.env.RENDERIZR_CACHE_DIR = "";
 
 /** Collect what a body writes to one of the process streams. */
 async function captured(stream, body) {
@@ -311,7 +324,14 @@ test("a data: URI logo is sniffed, checked and re-encoded like a file", async ()
 const FONT_CSS = (family, faces) =>
     faces
         .map(
-            ({ subset, weight, style = "normal", url, format = "woff2" }) => `
+            ({
+                subset,
+                weight,
+                style = "normal",
+                url,
+                format = "woff2",
+                range = "U+0000-00FF",
+            }) => `
 /* ${subset} */
 @font-face {
   font-family: '${family}';
@@ -319,7 +339,7 @@ const FONT_CSS = (family, faces) =>
   font-weight: ${weight};
   font-display: block;
   src: url(${url}) format('${format}');
-  unicode-range: U+0000-00FF;
+  unicode-range: ${range};
 }`,
         )
         .join("\n");
@@ -327,7 +347,10 @@ const FONT_CSS = (family, faces) =>
 const GOOGLE = (candidate) =>
     `https://fonts.googleapis.com/css2?family=${candidate}&display=block`;
 
-const WOFF2 = Buffer.from("wOF2 fixture bytes");
+// Arimo (Apache 2.0) cut down to a few glyphs, as Google Fonts serves it
+// (variable) and pinned at 400 (static).
+const WOFF2 = await readFile(fixture("fonts/arimo-variable.woff2"));
+const STATIC_WOFF2 = await readFile(fixture("fonts/arimo-static-400.woff2"));
 
 test("no font is not an error", async () => {
     assert.equal(await loadFont(null), null);
@@ -569,6 +592,42 @@ test("only the requested subsets are embedded", async () => {
     );
 });
 
+test("a font carries the unicode-range of every subset Google serves, fetched or not", async () => {
+    const css = FONT_CSS("Inter", [
+        {
+            subset: "cyrillic",
+            weight: 400,
+            url: "https://fonts.gstatic.com/cyr.woff2",
+            range: "U+0301, U+0400-045F",
+        },
+        {
+            subset: "latin",
+            weight: 400,
+            url: "https://fonts.gstatic.com/lat.woff2",
+        },
+    ]);
+    await withFetch(
+        {
+            [GOOGLE("Inter:wght@400..400")]: { body: css },
+            "https://fonts.gstatic.com/lat.woff2": { body: WOFF2 },
+        },
+        async () => {
+            const { value: font } = await captured(process.stdout, () =>
+                loadFont({
+                    family: "Inter",
+                    weights: ["400"],
+                    subsets: ["latin"],
+                    italic: false,
+                }),
+            );
+            assert.deepEqual(font.ranges, {
+                cyrillic: "U+0301, U+0400-045F",
+                latin: "U+0000-00FF",
+            });
+        },
+    );
+});
+
 test("a family without the requested subset is refused", async () => {
     await withFetch(
         {
@@ -631,6 +690,268 @@ test("a face reused across subsets is downloaded once", async () => {
             assert.equal(downloads.length, 1);
         },
     );
+});
+
+/* ------------------------------------------------------------ font cache */
+
+const INTER = {
+    family: "Inter",
+    weights: ["400", "700"],
+    subsets: ["latin"],
+    italic: false,
+};
+
+const INTER_CSS = FONT_CSS("Inter", [
+    {
+        subset: "latin",
+        weight: "400 700",
+        url: "https://fonts.gstatic.com/s/inter/v1/var.woff2",
+    },
+]);
+
+const INTER_ROUTES = {
+    [GOOGLE("Inter:wght@400..700")]: { body: INTER_CSS },
+    "https://fonts.gstatic.com/s/inter/v1/var.woff2": { body: WOFF2 },
+};
+
+/**
+ * Run `body` with the cache found from the working directory, as a build
+ * outside the tests finds it, with a project made in a temporary folder:
+ * `project` holds a `package.json` and a `node_modules` beside it.
+ */
+async function withProject(body) {
+    const kept = process.env.RENDERIZR_CACHE_DIR;
+    delete process.env.RENDERIZR_CACHE_DIR;
+    try {
+        return await withTempDir(async (dir) => {
+            const project = join(dir, "project");
+            await mkdir(join(project, "node_modules"), { recursive: true });
+            await writeFile(join(project, "package.json"), "{}");
+            return await body({ dir, project });
+        });
+    } finally {
+        process.env.RENDERIZR_CACHE_DIR = kept;
+    }
+}
+
+/** `loadFont(font)` from `cwd`, its "Embedded" line kept off the output. */
+const loadQuietly = async (font, cwd) =>
+    (await captured(process.stdout, () => loadFont(font, { cwd }))).value;
+
+test("the cache lives in node_modules/.cache/renderizr of the nearest project with a node_modules", async () => {
+    await withProject(async ({ dir, project }) => {
+        const nested = join(project, "packages", "docs");
+        // A package.json with no node_modules beside it is not the project.
+        await mkdir(join(nested, "deep"), { recursive: true });
+        await writeFile(join(nested, "package.json"), "{}");
+
+        assert.equal(
+            cacheRoot(join(nested, "deep")),
+            join(project, "node_modules", ".cache", "renderizr"),
+        );
+        assert.equal(cacheRoot(dir), null);
+    });
+});
+
+test("RENDERIZR_CACHE_DIR names the cache, and empty turns it off", () => {
+    assert.equal(
+        cacheRoot("/anywhere", { RENDERIZR_CACHE_DIR: "/tmp/fonts" }),
+        "/tmp/fonts",
+    );
+    assert.equal(cacheRoot(process.cwd(), { RENDERIZR_CACHE_DIR: "" }), null);
+});
+
+test("cache entries key on family, weights, subsets and italic, in any order", () => {
+    const key = fontKey(INTER);
+    assert.equal(key, "inter_400-700_latin");
+    assert.equal(
+        fontKey({ ...INTER, weights: ["700", "400"] }),
+        key,
+        "the weights' order changed the key",
+    );
+    for (const other of [
+        { ...INTER, family: "Inter Tight" },
+        { ...INTER, weights: ["400"] },
+        { ...INTER, subsets: ["latin", "latin-ext"] },
+        { ...INTER, italic: true },
+    ]) {
+        assert.notEqual(fontKey(other), key, JSON.stringify(other));
+    }
+    assert.equal(
+        fontKey({ ...INTER, subsets: ["latin-ext", "latin"], italic: true }),
+        "inter_400-700_latin+latin-ext_italic",
+    );
+});
+
+test("a font fills its cache entry with Google's CSS, the woff2 and a TTF per weight", async () => {
+    await withProject(async ({ project }) => {
+        await withFetch(INTER_ROUTES, async () => {
+            const font = await loadQuietly(INTER, join(project));
+            const entry = join(
+                project,
+                "node_modules/.cache/renderizr/fonts/inter_400-700_latin",
+            );
+
+            assert.deepEqual((await readdir(entry)).sort(), [
+                "fonts.css",
+                "var-400.ttf",
+                "var-700.ttf",
+                "var.woff2",
+            ]);
+            assert.equal(
+                await readFile(join(entry, "fonts.css"), "utf8"),
+                INTER_CSS,
+            );
+            assert.deepEqual(await readFile(join(entry, "var.woff2")), WOFF2);
+            assert.deepEqual(font.faces, [
+                {
+                    file: join(entry, "var-400.ttf"),
+                    subset: "latin",
+                    style: "normal",
+                    weight: 400,
+                },
+                {
+                    file: join(entry, "var-700.ttf"),
+                    subset: "latin",
+                    style: "normal",
+                    weight: 700,
+                },
+            ]);
+            // A variable face is pinned at each weight.
+            for (const { file } of font.faces) {
+                assert.equal(isVariable(await readFile(file)), false, file);
+            }
+        });
+    });
+});
+
+test("a cache hit fetches nothing and loads the same font", async () => {
+    await withProject(async ({ project }) => {
+        const first = await withFetch(INTER_ROUTES, () =>
+            loadQuietly(INTER, project),
+        );
+        await withFetch({}, async (calls) => {
+            const again = await loadQuietly(INTER, join(project));
+            assert.deepEqual(calls, [], "a cached font was fetched");
+            assert.deepEqual(again, first);
+        });
+    });
+});
+
+test("with no project node_modules nothing caches and every run fetches", async () => {
+    await withProject(async ({ dir }) => {
+        for (let run = 0; run < 2; run += 1) {
+            await withFetch(INTER_ROUTES, async (calls) => {
+                const font = await loadQuietly(INTER, dir);
+                assert.equal(calls.length, 2, `run ${run} fetched from cache`);
+                // The TTFs still go to disk, for resvg to read.
+                for (const { file } of font.faces) {
+                    assert.equal(isVariable(await readFile(file)), false);
+                    assert.ok(!file.startsWith(dir), file);
+                }
+            });
+        }
+        assert.deepEqual(await readdir(dir), ["project"]);
+    });
+});
+
+test("a static family skips the pinning but still decompresses", async () => {
+    const css = FONT_CSS("Lato", [
+        {
+            subset: "latin",
+            weight: 400,
+            url: "https://fonts.gstatic.com/s/lato/v1/regular.woff2",
+        },
+        {
+            subset: "latin",
+            weight: 700,
+            url: "https://fonts.gstatic.com/s/lato/v1/bold.woff2",
+        },
+    ]);
+    await withProject(async ({ project }) => {
+        await withFetch(
+            {
+                [GOOGLE("Lato:wght@400..700")]: {
+                    ok: false,
+                    status: 400,
+                    statusText: "Bad Request",
+                },
+                [GOOGLE("Lato:wght@400;700")]: { body: css },
+                "https://fonts.gstatic.com/s/lato/v1/regular.woff2": {
+                    body: STATIC_WOFF2,
+                },
+                "https://fonts.gstatic.com/s/lato/v1/bold.woff2": {
+                    body: STATIC_WOFF2,
+                },
+            },
+            async () => {
+                const font = await loadQuietly(
+                    { ...INTER, family: "Lato" },
+                    project,
+                );
+                const ttf = await decompressWoff2(STATIC_WOFF2);
+                assert.deepEqual(
+                    font.faces.map(({ file, weight }) => [
+                        basename(file),
+                        weight,
+                    ]),
+                    [
+                        ["regular-400.ttf", 400],
+                        ["bold-700.ttf", 700],
+                    ],
+                );
+                // Pinning would have rewritten the face.
+                for (const { file } of font.faces) {
+                    assert.deepEqual(await readFile(file), ttf, file);
+                }
+            },
+        );
+    });
+});
+
+test("a font carries its hhea ascent and descent, unrounded", async () => {
+    await withFetch(INTER_ROUTES, async () => {
+        const font = await loadQuietly(INTER, process.cwd());
+        assert.deepEqual(font.metrics, {
+            ascent: 1854 / 2048,
+            descent: 434 / 2048,
+        });
+    });
+});
+
+test("a woff2 Google answers with an error fails the font rather than caching the error", async () => {
+    await withProject(async ({ project }) => {
+        await withFetch(
+            {
+                ...INTER_ROUTES,
+                "https://fonts.gstatic.com/s/inter/v1/var.woff2": {
+                    ok: false,
+                    status: 503,
+                    statusText: "Service Unavailable",
+                },
+            },
+            async () => {
+                await assert.rejects(
+                    loadQuietly(INTER, project),
+                    /var\.woff2 responded 503/,
+                );
+            },
+        );
+        assert.equal(
+            existsSync(join(project, "node_modules/.cache/renderizr/fonts")),
+            false,
+        );
+    });
+});
+
+test("loading the asset helpers loads neither wawoff2 nor harfbuzzjs", async () => {
+    const { stdout } = await evalInChild(`
+        await import("./scripts/assets.js");
+        const { createRequire } = await import("node:module");
+        const loaded = Object.keys(createRequire(import.meta.url).cache);
+        console.log(JSON.stringify(loaded.filter((path) => /wawoff2|harfbuzz/.test(path))));
+    `);
+    assert.deepEqual(JSON.parse(stdout), []);
 });
 
 /* ----------------------------------------------------------- loadWorkspace */
@@ -1271,4 +1592,53 @@ test("a workspace with no views comes back un-normalized", async () => {
             "if this now exists, scripts/assets.js:279 has been fixed — invert the assertion",
         );
     });
+});
+
+test("a cached font file keeps the name its URL gives, when that name is safe", () => {
+    assert.equal(
+        cacheFileName("https://fonts.gstatic.com/s/inter/v20/UcCo3Fwr.woff2"),
+        "UcCo3Fwr.woff2",
+    );
+    assert.equal(
+        cacheFileName(
+            "https://fonts.gstatic.com/s/inter/v20/UcCo3Fwr.woff2",
+            ".woff2",
+        ),
+        "UcCo3Fwr",
+    );
+});
+
+test("a cached font file never takes a name that leaves its entry", () => {
+    for (const url of [
+        "https://fonts.gstatic.com/..",
+        "https://fonts.gstatic.com/s/%2E%2E",
+        "https://fonts.gstatic.com/s/.hidden.woff2",
+        "https://fonts.gstatic.com/s/a%2Fb.woff2",
+        "https://fonts.gstatic.com/",
+    ]) {
+        const name = cacheFileName(url);
+        assert.match(name, /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/, url);
+        assert.equal(basename(name), name, url);
+    }
+    assert.equal(
+        cacheFileName("https://fonts.gstatic.com/.."),
+        cacheFileName("https://fonts.gstatic.com/.."),
+    );
+});
+
+test("two writes of one cache file at once both land whole", async () => {
+    const { mkdtemp, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const dir = await mkdtemp(join(tmpdir(), "renderizr-cache-"));
+    try {
+        const path = join(dir, "fonts", "face.ttf");
+        await Promise.all([
+            writeCached(path, Buffer.from("first")),
+            writeCached(path, Buffer.from("second")),
+        ]);
+        assert.match((await readFile(path)).toString(), /^(first|second)$/);
+        assert.deepEqual(await readdir(join(dir, "fonts")), ["face.ttf"]);
+    } finally {
+        await rm(dir, { recursive: true, force: true });
+    }
 });

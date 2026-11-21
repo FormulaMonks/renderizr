@@ -15,6 +15,10 @@ import {
 import { fixture, withFetch, withTempDir } from "./__fixtures__/helpers.js";
 
 const PNG = await readFile(fixture("logo.png"));
+const WOFF2 = await readFile(fixture("fonts/arimo-variable.woff2"));
+
+// No test here reads or writes the project's font cache.
+process.env.RENDERIZR_CACHE_DIR = "";
 
 const flags = (set = {}) => ({ ...NO_BRANDING_FLAGS, ...set });
 
@@ -553,7 +557,7 @@ test("loadSetBranding loads each workspace's branding and fetches a shared font 
             {
                 "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=block":
                     { body: css },
-                "https://fonts.gstatic.com/a.woff2": { body: "woff2" },
+                "https://fonts.gstatic.com/a.woff2": { body: WOFF2 },
             },
             async (calls) => {
                 const { landscape, workspaces } = await loadSetBranding({

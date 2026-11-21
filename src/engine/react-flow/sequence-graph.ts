@@ -36,7 +36,12 @@ import {
 } from "../../model/index";
 import type { MeasureText } from "../geometry/boundary";
 import { type Bounds, boundsOf } from "../geometry/bounds";
-import { iconPositionOf, NAME_SCALE, SIDE_PADDING } from "../geometry/label";
+import {
+    iconPositionOf,
+    NAME_SCALE,
+    SIDE_PADDING,
+    textSize,
+} from "../geometry/label";
 import { borderDashes } from "../geometry/paint";
 import {
     type EndMarker,
@@ -255,7 +260,9 @@ function participantWidth(
     const longest = Math.max(
         ...name
             .split("\n")
-            .map((line) => measure(line, style.fontSize * NAME_SCALE, true)),
+            .map((line) =>
+                measure(line, textSize(style.fontSize * NAME_SCALE), true),
+            ),
     );
     return Math.max(PARTICIPANT_WIDTH, Math.ceil(longest) + 2 * SIDE_PADDING);
 }

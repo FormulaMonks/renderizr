@@ -66,7 +66,7 @@ export const RESOLVED_SET_MODULE = `\0${SET_MODULE}`;
  *   font's family with its embedded faces, and the primary color, each
  *   `null` when the workspace has none.
  * @property {object | null} logo
- * @property {{ family: string, css: string | null } | null} font
+ * @property {{ family: string, css: string | null, metrics: { ascent: number, descent: number } | null } | null} font
  * @property {string | null} primaryColor
  */
 
@@ -127,6 +127,7 @@ export function pageSet(set, branding) {
                         font: font && {
                             family: font.family,
                             css: font.css === embedded ? null : font.css,
+                            metrics: font.metrics ?? null,
                         },
                         primaryColor,
                     },

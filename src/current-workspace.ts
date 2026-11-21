@@ -69,7 +69,11 @@ const set = createWorkspaceSet({
             logo: __RENDERIZR_LOGO__,
             // Its faces are in the page from first paint.
             font: __RENDERIZR_FONT__
-                ? { family: __RENDERIZR_FONT__, css: null }
+                ? {
+                      family: __RENDERIZR_FONT__,
+                      css: null,
+                      metrics: __RENDERIZR_FONT_METRICS__,
+                  }
                 : null,
             primaryColor: __RENDERIZR_PRIMARY_COLOR__,
         },

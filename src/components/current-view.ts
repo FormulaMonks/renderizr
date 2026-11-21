@@ -484,6 +484,7 @@ export default class CurrentView extends Component {
         const name = exportFileName({
             workspace: this.#model.name,
             view,
+            perspective: this.#perspective?.on(),
             step: this.#animationState.step,
             scheme: this.#scheme,
             format,

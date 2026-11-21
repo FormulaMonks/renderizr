@@ -12,6 +12,8 @@ References [15. Run edit mode as a local Vite server](0015-run-edit-mode-as-a-lo
 
 Referenced by [26. Render the enterprise pattern's workspaces in one site](0026-render-the-enterprise-patterns-workspaces-in-one-site.md).
 
+Referenced by [32. Export views from the CLI in Node](0032-export-views-from-the-cli-in-node.md).
+
 ## Context
 
 Renderizr took the header logo, its alt text and link, the font and the primary color from flags alone, so every run of `renderizr` and `renderizr edit` repeated them. The DSL's `branding` block holds a logo and a font, which Structurizr exports to `views.configuration.branding`, but it has no field for the alt text, the link or a color, and the 2026 Structurizr library removed `views.configuration.branding`, so a later `structurizr-cli` may stop writing it. Workspace properties survive every export and merge, and travel with a workspace read from a URL.

@@ -157,7 +157,7 @@ The area a view's `dimensions` set, which frames an export and which edit mode d
 _Avoid_: paper, page, artboard
 
 **Export**:
-A file of one view as drawn, framed by its canvas, with its title block below, that a reader saves to use outside Renderizr.
+A file of one view as drawn, framed by its canvas, with its title block below, that a reader saves from the toolbar or the CLI writes, to use outside Renderizr.
 _Avoid_: screenshot, download
 
 **Title block**:

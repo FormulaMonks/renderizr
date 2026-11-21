@@ -19,6 +19,7 @@ import type { TargetKind } from "../../model";
 import type { Bounds } from "../geometry/bounds";
 import type { MeasureText, TextBlock } from "../geometry/boundary";
 import { wrapLines } from "../geometry/boundary";
+import { rgbColors } from "../geometry/color";
 import { EDGE_LABEL_PADDING, TECHNOLOGY_GAP } from "../geometry/edge-label";
 import {
     glyphDataUrl,
@@ -41,6 +42,7 @@ import {
     NAME_SCALE,
     SIDE_PADDING,
     textWidth,
+    textSize,
 } from "../geometry/label";
 import { lineDashes } from "../geometry/line";
 import { nameIsBold } from "../geometry/mermaid";
@@ -99,15 +101,22 @@ export type ExportedSvg = { svg: string; width: number; height: number };
  */
 const svgNumber = (value: number) => String(Math.round(value * 100) / 100);
 
+/** An attribute's text: a number as `svgNumber`, a color never as `hsl()`. */
+const attrValue = (key: string, value: string | number) =>
+    typeof value === "number"
+        ? svgNumber(value)
+        : // An `href` is an icon's `data:` URL, which stays as its author wrote it.
+          key === "href"
+          ? value
+          : rgbColors(value);
+
 /** SVG attributes from a record, dropping the undefined ones. */
 const attrs = (record: Record<string, string | number | undefined>) =>
     Object.entries(record)
         .flatMap(([key, value]) =>
             value === undefined
                 ? []
-                : [
-                      `${key}="${escapeXml(typeof value === "number" ? svgNumber(value) : value)}"`,
-                  ],
+                : [`${key}="${escapeXml(attrValue(key, value))}"`],
         )
         .join(" ");
 
@@ -216,8 +225,10 @@ function clamp(
 
 /**
  * An image fitted into `box`, as the island's `object-fit: contain` fits it.
- * An `http(s)` icon, which only the dev server draws, stays blank: an SVG
- * loaded as an image fetches nothing (ADR 21).
+ * The build, edit mode and `renderizr export` inline every `http(s)` icon
+ * as a `data:` URL. An icon whose download failed keeps its URL and stays
+ * blank: an SVG loaded as an image fetches nothing (ADR 21), and neither
+ * does the CLI's raster.
  */
 const image = (href: string, box: Bounds) =>
     `<image ${attrs({ href, x: box.x, y: box.y, width: box.width, height: box.height, preserveAspectRatio: "xMidYMid meet" })}/>`;
@@ -231,7 +242,7 @@ function indicatorRow(
 ): string {
     return indicatorKinds(targets)
         .map((kind, index) =>
-            image(glyphDataUrl(kind, color), {
+            image(glyphDataUrl(kind, rgbColors(color)), {
                 x: x + index * (INDICATOR_SIZE + INDICATOR_GAP),
                 y,
                 width: INDICATOR_SIZE,
@@ -267,8 +278,8 @@ function elementLabel(element: ElementBox, text: TextSetting): string {
     };
     const layout = ICON_LAYOUTS[iconPosition];
     const indicators = targets.length > 0;
-    const nameSize = fontSize * NAME_SCALE;
-    const metadataSize = fontSize * METADATA_SCALE;
+    const nameSize = textSize(fontSize * NAME_SCALE);
+    const metadataSize = textSize(fontSize * METADATA_SCALE);
     // The island's metadata block collapses white space, as CSS does.
     const metadataText = element.metadata.replace(/\s+/g, " ");
 
@@ -723,7 +734,7 @@ function edgeLabel(edge: EdgeLine, background: string, text: TextSetting) {
                 {
                     ...column,
                     lines: lines.technology,
-                    fontSize: edge.fontSize * METADATA_SCALE,
+                    fontSize: textSize(edge.fontSize * METADATA_SCALE),
                     y: top,
                 },
                 text,
@@ -776,7 +787,7 @@ export function titleBlock(
 ): { height: number; svg: string } {
     const { measure } = text;
     const fontSize = TITLE_BLOCK_FONT_SIZE;
-    const titleSize = fontSize * NAME_SCALE;
+    const titleSize = textSize(fontSize * NAME_SCALE);
     const x = frame.x + TITLE_BLOCK_PADDING;
     const width = Math.max(0, frame.width - 2 * TITLE_BLOCK_PADDING);
     const bottom = frame.y + frame.height;

@@ -206,6 +206,7 @@ export default class Diagrams extends Page {
                 set,
                 view: first,
                 font: entered.branding.font?.family ?? null,
+                fontMetrics: entered.branding.font?.metrics ?? null,
                 buildDate,
                 colorScheme: getDiagramTheme(),
                 labels: readLabelState(),

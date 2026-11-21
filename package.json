@@ -71,9 +71,10 @@
         "mermaid:parser": "node scripts/mermaid/generate/index.js",
         "fixtures:large": "node test/support/large-landscape.js",
         "typecheck": "tsc --noEmit",
-        "test": "node --test scripts/*.test.js scripts/mermaid/*.test.js \"test/!(acceptance).test.js\" && node --test test/acceptance.test.js",
+        "test": "node --test scripts/*.test.js scripts/export/*.test.js scripts/mermaid/*.test.js \"test/!(acceptance|cli-export-parity).test.js\" && node --test test/acceptance.test.js",
+        "test:parity": "node --test test/cli-export-parity.test.js",
         "test:structurizr": "node --test test/structurizr-pipeline.test.js test/structurizr-set.test.js",
-        "test:coverage": "node --test --experimental-test-coverage scripts/*.test.js scripts/mermaid/*.test.js test/*.test.js",
+        "test:coverage": "node --test --experimental-test-coverage scripts/*.test.js scripts/export/*.test.js scripts/mermaid/*.test.js test/*.test.js",
         "release:pr": "./scripts/release.sh pr",
         "release:tag": "./scripts/release.sh tag",
         "hooks": "husky || true"
@@ -89,15 +90,19 @@
         "fast-check": "^4.10.2",
         "husky": "^9.1.7",
         "lint-staged": "^17.0.0",
+        "pngjs": "7.0.0",
         "typescript": "^7.0.0"
     },
     "dependencies": {
         "@asciidoctor/core": "^4.2.1",
         "@dagrejs/dagre": "3.1.3",
+        "@resvg/resvg-js": "2.6.2",
         "@xyflow/react": "^12.12.0",
         "asciimath2tex": "^1.5.0",
         "bootstrap-icons": "^1.13.2",
         "esbuild": "^0.28.2",
+        "fontkit": "2.0.4",
+        "harfbuzzjs": "1.6.4",
         "highlight.js": "^11.12.0",
         "history": "^5.3.0",
         "markdown-it": "^15.0.0",
@@ -108,6 +113,7 @@
         "preact": "^11.1.1",
         "temml": "^0.14.0",
         "vite": "^8.3.6",
+        "wawoff2": "2.0.1",
         "xss": "^1.0.17"
     }
 }

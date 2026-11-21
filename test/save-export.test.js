@@ -74,9 +74,48 @@ const NAMES = [
         { workspace: "日本", view: "SystemLandscape2", format: "svg" },
         "workspace-system-landscape2.svg",
     ],
+    [
+        {
+            workspace: "Perspectives",
+            view: "Containers",
+            perspective: "Security",
+            format: "svg",
+        },
+        "perspectives-containers-security.svg",
+    ],
+    [
+        {
+            workspace: "Big Bank plc",
+            view: "SignIn",
+            perspective: "Data Flow & Ownership",
+            step: 2,
+            scheme: "dark",
+            format: "png",
+        },
+        "big-bank-plc-sign-in-data-flow-ownership-step-2-dark.png",
+    ],
+    [
+        {
+            workspace: "Big Bank plc",
+            view: "Containers",
+            perspective: null,
+            scheme: "dark",
+            format: "png",
+        },
+        "big-bank-plc-containers-dark.png",
+    ],
+    [
+        {
+            workspace: "Acme",
+            view: "Live",
+            perspective: "Straße 日本",
+            format: "svg",
+        },
+        "acme-live-straße-日本.svg",
+    ],
 ];
 
-test("an export is named for its workspace, view, step and scheme", () => {
+test("an export is named for its workspace, view, perspective, step and scheme", () => {
     for (const [input, expected] of NAMES) {
         assert.equal(exportFileName(input), expected, JSON.stringify(input));
     }
