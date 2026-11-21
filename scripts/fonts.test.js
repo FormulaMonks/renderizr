@@ -44,6 +44,26 @@ test("bytes that hold no font are refused", () => {
     assert.throws(() => isVariable(Buffer.from("wOF2 not a ttf")), /not a/);
 });
 
+test("each error names the face it read", async () => {
+    const notAFont = Buffer.from("wOF2 not a ttf");
+    assert.throws(
+        () => isVariable(notAFont, "inter-latin.woff2"),
+        /inter-latin\.woff2 is not a TrueType or OpenType font/,
+    );
+    assert.throws(
+        () => hheaMetrics(notAFont, "inter-latin-400.ttf"),
+        /inter-latin-400\.ttf is not a/,
+    );
+});
+
+test("a face harfbuzz cannot pin fails naming the face and the weight", async () => {
+    // A static face has no wght axis to pin.
+    await assert.rejects(
+        pinWeight(await decompressWoff2(STATIC), 700, "arimo-static.woff2"),
+        /arimo-static\.woff2 at weight 700/,
+    );
+});
+
 test("hhea gives the ascent and descent unrounded, as multiples of the font size", async () => {
     // Arimo's hhea: 1854 and -434 on 2048 units per em.
     assert.deepEqual(hheaMetrics(await decompressWoff2(VARIABLE)), {

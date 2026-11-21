@@ -428,12 +428,14 @@ async function staticFaces(font, faces, woff2Of, dir) {
     for (const { subset, face, url } of faces) {
         const declared = faceDeclaration(face);
         const name = cacheFileName(url, ".woff2");
+        // What an error from reading the face calls it.
+        const label = `the ${font.family} ${subset} ${declared.style} face at ${url}`;
         let ttf;
         const decompressed = async () => {
             ttf ??= await decompressWoff2(woff2Of(url));
             return ttf;
         };
-        const variable = async () => isVariable(await decompressed());
+        const variable = async () => isVariable(await decompressed(), label);
         const weights =
             declared.min === declared.max
                 ? [declared.min]
@@ -443,7 +445,7 @@ async function staticFaces(font, faces, woff2Of, dir) {
             if (!written.has(file)) {
                 await cached(file, async () =>
                     (await variable())
-                        ? pinWeight(await decompressed(), weight)
+                        ? pinWeight(await decompressed(), weight, label)
                         : decompressed(),
                 );
             }
@@ -562,7 +564,8 @@ export async function loadFont(
         (url) => woff2.get(url),
         entry ?? scratchFacesDir(),
     );
-    const metrics = hheaMetrics(await readFile(metricsFace(ttfs).file));
+    const { file: metricsFile } = metricsFace(ttfs);
+    const metrics = hheaMetrics(await readFile(metricsFile), metricsFile);
 
     const count = new Set(faces.map(({ face }) => face)).size;
     if (announce)
