@@ -11,6 +11,14 @@ declare const __RENDERIZR_LOGO__: import("virtual:renderizr/set").Logo | null;
 /** Font family of the workspace the page lands on (`--font`, then `renderizr.font`). */
 declare const __RENDERIZR_FONT__: string | null;
 
+/**
+ * The `hhea` ascent and descent of that font, as multiples of the font
+ * size, read by the build from the face it fetched; `null` with no font.
+ */
+declare const __RENDERIZR_FONT_METRICS__:
+    | import("./engine/contract").FontMetrics
+    | null;
+
 /** Renderizr's own version, read from package.json at build time. */
 declare const __RENDERIZR_VERSION__: string | null;
 
@@ -81,9 +89,14 @@ declare module "virtual:renderizr/set" {
         logo: Logo | null;
         /**
          * The font's family and its embedded `@font-face` rules, `css: null`
-         * when the page already holds them.
+         * when the page already holds them, with the `hhea` ascent and
+         * descent of its face.
          */
-        font: { family: string; css: string | null } | null;
+        font: {
+            family: string;
+            css: string | null;
+            metrics: import("./engine/contract").FontMetrics | null;
+        } | null;
         primaryColor: string | null;
     };
     /** An element of one workspace that leads into another of the set. */

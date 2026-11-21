@@ -85,6 +85,7 @@ export function mountEngine(
          */
         let workspace = options.workspace;
         const font = options.font ?? null;
+        const fontMetrics = options.fontMetrics ?? null;
         const editableKey = (key: string) => {
             const view = model.findViewByKey(key);
             return view !== undefined && isEditable(view);
@@ -284,7 +285,11 @@ export function mountEngine(
                         __RENDERIZR_VERSION__,
                         graph.perspective,
                     ),
-                    text: textSetting(font, mermaidFontFamily(view.mermaid)),
+                    text: textSetting(
+                        font,
+                        mermaidFontFamily(view.mermaid),
+                        fontMetrics,
+                    ),
                 });
                 return exportBlob(exported, format);
             },

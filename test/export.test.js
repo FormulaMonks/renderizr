@@ -19,8 +19,14 @@ const { exportFrame } = await importSrc("engine/geometry/canvas");
 const { rgbColors } = await importSrc("engine/geometry/color");
 const { exportSvg, TITLE_BLOCK_DESCRIPTION_LINES, TITLE_BLOCK_FONT_SIZE } =
     await importSrc("engine/react-flow/export-svg");
-const { MAX_PIXELS, declaresFamily, modifiedDate, pngSize, titleBlockText } =
-    await importSrc("engine/react-flow/export-file");
+const {
+    MAX_PIXELS,
+    declaresFamily,
+    modifiedDate,
+    pngSize,
+    textSetting,
+    titleBlockText,
+} = await importSrc("engine/react-flow/export-file");
 
 const WORKSPACE = JSON.parse(
     readFileSync(
@@ -412,6 +418,68 @@ describe("export-svg", () => {
 });
 
 describe("export-file", () => {
+    /**
+     * `body` with the page's canvas answering `measureText` the way Chrome
+     * does: the font's bounding box rounded to whole pixels at 100px.
+     */
+    const withCanvas = (body) => {
+        const original = document.createElement;
+        const sheets = document.styleSheets;
+        // The test document holds no stylesheet, so no face embeds.
+        document.styleSheets = [];
+        document.createElement = (tag) =>
+            tag === "canvas"
+                ? {
+                      getContext: () => ({
+                          font: "",
+                          measureText: () => ({
+                              width: 10,
+                              fontBoundingBoxAscent: 91,
+                              fontBoundingBoxDescent: 21,
+                          }),
+                      }),
+                  }
+                : original.call(document, tag);
+        try {
+            return body();
+        } finally {
+            document.createElement = original;
+            document.styleSheets = sheets;
+        }
+    };
+
+    test("the export sets text on the font's hhea ascent and descent when the build hands them over", () => {
+        const metrics = { ascent: 1854 / 2048, descent: 434 / 2048 };
+        withCanvas(() => {
+            const setting = textSetting("Arimo", undefined, metrics);
+            assert.equal(setting.ascent, metrics.ascent);
+            assert.equal(setting.descent, metrics.descent);
+        });
+    });
+
+    test("without hhea metrics the export keeps the canvas's ascent and descent", () => {
+        withCanvas(() => {
+            for (const setting of [
+                textSetting(null),
+                textSetting("Arimo", undefined, null),
+            ]) {
+                assert.equal(setting.ascent, 0.91);
+                assert.equal(setting.descent, 0.21);
+            }
+        });
+    });
+
+    test("a Mermaid source's own family keeps the canvas's ascent and descent", () => {
+        withCanvas(() => {
+            const setting = textSetting("Arimo", "Georgia", {
+                ascent: 0.9,
+                descent: 0.2,
+            });
+            assert.equal(setting.ascent, 0.91);
+            assert.equal(setting.descent, 0.21);
+        });
+    });
+
     test("an @font-face rule embeds only for the family its font-family names, quoted or not", () => {
         const cases = [
             { declared: "Inter", family: "Inter", embeds: true },

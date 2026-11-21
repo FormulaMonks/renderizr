@@ -195,6 +195,35 @@ test("no logo and no font are embedded as nulls, not as undefined", () => {
 
     assert.equal(define.__RENDERIZR_LOGO__, "null");
     assert.equal(define.__RENDERIZR_FONT__, "null");
+    assert.equal(define.__RENDERIZR_FONT_METRICS__, "null");
+});
+
+test("a font hands the page its hhea ascent and descent, unrounded, and no font hands it none", () => {
+    const metrics = { ascent: 1854 / 2048, descent: 434 / 2048 };
+    const withFont = createConfig({
+        workspace: WORKSPACE,
+        branding: {
+            logo: null,
+            font: {
+                family: "Arimo",
+                css: "@font-face{}",
+                metrics,
+                faces: [{ file: "/cache/arimo-400.ttf" }],
+            },
+            primaryColor: null,
+        },
+    });
+    const without = createConfig({ workspace: WORKSPACE });
+
+    assert.deepEqual(
+        JSON.parse(withFont.define.__RENDERIZR_FONT_METRICS__),
+        metrics,
+    );
+    assert.equal(without.define.__RENDERIZR_FONT_METRICS__, "null");
+    // The static faces are for the CLI's raster; no path reaches the page.
+    for (const value of Object.values(withFont.define)) {
+        assert.ok(!String(value).includes("/cache/"), value);
+    }
 });
 
 test("the footer's version comes from package.json, not from a literal", () => {
@@ -295,7 +324,11 @@ test("--artifact compiles in no value that changes from one workspace or build t
         output: "artifact",
         branding: {
             logo: { src: "data:image/svg+xml,x", alt: "Acme" },
-            font: { family: "Inter", css: null },
+            font: {
+                family: "Inter",
+                css: null,
+                metrics: { ascent: 0.97, descent: 0.24 },
+            },
             primaryColor: "#e4572e",
         },
     });
@@ -303,6 +336,7 @@ test("--artifact compiles in no value that changes from one workspace or build t
     for (const name of [
         "__RENDERIZR_LOGO__",
         "__RENDERIZR_FONT__",
+        "__RENDERIZR_FONT_METRICS__",
         "__RENDERIZR_PRIMARY_COLOR__",
         "__RENDERIZR_BUILD_DATE__",
     ])

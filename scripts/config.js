@@ -175,6 +175,11 @@ export function createConfig({
         define: {
             __RENDERIZR_LOGO__: blankedUnderArtifact(logo),
             __RENDERIZR_FONT__: blankedUnderArtifact(font ? font.family : null),
+            // The font's `hhea` ascent and descent, which the page sets the
+            // export's text on in place of the canvas's rounded ones.
+            __RENDERIZR_FONT_METRICS__: blankedUnderArtifact(
+                font?.metrics ?? null,
+            ),
             __RENDERIZR_VERSION__: JSON.stringify(version),
             // The export's title block gives it when the workspace holds no
             // `lastModifiedDate`.

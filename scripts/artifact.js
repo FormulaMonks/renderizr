@@ -141,7 +141,11 @@ export const landscapePayload = ({ workspace, branding, set }) => ({
     // Its faces are in `branding.css`, which the shell links.
     branding: {
         ...branding,
-        font: branding.font && { family: branding.font.family, css: null },
+        font: branding.font && {
+            family: branding.font.family,
+            css: null,
+            metrics: branding.font.metrics ?? null,
+        },
     },
     crossings: set?.crossings ?? [],
     workspaces: (set?.workspaces ?? []).map(setMemberOf),
