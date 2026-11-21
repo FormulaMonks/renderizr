@@ -1,7 +1,8 @@
 /**
  * The CLI export parity test (spec #364, ADR 32): for every view kind, in the
  * light and dark schemes, in Arimo and Inter, the SVG `renderizr export`
- * writes in Node against the toolbar's own export of the same view in
+ * writes in Node against the toolbar's own export of the same view, under
+ * no perspective and under each perspective the fixture names, in
  * headless Chrome. Outside `<style>`, which holds the same faces in each
  * side's own serialization, the two match byte for byte, but for numbers
  * outside the text, which may differ by 0.1 px: fontkit's widths land a
@@ -54,7 +55,11 @@ const FIXTURES = [
     "mermaid-flowchart",
     "mermaid-erd",
     "mermaid-sequence",
+    // Views under a perspective, and one that carries none of it.
+    "perspectives",
 ];
+/** The perspectives each fixture also exports under, beside none. */
+const PERSPECTIVES = { perspectives: ["Security", "Ownership"] };
 const FONTS = ["Arimo", "Inter"];
 const SCHEMES = ["light", "dark"];
 
@@ -138,9 +143,16 @@ test("the comparison allows 0.1 px outside the text and nothing else", () => {
 
 /* --------------------------------------------------------------- sides */
 
-/** The toolbar's SVG of view `key` in `scheme`, from the single file in `site`. */
-async function toolbarSvg(browser, site, key, scheme) {
-    const page = await browser.open(viewUrl(site, key));
+/**
+ * The toolbar's SVG of view `key` in `scheme` under `perspective` (none
+ * when null), from the single file in `site`.
+ */
+async function toolbarSvg(browser, site, key, scheme, perspective) {
+    const page = await browser.open(
+        perspective
+            ? `${viewUrl(site, key)}&perspective=${encodeURIComponent(perspective)}`
+            : viewUrl(site, key),
+    );
     await page.waitFor(
         `location.protocol === "file:" && document.readyState === "complete"`,
     );
@@ -186,6 +198,7 @@ async function bothSides(fixture, font, now) {
             out: join(dir, "node"),
             formats: ["svg"],
             schemes: SCHEMES,
+            perspectives: PERSPECTIVES[fixture] ?? [],
             branding: { ...NO_BRANDING_FLAGS, font },
         },
         { cwd: REPO_ROOT, stdout: sink(), stderr, now },
@@ -195,7 +208,7 @@ async function bothSides(fixture, font, now) {
     return { dir, workspace };
 }
 
-test("the CLI's SVG matches the toolbar's for every view kind, scheme and font", {
+test("the CLI's SVG matches the toolbar's for every view kind, scheme, perspective and font", {
     skip: NO_CHROME,
 }, async () => {
     const now = new Date();
@@ -218,35 +231,42 @@ test("the CLI's SVG matches the toolbar's for every view kind, scheme and font",
             const failures = [];
             let compared = 0;
             try {
+                const perspectives = [null, ...(PERSPECTIVES[fixture] ?? [])];
                 for (const key of viewKeys(workspace)) {
-                    for (const scheme of SCHEMES) {
-                        const name = exportFileName({
-                            workspace: workspace.name,
-                            view: key,
-                            perspective: null,
-                            step: null,
-                            scheme,
-                            format: "svg",
-                        });
-                        const file = join(dir, "node", name);
-                        // The export skips image views.
-                        if (!existsSync(file)) continue;
-                        const node = await readFile(file, "utf8");
-                        const site = join(dir, "site");
-                        // A page that misses its wait gets one more try in
-                        // a fresh tab.
-                        const chrome = await toolbarSvg(
-                            browser,
-                            site,
-                            key,
-                            scheme,
-                        ).catch(() => toolbarSvg(browser, site, key, scheme));
-                        compared++;
-                        const difference = svgDifference(chrome, node);
-                        if (difference)
-                            failures.push(
-                                `${fixture} ${font} ${key} ${scheme}: ${difference}`,
-                            );
+                    for (const perspective of perspectives) {
+                        for (const scheme of SCHEMES) {
+                            const name = exportFileName({
+                                workspace: workspace.name,
+                                view: key,
+                                perspective,
+                                step: null,
+                                scheme,
+                                format: "svg",
+                            });
+                            const file = join(dir, "node", name);
+                            // The export skips image views, and views that
+                            // carry none of the perspective.
+                            if (!existsSync(file)) continue;
+                            const node = await readFile(file, "utf8");
+                            const site = join(dir, "site");
+                            const toolbar = () =>
+                                toolbarSvg(
+                                    browser,
+                                    site,
+                                    key,
+                                    scheme,
+                                    perspective,
+                                );
+                            // A page that misses its wait gets one more try
+                            // in a fresh tab.
+                            const chrome = await toolbar().catch(toolbar);
+                            compared++;
+                            const difference = svgDifference(chrome, node);
+                            if (difference)
+                                failures.push(
+                                    `${fixture} ${font} ${key} ${perspective ?? "-"} ${scheme}: ${difference}`,
+                                );
+                        }
                     }
                 }
             } finally {

@@ -31,6 +31,9 @@ process.env.RENDERIZR_CACHE_DIR = "";
 
 const EXPORT_FIXTURE = join(REPO_ROOT, "test/__fixtures__/export.json");
 const VIEW_TYPES = join(REPO_ROOT, "test/__fixtures__/view-types.json");
+const PERSPECTIVES = join(REPO_ROOT, "test/__fixtures__/perspectives.json");
+const FLOWCHART = join(REPO_ROOT, "test/__fixtures__/mermaid-flowchart.json");
+const ENTERPRISE = join(REPO_ROOT, "test/__fixtures__/enterprise");
 
 /* ------------------------------------------------------------ arguments */
 
@@ -64,8 +67,81 @@ test("a bare workspace exports SVG into structurizr-output with no font", () => 
         workspaces: ["workspace.json"],
         out: "structurizr-output",
         formats: ["svg"],
+        views: null,
+        schemes: ["light"],
+        perspectives: [],
         branding: NO_BRANDING_FLAGS,
     });
+});
+
+test("--view limits the run to its keys, each once", () => {
+    assert.deepEqual(
+        parseExportArgs(["w.json", "--view", "Containers, Context,Containers"])
+            .views,
+        ["Containers", "Context"],
+    );
+});
+
+test("--dark-scheme adds the dark scheme after the light one", () => {
+    assert.deepEqual(parseExportArgs(["w.json", "--dark-scheme"]).schemes, [
+        "light",
+        "dark",
+    ]);
+});
+
+test("--perspective takes each perspective once, as written", () => {
+    assert.deepEqual(
+        parseExportArgs([
+            "w.json",
+            "--perspective",
+            "Security, Data Flow,Security",
+        ]).perspectives,
+        ["Security", "Data Flow"],
+    );
+});
+
+test("an empty --view or --perspective is a usage error", async () => {
+    await rejects(["w.json", "--view", ","], /--view takes view keys/);
+    await rejects(
+        ["w.json", "--perspective", " "],
+        /--perspective takes perspective names/,
+    );
+});
+
+test("the logo flags and --primary-color pass as the build's", () => {
+    const { branding } = parseExportArgs([
+        "w.json",
+        "--logo",
+        "logo.svg",
+        "--logo-alt",
+        "Acme",
+        "--logo-href",
+        "https://acme.example",
+        "--primary-color",
+        "#e4572e",
+    ]);
+    assert.equal(branding.logo, "logo.svg");
+    assert.equal(branding.logoAlt, "Acme");
+    assert.equal(branding.logoHref, "https://acme.example");
+    assert.equal(branding.primaryColor, "#e4572e");
+});
+
+test("a --primary-color that is no CSS color is a usage error", async () => {
+    await rejects(
+        ["w.json", "--primary-color", "red; color: blue"],
+        /--primary-color takes a CSS color/,
+    );
+});
+
+test("several workspaces, a set among them, are accepted as the build's", () => {
+    assert.deepEqual(
+        parseExportArgs([
+            "landscape.json",
+            "teams/",
+            "https://x.example/w.json",
+        ]).workspaces,
+        ["landscape.json", "teams/", "https://x.example/w.json"],
+    );
 });
 
 test("--out and -o set the folder, and the font flags pass as the build's", () => {
@@ -103,9 +179,8 @@ test("an unknown format is a usage error", async () => {
     await rejects(["w.json", "--format", ","], /--format takes svg/);
 });
 
-test("no workspace, or more than one, is a usage error", async () => {
+test("no workspace is a usage error", async () => {
     await rejects([], /Missing the workspace to export\./);
-    await rejects(["a.json", "b.json"], /Expected one workspace, got 2/);
 });
 
 test("a build-only flag is a usage error", async () => {
@@ -138,7 +213,10 @@ test("renderizr export --help reaches the export usage, and renderizr --help lis
     assert.equal(help.code, 0);
     assert.match(help.stdout, /renderizr export: write an SVG of every view/);
     const main = await runCli(["--help"]);
-    assert.match(main.stdout, /renderizr export <workspace>/);
+    assert.match(
+        main.stdout,
+        /renderizr export <workspace\|url\|folder>\.\.\./,
+    );
 });
 
 /* ---------------------------------------------------------------- loading */
@@ -180,6 +258,7 @@ test("Arimo stands in, with the run's font options, when neither the run nor the
             italic: false,
         },
         embed: false,
+        primaryColor: null,
     });
 });
 
@@ -202,6 +281,30 @@ test("a font the run or the workspace sets is embedded", () => {
     assert.equal(fromWorkspace.embed, true);
 });
 
+test("the primary color comes from the flag, the workspace, then the set's landscape scoped workspace", () => {
+    const landscape = {
+        workspace: { properties: { "renderizr.primaryColor": "#2e7d32" } },
+        source: "landscape.json",
+    };
+    const color = (flags, properties) =>
+        exportFont({
+            flags: { ...NO_BRANDING_FLAGS, ...flags },
+            workspace: { name: "Orders", properties },
+            source: "orders.json",
+            landscape,
+            cwd: REPO_ROOT,
+        }).primaryColor;
+    assert.equal(color({}, {}), "#2e7d32");
+    assert.equal(color({}, { "renderizr.primaryColor": "#b0306a" }), "#b0306a");
+    assert.equal(
+        color(
+            { primaryColor: "#e4572e" },
+            { "renderizr.primaryColor": "#b0306a" },
+        ),
+        "#e4572e",
+    );
+});
+
 test("the jobs are each view's light export unless the run asks for more schemes", () => {
     const views = [{ key: "A" }, { key: "B" }];
     assert.deepEqual(exportJobs(views), [
@@ -213,6 +316,37 @@ test("the jobs are each view's light export unless the run asks for more schemes
             ({ key, scheme }) => `${key}-${scheme}`,
         ),
         ["A-light", "A-dark", "B-light", "B-dark"],
+    );
+});
+
+test("--view keeps only the views it names, in the workspace's order", () => {
+    const views = [{ key: "A" }, { key: "B" }, { key: "C" }];
+    assert.deepEqual(
+        exportJobs(views, { views: ["C", "A"] }).map(({ key }) => key),
+        ["A", "C"],
+    );
+});
+
+test("each perspective adds a job of every view after its plain export", () => {
+    const views = [{ key: "A" }, { key: "B" }];
+    assert.deepEqual(
+        exportJobs(views, {
+            schemes: ["light", "dark"],
+            perspectives: ["Security"],
+        }).map(
+            ({ key, scheme, perspective }) =>
+                `${key}-${perspective ?? "plain"}-${scheme}`,
+        ),
+        [
+            "A-plain-light",
+            "A-plain-dark",
+            "A-Security-light",
+            "A-Security-dark",
+            "B-plain-light",
+            "B-plain-dark",
+            "B-Security-light",
+            "B-Security-dark",
+        ],
     );
 });
 
@@ -464,5 +598,187 @@ test("the CLI exits 1 when a view fails", async () => {
         assert.ok(
             (await readdir(out)).includes("export-workspace-containers.svg"),
         );
+    });
+});
+
+test("--view writes only the views it names", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            {
+                views: ["Request"],
+            },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        assert.deepEqual(await readdir(out), ["export-workspace-request.svg"]);
+    });
+});
+
+test("a --view key no workspace has is a usage error, and nothing is written", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            {
+                views: ["Request", "Nowhere", "Gone"],
+            },
+        );
+        assert.equal(run.code, 1);
+        assert.match(
+            run.stderr,
+            /No workspace has the views Nowhere and Gone\./,
+        );
+        assert.match(
+            run.stderr,
+            /renderizr export: write an SVG of every view/,
+        );
+        assert.deepEqual(await readdir(out), []);
+    });
+});
+
+test("--dark-scheme and --perspective write the plain, -dark, perspective and perspective -dark files, and none for a view without it", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            PERSPECTIVES,
+            out,
+            {},
+            {
+                schemes: ["light", "dark"],
+                perspectives: ["Security"],
+            },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        const written = (await readdir(out)).sort();
+        assert.deepEqual(written, [
+            "perspectives-containers-dark.svg",
+            "perspectives-containers-security-dark.svg",
+            "perspectives-containers-security.svg",
+            "perspectives-containers.svg",
+            "perspectives-context-dark.svg",
+            "perspectives-context-security-dark.svg",
+            "perspectives-context-security.svg",
+            "perspectives-context.svg",
+            "perspectives-live-dark.svg",
+            "perspectives-live-security-dark.svg",
+            "perspectives-live-security.svg",
+            "perspectives-live.svg",
+            "perspectives-mailing-dark.svg",
+            "perspectives-mailing.svg",
+        ]);
+        // A view without the perspective is no failure and prints nothing.
+        assert.equal(run.stderr, "");
+    });
+});
+
+test("a perspective export names the perspective in its title block, and the plain one does not", async () => {
+    await withTempDir(async (out) => {
+        await exportOffline(
+            PERSPECTIVES,
+            out,
+            {},
+            {
+                views: ["Containers"],
+                perspectives: ["Security"],
+            },
+        );
+        const plain = await readFile(
+            join(out, "perspectives-containers.svg"),
+            "utf8",
+        );
+        const security = await readFile(
+            join(out, "perspectives-containers-security.svg"),
+            "utf8",
+        );
+        assert.match(security, />Perspective: Security</);
+        assert.ok(
+            !plain.includes("Perspective:"),
+            "the plain export names one",
+        );
+    });
+});
+
+test("a set's workspaces each export every view, named by their own workspace", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(ENTERPRISE, out);
+        assert.equal(run.code, 0, run.stderr);
+        assert.deepEqual((await readdir(out)).sort(), [
+            "acme-landscape.svg",
+            "orders-containers.svg",
+            "orders-system-context.svg",
+            "payments-containers.svg",
+            "payments-system-context.svg",
+            "storefront-containers.svg",
+            "storefront-system-context.svg",
+        ]);
+    });
+});
+
+test("--view reaches the views of every workspace of a set", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            ENTERPRISE,
+            out,
+            {},
+            {
+                views: ["Landscape", "Containers"],
+            },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        assert.deepEqual((await readdir(out)).sort(), [
+            "acme-landscape.svg",
+            "orders-containers.svg",
+            "payments-containers.svg",
+            "storefront-containers.svg",
+        ]);
+    });
+});
+
+test("--primary-color fills the Mermaid nodes that set no style", async () => {
+    await withTempDir(async (dir) => {
+        const name = "mermaid-flowcharts-plain.svg";
+        await exportOffline(
+            FLOWCHART,
+            join(dir, "plain"),
+            {},
+            {
+                views: ["plain"],
+            },
+        );
+        await exportOffline(
+            FLOWCHART,
+            join(dir, "branded"),
+            { primaryColor: "#e4572e" },
+            { views: ["plain"] },
+        );
+        const plain = await readFile(join(dir, "plain", name), "utf8");
+        const branded = await readFile(join(dir, "branded", name), "utf8");
+        assert.match(plain, /#145b9e/i);
+        assert.ok(!plain.includes("#e4572e"));
+        assert.match(branded, /#e4572e/i);
+        assert.ok(!/#145b9e/i.test(branded), "the page's color stayed");
+    });
+});
+
+test("the logo flags change nothing in the export", async () => {
+    await withTempDir(async (dir) => {
+        await exportOffline(EXPORT_FIXTURE, join(dir, "plain"));
+        const run = await exportOffline(EXPORT_FIXTURE, join(dir, "logo"), {
+            logo: join(dir, "no-such-logo.svg"),
+            logoAlt: "Acme",
+            logoHref: "https://acme.example",
+        });
+        assert.equal(run.code, 0, run.stderr);
+        const names = (await readdir(join(dir, "plain"))).sort();
+        assert.deepEqual((await readdir(join(dir, "logo"))).sort(), names);
+        for (const name of names) {
+            assert.equal(
+                await readFile(join(dir, "logo", name), "utf8"),
+                await readFile(join(dir, "plain", name), "utf8"),
+                `${name} changed with the logo flags`,
+            );
+        }
     });
 });
