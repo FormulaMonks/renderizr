@@ -103,18 +103,18 @@ export async function glyphCoverage(faces) {
 
 /**
  * How the export sets its text in `loaded`, the font `loadFont` gave,
- * as `exportView` takes it (`ExportText`). `embed` says whether the SVG
- * names and embeds the family: a font the run or the workspace sets does,
- * and Arimo standing in for the fallback stack doesn't.
+ * as `exportView` takes it (`ExportText`). `standIn` says Arimo stands in
+ * for the fallback stack: then the SVG names that stack and embeds no
+ * font, where a font the run or the workspace sets is named and embedded.
  */
-export async function exportText(loaded, { embed }) {
+export async function exportText(loaded, { standIn }) {
     return {
         measure: await fontkitMeasure(loaded.faces),
         ascent: loaded.metrics.ascent,
         descent: loaded.metrics.descent,
-        font: embed ? loaded.family : null,
+        font: standIn ? null : loaded.family,
         // `loadFont`'s CSS ends with the page's font variable, which an
         // export has no use for.
-        fontFaces: embed ? loaded.css.replace(/:root\{[^}]*\}$/, "") : "",
+        fontFaces: standIn ? "" : loaded.css.replace(/:root\{[^}]*\}$/, ""),
     };
 }

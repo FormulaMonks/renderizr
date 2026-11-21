@@ -260,12 +260,12 @@ test("Arimo stands in, with the run's font options, when neither the run nor the
             subsets: ["latin-ext"],
             italic: false,
         },
-        embed: false,
+        standIn: true,
         primaryColor: null,
     });
 });
 
-test("a font the run or the workspace sets is embedded", () => {
+test("a font the run or the workspace sets is embedded, with no stand-in", () => {
     const fromFlag = exportFont({
         flags: { ...NO_BRANDING_FLAGS, font: "Inter" },
         workspace: { properties: { "renderizr.font": "Lato" } },
@@ -273,7 +273,7 @@ test("a font the run or the workspace sets is embedded", () => {
         cwd: REPO_ROOT,
     });
     assert.equal(fromFlag.font.family, "Inter");
-    assert.equal(fromFlag.embed, true);
+    assert.equal(fromFlag.standIn, false);
     const fromWorkspace = exportFont({
         flags: NO_BRANDING_FLAGS,
         workspace: { properties: { "renderizr.font": "Lato" } },
@@ -281,7 +281,7 @@ test("a font the run or the workspace sets is embedded", () => {
         cwd: REPO_ROOT,
     });
     assert.equal(fromWorkspace.font.family, "Lato");
-    assert.equal(fromWorkspace.embed, true);
+    assert.equal(fromWorkspace.standIn, false);
 });
 
 test("the primary color comes from the flag, the workspace, then the set's landscape scoped workspace", () => {

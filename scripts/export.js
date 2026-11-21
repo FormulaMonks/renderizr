@@ -4,8 +4,7 @@
  * for the subcommand, so the build and edit mode load none of it, nor
  * fontkit or esbuild behind it.
  *
- * A run goes through four steps for each workspace of the set, each a
- * seam a later option extends:
+ * A run goes through four steps for each workspace of the set:
  *
  * 1. `exportFont` chooses the font and the primary color: the run's or the
  *    workspace's, else Arimo standing in for the fallback stack.
@@ -39,6 +38,8 @@ import { exportUsage } from "./cli.js";
 import { setMemberOf } from "./plugins.js";
 import { loadSet, writeSetMessages } from "./workspace-set.js";
 
+/* -------------------------------------------------------------------- font */
+
 /**
  * The family that measures the text when neither the run nor the
  * workspace sets a font. Arimo shares Arial's widths, and Arial shares
@@ -48,14 +49,15 @@ import { loadSet, writeSetMessages } from "./workspace-set.js";
 export const STAND_IN_FAMILY = "Arimo";
 
 /**
- * The font the run measures in, as `loadFont` takes it, whether the SVG
- * names and embeds it, and the primary color that fills unstyled Mermaid
- * nodes (null for the page's own). Each comes from the flag, then the
- * workspace's property, then, for a workspace of a set, the `landscape`
- * scoped workspace's, as the build brands it. A font from `--font` or
- * `renderizr.font` is embedded; without one, Arimo stands in, with the
- * run's weights, subsets and italic, and the SVG names the fallback stack
- * and embeds nothing, as the toolbar's does. The logo plays no part.
+ * The font the run measures in, as `loadFont` takes it, whether Arimo
+ * stands in for the fallback stack, and the primary color that fills
+ * unstyled Mermaid nodes (null for the page's own). Each comes from the
+ * flag, then the workspace's property, then, for a workspace of a set, the
+ * `landscape` scoped workspace's, as the build brands it. A font from
+ * `--font` or `renderizr.font` is embedded; without one, Arimo stands in
+ * (`standIn`), with the run's weights, subsets and italic, and the SVG
+ * names the fallback stack and embeds nothing, as the toolbar's does. The
+ * logo plays no part.
  */
 export function exportFont({
     flags,
@@ -66,7 +68,7 @@ export function exportFont({
 }) {
     const chosen = chooseBranding({ flags, workspace, source, landscape, cwd });
     const { primaryColor } = chosen;
-    if (chosen.font) return { font: chosen.font, embed: true, primaryColor };
+    if (chosen.font) return { font: chosen.font, standIn: false, primaryColor };
     return {
         font: {
             family: STAND_IN_FAMILY,
@@ -74,36 +76,39 @@ export function exportFont({
             subsets: flags.fontSubsets,
             italic: flags.fontItalic,
         },
-        embed: false,
+        standIn: true,
         primaryColor,
     };
 }
 
 /**
- * Each format the export writes, as the file's contents from the
- * serializer's export (`{ svg, width, height }`). The second argument
- * carries the run's loaded font, whose static `faces` a raster draws with,
- * the third the bundled engine, and the fourth whether the text holds
- * characters those faces lack (`missingGlyphs`).
- *
- * The PNG is the toolbar's size, twice the export's under its pixel cap
- * (`pngSize`), drawn by resvg from the same SVG in the same faces, and the
- * missing glyphs from the system fonts.
+ * `font` loaded and set up to set text in, once per run however many
+ * workspaces take it (`fonts` keeps each): the `loaded` font, the `text`
+ * `exportView` takes, and `missingGlyphsIn(text)`, the characters of a
+ * text no face has. A font the run cannot fetch rejects with the offline
+ * message when that is why.
  */
-export const WRITERS = {
-    svg: ({ svg }) => svg,
-    png: (
-        { svg, width, height },
-        loaded,
-        engine,
-        { missingGlyphs = false } = {},
-    ) =>
-        rasterize(svg, engine.pngSize(width, height), {
-            family: loaded.family,
-            files: loaded.faces.map((face) => face.file),
-            systemFonts: missingGlyphs,
-        }),
-};
+function typesetFor(fonts, { font, standIn }, cwd) {
+    const key = JSON.stringify({ font, standIn });
+    if (!fonts.has(key)) {
+        fonts.set(
+            key,
+            loadFont(font, { cwd, announce: !standIn }).then(
+                async (loaded) => ({
+                    loaded,
+                    text: await exportText(loaded, { standIn }),
+                    missingGlyphsIn: await glyphCoverage(loaded.faces),
+                }),
+                (error) => {
+                    throw offlineError(font, error, { standIn }) ?? error;
+                },
+            ),
+        );
+    }
+    return fonts.get(key);
+}
+
+/* -------------------------------------------------------------------- jobs */
 
 /**
  * What the run exports from `views`, in order: for each view `keys` names
@@ -151,6 +156,133 @@ function setMembers(set) {
     ];
 }
 
+/** The keys of `keys` that name no view of any of `members`. */
+function unknownViews(engine, members, keys) {
+    const known = new Set(
+        members.flatMap(({ model }) =>
+            engine.exportableViews(model).map(({ key }) => key),
+        ),
+    );
+    return (keys ?? []).filter((key) => !known.has(key));
+}
+
+/* ----------------------------------------------------------------- writers */
+
+/**
+ * Each format the export writes, as the file's contents. A writer takes
+ * one object: `exported`, the serializer's `{ svg, width, height }`;
+ * `loaded`, the run's font, whose static `faces` a raster draws with;
+ * `engine`, the bundled engine; and `missingGlyphs`, whether the text holds
+ * characters those faces lack.
+ *
+ * The PNG is the toolbar's size, twice the export's under its pixel cap
+ * (`pngSize`), drawn by resvg from the same SVG in the same faces, and the
+ * missing glyphs from the system fonts.
+ */
+export const WRITERS = {
+    svg: ({ exported }) => exported.svg,
+    png: ({
+        exported: { svg, width, height },
+        loaded,
+        engine,
+        missingGlyphs,
+    }) =>
+        rasterize(svg, engine.pngSize(width, height), {
+            family: loaded.family,
+            files: loaded.faces.map((face) => face.file),
+            systemFonts: missingGlyphs,
+        }),
+};
+
+/* --------------------------------------------------------------------- run */
+
+/**
+ * Write `result`, the export of `job`, in each of the run's formats, and
+ * print each file written.
+ */
+async function writeFiles(run, member, job, result, missingGlyphs) {
+    for (const format of run.options.formats) {
+        const name = exportFileName({
+            workspace: member.workspace.name ?? "",
+            view: job.key,
+            perspective: result.perspective,
+            step: null,
+            scheme: job.scheme,
+            format,
+        });
+        const contents = await WRITERS[format]({
+            exported: result.exported,
+            loaded: member.typeset.loaded,
+            engine: run.engine,
+            missingGlyphs,
+        });
+        await writeFile(join(run.outDir, name), contents);
+        run.stdout.write(`Wrote ${join(run.options.out, name)}\n`);
+    }
+}
+
+/**
+ * Export view `key` of `member` in each of its `jobs`, then warn once
+ * about the characters its faces lack and the families it cannot load,
+ * whatever the number of jobs. A view without an export says so once.
+ * Resolve with the number of jobs that failed.
+ */
+async function exportViewJobs(run, member, key, jobs) {
+    const { workspace, model, standIn } = member;
+    const { loaded, text, missingGlyphsIn } = member.typeset;
+    const label = run.inSet ? `${key} (${workspace.name})` : key;
+    const missing = new Set();
+    const families = new Set();
+    let failed = 0;
+    for (const job of jobs) {
+        try {
+            const result = run.engine.exportView(model, workspace, key, {
+                scheme: job.scheme,
+                perspective: job.perspective,
+                text,
+                built: run.now.toISOString(),
+                version,
+            });
+            if (result.kind !== "svg") {
+                run.stderr.write(
+                    `Skipped ${label}: ${result.kind === "image" ? "an image view has no export" : result.message}\n`,
+                );
+                break;
+            }
+            // The view carries none of the perspective: the plain export
+            // already shows it.
+            if (job.perspective !== null && result.perspective === null)
+                continue;
+            const { svg } = result.exported;
+            const missingInJob = missingGlyphsIn(drawnText(svg));
+            for (const character of missingInJob) missing.add(character);
+            const unloadable = unloadableFamilies(svg, {
+                family: loaded.family,
+                standIn,
+            });
+            for (const name of unloadable) families.add(name);
+            await writeFiles(run, member, job, result, missingInJob.length > 0);
+        } catch (error) {
+            failed++;
+            run.stderr.write(`Failed ${label}: ${error.message}\n`);
+        }
+    }
+    const warned = {
+        view: key,
+        workspace: workspace.name,
+        family: loaded.family,
+    };
+    if (families.size)
+        run.stderr.write(
+            `${familyWarning({ ...warned, families: [...families] })}\n`,
+        );
+    if (missing.size)
+        run.stderr.write(
+            `${glyphWarning({ ...warned, missing: [...missing], ranges: loaded.ranges ?? {}, subsets: member.font.subsets })}\n`,
+        );
+    return failed;
+}
+
 /**
  * Export every view of each workspace `options.workspaces` names (a set
  * included) into `options.out`, in each of `options.formats` and
@@ -161,10 +293,10 @@ function setMembers(set) {
  * written), else 0. Each view that cannot be exported prints one line, a
  * failure on `stderr` with its view key. A view whose text holds characters
  * the font lacks, or names a family the run cannot load, warns once on
- * `stderr` and still writes its files. A font the run cannot fetch (offline
- * with a cold cache) rejects with a message that names it. A file the run writes replaces the
- * one of the same name; nothing else in the folder changes. `now` is the
- * date the title block falls back to.
+ * `stderr` and still writes its files. A font the run cannot fetch
+ * (offline with a cold cache) rejects with a message that names it. A file
+ * the run writes replaces the one of the same name; nothing else in the
+ * folder changes. `now` is the date the title block falls back to.
  */
 export async function runExport(
     options,
@@ -184,12 +316,7 @@ export async function runExport(
         model: new engine.WorkspaceModel(member.workspace, member.links),
     }));
 
-    const known = new Set(
-        members.flatMap(({ model }) =>
-            engine.exportableViews(model).map(({ key }) => key),
-        ),
-    );
-    const unknown = (options.views ?? []).filter((key) => !known.has(key));
+    const unknown = unknownViews(engine, members, options.views);
     if (unknown.length) {
         stderr.write(
             `No workspace has the view${unknown.length > 1 ? "s" : ""} ${prose(unknown)}.\n\n`,
@@ -200,116 +327,41 @@ export async function runExport(
 
     const outDir = resolve(cwd, options.out);
     await mkdir(outDir, { recursive: true });
-    // A font loads once per run however many workspaces take it.
+    const run = {
+        engine,
+        options,
+        outDir,
+        now,
+        stdout,
+        stderr,
+        // In a set, a view key may repeat: its messages name the workspace
+        // too.
+        inSet: members.length > 1,
+    };
     const fonts = new Map();
-    // In a set, a view key may repeat: its messages name the workspace too.
-    const inSet = members.length > 1;
 
     let failed = 0;
-    for (const { workspace, source, landscape, model } of members) {
-        const { font, embed, primaryColor } = exportFont({
+    for (const member of members) {
+        const { font, standIn, primaryColor } = exportFont({
             flags: options.branding,
-            workspace,
-            source,
-            landscape,
+            workspace: member.workspace,
+            source: member.source,
+            landscape: member.landscape,
             cwd,
         });
-        const fontKey = JSON.stringify({ font, embed });
-        if (!fonts.has(fontKey)) {
-            fonts.set(
-                fontKey,
-                loadFont(font, { cwd, announce: embed }).then(
-                    async (loaded) => ({
-                        loaded,
-                        text: await exportText(loaded, { embed }),
-                        lacks: await glyphCoverage(loaded.faces),
-                    }),
-                    (error) => {
-                        throw (
-                            offlineError(font, error, { standIn: !embed }) ??
-                            error
-                        );
-                    },
-                ),
-            );
-        }
-        const { loaded, text, lacks } = await fonts.get(fontKey);
+        const typeset = await typesetFor(fonts, { font, standIn }, cwd);
         engine.setMermaidPrimaryColor(primaryColor);
-
         const jobs = Map.groupBy(
-            exportJobs(engine.exportableViews(model), options),
+            exportJobs(engine.exportableViews(member.model), options),
             (job) => job.key,
         );
-        for (const [key, viewJobs] of jobs) {
-            const label = inSet ? `${key} (${workspace.name})` : key;
-            // Each warning names the view once, whatever its jobs.
-            const missing = new Set();
-            const families = new Set();
-            for (const job of viewJobs) {
-                try {
-                    const result = engine.exportView(model, workspace, key, {
-                        scheme: job.scheme,
-                        perspective: job.perspective,
-                        text,
-                        built: now.toISOString(),
-                        version,
-                    });
-                    // A view without an export says so once.
-                    if (result.kind !== "svg") {
-                        stderr.write(
-                            `Skipped ${label}: ${result.kind === "image" ? "an image view has no export" : result.message}\n`,
-                        );
-                        break;
-                    }
-                    // The view carries none of the perspective: the plain
-                    // export already shows it.
-                    if (job.perspective !== null && result.perspective === null)
-                        continue;
-                    const { svg } = result.exported;
-                    const lacking = lacks(drawnText(svg));
-                    for (const character of lacking) missing.add(character);
-                    for (const name of unloadableFamilies(svg, {
-                        family: loaded.family,
-                        standIn: !embed,
-                    }))
-                        families.add(name);
-                    for (const format of options.formats) {
-                        const name = exportFileName({
-                            workspace: workspace.name ?? "",
-                            view: key,
-                            perspective: result.perspective,
-                            step: null,
-                            scheme: job.scheme,
-                            format,
-                        });
-                        const contents = await WRITERS[format](
-                            result.exported,
-                            loaded,
-                            engine,
-                            { missingGlyphs: lacking.length > 0 },
-                        );
-                        await writeFile(join(outDir, name), contents);
-                        stdout.write(`Wrote ${join(options.out, name)}\n`);
-                    }
-                } catch (error) {
-                    failed++;
-                    stderr.write(`Failed ${label}: ${error.message}\n`);
-                }
-            }
-            const view = {
-                view: key,
-                workspace: workspace.name,
-                family: loaded.family,
-            };
-            if (families.size)
-                stderr.write(
-                    `${familyWarning({ ...view, families: [...families] })}\n`,
-                );
-            if (missing.size)
-                stderr.write(
-                    `${glyphWarning({ ...view, missing: [...missing], ranges: loaded.ranges ?? {}, subsets: font.subsets })}\n`,
-                );
-        }
+        for (const [key, viewJobs] of jobs)
+            failed += await exportViewJobs(
+                run,
+                { ...member, font, standIn, typeset },
+                key,
+                viewJobs,
+            );
     }
     return failed ? 1 : 0;
 }

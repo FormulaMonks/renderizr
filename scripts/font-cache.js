@@ -38,8 +38,8 @@ export function cacheRoot(cwd = process.cwd(), env = process.env) {
     }
 }
 
-/** `text` as a file name part: lower case, runs of anything else as `-`. */
-const part = (text) =>
+/** `text` as a segment of a folder name: lower case, runs of anything else as `-`. */
+const nameSegment = (text) =>
     String(text)
         .trim()
         .toLowerCase()
@@ -51,9 +51,10 @@ const part = (text) =>
  * italic, in any order the flags give them.
  */
 export function fontKey({ family, weights, subsets, italic }) {
-    const sorted = (list) => [...new Set(list.map(String))].sort().map(part);
+    const sorted = (list) =>
+        [...new Set(list.map(String))].sort().map(nameSegment);
     return [
-        part(family),
+        nameSegment(family),
         sorted(weights).join("-"),
         sorted(subsets).join("+"),
         ...(italic ? ["italic"] : []),

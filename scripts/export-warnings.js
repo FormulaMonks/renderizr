@@ -12,6 +12,8 @@
 // reads them, and keeps a reference past the last code point as written.
 import { unescapeHtml } from "./documentation/html-entities.js";
 
+/* -------------------------------------------------------------- drawn text */
+
 /**
  * The text `svg` draws: each `<text>` element's content, decoded, one per
  * line. The `<title>` and the `<style>` draw nothing.
@@ -33,6 +35,8 @@ function withoutTags(markup) {
         text = stripped;
     }
 }
+
+/* ---------------------------------------------------------------- families */
 
 /** The family names a CSS `font-family` list holds, unquoted, in order. */
 const familyNames = (list) =>
@@ -60,6 +64,8 @@ export function unloadableFamilies(svg, { family, standIn }) {
         .filter((name) => name && !loadable.has(name.toLowerCase()));
     return [...new Set(named)];
 }
+
+/* ----------------------------------------------------------------- subsets */
 
 /**
  * The `[low, high]` code point pairs of a CSS `unicode-range`; `U+4??`
@@ -102,6 +108,8 @@ export function subsetsCovering(characters, ranges, subsets) {
         uncovered,
     };
 }
+
+/* ---------------------------------------------------------------- messages */
 
 /** A character as a reader can see it: marks, controls and spaces by code point. */
 const shown = (character) =>
@@ -153,6 +161,8 @@ export function glyphWarning({
  */
 export const familyWarning = ({ view, workspace, family, families }) =>
     `${viewOf({ view, workspace })} the export cannot load ${prose(families)}, so the text measures and draws in ${family}.`;
+
+/* ----------------------------------------------------------------- offline */
 
 /**
  * The error that fails the run when fetching `font` could not reach Google
