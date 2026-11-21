@@ -2,7 +2,8 @@
  * How `renderizr export` sets text in Node, where the page has a canvas
  * (ADR 32): a `MeasureText` backed by fontkit on the static faces
  * `loadFont` writes, and the ascent and descent from the face's `hhea`
- * table, unrounded. The same faces draw the PNG, so one set of bytes
+ * table, unrounded for a run's font and rounded the way the page's
+ * canvas rounds them while Arimo stands in. The same faces draw the PNG, so one set of bytes
  * serves measuring, the SVG and the raster.
  *
  * fontkit loads on the first call, so the build and edit mode, which
@@ -102,16 +103,28 @@ export async function glyphCoverage(faces) {
 }
 
 /**
+ * `ascent` and `descent` as the page reads them for the fallback stack,
+ * where no metrics reach it: from the canvas at 100 px, which Chrome on
+ * Linux rounds to whole pixels (Liberation Sans, which shares Arimo's
+ * metrics, measures 91 and 21). CI's Linux is the baseline; Chrome on
+ * macOS picks Helvetica there instead, with metrics of its own.
+ */
+const canvasMetrics = (ascent, descent) => ({
+    ascent: Math.round(ascent * 100) / 100,
+    descent: Math.round(descent * 100) / 100,
+});
+
+/**
  * How the export sets its text in `loaded`, the font `loadFont` gave,
  * as `exportView` takes it (`ExportText`). `standIn` says Arimo stands in
  * for the fallback stack: then the SVG names that stack and embeds no
  * font, where a font the run or the workspace sets is named and embedded.
  */
 export async function exportText(loaded, { standIn }) {
+    const { ascent, descent } = loaded.metrics;
     return {
         measure: await fontkitMeasure(loaded.faces),
-        ascent: loaded.metrics.ascent,
-        descent: loaded.metrics.descent,
+        ...(standIn ? canvasMetrics(ascent, descent) : { ascent, descent }),
         font: standIn ? null : loaded.family,
         // `loadFont`'s CSS ends with the page's font variable, which an
         // export has no use for.

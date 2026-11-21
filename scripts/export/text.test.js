@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fixture, withTempDir } from "../__fixtures__/helpers.js";
-import { fontkitMeasure, glyphCoverage, openFace } from "./text.js";
+import { exportText, fontkitMeasure, glyphCoverage, openFace } from "./text.js";
 import { decompressWoff2 } from "../fonts.js";
 
 /** The woff2 at `path` as a static TTF in `dir`, as `loadFont` gives a face. */
@@ -74,4 +74,30 @@ test("measuring and the coverage open each face once", async () => {
         await glyphCoverage([latin]);
         assert.equal(await openFace(latin), await openFace(latin));
     });
+});
+
+// Arimo's `hhea` ascent and descent, which Liberation Sans shares.
+const ARIMO_METRICS = { ascent: 1854 / 2048, descent: 434 / 2048 };
+
+/** The ascent and descent `exportText` sets Arimo's text on. */
+const setting = (standIn) =>
+    withTempDir(async (dir) => {
+        const loaded = {
+            faces: [await face(dir, ARIMO, "latin")],
+            family: "Arimo",
+            css: "",
+            metrics: ARIMO_METRICS,
+        };
+        const { ascent, descent } = await exportText(loaded, { standIn });
+        return { ascent, descent };
+    });
+
+test("a run's font sets its text on its `hhea` ascent and descent, unrounded", async () => {
+    assert.deepEqual(await setting(false), ARIMO_METRICS);
+});
+
+test("Arimo standing in sets its text on the ascent and descent Chrome on Linux measures for the fallback stack", async () => {
+    // The page measures the stack at 100 px, and Chrome on Linux rounds
+    // the ascent and descent to whole pixels: 91 and 21 in Liberation Sans.
+    assert.deepEqual(await setting(true), { ascent: 0.91, descent: 0.21 });
 });
