@@ -25,6 +25,7 @@ import { loadFont } from "./assets.js";
 import { chooseBranding } from "./branding.js";
 import { version } from "./config.js";
 import { loadExportEngine } from "./export-engine.js";
+import { rasterize } from "./export-raster.js";
 import { exportText } from "./export-text.js";
 import { exportUsage } from "./cli.js";
 import { setMemberOf } from "./plugins.js";
@@ -73,10 +74,19 @@ export function exportFont({
 /**
  * Each format the export writes, as the file's contents from the
  * serializer's export (`{ svg, width, height }`). The second argument
- * carries the run's loaded font, whose static `faces` a raster draws with.
+ * carries the run's loaded font, whose static `faces` a raster draws with,
+ * and the third the bundled engine.
+ *
+ * The PNG is the toolbar's size, twice the export's under its pixel cap
+ * (`pngSize`), drawn by resvg from the same SVG in the same faces.
  */
 export const WRITERS = {
     svg: ({ svg }) => svg,
+    png: ({ svg, width, height }, loaded, engine) =>
+        rasterize(svg, engine.pngSize(width, height), {
+            family: loaded.family,
+            files: loaded.faces.map((face) => face.file),
+        }),
 };
 
 /**
@@ -243,6 +253,7 @@ export async function runExport(
                     const contents = await WRITERS[format](
                         result.exported,
                         loaded,
+                        engine,
                     );
                     await writeFile(join(outDir, name), contents);
                     stdout.write(`Wrote ${join(options.out, name)}\n`);

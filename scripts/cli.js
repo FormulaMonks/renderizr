@@ -27,7 +27,7 @@ Renderizr: render a Structurizr workspace as a static site.
   renderizr <workspace|url|folder>... [options]
   renderizr edit [path] [options]   Edit the layout of the views in a browser
   renderizr export <workspace|url|folder>... [options]
-                                    Write an SVG of every view, with no browser
+                                    Write an SVG and a PNG of every view, with no browser
 
 Workspaces
   Each workspace is a workspace.json or workspace.dsl file, a URL, or a folder,
@@ -386,11 +386,8 @@ export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
 
 /* ------------------------------------------------------------------ export */
 
-/**
- * The formats `renderizr export` writes, in the order it writes them. The
- * PNG ticket adds `png`.
- */
-export const EXPORT_FORMATS = ["svg"];
+/** The formats `renderizr export` writes, in the order it writes them. */
+export const EXPORT_FORMATS = ["svg", "png"];
 
 /**
  * `renderizr export` takes the build's branding flags, so one flag set
@@ -408,7 +405,8 @@ export const EXPORT_OPTIONS = {
 };
 
 const EXPORT_USAGE = `
-renderizr export: write an SVG of every view of a workspace, with no browser.
+renderizr export: write an SVG of every view of a workspace, and a PNG beside
+it, with no browser.
 
   renderizr export <workspace|url|folder>... [options]
 
@@ -417,7 +415,8 @@ everything shown (descriptions, technologies and ERD entities expanded), no
 animation step, and the title block below. It skips image views and views it
 cannot draw, with one line each. Each file is
 <workspace>-<view key>[-<perspective>][-dark].<format>, the perspective's name
-slugified.
+slugified. The PNG is twice the SVG's size, drawn from the same SVG with the same
+font.
 
 The export takes the same workspaces as the build, a set included, and writes
 every view of each, its file starting with its own workspace's name.
@@ -460,6 +459,7 @@ Examples
   renderizr export ./workspace.json
   renderizr export ./workspace.json --font Inter --out ./images
   renderizr export ./workspace.json --dark-scheme --perspective Security
+  renderizr export ./workspace.json --format png
 
 In a clone of this repository the same thing is: pnpm render export <workspace> [options]
 `;
