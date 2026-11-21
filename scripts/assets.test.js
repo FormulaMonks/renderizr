@@ -12,7 +12,7 @@ import {
     RETRY_FAILED_MS,
     toDataUri,
 } from "./assets.js";
-import { cacheRoot, fontKey } from "./font-cache.js";
+import { cacheFileName, cacheRoot, fontKey } from "./font-cache.js";
 import { decompressWoff2, isVariable } from "./fonts.js";
 import {
     GIF_1X1,
@@ -1544,4 +1544,36 @@ test("a workspace with no views comes back un-normalized", async () => {
             "if this now exists, scripts/assets.js:279 has been fixed — invert the assertion",
         );
     });
+});
+
+test("a cached font file keeps the name its URL gives, when that name is safe", () => {
+    assert.equal(
+        cacheFileName("https://fonts.gstatic.com/s/inter/v20/UcCo3Fwr.woff2"),
+        "UcCo3Fwr.woff2",
+    );
+    assert.equal(
+        cacheFileName(
+            "https://fonts.gstatic.com/s/inter/v20/UcCo3Fwr.woff2",
+            ".woff2",
+        ),
+        "UcCo3Fwr",
+    );
+});
+
+test("a cached font file never takes a name that leaves its entry", () => {
+    for (const url of [
+        "https://fonts.gstatic.com/..",
+        "https://fonts.gstatic.com/s/%2E%2E",
+        "https://fonts.gstatic.com/s/.hidden.woff2",
+        "https://fonts.gstatic.com/s/a%2Fb.woff2",
+        "https://fonts.gstatic.com/",
+    ]) {
+        const name = cacheFileName(url);
+        assert.match(name, /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/, url);
+        assert.equal(basename(name), name, url);
+    }
+    assert.equal(
+        cacheFileName("https://fonts.gstatic.com/.."),
+        cacheFileName("https://fonts.gstatic.com/.."),
+    );
 });

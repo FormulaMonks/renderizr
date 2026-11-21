@@ -1,9 +1,15 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { renderDocumentation } from "./documentation/index.js";
-import { cacheRoot, fontEntry, readCached, writeCached } from "./font-cache.js";
+import {
+    cacheFileName,
+    cacheRoot,
+    fontEntry,
+    readCached,
+    writeCached,
+} from "./font-cache.js";
 import {
     decompressWoff2,
     hheaMetrics,
@@ -421,7 +427,7 @@ async function staticFaces(font, faces, woff2Of, dir) {
     const written = new Map();
     for (const { subset, face, url } of faces) {
         const declared = faceDeclaration(face);
-        const name = basename(new URL(url).pathname, ".woff2");
+        const name = cacheFileName(url, ".woff2");
         let ttf;
         const decompressed = async () => {
             ttf ??= await decompressWoff2(woff2Of(url));
@@ -522,7 +528,7 @@ export async function loadFont(
 
     await Promise.all(
         [...woff2.keys()].map(async (url) => {
-            const file = basename(new URL(url).pathname);
+            const file = cacheFileName(url);
             woff2.set(
                 url,
                 await cached(inEntry(file), () => fetchFontFile(url)),

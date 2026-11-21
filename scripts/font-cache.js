@@ -6,9 +6,10 @@
  * folder refreshes them.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 /**
  * The folder the cache lives in: `RENDERIZR_CACHE_DIR` when the environment
@@ -57,6 +58,22 @@ export function fontKey({ family, weights, subsets, italic }) {
         sorted(subsets).join("+"),
         ...(italic ? ["italic"] : []),
     ].join("_");
+}
+
+/** A name that stays inside the folder it joins: no separator, no leading dot. */
+const SAFE_NAME = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
+
+/**
+ * The name a fetched file takes in its cache entry: the last segment of
+ * `url`'s path, without `ext` when given, as Google Fonts names its woff2.
+ * A segment that could leave the entry or hide in it (`..`, an encoded
+ * separator, a leading dot) gives way to a hash of the URL, so a CSS file
+ * that names odd URLs can never write outside the cache.
+ */
+export function cacheFileName(url, ext) {
+    const segment = basename(new URL(url).pathname, ext);
+    if (SAFE_NAME.test(segment)) return segment;
+    return createHash("sha256").update(url).digest("hex").slice(0, 32);
 }
 
 /** The folder of `font`'s entry under `root`. */
