@@ -456,6 +456,44 @@ test("an export names the animation step shown", async () => {
     toolbar.clear();
 });
 
+test("an export names the perspective the view draws under", async () => {
+    window.localStorage.clear();
+    theme.setMode("light");
+    const element = document.createElement("section");
+    const control = new PerspectiveControl(() => {});
+    const saved = [];
+    const toolbar = new CurrentView(
+        element,
+        stubEngine(),
+        model,
+        null,
+        (_, name) => {
+            saved.push(name);
+        },
+        control,
+    );
+    toolbar.render(model.findViewByKey("SystemContext"));
+    const button = (name) => element.querySelector(`.${name}`);
+
+    control.show(["Security"], "Security");
+    button("export-svg").click();
+    await settle();
+    // A perspective the view doesn't carry draws as none, and names nothing.
+    control.show(["Ownership"], "Security");
+    button("export-svg").click();
+    await settle();
+    control.show(["Security"], null);
+    button("export-svg").click();
+    await settle();
+    assert.deepEqual(saved, [
+        "big-bank-plc-system-context-security.svg",
+        "big-bank-plc-system-context.svg",
+        "big-bank-plc-system-context.svg",
+    ]);
+    toolbar.clear();
+    control.clear();
+});
+
 test("the export buttons stay busy until the file is saved, across a repaint", async () => {
     const engine = stubEngine();
     const pending = deferred();

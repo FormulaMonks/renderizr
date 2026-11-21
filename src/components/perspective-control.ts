@@ -120,7 +120,7 @@ export default class PerspectiveControl extends Component {
     }
 
     /** The name the view draws under, or `null`. */
-    #on(): string | null {
+    on(): string | null {
         return this.#selected !== null && this.#names.includes(this.#selected)
             ? this.#selected
             : null;
@@ -135,7 +135,7 @@ export default class PerspectiveControl extends Component {
         const button = this.#button();
         if (!group || !button) return;
         group.hidden = this.#names.length === 0;
-        const on = this.#on();
+        const on = this.on();
         const key = notation(SHORTCUTS.perspective);
         const label = on
             ? `Perspective: ${on} (${key})`
@@ -156,7 +156,7 @@ export default class PerspectiveControl extends Component {
     open() {
         const button = this.#button();
         if (!button || this.#group?.hidden) return;
-        const on = this.#on();
+        const on = this.on();
         const choices: (string | null)[] = [null, ...this.#names];
         const box = button.getBoundingClientRect();
         this.#popup ??= new PopupMenu(document.body, "perspective-menu");
