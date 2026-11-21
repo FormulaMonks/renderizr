@@ -1,0 +1,12 @@
+{
+    "name": "export-parity-prototype",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@resvg/resvg-js": "2.6.2",
+        "fontkit": "2.0.4",
+        "harfbuzzjs": "1.6.4",
+        "wawoff2": "2.0.1",
+        "pngjs": "7.0.0"
+    }
+}
