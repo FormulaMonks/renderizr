@@ -25,6 +25,8 @@ import { diagramFontFamily } from "./fonts";
 import { buildGraph } from "./graph";
 
 export { setMermaidPrimaryColor, WorkspaceModel };
+/** The PNG's size for an export, which the CLI's raster shares with the toolbar's. */
+export { pngSize } from "./export-file";
 
 /**
  * What an export shows that a page reader could hide: every description

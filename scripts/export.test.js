@@ -59,11 +59,11 @@ const rejects = async (args, expected) => {
     );
 };
 
-test("a bare workspace exports SVG into structurizr-output with no font", () => {
+test("a bare workspace exports SVG and PNG into structurizr-output with no font", () => {
     assert.deepEqual(parseExportArgs(["workspace.json"]), {
         workspaces: ["workspace.json"],
         out: "structurizr-output",
-        formats: ["svg"],
+        formats: ["svg", "png"],
         branding: NO_BRANDING_FLAGS,
     });
 });
@@ -88,19 +88,21 @@ test("--out and -o set the folder, and the font flags pass as the build's", () =
     assert.equal(branding.fontItalic, true);
 });
 
-test("--format svg is accepted, and each format counts once", () => {
-    assert.deepEqual(
-        parseExportArgs(["w.json", "--format", "svg, svg"]).formats,
-        ["svg"],
-    );
+test("--format takes a list of formats, each counted once, in the order the run writes them", () => {
+    const formats = (value) =>
+        parseExportArgs(["w.json", "--format", value]).formats;
+    assert.deepEqual(formats("svg, svg"), ["svg"]);
+    assert.deepEqual(formats("png"), ["png"]);
+    assert.deepEqual(formats("png,svg"), ["svg", "png"]);
 });
 
 test("an unknown format is a usage error", async () => {
     await rejects(
         ["w.json", "--format", "gif"],
-        /--format takes svg; got "gif"/,
+        /--format takes svg, png; got "gif"/,
     );
-    await rejects(["w.json", "--format", ","], /--format takes svg/);
+    await rejects(["w.json", "--format", "svg,jpeg"], /got "svg,jpeg"/);
+    await rejects(["w.json", "--format", ","], /--format takes svg, png/);
 });
 
 test("no workspace, or more than one, is a usage error", async () => {
@@ -143,7 +145,7 @@ test("renderizr export --help reaches the export usage, and renderizr --help lis
 
 /* ---------------------------------------------------------------- loading */
 
-test("the build and edit mode load neither fontkit nor the export", async () => {
+test("the build and edit mode load neither fontkit, resvg nor the export", async () => {
     for (const args of [["--help"], ["edit", "--help"]]) {
         const { stdout } = await evalInChild(`
             import { registerHooks } from "node:module";
@@ -151,7 +153,7 @@ test("the build and edit mode load neither fontkit nor the export", async () => 
             registerHooks({
                 resolve(specifier, context, next) {
                     const resolved = next(specifier, context);
-                    if (/fontkit|scripts\\/export/.test(resolved.url)) seen.push(resolved.url);
+                    if (/fontkit|resvg|scripts\\/export/.test(resolved.url)) seen.push(resolved.url);
                     return resolved;
                 },
             });
@@ -291,6 +293,99 @@ test("every view's SVG is written as <workspace>-<view key>.svg, and other files
             "notes.txt",
         ]);
         assert.equal(await readFile(join(out, "notes.txt"), "utf8"), "mine");
+    });
+});
+
+/** A PNG's width and height, from its header. */
+const pngHeader = (png) => {
+    assert.equal(
+        png.subarray(1, 4).toString("latin1"),
+        "PNG",
+        "the file is no PNG",
+    );
+    return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+};
+
+/** An SVG's own `width` and `height`. */
+const svgSize = (svg) => {
+    const [, width, height] =
+        /^<svg [^>]*?width="([\d.]+)" height="([\d.]+)"/.exec(svg);
+    return { width: Number(width), height: Number(height) };
+};
+
+test("each view's PNG is written beside its SVG, at the toolbar's PNG size", async () => {
+    const engine = await loadExportEngine();
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            { formats: ["svg", "png"] },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        const names = [
+            "export-workspace-auto-frame",
+            "export-workspace-containers",
+            "export-workspace-request",
+        ];
+        assert.deepEqual(
+            (await readdir(out)).sort(),
+            names.flatMap((name) => [`${name}.png`, `${name}.svg`]),
+        );
+        for (const name of names) {
+            const svg = await readFile(join(out, `${name}.svg`), "utf8");
+            const { width, height } = svgSize(svg);
+            assert.deepEqual(
+                pngHeader(await readFile(join(out, `${name}.png`))),
+                engine.pngSize(width, height),
+                name,
+            );
+            assert.match(
+                run.stdout,
+                new RegExp(`^Wrote .*${name}\\.png$`, "m"),
+            );
+        }
+    });
+});
+
+test("--format png writes only the PNGs", async () => {
+    await withTempDir(async (out) => {
+        const run = await exportOffline(
+            EXPORT_FIXTURE,
+            out,
+            {},
+            { formats: ["png"] },
+        );
+        assert.equal(run.code, 0, run.stderr);
+        assert.deepEqual((await readdir(out)).sort(), [
+            "export-workspace-auto-frame.png",
+            "export-workspace-containers.png",
+            "export-workspace-request.png",
+        ]);
+    });
+});
+
+test("two runs write the same bytes, SVG and PNG", async () => {
+    await withTempDir(async (dir) => {
+        for (const run of ["first", "second"]) {
+            await exportOffline(
+                EXPORT_FIXTURE,
+                join(dir, run),
+                { font: "Arimo" },
+                { formats: ["svg", "png"] },
+            );
+        }
+        const names = (await readdir(join(dir, "first"))).sort();
+        assert.equal(names.length, 6);
+        assert.deepEqual((await readdir(join(dir, "second"))).sort(), names);
+        for (const name of names) {
+            assert.ok(
+                (await readFile(join(dir, "first", name))).equals(
+                    await readFile(join(dir, "second", name)),
+                ),
+                `${name} differs between the runs`,
+            );
+        }
     });
 });
 

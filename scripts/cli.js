@@ -27,7 +27,7 @@ Renderizr: render a Structurizr workspace as a static site.
   renderizr <workspace|url|folder>... [options]
   renderizr edit [path] [options]   Edit the layout of the views in a browser
   renderizr export <workspace> [options]
-                                    Write an SVG of every view, with no browser
+                                    Write an SVG and a PNG of every view, with no browser
 
 Workspaces
   Each workspace is a workspace.json or workspace.dsl file, a URL, or a folder,
@@ -383,11 +383,8 @@ export function parseEditArgs(args, { cwd = process.cwd() } = {}) {
 
 /* ------------------------------------------------------------------ export */
 
-/**
- * The formats `renderizr export` writes, in the order it writes them. The
- * PNG ticket adds `png`.
- */
-export const EXPORT_FORMATS = ["svg"];
+/** The formats `renderizr export` writes, in the order it writes them. */
+export const EXPORT_FORMATS = ["svg", "png"];
 
 /** The font flags, which change what `renderizr export` measures and embeds. */
 const FONT_OPTIONS = Object.fromEntries(
@@ -402,7 +399,8 @@ export const EXPORT_OPTIONS = {
 };
 
 const EXPORT_USAGE = `
-renderizr export: write an SVG of every view of a workspace, with no browser.
+renderizr export: write an SVG of every view of a workspace, and a PNG beside
+it, with no browser.
 
   renderizr export <workspace|url|folder> [options]
 
@@ -410,6 +408,7 @@ The export draws each view the way the toolbar's export does: its canvas,
 everything shown (descriptions, technologies and ERD entities expanded), no
 animation step, and the title block below. It skips image views and views it
 cannot draw, with one line each. Each file is <workspace>-<view key>.<format>.
+The PNG is twice the SVG's size, drawn from the same SVG with the same font.
 
 The export writes or overwrites only its own files, flat in the output
 directory, and never empties it. The build empties its output directory, so
@@ -437,6 +436,7 @@ on stderr, and exits with status 1 when any view failed.
 Examples
   renderizr export ./workspace.json
   renderizr export ./workspace.json --font Inter --out ./images
+  renderizr export ./workspace.json --format png
 
 In a clone of this repository the same thing is: pnpm render export <workspace> [options]
 `;
