@@ -10,10 +10,10 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { scratchDir } from "./scratch-dir.js";
+import { scratchDir } from "../scratch-dir.js";
 
 const ENTRY = fileURLToPath(
-    new URL("../src/engine/react-flow/export-view.ts", import.meta.url),
+    new URL("../../src/engine/react-flow/export-view.ts", import.meta.url),
 );
 
 /** The defines a build sets that the export code reads. */

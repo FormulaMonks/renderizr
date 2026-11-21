@@ -3,9 +3,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { test } from "node:test";
-import { fixture, withTempDir } from "./__fixtures__/helpers.js";
-import { fontkitMeasure, glyphCoverage, openFace } from "./export-text.js";
-import { decompressWoff2 } from "./fonts.js";
+import { fixture, withTempDir } from "../__fixtures__/helpers.js";
+import { fontkitMeasure, glyphCoverage, openFace } from "./text.js";
+import { decompressWoff2 } from "../fonts.js";
 
 /** The woff2 at `path` as a static TTF in `dir`, as `loadFont` gives a face. */
 async function face(dir, path, subset) {

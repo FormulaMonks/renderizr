@@ -114,7 +114,7 @@ async function startEditMode(args) {
  */
 async function exportViews(args) {
     const options = parseExportArgs(args);
-    const { runExport } = await import("./export.js");
+    const { runExport } = await import("./export/index.js");
     try {
         process.exitCode = await runExport(options);
     } catch (error) {

@@ -7,15 +7,10 @@ import {
     EXPORT_OPTIONS,
     exportUsage,
     parseExportArgs,
-} from "./cli.js";
-import { loadWorkspace } from "./assets.js";
-import {
-    exportFont,
-    exportJobs,
-    runExport,
-    STAND_IN_FAMILY,
-} from "./export.js";
-import { loadExportEngine } from "./export-engine.js";
+} from "../cli.js";
+import { loadWorkspace } from "../assets.js";
+import { exportFont, exportJobs, runExport, STAND_IN_FAMILY } from "./index.js";
+import { loadExportEngine } from "./engine.js";
 import {
     evalInChild,
     fixture,
@@ -23,8 +18,8 @@ import {
     runCli,
     withFetch,
     withTempDir,
-} from "./__fixtures__/helpers.js";
-import { NO_BRANDING_FLAGS } from "./branding.js";
+} from "../__fixtures__/helpers.js";
+import { NO_BRANDING_FLAGS } from "../branding.js";
 
 // No test here reads or writes the project's font cache.
 process.env.RENDERIZR_CACHE_DIR = "";
@@ -694,7 +689,7 @@ test("the CLI exits 1 when a view fails", async () => {
             ["export", EXPORT_FIXTURE, "--out", out, "--font", "Arimo"],
             {
                 env: {
-                    NODE_OPTIONS: `--import ${new URL("./__fixtures__/stub-fonts.js", import.meta.url).href}`,
+                    NODE_OPTIONS: `--import ${new URL("../__fixtures__/stub-fonts.js", import.meta.url).href}`,
                 },
             },
         );

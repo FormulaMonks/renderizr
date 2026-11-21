@@ -9,7 +9,7 @@
  * import nothing from here, never pay for it.
  */
 
-import { BOLD, REGULAR } from "./fonts.js";
+import { BOLD, REGULAR } from "../fonts.js";
 
 /** The fontkit font of each face `openFace` opened, by the face. */
 const OPENED = new WeakMap();

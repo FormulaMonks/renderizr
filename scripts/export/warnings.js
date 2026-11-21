@@ -10,7 +10,7 @@
 
 // The entities `escapeXml` writes are HTML's own, so the build's decoder
 // reads them, and keeps a reference past the last code point as written.
-import { unescapeHtml } from "./documentation/html-entities.js";
+import { unescapeHtml } from "../documentation/html-entities.js";
 
 /* -------------------------------------------------------------- drawn text */
 

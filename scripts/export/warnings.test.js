@@ -7,7 +7,7 @@ import {
     offlineError,
     subsetsCovering,
     unloadableFamilies,
-} from "./export-warnings.js";
+} from "./warnings.js";
 
 const SVG = [
     '<svg xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">',

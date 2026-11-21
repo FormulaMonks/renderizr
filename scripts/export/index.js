@@ -8,24 +8,24 @@
  *
  * 1. `exportFont` chooses the font and the primary color: the run's or the
  *    workspace's, else Arimo standing in for the fallback stack.
- * 2. `exportText` (`./export-text.js`) sets the text in it: fontkit
+ * 2. `exportText` (`./text.js`) sets the text in it: fontkit
  *    measures, `hhea` gives the ascent and descent.
  * 3. `exportJobs` lists what to export: each view, in a scheme, under a
  *    perspective or none.
  * 4. `exportView` (`src/engine/react-flow/export-view.ts`, bundled by
- *    `./export-engine.js`) draws each job, and each format in `WRITERS`
+ *    `./engine.js`) draws each job, and each format in `WRITERS`
  *    turns the export into a file's contents.
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { exportFileName } from "../src/components/export-name.js";
-import { loadFont } from "./assets.js";
-import { chooseBranding } from "./branding.js";
-import { version } from "./config.js";
-import { loadExportEngine } from "./export-engine.js";
-import { rasterize } from "./export-raster.js";
-import { exportText, glyphCoverage } from "./export-text.js";
+import { exportFileName } from "../../src/components/export-name.js";
+import { loadFont } from "../assets.js";
+import { chooseBranding } from "../branding.js";
+import { version } from "../config.js";
+import { loadExportEngine } from "./engine.js";
+import { rasterize } from "./raster.js";
+import { exportText, glyphCoverage } from "./text.js";
 import {
     drawnText,
     familyWarning,
@@ -33,10 +33,10 @@ import {
     offlineError,
     prose,
     unloadableFamilies,
-} from "./export-warnings.js";
-import { exportUsage } from "./cli.js";
-import { setMemberOf } from "./plugins.js";
-import { loadSet, writeSetMessages } from "./workspace-set.js";
+} from "./warnings.js";
+import { exportUsage } from "../cli.js";
+import { setMemberOf } from "../plugins.js";
+import { loadSet, writeSetMessages } from "../workspace-set.js";
 
 /* -------------------------------------------------------------------- font */
 

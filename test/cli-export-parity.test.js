@@ -49,8 +49,8 @@ import { PNG } from "pngjs";
 import { loadFont } from "../scripts/assets.js";
 import { NO_BRANDING_FLAGS } from "../scripts/branding.js";
 import { REPO_ROOT, runCli } from "../scripts/__fixtures__/helpers.js";
-import { exportFont, runExport } from "../scripts/export.js";
-import { rasterize } from "../scripts/export-raster.js";
+import { exportFont, runExport } from "../scripts/export/index.js";
+import { rasterize } from "../scripts/export/raster.js";
 import { exportFileName } from "../src/components/export-name.js";
 import {
     BROWSERS,
