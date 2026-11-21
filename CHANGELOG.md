@@ -21,6 +21,13 @@ A `feat!:` or a `BREAKING CHANGE:` footer additionally gets its own breaking-cha
 
 Renderizr is at `1.0.0`, so ordinary semantic versioning applies: a `feat:` bumps the minor, anything else bumps the patch, and a breaking change bumps the major. The CLI's flags and the shape of its output are the public surface that promise covers.
 
+## [3.3.0](https://github.com/FormulaMonks/renderizr/compare/v3.2.0...v3.3.0) (2026-11-21)
+
+
+### Added
+
+* export views as SVG or PNG from the CLI ([#373](https://github.com/FormulaMonks/renderizr/issues/373)) ([0df1966](https://github.com/FormulaMonks/renderizr/commit/0df196659954825940b402aa8a5e10997d66cfb1))
+
 ## [3.2.0](https://github.com/FormulaMonks/renderizr/compare/v3.1.0...v3.2.0) (2026-11-19)
 
 
