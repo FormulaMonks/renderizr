@@ -1,0 +1,67 @@
+{
+    "id": 1,
+    "name": "Missing glyphs",
+    "description": "Labels in Cyrillic, which Arimo has in another subset, and in Japanese, which Arimo has in none, so renderizr export warns about the glyphs the font lacks.",
+    "model": {
+        "people": [
+            {
+                "id": "1",
+                "name": "Покупатель",
+                "description": "Buys from the shop",
+                "tags": "Element,Person",
+                "relationships": [
+                    {
+                        "id": "3",
+                        "sourceId": "1",
+                        "destinationId": "2",
+                        "description": "注文する",
+                        "tags": "Relationship"
+                    }
+                ]
+            }
+        ],
+        "softwareSystems": [
+            {
+                "id": "2",
+                "name": "Shop",
+                "description": "Sells products in every language.",
+                "tags": "Element,Software System"
+            }
+        ]
+    },
+    "views": {
+        "systemContextViews": [
+            {
+                "key": "Context",
+                "softwareSystemId": "2",
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [{ "id": "1" }, { "id": "2" }],
+                "relationships": [{ "id": "3" }]
+            },
+            {
+                "key": "Latin",
+                "softwareSystemId": "2",
+                "automaticLayout": {
+                    "implementation": "Graphviz",
+                    "rankDirection": "TopBottom",
+                    "rankSeparation": 300,
+                    "nodeSeparation": 300,
+                    "edgeSeparation": 0,
+                    "vertices": false
+                },
+                "elements": [{ "id": "2" }]
+            }
+        ],
+        "configuration": {
+            "styles": {}
+        }
+    },
+    "documentation": {}
+}
