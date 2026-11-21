@@ -12,7 +12,12 @@ import {
     RETRY_FAILED_MS,
     toDataUri,
 } from "./assets.js";
-import { cacheFileName, cacheRoot, fontKey } from "./font-cache.js";
+import {
+    cacheFileName,
+    cacheRoot,
+    fontKey,
+    writeCached,
+} from "./font-cache.js";
 import { decompressWoff2, isVariable } from "./fonts.js";
 import {
     GIF_1X1,
@@ -1619,4 +1624,21 @@ test("a cached font file never takes a name that leaves its entry", () => {
         cacheFileName("https://fonts.gstatic.com/.."),
         cacheFileName("https://fonts.gstatic.com/.."),
     );
+});
+
+test("two writes of one cache file at once both land whole", async () => {
+    const { mkdtemp, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const dir = await mkdtemp(join(tmpdir(), "renderizr-cache-"));
+    try {
+        const path = join(dir, "fonts", "face.ttf");
+        await Promise.all([
+            writeCached(path, Buffer.from("first")),
+            writeCached(path, Buffer.from("second")),
+        ]);
+        assert.match((await readFile(path)).toString(), /^(first|second)$/);
+        assert.deepEqual(await readdir(join(dir, "fonts")), ["face.ttf"]);
+    } finally {
+        await rm(dir, { recursive: true, force: true });
+    }
 });

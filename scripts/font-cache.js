@@ -6,7 +6,7 @@
  * folder refreshes them.
  */
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
@@ -93,11 +93,13 @@ export async function readCached(path) {
 
 /**
  * Write `bytes` to `path` whole: to a file beside it, then renamed, so a run
- * that stops halfway, or another run reading at once, never sees half.
+ * that stops halfway, or another run reading at once, never sees half. Each
+ * write takes its own partial file, so two writes of one face at once (a
+ * cold cache in one process) never rename each other's.
  */
 export async function writeCached(path, bytes) {
     await mkdir(dirname(path), { recursive: true });
-    const partial = `${path}.${process.pid}.partial`;
+    const partial = `${path}.${process.pid}.${randomUUID()}.partial`;
     await writeFile(partial, bytes);
     await rename(partial, path);
 }
